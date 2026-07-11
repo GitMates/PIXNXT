@@ -306,48 +306,84 @@ const GalleryView = () => {
 
   useEffect(() => {
     if (collection?.digital_download_enabled === true) {
+      /* ── Right-click prevention on images ── */
       const handleContextMenu = (e) => {
         if (e.target.tagName === 'IMG' || e.target.closest('.gallery-masonry-container') || e.target.closest('.photo-lightbox-root')) {
           e.preventDefault();
         }
       };
 
+      /* ── Drag prevention ── */
       const handleDragStart = (e) => {
         if (e.target.tagName === 'IMG') {
           e.preventDefault();
         }
       };
 
+      /* ── Keyboard shortcut blocking (copy, save, print-screen, Mac screenshot combos) ── */
       const handleKeyDown = (e) => {
         const isCmdOrCtrl = e.metaKey || e.ctrlKey;
+        // Block Ctrl/Cmd+C, Ctrl/Cmd+S
         if (isCmdOrCtrl && (e.key === 'c' || e.key === 'C' || e.key === 's' || e.key === 'S')) {
           e.preventDefault();
         }
+        // Block PrintScreen
         if (e.key === 'PrintScreen' || e.key === 'PrtScn') {
           e.preventDefault();
+          // Clear clipboard after PrintScreen attempt
+          try { navigator.clipboard.writeText(''); } catch (_) {}
+        }
+        // Block Mac screenshots: Cmd+Shift+3, Cmd+Shift+4, Cmd+Shift+5
+        if (e.metaKey && e.shiftKey && ['3', '4', '5'].includes(e.key)) {
+          e.preventDefault();
+        }
+        // Block Windows Snipping: handled via blur detection below
+      };
+
+      /* ── Screenshot blur protection ──
+       * When the browser window loses focus (e.g. screenshot tool opens,
+       * Snipping Tool, Mac screenshot overlay, screen recorders),
+       * immediately blur all images so the capture gets a blurred result.
+       * When focus returns, restore clarity. */
+      const handleWindowBlur = () => {
+        document.body.classList.add('pixnxt-screenshot-guard');
+      };
+      const handleWindowFocus = () => {
+        document.body.classList.remove('pixnxt-screenshot-guard');
+      };
+      const handleVisibilityChange = () => {
+        if (document.hidden) {
+          document.body.classList.add('pixnxt-screenshot-guard');
+        } else {
+          // Small delay so screenshot captures the blurred state
+          setTimeout(() => document.body.classList.remove('pixnxt-screenshot-guard'), 300);
         }
       };
 
       document.addEventListener('contextmenu', handleContextMenu);
       document.addEventListener('dragstart', handleDragStart);
       document.addEventListener('keydown', handleKeyDown);
+      window.addEventListener('blur', handleWindowBlur);
+      window.addEventListener('focus', handleWindowFocus);
+      document.addEventListener('visibilitychange', handleVisibilityChange);
 
       const style = document.createElement('style');
       style.id = 'pixnxt-security-styles';
       style.innerHTML = `
         @media print {
-          body {
-            display: none !important;
-          }
+          body { display: none !important; }
         }
-        img {
+        .gallery-masonry-container img,
+        .photo-lightbox-root img {
           -webkit-touch-callout: none !important;
           -webkit-user-select: none !important;
-          -khtml-user-select: none !important;
-          -moz-user-select: none !important;
-          -ms-user-select: none !important;
           user-select: none !important;
-          pointer-events: none !important;
+        }
+        /* Screenshot blur guard — activated on window blur / visibility hidden */
+        .pixnxt-screenshot-guard .gallery-masonry-container img,
+        .pixnxt-screenshot-guard .photo-lightbox-root img {
+          filter: blur(30px) brightness(1.5) !important;
+          transition: filter 0.05s ease-out !important;
         }
       `;
       document.head.appendChild(style);
@@ -356,6 +392,10 @@ const GalleryView = () => {
         document.removeEventListener('contextmenu', handleContextMenu);
         document.removeEventListener('dragstart', handleDragStart);
         document.removeEventListener('keydown', handleKeyDown);
+        window.removeEventListener('blur', handleWindowBlur);
+        window.removeEventListener('focus', handleWindowFocus);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+        document.body.classList.remove('pixnxt-screenshot-guard');
         style.remove();
       };
     }
@@ -1150,156 +1190,129 @@ const GalleryView = () => {
     });
   }, [filteredPhotos]);
 
+  /* ── Large Banner (rectangle bar) — rendered ABOVE the image grid ── */
+  const largeBannerMarkup = useMemo(() => {
+    if (!activeCampaign?.banners?.large_banner?.enabled) return null;
+    const lb = activeCampaign.banners.large_banner;
+    const discountVal = activeCampaign.discount ? `${activeCampaign.discount}%` : '30%';
+    const expDate = new Date(); expDate.setDate(expDate.getDate() + 14);
+    const expFormatted = expDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    return (
+      <div style={{
+        width: '100%',
+        backgroundColor: lb.bg_color || '#eae5d8',
+        padding: '28px 32px',
+        boxSizing: 'border-box',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        textAlign: 'center',
+        marginBottom: '12px',
+        borderTop: '1px solid rgba(0,0,0,0.05)',
+        borderBottom: '1px solid rgba(0,0,0,0.05)',
+        fontFamily: "'Inter', sans-serif"
+      }}>
+        <h3 style={{
+          fontSize: '18px', fontWeight: 700, margin: '0 0 6px 0',
+          fontFamily: lb.font === 'Playfair Display' ? "'Playfair Display', serif" : "'Inter', sans-serif",
+          color: lb.title_color || '#2c3e2d', letterSpacing: '0.04em', textTransform: 'uppercase'
+        }}>
+          {(lb.title || '').replace(/{discount-value}/g, discountVal).replace(/{discount_value}/g, discountVal)}
+        </h3>
+        <p style={{ fontSize: '12px', color: lb.subtitle_color || '#4a5a4b', maxWidth: '520px', lineHeight: 1.5, margin: '0 0 14px 0' }}>
+          {(lb.subtitle || '').replace(/{discount-value}/g, discountVal).replace(/{discount_value}/g, discountVal).replace(/{exp-date}/g, expFormatted).replace(/{exp_date}/g, expFormatted)}
+        </p>
+        <button
+          onClick={() => setShowPrintLabModal(true)}
+          style={{
+            padding: '10px 32px', fontSize: '10px', fontWeight: 700,
+            backgroundColor: lb.cta_bg || '#3a4a38', color: lb.cta_color || '#ffffff',
+            border: 'none', textTransform: 'uppercase', letterSpacing: '0.1em',
+            cursor: 'pointer', transition: 'opacity 0.2s', borderRadius: '0px'
+          }}
+          onMouseEnter={e => e.currentTarget.style.opacity = '0.9'}
+          onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+        >
+          {lb.cta || 'Visit Shop'}
+        </button>
+      </div>
+    );
+  }, [activeCampaign]);
+
+  /* ── Inline banners (Photo Banner = square card, Store Rotator = square card) — rendered BETWEEN image grids ── */
   const promoBannersMarkup = useMemo(() => {
     if (!activeCampaign) return null;
     return (
       <>
-        {/* Dynamic Promotional Banners */}
-        {activeCampaign.banners?.large_banner?.enabled && (
-          <div style={{
-            width: '100%',
-            backgroundColor: activeCampaign.banners.large_banner.bg_color || '#eae5d8',
-            padding: '52px 32px',
-            boxSizing: 'border-box',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            textAlign: 'center',
-            marginTop: '36px',
-            marginBottom: '36px',
-            borderTop: '1px solid rgba(0,0,0,0.05)',
-            borderBottom: '1px solid rgba(0,0,0,0.05)',
-            fontFamily: "'Inter', sans-serif"
-          }}>
-            <h3 style={{
-              fontSize: '24px',
-              fontWeight: 700,
-              fontFamily: activeCampaign.banners.large_banner.font === 'Playfair Display' ? "'Playfair Display', serif" : "'Inter', sans-serif",
-              color: activeCampaign.banners.large_banner.title_color || '#2c3e2d',
-              marginBottom: '12px',
-              letterSpacing: '0.02em',
-              textTransform: 'uppercase'
-            }}>
-              {(() => {
-                let text = activeCampaign.banners.large_banner.title || '';
-                const discountVal = activeCampaign.discount ? `${activeCampaign.discount}%` : '30%';
-                return text.replace(/{discount-value}/g, discountVal).replace(/{discount_value}/g, discountVal);
-              })()}
-            </h3>
-            <p style={{
-              fontSize: '14px',
-              color: activeCampaign.banners.large_banner.subtitle_color || '#4a5a4b',
-              maxWidth: '520px',
-              lineHeight: 1.6,
-              marginBottom: '24px'
-            }}>
-              {(() => {
-                let text = activeCampaign.banners.large_banner.subtitle || '';
-                const discountVal = activeCampaign.discount ? `${activeCampaign.discount}%` : '30%';
-                const expDate = new Date();
-                expDate.setDate(expDate.getDate() + 14);
-                const expFormatted = expDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-                return text
-                  .replace(/{discount-value}/g, discountVal)
-                  .replace(/{discount_value}/g, discountVal)
-                  .replace(/{exp-date}/g, expFormatted)
-                  .replace(/{exp_date}/g, expFormatted);
-              })()}
-            </p>
-            <button
-              onClick={() => setShowPrintLabModal(true)}
-              style={{
-                padding: '12px 36px',
-                fontSize: '11px',
-                fontWeight: 700,
-                backgroundColor: activeCampaign.banners.large_banner.cta_bg || '#3a4a38',
-                color: activeCampaign.banners.large_banner.cta_color || '#ffffff',
-                border: 'none',
-                textTransform: 'uppercase',
-                letterSpacing: '0.1em',
-                cursor: 'pointer',
-                transition: 'opacity 0.2s',
-                borderRadius: '0px'
-              }}
-              onMouseEnter={e => e.currentTarget.style.opacity = '0.9'}
-              onMouseLeave={e => e.currentTarget.style.opacity = '1'}
-            >
-              {activeCampaign.banners.large_banner.cta || 'Visit Shop'}
-            </button>
-          </div>
-        )}
-
+        {/* Photo Banner — SQUARE card */}
         {activeCampaign.banners?.photo_banner?.enabled && (
-          <div style={{
-            width: '100%',
-            backgroundColor: activeCampaign.banners.photo_banner.bg_color || '#d4c9b5',
-            padding: '44px 32px',
-            boxSizing: 'border-box',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            textAlign: 'center',
-            marginTop: '36px',
-            marginBottom: '36px',
-            fontFamily: "'Inter', sans-serif"
-          }}>
-            <h3 style={{
-              fontSize: '20px',
-              fontWeight: 700,
-              fontFamily: "'Playfair Display', serif",
-              color: '#1a1a1a',
-              marginBottom: '8px',
-              textTransform: 'uppercase',
-              letterSpacing: '0.04em'
+          <div style={{ display: 'flex', justifyContent: 'center', width: '100%', margin: '28px 0' }}>
+            <div style={{
+              width: '340px', minHeight: '340px',
+              backgroundColor: activeCampaign.banners.photo_banner.bg_color || '#d4c9b5',
+              padding: '28px 24px', boxSizing: 'border-box',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+              textAlign: 'center', fontFamily: "'Inter', sans-serif",
+              boxShadow: '0 4px 20px rgba(0,0,0,0.06)', aspectRatio: '1 / 1'
             }}>
-              {activeCampaign.banners.photo_banner.title || 'Special Promotion'}
-            </h3>
-            <p style={{
-              fontSize: '13px',
-              color: '#444444',
-              marginBottom: '20px'
-            }}>
-              {activeCampaign.banners.photo_banner.subtitle || 'Custom prints and gifts at exclusive discounted pricing'}
-            </p>
-            <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap', maxWidth: '640px' }}>
-              {['Classic Prints', 'Matted Frames', 'Canvas Wall Art'].map((p, idx) => (
-                <div key={idx} style={{ width: '130px', backgroundColor: '#ffffff', border: '1px solid rgba(0,0,0,0.06)', padding: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  <div style={{ width: '100%', height: '80px', backgroundColor: '#eaeaea', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyItems: 'center', fontSize: '20px', justifyContent: 'center' }}>
-                    🖼️
+              <h3 style={{
+                fontSize: '17px', fontWeight: 700,
+                fontFamily: "'Playfair Display', serif",
+                color: '#1a1a1a', marginBottom: '6px',
+                textTransform: 'uppercase', letterSpacing: '0.04em'
+              }}>
+                {activeCampaign.banners.photo_banner.title || 'Special Promotion'}
+              </h3>
+              <p style={{ fontSize: '11.5px', color: '#444444', marginBottom: '18px', lineHeight: 1.4 }}>
+                {activeCampaign.banners.photo_banner.subtitle || 'Custom prints and gifts at exclusive discounted pricing'}
+              </p>
+              <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', width: '100%', marginBottom: '18px' }}>
+                {['Classic Prints', 'Matted Frames', 'Canvas Wall Art'].map((p, idx) => (
+                  <div key={idx} style={{
+                    flex: 1, backgroundColor: '#ffffff', border: '1px solid rgba(0,0,0,0.04)',
+                    padding: '8px 4px', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 0
+                  }}>
+                    <div style={{ fontSize: '18px', marginBottom: '4px' }}>🖼️</div>
+                    <span style={{
+                      fontSize: '8px', fontWeight: 600, color: '#1a1a1a',
+                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                      width: '100%', textAlign: 'center'
+                    }}>{p}</span>
                   </div>
-                  <span style={{ fontSize: '11px', fontWeight: 600, color: '#1a1a1a' }}>{p}</span>
-                </div>
-              ))}
+                ))}
+              </div>
+              <button
+                onClick={() => setShowPrintLabModal(true)}
+                style={{
+                  padding: '10px 24px', fontSize: '9px', fontWeight: 700,
+                  backgroundColor: '#1a1a1a', color: '#ffffff', border: 'none',
+                  textTransform: 'uppercase', letterSpacing: '0.08em', cursor: 'pointer'
+                }}
+              >
+                SHOP NOW
+              </button>
             </div>
           </div>
         )}
 
+        {/* Store Rotator — SQUARE card */}
         {activeCampaign.banners?.store_rotator?.enabled && (
-          <div style={{
-            width: '100%',
-            backgroundColor: activeCampaign.banners.store_rotator.bg_color || '#eae5d8',
-            padding: '48px 32px',
-            boxSizing: 'border-box',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            textAlign: 'center',
-            marginTop: '36px',
-            marginBottom: '36px',
-            borderTop: '1px solid rgba(0,0,0,0.05)',
-            borderBottom: '1px solid rgba(0,0,0,0.05)',
-            fontFamily: "'Inter', sans-serif"
-          }}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', maxWidth: '600px' }}>
-              <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.15em', color: '#bfa38a', textTransform: 'uppercase' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', width: '100%', margin: '28px 0' }}>
+            <div style={{
+              width: '340px', minHeight: '340px',
+              backgroundColor: activeCampaign.banners.store_rotator.bg_color || '#eae5d8',
+              padding: '28px 24px', boxSizing: 'border-box',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+              textAlign: 'center', fontFamily: "'Inter', sans-serif",
+              boxShadow: '0 4px 20px rgba(0,0,0,0.06)', aspectRatio: '1 / 1'
+            }}>
+              <span style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.15em', color: '#bfa38a', textTransform: 'uppercase', marginBottom: '6px' }}>
                 {activeCampaign.banners.store_rotator.code ? activeCampaign.banners.store_rotator.code.replace(/{code}/g, activeCampaign.discountCode || 'HAPPYANI') : 'EXCLUSIVE OFFER'}
               </span>
               <h3 style={{
-                fontSize: '22px',
-                fontWeight: 700,
+                fontSize: '17px', fontWeight: 700, margin: '0 0 6px 0',
                 fontFamily: activeCampaign.banners.store_rotator.font === 'Playfair Display' ? "'Playfair Display', serif" : "'Inter', sans-serif",
-                color: activeCampaign.banners.store_rotator.title_color || '#2c3e2d',
-                textTransform: 'uppercase'
+                color: activeCampaign.banners.store_rotator.title_color || '#2c3e2d', textTransform: 'uppercase'
               }}>
                 {(() => {
                   let text = activeCampaign.banners.store_rotator.title || '';
@@ -1307,38 +1320,22 @@ const GalleryView = () => {
                   return text.replace(/{discount-value}/g, discountVal).replace(/{discount_value}/g, discountVal);
                 })()}
               </h3>
-              <p style={{
-                fontSize: '13.5px',
-                lineHeight: 1.6,
-                color: activeCampaign.banners.store_rotator.subtitle_color || '#4a5a4b',
-                marginBottom: '20px'
-              }}>
+              <p style={{ fontSize: '11.5px', lineHeight: 1.5, color: activeCampaign.banners.store_rotator.subtitle_color || '#4a5a4b', marginBottom: '18px' }}>
                 {(() => {
                   let text = activeCampaign.banners.store_rotator.subtitle || '';
                   const discountVal = activeCampaign.discount ? `${activeCampaign.discount}%` : '30%';
-                  const expDate = new Date();
-                  expDate.setDate(expDate.getDate() + 14);
+                  const expDate = new Date(); expDate.setDate(expDate.getDate() + 14);
                   const expFormatted = expDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-                  return text
-                    .replace(/{discount-value}/g, discountVal)
-                    .replace(/{discount_value}/g, discountVal)
-                    .replace(/{exp-date}/g, expFormatted)
-                    .replace(/{exp_date}/g, expFormatted);
+                  return text.replace(/{discount-value}/g, discountVal).replace(/{discount_value}/g, discountVal).replace(/{exp-date}/g, expFormatted).replace(/{exp_date}/g, expFormatted);
                 })()}
               </p>
               <button
                 onClick={() => setShowPrintLabModal(true)}
                 style={{
-                  padding: '12px 32px',
-                  fontSize: '11px',
-                  fontWeight: 700,
+                  padding: '10px 24px', fontSize: '9px', fontWeight: 700,
                   backgroundColor: activeCampaign.banners.store_rotator.cta_bg || '#3a4a38',
                   color: activeCampaign.banners.store_rotator.cta_color || '#ffffff',
-                  border: 'none',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.1em',
-                  cursor: 'pointer',
-                  borderRadius: '0px'
+                  border: 'none', textTransform: 'uppercase', letterSpacing: '0.08em', cursor: 'pointer'
                 }}
               >
                 {activeCampaign.banners.store_rotator.cta || 'CLAIM OFFER'}
@@ -1373,14 +1370,14 @@ const GalleryView = () => {
       data-gallery-chrome="large"
       data-gallery-viewport={isMobileViewport ? 'mobile' : 'desktop'}
     >
-      {/* Dynamic Sales Promotion Text Banner */}
+      {/* Dynamic Sales Promotion Text Banner — very small thin bar */}
       {activeCampaign?.banners?.text_banner?.enabled && (
         <div style={{
           backgroundColor: activeCampaign.banners.text_banner.bg_color || '#4a5338',
           color: activeCampaign.banners.text_banner.text_color || '#ffffff',
-          padding: '10px 32px 10px 16px',
+          padding: '5px 16px',
           textAlign: 'center',
-          fontSize: '11.5px',
+          fontSize: '10px',
           fontWeight: 600,
           letterSpacing: '0.06em',
           textTransform: 'uppercase',
@@ -1390,7 +1387,7 @@ const GalleryView = () => {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
+          lineHeight: 1.3
         }}>
           <div>
             {(() => {
@@ -1685,70 +1682,56 @@ const GalleryView = () => {
           {showEmptyPlaceholderGrid ? (
             <GalleryEmptyGrid className="mt-2" />
           ) : (() => {
-            const hasPromoBanner = !!(activeCampaign?.banners?.large_banner?.enabled || activeCampaign?.banners?.photo_banner?.enabled || activeCampaign?.banners?.store_rotator?.enabled);
-            const shouldSplit = filteredPhotos.length > 8 && hasPromoBanner;
+            const hasInlineBanner = !!(activeCampaign?.banners?.photo_banner?.enabled || activeCampaign?.banners?.store_rotator?.enabled);
+            const shouldSplit = filteredPhotos.length > 8 && hasInlineBanner;
+
+            const gridProps = {
+              isMobileViewport,
+              videosOnly: mediaFilter === 'videos',
+              isHorizontal: effectiveSettings.grid_style?.toLowerCase() === 'horizontal',
+              gridSettings: galleryGridSettings,
+              onFavorite: (photo) => handleFavoritePhotoToggle(photo),
+              onDownload: handleDownloadButtonAction,
+              onShare: () => setShowShareModal(true),
+              onTogglePrivate: handleTogglePhotoPrivate,
+              isClientViewer,
+              allowMarkPrivate: Boolean(collection?.allow_clients_mark_private),
+              showPrivateBadge: isClientViewer,
+              showDownload: showSinglePhotoDownload,
+              isPaidDownload: collection?.digital_download_enabled === true,
+              showFavorite: collection?.favorites_enabled !== false,
+              showShare: showGalleryShare,
+              showShop: collection?.store_enabled !== false,
+              onShop: handleShopClick,
+              favoritedPhotoIds: favoritedPhotos,
+              customRowHeight: galleryCustomRowHeight,
+              customColumnCount: galleryCustomColumnCount,
+              showFilename: collection?.show_filenames === true,
+              className: 'mt-2',
+            };
 
             if (shouldSplit) {
               const splitOffset = Math.ceil(filteredPhotos.length / 2);
               return (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  {/* Large Banner — rectangle bar ABOVE grid */}
+                  {largeBannerMarkup}
+
                   <MasonryGrid
                     key={`grid-part-1-${activeSetId ?? 'highlights'}-${mediaFilter}-${effectiveSettings.grid_style}`}
                     photos={filteredPhotos.slice(0, splitOffset)}
-                    isMobileViewport={isMobileViewport}
-                    videosOnly={mediaFilter === 'videos'}
-                    isHorizontal={effectiveSettings.grid_style?.toLowerCase() === 'horizontal'}
-                    gridSettings={galleryGridSettings}
                     onImageClick={openLightbox}
-                    onFavorite={(photo) => handleFavoritePhotoToggle(photo)}
-                    onDownload={handleDownloadButtonAction}
-                    onShare={() => setShowShareModal(true)}
-                    onTogglePrivate={handleTogglePhotoPrivate}
-                    isClientViewer={isClientViewer}
-                    allowMarkPrivate={Boolean(collection?.allow_clients_mark_private)}
-                    showPrivateBadge={isClientViewer}
-                    showDownload={showSinglePhotoDownload}
-                    isPaidDownload={collection?.digital_download_enabled === true}
-                    showFavorite={collection?.favorites_enabled !== false}
-                    showShare={showGalleryShare}
-                    showShop={collection?.store_enabled !== false}
-                    onShop={handleShopClick}
-                    favoritedPhotoIds={favoritedPhotos}
-                    customRowHeight={galleryCustomRowHeight}
-                    customColumnCount={galleryCustomColumnCount}
-                    showFilename={collection?.show_filenames === true}
-                    className="mt-2"
+                    {...gridProps}
                   />
 
-                  {/* Render Banner in-between grids */}
+                  {/* Photo Banner / Store Rotator — square cards in-between grids */}
                   {promoBannersMarkup}
 
                   <MasonryGrid
                     key={`grid-part-2-${activeSetId ?? 'highlights'}-${mediaFilter}-${effectiveSettings.grid_style}`}
                     photos={filteredPhotos.slice(splitOffset)}
-                    isMobileViewport={isMobileViewport}
-                    videosOnly={mediaFilter === 'videos'}
-                    isHorizontal={effectiveSettings.grid_style?.toLowerCase() === 'horizontal'}
-                    gridSettings={galleryGridSettings}
                     onImageClick={(idx) => openLightbox(idx + splitOffset)}
-                    onFavorite={(photo) => handleFavoritePhotoToggle(photo)}
-                    onDownload={handleDownloadButtonAction}
-                    onShare={() => setShowShareModal(true)}
-                    onTogglePrivate={handleTogglePhotoPrivate}
-                    isClientViewer={isClientViewer}
-                    allowMarkPrivate={Boolean(collection?.allow_clients_mark_private)}
-                    showPrivateBadge={isClientViewer}
-                    showDownload={showSinglePhotoDownload}
-                    isPaidDownload={collection?.digital_download_enabled === true}
-                    showFavorite={collection?.favorites_enabled !== false}
-                    showShare={showGalleryShare}
-                    showShop={collection?.store_enabled !== false}
-                    onShop={handleShopClick}
-                    favoritedPhotoIds={favoritedPhotos}
-                    customRowHeight={galleryCustomRowHeight}
-                    customColumnCount={galleryCustomColumnCount}
-                    showFilename={collection?.show_filenames === true}
-                    className="mt-2"
+                    {...gridProps}
                   />
                 </div>
               );
@@ -1756,35 +1739,17 @@ const GalleryView = () => {
 
             return (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                {/* Large Banner — rectangle bar ABOVE grid */}
+                {largeBannerMarkup}
+
                 <MasonryGrid
                   key={`grid-single-${activeSetId ?? 'highlights'}-${mediaFilter}-${effectiveSettings.grid_style}`}
                   photos={filteredPhotos}
-                  isMobileViewport={isMobileViewport}
-                  videosOnly={mediaFilter === 'videos'}
-                  isHorizontal={effectiveSettings.grid_style?.toLowerCase() === 'horizontal'}
-                  gridSettings={galleryGridSettings}
                   onImageClick={openLightbox}
-                  onFavorite={(photo) => handleFavoritePhotoToggle(photo)}
-                  onDownload={handleDownloadButtonAction}
-                  onShare={() => setShowShareModal(true)}
-                  onTogglePrivate={handleTogglePhotoPrivate}
-                  isClientViewer={isClientViewer}
-                  allowMarkPrivate={Boolean(collection?.allow_clients_mark_private)}
-                  showPrivateBadge={isClientViewer}
-                  showDownload={showSinglePhotoDownload}
-                  isPaidDownload={collection?.digital_download_enabled === true}
-                  showFavorite={collection?.favorites_enabled !== false}
-                  showShare={showGalleryShare}
-                  showShop={collection?.store_enabled !== false}
-                  onShop={handleShopClick}
-                  favoritedPhotoIds={favoritedPhotos}
-                  customRowHeight={galleryCustomRowHeight}
-                  customColumnCount={galleryCustomColumnCount}
-                  showFilename={collection?.show_filenames === true}
-                  className="mt-2"
+                  {...gridProps}
                 />
                 
-                {/* Render Banner immediately below single grid */}
+                {/* Photo Banner / Store Rotator — square cards below grid */}
                 {promoBannersMarkup}
               </div>
             );
