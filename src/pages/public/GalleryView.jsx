@@ -789,9 +789,15 @@ const GalleryView = () => {
           );
           const { x: focalX, y: focalY } = getCollectionFocal(collection);
 
+          const displayPhotographerName =
+            photographer?.business_name?.trim() ||
+            photographer?.display_name?.trim() ||
+            [photographer?.first_name, photographer?.last_name].filter(Boolean).join(' ').trim() ||
+            '';
+
           const props = {
             title: collection.name,
-            subtitle: photographer?.display_name || '',
+            subtitle: displayPhotographerName,
             date: formatCoverDate(collection.event_date || collection.created_at),
             photoUrl: activePhotoUrl,
             focalX,
@@ -862,7 +868,12 @@ const GalleryView = () => {
             isGalleryViewMobile={isMobileViewport}
             navigationStyle={navigationStyle}
             collectionTitle={collection.name}
-            photographerName={photographer?.display_name}
+            photographerName={
+              photographer?.business_name?.trim() ||
+              photographer?.display_name?.trim() ||
+              [photographer?.first_name, photographer?.last_name].filter(Boolean).join(' ').trim() ||
+              ''
+            }
             sets={visibleSets.map((set) => ({ id: set.id, name: set.name }))}
             showHighlightsTab={canViewHighlights(collection, isClientViewer)}
             activeSetId={activeSetId}
