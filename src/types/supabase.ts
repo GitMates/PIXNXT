@@ -998,6 +998,7 @@ export type Database = {
           id: string
           logo_storage_path: string | null
           logo_url: string | null
+          cover_logo_url: string | null
           plan: Database["public"]["Enums"]["plan_tier"]
           show_address: boolean | null
           show_bio: boolean | null
@@ -1028,6 +1029,7 @@ export type Database = {
           id: string
           logo_storage_path?: string | null
           logo_url?: string | null
+          cover_logo_url?: string | null
           plan?: Database["public"]["Enums"]["plan_tier"]
           show_address?: boolean | null
           show_bio?: boolean | null
@@ -1058,6 +1060,7 @@ export type Database = {
           id?: string
           logo_storage_path?: string | null
           logo_url?: string | null
+          cover_logo_url?: string | null
           plan?: Database["public"]["Enums"]["plan_tier"]
           show_address?: boolean | null
           show_bio?: boolean | null
