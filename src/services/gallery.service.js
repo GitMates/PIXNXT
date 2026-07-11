@@ -2492,4 +2492,107 @@ export const galleryService = {
 
     if (error) throw error;
   },
+
+  /**
+   * Fetch all sales automations for the photographer.
+   * If table doesn't exist, falls back to localStorage.
+   */
+  async fetchSalesAutomations(photographerId) {
+    if (!photographerId) return [];
+    try {
+      const { data, error } = await supabase
+        .from('sales_automations')
+        .select('*')
+        .eq('photographer_id', photographerId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      console.warn('Supabase fetchSalesAutomations failed, falling back to local cache:', err);
+      try {
+        const local = localStorage.getItem(`pixnxt_sales_automations_${photographerId}`);
+        return local ? JSON.parse(local) : [];
+      } catch (localErr) {
+        return [];
+      }
+    }
+  },
+
+  /**
+   * Save (Insert/Update) a sales automation campaign.
+   */
+  async saveSalesAutomation(photographerId, automation) {
+    if (!photographerId) throw new Error('photographerId is required');
+    const now = new Date().toISOString();
+    const payload = {
+      ...automation,
+      photographer_id: photographerId,
+      last_activity: now,
+      updated_at: now
+    };
+
+    try {
+      const { data, error } = await supabase
+        .from('sales_automations')
+        .upsert(payload, { onConflict: 'id' })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (err) {
+      console.warn('Supabase saveSalesAutomation failed, writing to local cache:', err);
+      // Local fallback
+      try {
+        const localStr = localStorage.getItem(`pixnxt_sales_automations_${photographerId}`);
+        let automations = localStr ? JSON.parse(localStr) : [];
+        const targetId = automation.id || 'auto_' + Math.random().toString(36).substr(2, 9);
+        const existingIdx = automations.findIndex(a => a.id === targetId);
+
+        const newAutomation = {
+          ...payload,
+          id: targetId,
+          created_at: automation.created_at || now
+        };
+
+        if (existingIdx >= 0) {
+          automations[existingIdx] = newAutomation;
+        } else {
+          automations.push(newAutomation);
+        }
+
+        localStorage.setItem(`pixnxt_sales_automations_${photographerId}`, JSON.stringify(automations));
+        return newAutomation;
+      } catch (localErr) {
+        throw err;
+      }
+    }
+  },
+
+  /**
+   * Delete a sales automation.
+   */
+  async deleteSalesAutomation(photographerId, id) {
+    try {
+      const { error } = await supabase
+        .from('sales_automations')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+    } catch (err) {
+      console.warn('Supabase deleteSalesAutomation failed, removing from local cache:', err);
+      try {
+        const localStr = localStorage.getItem(`pixnxt_sales_automations_${photographerId}`);
+        if (localStr) {
+          let automations = JSON.parse(localStr);
+          automations = automations.filter(a => a.id !== id);
+          localStorage.setItem(`pixnxt_sales_automations_${photographerId}`, JSON.stringify(automations));
+        }
+      } catch (localErr) {
+        throw err;
+      }
+    }
+  }
 };

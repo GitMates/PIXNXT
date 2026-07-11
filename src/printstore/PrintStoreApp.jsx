@@ -94,7 +94,19 @@ export default function PrintStoreApp() {
 
   useEffect(() => {
     if (collection?.id) {
-      setVaultPurchasedState(localStorage.getItem(`pixnxt_vault_purchased_${collection.id}`) === 'true');
+      supabase
+        .from('buylink_plans')
+        .select('id')
+        .eq('collection_id', collection.id)
+        .eq('status', 'completed')
+        .limit(1)
+        .then(({ data, error }) => {
+          if (!error && data && data.length > 0) {
+            setVaultPurchasedState(true);
+          } else {
+            setVaultPurchasedState(localStorage.getItem(`pixnxt_vault_purchased_${collection.id}`) === 'true');
+          }
+        });
     }
   }, [collection?.id]);
 
@@ -113,41 +125,22 @@ export default function PrintStoreApp() {
 
       const price = parseFloat(localStorage.getItem(`pixnxt_vault_price_${collection.id}`) || '499');
 
-      const { data: order, error: orderError } = await supabase
-        .from('printstore_orders')
+      const { data: purchase, error: purchaseError } = await supabase
+        .from('buylink_plans')
         .insert({
           collection_id: collection.id,
-          photographer_id: collection.photographer_id || collection.user_id,
           customer_name: vaultCardName || 'Client Visitor',
           customer_email: targetEmail,
-          shipping_address: null,
-          shipping_amount: 0,
-          tax_amount: 0,
-          discount_amount: 0,
-          subtotal: price,
-          total: price,
+          amount_paid: price,
+          plan_type: 'lifetime',
           status: 'completed',
-          payment_provider: 'stripe',
+          payment_method: 'Credit Card',
           payment_intent_id: 'mock_pi_vault_' + Math.random().toString(36).substr(2, 9)
         })
         .select()
         .single();
 
-      if (orderError) throw orderError;
-
-      const { error: itemError } = await supabase
-        .from('printstore_order_items')
-        .insert({
-          order_id: order.id,
-          product_name: 'Permanent Vault Storage Access',
-          product_type: 'vault_storage',
-          quantity: 1,
-          unit_price: price,
-          subtotal: price,
-          options: {}
-        });
-
-      if (itemError) throw itemError;
+      if (purchaseError) throw purchaseError;
 
       localStorage.setItem(`pixnxt_vault_purchased_${collection.id}`, 'true');
       setVaultPurchasedState(true);
@@ -160,7 +153,7 @@ export default function PrintStoreApp() {
             'Authorization': `Bearer ${supabase.supabaseKey}`
           },
           body: JSON.stringify({
-            orderId: order.id,
+            orderId: purchase.id,
             recipientEmail: targetEmail,
             siteOrigin: window.location.origin
           })
