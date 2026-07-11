@@ -804,7 +804,7 @@ const GalleryView = () => {
             focalY,
             onViewGallery: scrollToGallery,
             isGalleryView: true,
-            coverLogoUrl: photographer?.cover_logo_url,
+            coverLogoUrl: photographer?.cover_logo_url || photographer?.logo_url,
           };
 
           const activeCoverStyle = effectiveSettings.cover_style;

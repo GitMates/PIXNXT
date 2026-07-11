@@ -50,6 +50,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
   onSetActiveSet,
   photographerName = 'PHOTOGRAPHER',
   isPreviewMobile = false,
+  coverLogoUrl,
 }) => {
   const { coverStyle, fontFamily, colorPalette, grid } = settings;
   const navigationStyle = normalizeNavigationStyle(grid.navigation);
@@ -433,6 +434,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
       focalY: dashboardState?.focalY,
       isPreview: true, // dashboard pane layout only
       onViewGallery: coverStyle !== 'none' ? scrollToGallery : undefined,
+      coverLogoUrl,
     };
 
     switch (coverStyle) {

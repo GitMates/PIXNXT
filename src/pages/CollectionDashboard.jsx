@@ -3022,6 +3022,7 @@ const CollectionDashboard = () => {
                                         user?.display_name ||
                                         'PHOTOGRAPHER'
                                     }
+                                    coverLogoUrl={profile?.cover_logo_url || profile?.logo_url}
                                     dashboardState={{
                                         focalX: collectionFocal.x,
                                         focalY: collectionFocal.y,
