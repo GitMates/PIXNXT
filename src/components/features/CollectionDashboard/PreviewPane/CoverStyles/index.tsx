@@ -56,7 +56,7 @@ export const CenterCover: React.FC<CoverProps> = ({
       {/* Centered Brand Name / Logo at the Bottom */}
       {coverLogoUrl ? (
         <div className="absolute bottom-0 left-0 right-0 z-10 pb-6 flex justify-center">
-          <img src={coverLogoUrl} alt={brand} className="max-h-10 md:max-h-14 object-contain" />
+          <img src={coverLogoUrl} alt={brand} className={cn("object-contain", isPreview ? "max-h-6 max-w-[120px]" : "max-h-14 md:max-h-20 max-w-[220px] md:max-w-[320px]")} />
         </div>
       ) : brand ? (
         <p
@@ -101,7 +101,7 @@ export const LeftCover: React.FC<CoverProps> = ({
       {/* Brand in Top Left */}
       {coverLogoUrl ? (
         <div className={cn('absolute left-0 top-0 z-20', pad)}>
-          <img src={coverLogoUrl} alt={brand} className="max-h-8 md:max-h-12 object-contain" />
+          <img src={coverLogoUrl} alt={brand} className={cn("object-contain", isPreview ? "max-h-5 max-w-[100px]" : "max-h-12 md:max-h-16 max-w-[180px] md:max-w-[260px]")} />
         </div>
       ) : brand ? (
         <div className={cn('cover-left-layout__brand absolute left-0 top-0 z-20', pad)}>
@@ -160,7 +160,7 @@ export const NovelCover: React.FC<CoverProps> = ({
       >
         {coverLogoUrl ? (
           <div className="mb-4 flex justify-center">
-            <img src={coverLogoUrl} alt={brand} className="max-h-10 md:max-h-14 object-contain" />
+            <img src={coverLogoUrl} alt={brand} className={cn("object-contain", isPreview ? "max-h-6 max-w-[120px]" : "max-h-14 md:max-h-20 max-w-[220px] md:max-w-[320px]")} />
           </div>
         ) : brand ? (
           <p
@@ -267,7 +267,7 @@ export const VintageCover: React.FC<CoverProps> = ({
           </h1>
           <div className="cover-vintage-layout__footer" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
             {coverLogoUrl ? (
-              <img src={coverLogoUrl} alt={brand} className="max-h-8 md:max-h-12 object-contain" />
+              <img src={coverLogoUrl} alt={brand} className={cn("object-contain", isPreview ? "max-h-5 max-w-[100px]" : "max-h-12 md:max-h-16 max-w-[180px] md:max-w-[260px]")} />
             ) : (
               <span
                 className={cn(
@@ -327,7 +327,7 @@ export const FrameCover: React.FC<CoverProps> = ({
       <div className={cn('cover-frame-layout__content absolute z-10 flex flex-col text-center text-white justify-between', frameInset)}>
         {coverLogoUrl ? (
           <div className={cn('flex justify-center shrink-0', topPad)}>
-            <img src={coverLogoUrl} alt={brand} className="max-h-10 md:max-h-14 object-contain" />
+            <img src={coverLogoUrl} alt={brand} className={cn("object-contain", isPreview ? "max-h-6 max-w-[120px]" : "max-h-14 md:max-h-20 max-w-[220px] md:max-w-[320px]")} />
           </div>
         ) : brand ? (
           <p className={cn('cover-frame-layout__brand gallery-heading shrink-0 uppercase tracking-[0.4em] font-medium text-white/95', topPad, s.subtitle)}>
@@ -406,7 +406,7 @@ export const StripeCover: React.FC<CoverProps> = ({
           
           {coverLogoUrl ? (
             <div className="mt-4 flex justify-center">
-              <img src={coverLogoUrl} alt={brand} className="max-h-10 md:max-h-14 object-contain" />
+              <img src={coverLogoUrl} alt={brand} className={cn("object-contain", isPreview ? "max-h-6 max-w-[120px]" : "max-h-14 md:max-h-20 max-w-[220px] md:max-w-[320px]")} />
             </div>
           ) : brand ? (
             <p className={cn('gallery-heading uppercase tracking-[0.4em] text-white/95 mt-4 font-medium', s.subtitle)}>
@@ -456,7 +456,7 @@ export const DividerCover: React.FC<CoverProps> = ({
       <div className={cn('relative z-20 flex h-full w-1/2 flex-col items-center justify-center text-center text-white', pad)}>
         {coverLogoUrl ? (
           <div className="mb-4 flex justify-center">
-            <img src={coverLogoUrl} alt={brand} className="max-h-10 md:max-h-14 object-contain" />
+            <img src={coverLogoUrl} alt={brand} className={cn("object-contain", isPreview ? "max-h-6 max-w-[120px]" : "max-h-14 md:max-h-20 max-w-[220px] md:max-w-[320px]")} />
           </div>
         ) : brand ? (
           <p className={cn('gallery-heading uppercase tracking-[0.4em] text-white/95 mb-4 font-medium', s.subtitle)}>
@@ -513,7 +513,7 @@ export const JournalCover: React.FC<CoverProps> = ({
       <div className="cover-journal-layout__panel flex w-1/2 min-w-0 h-full flex-col">
         {coverLogoUrl ? (
           <div className="mb-auto self-start">
-            <img src={coverLogoUrl} alt={brand} className="max-h-10 md:max-h-14 object-contain" />
+            <img src={coverLogoUrl} alt={brand} className={cn("object-contain", isPreview ? "max-h-6 max-w-[120px]" : "max-h-14 md:max-h-20 max-w-[220px] md:max-w-[320px]")} />
           </div>
         ) : brand ? (
           <span
@@ -574,7 +574,7 @@ export const StampCover: React.FC<CoverProps> = ({
     >
       {coverLogoUrl ? (
         <div className="mb-2 flex justify-center">
-          <img src={coverLogoUrl} alt={brand} className="max-h-10 md:max-h-14 object-contain" />
+          <img src={coverLogoUrl} alt={brand} className={cn("object-contain", isPreview ? "max-h-6 max-w-[120px]" : "max-h-14 md:max-h-20 max-w-[220px] md:max-w-[320px]")} />
         </div>
       ) : brand ? (
         <p
