@@ -354,6 +354,22 @@ export default function StoreDashboard() {
   const [durationMonthsDropdownOpen, setDurationMonthsDropdownOpen] = useState(false);
   const [durationDaysDropdownOpen, setDurationDaysDropdownOpen] = useState(false);
 
+  // Sync campaigns state to/from localStorage for client gallery view access
+  useEffect(() => {
+    const stored = localStorage.getItem('pixnxt_sales_campaigns');
+    if (stored) {
+      try {
+        setCampaigns(JSON.parse(stored));
+      } catch (e) {
+        console.error("Error parsing stored campaigns:", e);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('pixnxt_sales_campaigns', JSON.stringify(campaigns));
+  }, [campaigns]);
+
   const handleIntegerChange = (val, setter) => {
     const cleaned = val.replace(/[^0-9]/g, '');
     setter(cleaned);
@@ -2727,8 +2743,39 @@ export default function StoreDashboard() {
                                 setSelectedAutomation({ ...campaign.banners[item.key], _campaignId: campaign.id, _bannerKey: item.key });
                                 setActiveModal(item.key);
                               }}
-                              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+                              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer', position: 'relative' }}
                             >
+                              {/* Direct checkbox badge */}
+                              <div
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setCampaigns(prev => prev.map(c => c.id === campaign.id
+                                    ? {
+                                        ...c,
+                                        banners: {
+                                          ...c.banners,
+                                          [item.key]: {
+                                            ...c.banners[item.key],
+                                            enabled: !c.banners[item.key].enabled
+                                          }
+                                        },
+                                        modified: { ...c.modified, banners: true }
+                                      }
+                                    : c
+                                  ));
+                                }}
+                                style={{
+                                  position: 'absolute', top: '-6px', right: '-6px', zIndex: 10,
+                                  width: '18px', height: '18px', borderRadius: '50%',
+                                  border: '1px solid #dcdcdc',
+                                  backgroundColor: item.enabled ? '#2c2c2d' : '#ffffff',
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                                }}
+                              >
+                                <span style={{ color: item.enabled ? '#fff' : 'transparent', fontSize: '9px', fontWeight: 900 }}>✓</span>
+                              </div>
+
                               <div style={{
                                 width: '84px', height: '62px',
                                 border: '1px solid #dcdcdc',
@@ -2777,8 +2824,41 @@ export default function StoreDashboard() {
                                   setAutomationModalTab('email');
                                   setActiveModal('edit_email');
                                 }}
-                                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
+                                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', cursor: 'pointer', position: 'relative' }}
                               >
+                                {/* Direct checkbox badge */}
+                                <div
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const targetState = !isAnyEnabled;
+                                    setCampaigns(prev => prev.map(c => c.id === campaign.id
+                                      ? {
+                                          ...c,
+                                          emails: {
+                                            ...c.emails,
+                                            [item.key]: {
+                                              ...c.emails[item.key],
+                                              enabled: targetState,
+                                              whatsapp_enabled: targetState
+                                            }
+                                          },
+                                          modified: { ...c.modified, emails: true }
+                                        }
+                                      : c
+                                    ));
+                                  }}
+                                  style={{
+                                    position: 'absolute', top: '-6px', right: '-6px', zIndex: 10,
+                                    width: '18px', height: '18px', borderRadius: '50%',
+                                    border: '1px solid #dcdcdc',
+                                    backgroundColor: isAnyEnabled ? '#2c2c2d' : '#ffffff',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                                  }}
+                                >
+                                  <span style={{ color: isAnyEnabled ? '#fff' : 'transparent', fontSize: '9px', fontWeight: 900 }}>✓</span>
+                                </div>
+
                                 {isAnyEnabled ? (
                                   /* Tall vertical card view */
                                   <div style={{
