@@ -116,7 +116,9 @@ export default function StoreDashboard() {
           logo_type: "Dark Logo, for light background",
           icons_type: "Dark Icons, for light background",
           layout: "Standard",
-          custom_image: ""
+          custom_image: "",
+          whatsapp_enabled: true,
+          whatsapp_template: "Hi {client_name}! 💍 Happy anniversary from {photographer_name}! To celebrate this special milestone, I've created an anniversary gift code for you: {discount-value} off all prints and canvases to gift your partner. Enter code {code} at checkout: {store_url}"
         },
         reminder_1w: {
           enabled: false,
@@ -130,7 +132,9 @@ export default function StoreDashboard() {
           logo_type: "Dark Logo, for light background",
           icons_type: "Dark Icons, for light background",
           layout: "Standard",
-          custom_image: ""
+          custom_image: "",
+          whatsapp_enabled: false,
+          whatsapp_template: "Hi {client_name}! Just a quick note that your wedding anniversary coupon {code} is active for 1 more week. Don't forget to order a beautiful canvas for your partner: {store_url}"
         },
         reminder_3d: {
           enabled: true,
@@ -144,7 +148,9 @@ export default function StoreDashboard() {
           logo_type: "Dark Logo, for light background",
           icons_type: "Dark Icons, for light background",
           layout: "Standard",
-          custom_image: ""
+          custom_image: "",
+          whatsapp_enabled: true,
+          whatsapp_template: "Hi {client_name}! 🎁 Only 3 days left to use your anniversary gift code {code} for {discount-value} off all prints and canvases. Order now to print your favorite wedding memories: {store_url}"
         },
         reminder_1d: {
           enabled: false,
@@ -158,7 +164,9 @@ export default function StoreDashboard() {
           logo_type: "Dark Logo, for light background",
           icons_type: "Dark Icons, for light background",
           layout: "Standard",
-          custom_image: ""
+          custom_image: "",
+          whatsapp_enabled: false,
+          whatsapp_template: "Hi {client_name}! ⏰ Last chance: your anniversary gift discount code {code} ({discount-value} off prints) expires in 24 hours. Surprise your partner with a wedding canvas before it's gone: {store_url}"
         }
       }
     },
@@ -194,7 +202,9 @@ export default function StoreDashboard() {
           logo_type: "Dark Logo, for light background",
           icons_type: "Dark Icons, for light background",
           layout: "Standard",
-          custom_image: ""
+          custom_image: "",
+          whatsapp_enabled: true,
+          whatsapp_template: "Hi {client_name}! 🎂 Happy Birthday! Celebrate your special day with a gift to yourself. Enjoy {discount-value} off prints and canvases today with code {code}: {store_url}"
         },
         reminder_1w: {
           enabled: false,
@@ -208,7 +218,9 @@ export default function StoreDashboard() {
           logo_type: "Dark Logo, for light background",
           icons_type: "Dark Icons, for light background",
           layout: "Standard",
-          custom_image: ""
+          custom_image: "",
+          whatsapp_enabled: false,
+          whatsapp_template: "Hi {client_name}! Just a reminder that your birthday code {code} is active for 1 more week. Treat yourself to some beautiful prints: {store_url}"
         },
         reminder_3d: {
           enabled: true,
@@ -222,7 +234,9 @@ export default function StoreDashboard() {
           logo_type: "Dark Logo, for light background",
           icons_type: "Dark Icons, for light background",
           layout: "Standard",
-          custom_image: ""
+          custom_image: "",
+          whatsapp_enabled: true,
+          whatsapp_template: "Hi {client_name}! 🎁 Only 3 days left to claim your birthday special of {discount-value} off all print products. Enter code {code} at checkout: {store_url}"
         },
         reminder_1d: {
           enabled: false,
@@ -236,7 +250,9 @@ export default function StoreDashboard() {
           logo_type: "Dark Logo, for light background",
           icons_type: "Dark Icons, for light background",
           layout: "Standard",
-          custom_image: ""
+          custom_image: "",
+          whatsapp_enabled: false,
+          whatsapp_template: "Hi {client_name}! ⏰ 24 hours left to save {discount-value} on birthday prints with code {code}. Don't miss out: {store_url}"
         }
       }
     },
@@ -272,7 +288,9 @@ export default function StoreDashboard() {
           logo_type: "Dark Logo, for light background",
           icons_type: "Dark Icons, for light background",
           layout: "Standard",
-          custom_image: ""
+          custom_image: "",
+          whatsapp_enabled: true,
+          whatsapp_template: "Hi {client_name}! 🍂 Our seasonal sale is now live! Save {discount-value} on prints and canvases for your partner with code {code}. Shop the sale: {store_url}"
         },
         reminder_1w: {
           enabled: false,
@@ -286,7 +304,9 @@ export default function StoreDashboard() {
           logo_type: "Dark Logo, for light background",
           icons_type: "Dark Icons, for light background",
           layout: "Standard",
-          custom_image: ""
+          custom_image: "",
+          whatsapp_enabled: false,
+          whatsapp_template: "Hi {client_name}! The seasonal promotion is ending soon. You have 1 week left to save {discount-value} on all custom prints: {store_url}"
         },
         reminder_3d: {
           enabled: true,
@@ -300,7 +320,9 @@ export default function StoreDashboard() {
           logo_type: "Dark Logo, for light background",
           icons_type: "Dark Icons, for light background",
           layout: "Standard",
-          custom_image: ""
+          custom_image: "",
+          whatsapp_enabled: true,
+          whatsapp_template: "Hi {client_name}! 🎁 Only 3 days remaining in our seasonal promo. Use code {code} for {discount-value} off custom prints and canvases: {store_url}"
         },
         reminder_1d: {
           enabled: false,
@@ -314,7 +336,9 @@ export default function StoreDashboard() {
           logo_type: "Dark Logo, for light background",
           icons_type: "Dark Icons, for light background",
           layout: "Standard",
-          custom_image: ""
+          custom_image: "",
+          whatsapp_enabled: false,
+          whatsapp_template: "Hi {client_name}! ⏰ Last call! Our seasonal discount code {code} ({discount-value} off) expires in 24 hours. Shop now: {store_url}"
         }
       }
     },
@@ -323,6 +347,7 @@ export default function StoreDashboard() {
   const [activeModal, setActiveModal] = useState(null);           // 'text_banner' | 'large_banner' | 'photo_banner'
   const [selectedAutomation, setSelectedAutomation] = useState(null);
   const [automationModalTab, setAutomationModalTab] = useState('content');
+  const [previewChannel, setPreviewChannel] = useState('email');
   const [yearsDropdownOpen, setYearsDropdownOpen] = useState(false);
   const [startMonthsDropdownOpen, setStartMonthsDropdownOpen] = useState(false);
   const [startDaysDropdownOpen, setStartDaysDropdownOpen] = useState(false);
@@ -2721,17 +2746,17 @@ export default function StoreDashboard() {
                         </div>
                       </div>
 
-                      {/* Row 7: Main Clients Emails */}
+                      {/* Row 7: Main Clients Reminders (Email & WhatsApp) */}
                       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '28px 0', gap: '32px' }}>
                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '18px', flex: '0 0 240px' }}>
                           {renderStatusCircle(campaign.modified?.emails)}
                           <div>
-                            <div style={{ fontSize: '13px', fontWeight: 700, color: '#2c2c2c', marginBottom: '4px' }}>Main Clients Emails</div>
-                            <div style={{ fontSize: '12px', color: '#747474', lineHeight: 1.5 }}>Modify the emails which will be sent to the main client during this campaign. The "Announcement" email will be sent on the start date of the campaign.</div>
+                            <div style={{ fontSize: '13px', fontWeight: 700, color: '#2c2c2c', marginBottom: '4px' }}>Main Clients Reminders (Email & WhatsApp)</div>
+                            <div style={{ fontSize: '12px', color: '#747474', lineHeight: 1.5 }}>Modify the email and WhatsApp notifications sent to the main client during this campaign. The "Announcement" is sent on the campaign start date.</div>
                           </div>
                         </div>
 
-                        {/* Email preview grid */}
+                        {/* Email / WhatsApp preview grid */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap', flex: 1, justifyContent: 'flex-end' }}>
                           {[
                             { key: 'announcement', label: 'Announcement' },
@@ -2740,32 +2765,21 @@ export default function StoreDashboard() {
                             { key: 'reminder_1d', label: 'Reminder 1 Day' }
                           ].map(item => {
                             const emailConfig = campaign.emails[item.key] || {};
-                            const isEnabled = emailConfig.enabled !== false;
+                            const isEmailEnabled = emailConfig.enabled !== false;
+                            const isWhatsappEnabled = !!emailConfig.whatsapp_enabled;
+                            const isAnyEnabled = isEmailEnabled || isWhatsappEnabled;
 
                             return (
                               <div
                                 key={item.key}
                                 onClick={() => {
-                                  if (isEnabled) {
-                                    setSelectedAutomation({ ...emailConfig, _campaignId: campaign.id, _emailKey: item.key });
-                                    setAutomationModalTab('content');
-                                    setActiveModal('edit_email');
-                                  } else {
-                                    // Enable it and open
-                                    const newConfig = { ...emailConfig, enabled: true };
-                                    setCampaigns(prev => prev.map(c => c.id === campaign.id
-                                      ? { ...c, modified: { yearsRepeat: true, startDate: true, duration: true, discount: true, banners: true, emails: false },
-      emails: { ...c.emails, [item.key]: newConfig } }
-                                      : c
-                                    ));
-                                    setSelectedAutomation({ ...newConfig, _campaignId: campaign.id, _emailKey: item.key });
-                                    setAutomationModalTab('content');
-                                    setActiveModal('edit_email');
-                                  }
+                                  setSelectedAutomation({ ...emailConfig, _campaignId: campaign.id, _emailKey: item.key });
+                                  setAutomationModalTab('email');
+                                  setActiveModal('edit_email');
                                 }}
-                                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', cursor: 'pointer' }}
+                                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
                               >
-                                {isEnabled ? (
+                                {isAnyEnabled ? (
                                   /* Tall vertical card view */
                                   <div style={{
                                     width: '58px', height: '82px',
@@ -2804,15 +2818,33 @@ export default function StoreDashboard() {
                                 
                                 <span style={{
                                   fontSize: '11px',
-                                  color: isEnabled ? '#2c2c2d' : '#8c8c8c',
-                                  fontWeight: isEnabled ? 600 : 400,
+                                  color: isAnyEnabled ? '#2c2c2d' : '#8c8c8c',
+                                  fontWeight: isAnyEnabled ? 600 : 400,
                                   textAlign: 'center',
                                   display: 'flex',
                                   alignItems: 'center',
                                   gap: '3px'
                                 }}>
-                                  {isEnabled && item.key !== 'announcement' ? `✓ ${item.label}` : item.label}
+                                  {isAnyEnabled && item.key !== 'announcement' ? `✓ ${item.label}` : item.label}
                                 </span>
+
+                                <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
+                                  {isEmailEnabled && (
+                                    <span style={{ fontSize: '8px', color: '#666', backgroundColor: '#f0f0f0', padding: '1px 4px', borderRadius: '1px', fontWeight: 600 }}>
+                                      ✉ Email
+                                    </span>
+                                  )}
+                                  {isWhatsappEnabled && (
+                                    <span style={{ fontSize: '8px', color: '#16a34a', backgroundColor: '#f0fdf4', padding: '1px 4px', borderRadius: '1px', fontWeight: 600 }}>
+                                      💬 WA
+                                    </span>
+                                  )}
+                                  {!isAnyEnabled && (
+                                    <span style={{ fontSize: '8px', color: '#999', backgroundColor: '#f5f5f5', padding: '1px 4px', borderRadius: '1px', fontWeight: 500 }}>
+                                      Inactive
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                             );
                           })}
@@ -3909,31 +3941,41 @@ export default function StoreDashboard() {
                                 }}
                               />
 
-                              <div style={{ display: 'flex', borderBottom: '1px solid #eaeaea', marginBottom: '10px' }}>
+                              <div style={{ display: 'flex', borderBottom: '1px solid #eaeaea', marginBottom: '12px' }}>
                                 <button
-                                  onClick={() => setAutomationModalTab('content')}
+                                  onClick={() => setAutomationModalTab('email')}
                                   style={{
-                                    flex: 1, padding: '10px 0', fontSize: '13px', fontWeight: 600,
-                                    color: automationModalTab === 'content' ? '#111' : '#b5b5b5',
+                                    flex: 1, padding: '10px 0', fontSize: '12px', fontWeight: 600,
+                                    color: automationModalTab === 'email' ? '#111' : '#b5b5b5',
                                     background: 'none', border: 'none', cursor: 'pointer',
-                                    borderBottom: automationModalTab === 'content' ? '2.5px solid #111' : '2.5px solid transparent',
+                                    borderBottom: automationModalTab === 'email' ? '2.5px solid #111' : '2.5px solid transparent',
                                     transition: 'all 0.2s'
                                   }}
-                                >Content</button>
+                                >✉ Email</button>
+                                <button
+                                  onClick={() => setAutomationModalTab('whatsapp')}
+                                  style={{
+                                    flex: 1, padding: '10px 0', fontSize: '12px', fontWeight: 600,
+                                    color: automationModalTab === 'whatsapp' ? '#111' : '#b5b5b5',
+                                    background: 'none', border: 'none', cursor: 'pointer',
+                                    borderBottom: automationModalTab === 'whatsapp' ? '2.5px solid #111' : '2.5px solid transparent',
+                                    transition: 'all 0.2s'
+                                  }}
+                                >💬 WhatsApp</button>
                                 <button
                                   onClick={() => setAutomationModalTab('style')}
                                   style={{
-                                    flex: 1, padding: '10px 0', fontSize: '13px', fontWeight: 600,
+                                    flex: 1, padding: '10px 0', fontSize: '12px', fontWeight: 600,
                                     color: automationModalTab === 'style' ? '#111' : '#b5b5b5',
                                     background: 'none', border: 'none', cursor: 'pointer',
                                     borderBottom: automationModalTab === 'style' ? '2.5px solid #111' : '2.5px solid transparent',
                                     transition: 'all 0.2s'
                                   }}
-                                >Style</button>
+                                >🎨 Style</button>
                               </div>
 
                               {/* EDIT EMAIL CONTENT */}
-                              {automationModalTab === 'content' && (
+                              {automationModalTab === 'email' && (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                                   {selectedAutomation._emailKey !== 'announcement' && (
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', border: '1px solid #e2e8f0', borderRadius: '0px', backgroundColor: '#fafafa', marginBottom: '4px' }}>
@@ -3993,6 +4035,45 @@ export default function StoreDashboard() {
                                       onChange={e => setSelectedAutomation(prev => ({ ...prev, button_text: e.target.value }))}
                                       style={{ width: '100%', padding: '10px 12px', border: '1px solid #dcdcdc', borderRadius: '2px', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }}
                                     />
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* EDIT WHATSAPP CONTENT */}
+                              {automationModalTab === 'whatsapp' && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', border: '1px solid #e2e8f0', borderRadius: '0px', backgroundColor: '#fafafa', marginBottom: '4px' }}>
+                                    <input
+                                      type="checkbox"
+                                      id="whatsapp-enabled-toggle"
+                                      checked={!!selectedAutomation.whatsapp_enabled}
+                                      onChange={e => setSelectedAutomation(prev => ({ ...prev, whatsapp_enabled: e.target.checked }))}
+                                      style={{ width: '16px', height: '16px', accentColor: '#16a34a', cursor: 'pointer' }}
+                                    />
+                                    <label htmlFor="whatsapp-enabled-toggle" style={{ fontSize: '12px', fontWeight: 600, color: '#2c2c2d', cursor: 'pointer', userSelect: 'none' }}>
+                                      Enable this WhatsApp campaign
+                                    </label>
+                                  </div>
+
+                                  <div>
+                                    <label style={{ display: 'block', fontSize: '9.5px', fontWeight: 700, color: '#a0a0a0', letterSpacing: '0.1em', marginBottom: '6px' }}>WHATSAPP MESSAGE TEMPLATE</label>
+                                    <textarea
+                                      rows={5}
+                                      value={selectedAutomation.whatsapp_template || ''}
+                                      onChange={e => setSelectedAutomation(prev => ({ ...prev, whatsapp_template: e.target.value }))}
+                                      style={{ width: '100%', padding: '10px 12px', border: '1px solid #dcdcdc', borderRadius: '2px', fontSize: '13px', outline: 'none', boxSizing: 'border-box', fontFamily: 'sans-serif', lineHeight: 1.5, resize: 'vertical' }}
+                                    />
+                                  </div>
+
+                                  <div style={{ padding: '12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '2px' }}>
+                                    <div style={{ fontSize: '10px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Available Tags</div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '10.5px', color: '#64748b', lineHeight: 1.4 }}>
+                                      <div><code>{`{client_name}`}</code> - Recipient's name (e.g. Sarah)</div>
+                                      <div><code>{`{photographer_name}`}</code> - Studio name (e.g. Nandha)</div>
+                                      <div><code>{`{discount-value}`}</code> - Discount percentage (e.g. 30%)</div>
+                                      <div><code>{`{code}`}</code> - Coupon promo code (e.g. HAPPYANI)</div>
+                                      <div><code>{`{store_url}`}</code> - Personalized gifting gallery shop link</div>
+                                    </div>
                                   </div>
                                 </div>
                               )}
@@ -4086,7 +4167,31 @@ export default function StoreDashboard() {
                         {/* RIGHT PANEL — live previews */}
                         <div style={{ flex: 1, backgroundColor: '#f6f6f6', padding: '32px', display: 'flex', flexDirection: 'column', gap: '20px', overflowY: 'auto', minHeight: 0, borderLeft: '1px solid #eee' }}>
                           
-                          {activeModal === 'edit_email' ? (
+                          {/* Channel Preview Tab Switcher */}
+                          <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', justifyContent: 'center' }}>
+                            <button
+                              onClick={() => setPreviewChannel('email')}
+                              style={{
+                                padding: '6px 14px', fontSize: '11px', fontWeight: 700, borderRadius: '20px',
+                                border: previewChannel === 'email' ? 'none' : '1px solid #dcdcdc',
+                                backgroundColor: previewChannel === 'email' ? '#2c2c2d' : '#ffffff',
+                                color: previewChannel === 'email' ? '#ffffff' : '#2c2c2d',
+                                cursor: 'pointer', outline: 'none'
+                              }}
+                            >EMAIL PREVIEW</button>
+                            <button
+                              onClick={() => setPreviewChannel('whatsapp')}
+                              style={{
+                                padding: '6px 14px', fontSize: '11px', fontWeight: 700, borderRadius: '20px',
+                                border: previewChannel === 'whatsapp' ? 'none' : '1px solid #dcdcdc',
+                                backgroundColor: previewChannel === 'whatsapp' ? '#16a34a' : '#ffffff',
+                                color: previewChannel === 'whatsapp' ? '#ffffff' : '#2c2c2d',
+                                cursor: 'pointer', outline: 'none'
+                              }}
+                            >WHATSAPP PREVIEW</button>
+                          </div>
+
+                          {activeModal === 'edit_email' && previewChannel === 'email' ? (
                             /* ─── EMAIL LIVE PREVIEW ─── */
                             <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
                               <div style={{
@@ -4188,6 +4293,118 @@ export default function StoreDashboard() {
                                   <span>View Gallery</span>
                                   <span>•</span>
                                   <span>Share</span>
+                                </div>
+                              </div>
+                            </div>
+                          ) : activeModal === 'edit_email' && previewChannel === 'whatsapp' ? (
+                            /* ─── WHATSAPP LIVE PREVIEW (SMARTPHONE VIEW) ─── */
+                            <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+                              <div style={{
+                                width: '300px',
+                                height: '510px',
+                                backgroundColor: '#ffffff',
+                                border: '10px solid #2d2d2d',
+                                borderRadius: '32px',
+                                boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                overflow: 'hidden',
+                                boxSizing: 'border-box',
+                                fontFamily: '-apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif'
+                              }}>
+                                {/* Phone Status Bar */}
+                                <div style={{ height: '22px', backgroundColor: '#075e54', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 16px', color: '#ffffff', fontSize: '9px', fontWeight: 600, letterSpacing: '0.05em' }}>
+                                  <span>10:09 AM</span>
+                                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                                    <span>📶</span>
+                                    <span>🔋</span>
+                                  </div>
+                                </div>
+
+                                {/* WhatsApp Chat Header */}
+                                <div style={{ height: '48px', backgroundColor: '#075e54', display: 'flex', alignItems: 'center', padding: '0 10px', gap: '8px', color: '#ffffff', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
+                                  <span style={{ fontSize: '15px', fontWeight: 500, cursor: 'default' }}>←</span>
+                                  <div style={{ width: '30px', height: '30px', borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 700 }}>
+                                    N
+                                  </div>
+                                  <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+                                    <span style={{ fontSize: '12.5px', fontWeight: 700, letterSpacing: '0.02em' }}>Nandha Studio</span>
+                                    <span style={{ fontSize: '9px', opacity: 0.8 }}>online</span>
+                                  </div>
+                                  <div style={{ fontSize: '14px', display: 'flex', gap: '10px', opacity: 0.9 }}>
+                                    <span>📞</span>
+                                    <span>⋮</span>
+                                  </div>
+                                </div>
+
+                                {/* Chat area */}
+                                <div style={{
+                                  flex: 1,
+                                  backgroundColor: '#efeae2',
+                                  padding: '12px',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  justifyContent: 'flex-start',
+                                  position: 'relative'
+                                }}>
+                                  {/* WhatsApp Chat Bubble */}
+                                  <div style={{
+                                    alignSelf: 'flex-end',
+                                    backgroundColor: '#d9fdd3',
+                                    padding: '8px 10px',
+                                    borderRadius: '8px 0px 8px 8px',
+                                    maxWidth: '88%',
+                                    boxShadow: '0 1px 1.5px rgba(0,0,0,0.12)',
+                                    marginBottom: '8px',
+                                    fontSize: '11px',
+                                    lineHeight: '1.45',
+                                    color: '#111111',
+                                    position: 'relative'
+                                  }}>
+                                    <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                                      {(() => {
+                                        let text = selectedAutomation.whatsapp_template || '';
+                                        const campaign = campaigns.find(c => c.id === selectedCampaign) || {};
+                                        const discountVal = campaign.discount ? `${campaign.discount}%` : '30%';
+                                        const promoCode = campaign.discountCode || 'HAPPYANI';
+                                        
+                                        return text
+                                          .replace(/{client_name}/g, 'Sarah')
+                                          .replace(/{photographer_name}/g, 'Nandha')
+                                          .replace(/{discount-value}/g, discountVal)
+                                          .replace(/{discount_value}/g, discountVal)
+                                          .replace(/{code}/g, promoCode)
+                                          .replace(/{store_url}/g, 'pixnxt.com/sarah-wedding-store');
+                                      })()}
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'flex-end', fontSize: '8px', color: '#667781', marginTop: '2px', textAlign: 'right' }}>
+                                      <span>10:09 AM ✓✓</span>
+                                    </div>
+
+                                    {/* Action Button Card */}
+                                    <div style={{
+                                      marginTop: '8px',
+                                      borderTop: '1px solid rgba(0,0,0,0.06)',
+                                      paddingTop: '6px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      gap: '4px',
+                                      color: '#008069',
+                                      fontWeight: 700,
+                                      fontSize: '10px',
+                                      cursor: 'pointer',
+                                      backgroundColor: 'rgba(255,255,255,0.4)',
+                                      borderRadius: '4px',
+                                      padding: '6px 0'
+                                    }}>
+                                      <span>
+                                        {selectedCampaign === 'anniversary' ? '🎁 Shop Anniversary Gifts' :
+                                         selectedCampaign === 'birthday' ? '🎂 Claim Birthday Special' :
+                                         '🍂 Shop Seasonal Sale'}
+                                      </span>
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
                             </div>
