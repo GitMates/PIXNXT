@@ -389,17 +389,18 @@ const GalleryView = () => {
         @media print {
           body { display: none !important; }
         }
-        .masonry-grid-container img,
-        .photo-lightbox-root img {
-          -webkit-touch-callout: none !important;
-          -webkit-user-select: none !important;
+        body {
+          transition: filter 0.15s ease-out !important;
+        }
+        /* Full body blur guard — activated on window blur / key combinations */
+        body.pixnxt-screenshot-guard {
+          filter: blur(60px) brightness(0.6) grayscale(0.5) !important;
+          pointer-events: none !important;
           user-select: none !important;
         }
-        /* Screenshot blur guard — activated on window blur / key combinations */
-        .pixnxt-screenshot-guard .masonry-grid-container img,
-        .pixnxt-screenshot-guard .photo-lightbox-root img {
-          filter: blur(40px) brightness(1.3) !important;
-          transition: filter 0.04s ease-out !important;
+        body.pixnxt-screenshot-guard img,
+        body.pixnxt-screenshot-guard video {
+          opacity: 0 !important;
         }
       `;
       document.head.appendChild(style);

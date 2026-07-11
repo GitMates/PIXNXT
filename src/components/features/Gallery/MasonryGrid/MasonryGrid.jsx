@@ -156,11 +156,174 @@ export function MasonryGrid({
             }
           : isHorizontal
             ? { gap: `${gap}px` }
+  const samplePhotoUrl = useMemo(() => {
+    if (!photos || photos.length === 0) return '';
+    const firstPhoto = photos[0];
+    return firstPhoto?.web_url || firstPhoto?.full_url || firstPhoto?.thumbnail_url || '';
+  }, [photos]);
+
+  const renderProductPreviewStyle = (productId, photoUrl) => {
+    const bgImage = photoUrl ? `url(${photoUrl})` : 'none';
+
+    if (productId === 'prints' || productId === 'print_pack' || productId === 'deckled_prints') {
+      return (
+        <div style={{
+          position: 'relative',
+          width: '100%',
+          height: '46px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflow: 'visible',
+          marginBottom: '5px'
+        }}>
+          <div style={{
+            width: '32px',
+            height: '38px',
+            backgroundImage: bgImage,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+            transform: 'rotate(-7deg) translateX(-6px)',
+            border: '2px solid #ffffff',
+            borderRadius: '1px'
+          }} />
+          <div style={{
+            width: '32px',
+            height: '38px',
+            backgroundImage: bgImage,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+            transform: 'rotate(5deg) translateX(6px)',
+            border: '2px solid #ffffff',
+            borderRadius: '1px',
+            position: 'absolute'
+          }} />
+        </div>
+      );
+    }
+
+    if (productId === 'matted_frame' || productId === 'matted_collages' || productId === 'frames' || productId === 'float_frames') {
+      return (
+        <div style={{
+          width: '100%',
+          height: '46px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: '5px'
+        }}>
+          <div style={{
+            width: '42px',
+            height: '42px',
+            border: '3.5px solid #1a1a1a',
+            padding: '3px',
+            backgroundColor: '#ffffff',
+            boxShadow: '0 3px 8px rgba(0,0,0,0.12)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxSizing: 'border-box'
+          }}>
+            <div style={{
+              width: '100%',
+              height: '100%',
+              backgroundImage: bgImage,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center'
+            }} />
+          </div>
+        </div>
+      );
+    }
+
+    if (productId === 'canvas') {
+      return (
+        <div style={{
+          width: '100%',
+          height: '46px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: '5px'
+        }}>
+          <div style={{
+            width: '44px',
+            height: '34px',
+            backgroundImage: bgImage,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            boxShadow: '2px 4px 8px rgba(0,0,0,0.22), -1px 2px 4px rgba(0,0,0,0.1)',
+            border: '0.5px solid rgba(0,0,0,0.08)'
+          }} />
+        </div>
+      );
+    }
+
+    return (
+      <div style={{
+        width: '100%',
+        height: '46px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: '5px'
+      }}>
+        <div style={{
+          width: '38px',
+          height: '38px',
+          backgroundImage: bgImage,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          boxShadow: '0 2px 5px rgba(0,0,0,0.15)',
+          border: '1.5px solid #eaeaea'
+        }} />
+      </div>
+    );
+  };
+
+  return (
+    <Motion.div
+      key={photoListKey}
+      variants={container}
+      initial="hidden"
+      animate="show"
+      className={cn(
+        'w-full max-w-full min-w-0 masonry-grid-container',
+        isHorizontal ? 'flex flex-wrap masonry-grid-horizontal items-start' : 'block masonry-grid-vertical',
+        centerVideosLayout && 'masonry-grid-videos-only',
+        (isPreviewMobile || isMobileViewport) && 'preview-mobile',
+        className
+      )}
+      style={
+        centerVideosLayout
+          ? {
+              gap: `${gap}px`,
+              '--video-tile-max-width': `${VIDEO_TILE_MAX_WIDTH_PX}px`,
+              '--video-tile-aspect': String(VIDEO_TILE_ASPECT),
+            }
+          : isHorizontal
+            ? { gap: `${gap}px` }
             : verticalColumnStyle
       }
     >
       {displayPhotos.map((photo, index) => {
         if (photo.isPromoBanner) {
+          const isPhotoBanner = photo.type === 'photo_banner';
+          const bannerConfig = isPhotoBanner 
+            ? activeCampaign?.banners?.photo_banner 
+            : activeCampaign?.banners?.store_rotator;
+
+          const bannerStyle = {
+            bg: bannerConfig?.bg_color || (isPhotoBanner ? '#d4c9b5' : '#eae5d8'),
+            titleColor: bannerConfig?.title_color || (isPhotoBanner ? '#1a1a1a' : '#2c3e2d'),
+            subtitleColor: bannerConfig?.subtitle_color || (isPhotoBanner ? '#444444' : '#4a5a4b'),
+            ctaBg: bannerConfig?.cta_bg || (isPhotoBanner ? '#1a1a1a' : '#3a4a38'),
+            ctaColor: bannerConfig?.cta_color || '#ffffff',
+            font: bannerConfig?.font || 'Playfair Display'
+          };
+
           return (
             <Motion.div
               key={photo.id}
@@ -177,58 +340,52 @@ export function MasonryGrid({
                 '--grid-gap': `${gap}px`,
                 marginBottom: `${gap}px`,
                 width: '100%',
-                aspectRatio: '1 / 1'
+                aspectRatio: '1 / 1',
+                breakBefore: 'column',
+                WebkitColumnBreakBefore: 'always'
               }}
               onClick={() => onVisitShop?.()}
             >
               <div style={{
                 width: '100%',
                 height: '100%',
-                backgroundColor: photo.type === 'photo_banner' 
-                  ? (activeCampaign?.banners?.photo_banner?.bg_color || '#d4c9b5')
-                  : (activeCampaign?.banners?.store_rotator?.bg_color || '#eae5d8'),
-                padding: '16px',
+                backgroundColor: bannerStyle.bg,
+                padding: '20px 16px',
                 boxSizing: 'border-box',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
                 textAlign: 'center',
-                fontFamily: "'Inter', sans-serif"
+                fontFamily: bannerStyle.font === 'Playfair Display' ? "'Playfair Display', serif" : "'Inter', sans-serif"
               }}>
-                {photo.type === 'photo_banner' ? (
+                {isPhotoBanner ? (
                   <>
                     <h3 style={{
                       fontSize: '14px', fontWeight: 700,
-                      fontFamily: "'Playfair Display', serif",
-                      color: '#1a1a1a', marginBottom: '4px',
+                      color: bannerStyle.titleColor, marginBottom: '4px',
                       textTransform: 'uppercase', letterSpacing: '0.04em'
                     }}>
-                      {activeCampaign?.banners?.photo_banner?.title || 'Special Promotion'}
+                      {bannerConfig?.title || 'Special Promotion'}
                     </h3>
-                    <p style={{ fontSize: '10px', color: '#444444', marginBottom: '10px', lineHeight: 1.3 }}>
-                      {activeCampaign?.banners?.photo_banner?.subtitle || 'Custom prints and gifts at exclusive discounted pricing'}
+                    <p style={{ fontSize: '10px', color: bannerStyle.subtitleColor, marginBottom: '10px', lineHeight: 1.3 }}>
+                      {bannerConfig?.subtitle || 'Custom prints and gifts at exclusive discounted pricing'}
                     </p>
                     
-                    {/* Active Products thumbnails fetched from printstore_products */}
+                    {/* Dynamic framed product cards using actual collection couple photos */}
                     {activeProducts && activeProducts.length > 0 && (
                       <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', width: '100%', marginBottom: '12px' }}>
                         {activeProducts.slice(0, 3).map((prod, idx) => {
-                          const imgUrl = prod.image_url || prod.image;
                           return (
                             <div key={prod.id || idx} style={{
                               flex: 1, backgroundColor: '#ffffff', border: '1px solid rgba(0,0,0,0.04)',
-                              padding: '6px 3px', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 0
+                              padding: '5px 2px', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 0
                             }}>
-                              <img 
-                                src={imgUrl} 
-                                alt={prod.name} 
-                                style={{ width: '100%', height: '32px', objectFit: 'cover', marginBottom: '2px' }} 
-                              />
+                              {renderProductPreviewStyle(prod.product_type || prod.id, samplePhotoUrl)}
                               <span style={{
                                 fontSize: '7px', fontWeight: 600, color: '#1a1a1a',
                                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                                width: '100%', textAlign: 'center'
+                                width: '100%', textAlign: 'center', marginTop: '2px'
                               }}>{prod.name}</span>
                             </div>
                           );
@@ -240,7 +397,7 @@ export function MasonryGrid({
                       onClick={(e) => { e.stopPropagation(); onVisitShop?.(); }}
                       style={{
                         padding: '6px 16px', fontSize: '8px', fontWeight: 700,
-                        backgroundColor: '#1a1a1a', color: '#ffffff', border: 'none',
+                        backgroundColor: bannerStyle.ctaBg, color: bannerStyle.ctaColor, border: 'none',
                         textTransform: 'uppercase', letterSpacing: '0.08em', cursor: 'pointer'
                       }}
                     >
@@ -250,22 +407,21 @@ export function MasonryGrid({
                 ) : (
                   <>
                     <span style={{ fontSize: '8px', fontWeight: 700, letterSpacing: '0.12em', color: '#bfa38a', textTransform: 'uppercase', marginBottom: '4px' }}>
-                      {activeCampaign?.banners?.store_rotator?.code ? activeCampaign.banners.store_rotator.code.replace(/{code}/g, activeCampaign.discountCode || 'HAPPYANI') : 'EXCLUSIVE OFFER'}
+                      {bannerConfig?.code ? bannerConfig.code.replace(/{code}/g, activeCampaign?.discountCode || 'HAPPYANI') : 'EXCLUSIVE OFFER'}
                     </span>
                     <h3 style={{
                       fontSize: '14px', fontWeight: 700, margin: '0 0 4px 0',
-                      fontFamily: activeCampaign?.banners?.store_rotator?.font === 'Playfair Display' ? "'Playfair Display', serif" : "'Inter', sans-serif",
-                      color: activeCampaign?.banners?.store_rotator?.title_color || '#2c3e2d', textTransform: 'uppercase'
+                      color: bannerStyle.titleColor, textTransform: 'uppercase'
                     }}>
                       {(() => {
-                        let text = activeCampaign?.banners?.store_rotator?.title || '';
+                        let text = bannerConfig?.title || '';
                         const discountVal = activeCampaign?.discount ? `${activeCampaign.discount}%` : '30%';
                         return text.replace(/{discount-value}/g, discountVal).replace(/{discount_value}/g, discountVal);
                       })()}
                     </h3>
-                    <p style={{ fontSize: '10px', lineHeight: 1.3, color: activeCampaign?.banners?.store_rotator?.subtitle_color || '#4a5a4b', marginBottom: '10px' }}>
+                    <p style={{ fontSize: '10px', lineHeight: 1.3, color: bannerStyle.subtitleColor, marginBottom: '10px' }}>
                       {(() => {
-                        let text = activeCampaign?.banners?.store_rotator?.subtitle || '';
+                        let text = bannerConfig?.subtitle || '';
                         const discountVal = activeCampaign?.discount ? `${activeCampaign.discount}%` : '30%';
                         const expDate = new Date(); expDate.setDate(expDate.getDate() + 14);
                         const expFormatted = expDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
@@ -276,12 +432,12 @@ export function MasonryGrid({
                       onClick={(e) => { e.stopPropagation(); onVisitShop?.(); }}
                       style={{
                         padding: '6px 16px', fontSize: '8px', fontWeight: 700,
-                        backgroundColor: activeCampaign?.banners?.store_rotator?.cta_bg || '#3a4a38',
-                        color: activeCampaign?.banners?.store_rotator?.cta_color || '#ffffff',
+                        backgroundColor: bannerStyle.ctaBg,
+                        color: bannerStyle.ctaColor,
                         border: 'none', textTransform: 'uppercase', letterSpacing: '0.08em', cursor: 'pointer'
                       }}
                     >
-                      {activeCampaign?.banners?.store_rotator?.cta || 'CLAIM OFFER'}
+                      {bannerConfig?.cta || 'CLAIM OFFER'}
                     </button>
                   </>
                 )}
