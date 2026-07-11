@@ -100,6 +100,65 @@ export default function StoreDashboard() {
         text_banner: { enabled: true, text: 'Happy anniversary! Enjoy {discount-value} off print products, valid thru {exp-date}! Enter {code} at checkout', bg_color: '#4a5338', text_color: '#ffffff' },
         large_banner: { enabled: false, title: 'Relive It in Print', subtitle: 'Get these moments off the screen and into your hands with {discount-value} off, this {exp-date}.', cta: 'Visit Shop', bg_color: '#eae5d8', title_color: '#2c3e2d', subtitle_color: '#4a5a4b', cta_bg: '#3a4a38', cta_color: '#ffffff', font: 'Playfair Display', desktop_image: '', mobile_image: '' },
         photo_banner: { enabled: false, title: 'One Year Anniversary', subtitle: '20% off all prints', bg_color: '#d4c9b5', desktop_image: '', mobile_image: '' },
+        store_rotator: { enabled: false, title: 'Your Wedding in Print', subtitle: 'Anniversary Gift! Celebrate those special moments with {discount-value} off all prints until {exp-date}.', code: 'Code: {code}', cta: 'CLAIM OFFER', bg_color: '#eae5d8', title_color: '#2c3e2d', subtitle_color: '#4a5a4b', cta_bg: '#3a4a38', cta_color: '#ffffff', font: 'Playfair Display', desktop_image: '', mobile_image: '' }
+      },
+      emails: {
+        announcement: {
+          enabled: true,
+          subject: "I didn't forget your anniversary! Print your favorite moments",
+          title: "HAPPY ANNIVERSARY! {discount-value} OFF ALL WEDDING PRINT PRODUCTS",
+          button_text: "VISIT SHOP",
+          bg_color: "#ffffff",
+          text_color: "#000000",
+          btn_color: "#5d6050",
+          btn_text_color: "#ffffff",
+          logo_type: "Dark Logo, for light background",
+          icons_type: "Dark Icons, for light background",
+          layout: "Standard",
+          custom_image: ""
+        },
+        reminder_1w: {
+          enabled: false,
+          subject: "Anniversary gift code is expiring soon!",
+          title: "1 WEEK LEFT TO ENJOY {discount-value} OFF ALL WEDDING PRINTS",
+          button_text: "VISIT SHOP",
+          bg_color: "#ffffff",
+          text_color: "#000000",
+          btn_color: "#5d6050",
+          btn_text_color: "#ffffff",
+          logo_type: "Dark Logo, for light background",
+          icons_type: "Dark Icons, for light background",
+          layout: "Standard",
+          custom_image: ""
+        },
+        reminder_3d: {
+          enabled: true,
+          subject: "{exp-days} left to enjoy your {discount-value} off",
+          title: "PRINT YOUR WEDDING PHOTOS FOR {DISCOUNT-VALUE} OFF",
+          button_text: "VISIT STORE",
+          bg_color: "#ffffff",
+          text_color: "#000000",
+          btn_color: "#5d6050",
+          btn_text_color: "#ffffff",
+          logo_type: "Dark Logo, for light background",
+          icons_type: "Dark Icons, for light background",
+          layout: "Standard",
+          custom_image: ""
+        },
+        reminder_1d: {
+          enabled: false,
+          subject: "Last day: {discount-value} off prints",
+          title: "24 HOURS LEFT TO PRINT YOUR MEMORIES WITH {DISCOUNT-VALUE} OFF",
+          button_text: "VISIT STORE",
+          bg_color: "#ffffff",
+          text_color: "#000000",
+          btn_color: "#5d6050",
+          btn_text_color: "#ffffff",
+          logo_type: "Dark Logo, for light background",
+          icons_type: "Dark Icons, for light background",
+          layout: "Standard",
+          custom_image: ""
+        }
       }
     },
     {
@@ -118,6 +177,65 @@ export default function StoreDashboard() {
         text_banner: { enabled: false, text: 'Happy Birthday! Enjoy {discount-value} off all prints today only!', bg_color: '#7c3aed', text_color: '#ffffff' },
         large_banner: { enabled: false, title: 'Happy Birthday!', subtitle: 'Celebrate with {discount-value} off all prints today only!', cta: 'Shop Now', bg_color: '#f0e8f5', title_color: '#4a1d96', subtitle_color: '#6d28d9', cta_bg: '#7c3aed', cta_color: '#ffffff', font: 'Playfair Display', desktop_image: '', mobile_image: '' },
         photo_banner: { enabled: false, title: 'Birthday Offer', subtitle: 'Celebrate with prints!', bg_color: '#e9d5ff', desktop_image: '', mobile_image: '' },
+        store_rotator: { enabled: false, title: 'Your Birthday in Print', subtitle: 'Happy Birthday! Celebrate with {discount-value} off all prints until {exp-date}.', code: 'Code: {code}', cta: 'CLAIM OFFER', bg_color: '#f0e8f5', title_color: '#4a1d96', subtitle_color: '#6d28d9', cta_bg: '#7c3aed', cta_color: '#ffffff', font: 'Playfair Display', desktop_image: '', mobile_image: '' }
+      },
+      emails: {
+        announcement: {
+          enabled: true,
+          subject: "Happy Birthday! Celebrate with prints",
+          title: "HAPPY BIRTHDAY! Enjoy {discount-value} OFF ALL PRINTS TODAY ONLY",
+          button_text: "SHOP NOW",
+          bg_color: "#ffffff",
+          text_color: "#000000",
+          btn_color: "#7c3aed",
+          btn_text_color: "#ffffff",
+          logo_type: "Dark Logo, for light background",
+          icons_type: "Dark Icons, for light background",
+          layout: "Standard",
+          custom_image: ""
+        },
+        reminder_1w: {
+          enabled: false,
+          subject: "Your Birthday offer is expiring soon!",
+          title: "1 WEEK LEFT TO ENJOY {discount-value} OFF PRINTS",
+          button_text: "SHOP NOW",
+          bg_color: "#ffffff",
+          text_color: "#000000",
+          btn_color: "#7c3aed",
+          btn_text_color: "#ffffff",
+          logo_type: "Dark Logo, for light background",
+          icons_type: "Dark Icons, for light background",
+          layout: "Standard",
+          custom_image: ""
+        },
+        reminder_3d: {
+          enabled: true,
+          subject: "Only 3 days left for your birthday promo!",
+          title: "CELEBRATE YOUR BIRTHDAY WITH {DISCOUNT-VALUE} OFF PRINTS",
+          button_text: "SHOP NOW",
+          bg_color: "#ffffff",
+          text_color: "#000000",
+          btn_color: "#7c3aed",
+          btn_text_color: "#ffffff",
+          logo_type: "Dark Logo, for light background",
+          icons_type: "Dark Icons, for light background",
+          layout: "Standard",
+          custom_image: ""
+        },
+        reminder_1d: {
+          enabled: false,
+          subject: "Last chance: birthday discount code",
+          title: "LAST 24 HOURS FOR BIRTHDAY {DISCOUNT-VALUE} OFF",
+          button_text: "SHOP NOW",
+          bg_color: "#ffffff",
+          text_color: "#000000",
+          btn_color: "#7c3aed",
+          btn_text_color: "#ffffff",
+          logo_type: "Dark Logo, for light background",
+          icons_type: "Dark Icons, for light background",
+          layout: "Standard",
+          custom_image: ""
+        }
       }
     },
     {
@@ -136,6 +254,65 @@ export default function StoreDashboard() {
         text_banner: { enabled: false, text: 'Season sale! {discount-value} off all prints — limited time offer!', bg_color: '#92400e', text_color: '#ffffff' },
         large_banner: { enabled: false, title: 'Season Sale', subtitle: '{discount-value} off everything — limited time only!', cta: 'Shop Sale', bg_color: '#fef3e8', title_color: '#92400e', subtitle_color: '#b45309', cta_bg: '#d97706', cta_color: '#ffffff', font: 'Georgia', desktop_image: '', mobile_image: '' },
         photo_banner: { enabled: false, title: 'Season Sale', subtitle: 'Limited time offer!', bg_color: '#fde68a', desktop_image: '', mobile_image: '' },
+        store_rotator: { enabled: false, title: 'Season Sale', subtitle: 'Limited Time Offer! Enjoy {discount-value} off all prints until {exp-date}.', code: 'Code: {code}', cta: 'CLAIM OFFER', bg_color: '#fef3e8', title_color: '#92400e', subtitle_color: '#b45309', cta_bg: '#d97706', cta_color: '#ffffff', font: 'Georgia', desktop_image: '', mobile_image: '' }
+      },
+      emails: {
+        announcement: {
+          enabled: true,
+          subject: "Season sale! {discount-value} off all prints",
+          title: "SEASON SALE! {discount-value} OFF ALL PRINTS",
+          button_text: "SHOP SALE",
+          bg_color: "#ffffff",
+          text_color: "#000000",
+          btn_color: "#d97706",
+          btn_text_color: "#ffffff",
+          logo_type: "Dark Logo, for light background",
+          icons_type: "Dark Icons, for light background",
+          layout: "Standard",
+          custom_image: ""
+        },
+        reminder_1w: {
+          enabled: false,
+          subject: "Season sale: final week to save!",
+          title: "1 WEEK LEFT FOR SEASONAL {DISCOUNT-VALUE} OFF",
+          button_text: "SHOP SALE",
+          bg_color: "#ffffff",
+          text_color: "#000000",
+          btn_color: "#d97706",
+          btn_text_color: "#ffffff",
+          logo_type: "Dark Logo, for light background",
+          icons_type: "Dark Icons, for light background",
+          layout: "Standard",
+          custom_image: ""
+        },
+        reminder_3d: {
+          enabled: true,
+          subject: "3 days left for seasonal promo",
+          title: "CELEBRATE THE SEASON WITH {DISCOUNT-VALUE} OFF ALL PRINTS",
+          button_text: "SHOP SALE",
+          bg_color: "#ffffff",
+          text_color: "#000000",
+          btn_color: "#d97706",
+          btn_text_color: "#ffffff",
+          logo_type: "Dark Logo, for light background",
+          icons_type: "Dark Icons, for light background",
+          layout: "Standard",
+          custom_image: ""
+        },
+        reminder_1d: {
+          enabled: false,
+          subject: "Last chance for seasonal savings!",
+          title: "LAST 24 HOURS TO GET {DISCOUNT-VALUE} OFF ALL PRINTS",
+          button_text: "SHOP SALE",
+          bg_color: "#ffffff",
+          text_color: "#000000",
+          btn_color: "#d97706",
+          btn_text_color: "#ffffff",
+          logo_type: "Dark Logo, for light background",
+          icons_type: "Dark Icons, for light background",
+          layout: "Standard",
+          custom_image: ""
+        }
       }
     },
   ]);
@@ -2356,7 +2533,7 @@ export default function StoreDashboard() {
                           </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0, color: '#2c2c2d', fontSize: '13px', fontWeight: 600 }}>
-                          <span style={{ color: '#b5b5b5', cursor: 'pointer', fontSize: '14px', marginRight: '6px' }}>✎</span>
+                          <span style={{ color: '#b5b5b5', cursor: 'pointer', fontSize: '14px', marginRight: '6px' }} onClick={() => { setSelectedAutomation({ startDays: campaign.startDays, startMonths: 0, _campaignId: campaign.id }); setActiveModal('start_date'); }}>✎</span>
                           <span>{campaign.startDays} days</span>
                         </div>
                       </div>
@@ -2373,7 +2550,7 @@ export default function StoreDashboard() {
                           </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0, color: '#2c2c2d', fontSize: '13px', fontWeight: 600, textAlign: 'right' }}>
-                          <span style={{ color: '#b5b5b5', cursor: 'pointer', fontSize: '14px', marginRight: '4px' }}>✎</span>
+                          <span style={{ color: '#b5b5b5', cursor: 'pointer', fontSize: '14px', marginRight: '4px' }} onClick={() => { setSelectedAutomation({ durationDays: campaign.durationDays, durationMonths: 0, adjustTime: true, _campaignId: campaign.id }); setActiveModal('duration'); }}>✎</span>
                           <div>
                             <div>{campaign.durationDays} days</div>
                             <div style={{ fontSize: '10.5px', color: '#888', fontWeight: 400, marginTop: '2px' }}>Adjust time to 11:59PM</div>
@@ -2393,7 +2570,7 @@ export default function StoreDashboard() {
                           </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0, color: '#2c2c2d', fontSize: '13px', fontWeight: 600, textAlign: 'right' }}>
-                          <span style={{ color: '#b5b5b5', cursor: 'pointer', fontSize: '14px', marginRight: '4px' }}>✎</span>
+                          <span style={{ color: '#b5b5b5', cursor: 'pointer', fontSize: '14px', marginRight: '4px' }} onClick={() => { setSelectedAutomation({ discount: campaign.discount, discountCode: campaign.discountCode, type: '% OFF', description: '{discount-value} OFF', limitProducts: true, allowStacking: false, freeShipping: false, minOrder: '0', ordersLimit: '1', _campaignId: campaign.id }); setActiveModal('discount'); }}>✎</span>
                           <div>
                             <div>{campaign.discount}% off</div>
                             <div style={{ fontSize: '11px', color: '#666', fontWeight: 400, marginTop: '2px' }}>Code: {campaign.discountCode}</div>
@@ -2415,20 +2592,21 @@ export default function StoreDashboard() {
                         </div>
 
                         {/* Banner preview grid */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap', flex: 1, justifyContent: 'flex-end' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap', flex: 1, justifyContent: 'flex-end' }}>
                           {[
                             {
                               key: 'text_banner',
                               label: 'Text Banner',
                               enabled: campaign.banners.text_banner.enabled,
                               thumb: (
-                                <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#f2f2f2' }}>
-                                  <div style={{ height: '12px', backgroundColor: campaign.banners.text_banner.bg_color || '#4a5338' }} />
+                                <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#ffffff' }}>
+                                  <div style={{ height: '6px', backgroundColor: '#bfa38a' }} />
                                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '6px', gap: '4px' }}>
-                                    <div style={{ width: '35%', height: '4px', backgroundColor: '#e2e2e2', borderRadius: '1px' }} />
+                                    <div style={{ width: '40%', height: '3px', backgroundColor: '#f0f0f0' }} />
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px' }}>
-                                      {[1, 2, 3].map(i => <div key={i} style={{ height: '16px', backgroundColor: '#e2e2e2', borderRadius: '1.5px' }} />)}
+                                      {[1, 2, 3].map(i => <div key={i} style={{ height: '14px', backgroundColor: '#f0f0f0' }} />)}
                                     </div>
+                                    <div style={{ width: '80%', height: '3px', backgroundColor: '#f0f0f0', marginTop: '2px' }} />
                                   </div>
                                 </div>
                               )
@@ -2438,14 +2616,12 @@ export default function StoreDashboard() {
                               label: 'Large Banner',
                               enabled: campaign.banners.large_banner.enabled,
                               thumb: (
-                                <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#f2f2f2' }}>
-                                  <div style={{ height: '24px', backgroundColor: campaign.banners.large_banner.bg_color || '#cbbca3', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <div style={{ width: '40%', height: '4px', backgroundColor: 'rgba(255,255,255,0.7)', borderRadius: '1px' }} />
-                                  </div>
-                                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '6px', gap: '4px' }}>
-                                    <div style={{ width: '35%', height: '4px', backgroundColor: '#e2e2e2', borderRadius: '1px' }} />
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px' }}>
-                                      {[1, 2, 3].map(i => <div key={i} style={{ height: '12px', backgroundColor: '#e2e2e2', borderRadius: '1.5px' }} />)}
+                                <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#ffffff' }}>
+                                  <div style={{ height: '18px', backgroundColor: '#bfa38a', margin: '4px 4px 0px' }} />
+                                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '4px 6px', gap: '3px' }}>
+                                    <div style={{ width: '30%', height: '3px', backgroundColor: '#f0f0f0' }} />
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '3px' }}>
+                                      {[1, 2, 3].map(i => <div key={i} style={{ height: '10px', backgroundColor: '#f0f0f0' }} />)}
                                     </div>
                                   </div>
                                 </div>
@@ -2456,37 +2632,33 @@ export default function StoreDashboard() {
                               label: 'Photo Banner',
                               enabled: campaign.banners.photo_banner.enabled,
                               thumb: (
-                                <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#f2f2f2' }}>
-                                  <div style={{ height: '24px', backgroundColor: '#e4dec9', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', padding: '0 4px', backgroundImage: campaign.banners.photo_banner.desktop_image ? `url(${campaign.banners.photo_banner.desktop_image})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center' }}>
-                                    <div style={{ width: '12px', height: '12px', backgroundColor: 'rgba(255,255,255,0.8)', borderRadius: '1px' }} />
-                                    <div style={{ flex: 1, height: '4px', backgroundColor: 'rgba(255,255,255,0.8)', borderRadius: '1px' }} />
-                                  </div>
-                                  <div style={{ flex: 1, display: 'flex', padding: '6px', gap: '4px' }}>
-                                    <div style={{ flex: 1, backgroundColor: '#e2e2e2', borderRadius: '1.5px' }} />
-                                    <div style={{ flex: 1, backgroundColor: '#e2e2e2', borderRadius: '1.5px' }} />
+                                <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#ffffff', padding: '4px', boxSizing: 'border-box' }}>
+                                  <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '3px' }}>
+                                    <div style={{ backgroundColor: '#f0f0f0' }} />
+                                    <div style={{ backgroundColor: '#f0f0f0' }} />
+                                    <div style={{ backgroundColor: '#f0f0f0' }} />
+                                    <div style={{ backgroundColor: '#f0f0f0' }} />
+                                    <div style={{ backgroundColor: '#bfa38a' }} />
+                                    <div style={{ backgroundColor: '#f0f0f0' }} />
+                                    <div style={{ backgroundColor: '#f0f0f0' }} />
+                                    <div style={{ backgroundColor: '#f0f0f0' }} />
+                                    <div style={{ backgroundColor: '#f0f0f0' }} />
                                   </div>
                                 </div>
                               )
                             },
-                            {
-                              key: 'product_row',
-                              label: 'Product Row',
-                              enabled: false,
-                              isPlus: true,
-                              thumb: (
-                                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fafafa', color: '#cccccc', fontSize: '22px', fontWeight: 300 }}>+</div>
-                              )
-                            },
+
                             {
                               key: 'store_rotator',
                               label: 'Store Rotator',
-                              enabled: false,
+                              enabled: campaign.banners.store_rotator.enabled,
                               thumb: (
-                                <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#f2f2f2' }}>
-                                  <div style={{ height: '16px', backgroundColor: '#dfdcd6', borderRadius: '1px', margin: '4px 4px 0' }} />
-                                  <div style={{ flex: 1, display: 'flex', padding: '4px 6px', gap: '4px' }}>
-                                    <div style={{ flex: 1, backgroundColor: '#e2e2e2', borderRadius: '1.5px' }} />
-                                    <div style={{ flex: 1, backgroundColor: '#e2e2e2', borderRadius: '1.5px' }} />
+                                <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#ffffff' }}>
+                                  <div style={{ height: '18px', backgroundColor: '#bfa38a', margin: '4px 4px 0px' }} />
+                                  <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', padding: '4px 6px', gap: '3px' }}>
+                                    <div style={{ backgroundColor: '#f0f0f0' }} />
+                                    <div style={{ backgroundColor: '#f0f0f0' }} />
+                                    <div style={{ backgroundColor: '#f0f0f0' }} />
                                   </div>
                                 </div>
                               )
@@ -2495,29 +2667,22 @@ export default function StoreDashboard() {
                             <div
                               key={item.key}
                               onClick={() => {
-                                if (item.isPlus) return;
                                 setSelectedAutomation({ ...campaign.banners[item.key], _campaignId: campaign.id, _bannerKey: item.key });
                                 setActiveModal(item.key);
                               }}
-                              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: item.isPlus ? 'default' : 'pointer' }}
+                              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
                             >
                               <div style={{
                                 width: '84px', height: '62px',
-                                border: item.enabled ? '2.5px solid #2c2c2d' : '1px solid #e2e8f0',
-                                borderRadius: '4px', overflow: 'hidden', position: 'relative',
-                                opacity: item.enabled ? 1 : 0.65,
+                                border: '1px solid #dcdcdc',
+                                borderRadius: '0px', overflow: 'hidden', position: 'relative',
                                 transition: 'all 0.2s',
                                 boxSizing: 'border-box'
                               }}>
                                 {item.thumb}
-                                {item.enabled && (
-                                  <div style={{ position: 'absolute', top: '3px', left: '3px', width: '13px', height: '13px', borderRadius: '50%', backgroundColor: '#2c2c2d', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <span style={{ color: '#fff', fontSize: '8px', fontWeight: 900 }}>✓</span>
-                                  </div>
-                                )}
                               </div>
-                              <span style={{ fontSize: '11px', color: item.enabled ? '#2c2c2d' : '#888', fontWeight: item.enabled ? 600 : 400 }}>
-                                {item.enabled && <span style={{ marginRight: '2px' }}>✓ </span>}{item.label}
+                              <span style={{ fontSize: '11px', color: '#2c2c2d', fontWeight: item.enabled ? 600 : 400 }}>
+                                {item.enabled ? `✓ ${item.label}` : item.label}
                               </span>
                             </div>
                           ))}
@@ -2537,79 +2702,89 @@ export default function StoreDashboard() {
                         </div>
 
                         {/* Email preview grid */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap', flex: 1, justifyContent: 'flex-end' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap', flex: 1, justifyContent: 'flex-end' }}>
                           {[
-                            {
-                              key: 'announcement',
-                              label: 'Announcement',
-                              enabled: true,
-                              thumb: (
-                                <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#ffffff', padding: '6px', boxSizing: 'border-box' }}>
-                                  <div style={{ flex: 1, border: '1px solid #eee', display: 'flex', flexDirection: 'column', padding: '4px', gap: '4px' }}>
-                                    <div style={{ height: '14px', backgroundColor: '#e6ded3', borderRadius: '1px' }} />
-                                    <div style={{ width: '60%', height: '4px', backgroundColor: '#efefef', borderRadius: '0.5px' }} />
-                                    <div style={{ width: '40%', height: '4px', backgroundColor: '#efefef', borderRadius: '0.5px' }} />
+                            { key: 'announcement', label: 'Announcement' },
+                            { key: 'reminder_1w', label: 'Reminder 1 Week' },
+                            { key: 'reminder_3d', label: 'Reminder 3 Days' },
+                            { key: 'reminder_1d', label: 'Reminder 1 Day' }
+                          ].map(item => {
+                            const emailConfig = campaign.emails[item.key] || {};
+                            const isEnabled = emailConfig.enabled !== false;
+
+                            return (
+                              <div
+                                key={item.key}
+                                onClick={() => {
+                                  if (isEnabled) {
+                                    setSelectedAutomation({ ...emailConfig, _campaignId: campaign.id, _emailKey: item.key });
+                                    setAutomationModalTab('content');
+                                    setActiveModal('edit_email');
+                                  } else {
+                                    // Enable it and open
+                                    const newConfig = { ...emailConfig, enabled: true };
+                                    setCampaigns(prev => prev.map(c => c.id === campaign.id
+                                      ? { ...c, emails: { ...c.emails, [item.key]: newConfig } }
+                                      : c
+                                    ));
+                                    setSelectedAutomation({ ...newConfig, _campaignId: campaign.id, _emailKey: item.key });
+                                    setAutomationModalTab('content');
+                                    setActiveModal('edit_email');
+                                  }
+                                }}
+                                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', cursor: 'pointer' }}
+                              >
+                                {isEnabled ? (
+                                  /* Tall vertical card view */
+                                  <div style={{
+                                    width: '58px', height: '82px',
+                                    border: '1px solid #dcdcdc',
+                                    backgroundColor: '#ffffff',
+                                    display: 'flex', flexDirection: 'column',
+                                    padding: '6px',
+                                    boxSizing: 'border-box',
+                                    position: 'relative',
+                                    boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
+                                  }}>
+                                    <div style={{
+                                      width: '100%',
+                                      height: '28px',
+                                      backgroundColor: '#bfa38a',
+                                      borderRadius: '1px'
+                                    }} />
+                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '3px', marginTop: '6px' }}>
+                                      <div style={{ width: '70%', height: '3px', backgroundColor: '#f0f0f0' }} />
+                                      <div style={{ width: '40%', height: '3px', backgroundColor: '#f0f0f0' }} />
+                                    </div>
                                   </div>
-                                </div>
-                              )
-                            },
-                            {
-                              key: 'reminder_1',
-                              label: 'Reminder 1 Week',
-                              enabled: false,
-                              isPlus: true,
-                              thumb: (
-                                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fafafa', color: '#cccccc', fontSize: '22px', fontWeight: 300 }}>+</div>
-                              )
-                            },
-                            {
-                              key: 'reminder_3',
-                              label: 'Reminder 3 Days',
-                              enabled: true,
-                              thumb: (
-                                <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#ffffff', padding: '6px', boxSizing: 'border-box' }}>
-                                  <div style={{ flex: 1, border: '1px solid #eee', display: 'flex', flexDirection: 'column', padding: '4px', gap: '4px' }}>
-                                    <div style={{ height: '14px', backgroundColor: '#e2dacf', borderRadius: '1px' }} />
-                                    <div style={{ width: '50%', height: '4px', backgroundColor: '#efefef', borderRadius: '0.5px' }} />
-                                    <div style={{ width: '30%', height: '4px', backgroundColor: '#efefef', borderRadius: '0.5px' }} />
-                                  </div>
-                                </div>
-                              )
-                            },
-                            {
-                              key: 'reminder_1d',
-                              label: 'Reminder 1 Day',
-                              enabled: false,
-                              isPlus: true,
-                              thumb: (
-                                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fafafa', color: '#cccccc', fontSize: '22px', fontWeight: 300 }}>+</div>
-                              )
-                            }
-                          ].map(item => (
-                            <div
-                              key={item.key}
-                              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}
-                            >
-                              <div style={{
-                                width: '64px', height: '80px',
-                                border: item.enabled ? '2.5px solid #2c2c2d' : '1px solid #e2e8f0',
-                                borderRadius: '4px', overflow: 'hidden', position: 'relative',
-                                opacity: item.enabled ? 1 : 0.65,
-                                boxSizing: 'border-box',
-                                boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-                              }}>
-                                {item.thumb}
-                                {item.enabled && (
-                                  <div style={{ position: 'absolute', top: '3px', left: '3px', width: '13px', height: '13px', borderRadius: '50%', backgroundColor: '#2c2c2d', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <span style={{ color: '#fff', fontSize: '8px', fontWeight: 900 }}>✓</span>
+                                ) : (
+                                  /* Landscape plus card view */
+                                  <div style={{
+                                    width: '76px', height: '60px',
+                                    border: '1px solid #e2e8f0',
+                                    backgroundColor: '#ffffff',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    boxSizing: 'border-box',
+                                    boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
+                                  }}>
+                                    <span style={{ fontSize: '20px', color: '#cbd5e1', fontWeight: 300 }}>+</span>
                                   </div>
                                 )}
+                                
+                                <span style={{
+                                  fontSize: '11px',
+                                  color: isEnabled ? '#2c2c2d' : '#8c8c8c',
+                                  fontWeight: isEnabled ? 600 : 400,
+                                  textAlign: 'center',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '3px'
+                                }}>
+                                  {isEnabled && item.key !== 'announcement' ? `✓ ${item.label}` : item.label}
+                                </span>
                               </div>
-                              <span style={{ fontSize: '11px', color: item.enabled ? '#2c2c2d' : '#888', fontWeight: item.enabled ? 600 : 400 }}>
-                                {item.label}
-                              </span>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
 
@@ -2617,7 +2792,6 @@ export default function StoreDashboard() {
                   </div>
                 );
               })()}
-              {/* ─── AUTOMATION MODAL ─── */}
               {/* ─── AUTOMATION MODAL ─── */}
               {activeModal && selectedAutomation && (
                 <div
@@ -2634,9 +2808,9 @@ export default function StoreDashboard() {
                     backgroundColor: '#fff',
                     borderRadius: '0px',
                     width: '100%',
-                    maxWidth: '1024px',
-                    height: '80vh',
-                    maxHeight: '700px',
+                    maxWidth: activeModal === 'start_date' || activeModal === 'duration' || activeModal === 'discount' ? '820px' : '1024px',
+                    height: '84vh',
+                    maxHeight: '780px',
                     display: 'flex',
                     flexDirection: 'column',
                     overflow: 'hidden',
@@ -2647,7 +2821,19 @@ export default function StoreDashboard() {
                     <div style={{ padding: '24px 32px', borderBottom: '1px solid #f1f1f1', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ fontSize: '13px', fontWeight: 600, color: '#2c2c2d', letterSpacing: '0.12em', fontFamily: "'Inter', sans-serif" }}>
-                          {activeModal === 'text_banner' ? 'TEXT BANNER' : activeModal === 'large_banner' ? 'LARGE BANNER' : 'PHOTO BANNER'}
+                          {activeModal === 'text_banner' ? 'TEXT BANNER' :
+                           activeModal === 'large_banner' ? 'LARGE BANNER' :
+                           activeModal === 'photo_banner' ? 'PHOTO BANNER' :
+                           activeModal === 'store_rotator' ? 'STORE ROTATOR' :
+                           activeModal === 'start_date' ? 'CAMPAIGN START DATE' :
+                           activeModal === 'duration' ? 'CAMPAIGN DURATION' :
+                           activeModal === 'discount' ? 'DISCOUNT' :
+                           activeModal === 'edit_email' ? (
+                             selectedAutomation._emailKey === 'announcement' ? 'EDIT EMAIL' :
+                             selectedAutomation._emailKey === 'reminder_1w' ? 'EMAIL REMINDER: 1 WEEK BEFORE EXPIRATION' :
+                             selectedAutomation._emailKey === 'reminder_3d' ? 'EMAIL REMINDER: 3 DAYS BEFORE EXPIRATION' :
+                             selectedAutomation._emailKey === 'reminder_1d' ? 'EMAIL REMINDER: 1 DAY BEFORE EXPIRATION' : 'EDIT EMAIL'
+                           ) : ''}
                         </span>
                         <div style={{
                           width: '16px', height: '16px', borderRadius: '50%',
@@ -2657,14 +2843,43 @@ export default function StoreDashboard() {
                           position: 'relative', top: '0px'
                         }}>?</div>
                       </div>
-                      <div>
+                      <div style={{ display: 'flex', gap: '12px' }}>
+                        {activeModal === 'edit_email' && (
+                          <button
+                            onClick={() => setActiveModal(null)}
+                            style={{ padding: '10px 24px', fontSize: '11px', fontWeight: 700, border: 'none', borderRadius: '2px', backgroundColor: '#efefef', color: '#555', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.08em' }}
+                          >CANCEL</button>
+                        )}
                         <button
                           onClick={() => {
-                            const { _campaignId, _bannerKey, ...bannerData } = selectedAutomation;
-                            setCampaigns(prev => prev.map(c => c.id === _campaignId
-                              ? { ...c, banners: { ...c.banners, [_bannerKey]: { ...bannerData, enabled: true } } }
-                              : c
-                            ));
+                            const { _campaignId, _bannerKey, _emailKey, ...data } = selectedAutomation;
+                            if (activeModal === 'start_date') {
+                              setCampaigns(prev => prev.map(c => c.id === _campaignId
+                                ? { ...c, startDays: Number(data.startDays) }
+                                : c
+                              ));
+                            } else if (activeModal === 'duration') {
+                              setCampaigns(prev => prev.map(c => c.id === _campaignId
+                                ? { ...c, durationDays: Number(data.durationDays) }
+                                : c
+                              ));
+                            } else if (activeModal === 'discount') {
+                              setCampaigns(prev => prev.map(c => c.id === _campaignId
+                                ? { ...c, discount: data.discount, discountCode: data.discountCode }
+                                : c
+                              ));
+                            } else if (activeModal === 'edit_email') {
+                              setCampaigns(prev => prev.map(c => c.id === _campaignId
+                                ? { ...c, emails: { ...c.emails, [_emailKey]: { ...data } } }
+                                : c
+                              ));
+                            } else {
+                              // banner types
+                              setCampaigns(prev => prev.map(c => c.id === _campaignId
+                                ? { ...c, banners: { ...c.banners, [_bannerKey]: { ...data, enabled: true } } }
+                                : c
+                              ));
+                            }
                             setActiveModal(null);
                           }}
                           style={{ padding: '10px 36px', fontSize: '11px', fontWeight: 700, border: 'none', borderRadius: '2px', backgroundColor: '#efefef', color: '#2c2c2d', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.08em', transition: 'background-color 0.2s' }}
@@ -2674,434 +2889,1648 @@ export default function StoreDashboard() {
                       </div>
                     </div>
 
-                    {/* Body: left fields + right preview side by side */}
-                    <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 }}>
-
-                      {/* LEFT PANEL */}
-                      <div style={{ width: '380px', flexShrink: 0, overflowY: 'auto', borderRight: '1px solid #eaeaea', padding: '32px', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
-
-                        {/* TEXT BANNER fields */}
-                        {activeModal === 'text_banner' && (
-                          <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            <label style={{ display: 'block', fontSize: '9.5px', fontWeight: 700, color: '#a0a0a0', letterSpacing: '0.1em', marginBottom: '8px' }}>BANNER TITLE</label>
-                            <textarea
-                              value={selectedAutomation.text || ''}
-                              onChange={e => setSelectedAutomation(prev => ({ ...prev, text: e.target.value }))}
-                              rows={2}
-                              style={{ width: '100%', padding: '12px 14px', border: '1px solid #dcdcdc', borderRadius: '2px', fontSize: '13px', resize: 'none', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', color: '#2c2c2d', lineHeight: 1.5 }}
-                            />
-
-                            {/* Background color swatch */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '28px' }}>
-                              <div style={{ position: 'relative', width: '26px', height: '26px', border: '1px solid #c8c8c8', cursor: 'pointer', backgroundColor: selectedAutomation.bg_color || '#4a5338', flexShrink: 0 }}>
-                                <input
-                                  type="color"
-                                  value={selectedAutomation.bg_color || '#4a5338'}
-                                  onChange={e => setSelectedAutomation(prev => ({ ...prev, bg_color: e.target.value }))}
-                                  style={{ position: 'absolute', top: 0, left: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
-                                />
-                              </div>
-                              <span style={{ fontSize: '13px', color: '#4a4a4a' }}>Background color</span>
-                            </div>
-
-                            {/* Text color swatch */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '16px' }}>
-                              <div style={{ position: 'relative', width: '26px', height: '26px', border: '1px solid #c8c8c8', cursor: 'pointer', backgroundColor: selectedAutomation.text_color || '#ffffff', flexShrink: 0 }}>
-                                <input
-                                  type="color"
-                                  value={selectedAutomation.text_color || '#ffffff'}
-                                  onChange={e => setSelectedAutomation(prev => ({ ...prev, text_color: e.target.value }))}
-                                  style={{ position: 'absolute', top: 0, left: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
-                                />
-                              </div>
-                              <span style={{ fontSize: '13px', color: '#4a4a4a' }}>Text color</span>
+                    {/* Body: Conditional Layout based on modal type */}
+                    {activeModal === 'start_date' || activeModal === 'duration' || activeModal === 'discount' ? (
+                      /* ─── FULL-WIDTH SIMPLE SETTINGS MODALS ─── */
+                      <div style={{ flex: 1, backgroundColor: '#ffffff', padding: '48px', overflowY: 'auto', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
+                        
+                        {activeModal === 'start_date' && (
+                          <div style={{ maxWidth: '620px', margin: '0 auto', width: '100%', display: 'flex', flexDirection: 'column', gap: '32px' }}>
+                            <p style={{ fontSize: '13px', color: '#64748b', lineHeight: 1.6, margin: 0 }}>
+                              This sets when the promotional phase will start. Consider the production and shipping times when editing this to allow time for clients to receive any orders in time for their anniversary!
+                            </p>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '13.5px', color: '#1e293b' }}>
+                              <span>The campaign will start, before anniversary</span>
+                              <select
+                                value={selectedAutomation.startMonths || '0'}
+                                onChange={e => setSelectedAutomation(prev => ({ ...prev, startMonths: e.target.value }))}
+                                style={{ padding: '10px 32px 10px 14px', border: '1px solid #d1d5db', borderRadius: '2px', backgroundColor: '#fff', fontSize: '13.5px', outline: 'none' }}
+                              >
+                                <option value="0">0 month</option>
+                                <option value="1">1 month</option>
+                                <option value="2">2 months</option>
+                              </select>
+                              <span>+</span>
+                              <select
+                                value={selectedAutomation.startDays || '21'}
+                                onChange={e => setSelectedAutomation(prev => ({ ...prev, startDays: e.target.value }))}
+                                style={{ padding: '10px 32px 10px 14px', border: '1px solid #d1d5db', borderRadius: '2px', backgroundColor: '#fff', fontSize: '13.5px', outline: 'none' }}
+                              >
+                                <option value="7">7 days</option>
+                                <option value="14">14 days</option>
+                                <option value="21">21 days</option>
+                                <option value="30">30 days</option>
+                              </select>
                             </div>
                           </div>
                         )}
 
-                        {/* LARGE BANNER fields */}
-                        {activeModal === 'large_banner' && (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-                            {/* Change Design button */}
-                            <button style={{ width: '100%', padding: '12px', fontSize: '11px', fontWeight: 700, border: 'none', borderRadius: '2px', backgroundColor: '#efefef', color: '#2c2c2d', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                              CHANGE DESIGN
-                            </button>
+                        {activeModal === 'duration' && (
+                          <div style={{ maxWidth: '620px', margin: '0 auto', width: '100%', display: 'flex', flexDirection: 'column', gap: '32px' }}>
+                            <p style={{ fontSize: '13px', color: '#64748b', lineHeight: 1.6, margin: 0 }}>
+                              Set the duration of the campaign from the campaign start date.
+                            </p>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '13.5px', color: '#1e293b' }}>
+                              <span>This campaign will run for</span>
+                              <select
+                                value={selectedAutomation.durationMonths || '0'}
+                                onChange={e => setSelectedAutomation(prev => ({ ...prev, durationMonths: e.target.value }))}
+                                style={{ padding: '10px 32px 10px 14px', border: '1px solid #d1d5db', borderRadius: '2px', backgroundColor: '#fff', fontSize: '13.5px', outline: 'none' }}
+                              >
+                                <option value="0">0 month</option>
+                                <option value="1">1 month</option>
+                              </select>
+                              <span>+</span>
+                              <select
+                                value={selectedAutomation.durationDays || '14'}
+                                onChange={e => setSelectedAutomation(prev => ({ ...prev, durationDays: e.target.value }))}
+                                style={{ padding: '10px 32px 10px 14px', border: '1px solid #d1d5db', borderRadius: '2px', backgroundColor: '#fff', fontSize: '13.5px', outline: 'none' }}
+                              >
+                                <option value="7">7 days</option>
+                                <option value="14">14 days</option>
+                                <option value="21">21 days</option>
+                              </select>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '8px' }}>
+                              <input
+                                type="checkbox"
+                                id="adjustTime"
+                                checked={!!selectedAutomation.adjustTime}
+                                onChange={e => setSelectedAutomation(prev => ({ ...prev, adjustTime: e.target.checked }))}
+                                style={{ width: '15px', height: '15px', accentColor: '#2c2c2d', cursor: 'pointer' }}
+                              />
+                              <label htmlFor="adjustTime" style={{ fontSize: '13px', color: '#475569', cursor: 'pointer' }}>Adjust time to 11:59PM</label>
+                            </div>
+                          </div>
+                        )}
 
-                            {/* Content / Style tabs inside left panel */}
-                            <div style={{ display: 'flex', borderBottom: '1px solid #eaeaea', marginBottom: '10px' }}>
-                              <button
-                                onClick={() => setAutomationModalTab('content')}
-                                style={{
-                                  flex: 1, padding: '10px 0', fontSize: '13px', fontWeight: 600,
-                                  color: automationModalTab === 'content' ? '#111' : '#b5b5b5',
-                                  background: 'none', border: 'none', cursor: 'pointer',
-                                  borderBottom: automationModalTab === 'content' ? '2.5px solid #111' : '2.5px solid transparent',
-                                  transition: 'all 0.2s'
-                                }}
-                              >Content</button>
-                              <button
-                                onClick={() => setAutomationModalTab('style')}
-                                style={{
-                                  flex: 1, padding: '10px 0', fontSize: '13px', fontWeight: 600,
-                                  color: automationModalTab === 'style' ? '#111' : '#b5b5b5',
-                                  background: 'none', border: 'none', cursor: 'pointer',
-                                  borderBottom: automationModalTab === 'style' ? '2.5px solid #111' : '2.5px solid transparent',
-                                  transition: 'all 0.2s'
-                                }}
-                              >Style</button>
+                        {activeModal === 'discount' && (
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '64px', maxWidth: '780px', margin: '0 auto', width: '100%' }}>
+                            {/* Left column */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                              <div style={{ fontSize: '14px', fontWeight: 700, color: '#111', borderBottom: '1px solid #eaeaea', paddingBottom: '8px' }}>Discount</div>
+                              
+                              <div>
+                                <label style={{ display: 'block', fontSize: '9.5px', fontWeight: 700, color: '#a0a0a0', letterSpacing: '0.1em', marginBottom: '6px' }}>DISCOUNT TYPE</label>
+                                <select
+                                  value={selectedAutomation.type || '% OFF'}
+                                  onChange={e => setSelectedAutomation(prev => ({ ...prev, type: e.target.value }))}
+                                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #dcdcdc', borderRadius: '2px', fontSize: '13px', outline: 'none', backgroundColor: '#fff' }}
+                                >
+                                  <option value="% OFF">% OFF</option>
+                                  <option value="$ OFF">$ OFF</option>
+                                  <option value="FREE SHIPPING">FREE SHIPPING</option>
+                                </select>
+                              </div>
+
+                              <div>
+                                <label style={{ display: 'block', fontSize: '9.5px', fontWeight: 700, color: '#a0a0a0', letterSpacing: '0.1em', marginBottom: '6px' }}>DISCOUNT (%)</label>
+                                <input
+                                  type="text"
+                                  value={selectedAutomation.discount || ''}
+                                  onChange={e => setSelectedAutomation(prev => ({ ...prev, discount: e.target.value }))}
+                                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #dcdcdc', borderRadius: '2px', fontSize: '13px', outline: 'none' }}
+                                />
+                                <div style={{ fontSize: '11px', color: '#999', marginTop: '6px' }}>You will be charged the difference if the price the client pays is lower than the cost price.</div>
+                              </div>
+
+                              <div>
+                                <label style={{ display: 'block', fontSize: '9.5px', fontWeight: 700, color: '#a0a0a0', letterSpacing: '0.1em', marginBottom: '6px' }}>DESCRIPTION</label>
+                                <input
+                                  type="text"
+                                  value={selectedAutomation.description || ''}
+                                  onChange={e => setSelectedAutomation(prev => ({ ...prev, description: e.target.value }))}
+                                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #dcdcdc', borderRadius: '2px', fontSize: '13px', outline: 'none' }}
+                                />
+                              </div>
+
+                              <div>
+                                <label style={{ display: 'block', fontSize: '9.5px', fontWeight: 700, color: '#a0a0a0', letterSpacing: '0.1em', marginBottom: '6px' }}>Coupon code</label>
+                                <div style={{ position: 'relative', width: '100%' }}>
+                                  <input
+                                    type="text"
+                                    value={selectedAutomation.discountCode || ''}
+                                    onChange={e => setSelectedAutomation(prev => ({ ...prev, discountCode: e.target.value }))}
+                                    style={{ width: '100%', padding: '10px 36px 10px 12px', border: '1px solid #dcdcdc', borderRadius: '2px', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }}
+                                  />
+                                  <span
+                                    style={{ position: 'absolute', right: '12px', top: '10px', fontSize: '14px', color: '#999', cursor: 'pointer' }}
+                                    onClick={() => setSelectedAutomation(prev => ({ ...prev, discountCode: 'HAPPY' + Math.floor(100 + Math.random() * 900) }))}
+                                  >↻</span>
+                                </div>
+                                <div style={{ fontSize: '11px', color: '#999', marginTop: '6px' }}>Only users who are assigned to this campaign can use this code.</div>
+                              </div>
+
+                              <div>
+                                <label style={{ display: 'block', fontSize: '9.5px', fontWeight: 700, color: '#a0a0a0', letterSpacing: '0.1em', marginBottom: '6px' }}>Number of orders each user can make with this code:</label>
+                                <input
+                                  type="text"
+                                  value={selectedAutomation.ordersLimit || '1'}
+                                  onChange={e => setSelectedAutomation(prev => ({ ...prev, ordersLimit: e.target.value }))}
+                                  style={{ width: '70px', padding: '10px 12px', border: '1px solid #dcdcdc', borderRadius: '2px', fontSize: '13px', outline: 'none', textAlign: 'center' }}
+                                />
+                              </div>
                             </div>
 
-                            {/* TAB: CONTENT */}
-                            {automationModalTab === 'content' && (
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                {[
-                                  { key: 'title', label: 'HEADER TEXT', placeholder: 'Relive It in Print' },
-                                  { key: 'subtitle', label: 'BODY TEXT', placeholder: 'Get these moments off the screen...' },
-                                  { key: 'code', label: 'CODE', placeholder: 'Code: {code}' },
-                                  { key: 'cta', label: 'BUTTON TEXT', placeholder: 'VISIT SHOP' }
-                                ].map(({ key, label, placeholder }) => (
-                                  <div key={key}>
-                                    <label style={{ display: 'block', fontSize: '9.5px', fontWeight: 700, color: '#a0a0a0', letterSpacing: '0.1em', marginBottom: '6px' }}>{label}</label>
+                            {/* Right column */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
+                              <div style={{ fontSize: '14px', fontWeight: 700, color: '#111', borderBottom: '1px solid #eaeaea', paddingBottom: '8px' }}>More options</div>
+
+                              <div>
+                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                                  <input
+                                    type="checkbox"
+                                    id="freeShipping"
+                                    checked={!!selectedAutomation.freeShipping}
+                                    onChange={e => setSelectedAutomation(prev => ({ ...prev, freeShipping: e.target.checked }))}
+                                    style={{ width: '15px', height: '15px', accentColor: '#2c2c2d', cursor: 'pointer', marginTop: '2px' }}
+                                  />
+                                  <div>
+                                    <label htmlFor="freeShipping" style={{ fontSize: '13.5px', fontWeight: 600, color: '#2c2c2d', cursor: 'pointer' }}>Free shipping</label>
+                                    <div style={{ fontSize: '11px', color: '#999', marginTop: '4px' }}>You will be charged the shipping fee. Valid only for Economy shipping.</div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div>
+                                <label style={{ display: 'block', fontSize: '9.5px', fontWeight: 700, color: '#a0a0a0', letterSpacing: '0.1em', marginBottom: '6px' }}>MINIMUM ORDER ($)</label>
+                                <input
+                                  type="text"
+                                  value={selectedAutomation.minOrder || '0'}
+                                  onChange={e => setSelectedAutomation(prev => ({ ...prev, minOrder: e.target.value }))}
+                                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #dcdcdc', borderRadius: '2px', fontSize: '13px', outline: 'none' }}
+                                />
+                              </div>
+
+                              <div>
+                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                                  <input
+                                    type="checkbox"
+                                    id="allowStacking"
+                                    checked={!!selectedAutomation.allowStacking}
+                                    onChange={e => setSelectedAutomation(prev => ({ ...prev, allowStacking: e.target.checked }))}
+                                    style={{ width: '15px', height: '15px', accentColor: '#2c2c2d', cursor: 'pointer', marginTop: '2px' }}
+                                  />
+                                  <div>
+                                    <label htmlFor="allowStacking" style={{ fontSize: '13.5px', fontWeight: 600, color: '#2c2c2d', cursor: 'pointer' }}>Allow discount stacking</label>
+                                    <div style={{ fontSize: '11px', color: '#999', marginTop: '4px' }}>User can add this discount to an existing discount on a product.</div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div>
+                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', justifyContent: 'space-between' }}>
+                                  <div style={{ display: 'flex', gap: '10px' }}>
+                                    <input
+                                      type="checkbox"
+                                      id="limitProducts"
+                                      checked={!!selectedAutomation.limitProducts}
+                                      onChange={e => setSelectedAutomation(prev => ({ ...prev, limitProducts: e.target.checked }))}
+                                      style={{ width: '15px', height: '15px', accentColor: '#2c2c2d', cursor: 'pointer', marginTop: '2px' }}
+                                    />
+                                    <div>
+                                      <label htmlFor="limitProducts" style={{ fontSize: '13.5px', fontWeight: 600, color: '#2c2c2d', cursor: 'pointer' }}>Limit to specific products</label>
+                                      <div style={{ fontSize: '11px', color: '#999', marginTop: '4px' }}>Include: 10x10" Duo Linen Folio 5x7" D...</div>
+                                    </div>
+                                  </div>
+                                  <button
+                                    onClick={() => alert('Product list opened')}
+                                    style={{ padding: '6px 12px', fontSize: '11.5px', border: '1px solid #dcdcdc', backgroundColor: '#efefef', color: '#2c2c2d', borderRadius: '2px', cursor: 'pointer' }}
+                                  >Select products</button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                      </div>
+                    ) : (
+                      /* ─── SPLIT EDITOR/PREVIEW LAYOUT (Banners + Emails) ─── */
+                      <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 }}>
+
+                        {/* LEFT PANEL */}
+                        <div style={{ width: '380px', flexShrink: 0, overflowY: 'auto', borderRight: '1px solid #eaeaea', padding: '32px', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
+
+                          {/* TEXT BANNER fields */}
+                          {activeModal === 'text_banner' && (
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                              <label style={{ display: 'block', fontSize: '9.5px', fontWeight: 700, color: '#a0a0a0', letterSpacing: '0.1em', marginBottom: '8px' }}>BANNER TITLE</label>
+                              <textarea
+                                value={selectedAutomation.text || ''}
+                                onChange={e => setSelectedAutomation(prev => ({ ...prev, text: e.target.value }))}
+                                rows={2}
+                                style={{ width: '100%', padding: '12px 14px', border: '1px solid #dcdcdc', borderRadius: '2px', fontSize: '13px', resize: 'none', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', color: '#2c2c2d', lineHeight: 1.5 }}
+                              />
+
+                              {/* Background color swatch */}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '28px' }}>
+                                <div style={{ position: 'relative', width: '26px', height: '26px', border: '1px solid #c8c8c8', cursor: 'pointer', backgroundColor: selectedAutomation.bg_color || '#4a5338', flexShrink: 0 }}>
+                                  <input
+                                    type="color"
+                                    value={selectedAutomation.bg_color || '#4a5338'}
+                                    onChange={e => setSelectedAutomation(prev => ({ ...prev, bg_color: e.target.value }))}
+                                    style={{ position: 'absolute', top: 0, left: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
+                                  />
+                                </div>
+                                <span style={{ fontSize: '13px', color: '#4a4a4a' }}>Background color</span>
+                              </div>
+
+                              {/* Text color swatch */}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '16px' }}>
+                                <div style={{ position: 'relative', width: '26px', height: '26px', border: '1px solid #c8c8c8', cursor: 'pointer', backgroundColor: selectedAutomation.text_color || '#ffffff', flexShrink: 0 }}>
+                                  <input
+                                    type="color"
+                                    value={selectedAutomation.text_color || '#ffffff'}
+                                    onChange={e => setSelectedAutomation(prev => ({ ...prev, text_color: e.target.value }))}
+                                    style={{ position: 'absolute', top: 0, left: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
+                                  />
+                                </div>
+                                <span style={{ fontSize: '13px', color: '#4a4a4a' }}>Text color</span>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* LARGE BANNER fields */}
+                          {activeModal === 'large_banner' && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                              <button style={{ width: '100%', padding: '12px', fontSize: '11px', fontWeight: 700, border: 'none', borderRadius: '2px', backgroundColor: '#efefef', color: '#2c2c2d', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                                CHANGE DESIGN
+                              </button>
+
+                              <div style={{ display: 'flex', borderBottom: '1px solid #eaeaea', marginBottom: '10px' }}>
+                                <button
+                                  onClick={() => setAutomationModalTab('content')}
+                                  style={{
+                                    flex: 1, padding: '10px 0', fontSize: '13px', fontWeight: 600,
+                                    color: automationModalTab === 'content' ? '#111' : '#b5b5b5',
+                                    background: 'none', border: 'none', cursor: 'pointer',
+                                    borderBottom: automationModalTab === 'content' ? '2.5px solid #111' : '2.5px solid transparent',
+                                    transition: 'all 0.2s'
+                                  }}
+                                >Content</button>
+                                <button
+                                  onClick={() => setAutomationModalTab('style')}
+                                  style={{
+                                    flex: 1, padding: '10px 0', fontSize: '13px', fontWeight: 600,
+                                    color: automationModalTab === 'style' ? '#111' : '#b5b5b5',
+                                    background: 'none', border: 'none', cursor: 'pointer',
+                                    borderBottom: automationModalTab === 'style' ? '2.5px solid #111' : '2.5px solid transparent',
+                                    transition: 'all 0.2s'
+                                  }}
+                                >Style</button>
+                              </div>
+
+                              {/* TAB: CONTENT */}
+                              {automationModalTab === 'content' && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                  {[
+                                    { key: 'title', label: 'HEADER TEXT', placeholder: 'Relive It in Print' },
+                                    { key: 'subtitle', label: 'BODY TEXT', placeholder: 'Get these moments off the screen...' },
+                                    { key: 'code', label: 'CODE', placeholder: 'Code: {code}' },
+                                    { key: 'cta', label: 'BUTTON TEXT', placeholder: 'VISIT SHOP' }
+                                  ].map(({ key, label, placeholder }) => (
+                                    <div key={key}>
+                                      <label style={{ display: 'block', fontSize: '9.5px', fontWeight: 700, color: '#a0a0a0', letterSpacing: '0.1em', marginBottom: '6px' }}>{label}</label>
+                                      <input
+                                        type="text"
+                                        value={selectedAutomation[key] || ''}
+                                        onChange={e => setSelectedAutomation(prev => ({ ...prev, [key]: e.target.value }))}
+                                        placeholder={placeholder}
+                                        style={{ width: '100%', padding: '10px 12px', border: '1px solid #dcdcdc', borderRadius: '2px', fontSize: '13px', outline: 'none', boxSizing: 'border-box', color: '#2c2c2d' }}
+                                      />
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              {/* TAB: STYLE */}
+                              {automationModalTab === 'style' && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                                  
+                                  {/* Custom Desktop image box */}
+                                  <div>
+                                    <label style={{ display: 'block', fontSize: '9.5px', fontWeight: 700, color: '#a0a0a0', letterSpacing: '0.1em', marginBottom: '6px' }}>CUSTOM DESKTOP IMAGE (3000x705PX)</label>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid #e2e8f0', padding: '14px', borderRadius: '2px', backgroundColor: '#fafafa' }}>
+                                      <div>
+                                        {selectedAutomation.desktop_image ? (
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span style={{ fontSize: '12px', color: '#b5b5b5', cursor: 'pointer' }} onClick={() => document.getElementById('desktop-upload-large').click()}>✎</span>
+                                            <span style={{ fontSize: '12px', color: '#ff5f57', cursor: 'pointer' }} onClick={() => setSelectedAutomation(prev => ({ ...prev, desktop_image: '' }))}>🗑</span>
+                                          </div>
+                                        ) : (
+                                          <span style={{ fontSize: '11px', color: '#999' }}>Click box to upload file</span>
+                                        )}
+                                      </div>
+                                      <div
+                                        onClick={() => document.getElementById('desktop-upload-large').click()}
+                                        style={{ width: '80px', height: '60px', border: '1px dashed #cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '20px', color: '#94a3b8', backgroundColor: '#fff', backgroundImage: selectedAutomation.desktop_image ? `url(${selectedAutomation.desktop_image})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center' }}
+                                      >
+                                        {!selectedAutomation.desktop_image && '+'}
+                                      </div>
+                                      <input
+                                        type="file"
+                                        id="desktop-upload-large"
+                                        accept="image/*"
+                                        style={{ display: 'none' }}
+                                        onChange={e => {
+                                          const file = e.target.files[0];
+                                          if (file) {
+                                            const reader = new FileReader();
+                                            reader.onloadend = () => {
+                                              setSelectedAutomation(prev => ({ ...prev, desktop_image: reader.result }));
+                                            };
+                                            reader.readAsDataURL(file);
+                                          }
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+
+                                  {/* Custom Mobile image box */}
+                                  <div>
+                                    <label style={{ display: 'block', fontSize: '9.5px', fontWeight: 700, color: '#a0a0a0', letterSpacing: '0.1em', marginBottom: '6px' }}>CUSTOM MOBILE IMAGE (1000x1065PX)</label>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid #e2e8f0', padding: '14px', borderRadius: '2px', backgroundColor: '#fafafa' }}>
+                                      <div>
+                                        {selectedAutomation.mobile_image ? (
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span style={{ fontSize: '12px', color: '#b5b5b5', cursor: 'pointer' }} onClick={() => document.getElementById('mobile-upload-large').click()}>✎</span>
+                                            <span style={{ fontSize: '12px', color: '#ff5f57', cursor: 'pointer' }} onClick={() => setSelectedAutomation(prev => ({ ...prev, mobile_image: '' }))}>🗑</span>
+                                          </div>
+                                        ) : (
+                                          <span style={{ fontSize: '11px', color: '#999' }}>Click box to upload file</span>
+                                        )}
+                                      </div>
+                                      <div
+                                        onClick={() => document.getElementById('mobile-upload-large').click()}
+                                        style={{ width: '80px', height: '60px', border: '1px dashed #cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '20px', color: '#94a3b8', backgroundColor: '#fff', backgroundImage: selectedAutomation.mobile_image ? `url(${selectedAutomation.mobile_image})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center' }}
+                                      >
+                                        {!selectedAutomation.mobile_image && '+'}
+                                      </div>
+                                      <input
+                                        type="file"
+                                        id="mobile-upload-large"
+                                        accept="image/*"
+                                        style={{ display: 'none' }}
+                                        onChange={e => {
+                                          const file = e.target.files[0];
+                                          if (file) {
+                                            const reader = new FileReader();
+                                            reader.onloadend = () => {
+                                              setSelectedAutomation(prev => ({ ...prev, mobile_image: reader.result }));
+                                            };
+                                            reader.readAsDataURL(file);
+                                          }
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <div>
+                                    <select
+                                      value={selectedAutomation.font || 'Playfair Display'}
+                                      onChange={e => setSelectedAutomation(prev => ({ ...prev, font: e.target.value }))}
+                                      style={{ width: '100%', padding: '12px 14px', border: '1px solid #dcdcdc', borderRadius: '2px', fontSize: '13px', backgroundColor: '#fff', color: '#2c2c2d', outline: 'none' }}
+                                    >
+                                      <option value="Playfair Display">Serif New</option>
+                                      <option value="Inter">Sans Modern</option>
+                                      <option value="Georgia">Georgia (Classic)</option>
+                                    </select>
+                                  </div>
+
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '8px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                      <div style={{ position: 'relative', width: '26px', height: '26px', border: '1px solid #c8c8c8', cursor: 'pointer', backgroundColor: selectedAutomation.bg_color || '#eae5d8', flexShrink: 0 }}>
+                                        <input
+                                          type="color"
+                                          value={selectedAutomation.bg_color || '#eae5d8'}
+                                          onChange={e => setSelectedAutomation(prev => ({ ...prev, bg_color: e.target.value }))}
+                                          style={{ position: 'absolute', top: 0, left: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
+                                        />
+                                      </div>
+                                      <span style={{ fontSize: '13px', color: '#4a4a4a' }}>Background + Button text</span>
+                                    </div>
+
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                      <div style={{ position: 'relative', width: '26px', height: '26px', border: '1px solid #c8c8c8', cursor: 'pointer', backgroundColor: selectedAutomation.subtitle_color || '#4a5a4b', flexShrink: 0 }}>
+                                        <input
+                                          type="color"
+                                          value={selectedAutomation.subtitle_color || '#4a5a4b'}
+                                          onChange={e => setSelectedAutomation(prev => ({ ...prev, subtitle_color: e.target.value }))}
+                                          style={{ position: 'absolute', top: 0, left: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
+                                        />
+                                      </div>
+                                      <span style={{ fontSize: '13px', color: '#4a4a4a' }}>Body</span>
+                                    </div>
+
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                      <div style={{ position: 'relative', width: '26px', height: '26px', border: '1px solid #c8c8c8', cursor: 'pointer', backgroundColor: selectedAutomation.cta_bg || '#3a4a38', flexShrink: 0 }}>
+                                        <input
+                                          type="color"
+                                          value={selectedAutomation.cta_bg || '#3a4a38'}
+                                          onChange={e => {
+                                            const val = e.target.value;
+                                            setSelectedAutomation(prev => ({ ...prev, cta_bg: val, title_color: val }));
+                                          }}
+                                          style={{ position: 'absolute', top: 0, left: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
+                                        />
+                                      </div>
+                                      <span style={{ fontSize: '13px', color: '#4a4a4a' }}>Title + Button</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* PHOTO BANNER fields */}
+                          {activeModal === 'photo_banner' && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                              <button style={{ width: '100%', padding: '12px', fontSize: '11px', fontWeight: 700, border: 'none', borderRadius: '2px', backgroundColor: '#efefef', color: '#2c2c2d', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                                CHANGE DESIGN
+                              </button>
+
+                              <div style={{ display: 'flex', borderBottom: '1px solid #eaeaea', marginBottom: '10px' }}>
+                                <button
+                                  onClick={() => setAutomationModalTab('content')}
+                                  style={{
+                                    flex: 1, padding: '10px 0', fontSize: '13px', fontWeight: 600,
+                                    color: automationModalTab === 'content' ? '#111' : '#b5b5b5',
+                                    background: 'none', border: 'none', cursor: 'pointer',
+                                    borderBottom: automationModalTab === 'content' ? '2.5px solid #111' : '2.5px solid transparent',
+                                    transition: 'all 0.2s'
+                                  }}
+                                >Content</button>
+                                <button
+                                  onClick={() => setAutomationModalTab('style')}
+                                  style={{
+                                    flex: 1, padding: '10px 0', fontSize: '13px', fontWeight: 600,
+                                    color: automationModalTab === 'style' ? '#111' : '#b5b5b5',
+                                    background: 'none', border: 'none', cursor: 'pointer',
+                                    borderBottom: automationModalTab === 'style' ? '2.5px solid #111' : '2.5px solid transparent',
+                                    transition: 'all 0.2s'
+                                  }}
+                                >Style</button>
+                              </div>
+
+                              {/* PHOTO BANNER: CONTENT TAB */}
+                              {automationModalTab === 'content' && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                  {[
+                                    { key: 'title', label: 'HEADER TEXT', placeholder: 'Anniversary Sale' },
+                                    { key: 'subtitle', label: 'BODY TEXT', placeholder: 'Enjoy {discount-value} off any print product...' },
+                                    { key: 'code', label: 'CODE', placeholder: 'Code: {code}' },
+                                    { key: 'cta', label: 'BUTTON TEXT', placeholder: 'CLAIM OFFER' }
+                                  ].map(({ key, label, placeholder }) => (
+                                    <div key={key}>
+                                      <label style={{ display: 'block', fontSize: '9.5px', fontWeight: 700, color: '#a0a0a0', letterSpacing: '0.1em', marginBottom: '6px' }}>{label}</label>
+                                      <input
+                                        type="text"
+                                        value={selectedAutomation[key] || ''}
+                                        onChange={e => setSelectedAutomation(prev => ({ ...prev, [key]: e.target.value }))}
+                                        placeholder={placeholder}
+                                        style={{ width: '100%', padding: '10px 12px', border: '1px solid #dcdcdc', borderRadius: '2px', fontSize: '13px', outline: 'none', boxSizing: 'border-box', color: '#2c2c2d' }}
+                                      />
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              {/* PHOTO BANNER: STYLE TAB */}
+                              {automationModalTab === 'style' && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                                  
+                                  {/* Custom Desktop image box */}
+                                  <div>
+                                    <label style={{ display: 'block', fontSize: '9.5px', fontWeight: 700, color: '#a0a0a0', letterSpacing: '0.1em', marginBottom: '6px' }}>CUSTOM DESKTOP IMAGE (695x930PX)</label>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid #e2e8f0', padding: '14px', borderRadius: '2px', backgroundColor: '#fafafa' }}>
+                                      <div>
+                                        {selectedAutomation.desktop_image ? (
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span style={{ fontSize: '12px', color: '#b5b5b5', cursor: 'pointer' }} onClick={() => document.getElementById('desktop-upload-photo').click()}>✎</span>
+                                            <span style={{ fontSize: '12px', color: '#ff5f57', cursor: 'pointer' }} onClick={() => setSelectedAutomation(prev => ({ ...prev, desktop_image: '' }))}>🗑</span>
+                                          </div>
+                                        ) : (
+                                          <span style={{ fontSize: '11px', color: '#999' }}>Click box to upload file</span>
+                                        )}
+                                      </div>
+                                      <div
+                                        onClick={() => document.getElementById('desktop-upload-photo').click()}
+                                        style={{ width: '80px', height: '60px', border: '1px dashed #cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '20px', color: '#94a3b8', backgroundColor: '#fff', backgroundImage: selectedAutomation.desktop_image ? `url(${selectedAutomation.desktop_image})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center' }}
+                                      >
+                                        {!selectedAutomation.desktop_image && '+'}
+                                      </div>
+                                      <input
+                                        type="file"
+                                        id="desktop-upload-photo"
+                                        accept="image/*"
+                                        style={{ display: 'none' }}
+                                        onChange={e => {
+                                          const file = e.target.files[0];
+                                          if (file) {
+                                            const reader = new FileReader();
+                                            reader.onloadend = () => {
+                                              setSelectedAutomation(prev => ({ ...prev, desktop_image: reader.result }));
+                                            };
+                                            reader.readAsDataURL(file);
+                                          }
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+
+                                  {/* Custom Mobile image box */}
+                                  <div>
+                                    <label style={{ display: 'block', fontSize: '9.5px', fontWeight: 700, color: '#a0a0a0', letterSpacing: '0.1em', marginBottom: '6px' }}>CUSTOM MOBILE IMAGE (750x615PX)</label>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid #e2e8f0', padding: '14px', borderRadius: '2px', backgroundColor: '#fafafa' }}>
+                                      <div>
+                                        {selectedAutomation.mobile_image ? (
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span style={{ fontSize: '12px', color: '#b5b5b5', cursor: 'pointer' }} onClick={() => document.getElementById('mobile-upload-photo').click()}>✎</span>
+                                            <span style={{ fontSize: '12px', color: '#ff5f57', cursor: 'pointer' }} onClick={() => setSelectedAutomation(prev => ({ ...prev, mobile_image: '' }))}>🗑</span>
+                                          </div>
+                                        ) : (
+                                          <span style={{ fontSize: '11px', color: '#999' }}>Click box to upload file</span>
+                                        )}
+                                      </div>
+                                      <div
+                                        onClick={() => document.getElementById('mobile-upload-photo').click()}
+                                        style={{ width: '80px', height: '60px', border: '1px dashed #cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '20px', color: '#94a3b8', backgroundColor: '#fff', backgroundImage: selectedAutomation.mobile_image ? `url(${selectedAutomation.mobile_image})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center' }}
+                                      >
+                                        {!selectedAutomation.mobile_image && '+'}
+                                      </div>
+                                      <input
+                                        type="file"
+                                        id="mobile-upload-photo"
+                                        accept="image/*"
+                                        style={{ display: 'none' }}
+                                        onChange={e => {
+                                          const file = e.target.files[0];
+                                          if (file) {
+                                            const reader = new FileReader();
+                                            reader.onloadend = () => {
+                                              setSelectedAutomation(prev => ({ ...prev, mobile_image: reader.result }));
+                                            };
+                                            reader.readAsDataURL(file);
+                                          }
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <div>
+                                    <select
+                                      value={selectedAutomation.font || 'Playfair Display'}
+                                      onChange={e => setSelectedAutomation(prev => ({ ...prev, font: e.target.value }))}
+                                      style={{ width: '100%', padding: '12px 14px', border: '1px solid #dcdcdc', borderRadius: '2px', fontSize: '13px', backgroundColor: '#fff', color: '#2c2c2d', outline: 'none' }}
+                                    >
+                                      <option value="Playfair Display">Serif New</option>
+                                      <option value="Inter">Sans Modern</option>
+                                      <option value="Georgia">Georgia (Classic)</option>
+                                    </select>
+                                  </div>
+
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '8px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                      <div style={{ position: 'relative', width: '26px', height: '26px', border: '1px solid #c8c8c8', cursor: 'pointer', backgroundColor: selectedAutomation.bg_color || '#eae5d8', flexShrink: 0 }}>
+                                        <input
+                                          type="color"
+                                          value={selectedAutomation.bg_color || '#eae5d8'}
+                                          onChange={e => setSelectedAutomation(prev => ({ ...prev, bg_color: e.target.value }))}
+                                          style={{ position: 'absolute', top: 0, left: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
+                                        />
+                                      </div>
+                                      <span style={{ fontSize: '13px', color: '#4a4a4a' }}>Background + Button text</span>
+                                    </div>
+
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                      <div style={{ position: 'relative', width: '26px', height: '26px', border: '1px solid #c8c8c8', cursor: 'pointer', backgroundColor: selectedAutomation.subtitle_color || '#4a5a4b', flexShrink: 0 }}>
+                                        <input
+                                          type="color"
+                                          value={selectedAutomation.subtitle_color || '#4a5a4b'}
+                                          onChange={e => setSelectedAutomation(prev => ({ ...prev, subtitle_color: e.target.value }))}
+                                          style={{ position: 'absolute', top: 0, left: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
+                                        />
+                                      </div>
+                                      <span style={{ fontSize: '13px', color: '#4a4a4a' }}>Body</span>
+                                    </div>
+
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                      <div style={{ position: 'relative', width: '26px', height: '26px', border: '1px solid #c8c8c8', cursor: 'pointer', backgroundColor: selectedAutomation.cta_bg || '#3a4a38', flexShrink: 0 }}>
+                                        <input
+                                          type="color"
+                                          value={selectedAutomation.cta_bg || '#3a4a38'}
+                                          onChange={e => {
+                                            const val = e.target.value;
+                                            setSelectedAutomation(prev => ({ ...prev, cta_bg: val, title_color: val }));
+                                          }}
+                                          style={{ position: 'absolute', top: 0, left: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
+                                        />
+                                      </div>
+                                      <span style={{ fontSize: '13px', color: '#4a4a4a' }}>Title + Button</span>
+                                    </div>
+
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                      <div style={{ position: 'relative', width: '26px', height: '26px', border: '1px solid #c8c8c8', cursor: 'pointer', backgroundColor: selectedAutomation.timer_color || '#3a4a38', flexShrink: 0 }}>
+                                        <input
+                                          type="color"
+                                          value={selectedAutomation.timer_color || '#3a4a38'}
+                                          onChange={e => setSelectedAutomation(prev => ({ ...prev, timer_color: e.target.value }))}
+                                          style={{ position: 'absolute', top: 0, left: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
+                                        />
+                                      </div>
+                                      <span style={{ fontSize: '13px', color: '#4a4a4a' }}>Timer</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* STORE ROTATOR fields */}
+                          {activeModal === 'store_rotator' && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                              <button style={{ width: '100%', padding: '12px', fontSize: '11px', fontWeight: 700, border: 'none', borderRadius: '2px', backgroundColor: '#efefef', color: '#2c2c2d', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                                CHANGE DESIGN
+                              </button>
+
+                              <div style={{ display: 'flex', borderBottom: '1px solid #eaeaea', marginBottom: '10px' }}>
+                                <button
+                                  onClick={() => setAutomationModalTab('content')}
+                                  style={{
+                                    flex: 1, padding: '10px 0', fontSize: '13px', fontWeight: 600,
+                                    color: automationModalTab === 'content' ? '#111' : '#b5b5b5',
+                                    background: 'none', border: 'none', cursor: 'pointer',
+                                    borderBottom: automationModalTab === 'content' ? '2.5px solid #111' : '2.5px solid transparent',
+                                    transition: 'all 0.2s'
+                                  }}
+                                >Content</button>
+                                <button
+                                  onClick={() => setAutomationModalTab('style')}
+                                  style={{
+                                    flex: 1, padding: '10px 0', fontSize: '13px', fontWeight: 600,
+                                    color: automationModalTab === 'style' ? '#111' : '#b5b5b5',
+                                    background: 'none', border: 'none', cursor: 'pointer',
+                                    borderBottom: automationModalTab === 'style' ? '2.5px solid #111' : '2.5px solid transparent',
+                                    transition: 'all 0.2s'
+                                  }}
+                                >Style</button>
+                              </div>
+
+                              {/* STORE ROTATOR: CONTENT TAB */}
+                              {automationModalTab === 'content' && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                  {[
+                                    { key: 'title', label: 'HEADER TEXT', placeholder: 'Your Wedding in Print' },
+                                    { key: 'subtitle', label: 'BODY TEXT', placeholder: 'Anniversary Gift! Celebrate those special moments...' },
+                                    { key: 'code', label: 'CODE', placeholder: 'Code: {code}' }
+                                  ].map(({ key, label, placeholder }) => (
+                                    <div key={key}>
+                                      <label style={{ display: 'block', fontSize: '9.5px', fontWeight: 700, color: '#a0a0a0', letterSpacing: '0.1em', marginBottom: '6px' }}>{label}</label>
+                                      <input
+                                        type="text"
+                                        value={selectedAutomation[key] || ''}
+                                        onChange={e => setSelectedAutomation(prev => ({ ...prev, [key]: e.target.value }))}
+                                        placeholder={placeholder}
+                                        style={{ width: '100%', padding: '10px 12px', border: '1px solid #dcdcdc', borderRadius: '2px', fontSize: '13px', outline: 'none', boxSizing: 'border-box', color: '#2c2c2d' }}
+                                      />
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              {/* STORE ROTATOR: STYLE TAB */}
+                              {automationModalTab === 'style' && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                                  
+                                  {/* Custom Desktop image box */}
+                                  <div>
+                                    <label style={{ display: 'block', fontSize: '9.5px', fontWeight: 700, color: '#a0a0a0', letterSpacing: '0.1em', marginBottom: '6px' }}>CUSTOM DESKTOP IMAGE (3000x705PX)</label>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid #e2e8f0', padding: '14px', borderRadius: '2px', backgroundColor: '#fafafa' }}>
+                                      <div>
+                                        {selectedAutomation.desktop_image ? (
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span style={{ fontSize: '12px', color: '#b5b5b5', cursor: 'pointer' }} onClick={() => document.getElementById('desktop-upload-rotator').click()}>✎</span>
+                                            <span style={{ fontSize: '12px', color: '#ff5f57', cursor: 'pointer' }} onClick={() => setSelectedAutomation(prev => ({ ...prev, desktop_image: '' }))}>🗑</span>
+                                          </div>
+                                        ) : (
+                                          <span style={{ fontSize: '11px', color: '#999' }}>Click box to upload file</span>
+                                        )}
+                                      </div>
+                                      <div
+                                        onClick={() => document.getElementById('desktop-upload-rotator').click()}
+                                        style={{ width: '80px', height: '60px', border: '1px dashed #cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '20px', color: '#94a3b8', backgroundColor: '#fff', backgroundImage: selectedAutomation.desktop_image ? `url(${selectedAutomation.desktop_image})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center' }}
+                                      >
+                                        {!selectedAutomation.desktop_image && '+'}
+                                      </div>
+                                      <input
+                                        type="file"
+                                        id="desktop-upload-rotator"
+                                        accept="image/*"
+                                        style={{ display: 'none' }}
+                                        onChange={e => {
+                                          const file = e.target.files[0];
+                                          if (file) {
+                                            const reader = new FileReader();
+                                            reader.onloadend = () => {
+                                              setSelectedAutomation(prev => ({ ...prev, desktop_image: reader.result }));
+                                            };
+                                            reader.readAsDataURL(file);
+                                          }
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+
+                                  {/* Custom Mobile image box */}
+                                  <div>
+                                    <label style={{ display: 'block', fontSize: '9.5px', fontWeight: 700, color: '#a0a0a0', letterSpacing: '0.1em', marginBottom: '6px' }}>CUSTOM MOBILE IMAGE (1000x1065PX)</label>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid #e2e8f0', padding: '14px', borderRadius: '2px', backgroundColor: '#fafafa' }}>
+                                      <div>
+                                        {selectedAutomation.mobile_image ? (
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span style={{ fontSize: '12px', color: '#b5b5b5', cursor: 'pointer' }} onClick={() => document.getElementById('mobile-upload-rotator').click()}>✎</span>
+                                            <span style={{ fontSize: '12px', color: '#ff5f57', cursor: 'pointer' }} onClick={() => setSelectedAutomation(prev => ({ ...prev, mobile_image: '' }))}>🗑</span>
+                                          </div>
+                                        ) : (
+                                          <span style={{ fontSize: '11px', color: '#999' }}>Click box to upload file</span>
+                                        )}
+                                      </div>
+                                      <div
+                                        onClick={() => document.getElementById('mobile-upload-rotator').click()}
+                                        style={{ width: '80px', height: '60px', border: '1px dashed #cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '20px', color: '#94a3b8', backgroundColor: '#fff', backgroundImage: selectedAutomation.mobile_image ? `url(${selectedAutomation.mobile_image})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center' }}
+                                      >
+                                        {!selectedAutomation.mobile_image && '+'}
+                                      </div>
+                                      <input
+                                        type="file"
+                                        id="mobile-upload-rotator"
+                                        accept="image/*"
+                                        style={{ display: 'none' }}
+                                        onChange={e => {
+                                          const file = e.target.files[0];
+                                          if (file) {
+                                            const reader = new FileReader();
+                                            reader.onloadend = () => {
+                                              setSelectedAutomation(prev => ({ ...prev, mobile_image: reader.result }));
+                                            };
+                                            reader.readAsDataURL(file);
+                                          }
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <div>
+                                    <select
+                                      value={selectedAutomation.font || 'Playfair Display'}
+                                      onChange={e => setSelectedAutomation(prev => ({ ...prev, font: e.target.value }))}
+                                      style={{ width: '100%', padding: '12px 14px', border: '1px solid #dcdcdc', borderRadius: '2px', fontSize: '13px', backgroundColor: '#fff', color: '#2c2c2d', outline: 'none' }}
+                                    >
+                                      <option value="Playfair Display">Serif New</option>
+                                      <option value="Inter">Sans Modern</option>
+                                      <option value="Georgia">Georgia (Classic)</option>
+                                    </select>
+                                  </div>
+
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '8px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                      <div style={{ position: 'relative', width: '26px', height: '26px', border: '1px solid #c8c8c8', cursor: 'pointer', backgroundColor: selectedAutomation.bg_color || '#eae5d8', flexShrink: 0 }}>
+                                        <input
+                                          type="color"
+                                          value={selectedAutomation.bg_color || '#eae5d8'}
+                                          onChange={e => setSelectedAutomation(prev => ({ ...prev, bg_color: e.target.value }))}
+                                          style={{ position: 'absolute', top: 0, left: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
+                                        />
+                                      </div>
+                                      <span style={{ fontSize: '13px', color: '#4a4a4a' }}>Background</span>
+                                    </div>
+
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                      <div style={{ position: 'relative', width: '26px', height: '26px', border: '1px solid #c8c8c8', cursor: 'pointer', backgroundColor: selectedAutomation.subtitle_color || '#4a5a4b', flexShrink: 0 }}>
+                                        <input
+                                          type="color"
+                                          value={selectedAutomation.subtitle_color || '#4a5a4b'}
+                                          onChange={e => setSelectedAutomation(prev => ({ ...prev, subtitle_color: e.target.value }))}
+                                          style={{ position: 'absolute', top: 0, left: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
+                                        />
+                                      </div>
+                                      <span style={{ fontSize: '13px', color: '#4a4a4a' }}>Body</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* EDIT EMAIL fields */}
+                          {activeModal === 'edit_email' && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                              
+                              <div>
+                                <label style={{ display: 'block', fontSize: '9.5px', fontWeight: 700, color: '#a0a0a0', letterSpacing: '0.1em', marginBottom: '6px' }}>DESIGN LAYOUTS</label>
+                                <select
+                                  value={selectedAutomation.layout || 'Standard'}
+                                  onChange={e => setSelectedAutomation(prev => ({ ...prev, layout: e.target.value }))}
+                                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #dcdcdc', borderRadius: '2px', fontSize: '13px', backgroundColor: '#fff', outline: 'none' }}
+                                >
+                                  <option value="Standard">Standard</option>
+                                  <option value="Minimal">Minimalist</option>
+                                  <option value="Elegant">Elegant Serif</option>
+                                </select>
+                                <div style={{ fontSize: '11px', color: '#999', marginTop: '6px' }}>
+                                  {selectedAutomation._emailKey === 'announcement' ? 'This email will be sent when the campaign starts.' :
+                                   selectedAutomation._emailKey === 'reminder_1w' ? 'This email will be sent 1 week before expiration.' :
+                                   selectedAutomation._emailKey === 'reminder_3d' ? 'This email will be sent 3 days before expiration.' :
+                                   selectedAutomation._emailKey === 'reminder_1d' ? 'This email will be sent 1 day before expiration.' : ''}
+                                </div>
+                              </div>
+
+                              <button
+                                onClick={() => document.getElementById('email-image-file').click()}
+                                style={{ width: '100%', padding: '12px', fontSize: '11px', fontWeight: 700, border: 'none', borderRadius: '2px', backgroundColor: '#efefef', color: '#2c2c2d', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.08em' }}
+                              >
+                                {selectedAutomation.custom_image ? 'CHANGE IMAGE' : 'UPLOAD IMAGE'}
+                              </button>
+                              <input
+                                type="file"
+                                id="email-image-file"
+                                accept="image/*"
+                                style={{ display: 'none' }}
+                                onChange={e => {
+                                  const file = e.target.files[0];
+                                  if (file) {
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => {
+                                      setSelectedAutomation(prev => ({ ...prev, custom_image: reader.result }));
+                                    };
+                                    reader.readAsDataURL(file);
+                                  }
+                                }}
+                              />
+
+                              <div style={{ display: 'flex', borderBottom: '1px solid #eaeaea', marginBottom: '10px' }}>
+                                <button
+                                  onClick={() => setAutomationModalTab('content')}
+                                  style={{
+                                    flex: 1, padding: '10px 0', fontSize: '13px', fontWeight: 600,
+                                    color: automationModalTab === 'content' ? '#111' : '#b5b5b5',
+                                    background: 'none', border: 'none', cursor: 'pointer',
+                                    borderBottom: automationModalTab === 'content' ? '2.5px solid #111' : '2.5px solid transparent',
+                                    transition: 'all 0.2s'
+                                  }}
+                                >Content</button>
+                                <button
+                                  onClick={() => setAutomationModalTab('style')}
+                                  style={{
+                                    flex: 1, padding: '10px 0', fontSize: '13px', fontWeight: 600,
+                                    color: automationModalTab === 'style' ? '#111' : '#b5b5b5',
+                                    background: 'none', border: 'none', cursor: 'pointer',
+                                    borderBottom: automationModalTab === 'style' ? '2.5px solid #111' : '2.5px solid transparent',
+                                    transition: 'all 0.2s'
+                                  }}
+                                >Style</button>
+                              </div>
+
+                              {/* EDIT EMAIL CONTENT */}
+                              {automationModalTab === 'content' && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                  {selectedAutomation._emailKey !== 'announcement' && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', border: '1px solid #e2e8f0', borderRadius: '0px', backgroundColor: '#fafafa', marginBottom: '4px' }}>
+                                      <input
+                                        type="checkbox"
+                                        id="email-enabled-toggle"
+                                        checked={selectedAutomation.enabled !== false}
+                                        onChange={e => setSelectedAutomation(prev => ({ ...prev, enabled: e.target.checked }))}
+                                        style={{ width: '16px', height: '16px', accentColor: '#bfa38a', cursor: 'pointer' }}
+                                      />
+                                      <label htmlFor="email-enabled-toggle" style={{ fontSize: '12px', fontWeight: 600, color: '#2c2c2d', cursor: 'pointer', userSelect: 'none' }}>
+                                        Enable this reminder email campaign
+                                      </label>
+                                    </div>
+                                  )}
+                                  <div>
+                                    <label style={{ display: 'block', fontSize: '9.5px', fontWeight: 700, color: '#a0a0a0', letterSpacing: '0.1em', marginBottom: '6px' }}>EMAIL SUBJECT</label>
                                     <input
                                       type="text"
-                                      value={selectedAutomation[key] || ''}
-                                      onChange={e => setSelectedAutomation(prev => ({ ...prev, [key]: e.target.value }))}
-                                      placeholder={placeholder}
-                                      style={{ width: '100%', padding: '10px 12px', border: '1px solid #dcdcdc', borderRadius: '2px', fontSize: '13px', outline: 'none', boxSizing: 'border-box', color: '#2c2c2d' }}
+                                      value={selectedAutomation.subject || ''}
+                                      onChange={e => setSelectedAutomation(prev => ({ ...prev, subject: e.target.value }))}
+                                      style={{ width: '100%', padding: '10px 12px', border: '1px solid #dcdcdc', borderRadius: '2px', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }}
                                     />
                                   </div>
-                                ))}
-                              </div>
-                            )}
 
-                            {/* TAB: STYLE */}
-                            {automationModalTab === 'style' && (
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-                                
-                                {/* Custom Desktop image box */}
-                                <div>
-                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid #e2e8f0', padding: '14px', borderRadius: '2px', backgroundColor: '#fafafa' }}>
-                                    <div>
-                                      <div style={{ fontSize: '11px', fontWeight: 700, color: '#555' }}>Custom Desktop image</div>
-                                      <div style={{ fontSize: '10px', color: '#999', marginTop: '2px' }}>3000x705px</div>
-                                      <div style={{ fontSize: '12px', color: '#b5b5b5', cursor: 'pointer', marginTop: '6px' }} onClick={() => { const u = prompt('Enter Desktop Image URL:', selectedAutomation.desktop_image); if (u !== null) setSelectedAutomation(prev => ({ ...prev, desktop_image: u.trim() })); }}>✎</div>
+                                  <div>
+                                    <label style={{ display: 'block', fontSize: '9.5px', fontWeight: 700, color: '#a0a0a0', letterSpacing: '0.1em', marginBottom: '6px' }}>TITLE</label>
+                                    <input
+                                      type="text"
+                                      value={selectedAutomation.title || ''}
+                                      onChange={e => setSelectedAutomation(prev => ({ ...prev, title: e.target.value }))}
+                                      style={{ width: '100%', padding: '10px 12px', border: '1px solid #dcdcdc', borderRadius: '2px', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }}
+                                    />
+                                  </div>
+
+                                  <div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                      <label style={{ display: 'block', fontSize: '9.5px', fontWeight: 700, color: '#a0a0a0', letterSpacing: '0.1em' }}>MESSAGE</label>
+                                      <button
+                                        onClick={() => {
+                                          const msg = prompt('Edit Email Message:', selectedAutomation.message || 'Keep the memories alive with prints.');
+                                          if (msg !== null) setSelectedAutomation(prev => ({ ...prev, message: msg }));
+                                        }}
+                                        style={{ padding: '2px 8px', fontSize: '10.5px', border: 'none', backgroundColor: '#efefef', cursor: 'pointer' }}
+                                      >Edit</button>
                                     </div>
-                                    <div
-                                      onClick={() => { const u = prompt('Enter Desktop Image URL:'); if (u) setSelectedAutomation(prev => ({ ...prev, desktop_image: u.trim() })); }}
-                                      style={{ width: '80px', height: '60px', border: '1px dashed #cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '20px', color: '#94a3b8', backgroundColor: '#fff', backgroundImage: selectedAutomation.desktop_image ? `url(${selectedAutomation.desktop_image})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center' }}
-                                    >
-                                      {!selectedAutomation.desktop_image && '+'}
+                                    <div style={{ padding: '10px', border: '1px solid #e2e8f0', backgroundColor: '#f9f9f9', fontSize: '12px', color: '#555', minHeight: '48px', borderRadius: '2px' }}>
+                                      {selectedAutomation.message || 'Keep the memories alive with prints. You can redeem your gift code at checkout.'}
                                     </div>
                                   </div>
-                                </div>
 
-                                {/* Custom Mobile image box */}
-                                <div>
-                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid #e2e8f0', padding: '14px', borderRadius: '2px', backgroundColor: '#fafafa' }}>
-                                    <div>
-                                      <div style={{ fontSize: '11px', fontWeight: 700, color: '#555' }}>Custom Mobile image</div>
-                                      <div style={{ fontSize: '10px', color: '#999', marginTop: '2px' }}>1000x1065px</div>
-                                      <div style={{ fontSize: '12px', color: '#b5b5b5', cursor: 'pointer', marginTop: '6px' }} onClick={() => { const u = prompt('Enter Mobile Image URL:', selectedAutomation.mobile_image); if (u !== null) setSelectedAutomation(prev => ({ ...prev, mobile_image: u.trim() })); }}>✎</div>
-                                    </div>
-                                    <div
-                                      onClick={() => { const u = prompt('Enter Mobile Image URL:'); if (u) setSelectedAutomation(prev => ({ ...prev, mobile_image: u.trim() })); }}
-                                      style={{ width: '80px', height: '60px', border: '1px dashed #cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '20px', color: '#94a3b8', backgroundColor: '#fff', backgroundImage: selectedAutomation.mobile_image ? `url(${selectedAutomation.mobile_image})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center' }}
-                                    >
-                                      {!selectedAutomation.mobile_image && '+'}
-                                    </div>
+                                  <div>
+                                    <label style={{ display: 'block', fontSize: '9.5px', fontWeight: 700, color: '#a0a0a0', letterSpacing: '0.1em', marginBottom: '6px' }}>BUTTON TEXT</label>
+                                    <input
+                                      type="text"
+                                      value={selectedAutomation.button_text || ''}
+                                      onChange={e => setSelectedAutomation(prev => ({ ...prev, button_text: e.target.value }))}
+                                      style={{ width: '100%', padding: '10px 12px', border: '1px solid #dcdcdc', borderRadius: '2px', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }}
+                                    />
                                   </div>
                                 </div>
+                              )}
 
-                                {/* Font Selector dropdown */}
-                                <div>
-                                  <select
-                                    value={selectedAutomation.font || 'Playfair Display'}
-                                    onChange={e => setSelectedAutomation(prev => ({ ...prev, font: e.target.value }))}
-                                    style={{ width: '100%', padding: '12px 14px', border: '1px solid #dcdcdc', borderRadius: '2px', fontSize: '13px', backgroundColor: '#fff', color: '#2c2c2d', outline: 'none' }}
-                                  >
-                                    <option value="Playfair Display">Serif New</option>
-                                    <option value="Inter">Sans Modern</option>
-                                    <option value="Georgia">Georgia (Classic)</option>
-                                  </select>
-                                </div>
-
-                                {/* Color Swatches */}
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '8px' }}>
-                                  {/* Swatch 1: Background + Button text */}
+                              {/* EDIT EMAIL STYLE */}
+                              {automationModalTab === 'style' && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                                  
+                                  {/* Swatch 1: Main Body Background Color */}
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                                    <div style={{ position: 'relative', width: '26px', height: '26px', border: '1px solid #c8c8c8', cursor: 'pointer', backgroundColor: selectedAutomation.bg_color || '#eae5d8', flexShrink: 0 }}>
+                                    <div style={{ position: 'relative', width: '26px', height: '26px', border: '1px solid #c8c8c8', cursor: 'pointer', backgroundColor: selectedAutomation.bg_color || '#ffffff', flexShrink: 0 }}>
                                       <input
                                         type="color"
-                                        value={selectedAutomation.bg_color || '#eae5d8'}
+                                        value={selectedAutomation.bg_color || '#ffffff'}
                                         onChange={e => setSelectedAutomation(prev => ({ ...prev, bg_color: e.target.value }))}
                                         style={{ position: 'absolute', top: 0, left: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
                                       />
                                     </div>
-                                    <span style={{ fontSize: '13px', color: '#4a4a4a' }}>Background + Button text</span>
+                                    <span style={{ fontSize: '13px', color: '#4a4a4a' }}>Main Body Background Color</span>
                                   </div>
 
-                                  {/* Swatch 2: Body */}
+                                  {/* Swatch 2: Main Body Text Color */}
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                                    <div style={{ position: 'relative', width: '26px', height: '26px', border: '1px solid #c8c8c8', cursor: 'pointer', backgroundColor: selectedAutomation.subtitle_color || '#4a5a4b', flexShrink: 0 }}>
+                                    <div style={{ position: 'relative', width: '26px', height: '26px', border: '1px solid #c8c8c8', cursor: 'pointer', backgroundColor: selectedAutomation.text_color || '#000000', flexShrink: 0 }}>
                                       <input
                                         type="color"
-                                        value={selectedAutomation.subtitle_color || '#4a5a4b'}
-                                        onChange={e => setSelectedAutomation(prev => ({ ...prev, subtitle_color: e.target.value }))}
+                                        value={selectedAutomation.text_color || '#000000'}
+                                        onChange={e => setSelectedAutomation(prev => ({ ...prev, text_color: e.target.value }))}
                                         style={{ position: 'absolute', top: 0, left: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
                                       />
                                     </div>
-                                    <span style={{ fontSize: '13px', color: '#4a4a4a' }}>Body</span>
+                                    <span style={{ fontSize: '13px', color: '#4a4a4a' }}>Main Body Text Color</span>
                                   </div>
 
-                                  {/* Swatch 3: Title + Button */}
+                                  {/* Swatch 3: Button Color */}
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                                    <div style={{ position: 'relative', width: '26px', height: '26px', border: '1px solid #c8c8c8', cursor: 'pointer', backgroundColor: selectedAutomation.cta_bg || '#3a4a38', flexShrink: 0 }}>
+                                    <div style={{ position: 'relative', width: '26px', height: '26px', border: '1px solid #c8c8c8', cursor: 'pointer', backgroundColor: selectedAutomation.btn_color || '#5d6050', flexShrink: 0 }}>
                                       <input
                                         type="color"
-                                        value={selectedAutomation.cta_bg || '#3a4a38'}
-                                        onChange={e => {
-                                          const val = e.target.value;
-                                          setSelectedAutomation(prev => ({ ...prev, cta_bg: val, title_color: val }));
-                                        }}
+                                        value={selectedAutomation.btn_color || '#5d6050'}
+                                        onChange={e => setSelectedAutomation(prev => ({ ...prev, btn_color: e.target.value }))}
                                         style={{ position: 'absolute', top: 0, left: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
                                       />
                                     </div>
-                                    <span style={{ fontSize: '13px', color: '#4a4a4a' }}>Title + Button</span>
+                                    <span style={{ fontSize: '13px', color: '#4a4a4a' }}>Button Color</span>
+                                  </div>
+
+                                  {/* Swatch 4: Button Text Color */}
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                    <div style={{ position: 'relative', width: '26px', height: '26px', border: '1px solid #c8c8c8', cursor: 'pointer', backgroundColor: selectedAutomation.btn_text_color || '#ffffff', flexShrink: 0 }}>
+                                      <input
+                                        type="color"
+                                        value={selectedAutomation.btn_text_color || '#ffffff'}
+                                        onChange={e => setSelectedAutomation(prev => ({ ...prev, btn_text_color: e.target.value }))}
+                                        style={{ position: 'absolute', top: 0, left: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
+                                      />
+                                    </div>
+                                    <span style={{ fontSize: '13px', color: '#4a4a4a' }}>Button Text Color</span>
+                                  </div>
+
+                                  <div>
+                                    <label style={{ display: 'block', fontSize: '9.5px', fontWeight: 700, color: '#a0a0a0', letterSpacing: '0.1em', marginBottom: '6px' }}>ACCOUNT LOGO TYPE</label>
+                                    <select
+                                      value={selectedAutomation.logo_type || 'Dark Logo, for light background'}
+                                      onChange={e => setSelectedAutomation(prev => ({ ...prev, logo_type: e.target.value }))}
+                                      style={{ width: '100%', padding: '10px 12px', border: '1px solid #dcdcdc', borderRadius: '2px', fontSize: '13px', backgroundColor: '#fff', outline: 'none' }}
+                                    >
+                                      <option value="Dark Logo, for light background">Dark Logo, for light background</option>
+                                      <option value="Light Logo, for dark background">Light Logo, for dark background</option>
+                                    </select>
+                                  </div>
+
+                                  <div>
+                                    <label style={{ display: 'block', fontSize: '9.5px', fontWeight: 700, color: '#a0a0a0', letterSpacing: '0.1em', marginBottom: '6px' }}>SOCIAL MEDIA ICONS TYPE</label>
+                                    <select
+                                      value={selectedAutomation.icons_type || 'Dark Icons, for light background'}
+                                      onChange={e => setSelectedAutomation(prev => ({ ...prev, icons_type: e.target.value }))}
+                                      style={{ width: '100%', padding: '10px 12px', border: '1px solid #dcdcdc', borderRadius: '2px', fontSize: '13px', backgroundColor: '#fff', outline: 'none' }}
+                                    >
+                                      <option value="Dark Icons, for light background">Dark Icons, for light background</option>
+                                      <option value="Light Icons, for dark background">Light Icons, for dark background</option>
+                                    </select>
                                   </div>
                                 </div>
-
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        {/* PHOTO BANNER fields */}
-                        {activeModal === 'photo_banner' && (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                            <div>
-                              <label style={{ display: 'block', fontSize: '10px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>HEADER TEXT</label>
-                              <input type="text" value={selectedAutomation.title || ''} onChange={e => setSelectedAutomation(prev => ({ ...prev, title: e.target.value }))} placeholder="One Year Anniversary" style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
-                            </div>
-                            <div>
-                              <label style={{ display: 'block', fontSize: '10px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>DESKTOP PHOTO URL</label>
-                              <input type="text" value={selectedAutomation.desktop_image || ''} onChange={e => setSelectedAutomation(prev => ({ ...prev, desktop_image: e.target.value }))} placeholder="https://..." style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
-                            </div>
-                            <div>
-                              <label style={{ display: 'block', fontSize: '10px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>MOBILE PHOTO URL</label>
-                              <input type="text" value={selectedAutomation.mobile_image || ''} onChange={e => setSelectedAutomation(prev => ({ ...prev, mobile_image: e.target.value }))} placeholder="https://..." style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
-                            </div>
-                          </div>
-                        )}
-
-                      </div>{/* /left panel */}
-
-                      {/* RIGHT PANEL — live previews */}
-                      <div style={{ flex: 1, backgroundColor: '#ffffff', padding: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', minHeight: 0 }}>
-                        
-                        {/* Desktop mockup */}
-                        <div style={{ width: '100%', maxWidth: '520px', border: '1px solid #dcdcdc', borderRadius: '2px', overflow: 'hidden', backgroundColor: '#fff', boxSizing: 'border-box' }}>
-                          {/* Browser bar */}
-                          <div style={{ height: '32px', backgroundColor: '#fafafa', display: 'flex', alignItems: 'center', padding: '0 16px', justifyContent: 'space-between', borderBottom: '1px solid #eaeaea' }}>
-                            <div style={{ display: 'flex', gap: '6px' }}>
-                              <div style={{ width: '14px', height: '4px', backgroundColor: '#e2e2e2' }} />
-                              <div style={{ width: '24px', height: '4px', backgroundColor: '#e2e2e2' }} />
-                              <div style={{ width: '24px', height: '4px', backgroundColor: '#e2e2e2' }} />
-                            </div>
-                            <div style={{ width: '42px', height: '4px', backgroundColor: '#333' }} />
-                            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                              <div style={{ width: '8px', height: '8px', border: '1px solid #c8c8c8', borderRadius: '50%' }} />
-                              <div style={{ width: '8px', height: '8px', border: '1px solid #c8c8c8', borderRadius: '50%' }} />
-                            </div>
-                          </div>
-
-                          {/* Desktop Banner area */}
-                          {activeModal === 'text_banner' && (
-                            <div style={{ backgroundColor: selectedAutomation.bg_color || '#4a5338', color: selectedAutomation.text_color || '#ffffff', padding: '14px 20px', fontSize: '10px', textAlign: 'center', fontWeight: 500, fontFamily: "'Inter', sans-serif", letterSpacing: '0.02em', lineHeight: 1.4 }}>
-                              {selectedAutomation.text || 'Happy anniversary! Enjoy {discount-value} off print products, valid thru {exp-date} | Enter {code} at checkout'}
-                            </div>
-                          )}
-                          {activeModal === 'large_banner' && (
-                            <div style={{
-                              height: '110px',
-                              backgroundColor: selectedAutomation.bg_color || '#eae5d8',
-                              backgroundImage: selectedAutomation.desktop_image ? `url(${selectedAutomation.desktop_image})` : 'none',
-                              backgroundSize: 'cover',
-                              backgroundPosition: 'center',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              padding: '16px 24px',
-                              boxSizing: 'border-box'
-                            }}>
-                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '3px' }}>
-                                <div style={{
-                                  fontSize: '14px',
-                                  fontWeight: 700,
-                                  color: selectedAutomation.title_color || '#2c3e2d',
-                                  fontFamily: selectedAutomation.font === 'Inter' ? "'Inter', sans-serif" : selectedAutomation.font === 'Georgia' ? "'Georgia', serif" : "'Playfair Display', serif"
-                                }}>{selectedAutomation.title || 'Relive It in Print'}</div>
-                                <div style={{ fontSize: '8px', color: selectedAutomation.subtitle_color || '#4a5a4b', maxWidth: '170px', lineHeight: 1.3 }}>{selectedAutomation.subtitle || 'Get these moments off the screen and into your hands with {discount-value} off, thru {exp-date}.'}</div>
-                                <div style={{ fontSize: '8px', color: selectedAutomation.subtitle_color || '#4a5a4b', fontWeight: 600 }}>{selectedAutomation.code || 'Code: {code}'}</div>
-                                {selectedAutomation.cta && (
-                                  <button style={{
-                                    marginTop: '4px', padding: '4px 14px', fontSize: '8.5px', fontWeight: 700,
-                                    backgroundColor: selectedAutomation.cta_bg || '#3a4a38',
-                                    color: selectedAutomation.bg_color || '#ffffff',
-                                    border: 'none', borderRadius: '1px', cursor: 'default', textTransform: 'uppercase', letterSpacing: '0.06em'
-                                  }}>{selectedAutomation.cta}</button>
-                                )}
-                              </div>
-                              {/* Bouquet illustration */}
-                              <svg viewBox="0 0 100 100" style={{ width: '48px', height: '48px', marginRight: '16px', flexShrink: 0 }}>
-                                <path d="M42 66 L50 46" stroke="#5d6050" strokeWidth="2" strokeLinecap="round" />
-                                <path d="M48 66 L50 44" stroke="#5d6050" strokeWidth="2" strokeLinecap="round" />
-                                <path d="M54 66 L50 46" stroke="#5d6050" strokeWidth="2" strokeLinecap="round" />
-                                <path d="M44 58 Q48 60 52 58" fill="none" stroke="#8c8d82" strokeWidth="1.5" />
-                                <path d="M45 59 L40 70" stroke="#8c8d82" strokeWidth="1" />
-                                <path d="M51 59 L56 70" stroke="#8c8d82" strokeWidth="1" />
-                                <path d="M35 44 Q42 42 43 36 Q38 39 35 44" fill="#7a806c" />
-                                <path d="M61 44 Q54 42 53 36 Q58 39 61 44" fill="#7a806c" />
-                                <circle cx="48" cy="32" r="6" fill="#ffffff" stroke="#dcdcdc" strokeWidth="0.75" />
-                                <circle cx="48" cy="32" r="2" fill="#e5ded3" />
-                                <circle cx="40" cy="39" r="5" fill="#ffffff" stroke="#dcdcdc" strokeWidth="0.75" />
-                                <circle cx="40" cy="39" r="1.5" fill="#e5ded3" />
-                                <circle cx="56" cy="39" r="5" fill="#ffffff" stroke="#dcdcdc" strokeWidth="0.75" />
-                                <circle cx="56" cy="39" r="1.5" fill="#e5ded3" />
-                                <circle cx="48" cy="42" r="4.5" fill="#ffffff" stroke="#dcdcdc" strokeWidth="0.75" />
-                                <circle cx="48" cy="42" r="1.2" fill="#e5ded3" />
-                                <circle cx="34" cy="33" r="2" fill="#ffffff" />
-                                <circle cx="62" cy="33" r="2" fill="#ffffff" />
-                                <circle cx="44" cy="26" r="1.5" fill="#ffffff" />
-                                <circle cx="52" cy="26" r="1.5" fill="#ffffff" />
-                              </svg>
-                            </div>
-                          )}
-                          {activeModal === 'photo_banner' && (
-                            <div style={{ height: '90px', backgroundColor: selectedAutomation.bg_color || '#d4c9b5', backgroundImage: selectedAutomation.desktop_image ? `url(${selectedAutomation.desktop_image})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                              <div style={{ fontSize: '14px', fontWeight: 700, color: '#fff', textShadow: '0 1px 4px rgba(0,0,0,0.4)' }}>{selectedAutomation.title || 'One Year Anniversary'}</div>
-                            </div>
-                          )}
-
-                          {/* Desktop Scene Label */}
-                          <div style={{ padding: '20px 14px', textAlign: 'center' }}>
-                            <div style={{ fontSize: '13px', fontWeight: 500, fontFamily: "'Georgia', 'Playfair Display', serif", color: '#2c2c2d', letterSpacing: '0.12em' }}>SCENE NAME</div>
-                          </div>
-
-                          {/* Desktop Mock grids */}
-                          <div style={{ padding: '0 16px 24px', display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '12px' }}>
-                            <div style={{ gridColumn: 'span 8', height: '110px', backgroundColor: '#f0f0f0' }} />
-                            <div style={{ gridColumn: 'span 4', height: '110px', backgroundColor: '#f0f0f0' }} />
-                            <div style={{ gridColumn: 'span 12', height: '36px', backgroundColor: '#f5f5f5', marginTop: '4px' }} />
-                          </div>
-                        </div>
-
-                        {/* Mobile mockup overlapping */}
-                        <div style={{
-                          position: 'absolute',
-                          right: '60px',
-                          bottom: '30px',
-                          width: '180px',
-                          border: '1px solid #a0a0a0',
-                          borderRadius: '2px',
-                          overflow: 'hidden',
-                          backgroundColor: '#ffffff',
-                          boxShadow: '0 16px 40px rgba(0,0,0,0.12)',
-                          zIndex: 10,
-                          boxSizing: 'border-box'
-                        }}>
-                          {/* Mobile header */}
-                          <div style={{ height: '28px', backgroundColor: '#fafafa', display: 'flex', alignItems: 'center', padding: '0 10px', justifyContent: 'space-between', borderBottom: '1px solid #eaeaea' }}>
-                            {/* Menu icon (3 lines) */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', width: '10px' }}>
-                              <div style={{ height: '1px', backgroundColor: '#c8c8c8' }} />
-                              <div style={{ height: '1px', backgroundColor: '#c8c8c8' }} />
-                              <div style={{ height: '1px', backgroundColor: '#c8c8c8' }} />
-                            </div>
-                            <div style={{ width: '6px', height: '6px', border: '1px solid #c8c8c8', borderRadius: '50%' }} />
-                            <div style={{ display: 'flex', gap: '4px' }}>
-                              <div style={{ width: '12px', height: '3px', backgroundColor: '#e2e2e2' }} />
-                              <div style={{ width: '12px', height: '3px', backgroundColor: '#e2e2e2' }} />
-                            </div>
-                          </div>
-
-                          {/* Mobile Banner area */}
-                          {activeModal === 'text_banner' && (
-                            <div style={{ backgroundColor: selectedAutomation.bg_color || '#4a5338', color: selectedAutomation.text_color || '#ffffff', padding: '12px 14px', fontSize: '9px', textAlign: 'center', fontWeight: 500, fontFamily: "'Inter', sans-serif", letterSpacing: '0.01em', lineHeight: 1.4 }}>
-                              {selectedAutomation.text || 'Happy anniversary! Enjoy {discount-value} off print products, valid thru {exp-date} | Enter {code} at checkout'}
-                            </div>
-                          )}
-                          {activeModal === 'large_banner' && (
-                            <div style={{
-                              backgroundColor: selectedAutomation.bg_color || '#eae5d8',
-                              backgroundImage: selectedAutomation.mobile_image ? `url(${selectedAutomation.mobile_image})` : selectedAutomation.desktop_image ? `url(${selectedAutomation.desktop_image})` : 'none',
-                              backgroundSize: 'cover',
-                              backgroundPosition: 'center',
-                              display: 'flex',
-                              flexDirection: 'column',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              padding: '12px 10px',
-                              gap: '3px',
-                              boxSizing: 'border-box'
-                            }}>
-                              <div style={{
-                                fontSize: '10px',
-                                fontWeight: 700,
-                                color: selectedAutomation.title_color || '#2c3e2d',
-                                fontFamily: selectedAutomation.font === 'Inter' ? "'Inter', sans-serif" : selectedAutomation.font === 'Georgia' ? "'Georgia', serif" : "'Playfair Display', serif",
-                                textAlign: 'center'
-                              }}>{selectedAutomation.title || 'Relive It in Print'}</div>
-                              <div style={{ fontSize: '6.5px', color: selectedAutomation.subtitle_color || '#4a5a4b', textAlign: 'center', lineHeight: 1.3, maxWidth: '140px' }}>{selectedAutomation.subtitle || 'Get these moments off the screen and into your hands with {discount-value} off, thru {exp-date}.'}</div>
-                              <div style={{ fontSize: '6.5px', color: selectedAutomation.subtitle_color || '#4a5a4b', fontWeight: 600, textAlign: 'center' }}>{selectedAutomation.code || 'Code: {code}'}</div>
-                              {selectedAutomation.cta && (
-                                <button style={{
-                                  marginTop: '2px', padding: '3px 12px', fontSize: '6.5px', fontWeight: 700,
-                                  backgroundColor: selectedAutomation.cta_bg || '#3a4a38',
-                                  color: selectedAutomation.bg_color || '#ffffff',
-                                  border: 'none', borderRadius: '1px', cursor: 'default', textTransform: 'uppercase', letterSpacing: '0.06em'
-                                }}>{selectedAutomation.cta}</button>
                               )}
-                              {/* Bouquet centered below button in mobile */}
-                              <svg viewBox="0 0 100 100" style={{ width: '28px', height: '28px', marginTop: '2px' }}>
-                                <path d="M42 66 L50 46" stroke="#5d6050" strokeWidth="2.5" strokeLinecap="round" />
-                                <path d="M48 66 L50 44" stroke="#5d6050" strokeWidth="2.5" strokeLinecap="round" />
-                                <path d="M54 66 L50 46" stroke="#5d6050" strokeWidth="2.5" strokeLinecap="round" />
-                                <path d="M44 58 Q48 60 52 58" fill="none" stroke="#8c8d82" strokeWidth="1.5" />
-                                <circle cx="48" cy="32" r="6" fill="#ffffff" stroke="#dcdcdc" strokeWidth="0.75" />
-                                <circle cx="48" cy="32" r="2" fill="#e5ded3" />
-                                <circle cx="40" cy="39" r="5" fill="#ffffff" stroke="#dcdcdc" strokeWidth="0.75" />
-                                <circle cx="40" cy="39" r="1.5" fill="#e5ded3" />
-                                <circle cx="56" cy="39" r="5" fill="#ffffff" stroke="#dcdcdc" strokeWidth="0.75" />
-                                <circle cx="56" cy="39" r="1.5" fill="#e5ded3" />
-                              </svg>
-                            </div>
-                          )}
-                          {activeModal === 'photo_banner' && (
-                            <div style={{ height: '60px', backgroundColor: selectedAutomation.bg_color || '#d4c9b5', backgroundImage: selectedAutomation.mobile_image ? `url(${selectedAutomation.mobile_image})` : selectedAutomation.desktop_image ? `url(${selectedAutomation.desktop_image})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                              <div style={{ fontSize: '8px', fontWeight: 700, color: '#fff', textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>{selectedAutomation.title || 'One Year Anniversary'}</div>
                             </div>
                           )}
 
-                          {/* Mobile Scene Label */}
-                          <div style={{ padding: '12px 10px', textAlign: 'center' }}>
-                            <div style={{ fontSize: '11px', fontWeight: 500, fontFamily: "'Georgia', 'Playfair Display', serif", color: '#2c2c2d', letterSpacing: '0.12em' }}>Scene Name</div>
-                          </div>
+                        </div>{/* /left panel */}
 
-                          {/* Mobile Mock Grids */}
-                          <div style={{ padding: '0 10px 16px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                            <div style={{ height: '54px', backgroundColor: '#f0f0f0' }} />
-                            <div style={{ height: '54px', backgroundColor: '#f0f0f0' }} />
-                            <div style={{ height: '54px', backgroundColor: '#f0f0f0' }} />
-                            <div style={{ height: '54px', backgroundColor: '#f0f0f0' }} />
-                          </div>
-                        </div>
+                        {/* RIGHT PANEL — live previews */}
+                        <div style={{ flex: 1, backgroundColor: '#f6f6f6', padding: '32px', display: 'flex', flexDirection: 'column', gap: '20px', overflowY: 'auto', minHeight: 0, borderLeft: '1px solid #eee' }}>
+                          
+                          {activeModal === 'edit_email' ? (
+                            /* ─── EMAIL LIVE PREVIEW ─── */
+                            <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+                              <div style={{
+                                width: '100%',
+                                maxWidth: '520px',
+                                backgroundColor: selectedAutomation.bg_color || '#ffffff',
+                                border: '1px solid #dcdcdc',
+                                borderRadius: '0px',
+                                boxSizing: 'border-box',
+                                padding: '40px 32px 32px',
+                                color: selectedAutomation.text_color || '#000000',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                textAlign: 'center',
+                                fontFamily: "'Georgia', 'Playfair Display', serif"
+                              }}>
+                                {/* Brand/Logo */}
+                                <div style={{ fontSize: '14px', fontWeight: 500, letterSpacing: '0.24em', textTransform: 'uppercase', marginBottom: '32px', color: selectedAutomation.text_color || '#000000' }}>
+                                  NANDHA
+                                </div>
 
-                      </div>{/* /right panel */}
+                                {/* Custom image placeholder */}
+                                <div style={{
+                                  width: '100%',
+                                  height: '240px',
+                                  backgroundColor: '#efefef',
+                                  backgroundImage: selectedAutomation.custom_image ? `url(${selectedAutomation.custom_image})` : 'none',
+                                  backgroundSize: 'cover',
+                                  backgroundPosition: 'center',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  gap: '8px',
+                                  border: '1px solid #e5e5e5',
+                                  marginBottom: '32px',
+                                  boxSizing: 'border-box',
+                                  padding: '16px'
+                                }}>
+                                  {!selectedAutomation.custom_image && (
+                                    <>
+                                      <svg viewBox="0 0 100 100" style={{ width: '40px', height: '40px', fill: '#cccccc' }}>
+                                        <path d="M15 80 L85 80 L85 20 L15 20 Z M25 70 L45 45 L55 58 L75 35 L80 70 Z" />
+                                        <circle cx="35" cy="35" r="5" />
+                                      </svg>
+                                      <div style={{ fontSize: '9.5px', color: '#999999', letterSpacing: '0.08em', fontWeight: 500 }}>
+                                        VISITORS WILL SEE THE GALLERY COVER HERE
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
 
-                    </div>{/* /body */}
+                                {/* Title Header */}
+                                <div style={{
+                                  fontSize: '18px',
+                                  fontWeight: 700,
+                                  lineHeight: 1.4,
+                                  letterSpacing: '0.04em',
+                                  textTransform: 'uppercase',
+                                  color: selectedAutomation.text_color || '#000000',
+                                  maxWidth: '440px',
+                                  marginBottom: '16px'
+                                }}>
+                                  {selectedAutomation.title || 'HAPPY ANNIVERSARY! {discount-value} OFF ALL WEDDING PRINT PRODUCTS'}
+                                </div>
+
+                                {/* Message body */}
+                                <div style={{
+                                  fontSize: '12.5px',
+                                  lineHeight: 1.6,
+                                  color: selectedAutomation.text_color || '#444444',
+                                  maxWidth: '400px',
+                                  marginBottom: '32px',
+                                  fontFamily: "'Inter', sans-serif"
+                                }}>
+                                  {selectedAutomation.message || 'Keep the memories alive with prints. You can redeem your gift code HAPPYANI at checkout to enjoy 30% off prints in your gallery.'}
+                                </div>
+
+                                {/* Action Button */}
+                                <button style={{
+                                  padding: '14px 44px',
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '0.12em',
+                                  backgroundColor: selectedAutomation.btn_color || '#5d6050',
+                                  color: selectedAutomation.btn_text_color || '#ffffff',
+                                  border: 'none',
+                                  borderRadius: '2px',
+                                  cursor: 'default',
+                                  marginBottom: '40px'
+                                }}>
+                                  {selectedAutomation.button_text || 'VISIT SHOP'}
+                                </button>
+
+                                {/* Footer link */}
+                                <div style={{ borderTop: '1px solid #eaeaea', width: '100%', paddingTop: '20px', display: 'flex', justifyContent: 'center', gap: '16px', fontSize: '11px', color: '#888', letterSpacing: '0.04em' }}>
+                                  <span>View Gallery</span>
+                                  <span>•</span>
+                                  <span>Share</span>
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            /* ─── BANNER LIVE PREVIEWS ─── */
+                            <>
+                              <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+                                <div style={{ width: '100%', maxWidth: '520px', border: '1px solid #dcdcdc', borderRadius: '2px', overflow: 'hidden', backgroundColor: '#fff', boxSizing: 'border-box', position: 'relative' }}>
+                                  {/* Browser bar */}
+                                  <div style={{ height: '32px', backgroundColor: '#fafafa', display: 'flex', alignItems: 'center', padding: '0 16px', justifyContent: 'space-between', borderBottom: '1px solid #eaeaea' }}>
+                                    <div style={{ display: 'flex', gap: '6px' }}>
+                                      <div style={{ width: '14px', height: '4px', backgroundColor: '#e2e2e2' }} />
+                                      <div style={{ width: '24px', height: '4px', backgroundColor: '#e2e2e2' }} />
+                                      <div style={{ width: '24px', height: '4px', backgroundColor: '#e2e2e2' }} />
+                                    </div>
+                                    <div style={{ width: '54px', height: '4px', backgroundColor: '#333' }} />
+                                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                      <div style={{ width: '8px', height: '8px', border: '1px solid #c8c8c8', borderRadius: '50%' }} />
+                                      <div style={{ width: '8px', height: '8px', border: '1px solid #c8c8c8', borderRadius: '50%' }} />
+                                    </div>
+                                  </div>
+
+                                  {/* Gallery body view */}
+                                  <div style={{ padding: '20px 24px 24px' }}>
+                                    {/* Scene title */}
+                                    <div style={{ textAlign: 'center', fontSize: '13px', fontWeight: 500, fontFamily: "'Georgia', serif", letterSpacing: '0.12em', color: '#2c2c2d', marginBottom: '20px' }}>
+                                      {activeModal === 'photo_banner' ? 'SCENE TITLE' : 'SCENE NAME'}
+                                    </div>
+                                    
+                                    {/* Layout mockup: banner or teaser on top, grids below */}
+                                    {activeModal === 'photo_banner' ? (
+                                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '12px' }}>
+                                        {/* Photo Banner teaser card on Left */}
+                                        <div style={{
+                                          gridColumn: 'span 5',
+                                          height: '160px',
+                                          backgroundColor: selectedAutomation.bg_color || '#eae5d8',
+                                          backgroundImage: selectedAutomation.desktop_image ? `url(${selectedAutomation.desktop_image})` : 'none',
+                                          backgroundSize: 'cover',
+                                          backgroundPosition: 'center',
+                                          display: 'flex',
+                                          flexDirection: 'column',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          padding: '12px',
+                                          boxSizing: 'border-box',
+                                          textAlign: 'center'
+                                        }}>
+                                          <div style={{ fontSize: '13px', fontWeight: 700, color: selectedAutomation.title_color || '#2c3e2d', fontFamily: "'Georgia', serif", marginBottom: '8px' }}>
+                                            {selectedAutomation.title || 'Anniversary Sale'}
+                                          </div>
+                                          <div style={{ fontSize: '13px', fontWeight: 700, color: selectedAutomation.timer_color || '#3a4a38', fontFamily: "'Inter', sans-serif", letterSpacing: '0.04em' }}>
+                                            00 : 00 : 00 : 00
+                                          </div>
+                                          <div style={{ display: 'flex', gap: '8px', fontSize: '6px', color: '#888', marginTop: '2px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                                            <span>day</span><span>hrs</span><span>min</span><span>sec</span>
+                                          </div>
+                                        </div>
+                                        <div style={{ gridColumn: 'span 7', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                          <div style={{ height: '160px', backgroundColor: '#f0f0f0' }} />
+                                        </div>
+                                      </div>
+                                    ) : activeModal === 'store_rotator' ? (
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                        {/* Store Rotator Banner Area */}
+                                        <div style={{
+                                          height: '120px',
+                                          backgroundColor: selectedAutomation.bg_color || '#eae5d8',
+                                          backgroundImage: selectedAutomation.desktop_image ? `url(${selectedAutomation.desktop_image})` : 'none',
+                                          backgroundSize: 'cover',
+                                          backgroundPosition: 'center',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'space-between',
+                                          padding: '16px 24px',
+                                          boxSizing: 'border-box'
+                                        }}>
+                                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '3px' }}>
+                                            <div style={{
+                                              fontSize: '14px',
+                                              fontWeight: 700,
+                                              color: selectedAutomation.title_color || '#2c3e2d',
+                                              fontFamily: selectedAutomation.font === 'Inter' ? "'Inter', sans-serif" : selectedAutomation.font === 'Georgia' ? "'Georgia', serif" : "'Playfair Display', serif"
+                                            }}>{selectedAutomation.title || 'Your Wedding in Print'}</div>
+                                            <div style={{ fontSize: '8px', color: selectedAutomation.subtitle_color || '#4a5a4b', maxWidth: '170px', lineHeight: 1.3 }}>
+                                              {selectedAutomation.subtitle || 'Anniversary Gift! Celebrate those special moments with {discount-value} off all prints until {exp-date}.'}
+                                            </div>
+                                            <div style={{ fontSize: '8px', color: selectedAutomation.subtitle_color || '#4a5a4b', fontWeight: 600 }}>
+                                              {selectedAutomation.code || 'Code: {code}'}
+                                            </div>
+                                          </div>
+                                          {/* Double bouquet illustrations side-by-side */}
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginRight: '8px', flexShrink: 0 }}>
+                                            {/* Small bouquet */}
+                                            <svg viewBox="0 0 100 100" style={{ width: '28px', height: '28px' }}>
+                                              <path d="M42 66 L50 46" stroke="#5d6050" strokeWidth="2.5" strokeLinecap="round" />
+                                              <path d="M48 66 L50 44" stroke="#5d6050" strokeWidth="2.5" strokeLinecap="round" />
+                                              <path d="M54 66 L50 46" stroke="#5d6050" strokeWidth="2.5" strokeLinecap="round" />
+                                              <circle cx="48" cy="32" r="6" fill="#ffffff" stroke="#dcdcdc" strokeWidth="0.75" />
+                                              <circle cx="40" cy="39" r="5" fill="#ffffff" stroke="#dcdcdc" strokeWidth="0.75" />
+                                              <circle cx="56" cy="39" r="5" fill="#ffffff" stroke="#dcdcdc" strokeWidth="0.75" />
+                                            </svg>
+                                            {/* Large bouquet */}
+                                            <svg viewBox="0 0 100 100" style={{ width: '48px', height: '48px' }}>
+                                              <path d="M42 66 L50 46" stroke="#5d6050" strokeWidth="2.5" strokeLinecap="round" />
+                                              <path d="M48 66 L50 44" stroke="#5d6050" strokeWidth="2.5" strokeLinecap="round" />
+                                              <path d="M54 66 L50 46" stroke="#5d6050" strokeWidth="2.5" strokeLinecap="round" />
+                                              <circle cx="48" cy="32" r="6" fill="#ffffff" stroke="#dcdcdc" strokeWidth="0.75" />
+                                              <circle cx="40" cy="39" r="5" fill="#ffffff" stroke="#dcdcdc" strokeWidth="0.75" />
+                                              <circle cx="56" cy="39" r="5" fill="#ffffff" stroke="#dcdcdc" strokeWidth="0.75" />
+                                            </svg>
+                                          </div>
+                                        </div>
+
+                                        {/* Normal gallery grid below */}
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+                                          {[1, 2, 3].map(i => (
+                                            <div key={i} style={{ height: '110px', backgroundColor: '#f0f0f0', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', padding: '10px' }}>
+                                              <div style={{ width: '40%', height: '4px', backgroundColor: '#dcdcdc', borderRadius: '1px' }} />
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                        {/* Large Banner Area */}
+                                        <div style={{
+                                          height: '110px',
+                                          backgroundColor: selectedAutomation.bg_color || '#eae5d8',
+                                          backgroundImage: selectedAutomation.desktop_image ? `url(${selectedAutomation.desktop_image})` : 'none',
+                                          backgroundSize: 'cover',
+                                          backgroundPosition: 'center',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'space-between',
+                                          padding: '16px 24px',
+                                          boxSizing: 'border-box'
+                                        }}>
+                                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '3px' }}>
+                                            <div style={{
+                                              fontSize: '14px',
+                                              fontWeight: 700,
+                                              color: selectedAutomation.title_color || '#2c3e2d',
+                                              fontFamily: selectedAutomation.font === 'Inter' ? "'Inter', sans-serif" : selectedAutomation.font === 'Georgia' ? "'Georgia', serif" : "'Playfair Display', serif"
+                                            }}>{selectedAutomation.title || 'Relive It in Print'}</div>
+                                            <div style={{ fontSize: '8px', color: selectedAutomation.subtitle_color || '#4a5a4b', maxWidth: '170px', lineHeight: 1.3 }}>
+                                              {selectedAutomation.subtitle || 'Get these moments off the screen and into your hands with {discount-value} off, thru {exp-date}.'}
+                                            </div>
+                                            <div style={{ fontSize: '8px', color: selectedAutomation.subtitle_color || '#4a5a4b', fontWeight: 600 }}>
+                                              {selectedAutomation.code || 'Code: {code}'}
+                                            </div>
+                                            {selectedAutomation.cta && (
+                                              <button style={{
+                                                marginTop: '4px', padding: '4px 14px', fontSize: '8.5px', fontWeight: 700,
+                                                backgroundColor: selectedAutomation.cta_bg || '#3a4a38',
+                                                color: selectedAutomation.bg_color || '#ffffff',
+                                                border: 'none', borderRadius: '1px', cursor: 'default', textTransform: 'uppercase', letterSpacing: '0.06em'
+                                              }}>{selectedAutomation.cta}</button>
+                                            )}
+                                          </div>
+                                          <svg viewBox="0 0 100 100" style={{ width: '48px', height: '48px', marginRight: '16px', flexShrink: 0 }}>
+                                            <path d="M42 66 L50 46" stroke="#5d6050" strokeWidth="2" strokeLinecap="round" />
+                                            <path d="M48 66 L50 44" stroke="#5d6050" strokeWidth="2" strokeLinecap="round" />
+                                            <path d="M54 66 L50 46" stroke="#5d6050" strokeWidth="2" strokeLinecap="round" />
+                                            <circle cx="48" cy="32" r="6" fill="#ffffff" stroke="#dcdcdc" strokeWidth="0.75" />
+                                            <circle cx="40" cy="39" r="5" fill="#ffffff" stroke="#dcdcdc" strokeWidth="0.75" />
+                                            <circle cx="56" cy="39" r="5" fill="#ffffff" stroke="#dcdcdc" strokeWidth="0.75" />
+                                          </svg>
+                                        </div>
+
+                                        <div style={{ padding: '0 16px 24px', display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '12px' }}>
+                                          <div style={{ gridColumn: 'span 8', height: '110px', backgroundColor: '#f0f0f0' }} />
+                                          <div style={{ gridColumn: 'span 4', height: '110px', backgroundColor: '#f0f0f0' }} />
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* Overlapping mobile mockup viewport */}
+                                  <div style={{
+                                    position: 'absolute',
+                                    right: '24px',
+                                    bottom: '24px',
+                                    width: '140px',
+                                    border: '1px solid #a0a0a0',
+                                    borderRadius: '2px',
+                                    overflow: 'hidden',
+                                    backgroundColor: '#ffffff',
+                                    boxShadow: '0 12px 30px rgba(0,0,0,0.12)',
+                                    zIndex: 10,
+                                    boxSizing: 'border-box'
+                                  }}>
+                                    <div style={{ height: '24px', backgroundColor: '#fafafa', display: 'flex', alignItems: 'center', padding: '0 8px', justifyContent: 'space-between', borderBottom: '1px solid #eaeaea' }}>
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', width: '8px' }}>
+                                        <div style={{ height: '1px', backgroundColor: '#c8c8c8' }} />
+                                        <div style={{ height: '1px', backgroundColor: '#c8c8c8' }} />
+                                      </div>
+                                      <div style={{ width: '4px', height: '4px', border: '1px solid #c8c8c8', borderRadius: '50%' }} />
+                                      <div style={{ width: '12px', height: '2px', backgroundColor: '#e2e2e2' }} />
+                                    </div>
+                                    <div style={{ padding: '8px' }}>
+                                      {activeModal === 'photo_banner' ? (
+                                        <div>
+                                          {/* Mobile Teaser */}
+                                          <div style={{
+                                            height: '86px',
+                                            backgroundColor: selectedAutomation.bg_color || '#eae5d8',
+                                            backgroundImage: selectedAutomation.mobile_image ? `url(${selectedAutomation.mobile_image})` : selectedAutomation.desktop_image ? `url(${selectedAutomation.desktop_image})` : 'none',
+                                            backgroundSize: 'cover',
+                                            backgroundPosition: 'center',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            padding: '6px',
+                                            boxSizing: 'border-box',
+                                            textAlign: 'center',
+                                            marginBottom: '6px'
+                                          }}>
+                                            <div style={{ fontSize: '9px', fontWeight: 700, color: selectedAutomation.title_color || '#2c3e2d', fontFamily: "'Georgia', serif", marginBottom: '4px' }}>
+                                              {selectedAutomation.title || 'Anniversary Sale'}
+                                            </div>
+                                            <div style={{ fontSize: '9px', fontWeight: 700, color: selectedAutomation.timer_color || '#3a4a38', fontFamily: "'Inter', sans-serif" }}>
+                                              00:00:00:00
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '4px', fontSize: '5px', color: '#888', marginTop: '2px', textTransform: 'uppercase' }}>
+                                              <span>day</span><span>hrs</span><span>min</span><span>sec</span>
+                                            </div>
+                                          </div>
+                                          <div style={{ height: '40px', backgroundColor: '#f0f0f0' }} />
+                                        </div>
+                                      ) : activeModal === 'store_rotator' ? (
+                                        <div>
+                                          <div style={{
+                                            backgroundColor: selectedAutomation.bg_color || '#eae5d8',
+                                            backgroundImage: selectedAutomation.mobile_image ? `url(${selectedAutomation.mobile_image})` : selectedAutomation.desktop_image ? `url(${selectedAutomation.desktop_image})` : 'none',
+                                            backgroundSize: 'cover',
+                                            backgroundPosition: 'center',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            padding: '12px 10px',
+                                            gap: '3px',
+                                            boxSizing: 'border-box',
+                                            marginBottom: '6px'
+                                          }}>
+                                            <div style={{
+                                              fontSize: '10px',
+                                              fontWeight: 700,
+                                              color: selectedAutomation.title_color || '#2c3e2d',
+                                              fontFamily: selectedAutomation.font === 'Inter' ? "'Inter', sans-serif" : selectedAutomation.font === 'Georgia' ? "'Georgia', serif" : "'Playfair Display', serif",
+                                              textAlign: 'center'
+                                            }}>{selectedAutomation.title || 'Your Wedding in Print'}</div>
+                                            <div style={{ fontSize: '6px', color: selectedAutomation.subtitle_color || '#4a5a4b', textAlign: 'center', lineHeight: 1.3 }}>
+                                              {selectedAutomation.subtitle || 'Anniversary Gift! Celebrate those special moments with {discount-value} off all prints until {exp-date}.'}
+                                            </div>
+                                            <div style={{ fontSize: '6px', color: selectedAutomation.subtitle_color || '#4a5a4b', fontWeight: 600, textAlign: 'center' }}>
+                                              {selectedAutomation.code || 'Code: {code}'}
+                                            </div>
+                                            {/* Double small bouquets below */}
+                                            <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
+                                              <svg viewBox="0 0 100 100" style={{ width: '18px', height: '18px' }}>
+                                                <circle cx="48" cy="32" r="7" fill="#ffffff" stroke="#dcdcdc" strokeWidth="1" />
+                                                <path d="M42 66 L50 46" stroke="#5d6050" strokeWidth="4" />
+                                              </svg>
+                                              <svg viewBox="0 0 100 100" style={{ width: '18px', height: '18px' }}>
+                                                <circle cx="48" cy="32" r="7" fill="#ffffff" stroke="#dcdcdc" strokeWidth="1" />
+                                                <path d="M42 66 L50 46" stroke="#5d6050" strokeWidth="4" />
+                                              </svg>
+                                            </div>
+                                          </div>
+                                          <div style={{ height: '40px', backgroundColor: '#f0f0f0' }} />
+                                        </div>
+                                      ) : (
+                                        <div>
+                                          <div style={{
+                                            backgroundColor: selectedAutomation.bg_color || '#eae5d8',
+                                            backgroundImage: selectedAutomation.mobile_image ? `url(${selectedAutomation.mobile_image})` : selectedAutomation.desktop_image ? `url(${selectedAutomation.desktop_image})` : 'none',
+                                            backgroundSize: 'cover',
+                                            backgroundPosition: 'center',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            padding: '12px 10px',
+                                            gap: '3px',
+                                            boxSizing: 'border-box',
+                                            marginBottom: '6px'
+                                          }}>
+                                            <div style={{
+                                              fontSize: '10px',
+                                              fontWeight: 700,
+                                              color: selectedAutomation.title_color || '#2c3e2d',
+                                              fontFamily: selectedAutomation.font === 'Inter' ? "'Inter', sans-serif" : selectedAutomation.font === 'Georgia' ? "'Georgia', serif" : "'Playfair Display', serif",
+                                              textAlign: 'center'
+                                            }}>{selectedAutomation.title || 'Relive It in Print'}</div>
+                                            <div style={{ fontSize: '6.5px', color: selectedAutomation.subtitle_color || '#4a5a4b', textAlign: 'center', lineHeight: 1.3 }}>{selectedAutomation.subtitle || 'Get these moments off the screen and into your hands with {discount-value} off, thru {exp-date}.'}</div>
+                                            {selectedAutomation.cta && (
+                                              <button style={{
+                                                marginTop: '2px', padding: '3px 12px', fontSize: '6.5px', fontWeight: 700,
+                                                backgroundColor: selectedAutomation.cta_bg || '#3a4a38',
+                                                color: selectedAutomation.bg_color || '#ffffff',
+                                                border: 'none', borderRadius: '1px', cursor: 'default', textTransform: 'uppercase', letterSpacing: '0.06em'
+                                              }}>{selectedAutomation.cta}</button>
+                                            )}
+                                          </div>
+                                          <div style={{ height: '40px', backgroundColor: '#f0f0f0' }} />
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                </div>
+                              </div>
+
+                              {/* Lower section: Expanded View (Only for Photo Banner and Large Banner) */}
+                              {activeModal !== 'store_rotator' && (
+                                <div style={{ width: '100%' }}>
+                                  {/* Section Title */}
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', padding: '0 8px' }}>
+                                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#2c2c2d' }}>Expanded View:</span>
+                                    <div style={{ display: 'flex', gap: '160px', marginRight: '60px' }}>
+                                      <span style={{ fontSize: '11px', fontWeight: 500, color: '#999' }}>Desktop</span>
+                                      <span style={{ fontSize: '11px', fontWeight: 500, color: '#999' }}>Mobile</span>
+                                    </div>
+                                  </div>
+
+                                  {/* Expanded Desktop + Mobile cards side-by-side */}
+                                  <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start', justifyContent: 'center' }}>
+                                    {/* Desktop Expanded card */}
+                                    <div style={{
+                                      width: '320px',
+                                      height: '210px',
+                                      backgroundColor: selectedAutomation.bg_color || '#eae5d8',
+                                      backgroundImage: selectedAutomation.desktop_image ? `url(${selectedAutomation.desktop_image})` : 'none',
+                                      backgroundSize: 'cover',
+                                      backgroundPosition: 'center',
+                                      border: '1px solid #e2e8f0',
+                                      borderRadius: '2px',
+                                      padding: '18px',
+                                      boxSizing: 'border-box',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'space-between',
+                                      position: 'relative'
+                                    }}>
+                                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '3px', zIndex: 2 }}>
+                                        <div style={{
+                                          fontSize: '15px',
+                                          fontWeight: 700,
+                                          color: selectedAutomation.title_color || '#2c3e2d',
+                                          fontFamily: selectedAutomation.font === 'Inter' ? "'Inter', sans-serif" : selectedAutomation.font === 'Georgia' ? "'Georgia', serif" : "'Playfair Display', serif"
+                                        }}>{selectedAutomation.title || 'Anniversary Sale'}</div>
+                                        <div style={{ fontSize: '7px', color: selectedAutomation.subtitle_color || '#4a5a4b', maxWidth: '140px', lineHeight: 1.3 }}>
+                                          {selectedAutomation.subtitle || 'Enjoy {discount-value} off any print product in your gallery shop, through {exp-date}.'}
+                                        </div>
+                                        <div style={{ fontSize: '7px', color: selectedAutomation.subtitle_color || '#4a5a4b', fontWeight: 600 }}>
+                                          {selectedAutomation.code || 'Code: {code}'}
+                                        </div>
+                                        
+                                        {/* Expanded countdown timer */}
+                                        <div style={{ marginTop: '4px' }}>
+                                          <div style={{ fontSize: '16px', fontWeight: 700, color: selectedAutomation.timer_color || '#3a4a38', fontFamily: "'Inter', sans-serif", letterSpacing: '0.04em' }}>
+                                            00 : 00 : 00 : 00
+                                          </div>
+                                          <div style={{ display: 'flex', gap: '8px', fontSize: '5px', color: '#888', marginTop: '1px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                            <span>day</span><span>hrs</span><span>min</span><span>sec</span>
+                                          </div>
+                                        </div>
+
+                                        {selectedAutomation.cta && (
+                                          <button style={{
+                                            marginTop: '8px', padding: '5px 12px', fontSize: '7.5px', fontWeight: 700,
+                                            backgroundColor: selectedAutomation.cta_bg || '#3a4a38',
+                                            color: selectedAutomation.bg_color || '#ffffff',
+                                            border: 'none', borderRadius: '1px', cursor: 'default', textTransform: 'uppercase', letterSpacing: '0.06em'
+                                          }}>{selectedAutomation.cta}</button>
+                                        )}
+                                      </div>
+
+                                      {/* Expanded bouquet illustration on right */}
+                                      <svg viewBox="0 0 100 100" style={{ width: '70px', height: '70px', marginRight: '-8px', zIndex: 1, flexShrink: 0 }}>
+                                        <path d="M42 66 L50 46" stroke="#5d6050" strokeWidth="2.5" strokeLinecap="round" />
+                                        <path d="M48 66 L50 44" stroke="#5d6050" strokeWidth="2.5" strokeLinecap="round" />
+                                        <path d="M54 66 L50 46" stroke="#5d6050" strokeWidth="2.5" strokeLinecap="round" />
+                                        <path d="M44 58 Q48 60 52 58" fill="none" stroke="#8c8d82" strokeWidth="1.5" />
+                                        <path d="M45 59 L40 70" stroke="#8c8d82" strokeWidth="1.2" />
+                                        <path d="M51 59 L56 70" stroke="#8c8d82" strokeWidth="1.2" />
+                                        <path d="M35 44 Q42 42 43 36 Q38 39 35 44" fill="#7a806c" />
+                                        <path d="M61 44 Q54 42 53 36 Q58 39 61 44" fill="#7a806c" />
+                                        <circle cx="48" cy="32" r="6" fill="#ffffff" stroke="#dcdcdc" strokeWidth="0.75" />
+                                        <circle cx="48" cy="32" r="2" fill="#e5ded3" />
+                                        <circle cx="40" cy="39" r="5" fill="#ffffff" stroke="#dcdcdc" strokeWidth="0.75" />
+                                        <circle cx="40" cy="39" r="1.5" fill="#e5ded3" />
+                                        <circle cx="56" cy="39" r="5" fill="#ffffff" stroke="#dcdcdc" strokeWidth="0.75" />
+                                        <circle cx="56" cy="39" r="1.5" fill="#e5ded3" />
+                                        <circle cx="48" cy="42" r="4.5" fill="#ffffff" stroke="#dcdcdc" strokeWidth="0.75" />
+                                        <circle cx="48" cy="42" r="1.2" fill="#e5ded3" />
+                                        {/* Confetti dots */}
+                                        <circle cx="28" cy="35" r="1.5" fill="#ffffff" /><rect x="66" y="32" width="2" height="2" fill="#ffffff" transform="rotate(30)" />
+                                        <rect x="34" y="24" width="1.5" height="1.5" fill="#ffffff" /><circle cx="58" cy="24" r="1.5" fill="#ffffff" />
+                                      </svg>
+                                    </div>
+
+                                    {/* Mobile Expanded card */}
+                                    <div style={{
+                                      width: '130px',
+                                      height: '210px',
+                                      backgroundColor: selectedAutomation.bg_color || '#eae5d8',
+                                      backgroundImage: selectedAutomation.mobile_image ? `url(${selectedAutomation.mobile_image})` : selectedAutomation.desktop_image ? `url(${selectedAutomation.desktop_image})` : 'none',
+                                      backgroundSize: 'cover',
+                                      backgroundPosition: 'center',
+                                      border: '1px solid #e2e8f0',
+                                      borderRadius: '2px',
+                                      padding: '12px 8px',
+                                      boxSizing: 'border-box',
+                                      display: 'flex',
+                                      flexDirection: 'column',
+                                      alignItems: 'center',
+                                      justifyContent: 'space-between',
+                                      textAlign: 'center'
+                                    }}>
+                                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                                        <div style={{
+                                          fontSize: '10px',
+                                          fontWeight: 700,
+                                          color: selectedAutomation.title_color || '#2c3e2d',
+                                          fontFamily: selectedAutomation.font === 'Inter' ? "'Inter', sans-serif" : selectedAutomation.font === 'Georgia' ? "'Georgia', serif" : "'Playfair Display', serif"
+                                        }}>{selectedAutomation.title || 'Anniversary Sale'}</div>
+                                        <div style={{ fontSize: '5.5px', color: selectedAutomation.subtitle_color || '#4a5a4b', lineHeight: 1.2, maxWidth: '110px' }}>
+                                          {selectedAutomation.subtitle || 'Enjoy {discount-value} off any print product...'}
+                                        </div>
+                                        <div style={{ fontSize: '5.5px', color: selectedAutomation.subtitle_color || '#4a5a4b', fontWeight: 600 }}>
+                                          {selectedAutomation.code || 'Code: {code}'}
+                                        </div>
+
+                                        {/* Timer */}
+                                        <div style={{ marginTop: '2px' }}>
+                                          <div style={{ fontSize: '10px', fontWeight: 700, color: selectedAutomation.timer_color || '#3a4a38', fontFamily: "'Inter', sans-serif" }}>
+                                            00:00:00:00
+                                          </div>
+                                          <div style={{ display: 'flex', gap: '4px', fontSize: '4.5px', color: '#888', textTransform: 'uppercase' }}>
+                                            <span>day</span><span>hrs</span><span>min</span><span>sec</span>
+                                          </div>
+                                        </div>
+
+                                        {selectedAutomation.cta && (
+                                          <button style={{
+                                            marginTop: '4px', padding: '3px 8px', fontSize: '6px', fontWeight: 700,
+                                            backgroundColor: selectedAutomation.cta_bg || '#3a4a38',
+                                            color: selectedAutomation.bg_color || '#ffffff',
+                                            border: 'none', borderRadius: '1px', cursor: 'default', textTransform: 'uppercase', letterSpacing: '0.06em'
+                                          }}>{selectedAutomation.cta}</button>
+                                        )}
+                                      </div>
+
+                                      {/* Small Bouquet centered at bottom */}
+                                      <svg viewBox="0 0 100 100" style={{ width: '26px', height: '26px', marginTop: '2px' }}>
+                                        <path d="M42 66 L50 46" stroke="#5d6050" strokeWidth="3.5" strokeLinecap="round" />
+                                        <path d="M48 66 L50 44" stroke="#5d6050" strokeWidth="3.5" strokeLinecap="round" />
+                                        <path d="M54 66 L50 46" stroke="#5d6050" strokeWidth="3.5" strokeLinecap="round" />
+                                        <circle cx="48" cy="32" r="6" fill="#ffffff" stroke="#dcdcdc" strokeWidth="0.75" />
+                                        <circle cx="40" cy="39" r="5" fill="#ffffff" stroke="#dcdcdc" strokeWidth="0.75" />
+                                        <circle cx="56" cy="39" r="5" fill="#ffffff" stroke="#dcdcdc" strokeWidth="0.75" />
+                                      </svg>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </>
+                          )}
+
+                        </div>{/* /right panel */}
+
+                      </div>
+                    )}
+
                   </div>{/* /modal card */}
                 </div>
               )}{/* /modal overlay */}
+
+
+
 
 
 
