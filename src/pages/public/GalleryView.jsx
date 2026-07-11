@@ -65,6 +65,9 @@ import {
   SLIDESHOW_CHANGED_EVENT,
   withResolvedSlideshowEnabled,
 } from '../../lib/collectionFeatureFlags';
+import { filterPhotosByIds } from '../../lib/photoAiSearch';
+import { useGalleryPeople } from '../../hooks/useGalleryPeople';
+import { GalleryPeopleStrip } from '../../components/features/Gallery/GalleryPeopleStrip/GalleryPeopleStrip';
 
 /** Stable string ids so Supabase UUIDs match `photo.id` from the collection payload. */
 function normalizeFavoritePhotoId(id) {
@@ -423,6 +426,11 @@ const GalleryView = () => {
   const shareUrl = typeof window !== 'undefined' ? window.location.origin + "/gallery/" + (slug || '') : '';
   const shareTitle = collection?.name || 'Collection';
 
+  const galleryPeople = useGalleryPeople(collection?.id, {
+    enabled: Boolean(collection?.id) && !isFavoriteListMode,
+    isPublic: true,
+  });
+
   useEffect(() => {
     const fetchGallery = async () => {
       try {
@@ -618,10 +626,20 @@ const GalleryView = () => {
 
   const showMediaFilter = shouldShowGalleryMediaFilter(mediaCounts);
 
+  const photosAfterPeopleFilter = useMemo(() => {
+    if (galleryPeople.selfieMatchPhotoIds.length) {
+      return filterPhotosByIds(filteredPhotosBase, galleryPeople.selfieMatchPhotoIds);
+    }
+    if (galleryPeople.activePerson?.photoIds?.length) {
+      return filterPhotosByIds(filteredPhotosBase, galleryPeople.activePerson.photoIds);
+    }
+    return filteredPhotosBase;
+  }, [filteredPhotosBase, galleryPeople.selfieMatchPhotoIds, galleryPeople.activePerson]);
+
   const filteredPhotos = useMemo(() => {
-    if (!showMediaFilter) return filteredPhotosBase;
-    return filterGalleryMediaByType(filteredPhotosBase, mediaFilter);
-  }, [filteredPhotosBase, showMediaFilter, mediaFilter]);
+    if (!showMediaFilter) return photosAfterPeopleFilter;
+    return filterGalleryMediaByType(photosAfterPeopleFilter, mediaFilter);
+  }, [photosAfterPeopleFilter, showMediaFilter, mediaFilter]);
 
   const showEmptyPlaceholderGrid =
     !isFavoriteListMode &&
@@ -943,6 +961,21 @@ const GalleryView = () => {
                 />
               </div>
             )}
+
+          {!isFavoriteListMode ? (
+            <GalleryPeopleStrip
+              variant="gallery"
+              people={galleryPeople.people}
+              loading={galleryPeople.loading}
+              activePersonId={galleryPeople.activePersonId}
+              selfieSearching={galleryPeople.selfieSearching}
+              selfieMessage={galleryPeople.selfieMessage}
+              isFilterActive={galleryPeople.isFilterActive}
+              onSelectPerson={galleryPeople.selectPerson}
+              onSelfiePick={galleryPeople.searchBySelfie}
+              onClearFilter={galleryPeople.clearFilter}
+            />
+          ) : null}
 
           {filteredPhotos.length === 0 &&
           showMediaFilter &&

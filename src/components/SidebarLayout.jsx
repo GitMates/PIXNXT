@@ -8,6 +8,7 @@ import {
     Database,
     Plus,
     Images,
+    LayoutGrid,
     Star,
     BookOpen,
     Settings,
@@ -25,6 +26,7 @@ import '../pages/ClientGallery.css';
 
 const NAV_ITEMS = [
     { label: 'Collections', href: '/client-gallery', match: (p) => p === '/client-gallery' || p.startsWith('/collections') || p.startsWith('/folders'), icon: Images },
+    { label: 'Library', href: '/photos', match: (p) => p === '/photos', icon: LayoutGrid },
     { label: 'Starred', href: '/starred/collections', match: (p) => p.startsWith('/starred'), icon: Star },
     { label: 'Homepage', href: '/homepage', match: (p) => p === '/homepage', icon: BookOpen },
     { label: 'Settings', href: '/settings', match: (p) => p.startsWith('/settings'), icon: Settings },
