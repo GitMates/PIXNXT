@@ -1150,6 +1150,206 @@ const GalleryView = () => {
     });
   }, [filteredPhotos]);
 
+  const promoBannersMarkup = useMemo(() => {
+    if (!activeCampaign) return null;
+    return (
+      <>
+        {/* Dynamic Promotional Banners */}
+        {activeCampaign.banners?.large_banner?.enabled && (
+          <div style={{
+            width: '100%',
+            backgroundColor: activeCampaign.banners.large_banner.bg_color || '#eae5d8',
+            padding: '52px 32px',
+            boxSizing: 'border-box',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            textAlign: 'center',
+            marginTop: '36px',
+            marginBottom: '36px',
+            borderTop: '1px solid rgba(0,0,0,0.05)',
+            borderBottom: '1px solid rgba(0,0,0,0.05)',
+            fontFamily: "'Inter', sans-serif"
+          }}>
+            <h3 style={{
+              fontSize: '24px',
+              fontWeight: 700,
+              fontFamily: activeCampaign.banners.large_banner.font === 'Playfair Display' ? "'Playfair Display', serif" : "'Inter', sans-serif",
+              color: activeCampaign.banners.large_banner.title_color || '#2c3e2d',
+              marginBottom: '12px',
+              letterSpacing: '0.02em',
+              textTransform: 'uppercase'
+            }}>
+              {(() => {
+                let text = activeCampaign.banners.large_banner.title || '';
+                const discountVal = activeCampaign.discount ? `${activeCampaign.discount}%` : '30%';
+                return text.replace(/{discount-value}/g, discountVal).replace(/{discount_value}/g, discountVal);
+              })()}
+            </h3>
+            <p style={{
+              fontSize: '14px',
+              color: activeCampaign.banners.large_banner.subtitle_color || '#4a5a4b',
+              maxWidth: '520px',
+              lineHeight: 1.6,
+              marginBottom: '24px'
+            }}>
+              {(() => {
+                let text = activeCampaign.banners.large_banner.subtitle || '';
+                const discountVal = activeCampaign.discount ? `${activeCampaign.discount}%` : '30%';
+                const expDate = new Date();
+                expDate.setDate(expDate.getDate() + 14);
+                const expFormatted = expDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+                return text
+                  .replace(/{discount-value}/g, discountVal)
+                  .replace(/{discount_value}/g, discountVal)
+                  .replace(/{exp-date}/g, expFormatted)
+                  .replace(/{exp_date}/g, expFormatted);
+              })()}
+            </p>
+            <button
+              onClick={() => setShowPrintLabModal(true)}
+              style={{
+                padding: '12px 36px',
+                fontSize: '11px',
+                fontWeight: 700,
+                backgroundColor: activeCampaign.banners.large_banner.cta_bg || '#3a4a38',
+                color: activeCampaign.banners.large_banner.cta_color || '#ffffff',
+                border: 'none',
+                textTransform: 'uppercase',
+                letterSpacing: '0.1em',
+                cursor: 'pointer',
+                transition: 'opacity 0.2s',
+                borderRadius: '0px'
+              }}
+              onMouseEnter={e => e.currentTarget.style.opacity = '0.9'}
+              onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+            >
+              {activeCampaign.banners.large_banner.cta || 'Visit Shop'}
+            </button>
+          </div>
+        )}
+
+        {activeCampaign.banners?.photo_banner?.enabled && (
+          <div style={{
+            width: '100%',
+            backgroundColor: activeCampaign.banners.photo_banner.bg_color || '#d4c9b5',
+            padding: '44px 32px',
+            boxSizing: 'border-box',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            textAlign: 'center',
+            marginTop: '36px',
+            marginBottom: '36px',
+            fontFamily: "'Inter', sans-serif"
+          }}>
+            <h3 style={{
+              fontSize: '20px',
+              fontWeight: 700,
+              fontFamily: "'Playfair Display', serif",
+              color: '#1a1a1a',
+              marginBottom: '8px',
+              textTransform: 'uppercase',
+              letterSpacing: '0.04em'
+            }}>
+              {activeCampaign.banners.photo_banner.title || 'Special Promotion'}
+            </h3>
+            <p style={{
+              fontSize: '13px',
+              color: '#444444',
+              marginBottom: '20px'
+            }}>
+              {activeCampaign.banners.photo_banner.subtitle || 'Custom prints and gifts at exclusive discounted pricing'}
+            </p>
+            <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap', maxWidth: '640px' }}>
+              {['Classic Prints', 'Matted Frames', 'Canvas Wall Art'].map((p, idx) => (
+                <div key={idx} style={{ width: '130px', backgroundColor: '#ffffff', border: '1px solid rgba(0,0,0,0.06)', padding: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <div style={{ width: '100%', height: '80px', backgroundColor: '#eaeaea', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyItems: 'center', fontSize: '20px', justifyContent: 'center' }}>
+                    🖼️
+                  </div>
+                  <span style={{ fontSize: '11px', fontWeight: 600, color: '#1a1a1a' }}>{p}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {activeCampaign.banners?.store_rotator?.enabled && (
+          <div style={{
+            width: '100%',
+            backgroundColor: activeCampaign.banners.store_rotator.bg_color || '#eae5d8',
+            padding: '48px 32px',
+            boxSizing: 'border-box',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            textAlign: 'center',
+            marginTop: '36px',
+            marginBottom: '36px',
+            borderTop: '1px solid rgba(0,0,0,0.05)',
+            borderBottom: '1px solid rgba(0,0,0,0.05)',
+            fontFamily: "'Inter', sans-serif"
+          }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', maxWidth: '600px' }}>
+              <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.15em', color: '#bfa38a', textTransform: 'uppercase' }}>
+                {activeCampaign.banners.store_rotator.code ? activeCampaign.banners.store_rotator.code.replace(/{code}/g, activeCampaign.discountCode || 'HAPPYANI') : 'EXCLUSIVE OFFER'}
+              </span>
+              <h3 style={{
+                fontSize: '22px',
+                fontWeight: 700,
+                fontFamily: activeCampaign.banners.store_rotator.font === 'Playfair Display' ? "'Playfair Display', serif" : "'Inter', sans-serif",
+                color: activeCampaign.banners.store_rotator.title_color || '#2c3e2d',
+                textTransform: 'uppercase'
+              }}>
+                {(() => {
+                  let text = activeCampaign.banners.store_rotator.title || '';
+                  const discountVal = activeCampaign.discount ? `${activeCampaign.discount}%` : '30%';
+                  return text.replace(/{discount-value}/g, discountVal).replace(/{discount_value}/g, discountVal);
+                })()}
+              </h3>
+              <p style={{
+                fontSize: '13.5px',
+                lineHeight: 1.6,
+                color: activeCampaign.banners.store_rotator.subtitle_color || '#4a5a4b',
+                marginBottom: '20px'
+              }}>
+                {(() => {
+                  let text = activeCampaign.banners.store_rotator.subtitle || '';
+                  const discountVal = activeCampaign.discount ? `${activeCampaign.discount}%` : '30%';
+                  const expDate = new Date();
+                  expDate.setDate(expDate.getDate() + 14);
+                  const expFormatted = expDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+                  return text
+                    .replace(/{discount-value}/g, discountVal)
+                    .replace(/{discount_value}/g, discountVal)
+                    .replace(/{exp-date}/g, expFormatted)
+                    .replace(/{exp_date}/g, expFormatted);
+                })()}
+              </p>
+              <button
+                onClick={() => setShowPrintLabModal(true)}
+                style={{
+                  padding: '12px 32px',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  backgroundColor: activeCampaign.banners.store_rotator.cta_bg || '#3a4a38',
+                  color: activeCampaign.banners.store_rotator.cta_color || '#ffffff',
+                  border: 'none',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.1em',
+                  cursor: 'pointer',
+                  borderRadius: '0px'
+                }}
+              >
+                {activeCampaign.banners.store_rotator.cta || 'CLAIM OFFER'}
+              </button>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }, [activeCampaign]);
+
   if (loading) return (
     <div className="flex h-screen items-center justify-center bg-white">
       <div className="text-sm font-bold tracking-[0.6em] uppercase text-zinc-200 animate-pulse">
@@ -1484,230 +1684,116 @@ const GalleryView = () => {
 
           {showEmptyPlaceholderGrid ? (
             <GalleryEmptyGrid className="mt-2" />
-          ) : (
-            <MasonryGrid
-              key={`${activeSetId ?? 'highlights'}-${mediaFilter}-${effectiveSettings.grid_style}-${collection.thumbnail_size}-${collection.grid_spacing}-${collection.gallery_photo_sort}-${collection.show_filenames ? 'fn1' : 'fn0'}-${isClientViewer ? 'client' : 'guest'}-${isMobileViewport ? 'm' : 'd'}`}
-              photos={filteredPhotos}
-              isMobileViewport={isMobileViewport}
-              videosOnly={mediaFilter === 'videos'}
-              isHorizontal={effectiveSettings.grid_style?.toLowerCase() === 'horizontal'}
-              gridSettings={galleryGridSettings}
-              onImageClick={openLightbox}
-              onFavorite={(photo) => handleFavoritePhotoToggle(photo)}
-              onDownload={handleDownloadButtonAction}
-              onShare={() => setShowShareModal(true)}
-              onTogglePrivate={handleTogglePhotoPrivate}
-              isClientViewer={isClientViewer}
-              allowMarkPrivate={Boolean(collection?.allow_clients_mark_private)}
-              showPrivateBadge={isClientViewer}
-              showDownload={showSinglePhotoDownload}
-              isPaidDownload={collection?.digital_download_enabled === true}
-              showFavorite={collection?.favorites_enabled !== false}
-              showShare={showGalleryShare}
-              showShop={collection?.store_enabled !== false}
-              onShop={handleShopClick}
-              favoritedPhotoIds={favoritedPhotos}
-              customRowHeight={galleryCustomRowHeight}
-              customColumnCount={galleryCustomColumnCount}
-              showFilename={collection?.show_filenames === true}
-              className="mt-2"
-            />
-          )}
+          ) : (() => {
+            const hasPromoBanner = !!(activeCampaign?.banners?.large_banner?.enabled || activeCampaign?.banners?.photo_banner?.enabled || activeCampaign?.banners?.store_rotator?.enabled);
+            const shouldSplit = filteredPhotos.length > 8 && hasPromoBanner;
+
+            if (shouldSplit) {
+              const splitOffset = Math.ceil(filteredPhotos.length / 2);
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  <MasonryGrid
+                    key={`grid-part-1-${activeSetId ?? 'highlights'}-${mediaFilter}-${effectiveSettings.grid_style}`}
+                    photos={filteredPhotos.slice(0, splitOffset)}
+                    isMobileViewport={isMobileViewport}
+                    videosOnly={mediaFilter === 'videos'}
+                    isHorizontal={effectiveSettings.grid_style?.toLowerCase() === 'horizontal'}
+                    gridSettings={galleryGridSettings}
+                    onImageClick={openLightbox}
+                    onFavorite={(photo) => handleFavoritePhotoToggle(photo)}
+                    onDownload={handleDownloadButtonAction}
+                    onShare={() => setShowShareModal(true)}
+                    onTogglePrivate={handleTogglePhotoPrivate}
+                    isClientViewer={isClientViewer}
+                    allowMarkPrivate={Boolean(collection?.allow_clients_mark_private)}
+                    showPrivateBadge={isClientViewer}
+                    showDownload={showSinglePhotoDownload}
+                    isPaidDownload={collection?.digital_download_enabled === true}
+                    showFavorite={collection?.favorites_enabled !== false}
+                    showShare={showGalleryShare}
+                    showShop={collection?.store_enabled !== false}
+                    onShop={handleShopClick}
+                    favoritedPhotoIds={favoritedPhotos}
+                    customRowHeight={galleryCustomRowHeight}
+                    customColumnCount={galleryCustomColumnCount}
+                    showFilename={collection?.show_filenames === true}
+                    className="mt-2"
+                  />
+
+                  {/* Render Banner in-between grids */}
+                  {promoBannersMarkup}
+
+                  <MasonryGrid
+                    key={`grid-part-2-${activeSetId ?? 'highlights'}-${mediaFilter}-${effectiveSettings.grid_style}`}
+                    photos={filteredPhotos.slice(splitOffset)}
+                    isMobileViewport={isMobileViewport}
+                    videosOnly={mediaFilter === 'videos'}
+                    isHorizontal={effectiveSettings.grid_style?.toLowerCase() === 'horizontal'}
+                    gridSettings={galleryGridSettings}
+                    onImageClick={(idx) => openLightbox(idx + splitOffset)}
+                    onFavorite={(photo) => handleFavoritePhotoToggle(photo)}
+                    onDownload={handleDownloadButtonAction}
+                    onShare={() => setShowShareModal(true)}
+                    onTogglePrivate={handleTogglePhotoPrivate}
+                    isClientViewer={isClientViewer}
+                    allowMarkPrivate={Boolean(collection?.allow_clients_mark_private)}
+                    showPrivateBadge={isClientViewer}
+                    showDownload={showSinglePhotoDownload}
+                    isPaidDownload={collection?.digital_download_enabled === true}
+                    showFavorite={collection?.favorites_enabled !== false}
+                    showShare={showGalleryShare}
+                    showShop={collection?.store_enabled !== false}
+                    onShop={handleShopClick}
+                    favoritedPhotoIds={favoritedPhotos}
+                    customRowHeight={galleryCustomRowHeight}
+                    customColumnCount={galleryCustomColumnCount}
+                    showFilename={collection?.show_filenames === true}
+                    className="mt-2"
+                  />
+                </div>
+              );
+            }
+
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <MasonryGrid
+                  key={`grid-single-${activeSetId ?? 'highlights'}-${mediaFilter}-${effectiveSettings.grid_style}`}
+                  photos={filteredPhotos}
+                  isMobileViewport={isMobileViewport}
+                  videosOnly={mediaFilter === 'videos'}
+                  isHorizontal={effectiveSettings.grid_style?.toLowerCase() === 'horizontal'}
+                  gridSettings={galleryGridSettings}
+                  onImageClick={openLightbox}
+                  onFavorite={(photo) => handleFavoritePhotoToggle(photo)}
+                  onDownload={handleDownloadButtonAction}
+                  onShare={() => setShowShareModal(true)}
+                  onTogglePrivate={handleTogglePhotoPrivate}
+                  isClientViewer={isClientViewer}
+                  allowMarkPrivate={Boolean(collection?.allow_clients_mark_private)}
+                  showPrivateBadge={isClientViewer}
+                  showDownload={showSinglePhotoDownload}
+                  isPaidDownload={collection?.digital_download_enabled === true}
+                  showFavorite={collection?.favorites_enabled !== false}
+                  showShare={showGalleryShare}
+                  showShop={collection?.store_enabled !== false}
+                  onShop={handleShopClick}
+                  favoritedPhotoIds={favoritedPhotos}
+                  customRowHeight={galleryCustomRowHeight}
+                  customColumnCount={galleryCustomColumnCount}
+                  showFilename={collection?.show_filenames === true}
+                  className="mt-2"
+                />
+                
+                {/* Render Banner immediately below single grid */}
+                {promoBannersMarkup}
+              </div>
+            );
+          })()}
 
           {filteredPhotos.length > 0 ? (
             <GalleryBackToTop onClick={scrollToTop} />
           ) : null}
         </Container>
-
-        {/* Dynamic Promotional Banners */}
-        {activeCampaign?.banners?.large_banner?.enabled && (
-          <div style={{
-            width: '100%',
-            backgroundColor: activeCampaign.banners.large_banner.bg_color || '#eae5d8',
-            padding: '52px 32px',
-            boxSizing: 'border-box',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            textAlign: 'center',
-            marginTop: '48px',
-            borderTop: '1px solid rgba(0,0,0,0.05)',
-            borderBottom: '1px solid rgba(0,0,0,0.05)',
-            fontFamily: "'Inter', sans-serif"
-          }}>
-            <h3 style={{
-              fontSize: '24px',
-              fontWeight: 700,
-              fontFamily: activeCampaign.banners.large_banner.font === 'Playfair Display' ? "'Playfair Display', serif" : "'Inter', sans-serif",
-              color: activeCampaign.banners.large_banner.title_color || '#2c3e2d',
-              marginBottom: '12px',
-              letterSpacing: '0.02em',
-              textTransform: 'uppercase'
-            }}>
-              {(() => {
-                let text = activeCampaign.banners.large_banner.title || '';
-                const discountVal = activeCampaign.discount ? `${activeCampaign.discount}%` : '30%';
-                return text.replace(/{discount-value}/g, discountVal).replace(/{discount_value}/g, discountVal);
-              })()}
-            </h3>
-            <p style={{
-              fontSize: '14px',
-              color: activeCampaign.banners.large_banner.subtitle_color || '#4a5a4b',
-              maxWidth: '520px',
-              lineHeight: 1.6,
-              marginBottom: '24px'
-            }}>
-              {(() => {
-                let text = activeCampaign.banners.large_banner.subtitle || '';
-                const discountVal = activeCampaign.discount ? `${activeCampaign.discount}%` : '30%';
-                const expDate = new Date();
-                expDate.setDate(expDate.getDate() + 14);
-                const expFormatted = expDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-                return text
-                  .replace(/{discount-value}/g, discountVal)
-                  .replace(/{discount_value}/g, discountVal)
-                  .replace(/{exp-date}/g, expFormatted)
-                  .replace(/{exp_date}/g, expFormatted);
-              })()}
-            </p>
-            <button
-              onClick={() => setShowPrintLabModal(true)}
-              style={{
-                padding: '12px 36px',
-                fontSize: '11px',
-                fontWeight: 700,
-                backgroundColor: activeCampaign.banners.large_banner.cta_bg || '#3a4a38',
-                color: activeCampaign.banners.large_banner.cta_color || '#ffffff',
-                border: 'none',
-                textTransform: 'uppercase',
-                letterSpacing: '0.1em',
-                cursor: 'pointer',
-                transition: 'opacity 0.2s',
-                borderRadius: '0px'
-              }}
-              onMouseEnter={e => e.currentTarget.style.opacity = '0.9'}
-              onMouseLeave={e => e.currentTarget.style.opacity = '1'}
-            >
-              {activeCampaign.banners.large_banner.cta || 'Visit Shop'}
-            </button>
-          </div>
-        )}
-
-        {activeCampaign?.banners?.photo_banner?.enabled && (
-          <div style={{
-            width: '100%',
-            backgroundColor: activeCampaign.banners.photo_banner.bg_color || '#d4c9b5',
-            padding: '44px 32px',
-            boxSizing: 'border-box',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            textAlign: 'center',
-            marginTop: '48px',
-            fontFamily: "'Inter', sans-serif"
-          }}>
-            <h3 style={{
-              fontSize: '20px',
-              fontWeight: 700,
-              fontFamily: "'Playfair Display', serif",
-              color: '#1a1a1a',
-              marginBottom: '8px',
-              textTransform: 'uppercase',
-              letterSpacing: '0.04em'
-            }}>
-              {activeCampaign.banners.photo_banner.title || 'Special Promotion'}
-            </h3>
-            <p style={{
-              fontSize: '13px',
-              color: '#444444',
-              marginBottom: '20px'
-            }}>
-              {activeCampaign.banners.photo_banner.subtitle || 'Custom prints and gifts at exclusive discounted pricing'}
-            </p>
-            <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap', maxWidth: '640px' }}>
-              {['Classic Prints', 'Matted Frames', 'Canvas Wall Art'].map((p, idx) => (
-                <div key={idx} style={{ width: '130px', backgroundColor: '#ffffff', border: '1px solid rgba(0,0,0,0.06)', padding: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  <div style={{ width: '100%', height: '80px', backgroundColor: '#eaeaea', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyItems: 'center', fontSize: '20px', justifyContent: 'center' }}>
-                    🖼️
-                  </div>
-                  <span style={{ fontSize: '11px', fontWeight: 600, color: '#1a1a1a' }}>{p}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {activeCampaign?.banners?.store_rotator?.enabled && (
-          <div style={{
-            width: '100%',
-            backgroundColor: activeCampaign.banners.store_rotator.bg_color || '#eae5d8',
-            padding: '48px 32px',
-            boxSizing: 'border-box',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            textAlign: 'center',
-            marginTop: '48px',
-            borderTop: '1px solid rgba(0,0,0,0.05)',
-            borderBottom: '1px solid rgba(0,0,0,0.05)',
-            fontFamily: "'Inter', sans-serif"
-          }}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', maxWidth: '600px' }}>
-              <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.15em', color: '#bfa38a', textTransform: 'uppercase' }}>
-                {activeCampaign.banners.store_rotator.code ? activeCampaign.banners.store_rotator.code.replace(/{code}/g, activeCampaign.discountCode || 'HAPPYANI') : 'EXCLUSIVE OFFER'}
-              </span>
-              <h3 style={{
-                fontSize: '22px',
-                fontWeight: 700,
-                fontFamily: activeCampaign.banners.store_rotator.font === 'Playfair Display' ? "'Playfair Display', serif" : "'Inter', sans-serif",
-                color: activeCampaign.banners.store_rotator.title_color || '#2c3e2d',
-                textTransform: 'uppercase'
-              }}>
-                {(() => {
-                  let text = activeCampaign.banners.store_rotator.title || '';
-                  const discountVal = activeCampaign.discount ? `${activeCampaign.discount}%` : '30%';
-                  return text.replace(/{discount-value}/g, discountVal).replace(/{discount_value}/g, discountVal);
-                })()}
-              </h3>
-              <p style={{
-                fontSize: '13.5px',
-                lineHeight: 1.6,
-                color: activeCampaign.banners.store_rotator.subtitle_color || '#4a5a4b',
-                marginBottom: '20px'
-              }}>
-                {(() => {
-                  let text = activeCampaign.banners.store_rotator.subtitle || '';
-                  const discountVal = activeCampaign.discount ? `${activeCampaign.discount}%` : '30%';
-                  const expDate = new Date();
-                  expDate.setDate(expDate.getDate() + 14);
-                  const expFormatted = expDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-                  return text
-                    .replace(/{discount-value}/g, discountVal)
-                    .replace(/{discount_value}/g, discountVal)
-                    .replace(/{exp-date}/g, expFormatted)
-                    .replace(/{exp_date}/g, expFormatted);
-                })()}
-              </p>
-              <button
-                onClick={() => setShowPrintLabModal(true)}
-                style={{
-                  padding: '12px 32px',
-                  fontSize: '11px',
-                  fontWeight: 700,
-                  backgroundColor: activeCampaign.banners.store_rotator.cta_bg || '#3a4a38',
-                  color: activeCampaign.banners.store_rotator.cta_color || '#ffffff',
-                  border: 'none',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.1em',
-                  cursor: 'pointer',
-                  borderRadius: '0px'
-                }}
-              >
-                {activeCampaign.banners.store_rotator.cta || 'CLAIM OFFER'}
-              </button>
-            </div>
-          </div>
-        )}
       </main>
 
       {/* Global Footer Branding */}
