@@ -15,6 +15,7 @@ import {
   GalleryStickyNav,
   GallerySetHeading,
   GallerySetDescription,
+  GalleryMediaFilter,
 } from '../../Gallery/GalleryChrome';
 import {
   isCollectionFeatureEnabled,
@@ -52,6 +53,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
   onSetActiveSet,
   photographerName = 'PHOTOGRAPHER',
   isPreviewMobile = false,
+  coverLogoUrl,
 }) => {
   const { coverStyle, fontFamily, colorPalette, grid } = settings;
   const navigationStyle = normalizeNavigationStyle(grid.navigation);
@@ -450,6 +452,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
       focalY: dashboardState?.focalY,
       isPreview: true, // dashboard pane layout only
       onViewGallery: coverStyle !== 'none' ? scrollToGallery : undefined,
+      coverLogoUrl,
     };
 
     switch (coverStyle) {
@@ -531,10 +534,21 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
           mediaVideoCount={mediaCounts.videos}
         />
 
-        {setDescriptionText ? (
+        {setDescriptionText && (
           <GallerySetDescription variant="preview" text={setDescriptionText} isDark={isPreviewDark} />
-        ) : (
-          <GallerySetHeading variant="preview" label={activeSetLabel} />
+        )}
+
+        {!setDescriptionText && showMediaFilter && (
+          <div className="flex w-full justify-center mb-8 border-b pb-4" style={{ borderColor: 'rgba(0,0,0,0.05)' }}>
+            <GalleryMediaFilter
+              value={mediaFilter}
+              onChange={setMediaFilter}
+              photoCount={mediaCounts.photos}
+              videoCount={mediaCounts.videos}
+              variant="preview"
+              layout="inline"
+            />
+          </div>
         )}
 
         <GalleryPeopleStrip

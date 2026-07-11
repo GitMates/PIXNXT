@@ -82,7 +82,6 @@ const SmartAlbumsSidebarLayout = ({ children }) => {
     const [showProfileDropdown, setShowProfileDropdown] = useState(false);
     const [showEcosystemMenu, setShowEcosystemMenu] = useState(false);
     const [profile, setProfile] = useState(null);
-    const [storageUsed, setStorageUsed] = useState(0);
     const navigate = useNavigate();
     const location = useLocation();
     const path = location.pathname;
@@ -94,7 +93,21 @@ const SmartAlbumsSidebarLayout = ({ children }) => {
     const { primary: brandPrimary, subtitle: brandSubtitle } = splitBrandLines(displayName);
     const profileIconUrl = profile?.profile_icon_url?.trim() || '';
     const profileInitial = getProfileInitial(profile, user);
-    const storagePct = Math.min(100, (storageUsed / STORAGE_LIMIT_BYTES) * 100);
+
+    const storageUsed = profile?.storage_used_bytes || 0;
+    const limitBytes = profile?.storage_limit_bytes;
+    
+    const getLimitBytes = () => {
+        if (limitBytes) return limitBytes;
+        const tier = String(profile?.plan || '').toLowerCase();
+        if (tier === 'pro') return 100 * 1024 * 1024 * 1024;
+        if (tier === 'premium') return 500 * 1024 * 1024 * 1024;
+        if (tier === 'free') return 5 * 1024 * 1024 * 1024;
+        return 10 * 1024 * 1024 * 1024;
+    };
+    
+    const maxBytes = getLimitBytes();
+    const storagePct = Math.min(100, maxBytes > 0 ? (storageUsed / maxBytes) * 100 : 0);
 
     useEffect(() => {
         if (!user?.id) {
@@ -109,30 +122,6 @@ const SmartAlbumsSidebarLayout = ({ children }) => {
             })
             .catch(() => {
                 if (!cancelled) setProfile(null);
-            });
-        return () => {
-            cancelled = true;
-        };
-    }, [user?.id]);
-
-    useEffect(() => {
-        if (!user?.id) {
-            setStorageUsed(0);
-            return undefined;
-        }
-        let cancelled = false;
-        smartAlbumsService
-            .getAlbums(user.id)
-            .then((albums) => {
-                if (cancelled) return;
-                const total = (albums || []).reduce(
-                    (sum, album) => sum + (Number(album.storage_bytes) || 0),
-                    0
-                );
-                setStorageUsed(total);
-            })
-            .catch(() => {
-                if (!cancelled) setStorageUsed(0);
             });
         return () => {
             cancelled = true;
@@ -370,7 +359,7 @@ const SmartAlbumsSidebarLayout = ({ children }) => {
                             <div className="sa-sidebar-storage__fill" style={{ width: `${storagePct}%` }} />
                         </div>
                         <p className="sa-sidebar-storage__text">
-                            {formatStorageBytes(storageUsed)} of 100 GB used
+                            {formatStorageBytes(storageUsed)} of {formatStorageBytes(maxBytes)} used
                         </p>
                     </div>
                     <div className="sa-sidebar-profile-row" ref={profileDropdownRef}>

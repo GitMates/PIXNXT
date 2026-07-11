@@ -12,4 +12,5 @@ export interface CoverProps {
   /** Slightly larger cover typography on the public /gallery page only */
   isGalleryView?: boolean;
   onViewGallery?: () => void;
+  coverLogoUrl?: string | null;
 }

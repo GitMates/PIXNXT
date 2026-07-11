@@ -80,6 +80,7 @@ import {
     readCachedSlideshowEnabled,
 } from '../lib/collectionFeatureFlags';
 import { MoveCollectionModal } from '../components/features/Collections/MoveCollectionModal';
+import { supabase } from '../lib/supabase/client';
 
 const CollectionDashboard = () => {
     const navigate = useNavigate();
@@ -93,6 +94,23 @@ const CollectionDashboard = () => {
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [collection, setCollection] = useState(null);
     const [photos, setPhotos] = useState([]);
+    const [profile, setProfile] = useState(null);
+
+    useEffect(() => {
+        if (!user?.id) {
+            setProfile(null);
+            return;
+        }
+        supabase
+            .from('photographers')
+            .select('*')
+            .eq('id', user.id)
+            .single()
+            .then(({ data }) => {
+                if (data) setProfile(data);
+            })
+            .catch((err) => console.error('Error loading photographer profile:', err));
+    }, [user?.id]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [saving, setSaving] = useState(false);
@@ -3295,7 +3313,14 @@ const CollectionDashboard = () => {
                                     gridPhotos={photos}
                                     previewMode={previewMode}
                                     onPreviewModeChange={setPreviewMode}
-                                    photographerName={user?.display_name || 'PHOTOGRAPHER'}
+                                    photographerName={
+                                        profile?.business_name?.trim() ||
+                                        profile?.display_name?.trim() ||
+                                        [profile?.first_name, profile?.last_name].filter(Boolean).join(' ').trim() ||
+                                        user?.display_name ||
+                                        'PHOTOGRAPHER'
+                                    }
+                                    coverLogoUrl={profile?.cover_logo_url || profile?.logo_url}
                                     dashboardState={{
                                         focalX: collectionFocal.x,
                                         focalY: collectionFocal.y,

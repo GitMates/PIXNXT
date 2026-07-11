@@ -113,17 +113,7 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
     );
 
   const renderMediaFilter = () => {
-    if (mediaFilter == null || !onMediaFilterChange) return null;
-    return (
-      <GalleryMediaFilter
-        layout="inline"
-        variant={variant}
-        value={mediaFilter}
-        onChange={onMediaFilterChange}
-        photoCount={mediaPhotoCount}
-        videoCount={mediaVideoCount}
-      />
-    );
+    return null;
   };
 
   const renderTabs = () => (

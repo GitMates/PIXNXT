@@ -19,11 +19,12 @@ import {
   GalleryStickyNav,
   GallerySetHeading,
   GallerySetDescription,
+  GalleryMediaFilter,
 } from '../../components/features/Gallery/GalleryChrome';
 import { GalleryBackToTop } from '../../components/features/Gallery/GalleryBackToTop/GalleryBackToTop';
 import { GalleryEmptyGrid } from '../../components/features/Gallery/GalleryEmptyGrid/GalleryEmptyGrid';
 import { smoothScrollToElement, smoothScrollToTop } from '../../lib/smoothGalleryScroll';
-import { getPhotoFullDisplayUrl } from '../../lib/photoDisplayUrl';
+import { getPhotoFullDisplayUrl, resolveMediaUrl } from '../../lib/photoDisplayUrl';
 import {
   countGalleryMedia,
   filterGalleryMediaByType,
@@ -801,18 +802,27 @@ const GalleryView = () => {
         data-cover-text-scale={isMobileViewport ? 'compact' : 'large'}
       >
         {(() => {
-          const activePhotoUrl = collection.cover_url || (collection.photos?.[0]?.web_url);
+          const activePhotoUrl = resolveMediaUrl(
+            collection.cover_url || (collection.photos?.[0]?.full_url || collection.photos?.[0]?.web_url || '')
+          );
           const { x: focalX, y: focalY } = getCollectionFocal(collection);
+
+          const displayPhotographerName =
+            photographer?.business_name?.trim() ||
+            photographer?.display_name?.trim() ||
+            [photographer?.first_name, photographer?.last_name].filter(Boolean).join(' ').trim() ||
+            '';
 
           const props = {
             title: collection.name,
-            subtitle: photographer?.display_name || '',
+            subtitle: displayPhotographerName,
             date: formatCoverDate(collection.event_date || collection.created_at),
             photoUrl: activePhotoUrl,
             focalX,
             focalY,
             onViewGallery: scrollToGallery,
             isGalleryView: true,
+            coverLogoUrl: photographer?.cover_logo_url || photographer?.logo_url,
           };
 
           const activeCoverStyle = effectiveSettings.cover_style;
@@ -877,7 +887,12 @@ const GalleryView = () => {
             isGalleryViewMobile={isMobileViewport}
             navigationStyle={navigationStyle}
             collectionTitle={collection.name}
-            photographerName={photographer?.display_name}
+            photographerName={
+              photographer?.business_name?.trim() ||
+              photographer?.display_name?.trim() ||
+              [photographer?.first_name, photographer?.last_name].filter(Boolean).join(' ').trim() ||
+              ''
+            }
             sets={visibleSets.map((set) => ({ id: set.id, name: set.name }))}
             showHighlightsTab={canViewHighlights(collection, isClientViewer)}
             activeSetId={activeSetId}
@@ -934,10 +949,18 @@ const GalleryView = () => {
 
           {!setDescriptionText &&
             !isFavoriteListMode &&
-            (() => {
-              const raw = (activeSetId ? collection.sets?.find((s) => s.id === activeSetId)?.name : 'Highlights') || 'Highlights';
-              return <GallerySetHeading variant="galleryView" label={String(raw).toLowerCase()} />;
-            })()}
+            showMediaFilter && (
+              <div className="flex w-full justify-center mb-8 border-b pb-4" style={{ borderColor: 'rgba(0,0,0,0.05)' }}>
+                <GalleryMediaFilter
+                  value={mediaFilter}
+                  onChange={setMediaFilter}
+                  photoCount={mediaCounts.photos}
+                  videoCount={mediaCounts.videos}
+                  variant="galleryView"
+                  layout="inline"
+                />
+              </div>
+            )}
 
           {!isFavoriteListMode ? (
             <GalleryPeopleStrip
