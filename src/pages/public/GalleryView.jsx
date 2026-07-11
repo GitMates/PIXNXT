@@ -308,7 +308,7 @@ const GalleryView = () => {
     if (collection?.digital_download_enabled === true) {
       /* ── Right-click prevention on images ── */
       const handleContextMenu = (e) => {
-        if (e.target.tagName === 'IMG' || e.target.closest('.gallery-masonry-container') || e.target.closest('.photo-lightbox-root')) {
+        if (e.target.tagName === 'IMG' || e.target.closest('.masonry-grid-container') || e.target.closest('.photo-lightbox-root')) {
           e.preventDefault();
         }
       };
@@ -320,7 +320,7 @@ const GalleryView = () => {
         }
       };
 
-      /* ── Keyboard shortcut blocking (copy, save, print-screen, Mac screenshot combos) ── */
+      /* ── Keyboard shortcut blocking & key-press screenshot protection ── */
       const handleKeyDown = (e) => {
         const isCmdOrCtrl = e.metaKey || e.ctrlKey;
         // Block Ctrl/Cmd+C, Ctrl/Cmd+S
@@ -333,18 +333,22 @@ const GalleryView = () => {
           // Clear clipboard after PrintScreen attempt
           try { navigator.clipboard.writeText(''); } catch (_) {}
         }
-        // Block Mac screenshots: Cmd+Shift+3, Cmd+Shift+4, Cmd+Shift+5
-        if (e.metaKey && e.shiftKey && ['3', '4', '5'].includes(e.key)) {
-          e.preventDefault();
+        // If user presses Meta (Cmd), Ctrl or Shift key (preparing to screenshot)
+        if (e.key === 'Meta' || e.key === 'Control' || e.key === 'Shift') {
+          document.body.classList.add('pixnxt-screenshot-guard');
         }
-        // Block Windows Snipping: handled via blur detection below
       };
 
-      /* ── Screenshot blur protection ──
-       * When the browser window loses focus (e.g. screenshot tool opens,
-       * Snipping Tool, Mac screenshot overlay, screen recorders),
-       * immediately blur all images so the capture gets a blurred result.
-       * When focus returns, restore clarity. */
+      const handleKeyUp = (e) => {
+        if (e.key === 'Meta' || e.key === 'Control' || e.key === 'Shift') {
+          // Keep blurred briefly to protect against snapshot timing
+          setTimeout(() => {
+            document.body.classList.remove('pixnxt-screenshot-guard');
+          }, 350);
+        }
+      };
+
+      /* ── Screenshot blur protection ── */
       const handleWindowBlur = () => {
         document.body.classList.add('pixnxt-screenshot-guard');
       };
@@ -355,17 +359,29 @@ const GalleryView = () => {
         if (document.hidden) {
           document.body.classList.add('pixnxt-screenshot-guard');
         } else {
-          // Small delay so screenshot captures the blurred state
           setTimeout(() => document.body.classList.remove('pixnxt-screenshot-guard'), 300);
         }
+      };
+
+      // Mouseout event: if cursor leaves page window (potential print/snip tool clicked)
+      const handleMouseOut = (e) => {
+        if (!e.relatedTarget && !e.toElement) {
+          document.body.classList.add('pixnxt-screenshot-guard');
+        }
+      };
+      const handleMouseEnter = () => {
+        document.body.classList.remove('pixnxt-screenshot-guard');
       };
 
       document.addEventListener('contextmenu', handleContextMenu);
       document.addEventListener('dragstart', handleDragStart);
       document.addEventListener('keydown', handleKeyDown);
+      document.addEventListener('keyup', handleKeyUp);
       window.addEventListener('blur', handleWindowBlur);
       window.addEventListener('focus', handleWindowFocus);
       document.addEventListener('visibilitychange', handleVisibilityChange);
+      document.addEventListener('mouseout', handleMouseOut);
+      document.addEventListener('mouseenter', handleMouseEnter);
 
       const style = document.createElement('style');
       style.id = 'pixnxt-security-styles';
@@ -373,17 +389,17 @@ const GalleryView = () => {
         @media print {
           body { display: none !important; }
         }
-        .gallery-masonry-container img,
+        .masonry-grid-container img,
         .photo-lightbox-root img {
           -webkit-touch-callout: none !important;
           -webkit-user-select: none !important;
           user-select: none !important;
         }
-        /* Screenshot blur guard — activated on window blur / visibility hidden */
-        .pixnxt-screenshot-guard .gallery-masonry-container img,
+        /* Screenshot blur guard — activated on window blur / key combinations */
+        .pixnxt-screenshot-guard .masonry-grid-container img,
         .pixnxt-screenshot-guard .photo-lightbox-root img {
-          filter: blur(30px) brightness(1.5) !important;
-          transition: filter 0.05s ease-out !important;
+          filter: blur(40px) brightness(1.3) !important;
+          transition: filter 0.04s ease-out !important;
         }
       `;
       document.head.appendChild(style);
@@ -392,9 +408,12 @@ const GalleryView = () => {
         document.removeEventListener('contextmenu', handleContextMenu);
         document.removeEventListener('dragstart', handleDragStart);
         document.removeEventListener('keydown', handleKeyDown);
+        document.removeEventListener('keyup', handleKeyUp);
         window.removeEventListener('blur', handleWindowBlur);
         window.removeEventListener('focus', handleWindowFocus);
         document.removeEventListener('visibilitychange', handleVisibilityChange);
+        document.removeEventListener('mouseout', handleMouseOut);
+        document.removeEventListener('mouseenter', handleMouseEnter);
         document.body.classList.remove('pixnxt-screenshot-guard');
         style.remove();
       };
@@ -1682,9 +1701,6 @@ const GalleryView = () => {
           {showEmptyPlaceholderGrid ? (
             <GalleryEmptyGrid className="mt-2" />
           ) : (() => {
-            const hasInlineBanner = !!(activeCampaign?.banners?.photo_banner?.enabled || activeCampaign?.banners?.store_rotator?.enabled);
-            const shouldSplit = filteredPhotos.length > 8 && hasInlineBanner;
-
             const gridProps = {
               isMobileViewport,
               videosOnly: mediaFilter === 'videos',
@@ -1710,33 +1726,6 @@ const GalleryView = () => {
               className: 'mt-2',
             };
 
-            if (shouldSplit) {
-              const splitOffset = Math.ceil(filteredPhotos.length / 2);
-              return (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                  {/* Large Banner — rectangle bar ABOVE grid */}
-                  {largeBannerMarkup}
-
-                  <MasonryGrid
-                    key={`grid-part-1-${activeSetId ?? 'highlights'}-${mediaFilter}-${effectiveSettings.grid_style}`}
-                    photos={filteredPhotos.slice(0, splitOffset)}
-                    onImageClick={openLightbox}
-                    {...gridProps}
-                  />
-
-                  {/* Photo Banner / Store Rotator — square cards in-between grids */}
-                  {promoBannersMarkup}
-
-                  <MasonryGrid
-                    key={`grid-part-2-${activeSetId ?? 'highlights'}-${mediaFilter}-${effectiveSettings.grid_style}`}
-                    photos={filteredPhotos.slice(splitOffset)}
-                    onImageClick={(idx) => openLightbox(idx + splitOffset)}
-                    {...gridProps}
-                  />
-                </div>
-              );
-            }
-
             return (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 {/* Large Banner — rectangle bar ABOVE grid */}
@@ -1746,11 +1735,11 @@ const GalleryView = () => {
                   key={`grid-single-${activeSetId ?? 'highlights'}-${mediaFilter}-${effectiveSettings.grid_style}`}
                   photos={filteredPhotos}
                   onImageClick={openLightbox}
+                  activeCampaign={activeCampaign}
+                  activeProducts={activeProducts}
+                  onVisitShop={() => setShowPrintLabModal(true)}
                   {...gridProps}
                 />
-                
-                {/* Photo Banner / Store Rotator — square cards below grid */}
-                {promoBannersMarkup}
               </div>
             );
           })()}

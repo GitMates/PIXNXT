@@ -220,27 +220,8 @@ export function PhotoLightbox({
                         );
                       }}
                     />
-                    {isPaidDownload && (
-                      <div style={{
-                        position: 'absolute',
-                        inset: 0,
-                        pointerEvents: 'none',
-                        zIndex: 10,
-                        overflow: 'hidden',
-                      }}>
-                        <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.15 }} xmlns="http://www.w3.org/2000/svg">
-                          <line x1="0" y1="0" x2="100%" y2="100%" stroke="#fff" strokeWidth="2" />
-                          <line x1="100%" y1="0" x2="0" y2="100%" stroke="#fff" strokeWidth="2" />
-                        </svg>
-                        <div style={{
-                          position: 'absolute',
-                          inset: 0,
-                          opacity: 0.18,
-                          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Ctext x='50%25' y='50%25' font-family='sans-serif' font-size='11' font-weight='800' text-anchor='middle' fill='%23ffffff' transform='rotate(-35 80 80)'%3Epixnxt%3C/text%3E%3C/svg%3E")`,
-                          backgroundRepeat: 'repeat'
-                        }} />
-                      </div>
-                    )}
+
+
                     <div className="photo-lightbox-hover-gradient" aria-hidden />
                     <div
                       className={cn(

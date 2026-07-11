@@ -35,11 +35,29 @@ export function MasonryGrid({
   isClientViewer = false,
   allowMarkPrivate = false,
   showPrivateBadge = false,
+  activeCampaign = null,
+  activeProducts = [],
+  onVisitShop = null,
 }) {
   const [dynamicAspectRatios, setDynamicAspectRatios] = useState({});
 
+  const displayPhotos = useMemo(() => {
+    const hasInlineBanner = !!(activeCampaign?.banners?.photo_banner?.enabled || activeCampaign?.banners?.store_rotator?.enabled);
+    if (!hasInlineBanner || photos.length === 0) return photos.map((p, idx) => ({ ...p, _originalIndex: idx }));
+
+    const result = photos.map((p, idx) => ({ ...p, _originalIndex: idx }));
+    // Insert special promo banner item at index 1
+    result.splice(1, 0, {
+      isPromoBanner: true,
+      id: 'campaign-promo-tile',
+      type: activeCampaign.banners.photo_banner?.enabled ? 'photo_banner' : 'store_rotator'
+    });
+    return result;
+  }, [photos, activeCampaign]);
+
   useEffect(() => {
-    photos.forEach(photo => {
+    displayPhotos.forEach(photo => {
+      if (photo.isPromoBanner) return;
       if (!photo.width || !photo.height) {
         const src = photo.full_url || photo.web_url || photo.thumbnail_url;
         // Skip dimension probing for video files — use 16:9 fallback
@@ -54,7 +72,7 @@ export function MasonryGrid({
         img.src = src;
       }
     });
-  }, [photos]);
+  }, [displayPhotos]);
   const isHorizontal = isHorizontalProp !== undefined ? isHorizontalProp : (gridSettings?.style?.toLowerCase() === 'horizontal');
   const size = gridSettings?.size || 'regular';
   const spacing = gridSettings?.spacing || 'regular';
@@ -141,7 +159,137 @@ export function MasonryGrid({
             : verticalColumnStyle
       }
     >
-      {photos.map((photo, index) => {
+      {displayPhotos.map((photo, index) => {
+        if (photo.isPromoBanner) {
+          return (
+            <Motion.div
+              key={photo.id}
+              variants={item}
+              className={cn(
+                'relative overflow-hidden group cursor-pointer min-w-0 mb-[var(--grid-gap)] w-full max-w-full break-inside-avoid shadow-sm border border-black/5'
+              )}
+              style={isHorizontal ? {
+                flex: `0 0 340px`,
+                aspectRatio: '1 / 1',
+                maxWidth: '100%',
+                margin: 0
+              } : {
+                '--grid-gap': `${gap}px`,
+                marginBottom: `${gap}px`,
+                width: '100%',
+                aspectRatio: '1 / 1'
+              }}
+              onClick={() => onVisitShop?.()}
+            >
+              <div style={{
+                width: '100%',
+                height: '100%',
+                backgroundColor: photo.type === 'photo_banner' 
+                  ? (activeCampaign?.banners?.photo_banner?.bg_color || '#d4c9b5')
+                  : (activeCampaign?.banners?.store_rotator?.bg_color || '#eae5d8'),
+                padding: '16px',
+                boxSizing: 'border-box',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                textAlign: 'center',
+                fontFamily: "'Inter', sans-serif"
+              }}>
+                {photo.type === 'photo_banner' ? (
+                  <>
+                    <h3 style={{
+                      fontSize: '14px', fontWeight: 700,
+                      fontFamily: "'Playfair Display', serif",
+                      color: '#1a1a1a', marginBottom: '4px',
+                      textTransform: 'uppercase', letterSpacing: '0.04em'
+                    }}>
+                      {activeCampaign?.banners?.photo_banner?.title || 'Special Promotion'}
+                    </h3>
+                    <p style={{ fontSize: '10px', color: '#444444', marginBottom: '10px', lineHeight: 1.3 }}>
+                      {activeCampaign?.banners?.photo_banner?.subtitle || 'Custom prints and gifts at exclusive discounted pricing'}
+                    </p>
+                    
+                    {/* Active Products thumbnails fetched from printstore_products */}
+                    {activeProducts && activeProducts.length > 0 && (
+                      <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', width: '100%', marginBottom: '12px' }}>
+                        {activeProducts.slice(0, 3).map((prod, idx) => {
+                          const imgUrl = prod.image_url || prod.image;
+                          return (
+                            <div key={prod.id || idx} style={{
+                              flex: 1, backgroundColor: '#ffffff', border: '1px solid rgba(0,0,0,0.04)',
+                              padding: '6px 3px', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 0
+                            }}>
+                              <img 
+                                src={imgUrl} 
+                                alt={prod.name} 
+                                style={{ width: '100%', height: '32px', objectFit: 'cover', marginBottom: '2px' }} 
+                              />
+                              <span style={{
+                                fontSize: '7px', fontWeight: 600, color: '#1a1a1a',
+                                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                                width: '100%', textAlign: 'center'
+                              }}>{prod.name}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onVisitShop?.(); }}
+                      style={{
+                        padding: '6px 16px', fontSize: '8px', fontWeight: 700,
+                        backgroundColor: '#1a1a1a', color: '#ffffff', border: 'none',
+                        textTransform: 'uppercase', letterSpacing: '0.08em', cursor: 'pointer'
+                      }}
+                    >
+                      SHOP NOW
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <span style={{ fontSize: '8px', fontWeight: 700, letterSpacing: '0.12em', color: '#bfa38a', textTransform: 'uppercase', marginBottom: '4px' }}>
+                      {activeCampaign?.banners?.store_rotator?.code ? activeCampaign.banners.store_rotator.code.replace(/{code}/g, activeCampaign.discountCode || 'HAPPYANI') : 'EXCLUSIVE OFFER'}
+                    </span>
+                    <h3 style={{
+                      fontSize: '14px', fontWeight: 700, margin: '0 0 4px 0',
+                      fontFamily: activeCampaign?.banners?.store_rotator?.font === 'Playfair Display' ? "'Playfair Display', serif" : "'Inter', sans-serif",
+                      color: activeCampaign?.banners?.store_rotator?.title_color || '#2c3e2d', textTransform: 'uppercase'
+                    }}>
+                      {(() => {
+                        let text = activeCampaign?.banners?.store_rotator?.title || '';
+                        const discountVal = activeCampaign?.discount ? `${activeCampaign.discount}%` : '30%';
+                        return text.replace(/{discount-value}/g, discountVal).replace(/{discount_value}/g, discountVal);
+                      })()}
+                    </h3>
+                    <p style={{ fontSize: '10px', lineHeight: 1.3, color: activeCampaign?.banners?.store_rotator?.subtitle_color || '#4a5a4b', marginBottom: '10px' }}>
+                      {(() => {
+                        let text = activeCampaign?.banners?.store_rotator?.subtitle || '';
+                        const discountVal = activeCampaign?.discount ? `${activeCampaign.discount}%` : '30%';
+                        const expDate = new Date(); expDate.setDate(expDate.getDate() + 14);
+                        const expFormatted = expDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+                        return text.replace(/{discount-value}/g, discountVal).replace(/{discount_value}/g, discountVal).replace(/{exp-date}/g, expFormatted).replace(/{exp_date}/g, expFormatted);
+                      })()}
+                    </p>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onVisitShop?.(); }}
+                      style={{
+                        padding: '6px 16px', fontSize: '8px', fontWeight: 700,
+                        backgroundColor: activeCampaign?.banners?.store_rotator?.cta_bg || '#3a4a38',
+                        color: activeCampaign?.banners?.store_rotator?.cta_color || '#ffffff',
+                        border: 'none', textTransform: 'uppercase', letterSpacing: '0.08em', cursor: 'pointer'
+                      }}
+                    >
+                      {activeCampaign?.banners?.store_rotator?.cta || 'CLAIM OFFER'}
+                    </button>
+                  </>
+                )}
+              </div>
+            </Motion.div>
+          );
+        }
+
         const src = isGalleryVideo(photo)
           ? getPhotoVideoSrc(photo)
           : photo.full_url || photo.web_url || photo.thumbnail_url;
@@ -179,7 +327,7 @@ export function MasonryGrid({
               marginBottom: `${gap}px`,
               width: '100%',
             }}
-            onClick={() => onImageClick(index)}
+            onClick={() => onImageClick(photo._originalIndex)}
           >
             <div
               className={cn(
@@ -224,27 +372,7 @@ export function MasonryGrid({
                   loading="lazy"
                 />
               )}
-              {isPaidDownload && (
-                <div style={{
-                  position: 'absolute',
-                  inset: 0,
-                  pointerEvents: 'none',
-                  zIndex: 10,
-                  overflow: 'hidden',
-                }}>
-                  <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.15 }} xmlns="http://www.w3.org/2000/svg">
-                    <line x1="0" y1="0" x2="100%" y2="100%" stroke="#fff" strokeWidth="2" />
-                    <line x1="100%" y1="0" x2="0" y2="100%" stroke="#fff" strokeWidth="2" />
-                  </svg>
-                  <div style={{
-                    position: 'absolute',
-                    inset: 0,
-                    opacity: 0.18,
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Ctext x='50%25' y='50%25' font-family='sans-serif' font-size='11' font-weight='800' text-anchor='middle' fill='%23ffffff' transform='rotate(-35 80 80)'%3Epixnxt%3C/text%3E%3C/svg%3E")`,
-                    backgroundRepeat: 'repeat'
-                  }} />
-                </div>
-              )}
+
               {showFilename && (
                 <div
                   className="gallery-body-text pointer-events-none absolute bottom-2 left-2 right-2 z-[12] truncate rounded px-1.5 py-0.5 text-left text-[13px] font-medium backdrop-blur-sm"
