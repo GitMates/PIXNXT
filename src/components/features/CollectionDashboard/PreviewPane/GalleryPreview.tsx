@@ -15,6 +15,7 @@ import {
   GalleryStickyNav,
   GallerySetHeading,
   GallerySetDescription,
+  GalleryMediaFilter,
 } from '../../Gallery/GalleryChrome';
 import {
   isCollectionFeatureEnabled,
@@ -513,10 +514,21 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
           mediaVideoCount={mediaCounts.videos}
         />
 
-        {setDescriptionText ? (
+        {setDescriptionText && (
           <GallerySetDescription variant="preview" text={setDescriptionText} isDark={isPreviewDark} />
-        ) : (
-          <GallerySetHeading variant="preview" label={activeSetLabel} />
+        )}
+
+        {!setDescriptionText && showMediaFilter && (
+          <div className="flex w-full justify-center mb-8 border-b pb-4" style={{ borderColor: 'rgba(0,0,0,0.05)' }}>
+            <GalleryMediaFilter
+              value={mediaFilter}
+              onChange={setMediaFilter}
+              photoCount={mediaCounts.photos}
+              videoCount={mediaCounts.videos}
+              variant="preview"
+              layout="inline"
+            />
+          </div>
         )}
 
         {showOnlyFavorites && favFeatureOn && (

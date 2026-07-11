@@ -19,6 +19,7 @@ import {
   GalleryStickyNav,
   GallerySetHeading,
   GallerySetDescription,
+  GalleryMediaFilter,
 } from '../../components/features/Gallery/GalleryChrome';
 import { GalleryBackToTop } from '../../components/features/Gallery/GalleryBackToTop/GalleryBackToTop';
 import { GalleryEmptyGrid } from '../../components/features/Gallery/GalleryEmptyGrid/GalleryEmptyGrid';
@@ -918,10 +919,18 @@ const GalleryView = () => {
 
           {!setDescriptionText &&
             !isFavoriteListMode &&
-            (() => {
-              const raw = (activeSetId ? collection.sets?.find((s) => s.id === activeSetId)?.name : 'Highlights') || 'Highlights';
-              return <GallerySetHeading variant="galleryView" label={String(raw).toLowerCase()} />;
-            })()}
+            showMediaFilter && (
+              <div className="flex w-full justify-center mb-8 border-b pb-4" style={{ borderColor: 'rgba(0,0,0,0.05)' }}>
+                <GalleryMediaFilter
+                  value={mediaFilter}
+                  onChange={setMediaFilter}
+                  photoCount={mediaCounts.photos}
+                  videoCount={mediaCounts.videos}
+                  variant="galleryView"
+                  layout="inline"
+                />
+              </div>
+            )}
 
           {filteredPhotos.length === 0 &&
           showMediaFilter &&
