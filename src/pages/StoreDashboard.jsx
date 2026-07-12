@@ -349,6 +349,7 @@ export default function StoreDashboard() {
   const [automationModalTab, setAutomationModalTab] = useState('content');
   const [previewChannel, setPreviewChannel] = useState('email');
   const [yearsDropdownOpen, setYearsDropdownOpen] = useState(false);
+  const [expandedBannerPreview, setExpandedBannerPreview] = useState(null);
   const [startMonthsDropdownOpen, setStartMonthsDropdownOpen] = useState(false);
   const [startDaysDropdownOpen, setStartDaysDropdownOpen] = useState(false);
   const [durationMonthsDropdownOpen, setDurationMonthsDropdownOpen] = useState(false);
@@ -1117,6 +1118,209 @@ export default function StoreDashboard() {
     const d = new Date(dateStr);
     return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
   };
+  const renderHighFidelityBanner = (key, banner, isMobile) => {
+    const campaign = campaigns.find(c => c.id === selectedCampaign);
+    const discountVal = campaign?.discount ? `${campaign.discount}%` : '30%';
+    const expDate = new Date(); expDate.setDate(expDate.getDate() + 14);
+    const expFormatted = expDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    const code = campaign?.discountCode || 'HAPPYANI';
+
+    const formatT = (t) => (t || '')
+      .replace(/{discount-value}/g, discountVal)
+      .replace(/{discount_value}/g, discountVal)
+      .replace(/{code}/g, code)
+      .replace(/{exp-date}/g, expFormatted)
+      .replace(/{exp_date}/g, expFormatted);
+
+    const title = formatT(banner.title);
+    const subtitle = formatT(banner.subtitle);
+    const text = formatT(banner.text);
+    const cta = banner.cta;
+
+    const bgImage = isMobile
+      ? (banner.mobile_image ? `url(${banner.mobile_image})` : (banner.desktop_image ? `url(${banner.desktop_image})` : 'none'))
+      : (banner.desktop_image ? `url(${banner.desktop_image})` : 'none');
+
+    const getFont = (f) => {
+      if (f === 'Playfair Display') return "'Playfair Display', serif";
+      if (f === 'Georgia') return "'Georgia', serif";
+      if (f === 'Montserrat') return "'Montserrat', sans-serif";
+      return "'Inter', sans-serif";
+    };
+
+    if (key === 'text_banner') {
+      return (
+        <div style={{
+          backgroundColor: banner.bg_color || '#4a5338',
+          color: banner.text_color || '#ffffff',
+          padding: '8px 16px',
+          textAlign: 'center',
+          fontSize: isMobile ? '10px' : '11px',
+          fontWeight: 600,
+          fontFamily: getFont(banner.font),
+          letterSpacing: '0.06em',
+          textTransform: 'uppercase'
+        }}>
+          {text || 'Celebrate with 30% OFF prints this week! Use code HAPPYANI.'}
+        </div>
+      );
+    }
+
+    if (key === 'large_banner') {
+      return (
+        <div style={{
+          width: '100%',
+          backgroundColor: banner.bg_color || '#eae5d8',
+          backgroundImage: bgImage,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          padding: isMobile ? '20px' : '28px 32px',
+          boxSizing: 'border-box',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          textAlign: 'center',
+          position: 'relative'
+        }}>
+          {bgImage !== 'none' && <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(255,255,255,0.45)', zIndex: 1 }} />}
+          <div style={{ position: 'relative', zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <h3 style={{
+              fontSize: isMobile ? '14px' : '18px', fontWeight: 700, margin: '0 0 6px 0',
+              fontFamily: getFont(banner.font), color: banner.title_color || '#2c3e2d', letterSpacing: '0.04em', textTransform: 'uppercase'
+            }}>
+              {title || 'Relive It in Print'}
+            </h3>
+            <p style={{ fontSize: isMobile ? '10px' : '12px', color: banner.subtitle_color || '#4a5a4b', maxWidth: '520px', lineHeight: 1.5, margin: '0 0 14px 0', fontFamily: "'Inter', sans-serif" }}>
+              {subtitle || 'Get these moments off the screen and into your hands.'}
+            </p>
+            {cta && (
+              <button style={{
+                padding: isMobile ? '8px 24px' : '10px 32px', fontSize: isMobile ? '9px' : '10px', fontWeight: 700,
+                backgroundColor: banner.cta_bg || '#3a4a38', color: banner.cta_color || '#ffffff',
+                border: 'none', cursor: 'default', textTransform: 'uppercase', letterSpacing: '0.08em'
+              }}>{cta}</button>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    if (key === 'photo_banner') {
+      return (
+        <div style={{
+          width: '100%',
+          aspectRatio: '1 / 1',
+          backgroundColor: banner.bg_color || '#d4c9b5',
+          backgroundImage: bgImage,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          padding: '24px',
+          boxSizing: 'border-box',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          textAlign: 'center',
+          position: 'relative'
+        }}>
+          {bgImage !== 'none' && <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(255, 255, 255, 0.45)', zIndex: 1 }} />}
+          <div style={{ position: 'relative', zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', gap: '6px' }}>
+            <h3 style={{
+              fontSize: isMobile ? '13px' : '16px', fontWeight: 700, margin: 0,
+              fontFamily: getFont(banner.font), color: banner.title_color || '#1a1a1a', textTransform: 'uppercase', letterSpacing: '0.04em'
+            }}>
+              {title || 'Anniversary Sale'}
+            </h3>
+            <p style={{ fontSize: isMobile ? '9px' : '10px', color: banner.subtitle_color || '#444444', margin: '0 0 2px 0', lineHeight: 1.3, fontFamily: "'Inter', sans-serif" }}>
+              {subtitle || 'Celebrate with 30% OFF prints.'}
+            </p>
+            {/* Timer */}
+            <div style={{ margin: '8px 0', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <div style={{ fontSize: isMobile ? '16px' : '18px', fontWeight: 700, color: banner.title_color || '#1a1a1a', fontFamily: "'Inter', sans-serif", letterSpacing: '0.04em' }}>
+                00 : 00 : 00 : 00
+              </div>
+              <div style={{ display: 'flex', gap: '8px', fontSize: '5px', color: '#666', marginTop: '1px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                <span>day</span><span>hrs</span><span>min</span><span>sec</span>
+              </div>
+            </div>
+            {cta && (
+              <button style={{
+                padding: '8px 20px', fontSize: '9px', fontWeight: 700,
+                backgroundColor: banner.cta_bg || '#1a1a1a', color: banner.cta_color || '#ffffff',
+                border: 'none', cursor: 'default', textTransform: 'uppercase', letterSpacing: '0.08em'
+              }}>{cta}</button>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    if (key === 'store_rotator') {
+      return (
+        <div style={{
+          width: '100%',
+          aspectRatio: '1 / 1',
+          backgroundColor: banner.bg_color || '#eae5d8',
+          backgroundImage: bgImage,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          padding: '20px',
+          boxSizing: 'border-box',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          textAlign: 'center',
+          position: 'relative'
+        }}>
+          {bgImage !== 'none' && <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(255, 255, 255, 0.45)', zIndex: 1 }} />}
+          <div style={{ position: 'relative', zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', gap: '4px' }}>
+            <span style={{ fontSize: '8px', fontWeight: 700, letterSpacing: '0.12em', color: '#bfa38a', textTransform: 'uppercase', marginBottom: '2px' }}>
+              {banner.code ? formatT(banner.code) : `CODE: ${code}`}
+            </span>
+            <h3 style={{
+              fontSize: isMobile ? '13px' : '15px', fontWeight: 700, margin: 0,
+              fontFamily: getFont(banner.font), color: banner.title_color || '#2c3e2d', textTransform: 'uppercase'
+            }}>
+              {title || 'Your Wedding in Print'}
+            </h3>
+            <p style={{ fontSize: isMobile ? '9px' : '10px', color: banner.subtitle_color || '#4a5a4b', margin: '0 0 4px 0', lineHeight: 1.3, fontFamily: "'Inter', sans-serif" }}>
+              {subtitle || 'Celebrate those special moments.'}
+            </p>
+            {/* Double bouquet illustrations side-by-side */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: '4px 0' }}>
+              <svg viewBox="0 0 100 100" style={{ width: '28px', height: '28px' }}>
+                <path d="M42 66 L50 46" stroke="#5d6050" strokeWidth="2.5" strokeLinecap="round" />
+                <path d="M48 66 L50 44" stroke="#5d6050" strokeWidth="2.5" strokeLinecap="round" />
+                <path d="M54 66 L50 46" stroke="#5d6050" strokeWidth="2.5" strokeLinecap="round" />
+                <circle cx="48" cy="32" r="6" fill="#ffffff" stroke="#dcdcdc" strokeWidth="0.75" />
+                <circle cx="40" cy="39" r="5" fill="#ffffff" stroke="#dcdcdc" strokeWidth="0.75" />
+                <circle cx="56" cy="39" r="5" fill="#ffffff" stroke="#dcdcdc" strokeWidth="0.75" />
+              </svg>
+              <svg viewBox="0 0 100 100" style={{ width: '40px', height: '40px' }}>
+                <path d="M42 66 L50 46" stroke="#5d6050" strokeWidth="2.5" strokeLinecap="round" />
+                <path d="M48 66 L50 44" stroke="#5d6050" strokeWidth="2.5" strokeLinecap="round" />
+                <path d="M54 66 L50 46" stroke="#5d6050" strokeWidth="2.5" strokeLinecap="round" />
+                <circle cx="48" cy="32" r="6" fill="#ffffff" stroke="#dcdcdc" strokeWidth="0.75" />
+                <circle cx="40" cy="39" r="5" fill="#ffffff" stroke="#dcdcdc" strokeWidth="0.75" />
+                <circle cx="56" cy="39" r="5" fill="#ffffff" stroke="#dcdcdc" strokeWidth="0.75" />
+              </svg>
+            </div>
+            {cta && (
+              <button style={{
+                padding: '6px 16px', fontSize: '9px', fontWeight: 700,
+                backgroundColor: banner.cta_bg || '#3a4a38', color: banner.cta_color || '#ffffff',
+                border: 'none', cursor: 'default', textTransform: 'uppercase', letterSpacing: '0.08em'
+              }}>{cta}</button>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    return null;
+  };
+
   return (
     <div className="store-dashboard-wrapper theme-mono">
       {/* Top Navbar — same as client gallery / Dashboard */}
@@ -2817,10 +3021,42 @@ export default function StoreDashboard() {
                                   border: '1px solid #dcdcdc',
                                   backgroundColor: item.enabled ? '#2c2c2d' : '#ffffff',
                                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                                  cursor: 'pointer'
                                 }}
                               >
                                 <span style={{ color: item.enabled ? '#fff' : 'transparent', fontSize: '9px', fontWeight: 900 }}>✓</span>
+                              </div>
+
+                              {/* Zoom/Expand button */}
+                              <div
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setExpandedBannerPreview({ banner: campaign.banners[item.key], key: item.key });
+                                }}
+                                style={{
+                                  position: 'absolute',
+                                  bottom: '26px',
+                                  right: '4px',
+                                  zIndex: 15,
+                                  width: '18px',
+                                  height: '18px',
+                                  borderRadius: '3px',
+                                  backgroundColor: 'rgba(0,0,0,0.65)',
+                                  color: '#ffffff',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: '10px',
+                                  fontWeight: 900,
+                                  cursor: 'pointer',
+                                  transition: 'background-color 0.2s'
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.85)'}
+                                onMouseLeave={e => e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.65)'}
+                                title="Expand View"
+                              >
+                                ⤢
                               </div>
 
                               <div style={{
@@ -4351,36 +4587,86 @@ export default function StoreDashboard() {
                                   NANDHA
                                 </div>
 
-                                {/* Custom image placeholder */}
-                                <div style={{
-                                  width: '100%',
-                                  height: '240px',
-                                  backgroundColor: '#efefef',
-                                  backgroundImage: selectedAutomation.custom_image ? `url(${selectedAutomation.custom_image})` : 'none',
-                                  backgroundSize: 'cover',
-                                  backgroundPosition: 'center',
-                                  display: 'flex',
-                                  flexDirection: 'column',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  gap: '8px',
-                                  border: '1px solid #e5e5e5',
-                                  marginBottom: '32px',
-                                  boxSizing: 'border-box',
-                                  padding: '16px'
-                                }}>
-                                  {!selectedAutomation.custom_image && (
-                                    <>
-                                      <svg viewBox="0 0 100 100" style={{ width: '40px', height: '40px', fill: '#cccccc' }}>
-                                        <path d="M15 80 L85 80 L85 20 L15 20 Z M25 70 L45 45 L55 58 L75 35 L80 70 Z" />
-                                        <circle cx="35" cy="35" r="5" />
-                                      </svg>
-                                      <div style={{ fontSize: '9.5px', color: '#999999', letterSpacing: '0.08em', fontWeight: 500 }}>
-                                        VISITORS WILL SEE THE GALLERY COVER HERE
-                                      </div>
-                                    </>
-                                  )}
-                                </div>
+                                {/* Custom image placeholder or Active Store Banner Preview */}
+                                 {(() => {
+                                   const currentCampaign = campaigns.find(c => c.id === selectedCampaign);
+                                   const activeBannerKey = currentCampaign ? Object.keys(currentCampaign.banners).find(k => currentCampaign.banners[k].enabled) : null;
+                                   const activeBanner = currentCampaign && activeBannerKey ? currentCampaign.banners[activeBannerKey] : null;
+
+                                   if (activeBanner) {
+                                     return (
+                                       <div style={{
+                                         width: '100%',
+                                         marginBottom: '32px',
+                                         position: 'relative',
+                                         border: '1px solid #dcdcdc'
+                                       }}>
+                                         {/* Expand button overlay */}
+                                         <button
+                                           type="button"
+                                           onClick={() => setExpandedBannerPreview({ banner: activeBanner, key: activeBannerKey })}
+                                           style={{
+                                             position: 'absolute',
+                                             top: '10px',
+                                             right: '10px',
+                                             zIndex: 30,
+                                             padding: '4px 10px',
+                                             fontSize: '9.5px',
+                                             fontWeight: 700,
+                                             backgroundColor: 'rgba(0,0,0,0.7)',
+                                             color: '#fff',
+                                             border: 'none',
+                                             borderRadius: '3px',
+                                             cursor: 'pointer',
+                                             display: 'flex',
+                                             alignItems: 'center',
+                                             gap: '4px',
+                                             textTransform: 'uppercase',
+                                             letterSpacing: '0.04em'
+                                           }}
+                                           title="Expand View"
+                                         >
+                                           ⤢ EXPAND
+                                         </button>
+                                         <div style={{ pointerEvents: 'none' }}>
+                                           {renderHighFidelityBanner(activeBannerKey, activeBanner, true)}
+                                         </div>
+                                       </div>
+                                     );
+                                   }
+
+                                   return (
+                                     <div style={{
+                                       width: '100%',
+                                       height: '240px',
+                                       backgroundColor: '#efefef',
+                                       backgroundImage: selectedAutomation.custom_image ? `url(${selectedAutomation.custom_image})` : 'none',
+                                       backgroundSize: 'cover',
+                                       backgroundPosition: 'center',
+                                       display: 'flex',
+                                       flexDirection: 'column',
+                                       alignItems: 'center',
+                                       justifyContent: 'center',
+                                       gap: '8px',
+                                       border: '1px solid #e5e5e5',
+                                       marginBottom: '32px',
+                                       boxSizing: 'border-box',
+                                       padding: '16px'
+                                     }}>
+                                       {!selectedAutomation.custom_image && (
+                                         <>
+                                           <svg viewBox="0 0 100 100" style={{ width: '40px', height: '40px', fill: '#cccccc' }}>
+                                             <path d="M15 80 L85 80 L85 20 L15 20 Z M25 70 L45 45 L55 58 L75 35 L80 70 Z" />
+                                             <circle cx="35" cy="35" r="5" />
+                                           </svg>
+                                           <div style={{ fontSize: '9.5px', color: '#999999', letterSpacing: '0.08em', fontWeight: 500 }}>
+                                             VISITORS WILL SEE THE GALLERY COVER HERE
+                                           </div>
+                                         </>
+                                       )}
+                                     </div>
+                                   );
+                                 })()}
 
                                 {/* Title Header */}
                                 <div style={{
@@ -5161,6 +5447,72 @@ export default function StoreDashboard() {
               </div>
             </div>
           )}
+        {expandedBannerPreview && (
+          <div style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0,0,0,0.75)',
+            zIndex: 5000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '24px',
+            boxSizing: 'border-box',
+            backdropFilter: 'blur(4px)'
+          }} onClick={() => setExpandedBannerPreview(null)}>
+            <div style={{
+              position: 'relative',
+              backgroundColor: '#ffffff',
+              padding: '40px 32px 32px',
+              width: '100%',
+              maxWidth: expandedBannerPreview.key === 'text_banner' || expandedBannerPreview.key === 'large_banner' ? '800px' : '440px',
+              borderRadius: '0px',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
+              boxSizing: 'border-box'
+            }} onClick={e => e.stopPropagation()}>
+              <button
+                onClick={() => setExpandedBannerPreview(null)}
+                style={{
+                  position: 'absolute',
+                  top: '16px',
+                  right: '16px',
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '18px',
+                  cursor: 'pointer',
+                  color: '#666',
+                  zIndex: 10
+                }}
+              >✕</button>
+
+              <h3 style={{ fontSize: '11px', fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '24px', fontFamily: "'Inter', sans-serif" }}>
+                Expanded View: {expandedBannerPreview.key.replace(/_/g, ' ')}
+              </h3>
+
+              <div style={{ border: '1px solid #eaeaea', padding: '16px', backgroundColor: '#fcfcfc', borderRadius: '0px' }}>
+                {/* Desktop View */}
+                {expandedBannerPreview.key !== 'photo_banner' && expandedBannerPreview.key !== 'store_rotator' && (
+                  <div style={{ marginBottom: '28px' }}>
+                    <div style={{ fontSize: '9px', fontWeight: 700, color: '#b5b5b5', letterSpacing: '0.08em', marginBottom: '8px', textTransform: 'uppercase', fontFamily: "'Inter', sans-serif" }}>Desktop View</div>
+                    {renderHighFidelityBanner(expandedBannerPreview.key, expandedBannerPreview.banner, false)}
+                  </div>
+                )}
+
+                {/* Mobile / Card View */}
+                <div>
+                  <div style={{ fontSize: '9px', fontWeight: 700, color: '#b5b5b5', letterSpacing: '0.08em', marginBottom: '8px', textTransform: 'uppercase', fontFamily: "'Inter', sans-serif" }}>
+                    {expandedBannerPreview.key === 'text_banner' || expandedBannerPreview.key === 'large_banner' ? 'Mobile View' : 'Card View (Masonry Grid)'}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'center' }}>
+                    <div style={{ width: expandedBannerPreview.key === 'text_banner' ? '100%' : '320px', border: '1px solid #ddd', borderRadius: '0px', overflow: 'hidden' }}>
+                      {renderHighFidelityBanner(expandedBannerPreview.key, expandedBannerPreview.banner, true)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         </main>
       </div>
     </div>
