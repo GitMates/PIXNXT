@@ -12,6 +12,10 @@ function trimTrailingSlash(url) {
 
 /** Origin from env, or current page when in the browser. */
 export function getPublicSiteOrigin() {
+    // Local dev: use the running dev server so QR/share links are testable without deploy.
+    if (import.meta.env.DEV && typeof window !== 'undefined' && window.location?.origin) {
+        return window.location.origin;
+    }
     const fromEnv = trimTrailingSlash(import.meta.env.VITE_PUBLIC_SITE_URL);
     if (fromEnv) return fromEnv;
     if (typeof window !== 'undefined' && window.location?.origin) {

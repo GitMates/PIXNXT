@@ -72,8 +72,6 @@ import { getSpreadPhotoTransform } from './albumPageTransforms';
 import BookWrapSpineImage from './BookWrapSpineImage';
 import OverviewLeatherCover from './OverviewLeatherCover';
 
-export { getSpreadPages, getTotalSpreads, pageToSpreadIndex, spreadIndexToPage } from './albumSpreadUtils';
-
 const FLIP_TIME_MS = 900;
 const FLIP_CORNER = 'bottom';
 const BOOK_PAGE_HEIGHT_MIN = 300;

@@ -162,6 +162,14 @@ const PackageIcon = () => (
   </svg>
 );
 
+const ScanFaceIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 8V4h4" /><path d="M20 8V4h-4" /><path d="M4 16v4h4" /><path d="M20 16v4h-4" />
+    <circle cx="9" cy="10" r="1.5" /><circle cx="15" cy="10" r="1.5" />
+    <path d="M9.5 15.5c.83.83 1.94 1.25 3 1.25s2.17-.42 3-1.25" />
+  </svg>
+);
+
 const products = [
   {
     name: 'Client Gallery',
@@ -200,6 +208,16 @@ const products = [
       { label: 'Manage Apps', path: '/mobile-gallery' },
       { label: 'Create App', path: '/mobile-gallery?create=1' },
       { label: 'Settings', path: '/mobile-gallery/settings' },
+    ],
+  },
+  {
+    name: 'Guest Delivery',
+    color: 'orange',
+    icon: <ScanFaceIcon />,
+    route: '/guest-delivery',
+    links: [
+      { label: 'Manage Events', path: '/guest-delivery' },
+      { label: 'Create Event', path: '/guest-delivery?create=1' },
     ],
   },
 ];

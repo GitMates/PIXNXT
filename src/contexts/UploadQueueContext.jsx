@@ -1,15 +1,11 @@
 import React, {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useRef,
   useState,
 } from 'react';
-import { useLocation } from 'react-router-dom';
 import { galleryService } from '../services/gallery.service';
-import { prepareUploadFile } from '../lib/prepareUploadFile';
 import { isImageMime, isVideoMime, getFileMime } from '../lib/fileMime';
 import { getUploadMediaKindFromFile } from '../components/features/CollectionDashboard/Upload/uploadUtils';
 import { isRawImageFile } from '../lib/rawImageFormats';
@@ -21,12 +17,11 @@ import {
   sortUploadQueueBySizeAsc,
   uploadTabCounts,
 } from '../components/features/CollectionDashboard/Upload/uploadUtils';
+import { UploadQueueContext } from './uploadQueueContext';
 
 const LARGE_FILE_BYTES = 6 * 1024 * 1024;
 const MAX_CONCURRENT_SMALL = 4;
 const MAX_CONCURRENT_LARGE = 1;
-
-const UploadQueueContext = createContext(null);
 
 function getMaxConcurrent(files, pending) {
   const all = [...files, ...pending];
@@ -57,7 +52,7 @@ export function UploadQueueProvider({ children }) {
   stateRef.current = state;
 
   const configureTarget = useCallback((config) => {
-    targetRef.current = config;
+    targetRef.current = { ...(targetRef.current || {}), ...config };
     const inFlight = stateRef.current.files.some(
       (f) => f.status === 'uploading' || f.status === 'processing' || f.status === 'waiting'
     );
@@ -120,16 +115,30 @@ export function UploadQueueProvider({ children }) {
           progress: 0,
         });
 
-        const photoData = await galleryService.uploadPhoto(
-          collectionId,
-          photographerId,
-          fileToUpload,
-          sortIndex,
-          setId,
-          (percent) => {
-            safePatch({ status: percent >= 100 ? 'processing' : 'uploading', progress: percent });
-          }
-        );
+        const customUpload = targetRef.current?.uploadPhotoFn;
+        const photoData = customUpload
+          ? await customUpload({
+              file: fileToUpload,
+              photographerId,
+              sortIndex,
+              setId,
+              onProgress: (percent) => {
+                safePatch({
+                  status: percent >= 100 ? 'processing' : 'uploading',
+                  progress: percent,
+                });
+              },
+            })
+          : await galleryService.uploadPhoto(
+              collectionId,
+              photographerId,
+              fileToUpload,
+              sortIndex,
+              setId,
+              (percent) => {
+                safePatch({ status: percent >= 100 ? 'processing' : 'uploading', progress: percent });
+              }
+            );
 
         if (session !== sessionRef.current) return;
         safePatch({ progress: 100, status: 'completed' });
@@ -204,11 +213,15 @@ export function UploadQueueProvider({ children }) {
 
   const processFiles = useCallback(
     async (fileList, uploadTargetOverride) => {
-      const target = uploadTargetOverride
-        ? { ...targetRef.current, ...uploadTargetOverride }
-        : targetRef.current;
+      if (uploadTargetOverride) {
+        targetRef.current = { ...(targetRef.current || {}), ...uploadTargetOverride };
+        if (!Object.prototype.hasOwnProperty.call(uploadTargetOverride, 'uploadPhotoFn')) {
+          delete targetRef.current.uploadPhotoFn;
+        }
+      }
+      const target = targetRef.current;
       if (!target?.collectionId || !target?.photographerId) {
-        alert('Open a collection before uploading photos.');
+        alert('Open a collection or event before uploading photos.');
         return false;
       }
 
@@ -225,7 +238,7 @@ export function UploadQueueProvider({ children }) {
 
       const existingNames = (target.existingFilenames || []).map((n) => n.toLowerCase());
       const queuedNames = stateRef.current.files
-        .filter((f) => f.status !== 'error')
+        .filter((f) => f.status === 'waiting' || f.status === 'uploading' || f.status === 'processing')
         .map((f) => f.name.toLowerCase());
       const { accepted, skipped } = partitionDuplicateUploadFiles(
         files,
@@ -255,7 +268,9 @@ export function UploadQueueProvider({ children }) {
         collectionId,
         activeSetId: setId,
         destinationLabel: batchDestination,
+        viewPath: target.viewPath || null,
       };
+      targetRef.current = { ...target, destinationLabel: batchDestination };
       setDestinationLabel(batchDestination);
       setUploadTargetSetId(setId);
       setActiveCollectionId(collectionId);
@@ -415,6 +430,7 @@ export function UploadQueueProvider({ children }) {
         collectionId: batch.collectionId,
         activeSetId: batch.activeSetId ?? null,
         destinationLabel: batch.destinationLabel || destinationLabel || 'Collection',
+        viewPath: batch.viewPath || null,
       };
     }
     const target = targetRef.current;
@@ -423,6 +439,7 @@ export function UploadQueueProvider({ children }) {
       collectionId: target.collectionId,
       activeSetId: target.activeSetId ?? null,
       destinationLabel: target.destinationLabel || destinationLabel || 'Collection',
+      viewPath: target.viewPath || null,
     };
   }, [destinationLabel]);
 
@@ -470,33 +487,4 @@ export function UploadQueueProvider({ children }) {
   return (
     <UploadQueueContext.Provider value={value}>{children}</UploadQueueContext.Provider>
   );
-}
-
-export function useUploadQueueContext() {
-  const ctx = useContext(UploadQueueContext);
-  if (!ctx) {
-    throw new Error('useUploadQueueContext must be used within UploadQueueProvider');
-  }
-  return ctx;
-}
-
-/** Minimize once when navigating away from collection manage (do not block reopening via FAB). */
-export function UploadQueueRouteSync() {
-  const location = useLocation();
-  const { state, minimize } = useUploadQueueContext();
-  const prevPathRef = useRef(null);
-
-  React.useEffect(() => {
-    const prev = prevPathRef.current;
-    const curr = location.pathname;
-    prevPathRef.current = curr;
-
-    if (prev === '/collections/manage' && curr !== '/collections/manage') {
-      if (state.isOpen && !state.isMinimized) {
-        minimize();
-      }
-    }
-  }, [location.pathname, state.isOpen, state.isMinimized, minimize]);
-
-  return null;
 }

@@ -1,0 +1,256 @@
+body.egr-body-lock {
+  margin: 0;
+  background: #f0ebf8 !important;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif !important;
+}
+
+html.egr-root-lock {
+  background: #f0ebf8;
+}
+
+.app--guest-register {
+  min-height: 100vh;
+  background: #f0ebf8;
+}
+
+.egr-page {
+  min-height: 100vh;
+  padding: 12px 12px 32px;
+  background: #f0ebf8;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
+  color: #202124;
+}
+
+.egr-page h1,
+.egr-page h2,
+.egr-page h3 {
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  font-weight: 500 !important;
+  color: #202124 !important;
+}
+
+.egr-loading {
+  max-width: 640px;
+  margin: 48px auto;
+  padding: 24px;
+  text-align: center;
+  color: #5f6368;
+  font-size: 15px;
+}
+
+.egr-form-sheet {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.egr-form-banner {
+  background: #fff;
+  border: 1px solid #dadce0;
+  border-top: 8px solid #673ab7;
+  border-radius: 8px;
+  padding: 24px 24px 20px;
+  margin-bottom: 12px;
+}
+
+.egr-form-banner--error {
+  border-top-color: #d93025;
+}
+
+.egr-form-banner--success {
+  border-top-color: #188038;
+}
+
+.egr-success-panel {
+  animation: egr-fade-in 0.25s ease;
+}
+
+@keyframes egr-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.egr-form-eyebrow {
+  margin: 0 0 8px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #673ab7;
+  font-weight: 600;
+}
+
+.egr-form-banner h1 {
+  margin: 0 0 8px;
+  font-size: clamp(1.5rem, 4vw, 2rem);
+  font-weight: 400;
+  line-height: 1.25;
+}
+
+.egr-form-desc {
+  margin: 0;
+  color: #5f6368;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.egr-questions {
+  display: grid;
+  gap: 12px;
+}
+
+.egr-question {
+  background: #fff;
+  border: 1px solid #dadce0;
+  border-radius: 8px;
+  padding: 24px;
+}
+
+.egr-question-label {
+  display: block;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.4;
+  margin-bottom: 8px;
+}
+
+.egr-required {
+  color: #d93025;
+}
+
+.egr-question-hint {
+  margin: -4px 0 12px;
+  color: #70757a;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.egr-input {
+  width: 100%;
+  border: none;
+  border-bottom: 1px solid #dadce0;
+  border-radius: 0;
+  padding: 8px 0;
+  font-size: 16px;
+  background: transparent;
+  outline: none;
+}
+
+.egr-input:focus {
+  border-bottom-color: #673ab7;
+  box-shadow: inset 0 -1px 0 #673ab7;
+}
+
+.egr-input::placeholder {
+  color: #9aa0a6;
+}
+
+.egr-selfie-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.egr-selfie-action {
+  border: none;
+  border-radius: 4px;
+  padding: 10px 18px;
+  background: #673ab7;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.egr-selfie-action--secondary {
+  background: #fff;
+  color: #673ab7;
+  border: 1px solid #dadce0;
+}
+
+.egr-selfie-preview-wrap {
+  margin-top: 8px;
+}
+
+.egr-selfie-preview {
+  width: 100%;
+  max-height: 280px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid #dadce0;
+  display: block;
+}
+
+.egr-selfie-retake {
+  margin-top: 10px;
+  border: none;
+  background: none;
+  color: #673ab7;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+}
+
+.egr-form-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 8px 4px 0;
+}
+
+.egr-submit {
+  border: none;
+  border-radius: 4px;
+  padding: 10px 24px;
+  background: #673ab7;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  min-width: 88px;
+}
+
+.egr-submit:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.egr-footer-note {
+  margin: 0;
+  flex: 1;
+  min-width: 200px;
+  color: #70757a;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+@media (max-width: 480px) {
+  .egr-page {
+    padding: 8px 8px 24px;
+  }
+
+  .egr-form-banner,
+  .egr-question {
+    padding: 20px 16px;
+  }
+
+  .egr-form-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .egr-submit {
+    width: 100%;
+    padding: 14px 20px;
+    font-size: 16px;
+  }
+}

@@ -27,6 +27,7 @@ const AppPhotoUploadZone = ({
   uploading,
   uploadProgress,
   toolbarOnly = false,
+  validateFile = validateMobileGalleryJpeg,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [duplicateOpen, setDuplicateOpen] = useState(false);
@@ -51,7 +52,7 @@ const AppPhotoUploadZone = ({
       const errors = [];
 
       files.forEach((file) => {
-        const err = validateMobileGalleryJpeg(file);
+        const err = validateFile(file);
         if (err) {
           errors.push(`${file.name}: ${err}`);
           return;
@@ -79,7 +80,7 @@ const AppPhotoUploadZone = ({
 
       onFilesSelected(toUpload);
     },
-    [duplicateMode, existingFilenames, onFilesSelected]
+    [duplicateMode, existingFilenames, onFilesSelected, validateFile]
   );
 
   const onDragOver = (e) => {
