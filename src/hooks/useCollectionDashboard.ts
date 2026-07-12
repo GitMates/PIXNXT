@@ -120,6 +120,7 @@ export function useCollectionDashboard(collectionId: string | null) {
       if (collectionData.status)
         setStatus(collectionData.status.toUpperCase() as any);
       if (collectionData.slug) setCollectionUrl(collectionData.slug);
+      if (collectionData.default_watermark) setDefaultWatermark(collectionData.default_watermark);
       
       // Sync design settings
       setDesignSettings({

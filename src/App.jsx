@@ -35,6 +35,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { UploadQueueProvider, UploadQueueRouteSync } from './contexts/UploadQueueContext';
 import { GlobalUploadShell } from './components/features/CollectionDashboard/Upload/GlobalUploadShell';
 import RekognitionTest from './pages/dev/RekognitionTest';
+import WatermarkEditor from './pages/WatermarkEditor';
 
 function MobileGalleryViewRedirect() {
   const { slug } = useParams();
@@ -176,6 +177,8 @@ function App() {
           <Route path="/homepage" element={<Homepage />} />
           <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
           <Route path="/settings/:tab" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+          <Route path="/settings/watermark/create" element={<ProtectedRoute><WatermarkEditor /></ProtectedRoute>} />
+          <Route path="/settings/watermark/:id" element={<ProtectedRoute><WatermarkEditor /></ProtectedRoute>} />
           <Route path="/account" element={<ProtectedRoute><Navigate to="/account/profile" replace /></ProtectedRoute>} />
           <Route path="/account/:tab" element={<ProtectedRoute><AccountSettings /></ProtectedRoute>} />
           <Route path="/collections/get-started" element={<ProtectedRoute><GetStarted /></ProtectedRoute>} />

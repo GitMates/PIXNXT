@@ -939,7 +939,7 @@ export const galleryService = {
    * Upload a single photo to R2 and record in database.
    * @param {(percent: number) => void} [onProgress] — 0–100 based on bytes sent to R2
    */
-  async uploadPhoto(collectionId, photographerId, file, index = 0, setId = null, onProgress = null) {
+  async uploadPhoto(collectionId, photographerId, file, index = 0, setId = null, onProgress = null, onInserted = null) {
     if (!collectionId || !photographerId) {
       throw new Error('Collection or photographer is missing. Refresh the page and try again.');
     }
@@ -991,70 +991,70 @@ export const galleryService = {
     const isRaw = isRawImageFile(file);
     const mediaType = getUploadMediaType(file);
 
-    const uploadBody =
-      file.type === mime
-        ? file
-        : new File([file], file.name, { type: mime, lastModified: file.lastModified });
+    let webFile = null;
+    let thumbFile = null;
+    let dimensions = { width: null, height: null };
+    let thumbnailBlob = null;
 
-    const uploadPromise = storageService.upload(filePath, uploadBody, onProgress);
-
-    const [{ url: publicUrl }, meta] = await Promise.all([
-      uploadPromise,
-      isVideo
-        ? this._captureVideoThumbnail(file)
-        : isRaw
-          ? this._captureRawPreview(file)
-          : getImageDimensionsFast(file).then((dimensions) => ({ dimensions, thumbnailBlob: null })),
-    ]);
-
-    const dimensions = meta.dimensions ?? { width: null, height: null };
-    const thumbnailBlob = meta.thumbnailBlob ?? null;
-
-    let webUrl = publicUrl;
-    let thumbUrl = publicUrl;
-    let webStoragePath = null;
-    let thumbnailStoragePath = null;
+    if (!isVideo && !isRaw) {
+      const [dim, compressedWeb, compressedThumb] = await Promise.all([
+        getImageDimensionsFast(file).catch(() => ({ width: null, height: null })),
+        compressImageForUpload(file, { maxEdge: 2048 }).catch(() => file),
+        compressImageForUpload(file, { maxEdge: 400, quality: 0.6 }).catch(() => file)
+      ]);
+      dimensions = dim;
+      webFile = compressedWeb;
+      thumbFile = compressedThumb;
+    } else if (isVideo) {
+      const meta = await this._captureVideoThumbnail(file).catch(() => ({ dimensions: { width: null, height: null }, thumbnailBlob: null }));
+      dimensions = meta.dimensions;
+      thumbnailBlob = meta.thumbnailBlob;
+    } else if (isRaw) {
+      const meta = await this._captureRawPreview(file).catch(() => ({ dimensions: { width: null, height: null }, thumbnailBlob: null }));
+      dimensions = meta.dimensions;
+      thumbnailBlob = meta.thumbnailBlob;
+      if (thumbnailBlob) {
+        const previewFile = new File([thumbnailBlob], 'preview.jpg', { type: 'image/jpeg' });
+        const [compressedWeb, compressedThumb] = await Promise.all([
+          compressImageForUpload(previewFile, { maxEdge: 2048 }).catch(() => previewFile),
+          compressImageForUpload(previewFile, { maxEdge: 400, quality: 0.6 }).catch(() => previewFile)
+        ]);
+        webFile = compressedWeb;
+        thumbFile = compressedThumb;
+      }
+    }
 
     const fileNameJpg = fileName.replace(/\.[^.]+$/, '.jpg');
     const webPath = `${basePath}/web/${fileNameJpg}`;
     const thumbnailPath = `${basePath}/thumb/${fileNameJpg}`;
 
-    if (isRaw) {
-      if (thumbnailBlob) {
-        const previewFile = new File([thumbnailBlob], 'preview.jpg', { type: 'image/jpeg' });
-        const webFile = await compressImageForUpload(previewFile, { maxEdge: 2048 }).catch(() => previewFile);
-        const thumbFile = await compressImageForUpload(previewFile, { maxEdge: 400, quality: 0.6 }).catch(() => previewFile);
+    let webStoragePath = null;
+    let thumbnailStoragePath = null;
 
-        webStoragePath = webPath;
-        thumbnailStoragePath = thumbnailPath;
-
-        const [webUpload, thumbUpload] = await Promise.all([
-          storageService.upload(webStoragePath, webFile),
-          storageService.upload(thumbnailStoragePath, thumbFile)
-        ]);
-
-        webUrl = webUpload.url;
-        thumbUrl = thumbUpload.url;
-      } else {
-        webUrl = null;
-        thumbUrl = null;
-      }
-    } else if (!isVideo) {
-      const webFile = await compressImageForUpload(file, { maxEdge: 2048 }).catch(() => file);
-      const thumbFile = await compressImageForUpload(file, { maxEdge: 400, quality: 0.6 }).catch(() => file);
-
+    // 1. Upload Web & Thumb versions FIRST (extremely fast, under 1s)
+    const prepPromises = [];
+    if (webFile) {
       webStoragePath = webPath;
+      prepPromises.push(storageService.upload(webStoragePath, webFile));
+    }
+    if (thumbFile) {
       thumbnailStoragePath = thumbnailPath;
-
-      const [webUpload, thumbUpload] = await Promise.all([
-        storageService.upload(webStoragePath, webFile),
-        storageService.upload(thumbnailStoragePath, thumbFile)
-      ]);
-
-      webUrl = webUpload.url;
-      thumbUrl = thumbUpload.url;
+      prepPromises.push(storageService.upload(thumbnailStoragePath, thumbFile));
     }
 
+    const prepResults = await Promise.all(prepPromises);
+    
+    let webUrl = null;
+    let thumbUrl = null;
+    if (isRaw) {
+      webUrl = webFile ? prepResults[0]?.url : null;
+      thumbUrl = thumbFile ? prepResults[1]?.url : null;
+    } else if (!isVideo) {
+      webUrl = webFile ? prepResults[0]?.url : null;
+      thumbUrl = thumbFile ? prepResults[1]?.url : null;
+    }
+
+    // 2. Insert into DB immediately so it is available in UI grid as optimized web-version
     const { data: photoData, error: dbError } = await supabase
       .from('photos')
       .insert([{
@@ -1062,10 +1062,10 @@ export const galleryService = {
         photographer_id: photographerId,
         set_id: setId,
         filename: file.name,
-        full_url: publicUrl,
+        full_url: null, // will update once original finishes
         web_url: webUrl,
         thumbnail_url: thumbUrl,
-        original_storage_path: filePath,
+        original_storage_path: null,
         web_storage_path: webStoragePath,
         thumbnail_storage_path: thumbnailStoragePath,
         size_bytes: file.size,
@@ -1080,6 +1080,37 @@ export const galleryService = {
 
     if (dbError) throw dbError;
 
+    // Trigger instant grid add / preview update
+    if (onInserted) {
+      onInserted(photoData);
+    }
+
+    // 3. Upload large original file in background
+    let originalFile = file;
+    const uploadQuality = localStorage.getItem('upload_quality') || 'original';
+    if (!isVideo && !isRaw && uploadQuality !== 'original') {
+      const edge = uploadQuality === 'high' ? 3600 : 2048;
+      originalFile = await compressImageForUpload(file, { maxEdge: edge }).catch(() => file);
+    }
+
+    const uploadBody =
+      originalFile.type === mime
+        ? originalFile
+        : new File([originalFile], originalFile.name, { type: mime, lastModified: originalFile.lastModified });
+
+    const uploadResult = await storageService.upload(filePath, uploadBody, onProgress);
+
+    // Update database row with full original path
+    const { data: finalPhoto } = await supabase
+      .from('photos')
+      .update({
+        full_url: uploadResult.url,
+        original_storage_path: filePath
+      })
+      .eq('id', photoData.id)
+      .select()
+      .single();
+
     if (typeof window !== 'undefined' && photoData?.id) {
       void import('./photoAiUploadPipeline.js').then(({ queuePhotoAiIndex }) =>
         queuePhotoAiIndex(collectionId, photoData.id)
@@ -1093,7 +1124,7 @@ export const galleryService = {
       ).catch((err) => console.warn('Video thumbnail upload deferred failed:', err));
     }
 
-    return photoData;
+    return finalPhoto || { ...photoData, full_url: uploadResult.url, original_storage_path: filePath };
   },
 
   async _captureRawPreview(file) {
@@ -1238,66 +1269,82 @@ export const galleryService = {
     const isRaw = isRawImageFile(file);
     const mediaType = getUploadMediaType(file);
 
-    const uploadBody =
-      file.type === mime
-        ? file
-        : new File([file], file.name, { type: mime, lastModified: file.lastModified });
+    let webFile = null;
+    let thumbFile = null;
+    let dimensions = { width: null, height: null };
+    let thumbnailBlob = null;
 
-    const [{ url: publicUrl }, meta] = await Promise.all([
-      storageService.upload(filePath, uploadBody, onProgress),
-      isVideo
-        ? this._captureVideoThumbnail(file)
-        : isRaw
-          ? this._captureRawPreview(file)
-          : getImageDimensionsFast(file).then((dimensions) => ({ dimensions, thumbnailBlob: null })),
-    ]);
-
-    const dimensions = meta.dimensions ?? { width: null, height: null };
-    const thumbnailBlob = meta.thumbnailBlob ?? null;
-
-    let webUrl = publicUrl;
-    let thumbUrl = publicUrl;
-    let webStoragePath = null;
-    let thumbnailStoragePath = null;
+    if (!isVideo && !isRaw) {
+      const [dim, compressedWeb, compressedThumb] = await Promise.all([
+        getImageDimensionsFast(file).catch(() => ({ width: null, height: null })),
+        compressImageForUpload(file, { maxEdge: 2048 }).catch(() => file),
+        compressImageForUpload(file, { maxEdge: 400, quality: 0.6 }).catch(() => file)
+      ]);
+      dimensions = dim;
+      webFile = compressedWeb;
+      thumbFile = compressedThumb;
+    } else if (isVideo) {
+      const meta = await this._captureVideoThumbnail(file).catch(() => ({ dimensions: { width: null, height: null }, thumbnailBlob: null }));
+      dimensions = meta.dimensions;
+      thumbnailBlob = meta.thumbnailBlob;
+    } else if (isRaw) {
+      const meta = await this._captureRawPreview(file).catch(() => ({ dimensions: { width: null, height: null }, thumbnailBlob: null }));
+      dimensions = meta.dimensions;
+      thumbnailBlob = meta.thumbnailBlob;
+      if (thumbnailBlob) {
+        const previewFile = new File([thumbnailBlob], 'preview.jpg', { type: 'image/jpeg' });
+        const [compressedWeb, compressedThumb] = await Promise.all([
+          compressImageForUpload(previewFile, { maxEdge: 2048 }).catch(() => previewFile),
+          compressImageForUpload(previewFile, { maxEdge: 400, quality: 0.6 }).catch(() => previewFile)
+        ]);
+        webFile = compressedWeb;
+        thumbFile = compressedThumb;
+      }
+    }
 
     const fileNameJpg = fileName.replace(/\.[^.]+$/, '.jpg');
     const webPath = `${basePath}/web/${fileNameJpg}`;
     const thumbnailPath = `${basePath}/thumb/${fileNameJpg}`;
 
-    if (isRaw) {
-      if (thumbnailBlob) {
-        const previewFile = new File([thumbnailBlob], 'preview.jpg', { type: 'image/jpeg' });
-        const webFile = await compressImageForUpload(previewFile, { maxEdge: 2048 }).catch(() => previewFile);
-        const thumbFile = await compressImageForUpload(previewFile, { maxEdge: 400, quality: 0.6 }).catch(() => previewFile);
+    let webStoragePath = null;
+    let thumbnailStoragePath = null;
 
-        webStoragePath = webPath;
-        thumbnailStoragePath = thumbnailPath;
+    let originalFile = file;
+    const uploadQuality = localStorage.getItem('upload_quality') || 'original';
+    if (!isVideo && !isRaw && uploadQuality !== 'original') {
+      const edge = uploadQuality === 'high' ? 3600 : 2048;
+      originalFile = await compressImageForUpload(file, { maxEdge: edge }).catch(() => file);
+    }
 
-        const [webUpload, thumbUpload] = await Promise.all([
-          storageService.upload(webStoragePath, webFile),
-          storageService.upload(thumbnailStoragePath, thumbFile)
-        ]);
+    const uploadBody =
+      originalFile.type === mime
+        ? originalFile
+        : new File([originalFile], originalFile.name, { type: mime, lastModified: originalFile.lastModified });
 
-        webUrl = webUpload.url;
-        thumbUrl = thumbUpload.url;
-      } else {
-        webUrl = null;
-        thumbUrl = null;
-      }
-    } else if (!isVideo) {
-      const webFile = await compressImageForUpload(file, { maxEdge: 2048 }).catch(() => file);
-      const thumbFile = await compressImageForUpload(file, { maxEdge: 400, quality: 0.6 }).catch(() => file);
+    const uploadPromises = [];
+    uploadPromises.push(storageService.upload(filePath, uploadBody, onProgress));
 
+    if (webFile) {
       webStoragePath = webPath;
+      uploadPromises.push(storageService.upload(webStoragePath, webFile));
+    }
+
+    if (thumbFile) {
       thumbnailStoragePath = thumbnailPath;
+      uploadPromises.push(storageService.upload(thumbnailStoragePath, thumbFile));
+    }
 
-      const [webUpload, thumbUpload] = await Promise.all([
-        storageService.upload(webStoragePath, webFile),
-        storageService.upload(thumbnailStoragePath, thumbFile)
-      ]);
+    const uploadResults = await Promise.all(uploadPromises);
+    const publicUrl = uploadResults[0].url;
+    let webUrl = publicUrl;
+    let thumbUrl = publicUrl;
 
-      webUrl = webUpload.url;
-      thumbUrl = thumbUpload.url;
+    if (isRaw) {
+      webUrl = webFile ? uploadResults[1]?.url : null;
+      thumbUrl = thumbFile ? uploadResults[2]?.url : null;
+    } else if (!isVideo) {
+      webUrl = webFile ? uploadResults[1]?.url : publicUrl;
+      thumbUrl = thumbFile ? uploadResults[2]?.url : publicUrl;
     }
 
     const { data: photoData, error: dbError } = await supabase
@@ -1435,6 +1482,78 @@ export const galleryService = {
       throw error;
     }
     return data;
+  },
+
+  /**
+   * Fetch all watermarks for a photographer
+   */
+  async getWatermarks(photographerId) {
+    const { data, error } = await supabase
+      .from('watermarks')
+      .select('*')
+      .eq('photographer_id', photographerId)
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Fetch a single watermark by ID
+   */
+  async getWatermark(id) {
+    const { data, error } = await supabase
+      .from('watermarks')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') return null;
+      throw error;
+    }
+    return data;
+  },
+
+  /**
+   * Create a new watermark
+   */
+  async createWatermark(watermarkData) {
+    const { data, error } = await supabase
+      .from('watermarks')
+      .insert([watermarkData])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Update an existing watermark
+   */
+  async updateWatermark(id, updates) {
+    const { data, error } = await supabase
+      .from('watermarks')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Delete a watermark
+   */
+  async deleteWatermark(id) {
+    const { error } = await supabase
+      .from('watermarks')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
   },
 
   /**

@@ -1316,6 +1316,7 @@ const CollectionDashboard = () => {
                     if (cachedSlideshow !== null) setSlideshow(cachedSlideshow);
                 }
                 if (data.auto_expiry) setAutoExpiry(data.auto_expiry);
+                if (data.default_watermark) setDefaultWatermark(data.default_watermark);
 
                 designHydratedRef.current = true;
                 settingsHydratedRef.current = true;
@@ -1730,7 +1731,12 @@ const CollectionDashboard = () => {
         destinationLabel: uploadDestinationLabel,
         onPhotoUploaded: (photoData) => {
             if (!photoData?.id || photoData.collection_id !== collectionId) return;
-            setPhotos((prev) => [...prev, photoData]);
+            setPhotos((prev) => {
+                if (prev.some((p) => p.id === photoData.id)) {
+                    return prev.map((p) => p.id === photoData.id ? { ...p, ...photoData } : p);
+                }
+                return [...prev, photoData];
+            });
             if (isRawMedia(photoData) && !hasRawDisplayPreview(photoData)) {
                 void galleryService.repairRawPhotoPreview(photoData).then((updated) => {
                     if (updated?.id) {

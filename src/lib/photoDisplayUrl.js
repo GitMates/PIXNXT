@@ -61,7 +61,7 @@ export function getPhotoGridDisplayUrl(photo, preferOriginalAspect = false) {
   if (isRawMedia(photo)) {
     return getRawPreviewUrl(photo);
   }
-  return resolveMediaUrl(photo.full_url || photo.web_url || photo.thumbnail_url || '');
+  return resolveMediaUrl(photo.web_url || photo.thumbnail_url || photo.full_url || '');
 }
 
 /**
@@ -76,7 +76,7 @@ export function getPhotoFullDisplayUrl(photo) {
   if (isRawMedia(photo)) {
     return getRawPreviewUrl(photo);
   }
-  return resolveMediaUrl(photo.full_url || photo.web_url || photo.thumbnail_url || '');
+  return resolveMediaUrl(photo.web_url || photo.full_url || photo.thumbnail_url || '');
 }
 
 /** Original file URL (RAW on R2) — used when full-resolution original is required. */
@@ -91,11 +91,9 @@ export function getPhotoOriginalFileUrl(photo) {
 export function getPhotoDownloadUrl(photo) {
   if (!photo) return '';
   if (isVideoMedia(photo)) {
-    return resolveMediaUrl(photo.web_url || photo.full_url || '');
+    return resolveMediaUrl(photo.full_url || photo.web_url || '');
   }
   if (isRawMedia(photo)) {
-    const preview = getRawPreviewUrl(photo);
-    if (preview) return preview;
     return resolveMediaUrl(photo.full_url || '');
   }
   return resolveMediaUrl(photo.full_url || photo.web_url || photo.thumbnail_url || '');
@@ -139,12 +137,13 @@ export function getPhotoDownloadUrlCandidates(photo) {
   };
 
   if (isVideoMedia(photo)) {
-    push(photo.web_url);
     push(photo.full_url);
+    push(photo.web_url);
     push(photo.thumbnail_url);
     return out;
   }
   if (isRawMedia(photo)) {
+    push(photo.full_url);
     const preview = getRawPreviewUrl(photo);
     if (preview) push(preview);
     push(photo.web_url);
@@ -154,17 +153,17 @@ export function getPhotoDownloadUrlCandidates(photo) {
     for (const variant of deriveStoragePathVariants(photo.original_storage_path)) {
       push(variant);
     }
-    /* full_url is often the multi‑MB RAW — try last */
-    push(photo.full_url);
     return out;
   }
   if (isGifMedia(photo)) {
-    push(photo.web_url);
     push(photo.full_url);
+    push(photo.web_url);
     push(photo.thumbnail_url);
     return out;
   }
-  /* Prefer web/thumbnail before full — full may be RAW or a path that fails CORS. */
+  /* Original high-resolution file first! */
+  push(photo.full_url);
+  push(photo.original_storage_path);
   push(photo.web_url);
   push(photo.thumbnail_url);
   push(photo.web_storage_path);
@@ -172,8 +171,6 @@ export function getPhotoDownloadUrlCandidates(photo) {
   for (const variant of deriveStoragePathVariants(photo.original_storage_path)) {
     push(variant);
   }
-  push(photo.full_url);
-  push(photo.original_storage_path);
   return out;
 }
 
@@ -239,7 +236,7 @@ export function getPhotoDisplayFallbacks(photo, preferOriginalAspect = false) {
   const urls = isGifMedia(photo)
     ? [photo.web_url, photo.full_url, photo.thumbnail_url]
     : preferOriginalAspect
-      ? [photo.full_url, photo.web_url, photo.thumbnail_url]
+      ? [photo.web_url, photo.full_url, photo.thumbnail_url]
       : [photo.thumbnail_url, photo.web_url, photo.full_url];
   return urls
     .map((url) => resolveMediaUrl(url))

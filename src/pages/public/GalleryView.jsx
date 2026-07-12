@@ -81,6 +81,7 @@ const GalleryView = () => {
   const isMobileViewport = useIsMobileViewport();
   const [collection, setCollection] = useState(null);
   const [photographer, setPhotographer] = useState(null);
+  const [watermarks, setWatermarks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lightboxIndex, setLightboxIndex] = useState(-1);
@@ -151,6 +152,50 @@ const GalleryView = () => {
     },
     [listId, getPickListId]
   );
+
+  useEffect(() => {
+    const faviconUrl = photographer?.favicon_url || localStorage.getItem('custom_favicon_url');
+    if (!faviconUrl) return;
+
+    const link = document.querySelector("link[rel*='icon']");
+    const originalHref = link ? link.getAttribute('href') : '/logo.png';
+    const originalType = link ? link.getAttribute('type') : 'image/png';
+
+    if (link) {
+      link.href = faviconUrl;
+      if (faviconUrl.endsWith('.png')) {
+        link.type = 'image/png';
+      } else if (faviconUrl.endsWith('.gif')) {
+        link.type = 'image/gif';
+      } else if (faviconUrl.endsWith('.ico')) {
+        link.type = 'image/x-icon';
+      }
+    } else {
+      const newLink = document.createElement('link');
+      newLink.rel = 'icon';
+      newLink.href = faviconUrl;
+      if (faviconUrl.endsWith('.png')) {
+        newLink.type = 'image/png';
+      } else if (faviconUrl.endsWith('.gif')) {
+        newLink.type = 'image/gif';
+      } else if (faviconUrl.endsWith('.ico')) {
+        newLink.type = 'image/x-icon';
+      }
+      document.head.appendChild(newLink);
+    }
+
+    return () => {
+      const activeLink = document.querySelector("link[rel*='icon']");
+      if (activeLink) {
+        activeLink.href = originalHref;
+        if (originalType) {
+          activeLink.type = originalType;
+        } else {
+          activeLink.removeAttribute('type');
+        }
+      }
+    };
+  }, [photographer]);
 
   useEffect(() => {
     refreshSelectionList(sessionId, null);
@@ -328,6 +373,46 @@ const GalleryView = () => {
     }
   };
 
+  const getWatermarkOptions = () => {
+    if (!collection || !photographer) return null;
+    
+    if (!photographer.watermark_web_downloads) return null;
+    
+    const hasWatermark = collection.default_watermark && collection.default_watermark !== 'No watermark';
+    if (!hasWatermark) return null;
+
+    let wm = watermarks.find(w => w.id === collection.default_watermark);
+    if (!wm) {
+       wm = watermarks.find(w => w.name === collection.default_watermark);
+    }
+    
+    if (!wm && (photographer.watermark_url || photographer.watermark_text)) {
+       wm = {
+          type: photographer.watermark_type,
+          url: photographer.watermark_url,
+          text: photographer.watermark_text,
+          font: photographer.watermark_font,
+          color: photographer.watermark_color,
+          scale: photographer.watermark_scale,
+          opacity: photographer.watermark_opacity,
+          position: photographer.watermark_position || 'center',
+       };
+    }
+
+    if (!wm) return null;
+
+    return {
+      watermark_type: wm.type,
+      watermark_url: wm.url,
+      watermark_text: wm.text,
+      watermark_font: wm.font,
+      watermark_color: wm.color,
+      watermark_scale: wm.scale,
+      watermark_opacity: wm.opacity,
+      watermark_position: wm.position || 'center',
+    };
+  };
+
   const handleDownloadClick = async (photoOrEvent = null) => {
     // Distinguish between a photo object and a browser event
     const photo = (photoOrEvent && photoOrEvent.id) ? photoOrEvent : null;
@@ -344,7 +429,8 @@ const GalleryView = () => {
 
       if (!needsEmail && !needsPin && !hasDownloadLimit) {
         // Single photo: download immediately from Cloudflare R2 if no auth required
-        await downloadSinglePhotoFile(photo);
+        const watermarkOptions = getWatermarkOptions();
+        await downloadSinglePhotoFile(photo, watermarkOptions);
 
         // Log activity for direct download
         const savedEmail = localStorage.getItem(`pixnxt_fav_email_${collection.id}`) || 'Visitor';
@@ -466,6 +552,12 @@ const GalleryView = () => {
         if (data.photographer_id) {
           const p = await galleryService.getPhotographerProfile(data.photographer_id);
           setPhotographer(p);
+          try {
+            const wms = await galleryService.getWatermarks(data.photographer_id);
+            setWatermarks(wms || []);
+          } catch (e) {
+            console.error('Failed to fetch watermarks', e);
+          }
         }
 
         // Check for existing session email
@@ -1025,16 +1117,18 @@ const GalleryView = () => {
       </main>
 
       {/* Global Footer Branding */}
-      <footer
-        className={cn('mt-12 border-t py-8', isGalleryDark ? 'border-white/10' : '')}
-        style={{ borderTopColor: isGalleryDark ? undefined : 'rgba(0,0,0,0.05)', backgroundColor: 'var(--gallery-bg)' }}
-      >
-        <Container className="max-w-none px-4 md:px-8 lg:px-12">
-          <div className="text-center">
-            <Typography variant="label" style={{ color: 'var(--gallery-meta-text)', opacity: 0.5 }}>© {new Date().getFullYear()} PIXNXT. All Rights Reserved.</Typography>
-          </div>
-        </Container>
-      </footer>
+      {!(photographer?.hide_branding === true || localStorage.getItem('hide_branding') === 'true') && (
+        <footer
+          className={cn('mt-12 border-t py-8', isGalleryDark ? 'border-white/10' : '')}
+          style={{ borderTopColor: isGalleryDark ? undefined : 'rgba(0,0,0,0.05)', backgroundColor: 'var(--gallery-bg)' }}
+        >
+          <Container className="max-w-none px-4 md:px-8 lg:px-12">
+            <div className="text-center">
+              <Typography variant="label" style={{ color: 'var(--gallery-meta-text)', opacity: 0.5 }}>© {new Date().getFullYear()} PIXNXT. All Rights Reserved.</Typography>
+            </div>
+          </Container>
+        </footer>
+      )}
 
       {/* Lightbox */}
       <PhotoLightbox
@@ -1210,6 +1304,7 @@ const GalleryView = () => {
         photos={downloadablePhotos}
         sets={downloadableSets}
         initialPhoto={selectedDownloadPhoto}
+        watermarkOptions={getWatermarkOptions()}
         initialSetId={activeSetId}
       />
 

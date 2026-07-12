@@ -8,6 +8,7 @@ import {
 import { ClientGallerySelect } from '../components/features/ClientGallery/ClientGallerySelect';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase/client';
+import { galleryService } from '../services/gallery.service';
 import './Settings.css';
 import './ClientGallery.css';
 
@@ -17,7 +18,7 @@ const SETTINGS_TABS = [
     { id: 'presets', label: 'Presets' },
     { id: 'email-templates', label: 'Email Templates' },
     { id: 'preferences', label: 'Preferences' },
-    { id: 'integrations', label: 'Integrations' },
+    // { id: 'integrations', label: 'Integrations' },
 ];
 
 const Settings = () => {
@@ -111,6 +112,9 @@ import { storageService } from '../services/storage.service';
 
 const BrandingTab = ({ profile, updateProfile }) => {
     const [pToggle, setPToggle] = useState(() => {
+        if (profile?.hide_branding !== undefined && profile?.hide_branding !== null) {
+            return !profile.hide_branding;
+        }
         const saved = localStorage.getItem('hide_branding');
         return saved !== 'true';
     });
@@ -123,10 +127,25 @@ const BrandingTab = ({ profile, updateProfile }) => {
     const coverLogoInputRef = useRef(null);
     const faviconInputRef = useRef(null);
 
+    React.useEffect(() => {
+        if (profile?.hide_branding !== undefined && profile?.hide_branding !== null) {
+            setPToggle(!profile.hide_branding);
+        }
+    }, [profile?.hide_branding]);
+
+    React.useEffect(() => {
+        const localFavicon = localStorage.getItem('custom_favicon_url');
+        if (profile && !profile.favicon_url && localFavicon) {
+            console.log('Syncing local favicon to database:', localFavicon);
+            void updateProfile({ favicon_url: localFavicon });
+        }
+    }, [profile, updateProfile]);
+
     const handleBrandingToggle = () => {
         const nextVal = !pToggle;
         setPToggle(nextVal);
         localStorage.setItem('hide_branding', (!nextVal).toString());
+        void updateProfile({ hide_branding: !nextVal });
     };
 
     const handleLogoUpload = async (e) => {
@@ -237,14 +256,26 @@ const BrandingTab = ({ profile, updateProfile }) => {
             setUploadingFavicon(true);
             const path = `photographers/${profile.id}/favicons/favicon_${Date.now()}_${file.name}`;
             const result = await storageService.upload(path, file);
-            // Save local mock or profile metadata if needed
             localStorage.setItem('custom_favicon_url', result.url);
+            await updateProfile({ favicon_url: result.url });
             alert('Favicon uploaded successfully!');
         } catch (err) {
             console.error('Error uploading favicon:', err);
             alert(`Favicon upload failed: ${err.message}`);
         } finally {
             setUploadingFavicon(false);
+        }
+    };
+
+    const handleFaviconDelete = async () => {
+        if (!window.confirm('Are you sure you want to remove your favicon?')) return;
+        try {
+            localStorage.removeItem('custom_favicon_url');
+            await updateProfile({ favicon_url: null });
+            alert('Favicon removed successfully!');
+        } catch (err) {
+            console.error('Error deleting favicon:', err);
+            alert(`Failed to delete favicon: ${err.message}`);
         }
     };
 
@@ -325,13 +356,13 @@ const BrandingTab = ({ profile, updateProfile }) => {
 
                         {/* Cover Logo */}
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                            <div
+                             <div
                                 className="set-upload-square"
                                 onClick={() => coverLogoInputRef.current?.click()}
-                                style={{ position: 'relative', cursor: 'pointer', width: '120px', height: '120px', border: '1px dashed #ccc', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', backgroundColor: '#111', borderRadius: '4px' }}
+                                style={{ position: 'relative', cursor: 'pointer', width: '120px', height: '120px', border: '1px dashed #ccc', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', backgroundColor: '#fff', borderRadius: '4px' }}
                             >
                                 {uploadingCoverLogo ? (
-                                    <span style={{ fontSize: '11px', color: '#eee' }}>Uploading...</span>
+                                    <span style={{ fontSize: '11px', color: '#666' }}>Uploading...</span>
                                 ) : profile?.cover_logo_url ? (
                                     <img src={profile.cover_logo_url} alt="Cover Logo" style={{ maxWidth: '90%', maxHeight: '90%', objectFit: 'contain' }} />
                                 ) : (
@@ -385,24 +416,32 @@ const BrandingTab = ({ profile, updateProfile }) => {
                 </div>
 
                 <div className="set-branding-item mt-4" style={{ display: 'flex', alignItems: 'flex-start', gap: '20px', marginBottom: '20px' }}>
-                    <div>
-                        <h4 className="set-mini-label">Favicon</h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        <h4 className="set-mini-label" style={{ marginBottom: '5px' }}>Favicon</h4>
                         <div
                             className="set-upload-square"
                             onClick={() => faviconInputRef.current?.click()}
-                            style={{ position: 'relative', cursor: 'pointer', width: '100px', height: '100px', border: '1px dashed #ccc', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}
+                            style={{ position: 'relative', cursor: 'pointer', width: '100px', height: '100px', border: '1px dashed #ccc', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderRadius: '4px', backgroundColor: '#f9f9f9' }}
                         >
                             {uploadingFavicon ? (
-                                <span style={{ fontSize: '12px' }}>Uploading...</span>
-                            ) : localStorage.getItem('custom_favicon_url') ? (
-                                <img src={localStorage.getItem('custom_favicon_url')} alt="Favicon" style={{ maxWidth: '32px', maxHeight: '32px', objectFit: 'contain' }} />
+                                <span style={{ fontSize: '11px', color: '#666' }}>Uploading...</span>
+                            ) : (profile?.favicon_url || localStorage.getItem('custom_favicon_url')) ? (
+                                <img src={profile?.favicon_url || localStorage.getItem('custom_favicon_url')} alt="Favicon" style={{ maxWidth: '32px', maxHeight: '32px', objectFit: 'contain' }} />
                             ) : (
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#aaa" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                             )}
                         </div>
-                        <input type="file" ref={faviconInputRef} onChange={handleFaviconUpload} accept="image/*" style={{ display: 'none' }} />
+                        {(profile?.favicon_url || localStorage.getItem('custom_favicon_url')) && (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); handleFaviconDelete(); }}
+                                style={{ marginTop: '4px', fontSize: '11px', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}
+                            >
+                                Remove
+                            </button>
+                        )}
+                        <input type="file" ref={faviconInputRef} onChange={handleFaviconUpload} accept="image/x-icon,image/png,image/gif" style={{ display: 'none' }} />
                     </div>
-                    <p className="set-help-text-[16px]" style={{ flex: 1 }}>You can upload a GIF, PNG or ICO file up to 32x32 pixels.</p>
+                    <p className="set-help-text-[16px]" style={{ flex: 1, marginTop: '25px' }}>You can upload a GIF, PNG or ICO file up to 32x32 pixels. Learn more</p>
                 </div>
 
                 <div className="set-branding-item mt-4">
@@ -421,135 +460,164 @@ const BrandingTab = ({ profile, updateProfile }) => {
 };
 
 const WatermarkTab = ({ profile, updateProfile }) => {
+    const navigate = useNavigate();
     const [wToggle, setWToggle] = useState(() => {
-        return profile?.watermark_url ? true : false;
-    });
-    const [uploadingWatermark, setUploadingWatermark] = useState(false);
-    const [opacity, setOpacity] = useState(profile?.watermark_opacity || 50);
-    const [position, setPosition] = useState(profile?.watermark_position || 'center');
-    const watermarkInputRef = useRef(null);
-
-    const handleWatermarkUpload = async (e) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        try {
-            setUploadingWatermark(true);
-            const path = `photographers/${profile.id}/watermarks/watermark_${Date.now()}_${file.name}`;
-            const result = await storageService.upload(path, file);
-            await updateProfile({
-                watermark_url: result.url,
-                watermark_opacity: opacity,
-                watermark_position: position
-            });
-            setWToggle(true);
-        } catch (err) {
-            console.error('Error uploading watermark:', err);
-            alert(`Watermark upload failed: ${err.message}`);
-        } finally {
-            setUploadingWatermark(false);
+        if (profile?.watermark_web_downloads !== undefined && profile?.watermark_web_downloads !== null) {
+            return profile.watermark_web_downloads;
         }
+        return false;
+    });
+    
+    const [watermarks, setWatermarks] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchWatermarks = async () => {
+            if (!profile?.id) return;
+            try {
+                const data = await galleryService.getWatermarks(profile.id);
+                setWatermarks(data || []);
+            } catch (err) {
+                console.error('Error fetching watermarks:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchWatermarks();
+    }, [profile?.id]);
+
+    const handleWebDownloadToggle = async () => {
+        const next = !wToggle;
+        setWToggle(next);
+        await updateProfile({ watermark_web_downloads: next });
     };
 
-    const handleWatermarkDelete = async () => {
-        if (!window.confirm('Are you sure you want to remove your watermark?')) return;
+    const handleDeleteWatermark = async (id) => {
+        if (!window.confirm('Are you sure you want to remove this watermark?')) return;
         try {
-            await updateProfile({ watermark_url: null });
-            setWToggle(false);
+            await galleryService.deleteWatermark(id);
+            setWatermarks(prev => prev.filter(w => w.id !== id));
         } catch (err) {
             console.error('Error deleting watermark:', err);
         }
-    };
-
-    const saveWatermarkSettings = async () => {
-        await updateProfile({
-            watermark_opacity: Number(opacity),
-            watermark_position: position
-        });
-        alert('Watermark settings saved!');
     };
 
     return (
         <div className="set-tab-content">
             <div className="set-section">
                 <h3 className="set-section-title">Watermark</h3>
-                <div
-                    className="set-upload-square large"
-                    onClick={() => watermarkInputRef.current?.click()}
-                    style={{ position: 'relative', cursor: 'pointer', width: '200px', height: '100px', border: '1px dashed #ccc', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', background: '#fafafa', borderRadius: '4px' }}
-                >
-                    {uploadingWatermark ? (
-                        <span>Uploading...</span>
-                    ) : profile?.watermark_url ? (
-                        <img src={profile.watermark_url} alt="Watermark Preview" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', opacity: opacity / 100 }} />
-                    ) : (
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#aaa" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                    )}
-                </div>
-                {profile?.watermark_url && (
-                    <button
-                        onClick={(e) => { e.stopPropagation(); handleWatermarkDelete(); }}
-                        style={{ marginTop: '10px', fontSize: '12px', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}
-                    >
-                        Remove Watermark
-                    </button>
-                )}
-                <input type="file" ref={watermarkInputRef} onChange={handleWatermarkUpload} accept="image/*" style={{ display: 'none' }} />
-                <p className="set-help-text mt-2">Protect your photos with custom watermarks. Watermarks will not appear on prints ordered through Store.</p>
-            </div>
+                
+                {loading ? (
+                    <div style={{ padding: '20px 0', color: '#666' }}>Loading watermarks...</div>
+                ) : (
+                    <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', marginTop: '4px' }}>
+                        {watermarks.map(wm => (
+                            <div key={wm.id} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <div
+                                    style={{
+                                        position: 'relative',
+                                        width: '120px',
+                                        height: '120px',
+                                        border: '1px solid #e5e7eb',
+                                        backgroundColor: '#d1d5db',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        borderRadius: '4px',
+                                        overflow: 'hidden',
+                                        cursor: 'pointer'
+                                    }}
+                                    onClick={() => navigate(`/settings/watermark/${wm.id}`)}
+                                >
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleDeleteWatermark(wm.id); }}
+                                        style={{
+                                            position: 'absolute',
+                                            top: '4px',
+                                            right: '4px',
+                                            background: 'rgba(255, 255, 255, 0.9)',
+                                            border: 'none',
+                                            borderRadius: '4px',
+                                            width: '24px',
+                                            height: '24px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            cursor: 'pointer',
+                                            color: '#555',
+                                            boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+                                        }}
+                                        title="Remove Watermark"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                    </button>
+                                    
+                                    {wm.type === 'image' && wm.url ? (
+                                        <img
+                                            src={wm.url}
+                                            alt="Watermark"
+                                            style={{ maxWidth: '80%', maxHeight: '80%', objectFit: 'contain', opacity: (wm.opacity || 90) / 100 }}
+                                        />
+                                    ) : (
+                                        <span style={{
+                                            fontFamily: wm.font || 'Times New Roman',
+                                            fontSize: '14px',
+                                            color: wm.color || '#000',
+                                            opacity: (wm.opacity || 90) / 100,
+                                            textAlign: 'center',
+                                            padding: '4px',
+                                            wordBreak: 'break-word',
+                                        }}>
+                                            {wm.text || 'Text Watermark'}
+                                        </span>
+                                    )}
+                                </div>
+                                <span style={{ fontSize: '11px', fontWeight: '700', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                    {wm.name || 'MY WATERMARK'}
+                                </span>
+                            </div>
+                        ))}
 
-            {profile?.watermark_url && (
-                <div className="set-section border-sub" style={{ marginTop: '20px' }}>
-                    <h3 className="set-section-title">Watermark Configuration</h3>
-                    
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', maxWidth: '300px', marginTop: '10px' }}>
-                        <div>
-                            <label style={{ fontSize: '12px', fontWeight: '500', color: '#555', display: 'block', marginBottom: '5px' }}>Position</label>
-                            <ClientGallerySelect
-                                value={position}
-                                onChange={setPosition}
-                                options={[
-                                    { value: 'center', label: 'Center' },
-                                    { value: 'top_left', label: 'Top Left' },
-                                    { value: 'top_right', label: 'Top Right' },
-                                    { value: 'bottom_left', label: 'Bottom Left' },
-                                    { value: 'bottom_right', label: 'Bottom Right' },
-                                    { value: 'tile', label: 'Tile / Repeat' }
-                                ]}
-                            />
-                        </div>
-
-                        <div>
-                            <label style={{ fontSize: '12px', fontWeight: '500', color: '#555', display: 'block', marginBottom: '5px' }}>Opacity ({opacity}%)</label>
-                            <input
-                                type="range"
-                                min="10"
-                                max="100"
-                                value={opacity}
-                                onChange={(e) => setOpacity(Number(e.target.value))}
-                                style={{ width: '100%', accentColor: '#0d9488' }}
-                            />
-                        </div>
-
-                        <button
-                            className="px-4 py-2 bg-teal-600 text-white rounded hover:bg-teal-700 transition"
-                            style={{ alignSelf: 'flex-start', padding: '8px 16px', backgroundColor: '#0d9488', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                            onClick={saveWatermarkSettings}
+                        {/* Add new watermark box */}
+                        <div
+                            onClick={() => navigate('/settings/watermark/create')}
+                            style={{
+                                width: '120px',
+                                height: '120px',
+                                backgroundColor: '#e5e5e5',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                borderRadius: '4px',
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#d4d4d4'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#e5e5e5'}
                         >
-                            Save Settings
-                        </button>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#777" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                        </div>
                     </div>
-                </div>
-            )}
+                )}
+
+                <p className="set-help-text" style={{ marginTop: '20px' }}>
+                    Protect your photos with custom watermarks. Watermarks will not appear on prints ordered through Store. <a href="https://support.pixieset.com" target="_blank" rel="noopener noreferrer" style={{ color: '#0d9488' }}>Learn more</a>
+                </p>
+            </div>
 
             <div className="set-section">
                 <h3 className="set-section-title">Apply watermark to web size downloads</h3>
                 <div className="set-toggle-row">
-                    <button className={`hp-toggle ${wToggle ? 'on' : 'off'}`} onClick={() => setWToggle(!wToggle)}>
+                    <button className={`hp-toggle ${wToggle ? 'on' : 'off'}`} onClick={handleWebDownloadToggle}>
                         <div className="hp-toggle-handle"></div>
                     </button>
                     <span className="hp-toggle-label">{wToggle ? 'On' : 'Off'}</span>
                 </div>
-                <p className="set-help-text">Enable to apply watermark to web size downloads from your collections.</p>
+                <p className="set-help-text">
+                    Enable to apply watermark to web size downloads from your collections and web size downloads sold through Store.
+                </p>
             </div>
         </div>
     );
@@ -836,6 +904,7 @@ const PreferencesTab = ({ profile, updateProfile }) => {
     const [language, setLanguage] = useState(profile?.default_language || 'english');
     const [filenameDisplay, setFilenameDisplay] = useState(() => localStorage.getItem('filename_display') || 'show');
     const [sharpening, setSharpening] = useState(() => localStorage.getItem('sharpening_level') || 'optimal');
+    const [uploadQuality, setUploadQuality] = useState(() => localStorage.getItem('upload_quality') || 'original');
     const [tos, setTos] = useState(() => localStorage.getItem('tos_text') || '');
     const [privacyPolicy, setPrivacyPolicy] = useState(() => localStorage.getItem('privacy_policy_text') || '');
 
@@ -852,6 +921,11 @@ const PreferencesTab = ({ profile, updateProfile }) => {
     const handleSharpeningChange = (val) => {
         setSharpening(val);
         localStorage.setItem('sharpening_level', val);
+    };
+
+    const handleUploadQualityChange = (val) => {
+        setUploadQuality(val);
+        localStorage.setItem('upload_quality', val);
     };
 
     const handleCookieToggle = () => {
@@ -912,6 +986,20 @@ const PreferencesTab = ({ profile, updateProfile }) => {
                     ]}
                 />
                 <p className="set-help-text">This setting only applies to web display copies of your photos. Your originals are not altered.</p>
+            </div>
+
+            <div className="set-section">
+                <h3 className="set-section-title">Upload Quality / Size</h3>
+                <ClientGallerySelect
+                    value={uploadQuality}
+                    onChange={handleUploadQualityChange}
+                    options={[
+                        { value: 'original', label: 'Original Size (No compression)' },
+                        { value: 'high', label: 'High Resolution (3600px - Fast)' },
+                        { value: 'web', label: 'Web Size (2048px - Ultra Fast)' }
+                    ]}
+                />
+                <p className="set-help-text">Choose whether to upload original size images or optimize/resize them before uploading to save storage space and increase upload speeds.</p>
             </div>
 
             <div className="set-section mt-4">

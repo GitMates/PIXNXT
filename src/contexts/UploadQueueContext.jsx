@@ -22,9 +22,9 @@ import {
   uploadTabCounts,
 } from '../components/features/CollectionDashboard/Upload/uploadUtils';
 
-const LARGE_FILE_BYTES = 6 * 1024 * 1024;
-const MAX_CONCURRENT_SMALL = 4;
-const MAX_CONCURRENT_LARGE = 1;
+const LARGE_FILE_BYTES = 8 * 1024 * 1024;
+const MAX_CONCURRENT_SMALL = 6;
+const MAX_CONCURRENT_LARGE = 4;
 
 const UploadQueueContext = createContext(null);
 
@@ -128,6 +128,11 @@ export function UploadQueueProvider({ children }) {
           setId,
           (percent) => {
             safePatch({ status: percent >= 100 ? 'processing' : 'uploading', progress: percent });
+          },
+          (insertedPhoto) => {
+            if (session === sessionRef.current) {
+              targetRef.current?.onPhotoUploaded?.(insertedPhoto);
+            }
           }
         );
 
