@@ -263,6 +263,38 @@ export function MasonryGrid({
 
   const [colsCount, setColsCount] = useState(3);
 
+  const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 23, minutes: 59, seconds: 59 });
+
+  useEffect(() => {
+    if (!activeCampaign) return;
+    const storageKey = `pixnxt_campaign_timer_${activeCampaign.id || 'default'}`;
+    let targetTime = localStorage.getItem(storageKey);
+    if (!targetTime) {
+      const now = new Date();
+      now.setDate(now.getDate() + Number(activeCampaign.durationDays || 14));
+      targetTime = now.getTime().toString();
+      localStorage.setItem(storageKey, targetTime);
+    }
+
+    const updateTimer = () => {
+      const difference = Number(targetTime) - new Date().getTime();
+      if (difference <= 0) {
+        setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+      } else {
+        const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
+        const minutes = Math.floor((difference / 1000 / 60) % 60);
+        const seconds = Math.floor((difference / 1000) % 60);
+        setTimeLeft({ days, hours, minutes, seconds });
+      }
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+
+    return () => clearInterval(interval);
+  }, [activeCampaign]);
+
   useEffect(() => {
     if (customColumnCount != null) {
       setColsCount(customColumnCount);
@@ -372,72 +404,182 @@ export function MasonryGrid({
             height: '100%',
             display: 'flex',
             flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center'
+            justifyContent: 'center',
+            alignItems: 'center'
           }}>
             {isPhotoBanner ? (
-              <>
-                <h3 style={{
-                  fontSize: '14px', fontWeight: 700,
-                  color: bannerStyle.titleColor, marginBottom: '4px',
-                  textTransform: 'uppercase', letterSpacing: '0.04em'
+              <div style={{
+                width: '100%',
+                height: '100%',
+                display: 'flex',
+                flexDirection: isMobileView ? 'column' : 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                boxSizing: 'border-box',
+                padding: isMobileView ? '8px' : '10px 16px',
+                textAlign: isMobileView ? 'center' : 'left',
+                gap: '8px'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: isMobileView ? 'center' : 'flex-start',
+                  gap: '4px',
+                  flex: 1
                 }}>
-                  {(() => {
-                    let text = bannerConfig?.title || '';
-                    const discountVal = activeCampaign?.discount ? `${activeCampaign.discount}%` : '30%';
-                    return text.replace(/{discount-value}/g, discountVal).replace(/{discount_value}/g, discountVal).replace(/{code}/g, activeCampaign?.discountCode || 'HAPPYANI');
-                  })()}
-                </h3>
-                <p style={{ fontSize: '10px', color: bannerStyle.subtitleColor, marginBottom: '10px', lineHeight: 1.3 }}>
-                  {(() => {
-                    let text = bannerConfig?.subtitle || '';
-                    const discountVal = activeCampaign?.discount ? `${activeCampaign.discount}%` : '30%';
-                    const expDate = new Date(); expDate.setDate(expDate.getDate() + 14);
-                    const expFormatted = expDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-                    return text.replace(/{discount-value}/g, discountVal).replace(/{discount_value}/g, discountVal).replace(/{exp-date}/g, expFormatted).replace(/{exp_date}/g, expFormatted).replace(/{code}/g, activeCampaign?.discountCode || 'HAPPYANI');
-                  })()}
-                </p>
-                
-                {/* Dynamic framed product cards using actual collection couple photos */}
-                {activeProducts && activeProducts.length > 0 && (
-                  <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', width: '100%', marginBottom: '12px' }}>
-                    {activeProducts.slice(0, 3).map((prod, idx) => {
-                      return (
-                        <div key={prod.id || idx} style={{
-                          flex: 1, backgroundColor: '#ffffff', border: '1px solid rgba(0,0,0,0.04)',
-                          padding: '5px 2px', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 0
-                        }}>
-                          {renderProductPreviewStyle(prod.product_type || prod.id, samplePhotoUrl)}
-                          <span style={{
-                            fontSize: '7px', fontWeight: 600, color: '#1a1a1a',
-                            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                            width: '100%', textAlign: 'center', marginTop: '2px'
-                          }}>{prod.name}</span>
-                        </div>
-                      );
-                    })}
+                  <h3 style={{
+                    fontSize: isMobileView ? '13px' : '16px',
+                    fontWeight: 700,
+                    color: bannerStyle.titleColor,
+                    margin: 0,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
+                    fontFamily: bannerStyle.font
+                  }}>
+                    {(() => {
+                      let text = bannerConfig?.title || '';
+                      const discountVal = activeCampaign?.discount ? `${activeCampaign.discount}%` : '30%';
+                      return text.replace(/{discount-value}/g, discountVal).replace(/{discount_value}/g, discountVal).replace(/{code}/g, activeCampaign?.discountCode || 'HAPPYANI');
+                    })()}
+                  </h3>
+                  <p style={{
+                    fontSize: isMobileView ? '9px' : '10px',
+                    color: bannerStyle.subtitleColor,
+                    margin: '0 0 2px 0',
+                    lineHeight: 1.3,
+                    maxWidth: isMobileView ? '220px' : '190px'
+                  }}>
+                    {(() => {
+                      let text = bannerConfig?.subtitle || '';
+                      const discountVal = activeCampaign?.discount ? `${activeCampaign.discount}%` : '30%';
+                      const expDate = new Date(); expDate.setDate(expDate.getDate() + 14);
+                      const expFormatted = expDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+                      return text.replace(/{discount-value}/g, discountVal).replace(/{discount_value}/g, discountVal).replace(/{exp-date}/g, expFormatted).replace(/{exp_date}/g, expFormatted).replace(/{code}/g, activeCampaign?.discountCode || 'HAPPYANI');
+                    })()}
+                  </p>
+                  <div style={{
+                    fontSize: isMobileView ? '8.5px' : '9.5px',
+                    color: bannerStyle.subtitleColor,
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em'
+                  }}>
+                    {bannerConfig?.code ? bannerConfig.code.replace(/{code}/g, activeCampaign?.discountCode || 'HAPPYANI') : `Code: ${activeCampaign?.discountCode || 'HAPPYANI'}`}
                   </div>
-                )}
-                
-                <button
-                  onClick={(e) => { e.stopPropagation(); onVisitShop?.(); }}
-                  style={{
-                    padding: '6px 16px', fontSize: '8px', fontWeight: 700,
-                    backgroundColor: bannerStyle.ctaBg, color: bannerStyle.ctaColor, border: 'none',
-                    textTransform: 'uppercase', letterSpacing: '0.08em', cursor: 'pointer'
-                  }}
-                >
-                  SHOP NOW
-                </button>
-              </>
+
+                  {/* Countdown Timer */}
+                  <div style={{ marginTop: '4px' }}>
+                    <div style={{
+                      display: 'flex',
+                      gap: '5px',
+                      alignItems: 'center',
+                      justifyContent: isMobileView ? 'center' : 'flex-start',
+                      color: bannerStyle.timerColor
+                    }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        <span style={{ fontSize: isMobileView ? '12px' : '15px', fontWeight: 700, lineHeight: 1 }}>
+                          {String(timeLeft.days).padStart(2, '0')}
+                        </span>
+                        <span style={{ fontSize: '5px', textTransform: 'uppercase', opacity: 0.8, fontWeight: 700, marginTop: '2px' }}>day</span>
+                      </div>
+                      <span style={{ fontSize: '10px', fontWeight: 700, alignSelf: 'flex-start', marginTop: '-2px' }}>:</span>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        <span style={{ fontSize: isMobileView ? '12px' : '15px', fontWeight: 700, lineHeight: 1 }}>
+                          {String(timeLeft.hours).padStart(2, '0')}
+                        </span>
+                        <span style={{ fontSize: '5px', textTransform: 'uppercase', opacity: 0.8, fontWeight: 700, marginTop: '2px' }}>hrs</span>
+                      </div>
+                      <span style={{ fontSize: '10px', fontWeight: 700, alignSelf: 'flex-start', marginTop: '-2px' }}>:</span>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        <span style={{ fontSize: isMobileView ? '12px' : '15px', fontWeight: 700, lineHeight: 1 }}>
+                          {String(timeLeft.minutes).padStart(2, '0')}
+                        </span>
+                        <span style={{ fontSize: '5px', textTransform: 'uppercase', opacity: 0.8, fontWeight: 700, marginTop: '2px' }}>min</span>
+                      </div>
+                      <span style={{ fontSize: '10px', fontWeight: 700, alignSelf: 'flex-start', marginTop: '-2px' }}>:</span>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        <span style={{ fontSize: isMobileView ? '12px' : '15px', fontWeight: 700, lineHeight: 1 }}>
+                          {String(timeLeft.seconds).padStart(2, '0')}
+                        </span>
+                        <span style={{ fontSize: '5px', textTransform: 'uppercase', opacity: 0.8, fontWeight: 700, marginTop: '2px' }}>sec</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onVisitShop?.(); }}
+                    style={{
+                      marginTop: '6px',
+                      padding: '5px 14px',
+                      fontSize: '8px',
+                      fontWeight: 700,
+                      backgroundColor: bannerStyle.ctaBg,
+                      color: bannerStyle.ctaColor,
+                      border: 'none',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.08em',
+                      cursor: 'pointer',
+                      borderRadius: '1px'
+                    }}
+                  >
+                    {bannerConfig?.cta || 'CLAIM OFFER'}
+                  </button>
+                </div>
+
+                {/* Bouquet Illustration SVG on the right */}
+                <svg viewBox="0 0 100 100" style={{
+                  width: isMobileView ? '54px' : '82px',
+                  height: isMobileView ? '54px' : '82px',
+                  marginTop: isMobileView ? '4px' : 0,
+                  marginRight: isMobileView ? 0 : '-8px',
+                  zIndex: 1,
+                  flexShrink: 0
+                }}>
+                  <path d="M42 66 L50 46" stroke="#5d6050" strokeWidth="2.5" strokeLinecap="round" />
+                  <path d="M48 66 L50 44" stroke="#5d6050" strokeWidth="2.5" strokeLinecap="round" />
+                  <path d="M54 66 L50 46" stroke="#5d6050" strokeWidth="2.5" strokeLinecap="round" />
+                  <path d="M44 58 Q48 60 52 58" fill="none" stroke="#8c8d82" strokeWidth="1.5" />
+                  <path d="M45 59 L40 70" stroke="#8c8d82" strokeWidth="1.2" />
+                  <path d="M51 59 L56 70" stroke="#8c8d82" strokeWidth="1.2" />
+                  <path d="M35 44 Q42 42 43 36 Q38 39 35 44" fill="#7a806c" />
+                  <path d="M61 44 Q54 42 53 36 Q58 39 61 44" fill="#7a806c" />
+                  <circle cx="48" cy="32" r="6" fill="#ffffff" stroke="#dcdcdc" strokeWidth="0.75" />
+                  <circle cx="48" cy="32" r="2" fill="#e5ded3" />
+                  <circle cx="40" cy="39" r="5" fill="#ffffff" stroke="#dcdcdc" strokeWidth="0.75" />
+                  <circle cx="40" cy="39" r="1.5" fill="#e5ded3" />
+                  <circle cx="56" cy="39" r="5" fill="#ffffff" stroke="#dcdcdc" strokeWidth="0.75" />
+                  <circle cx="56" cy="39" r="1.5" fill="#e5ded3" />
+                  <circle cx="48" cy="42" r="4.5" fill="#ffffff" stroke="#dcdcdc" strokeWidth="0.75" />
+                  <circle cx="48" cy="42" r="1.2" fill="#e5ded3" />
+                  <circle cx="28" cy="35" r="1.5" fill="#ffffff" />
+                  <rect x="66" y="32" width="2" height="2" fill="#ffffff" transform="rotate(30)" />
+                  <rect x="34" y="24" width="1.5" height="1.5" fill="#ffffff" />
+                  <circle cx="58" cy="24" r="1.5" fill="#ffffff" />
+                </svg>
+              </div>
             ) : (
-              <>
-                <span style={{ fontSize: '8px', fontWeight: 700, letterSpacing: '0.12em', color: '#bfa38a', textTransform: 'uppercase', marginBottom: '4px' }}>
+              <div style={{
+                width: '100%',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxSizing: 'border-box',
+                padding: '12px 10px',
+                gap: '4px',
+                textAlign: 'center'
+              }}>
+                <span style={{ fontSize: '8px', fontWeight: 700, letterSpacing: '0.12em', color: '#bfa38a', textTransform: 'uppercase', marginBottom: '2px' }}>
                   {bannerConfig?.code ? bannerConfig.code.replace(/{code}/g, activeCampaign?.discountCode || 'HAPPYANI') : 'EXCLUSIVE OFFER'}
                 </span>
                 <h3 style={{
-                  fontSize: '14px', fontWeight: 700, margin: '0 0 4px 0',
-                  color: bannerStyle.titleColor, textTransform: 'uppercase'
+                  fontSize: isMobileView ? '13px' : '15px',
+                  fontWeight: 700,
+                  margin: 0,
+                  color: bannerStyle.titleColor,
+                  textTransform: 'uppercase',
+                  fontFamily: bannerStyle.font
                 }}>
                   {(() => {
                     let text = bannerConfig?.title || '';
@@ -445,7 +587,13 @@ export function MasonryGrid({
                     return text.replace(/{discount-value}/g, discountVal).replace(/{discount_value}/g, discountVal);
                   })()}
                 </h3>
-                <p style={{ fontSize: '10px', lineHeight: 1.3, color: bannerStyle.subtitleColor, marginBottom: '10px' }}>
+                <p style={{
+                  fontSize: isMobileView ? '9px' : '10px',
+                  lineHeight: 1.3,
+                  color: bannerStyle.subtitleColor,
+                  margin: '0 0 4px 0',
+                  maxWidth: '240px'
+                }}>
                   {(() => {
                     let text = bannerConfig?.subtitle || '';
                     const discountVal = activeCampaign?.discount ? `${activeCampaign.discount}%` : '30%';
@@ -454,18 +602,38 @@ export function MasonryGrid({
                     return text.replace(/{discount-value}/g, discountVal).replace(/{discount_value}/g, discountVal).replace(/{exp-date}/g, expFormatted).replace(/{exp_date}/g, expFormatted);
                   })()}
                 </p>
+
+                {/* Double small bouquets below text */}
+                <div style={{ display: 'flex', gap: '4px', margin: '3px 0' }}>
+                  <svg viewBox="0 0 100 100" style={{ width: '18px', height: '18px' }}>
+                    <circle cx="48" cy="32" r="7" fill="#ffffff" stroke="#dcdcdc" strokeWidth="1" />
+                    <path d="M42 66 L50 46" stroke="#5d6050" strokeWidth="4" />
+                  </svg>
+                  <svg viewBox="0 0 100 100" style={{ width: '18px', height: '18px' }}>
+                    <circle cx="48" cy="32" r="7" fill="#ffffff" stroke="#dcdcdc" strokeWidth="1" />
+                    <path d="M42 66 L50 46" stroke="#5d6050" strokeWidth="4" />
+                  </svg>
+                </div>
+
                 <button
                   onClick={(e) => { e.stopPropagation(); onVisitShop?.(); }}
                   style={{
-                    padding: '6px 16px', fontSize: '8px', fontWeight: 700,
+                    padding: '6px 16px',
+                    fontSize: '8px',
+                    fontWeight: 700,
                     backgroundColor: bannerStyle.ctaBg,
                     color: bannerStyle.ctaColor,
-                    border: 'none', textTransform: 'uppercase', letterSpacing: '0.08em', cursor: 'pointer'
+                    border: 'none',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.08em',
+                    cursor: 'pointer',
+                    borderRadius: '1px',
+                    marginTop: '4px'
                   }}
                 >
                   {bannerConfig?.cta || 'CLAIM OFFER'}
                 </button>
-              </>
+              </div>
             )}
           </div>
         </div>

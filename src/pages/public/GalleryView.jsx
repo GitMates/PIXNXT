@@ -92,8 +92,28 @@ const GalleryView = () => {
   // Sales campaigns loaded from StoreDashboard localStorage for client site banner rendering
   const [campaigns, setCampaigns] = useState(() => {
     const stored = localStorage.getItem('pixnxt_sales_campaigns');
-    return stored ? JSON.parse(stored) : [];
+    try {
+      return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+      return [];
+    }
   });
+
+  useEffect(() => {
+    if (collection?.store_banner_text) {
+      const txt = collection.store_banner_text;
+      if (txt.startsWith('[') || txt.startsWith('{')) {
+        try {
+          const parsed = JSON.parse(txt);
+          if (Array.isArray(parsed)) {
+            setCampaigns(parsed);
+          }
+        } catch (e) {
+          console.error("Error parsing campaign from database store_banner_text:", e);
+        }
+      }
+    }
+  }, [collection]);
 
   const activeCampaign = useMemo(() => {
     // Look for any enabled campaign (Anniversary, Birthday, Seasonal)

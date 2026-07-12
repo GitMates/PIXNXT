@@ -367,7 +367,52 @@ export default function StoreDashboard() {
   }, []);
 
   useEffect(() => {
+    if (collections && collections.length > 0) {
+      const withCampaign = collections.find(c => {
+        const txt = c.store_banner_text;
+        return txt && (txt.startsWith('[') || txt.startsWith('{'));
+      });
+      if (withCampaign) {
+        try {
+          const parsed = JSON.parse(withCampaign.store_banner_text);
+          if (Array.isArray(parsed)) {
+            setCampaigns(parsed);
+          }
+        } catch (e) {
+          console.error("Error parsing campaign from database:", e);
+        }
+      }
+    }
+  }, [collections]);
+
+  const saveCampaignsToDatabase = async (updatedCampaigns) => {
+    try {
+      const collectionIds = (collections || []).map(c => c.id).filter(Boolean);
+      if (collectionIds.length > 0) {
+        const jsonStr = JSON.stringify(updatedCampaigns);
+        const { error } = await supabase
+          .from('collections')
+          .update({ store_banner_text: jsonStr })
+          .in('id', collectionIds);
+        if (error) throw error;
+        console.log("Successfully saved campaign settings to database for collections:", collectionIds);
+      }
+    } catch (err) {
+      console.error("Error saving campaign settings to database:", err);
+    }
+  };
+
+  const isInitialMount = useRef(true);
+
+  useEffect(() => {
     localStorage.setItem('pixnxt_sales_campaigns', JSON.stringify(campaigns));
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    if (collections && collections.length > 0) {
+      saveCampaignsToDatabase(campaigns);
+    }
   }, [campaigns]);
 
   const handleIntegerChange = (val, setter) => {
@@ -450,7 +495,7 @@ export default function StoreDashboard() {
 
         const { data: collectionsData } = await supabase
           .from('collections')
-          .select('id, name, digital_download_enabled, digital_download_price_single, digital_download_price_all, cover_url, event_date')
+          .select('id, name, digital_download_enabled, digital_download_price_single, digital_download_price_all, cover_url, event_date, store_banner_text')
           .eq('photographer_id', user.id);
 
         const { data: photosData } = await supabase
