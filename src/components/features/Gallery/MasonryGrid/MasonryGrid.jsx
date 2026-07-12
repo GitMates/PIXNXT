@@ -412,20 +412,20 @@ export function MasonryGrid({
                 width: '100%',
                 height: '100%',
                 display: 'flex',
-                flexDirection: isMobileView ? 'column' : 'row',
+                flexDirection: 'column',
                 alignItems: 'center',
-                justifyContent: 'space-between',
+                justifyContent: 'center',
                 boxSizing: 'border-box',
-                padding: isMobileView ? '8px' : '10px 16px',
-                textAlign: isMobileView ? 'center' : 'left',
-                gap: '8px'
+                padding: '12px 16px',
+                textAlign: 'center',
+                gap: '6px'
               }}>
                 <div style={{
                   display: 'flex',
                   flexDirection: 'column',
-                  alignItems: isMobileView ? 'center' : 'flex-start',
+                  alignItems: 'center',
                   gap: '4px',
-                  flex: 1
+                  width: '100%'
                 }}>
                   <h3 style={{
                     fontSize: isMobileView ? '13px' : '16px',
@@ -447,7 +447,7 @@ export function MasonryGrid({
                     color: bannerStyle.subtitleColor,
                     margin: '0 0 2px 0',
                     lineHeight: 1.3,
-                    maxWidth: isMobileView ? '220px' : '190px'
+                    maxWidth: '240px'
                   }}>
                     {(() => {
                       let text = bannerConfig?.subtitle || '';
@@ -473,7 +473,7 @@ export function MasonryGrid({
                       display: 'flex',
                       gap: '5px',
                       alignItems: 'center',
-                      justifyContent: isMobileView ? 'center' : 'flex-start',
+                      justifyContent: 'center',
                       color: bannerStyle.timerColor
                     }}>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -525,37 +525,6 @@ export function MasonryGrid({
                     {bannerConfig?.cta || 'CLAIM OFFER'}
                   </button>
                 </div>
-
-                {/* Bouquet Illustration SVG on the right */}
-                <svg viewBox="0 0 100 100" style={{
-                  width: isMobileView ? '54px' : '82px',
-                  height: isMobileView ? '54px' : '82px',
-                  marginTop: isMobileView ? '4px' : 0,
-                  marginRight: isMobileView ? 0 : '-8px',
-                  zIndex: 1,
-                  flexShrink: 0
-                }}>
-                  <path d="M42 66 L50 46" stroke="#5d6050" strokeWidth="2.5" strokeLinecap="round" />
-                  <path d="M48 66 L50 44" stroke="#5d6050" strokeWidth="2.5" strokeLinecap="round" />
-                  <path d="M54 66 L50 46" stroke="#5d6050" strokeWidth="2.5" strokeLinecap="round" />
-                  <path d="M44 58 Q48 60 52 58" fill="none" stroke="#8c8d82" strokeWidth="1.5" />
-                  <path d="M45 59 L40 70" stroke="#8c8d82" strokeWidth="1.2" />
-                  <path d="M51 59 L56 70" stroke="#8c8d82" strokeWidth="1.2" />
-                  <path d="M35 44 Q42 42 43 36 Q38 39 35 44" fill="#7a806c" />
-                  <path d="M61 44 Q54 42 53 36 Q58 39 61 44" fill="#7a806c" />
-                  <circle cx="48" cy="32" r="6" fill="#ffffff" stroke="#dcdcdc" strokeWidth="0.75" />
-                  <circle cx="48" cy="32" r="2" fill="#e5ded3" />
-                  <circle cx="40" cy="39" r="5" fill="#ffffff" stroke="#dcdcdc" strokeWidth="0.75" />
-                  <circle cx="40" cy="39" r="1.5" fill="#e5ded3" />
-                  <circle cx="56" cy="39" r="5" fill="#ffffff" stroke="#dcdcdc" strokeWidth="0.75" />
-                  <circle cx="56" cy="39" r="1.5" fill="#e5ded3" />
-                  <circle cx="48" cy="42" r="4.5" fill="#ffffff" stroke="#dcdcdc" strokeWidth="0.75" />
-                  <circle cx="48" cy="42" r="1.2" fill="#e5ded3" />
-                  <circle cx="28" cy="35" r="1.5" fill="#ffffff" />
-                  <rect x="66" y="32" width="2" height="2" fill="#ffffff" transform="rotate(30)" />
-                  <rect x="34" y="24" width="1.5" height="1.5" fill="#ffffff" />
-                  <circle cx="58" cy="24" r="1.5" fill="#ffffff" />
-                </svg>
               </div>
             ) : (
               <div style={{
