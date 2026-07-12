@@ -302,8 +302,16 @@ export function MasonryGrid({
       ? activeCampaign?.banners?.photo_banner 
       : activeCampaign?.banners?.store_rotator;
 
+    const isMobileView = isMobileViewport || isPreviewMobile;
+    const desktopImg = bannerConfig?.desktop_image || '';
+    const mobileImg = bannerConfig?.mobile_image || '';
+    const bgImage = isMobileView
+      ? (mobileImg ? `url(${mobileImg})` : (desktopImg ? `url(${desktopImg})` : 'none'))
+      : (desktopImg ? `url(${desktopImg})` : 'none');
+
     const bannerStyle = {
       bg: bannerConfig?.bg_color || (isPhotoBanner ? '#d4c9b5' : '#eae5d8'),
+      backgroundImage: bgImage,
       titleColor: bannerConfig?.title_color || (isPhotoBanner ? '#1a1a1a' : '#2c3e2d'),
       subtitleColor: bannerConfig?.subtitle_color || (isPhotoBanner ? '#444444' : '#4a5a4b'),
       ctaBg: bannerConfig?.cta_bg || (isPhotoBanner ? '#1a1a1a' : '#3a4a38'),
@@ -333,6 +341,10 @@ export function MasonryGrid({
           width: '100%',
           height: '100%',
           backgroundColor: bannerStyle.bg,
+          backgroundImage: bannerStyle.backgroundImage,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          position: 'relative',
           padding: '20px 16px',
           boxSizing: 'border-box',
           display: 'flex',
@@ -342,98 +354,120 @@ export function MasonryGrid({
           textAlign: 'center',
           fontFamily: bannerStyle.font === 'Playfair Display' ? "'Playfair Display', serif" : "'Inter', sans-serif"
         }}>
-          {isPhotoBanner ? (
-            <>
-              <h3 style={{
-                fontSize: '14px', fontWeight: 700,
-                color: bannerStyle.titleColor, marginBottom: '4px',
-                textTransform: 'uppercase', letterSpacing: '0.04em'
-              }}>
-                {(() => {
-                  let text = bannerConfig?.title || '';
-                  const discountVal = activeCampaign?.discount ? `${activeCampaign.discount}%` : '30%';
-                  return text.replace(/{discount-value}/g, discountVal).replace(/{discount_value}/g, discountVal).replace(/{code}/g, activeCampaign?.discountCode || 'HAPPYANI');
-                })()}
-              </h3>
-              <p style={{ fontSize: '10px', color: bannerStyle.subtitleColor, marginBottom: '10px', lineHeight: 1.3 }}>
-                {(() => {
-                  let text = bannerConfig?.subtitle || '';
-                  const discountVal = activeCampaign?.discount ? `${activeCampaign.discount}%` : '30%';
-                  const expDate = new Date(); expDate.setDate(expDate.getDate() + 14);
-                  const expFormatted = expDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-                  return text.replace(/{discount-value}/g, discountVal).replace(/{discount_value}/g, discountVal).replace(/{exp-date}/g, expFormatted).replace(/{exp_date}/g, expFormatted).replace(/{code}/g, activeCampaign?.discountCode || 'HAPPYANI');
-                })()}
-              </p>
-              
-              {/* Dynamic framed product cards using actual collection couple photos */}
-              {activeProducts && activeProducts.length > 0 && (
-                <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', width: '100%', marginBottom: '12px' }}>
-                  {activeProducts.slice(0, 3).map((prod, idx) => {
-                    return (
-                      <div key={prod.id || idx} style={{
-                        flex: 1, backgroundColor: '#ffffff', border: '1px solid rgba(0,0,0,0.04)',
-                        padding: '5px 2px', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 0
-                      }}>
-                        {renderProductPreviewStyle(prod.product_type || prod.id, samplePhotoUrl)}
-                        <span style={{
-                          fontSize: '7px', fontWeight: 600, color: '#1a1a1a',
-                          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                          width: '100%', textAlign: 'center', marginTop: '2px'
-                        }}>{prod.name}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-              
-              <button
-                onClick={(e) => { e.stopPropagation(); onVisitShop?.(); }}
-                style={{
-                  padding: '6px 16px', fontSize: '8px', fontWeight: 700,
-                  backgroundColor: bannerStyle.ctaBg, color: bannerStyle.ctaColor, border: 'none',
-                  textTransform: 'uppercase', letterSpacing: '0.08em', cursor: 'pointer'
-                }}
-              >
-                SHOP NOW
-              </button>
-            </>
-          ) : (
-            <>
-              <span style={{ fontSize: '8px', fontWeight: 700, letterSpacing: '0.12em', color: '#bfa38a', textTransform: 'uppercase', marginBottom: '4px' }}>
-                {bannerConfig?.code ? bannerConfig.code.replace(/{code}/g, activeCampaign?.discountCode || 'HAPPYANI') : 'EXCLUSIVE OFFER'}
-              </span>
-              <h3 style={{
-                fontSize: '14px', fontWeight: 700, margin: '0 0 4px 0',
-                color: bannerStyle.titleColor, textTransform: 'uppercase'
-              }}>
-                {(() => {
-                  let text = bannerConfig?.title || '';
-                  const discountVal = activeCampaign?.discount ? `${activeCampaign.discount}%` : '30%';
-                  return text.replace(/{discount-value}/g, discountVal).replace(/{discount_value}/g, discountVal);
-                })()}
-              </h3>
-              <p style={{ fontSize: '10px', lineHeight: 1.3, color: bannerStyle.subtitleColor, marginBottom: '10px' }}>
-                {(() => {
-                  let text = bannerConfig?.subtitle || '';
-                  const discountVal = activeCampaign?.discount ? `${activeCampaign.discount}%` : '30%';
-                  const expDate = new Date(); expDate.setDate(expDate.getDate() + 14);
-                  const expFormatted = expDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-                  return text.replace(/{discount-value}/g, discountVal).replace(/{discount_value}/g, discountVal).replace(/{exp-date}/g, expFormatted).replace(/{exp_date}/g, expFormatted);
-                })()}
-              </p>
-              <button
-                onClick={(e) => { e.stopPropagation(); onVisitShop?.(); }}
-                style={{
-                  padding: '6px 16px', fontSize: '8px', fontWeight: 700,
-                  backgroundColor: bannerStyle.ctaBg,
-                  color: bannerStyle.ctaColor,
-                  border: 'none', textTransform: 'uppercase', letterSpacing: '0.08em', cursor: 'pointer'
-                }}
-              >
-                {bannerConfig?.cta || 'CLAIM OFFER'}
-              </button>
-            </>
+          {/* Text contrast overlay if custom background image is present */}
+          {bannerStyle.backgroundImage && bannerStyle.backgroundImage !== 'none' && (
+            <div style={{
+              position: 'absolute',
+              inset: 0,
+              backgroundColor: 'rgba(255, 255, 255, 0.45)',
+              zIndex: 1,
+              pointerEvents: 'none'
+            }} />
           )}
+
+          <div style={{
+            position: 'relative',
+            zIndex: 2,
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            {isPhotoBanner ? (
+              <>
+                <h3 style={{
+                  fontSize: '14px', fontWeight: 700,
+                  color: bannerStyle.titleColor, marginBottom: '4px',
+                  textTransform: 'uppercase', letterSpacing: '0.04em'
+                }}>
+                  {(() => {
+                    let text = bannerConfig?.title || '';
+                    const discountVal = activeCampaign?.discount ? `${activeCampaign.discount}%` : '30%';
+                    return text.replace(/{discount-value}/g, discountVal).replace(/{discount_value}/g, discountVal).replace(/{code}/g, activeCampaign?.discountCode || 'HAPPYANI');
+                  })()}
+                </h3>
+                <p style={{ fontSize: '10px', color: bannerStyle.subtitleColor, marginBottom: '10px', lineHeight: 1.3 }}>
+                  {(() => {
+                    let text = bannerConfig?.subtitle || '';
+                    const discountVal = activeCampaign?.discount ? `${activeCampaign.discount}%` : '30%';
+                    const expDate = new Date(); expDate.setDate(expDate.getDate() + 14);
+                    const expFormatted = expDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+                    return text.replace(/{discount-value}/g, discountVal).replace(/{discount_value}/g, discountVal).replace(/{exp-date}/g, expFormatted).replace(/{exp_date}/g, expFormatted).replace(/{code}/g, activeCampaign?.discountCode || 'HAPPYANI');
+                  })()}
+                </p>
+                
+                {/* Dynamic framed product cards using actual collection couple photos */}
+                {activeProducts && activeProducts.length > 0 && (
+                  <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', width: '100%', marginBottom: '12px' }}>
+                    {activeProducts.slice(0, 3).map((prod, idx) => {
+                      return (
+                        <div key={prod.id || idx} style={{
+                          flex: 1, backgroundColor: '#ffffff', border: '1px solid rgba(0,0,0,0.04)',
+                          padding: '5px 2px', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 0
+                        }}>
+                          {renderProductPreviewStyle(prod.product_type || prod.id, samplePhotoUrl)}
+                          <span style={{
+                            fontSize: '7px', fontWeight: 600, color: '#1a1a1a',
+                            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                            width: '100%', textAlign: 'center', marginTop: '2px'
+                          }}>{prod.name}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                
+                <button
+                  onClick={(e) => { e.stopPropagation(); onVisitShop?.(); }}
+                  style={{
+                    padding: '6px 16px', fontSize: '8px', fontWeight: 700,
+                    backgroundColor: bannerStyle.ctaBg, color: bannerStyle.ctaColor, border: 'none',
+                    textTransform: 'uppercase', letterSpacing: '0.08em', cursor: 'pointer'
+                  }}
+                >
+                  SHOP NOW
+                </button>
+              </>
+            ) : (
+              <>
+                <span style={{ fontSize: '8px', fontWeight: 700, letterSpacing: '0.12em', color: '#bfa38a', textTransform: 'uppercase', marginBottom: '4px' }}>
+                  {bannerConfig?.code ? bannerConfig.code.replace(/{code}/g, activeCampaign?.discountCode || 'HAPPYANI') : 'EXCLUSIVE OFFER'}
+                </span>
+                <h3 style={{
+                  fontSize: '14px', fontWeight: 700, margin: '0 0 4px 0',
+                  color: bannerStyle.titleColor, textTransform: 'uppercase'
+                }}>
+                  {(() => {
+                    let text = bannerConfig?.title || '';
+                    const discountVal = activeCampaign?.discount ? `${activeCampaign.discount}%` : '30%';
+                    return text.replace(/{discount-value}/g, discountVal).replace(/{discount_value}/g, discountVal);
+                  })()}
+                </h3>
+                <p style={{ fontSize: '10px', lineHeight: 1.3, color: bannerStyle.subtitleColor, marginBottom: '10px' }}>
+                  {(() => {
+                    let text = bannerConfig?.subtitle || '';
+                    const discountVal = activeCampaign?.discount ? `${activeCampaign.discount}%` : '30%';
+                    const expDate = new Date(); expDate.setDate(expDate.getDate() + 14);
+                    const expFormatted = expDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+                    return text.replace(/{discount-value}/g, discountVal).replace(/{discount_value}/g, discountVal).replace(/{exp-date}/g, expFormatted).replace(/{exp_date}/g, expFormatted);
+                  })()}
+                </p>
+                <button
+                  onClick={(e) => { e.stopPropagation(); onVisitShop?.(); }}
+                  style={{
+                    padding: '6px 16px', fontSize: '8px', fontWeight: 700,
+                    backgroundColor: bannerStyle.ctaBg,
+                    color: bannerStyle.ctaColor,
+                    border: 'none', textTransform: 'uppercase', letterSpacing: '0.08em', cursor: 'pointer'
+                  }}
+                >
+                  {bannerConfig?.cta || 'CLAIM OFFER'}
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </Motion.div>
     );

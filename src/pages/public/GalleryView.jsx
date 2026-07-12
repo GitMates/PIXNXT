@@ -1217,10 +1217,21 @@ const GalleryView = () => {
     const discountVal = activeCampaign.discount ? `${activeCampaign.discount}%` : '30%';
     const expDate = new Date(); expDate.setDate(expDate.getDate() + 14);
     const expFormatted = expDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    
+    const desktopImg = lb.desktop_image || '';
+    const mobileImg = lb.mobile_image || '';
+    const isMobile = window.innerWidth <= 768;
+    const bgImage = isMobile
+      ? (mobileImg ? `url(${mobileImg})` : (desktopImg ? `url(${desktopImg})` : 'none'))
+      : (desktopImg ? `url(${desktopImg})` : 'none');
+
     return (
       <div style={{
         width: '100%',
         backgroundColor: lb.bg_color || '#eae5d8',
+        backgroundImage: bgImage,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
         padding: '28px 32px',
         boxSizing: 'border-box',
         display: 'flex',
@@ -1230,31 +1241,43 @@ const GalleryView = () => {
         marginBottom: '12px',
         borderTop: '1px solid rgba(0,0,0,0.05)',
         borderBottom: '1px solid rgba(0,0,0,0.05)',
-        fontFamily: "'Inter', sans-serif"
+        fontFamily: "'Inter', sans-serif",
+        position: 'relative'
       }}>
-        <h3 style={{
-          fontSize: '18px', fontWeight: 700, margin: '0 0 6px 0',
-          fontFamily: lb.font === 'Playfair Display' ? "'Playfair Display', serif" : "'Inter', sans-serif",
-          color: lb.title_color || '#2c3e2d', letterSpacing: '0.04em', textTransform: 'uppercase'
-        }}>
-          {(lb.title || '').replace(/{discount-value}/g, discountVal).replace(/{discount_value}/g, discountVal)}
-        </h3>
-        <p style={{ fontSize: '12px', color: lb.subtitle_color || '#4a5a4b', maxWidth: '520px', lineHeight: 1.5, margin: '0 0 14px 0' }}>
-          {(lb.subtitle || '').replace(/{discount-value}/g, discountVal).replace(/{discount_value}/g, discountVal).replace(/{exp-date}/g, expFormatted).replace(/{exp_date}/g, expFormatted)}
-        </p>
-        <button
-          onClick={() => setShowPrintLabModal(true)}
-          style={{
-            padding: '10px 32px', fontSize: '10px', fontWeight: 700,
-            backgroundColor: lb.cta_bg || '#3a4a38', color: lb.cta_color || '#ffffff',
-            border: 'none', textTransform: 'uppercase', letterSpacing: '0.1em',
-            cursor: 'pointer', transition: 'opacity 0.2s', borderRadius: '0px'
-          }}
-          onMouseEnter={e => e.currentTarget.style.opacity = '0.9'}
-          onMouseLeave={e => e.currentTarget.style.opacity = '1'}
-        >
-          {lb.cta || 'Visit Shop'}
-        </button>
+        {bgImage !== 'none' && (
+          <div style={{
+            position: 'absolute',
+            inset: 0,
+            backgroundColor: 'rgba(255, 255, 255, 0.45)',
+            zIndex: 1,
+            pointerEvents: 'none'
+          }} />
+        )}
+        <div style={{ position: 'relative', zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <h3 style={{
+            fontSize: '18px', fontWeight: 700, margin: '0 0 6px 0',
+            fontFamily: lb.font === 'Playfair Display' ? "'Playfair Display', serif" : "'Inter', sans-serif",
+            color: lb.title_color || '#2c3e2d', letterSpacing: '0.04em', textTransform: 'uppercase'
+          }}>
+            {(lb.title || '').replace(/{discount-value}/g, discountVal).replace(/{discount_value}/g, discountVal)}
+          </h3>
+          <p style={{ fontSize: '12px', color: lb.subtitle_color || '#4a5a4b', maxWidth: '520px', lineHeight: 1.5, margin: '0 0 14px 0' }}>
+            {(lb.subtitle || '').replace(/{discount-value}/g, discountVal).replace(/{discount_value}/g, discountVal).replace(/{exp-date}/g, expFormatted).replace(/{exp_date}/g, expFormatted)}
+          </p>
+          <button
+            onClick={() => setShowPrintLabModal(true)}
+            style={{
+              padding: '10px 32px', fontSize: '10px', fontWeight: 700,
+              backgroundColor: lb.cta_bg || '#3a4a38', color: lb.cta_color || '#ffffff',
+              border: 'none', textTransform: 'uppercase', letterSpacing: '0.1em',
+              cursor: 'pointer', transition: 'opacity 0.2s', borderRadius: '0px'
+            }}
+            onMouseEnter={e => e.currentTarget.style.opacity = '0.9'}
+            onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+          >
+            {lb.cta || 'Visit Shop'}
+          </button>
+        </div>
       </div>
     );
   }, [activeCampaign]);
