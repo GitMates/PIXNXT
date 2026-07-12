@@ -2595,8 +2595,10 @@ export default function StoreDashboard() {
                         <span style={{ fontSize: '14px', color: '#94a3b8', marginLeft: '6px', cursor: 'pointer' }}>···</span>
                       </div>
                       <button
-                        onClick={() => {
-                          setCampaigns(prev => prev.map(c => c.id === campaign.id ? { ...campaign } : c));
+                        onClick={async () => {
+                          const updated = campaigns.map(c => c.id === campaign.id ? { ...campaign } : c);
+                          setCampaigns(updated);
+                          await saveCampaignsToDatabase(updated);
                           setSelectedCampaign(null);
                         }}
                         style={{ padding: '10px 32px', fontSize: '11px', fontWeight: 700, border: 'none', borderRadius: '2px', backgroundColor: '#e5e5e5', color: '#555', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.08em', transition: 'background-color 0.2s' }}
@@ -2797,13 +2799,13 @@ export default function StoreDashboard() {
                                   setCampaigns(prev => prev.map(c => c.id === campaign.id
                                     ? {
                                         ...c,
-                                        banners: {
-                                          ...c.banners,
-                                          [item.key]: {
-                                            ...c.banners[item.key],
-                                            enabled: !c.banners[item.key].enabled
-                                          }
-                                        },
+                                        banners: Object.keys(c.banners).reduce((acc, key) => {
+                                          acc[key] = {
+                                            ...c.banners[key],
+                                            enabled: key === item.key ? !c.banners[item.key].enabled : false
+                                          };
+                                          return acc;
+                                        }, {}),
                                         modified: { ...c.modified, banners: true }
                                       }
                                     : c
@@ -3070,7 +3072,17 @@ export default function StoreDashboard() {
                             } else {
                               // banner types
                               setCampaigns(prev => prev.map(c => c.id === _campaignId
-                                ? { ...c, banners: { ...c.banners, [_bannerKey]: { ...data, enabled: true } }, modified: { ...c.modified, banners: true } }
+                                ? {
+                                    ...c,
+                                    banners: Object.keys(c.banners).reduce((acc, key) => {
+                                      acc[key] = {
+                                        ...c.banners[key],
+                                        ...(key === _bannerKey ? { ...data, enabled: true } : { enabled: false })
+                                      };
+                                      return acc;
+                                    }, {}),
+                                    modified: { ...c.modified, banners: true }
+                                  }
                                 : c
                               ));
                             }

@@ -348,7 +348,8 @@ export function MasonryGrid({
       subtitleColor: bannerConfig?.subtitle_color || (isPhotoBanner ? '#444444' : '#4a5a4b'),
       ctaBg: bannerConfig?.cta_bg || (isPhotoBanner ? '#1a1a1a' : '#3a4a38'),
       ctaColor: bannerConfig?.cta_color || '#ffffff',
-      font: bannerConfig?.font || 'Playfair Display'
+      font: bannerConfig?.font || 'Playfair Display',
+      timerColor: bannerConfig?.title_color || (isPhotoBanner ? '#1a1a1a' : '#2c3e2d')
     };
 
     return (
@@ -384,7 +385,7 @@ export function MasonryGrid({
           alignItems: 'center',
           justifyContent: 'center',
           textAlign: 'center',
-          fontFamily: bannerStyle.font === 'Playfair Display' ? "'Playfair Display', serif" : "'Inter', sans-serif"
+          fontFamily: bannerStyle.font === 'Playfair Display' ? "'Playfair Display', serif" : (bannerStyle.font === 'Georgia' ? "'Georgia', serif" : (bannerStyle.font === 'Montserrat' ? "'Montserrat', sans-serif" : "'Inter', sans-serif"))
         }}>
           {/* Text contrast overlay if custom background image is present */}
           {bannerStyle.backgroundImage && bannerStyle.backgroundImage !== 'none' && (
@@ -433,8 +434,7 @@ export function MasonryGrid({
                     color: bannerStyle.titleColor,
                     margin: 0,
                     textTransform: 'uppercase',
-                    letterSpacing: '0.04em',
-                    fontFamily: bannerStyle.font
+                    letterSpacing: '0.04em'
                   }}>
                     {(() => {
                       let text = bannerConfig?.title || '';
@@ -547,8 +547,7 @@ export function MasonryGrid({
                   fontWeight: 700,
                   margin: 0,
                   color: bannerStyle.titleColor,
-                  textTransform: 'uppercase',
-                  fontFamily: bannerStyle.font
+                  textTransform: 'uppercase'
                 }}>
                   {(() => {
                     let text = bannerConfig?.title || '';
