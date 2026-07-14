@@ -29,7 +29,8 @@ import { getPhotoFullDisplayUrl } from '../../lib/photoDisplayUrl';
 import {
   buildDigitalPackageCartItem,
   fetchStorePackages,
-  filterPackagesForCollection,
+  PACKAGE_THRESHOLD,
+  resolveDigitalCategoryPricing,
 } from '../../lib/storePackages';
 import {
   countGalleryMedia,
@@ -404,8 +405,14 @@ const GalleryView = () => {
     }
   }, [email]);
 
+  const isPaidDigitalDownloadOn = !!(
+    collection?.digital_download_enabled === true
+    || collection?.digital_download_enabled === 'true'
+    || collection?.digital_download_enabled === 1
+  );
+
   useEffect(() => {
-    if (collection?.digital_download_enabled === true) {
+    if (isPaidDigitalDownloadOn) {
       /* ── Right-click prevention on images ── */
       const handleContextMenu = (e) => {
         if (e.target.tagName === 'IMG' || e.target.closest('.masonry-grid-container') || e.target.closest('.photo-lightbox-root')) {
@@ -519,7 +526,7 @@ const GalleryView = () => {
         style.remove();
       };
     }
-  }, [collection?.digital_download_enabled]);
+  }, [isPaidDigitalDownloadOn]);
 
   const handleShopClick = useCallback(async (photo) => {
     if (!photo || !collection) return;
@@ -822,34 +829,38 @@ const GalleryView = () => {
         .in('status', ['completed', 'paid', 'success']);
 
       if (!ordersError && orders && orders.length > 0) {
-        const boughtAll = orders.some(o => 
-          (o.printstore_order_items || []).some(item =>
-            item.product_type === 'digital_download_all' || item.product_type === 'digital_package'
+        // Entire-collection purchase only unlocks the “check your email” path —
+        // never start a direct browser download while paid digital is on.
+        const boughtAll = orders.some((o) =>
+          (o.printstore_order_items || []).some((item) =>
+            item.product_type === 'digital_download_all'
           )
         );
-        
-        if (boughtAll) {
-          if (photo) {
-            await downloadSinglePhotoFile(photo);
-          } else {
-            setSelectedDownloadPhoto(null);
-            setShowDownloadModal(true);
-          }
-          return;
-        } else {
-          const boughtThisPhoto = photo && orders.some(o =>
-            (o.printstore_order_items || []).some(item => 
-              item.product_type === 'digital_download' && item.options?.photo?.id === photo.id
+
+        const boughtThisPhoto = photo && orders.some((o) =>
+          (o.printstore_order_items || []).some((item) =>
+            item.product_type === 'digital_download'
+            && (
+              item.options?.photo?.id === photo.id
+              || item.options?.photo_id === photo.id
             )
+          )
+        );
+
+        // digital_package purchases are fulfilled by email after checkout —
+        // they must NOT unlock free gallery downloads.
+        if (boughtAll || boughtThisPhoto) {
+          setPrivateToastThumb(photo?.thumbnail_url || photo?.web_url || photo?.full_url || null);
+          setPrivateToast(
+            boughtAll
+              ? 'This collection was purchased — check your email for download links.'
+              : 'This photo was purchased — check your email for the download link.'
           );
-          
-          if (photo && boughtThisPhoto) {
-            await downloadSinglePhotoFile(photo);
-            return;
-          }
+          window.setTimeout(() => setPrivateToast(null), 4500);
+          return;
         }
       }
-      
+
       setDigitalDownloadPhoto(photo || filteredPhotos[0] || null);
       setIsPurchaseAllDefault(!photo);
       setShowDigitalDownloadModal(true);
@@ -862,7 +873,7 @@ const GalleryView = () => {
   };
 
   const handleDownloadClick = async (photoOrEvent = null) => {
-    if (collection?.digital_download_enabled === true) {
+    if (isPaidDigitalDownloadOn) {
       handleDigitalDownloadClick(photoOrEvent);
       return;
     }
@@ -912,12 +923,12 @@ const GalleryView = () => {
   };
 
   const handleDownloadButtonAction = useCallback((photo) => {
-    if (collection?.digital_download_enabled === true) {
+    if (isPaidDigitalDownloadOn) {
       handleDigitalDownloadClick(photo);
     } else {
       handleDownloadClick(photo);
     }
-  }, [collection, handleDigitalDownloadClick, handleDownloadClick]);
+  }, [isPaidDigitalDownloadOn, handleDigitalDownloadClick, handleDownloadClick]);
 
   const galleryRef = useRef(null);
 
@@ -961,13 +972,13 @@ const GalleryView = () => {
   const showGalleryDownload =
     (isCollectionFeatureEnabled(collection?.downloads_enabled) &&
     isCollectionFeatureEnabled(collection?.gallery_download_enabled)) ||
-    collection?.digital_download_enabled === true;
+    isPaidDigitalDownloadOn;
   const showGalleryShare = isCollectionFeatureEnabled(collection?.social_sharing_enabled);
   const showGallerySlideshow = isSlideshowEnabledForCollection(collection);
   const showSinglePhotoDownload =
     (isCollectionFeatureEnabled(collection?.downloads_enabled) &&
     isCollectionFeatureEnabled(collection?.single_photo_download_enabled)) ||
-    collection?.digital_download_enabled === true;
+    isPaidDigitalDownloadOn;
 
   const shareUrl = typeof window !== 'undefined' ? window.location.origin + "/gallery/" + (slug || '') : '';
   const shareTitle = collection?.name || 'Collection';
@@ -1009,7 +1020,7 @@ const GalleryView = () => {
           setPhotographer(p);
           try {
             const pkgs = await fetchStorePackages(data.photographer_id, { activeOnly: true });
-            setStorePackages(filterPackagesForCollection(pkgs, data));
+            setStorePackages(pkgs || []);
           } catch (pkgErr) {
             console.warn('Could not load store packages:', pkgErr);
             setStorePackages([]);
@@ -1166,6 +1177,15 @@ const GalleryView = () => {
   }, [collection, photosForActiveSet, isClientViewer, activeSetId]);
 
   const mediaCounts = useMemo(() => countGalleryMedia(filteredPhotosBase), [filteredPhotosBase]);
+
+  const digitalPricing = useMemo(() => {
+    if (!collection) return null;
+    const collectionMedia = countGalleryMedia(collection.photos || []);
+    const photoCount = collectionMedia.photos > 0
+      ? collectionMedia.photos
+      : (collection.photos || []).length;
+    return resolveDigitalCategoryPricing(storePackages, collection, { photoCount });
+  }, [collection, storePackages]);
 
   useEffect(() => {
     if (mediaCounts.photos > 0) setMediaFilter('photos');
@@ -1763,7 +1783,7 @@ const GalleryView = () => {
             showBuyGallery={vaultPlan?.vault_enabled === true && !vaultPurchasedState}
             buyGalleryLabel="Buy Link"
             onBuyGalleryClick={openVaultModal}
-            isPaidDownload={collection?.digital_download_enabled === true}
+            isPaidDownload={isPaidDigitalDownloadOn}
             isDark={isGalleryDark}
             mediaFilter={!isFavoriteListMode ? mediaFilter : undefined}
             onMediaFilterChange={!isFavoriteListMode ? setMediaFilter : undefined}
@@ -1838,7 +1858,7 @@ const GalleryView = () => {
               allowMarkPrivate: Boolean(collection?.allow_clients_mark_private),
               showPrivateBadge: isClientViewer,
               showDownload: showSinglePhotoDownload,
-              isPaidDownload: collection?.digital_download_enabled === true,
+              isPaidDownload: isPaidDigitalDownloadOn,
               showFavorite: collection?.favorites_enabled !== false,
               showShare: showGalleryShare,
               showShop: collection?.store_enabled !== false,
@@ -1920,7 +1940,7 @@ const GalleryView = () => {
         onShare={() => setShowShareModal(true)}
         onShop={() => handleShopClick(filteredPhotos[lightboxIndex])}
         showDownload={showSinglePhotoDownload}
-        isPaidDownload={collection?.digital_download_enabled === true}
+            isPaidDownload={isPaidDigitalDownloadOn}
         showFavorite={collection?.favorites_enabled !== false}
         showShare={showGalleryShare}
         showShop={collection?.store_enabled !== false}
@@ -2210,11 +2230,14 @@ const GalleryView = () => {
           }
           return true;
         });
-        const collectionPhotos = filteredPhotos.filter(p => p && (p.url || p.display_url || p.thumbnail_url));
-        const getRandomPhoto = (idx) => {
-          if (collectionPhotos.length === 0) return 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=400&h=400';
-          return getPhotoFullDisplayUrl(collectionPhotos[(idx * 7 + 3) % collectionPhotos.length]) || collectionPhotos[(idx * 7 + 3) % collectionPhotos.length]?.url || collectionPhotos[(idx * 7 + 3) % collectionPhotos.length]?.display_url || '';
-        };
+        const collectionPhotos = filteredPhotos.filter(p => p && (p.url || p.display_url || p.thumbnail_url || p.web_url));
+        const selectedShopPhoto =
+          (lightboxIndex >= 0 && filteredPhotos[lightboxIndex])
+          || collectionPhotos[0]
+          || null;
+        const selectedShopUrl = selectedShopPhoto
+          ? (getPhotoFullDisplayUrl(selectedShopPhoto) || selectedShopPhoto.url || selectedShopPhoto.web_url || selectedShopPhoto.display_url || '')
+          : '';
         return (
           <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, padding: '20px', boxSizing: 'border-box', backdropFilter: 'blur(6px)' }}>
             <div style={{ backgroundColor: '#ffffff', borderRadius: '0px', width: '100%', maxWidth: '820px', maxHeight: '85vh', overflow: 'auto', padding: '32px', boxSizing: 'border-box', position: 'relative', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
@@ -2232,7 +2255,7 @@ const GalleryView = () => {
                     onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '130px' }}>
-                      {renderMiniFrame(prod.id, getRandomPhoto(idx))}
+                      {renderMiniFrame(prod.id, selectedShopUrl || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=400&h=400')}
                     </div>
                     <div style={{ textAlign: 'center' }}>
                       <div style={{ fontSize: '13px', fontWeight: 700, color: '#111', letterSpacing: '0.02em' }}>{prod.name}</div>
@@ -2261,27 +2284,108 @@ const GalleryView = () => {
           {!showDigitalPurchaseDetail ? (
             /* Modal 1: Choice screen */
             <div style={{ backgroundColor: '#ffffff', borderRadius: '0px', width: '100%', maxWidth: '820px', display: 'flex', height: '520px', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.15)', color: '#1a1a1a', fontFamily: "'europa', sans-serif" }}>
-              {/* Left Photo / Collage View (Scrollable if entire collection) */}
-              <div style={{ width: '40%', height: '100%', position: 'relative', background: '#f8fafc', display: 'flex', flexDirection: 'column', padding: '16px', boxSizing: 'border-box', overflowY: isPurchaseAllDefault ? 'auto' : 'hidden', justifyContent: isPurchaseAllDefault ? 'flex-start' : 'center', alignItems: 'center' }}>
-                {isPurchaseAllDefault ? (
-                  <div style={{ width: '100%' }}>
-                    <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#1a1a1a', marginBottom: '12px', textAlign: 'center' }}>
-                      All Photos ({filteredPhotos.length})
+              {/* Left Photo / Collage View */}
+              <div style={{
+                width: '40%',
+                height: '100%',
+                background: '#f8fafc',
+                display: 'flex',
+                flexDirection: 'column',
+                boxSizing: 'border-box',
+                overflow: 'hidden',
+                borderRight: '1px solid #e2e8f0',
+              }}>
+                <div style={{
+                  flex: 1,
+                  minHeight: 0,
+                  overflowY: (isPurchaseAllDefault || !digitalPricing?.packageEligible) ? 'auto' : 'hidden',
+                  padding: '16px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: (isPurchaseAllDefault || !digitalPricing?.packageEligible) ? 'flex-start' : 'center',
+                  alignItems: 'center',
+                  boxSizing: 'border-box',
+                }}>
+                  {(isPurchaseAllDefault || (!digitalPricing?.packageEligible && filteredPhotos.length > 0)) ? (
+                    <div style={{ width: '100%' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#1a1a1a', marginBottom: '12px', textAlign: 'center' }}>
+                        {!digitalPricing?.packageEligible
+                          ? `Select a photo (${filteredPhotos.length})`
+                          : `All Photos (${filteredPhotos.length})`}
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', width: '100%' }}>
+                        {(filteredPhotos || []).map((p) => {
+                          const selected = digitalDownloadPhoto?.id === p.id;
+                          const canPickSingle = !digitalPricing?.packageEligible || isPurchaseAllDefault;
+                          return (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => {
+                                if (!canPickSingle) return;
+                                setDigitalDownloadPhoto(p);
+                                setIsPurchaseAllDefault(false);
+                              }}
+                              style={{
+                                aspectRatio: '1',
+                                overflow: 'hidden',
+                                backgroundColor: '#e2e8f0',
+                                borderRadius: '4px',
+                                padding: 0,
+                                border: selected ? '2px solid #111' : '2px solid transparent',
+                                cursor: canPickSingle ? 'pointer' : 'default',
+                                position: 'relative',
+                                boxSizing: 'border-box',
+                              }}
+                            >
+                              <img
+                                src={p.web_url || p.thumbnail_url || p.full_url}
+                                alt=""
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                              />
+                              {selected && (
+                                <span style={{
+                                  position: 'absolute',
+                                  bottom: '6px',
+                                  left: '6px',
+                                  right: '6px',
+                                  fontSize: '9px',
+                                  fontWeight: 700,
+                                  letterSpacing: '0.04em',
+                                  textTransform: 'uppercase',
+                                  color: '#fff',
+                                  background: 'rgba(17,17,17,0.75)',
+                                  padding: '3px 4px',
+                                  borderRadius: '2px',
+                                  textAlign: 'center',
+                                }}>
+                                  Selected
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', width: '100%' }}>
-                      {(filteredPhotos || []).map((p, idx) => (
-                        <div key={idx} style={{ aspectRatio: '1', overflow: 'hidden', backgroundColor: '#e2e8f0', borderRadius: '4px' }}>
-                          <img src={p.web_url || p.thumbnail_url || p.full_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <img src={digitalDownloadPhoto.web_url || digitalDownloadPhoto.thumbnail_url || digitalDownloadPhoto.full_url} alt="" style={{ maxWidth: '100%', maxHeight: '90%', objectFit: 'contain', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
-                )}
-                <span style={{ position: 'absolute', bottom: '16px', left: '16px', fontSize: '10px', color: '#64748b' }}>
+                  ) : (
+                    <img
+                      src={digitalDownloadPhoto.web_url || digitalDownloadPhoto.thumbnail_url || digitalDownloadPhoto.full_url}
+                      alt=""
+                      style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                    />
+                  )}
+                </div>
+                <div style={{
+                  flexShrink: 0,
+                  padding: '10px 14px',
+                  borderTop: '1px solid #e2e8f0',
+                  background: '#f8fafc',
+                  fontSize: '10px',
+                  color: '#64748b',
+                  lineHeight: 1.35,
+                }}>
                   ⓘ Watermarks do not appear on final products.
-                </span>
+                </div>
               </div>
               {/* Right Options Details */}
               <div style={{ width: '60%', height: '100%', padding: '40px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', position: 'relative' }}>
@@ -2298,81 +2402,137 @@ const GalleryView = () => {
                   </button>
                 </div>
 
-                <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#111', marginBottom: '16px', borderBottom: '2px solid #111', width: 'fit-content', paddingBottom: '4px' }}>Digital Options</div>
+                <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#111', marginBottom: '16px', borderBottom: '2px solid #111', width: 'fit-content', paddingBottom: '4px' }}>
+                  Digital Options
+                  {digitalPricing?.category ? (
+                    <span style={{ marginLeft: '8px', fontWeight: 600, color: '#64748b', textTransform: 'none', letterSpacing: 0 }}>
+                      · {digitalPricing.category}
+                    </span>
+                  ) : null}
+                </div>
 
-                {/* Option 1: Single Download item (only if not forced all) */}
-                {!isPurchaseAllDefault && (
+                {/* Single download — category-specific price from store_packages */}
+                {digitalPricing?.single && (isPurchaseAllDefault ? !digitalPricing?.packageEligible : true) && (
                   <button
-                    onClick={() => { setSelectedDownloadType('single'); setSelectedStorePackage(null); setShowDigitalPurchaseDetail(true); }}
-                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', padding: '16px 0', border: 'none', borderBottom: '1px solid #e2e8f0', background: 'none', color: '#1a1a1a', textAlign: 'left', cursor: 'pointer' }}
+                    onClick={() => {
+                      if (isPurchaseAllDefault && !digitalPricing?.packageEligible) {
+                        // Need a photo selected first when opened from “buy all” / <10 mode
+                        if (!digitalDownloadPhoto?.id) return;
+                        setIsPurchaseAllDefault(false);
+                      }
+                      setSelectedDownloadType('single');
+                      setSelectedStorePackage(null);
+                      setShowDigitalPurchaseDetail(true);
+                    }}
+                    disabled={isPurchaseAllDefault && !digitalPricing?.packageEligible && !digitalDownloadPhoto?.id}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      width: '100%',
+                      padding: '16px 0',
+                      border: 'none',
+                      borderBottom: '1px solid #e2e8f0',
+                      background: 'none',
+                      color: '#1a1a1a',
+                      textAlign: 'left',
+                      cursor: (isPurchaseAllDefault && !digitalPricing?.packageEligible && !digitalDownloadPhoto?.id) ? 'not-allowed' : 'pointer',
+                      opacity: (isPurchaseAllDefault && !digitalPricing?.packageEligible && !digitalDownloadPhoto?.id) ? 0.5 : 1,
+                    }}
                   >
-                    <span style={{ fontSize: '13px', fontWeight: 500 }}>Single Photo Download (High Resolution)</span>
-                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748b' }}>₹{(collection.digital_download_price_single || 40).toFixed(2)} &gt;</span>
+                    <span style={{ fontSize: '13px', fontWeight: 500 }}>
+                      {digitalPricing.single.label}
+                      {isPurchaseAllDefault && !digitalPricing?.packageEligible && (
+                        <span style={{ display: 'block', marginTop: '3px', fontSize: '11px', color: '#64748b', fontWeight: 500 }}>
+                          {digitalDownloadPhoto?.id
+                            ? 'Selected photo from the grid on the left'
+                            : 'Tap a photo on the left to buy this single download'}
+                        </span>
+                      )}
+                    </span>
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748b' }}>
+                      ₹{Number(digitalPricing.single.price).toFixed(2)} &gt;
+                    </span>
                   </button>
                 )}
 
-                {/* Option 2: Entire Collection Download item */}
-                <button
-                  onClick={() => { setSelectedDownloadType('all'); setSelectedStorePackage(null); setShowDigitalPurchaseDetail(true); }}
-                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', padding: '16px 0', border: 'none', borderBottom: '1px solid #e2e8f0', background: 'none', color: '#1a1a1a', textAlign: 'left', cursor: 'pointer' }}
-                >
-                  <span style={{ fontSize: '13px', fontWeight: 500 }}>Entire Collection Download (All Photos)</span>
-                  <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748b' }}>₹{(collection.digital_download_price_all || 199).toFixed(2)} &gt;</span>
-                </button>
+                {/* Packs for this gallery category only — only tiers that fit photo count */}
+                {(digitalPricing?.packs || []).map((packOffer) => (
+                  <button
+                    key={packOffer.package?.id || packOffer.photo_count}
+                    onClick={() => {
+                      setSelectedDownloadType('package');
+                      setSelectedStorePackage(packOffer.package);
+                      setShowDigitalPurchaseDetail(true);
+                    }}
+                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', padding: '16px 0', border: 'none', borderBottom: '1px solid #e2e8f0', background: 'none', color: '#1a1a1a', textAlign: 'left', cursor: 'pointer' }}
+                  >
+                    <span style={{ fontSize: '13px', fontWeight: 500 }}>
+                      {packOffer.label}
+                      <span style={{ display: 'block', marginTop: '3px', fontSize: '11px', color: '#64748b', fontWeight: 500 }}>
+                        {packOffer.photo_count} high-resolution photos for social sharing
+                      </span>
+                    </span>
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748b', flexShrink: 0, marginLeft: '12px' }}>
+                      ₹{Number(packOffer.price || 0).toFixed(2)} &gt;
+                    </span>
+                  </button>
+                ))}
 
-                {storePackages.length > 0 && (
-                  <>
-                    <div style={{ marginTop: '20px', marginBottom: '8px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#111', borderBottom: '2px solid #111', width: 'fit-content', paddingBottom: '4px' }}>
-                      Category Packages
-                    </div>
-                    {storePackages.map((pkg) => (
-                      <button
-                        key={pkg.id}
-                        onClick={() => { setSelectedDownloadType('package'); setSelectedStorePackage(pkg); setShowDigitalPurchaseDetail(true); }}
-                        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', padding: '16px 0', border: 'none', borderBottom: '1px solid #e2e8f0', background: 'none', color: '#1a1a1a', textAlign: 'left', cursor: 'pointer' }}
-                      >
-                        <span style={{ fontSize: '13px', fontWeight: 500 }}>
-                          {pkg.name}
-                          <span style={{ display: 'block', marginTop: '3px', fontSize: '11px', color: '#64748b', fontWeight: 500 }}>
-                            {pkg.category_tag} · up to {pkg.photo_count} photos
-                            {pkg.description ? ` — ${pkg.description}` : ''}
-                          </span>
-                        </span>
-                        <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748b', flexShrink: 0, marginLeft: '12px' }}>
-                          ₹{Number(pkg.price || 0).toFixed(2)} &gt;
-                        </span>
-                      </button>
-                    ))}
-                  </>
-                )}
-
-                {isPurchaseAllDefault ? (
-                  <div style={{ marginTop: '24px', fontSize: '12px', color: '#64748b', lineHeight: 1.5 }}>
-                    ⓘ To purchase a single photo download instead, close this modal and click the download icon on any individual photo in the gallery.
+                {!digitalPricing?.single && !isPurchaseAllDefault && (
+                  <div style={{ marginTop: '8px', fontSize: '12px', color: '#64748b', lineHeight: 1.5 }}>
+                    ⓘ Digital download prices are not configured for this gallery’s category yet.
                   </div>
-                ) : (
+                )}
+
+                {!digitalPricing?.packageEligible && digitalPricing?.single && (
+                  <div style={{ marginTop: '16px', fontSize: '12px', color: '#64748b', lineHeight: 1.5 }}>
+                    ⓘ This gallery has fewer than {PACKAGE_THRESHOLD} photos. Select any photo on the left, then buy the single download.
+                  </div>
+                )}
+
+                {isPurchaseAllDefault && digitalPricing?.packageEligible ? (
+                  <div style={{ marginTop: '24px', fontSize: '12px', color: '#64748b', lineHeight: 1.5 }}>
+                    {digitalPricing?.packs?.length
+                      ? 'ⓘ Choose a photo package above, or select a photo on the left to buy a single download.'
+                      : 'ⓘ No packages are priced for this category yet. Select a photo on the left to buy a single download.'}
+                  </div>
+                ) : (digitalPricing?.packs?.length > 0 && !isPurchaseAllDefault) ? (
                   <>
-                    <div style={{ marginTop: '24px', marginBottom: '16px', fontSize: '13px', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#111' }}>Shop All Digital</div>
-                    <div
-                      onClick={() => { setSelectedDownloadType('all'); setShowDigitalPurchaseDetail(true); }}
-                      style={{ border: '1px solid #e2e8f0', padding: '12px', display: 'flex', flexDirection: 'column', width: '160px', boxSizing: 'border-box', cursor: 'pointer', background: '#f8fafc', borderRadius: '8px' }}
-                      className="hover:border-black/30"
-                    >
-                      <div style={{ width: '100%', height: '80px', backgroundColor: '#e2e8f0', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderRadius: '4px' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px', width: '100%', height: '100%' }}>
-                          {(filteredPhotos.slice(0, 4) || []).map((p, idx) => (
-                            <img key={idx} src={p.web_url || p.thumbnail_url || p.full_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          ))}
+                    <div style={{ marginTop: '24px', marginBottom: '16px', fontSize: '13px', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#111' }}>Shop Package</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                      {digitalPricing.packs.map((packOffer) => (
+                        <div
+                          key={`card-${packOffer.package?.id || packOffer.photo_count}`}
+                          onClick={() => {
+                            setSelectedDownloadType('package');
+                            setSelectedStorePackage(packOffer.package);
+                            setShowDigitalPurchaseDetail(true);
+                          }}
+                          style={{ border: '1px solid #e2e8f0', padding: '12px', display: 'flex', flexDirection: 'column', width: '148px', boxSizing: 'border-box', cursor: 'pointer', background: '#f8fafc', borderRadius: '8px' }}
+                          className="hover:border-black/30"
+                        >
+                          <div style={{ width: '100%', height: '80px', backgroundColor: '#e2e8f0', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderRadius: '4px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px', width: '100%', height: '100%' }}>
+                              {(filteredPhotos.slice(0, 4) || []).map((p, idx) => (
+                                <img key={idx} src={p.web_url || p.thumbnail_url || p.full_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              ))}
+                            </div>
+                            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <Download size={20} color="#fff" />
+                            </div>
+                          </div>
+                          <span style={{ fontSize: '10px', fontWeight: 700, marginTop: '8px', color: '#111', lineHeight: 1.2 }}>
+                            {packOffer.photo_count}-Photo Package
+                          </span>
+                          <span style={{ fontSize: '10px', color: '#64748b', marginTop: '2px' }}>
+                            ₹{Number(packOffer.price || 0).toFixed(2)}
+                          </span>
                         </div>
-                        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <Download size={20} color="#fff" />
-                        </div>
-                      </div>
-                      <span style={{ fontSize: '10px', fontWeight: 700, marginTop: '8px', color: '#111', lineHeight: 1.2 }}>Entire Collection</span>
-                      <span style={{ fontSize: '10px', color: '#64748b', marginTop: '2px' }}>₹{(collection.digital_download_price_all || 199).toFixed(2)}</span>
+                      ))}
                     </div>
                   </>
-                )}
+                ) : null}
               </div>
             </div>
           ) : (
@@ -2386,10 +2546,10 @@ const GalleryView = () => {
                   </button>
                   <span style={{ fontSize: '13px', fontWeight: 700, color: '#111' }}>
                     {selectedDownloadType === 'package' && selectedStorePackage
-                      ? selectedStorePackage.name
+                      ? (selectedStorePackage.name || `${selectedStorePackage.photo_count}-Photo Package`)
                       : selectedDownloadType === 'all'
                         ? 'Entire Collection Download (All Photos)'
-                        : 'Single Photo Download (High Resolution)'}
+                        : (digitalPricing?.single?.label || 'Single Photo Download')}
                   </span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -2398,8 +2558,8 @@ const GalleryView = () => {
                       selectedDownloadType === 'package' && selectedStorePackage
                         ? Number(selectedStorePackage.price) || 0
                         : selectedDownloadType === 'all'
-                          ? (collection.digital_download_price_all || 199)
-                          : (collection.digital_download_price_single || 40)
+                          ? Number(collection.digital_download_price_all) || 0
+                          : Number(digitalPricing?.single?.price) || 0
                     ).toFixed(2)}
                   </span>
                   <button
@@ -2475,10 +2635,11 @@ const GalleryView = () => {
                       const itemProductId = isAll ? 'digital_download_all' : 'digital_download';
                       const itemProductName = isAll
                         ? 'Entire Collection Download (All Photos)'
-                        : 'Single Photo Download (High Resolution)';
+                        : (digitalPricing?.single?.label || 'Single Photo Download');
                       const itemUnitPrice = Number(
-                        (isAll ? collection.digital_download_price_all : collection.digital_download_price_single)
-                        || (isAll ? 199 : 40)
+                        isAll
+                          ? (collection.digital_download_price_all || 0)
+                          : (digitalPricing?.single?.price || 0)
                       );
                       const photo = isAll ? null : digitalDownloadPhoto;
                       const size = { id: isAll ? 'all_photos' : 'hi_res', label: isAll ? 'All Photos' : 'High Resolution' };

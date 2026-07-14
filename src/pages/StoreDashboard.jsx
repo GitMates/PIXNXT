@@ -19,12 +19,21 @@ import {
 import {
   ShoppingBag, Settings, ChevronDown, ChevronUp,
   LogOut, User, Gift, DollarSign, Package, ChevronLeft, ChevronRight, Eye, Mail, Phone,
-  Search, Bell, Home, PanelLeftClose, PanelLeftOpen, Layers, ToggleLeft, ToggleRight, Boxes
+  Search, Bell, Home, PanelLeftClose, PanelLeftOpen, Layers, ToggleLeft, ToggleRight
 } from 'lucide-react';
 import helpPng from '../assets/icons/help.png';
 import notificationPng from '../assets/icons/notification.png';
-import StorePackagesPanel from '../components/store/StorePackagesPanel';
 import StorePurchaseTable, { DIGITAL_CATALOG_PRODUCT_TYPES } from '../components/store/StorePurchaseTable';
+import {
+  STORE_PACKAGE_CATEGORIES,
+  PACKAGE_PRICE_TIERS,
+  PACKAGE_PACK_TIERS,
+  PACKAGE_THRESHOLD,
+  emptyCategoryPricingMap,
+  categoryPricingFromPackages,
+  fetchStorePackages,
+  saveCategoryDigitalPricing,
+} from '../lib/storePackages';
 import './Dashboard.css';
 import '../printstore/PrintStore.css';
 import '../styles/clientGalleryTheme.css';
@@ -85,6 +94,8 @@ export default function StoreDashboard() {
   const [globalDigitalPriceSingle, setGlobalDigitalPriceSingle] = useState('40');
   const [globalDigitalPriceAll, setGlobalDigitalPriceAll] = useState('199');
   const [savingGlobalDigital, setSavingGlobalDigital] = useState(false);
+  const [categoryDigitalPricing, setCategoryDigitalPricing] = useState(() => emptyCategoryPricingMap());
+  const [loadingDigitalSettings, setLoadingDigitalSettings] = useState(false);
 
   // Permanent Vault state
   const [globalVaultEnabled, setGlobalVaultEnabled] = useState(false);
@@ -626,7 +637,12 @@ export default function StoreDashboard() {
     async function loadData() {
       if (!user) return;
       if (cachedOrders && cachedOrderItems && cachedCollections && cachedPhotos) {
-        return; // Skip loading if already cached
+        setOrders(cachedOrders);
+        setOrderItems(cachedOrderItems);
+        setCollections(cachedCollections);
+        setPhotos(cachedPhotos);
+        setLoading(false);
+        return;
       }
       setLoading(true);
       try {
@@ -644,14 +660,20 @@ export default function StoreDashboard() {
           .select('id, name, digital_download_enabled, digital_download_price_single, digital_download_price_all, cover_url, event_date, store_banner_text')
           .eq('photographer_id', user.id);
 
-        const { data: photosData } = await supabase
-          .from('photos')
-          .select('id, collection_id, web_url, thumbnail_url, full_url');
+        const collectionIds = (collectionsData || []).map((c) => c.id);
+        let photosData = [];
+        if (collectionIds.length > 0) {
+          const { data } = await supabase
+            .from('photos')
+            .select('id, collection_id, web_url, thumbnail_url, full_url')
+            .in('collection_id', collectionIds);
+          photosData = data || [];
+        }
 
         const ords = ordersData || [];
         const items = itemsData || [];
         const cols = collectionsData || [];
-        const phs = photosData || [];
+        const phs = photosData;
 
         cachedOrders = ords;
         cachedOrderItems = items;
@@ -731,6 +753,32 @@ export default function StoreDashboard() {
     };
     loadVaultSettings();
   }, [collections]);
+
+  // Load category digital package prices (Default / Wedding / Portrait / Event)
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    (async () => {
+      setLoadingDigitalSettings(true);
+      try {
+        const rows = await fetchStorePackages(user.id);
+        if (cancelled) return;
+        const map = categoryPricingFromPackages(rows);
+        setCategoryDigitalPricing(map);
+        const prefer =
+          map.Default?.['1'] || map.Wedding?.['1'] || map.Portrait?.['1'] || map.Event?.['1'];
+        const preferPack =
+          map.Default?.['10'] || map.Wedding?.['10'] || map.Portrait?.['10'] || map.Event?.['10'];
+        if (prefer) setGlobalDigitalPriceSingle(prefer);
+        if (preferPack) setGlobalDigitalPriceAll(preferPack);
+      } catch (err) {
+        console.warn('Could not load category digital pricing:', err);
+      } finally {
+        if (!cancelled) setLoadingDigitalSettings(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id]);
 
   const fetchProducts = async (force = false) => {
     if (cachedProducts && !force) {
@@ -1078,54 +1126,70 @@ export default function StoreDashboard() {
   };
 
   const handleSaveGlobalDigitalSettings = async () => {
-    const singlePrice = parseInt(globalDigitalPriceSingle);
-    const allPrice = parseInt(globalDigitalPriceAll);
-
-    if (isNaN(singlePrice) || singlePrice < 0) {
-      alert("Please enter a valid price for single photo downloads.");
+    if (!user?.id) {
+      setNotification({ type: 'error', text: 'You must be signed in to save settings.' });
       return;
     }
-    if (isNaN(allPrice) || allPrice < 0) {
-      alert("Please enter a valid price for all photos downloads.");
-      return;
-    }
-
     setSavingGlobalDigital(true);
+    setNotification(null);
     try {
-      const collectionIds = collections.map(c => c.id);
-      if (collectionIds.length === 0) {
-        setNotification({ type: 'success', text: `✓ No collections found to update.` });
-        setTimeout(() => setNotification(null), 4000);
-        return;
+      // Collection fallbacks come only from Default category (never copy Wedding → others)
+      const defaultSingle = parseInt(String(categoryDigitalPricing.Default?.['1'] || '').replace(/\D/g, ''), 10);
+      const defaultPack = parseInt(String(categoryDigitalPricing.Default?.['10'] || '').replace(/\D/g, ''), 10);
+      const singlePrice = Number.isFinite(defaultSingle) ? defaultSingle : 0;
+      const packPrice = Number.isFinite(defaultPack) ? defaultPack : 0;
+
+      await saveCategoryDigitalPricing(user.id, categoryDigitalPricing);
+      const rows = await fetchStorePackages(user.id);
+      setCategoryDigitalPricing(categoryPricingFromPackages(rows));
+
+      const collectionIds = (collections || []).map((c) => c.id).filter(Boolean);
+      if (collectionIds.length > 0) {
+        // Update in chunks so large stores don't hang one request forever
+        const chunkSize = 50;
+        for (let i = 0; i < collectionIds.length; i += chunkSize) {
+          const chunk = collectionIds.slice(i, i + chunkSize);
+          const { error } = await supabase
+            .from('collections')
+            .update({
+              digital_download_enabled: globalDigitalEnabled,
+              digital_download_price_single: singlePrice,
+              digital_download_price_all: packPrice,
+            })
+            .in('id', chunk);
+          if (error) throw error;
+        }
+
+        setCollections((prev) => {
+          const next = prev.map((c) => ({
+            ...c,
+            digital_download_enabled: globalDigitalEnabled,
+            digital_download_price_single: singlePrice,
+            digital_download_price_all: packPrice,
+          }));
+          cachedCollections = next;
+          return next;
+        });
       }
 
-      const { error } = await supabase
-        .from('collections')
-        .update({
-          digital_download_enabled: globalDigitalEnabled,
-          digital_download_price_single: singlePrice,
-          digital_download_price_all: allPrice
-        })
-        .in('id', collectionIds);
-
-      if (error) throw error;
-
+      setGlobalDigitalPriceSingle(String(singlePrice));
+      setGlobalDigitalPriceAll(String(packPrice));
       localStorage.setItem('pixnxt_global_digital_enabled', String(globalDigitalEnabled));
       localStorage.setItem('pixnxt_global_digital_price_single', String(singlePrice));
-      localStorage.setItem('pixnxt_global_digital_price_all', String(allPrice));
+      localStorage.setItem('pixnxt_global_digital_price_all', String(packPrice));
 
-      setCollections(prev => prev.map(c => ({
-        ...c,
-        digital_download_enabled: globalDigitalEnabled,
-        digital_download_price_single: singlePrice,
-        digital_download_price_all: allPrice
-      })));
-
-      setNotification({ type: 'success', text: `✓ Successfully saved digital download settings across all collections.` });
-      setTimeout(() => setNotification(null), 4000);
+      setNotification({
+        type: 'success',
+        text: '✓ Digital download & category package prices saved.',
+      });
+      setTimeout(() => setNotification((n) => (n?.type === 'success' ? null : n)), 5000);
     } catch (err) {
-      console.error("Error saving global digital settings:", err);
-      alert("Failed to save settings: " + err.message);
+      console.error('Error saving global digital settings:', err);
+      const message = err?.message || String(err) || 'Unknown error';
+      setNotification({
+        type: 'error',
+        text: `Save failed: ${message}`,
+      });
     } finally {
       setSavingGlobalDigital(false);
     }
@@ -1721,12 +1785,6 @@ export default function StoreDashboard() {
               <Link to="#" onClick={(e) => { e.preventDefault(); setActiveViewTab('digital_downloads'); }} title="Digital Downloads" style={isSidebarCollapsed ? { justifyContent: 'center', paddingLeft: '0', paddingRight: '0' } : {}}>
                 <ShoppingBag size={18} />
                 {!isSidebarCollapsed && <span>Digital Download</span>}
-              </Link>
-            </li>
-            <li className={activeViewTab === 'packages' ? 'active' : ''}>
-              <Link to="#" onClick={(e) => { e.preventDefault(); setActiveViewTab('packages'); }} title="Packages" style={isSidebarCollapsed ? { justifyContent: 'center', paddingLeft: '0', paddingRight: '0' } : {}}>
-                <Boxes size={18} />
-                {!isSidebarCollapsed && <span>Packages</span>}
               </Link>
             </li>
             <li className={activeViewTab === 'settings' ? 'active' : ''}>
@@ -2623,37 +2681,19 @@ export default function StoreDashboard() {
                 </div>
               )}
             </div>
-          ) : activeViewTab === 'packages' ? (
-            <>
-              {notification && (
-                <div style={{
-                  padding: '12px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: 600,
-                  backgroundColor: notification.type === 'error' ? 'rgba(254, 226, 226, 0.95)' : 'rgba(236, 253, 245, 0.9)',
-                  backdropFilter: 'blur(8px)',
-                  color: notification.type === 'error' ? '#b91c1c' : '#059669',
-                  border: `1px solid ${notification.type === 'error' ? 'rgba(252, 165, 165, 0.5)' : 'rgba(167, 243, 208, 0.4)'}`,
-                  margin: '20px 24px 0',
-                }}>
-                  {notification.text}
-                </div>
-              )}
-              <StorePackagesPanel
-                photographerId={user?.id}
-                onNotify={(n) => {
-                  setNotification(n);
-                  setTimeout(() => setNotification(null), 4000);
-                }}
-              />
-            </>
           ) : activeViewTab === 'digital_downloads' ? (
             <div className="store-dashboard-content">
               {notification && (
                 <div style={{
                   padding: '12px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: 600,
-                  backgroundColor: 'rgba(236, 253, 245, 0.9)',
+                  backgroundColor: notification.type === 'error'
+                    ? 'rgba(254, 226, 226, 0.95)'
+                    : 'rgba(236, 253, 245, 0.9)',
                   backdropFilter: 'blur(8px)',
-                  color: '#059669',
-                  border: `1px solid rgba(167, 243, 208, 0.4)`,
+                  color: notification.type === 'error' ? '#b91c1c' : '#059669',
+                  border: notification.type === 'error'
+                    ? '1px solid rgba(252, 165, 165, 0.5)'
+                    : '1px solid rgba(167, 243, 208, 0.4)',
                   marginBottom: '20px'
                 }}>
                   {notification.text}
@@ -2663,161 +2703,206 @@ export default function StoreDashboard() {
               <div className="store-dashboard-header-row" style={{ marginBottom: '24px' }}>
                 <div>
                   <h1 className="store-dashboard-title">Digital Downloads</h1>
-                  <p className="store-dashboard-subtitle">Configure download pricing and activation globally for all your photo collections.</p>
+                  <p className="store-dashboard-subtitle">
+                    Turn paid downloads on, then set prices by category (Default, Wedding, Portrait, Event)
+                    for single photos and {PACKAGE_PACK_TIERS.join(' / ')}-photo packages.
+                    Galleries with fewer than {PACKAGE_THRESHOLD} photos are single-only; larger galleries
+                    only see packs that fit their photo count.
+                  </p>
                 </div>
               </div>
 
               {/* Global Settings Card */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                {loading ? (
-                  <div style={{ padding: '60px', textAlign: 'center', color: '#64748b' }}>Loading settings...</div>
-                ) : (
-                  <div
-                    style={{
-                      backgroundColor: 'rgba(255, 255, 255, 0.55)',
-                      backdropFilter: 'blur(12px)',
-                      border: '1px solid rgba(0, 0, 0, 0.06)',
-                      borderRadius: '16px',
-                      padding: '32px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '24px',
-                      boxShadow: '0 4px 20px rgba(0,0,0,0.01)'
-                    }}
-                  >
-                    <div style={{ borderBottom: '1px solid rgba(0,0,0,0.08)', paddingBottom: '16px' }}>
-                      <h3 style={{ margin: '0 0 6px 0', fontSize: '16px', fontWeight: 700, color: '#111' }}>Storewide Settings</h3>
-                      <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>Configure download settings that automatically apply to all your photo collections.</p>
-                    </div>
+                <div
+                  style={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.55)',
+                    backdropFilter: 'blur(12px)',
+                    border: '1px solid rgba(0, 0, 0, 0.06)',
+                    borderRadius: '16px',
+                    padding: '32px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '24px',
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.01)'
+                  }}
+                >
+                  <div style={{ borderBottom: '1px solid rgba(0,0,0,0.08)', paddingBottom: '16px' }}>
+                    <h3 style={{ margin: '0 0 6px 0', fontSize: '16px', fontWeight: 700, color: '#111' }}>Storewide Settings</h3>
+                    <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
+                      Enable paid downloads for all galleries. Clients only see prices for their gallery’s category — Wedding never copies to Portrait or Event.
+                    </p>
+                  </div>
 
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '30px', alignItems: 'center' }}>
-                      {/* Toggle switch */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <button
-                          onClick={() => setGlobalDigitalEnabled(prev => !prev)}
-                          style={{
-                            width: '50px',
-                            height: '28px',
-                            borderRadius: '14px',
-                            border: 'none',
-                            cursor: 'pointer',
-                            position: 'relative',
-                            backgroundColor: globalDigitalEnabled ? '#059669' : '#cbd5e1',
-                            transition: 'background-color 0.3s ease',
-                            padding: 0,
-                            flexShrink: 0
-                          }}
-                        >
-                          <div style={{
-                            width: '22px',
-                            height: '22px',
-                            borderRadius: '50%',
-                            backgroundColor: '#fff',
-                            boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-                            position: 'absolute',
-                            top: '3px',
-                            left: globalDigitalEnabled ? '25px' : '3px',
-                            transition: 'left 0.3s ease'
-                          }} />
-                        </button>
-                        <div>
-                          <span style={{ display: 'block', fontSize: '13.5px', fontWeight: 700, color: '#1a1a1a' }}>
-                            {globalDigitalEnabled ? 'Digital Downloads Enabled' : 'Digital Downloads Disabled'}
-                          </span>
-                          <span style={{ fontSize: '11px', color: '#64748b' }}>Applies storewide to all image downloads</span>
-                        </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '30px', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <button
+                        onClick={() => setGlobalDigitalEnabled(prev => !prev)}
+                        style={{
+                          width: '50px',
+                          height: '28px',
+                          borderRadius: '14px',
+                          border: 'none',
+                          cursor: 'pointer',
+                          position: 'relative',
+                          backgroundColor: globalDigitalEnabled ? '#059669' : '#cbd5e1',
+                          transition: 'background-color 0.3s ease',
+                          padding: 0,
+                          flexShrink: 0
+                        }}
+                      >
+                        <div style={{
+                          width: '22px',
+                          height: '22px',
+                          borderRadius: '50%',
+                          backgroundColor: '#fff',
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                          position: 'absolute',
+                          top: '3px',
+                          left: globalDigitalEnabled ? '25px' : '3px',
+                          transition: 'left 0.3s ease'
+                        }} />
+                      </button>
+                      <div>
+                        <span style={{ display: 'block', fontSize: '13.5px', fontWeight: 700, color: '#1a1a1a' }}>
+                          {globalDigitalEnabled ? 'Digital Downloads Enabled' : 'Digital Downloads Disabled'}
+                        </span>
+                        <span style={{ fontSize: '11px', color: '#64748b' }}>Applies storewide to all galleries</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {globalDigitalEnabled && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      <div>
+                        <h4 style={{ margin: '0 0 6px', fontSize: '13px', fontWeight: 700, color: '#111', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                          Category package pricing
+                        </h4>
+                        <p style={{ margin: 0, fontSize: '12.5px', color: '#64748b', lineHeight: 1.5 }}>
+                          <strong>Default</strong> applies to galleries without a Wedding / Portrait / Event tag.
+                          Packs appear only when the gallery has at least that many photos (minimum {PACKAGE_THRESHOLD}).
+                          Leave a cell blank or 0 to hide that package.
+                        </p>
                       </div>
 
-                      {/* Price inputs */}
-                      {globalDigitalEnabled && (
-                        <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <label style={{ fontSize: '12.5px', color: '#64748b', fontWeight: 700 }}>Single Image Price</label>
-                            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                              <span style={{ position: 'absolute', left: '12px', fontSize: '13px', color: '#71717A' }}>₹</span>
-                              <input
-                                type="text"
-                                pattern="[0-9]*"
-                                value={globalDigitalPriceSingle}
-                                onChange={(e) => {
-                                  const val = e.target.value.replace(/[^0-9]/g, '');
-                                  setGlobalDigitalPriceSingle(val);
-                                }}
-                                onKeyDown={(e) => {
-                                  if (e.key === '.' || e.key === ',') e.preventDefault();
-                                }}
-                                style={{
-                                  width: '120px',
-                                  padding: '10px 12px 10px 24px',
-                                  fontSize: '13px',
-                                  borderRadius: '8px',
-                                  border: '1px solid #cbd5e1',
-                                  outline: 'none',
-                                  boxSizing: 'border-box'
-                                }}
-                              />
+                      {loadingDigitalSettings ? (
+                        <div style={{ padding: '24px', textAlign: 'center', color: '#64748b', fontSize: '13px' }}>
+                          Loading package prices…
+                        </div>
+                      ) : (
+                        <div style={{
+                          border: '1px solid rgba(0,0,0,0.06)',
+                          borderRadius: '12px',
+                          overflow: 'auto',
+                          background: '#fff',
+                        }}>
+                          <div style={{ minWidth: '720px' }}>
+                            <div style={{
+                              display: 'grid',
+                              gridTemplateColumns: `1.3fr repeat(${PACKAGE_PRICE_TIERS.length}, minmax(88px, 1fr))`,
+                              gap: 0,
+                              background: '#f8fafc',
+                              borderBottom: '1px solid #e2e8f0',
+                              padding: '12px 16px',
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.05em',
+                              color: '#64748b',
+                            }}>
+                              <span>Category</span>
+                              {PACKAGE_PRICE_TIERS.map((tier) => (
+                                <span key={tier}>
+                                  {tier === 1 ? 'Single (₹)' : `${tier} photos (₹)`}
+                                </span>
+                              ))}
                             </div>
-                          </div>
-
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <label style={{ fontSize: '12.5px', color: '#64748b', fontWeight: 700 }}>All Images Price</label>
-                            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                              <span style={{ position: 'absolute', left: '12px', fontSize: '13px', color: '#71717A' }}>₹</span>
-                              <input
-                                type="text"
-                                pattern="[0-9]*"
-                                value={globalDigitalPriceAll}
-                                onChange={(e) => {
-                                  const val = e.target.value.replace(/[^0-9]/g, '');
-                                  setGlobalDigitalPriceAll(val);
-                                }}
-                                onKeyDown={(e) => {
-                                  if (e.key === '.' || e.key === ',') e.preventDefault();
-                                }}
+                            {STORE_PACKAGE_CATEGORIES.map((cat) => (
+                              <div
+                                key={cat}
                                 style={{
-                                  width: '120px',
-                                  padding: '10px 12px 10px 24px',
-                                  fontSize: '13px',
-                                  borderRadius: '8px',
-                                  border: '1px solid #cbd5e1',
-                                  outline: 'none',
-                                  boxSizing: 'border-box'
+                                  display: 'grid',
+                                  gridTemplateColumns: `1.3fr repeat(${PACKAGE_PRICE_TIERS.length}, minmax(88px, 1fr))`,
+                                  gap: '10px',
+                                  alignItems: 'center',
+                                  padding: '14px 16px',
+                                  borderBottom: '1px solid #f1f5f9',
                                 }}
-                              />
-                            </div>
+                              >
+                                <div>
+                                  <strong style={{ fontSize: '14px', color: '#111' }}>{cat}</strong>
+                                  <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
+                                    {cat === 'Default'
+                                      ? 'Untagged galleries'
+                                      : `Galleries tagged “${cat}”`}
+                                  </div>
+                                </div>
+                                {PACKAGE_PRICE_TIERS.map((tier) => (
+                                  <div key={tier} style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                                    <span style={{ position: 'absolute', left: '10px', fontSize: '12px', color: '#71717A' }}>₹</span>
+                                    <input
+                                      type="text"
+                                      inputMode="numeric"
+                                      value={categoryDigitalPricing[cat]?.[String(tier)] || ''}
+                                      onChange={(e) => {
+                                        const val = e.target.value.replace(/[^0-9]/g, '');
+                                        setCategoryDigitalPricing((prev) => ({
+                                          ...prev,
+                                          [cat]: { ...prev[cat], [String(tier)]: val },
+                                        }));
+                                      }}
+                                      placeholder="0"
+                                      style={{
+                                        width: '100%',
+                                        padding: '10px 8px 10px 22px',
+                                        fontSize: '13px',
+                                        borderRadius: '8px',
+                                        border: '1px solid #cbd5e1',
+                                        outline: 'none',
+                                        boxSizing: 'border-box',
+                                      }}
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                            ))}
                           </div>
                         </div>
                       )}
                     </div>
+                  )}
 
-                    <div style={{ marginTop: '8px' }}>
-                      <button
-                        onClick={handleSaveGlobalDigitalSettings}
-                        disabled={savingGlobalDigital}
-                        style={{
-                          padding: '12px 24px',
-                          fontSize: '12.5px',
-                          fontWeight: 700,
-                          border: 'none',
-                          borderRadius: '8px',
-                          backgroundColor: '#111',
-                          color: '#fff',
-                          cursor: 'pointer',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.05em',
-                          opacity: savingGlobalDigital ? 0.7 : 1,
-                          boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                        }}
-                      >
-                        {savingGlobalDigital ? 'Saving Settings...' : 'Save Settings'}
-                      </button>
-                    </div>
+                  <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={handleSaveGlobalDigitalSettings}
+                      disabled={savingGlobalDigital}
+                      style={{
+                        padding: '12px 24px',
+                        fontSize: '12.5px',
+                        fontWeight: 700,
+                        border: 'none',
+                        borderRadius: '8px',
+                        backgroundColor: '#111',
+                        color: '#fff',
+                        cursor: savingGlobalDigital ? 'wait' : 'pointer',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em',
+                        opacity: savingGlobalDigital ? 0.7 : 1,
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                      }}
+                    >
+                      {savingGlobalDigital ? 'Saving Settings...' : 'Save Settings'}
+                    </button>
+                    {savingGlobalDigital && (
+                      <span style={{ fontSize: '12px', color: '#64748b' }}>Writing prices to the database…</span>
+                    )}
                   </div>
-                )}
+                </div>
 
                 <StorePurchaseTable
                   title="Digital Download Purchases"
-                  subtitle="Who bought single, entire-collection, or category packages from your galleries."
+                  subtitle="Who bought single photos or category photo packages from your galleries."
                   rows={digitalPurchases}
                   loading={loadingDigitalPurchases}
                   emptyText="No digital download purchases yet."

@@ -2,8 +2,9 @@ import React from 'react';
 import { MOCK_PHOTOS } from '../data/mockStoreData';
 
 export default function AllProducts({ products, selectedPhotoUrl, onSelectProduct, photos = [] }) {
+  // Prefer the shop-selected photo for every product preview slot
   const firstPhotoUrl = selectedPhotoUrl || photos[0]?.url || photos[0]?.web_url || "";
-  const secondPhotoUrl = photos[1]?.url || photos[1]?.web_url || selectedPhotoUrl || firstPhotoUrl;
+  const secondPhotoUrl = selectedPhotoUrl || firstPhotoUrl;
   
   const renderProductImage = (product) => {
     const defaultImg = firstPhotoUrl || product.image;

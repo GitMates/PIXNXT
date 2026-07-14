@@ -1,7 +1,32 @@
 import { supabase } from './supabase/client';
 import { categoryTagsFromCollection, normalizeCategoryTag } from './categoryTags';
 
-export const STORE_PACKAGE_CATEGORIES = ['Wedding', 'Portrait', 'Event'];
+export const STORE_PACKAGE_CATEGORIES = ['Default', 'Wedding', 'Portrait', 'Event'];
+
+/** Collections with fewer than this many photos are not package-eligible. */
+export const PACKAGE_THRESHOLD = 10;
+
+/** Pack sizes offered for social sharing (in addition to single photo). */
+export const PACKAGE_PACK_TIERS = [10, 20, 30, 40, 50];
+
+/** All price tiers including single (1). */
+export const PACKAGE_PRICE_TIERS = [1, ...PACKAGE_PACK_TIERS];
+
+/** @deprecated Prefer PACKAGE_PACK_TIERS[0] — kept for older imports. */
+export const PACKAGE_PHOTO_COUNT = 10;
+
+export function emptyCategoryPricingMap() {
+  return Object.fromEntries(
+    STORE_PACKAGE_CATEGORIES.map((cat) => [
+      cat,
+      Object.fromEntries(PACKAGE_PRICE_TIERS.map((n) => [String(n), ''])),
+    ])
+  );
+}
+
+export function isPackageCollection(photoCount) {
+  return Number(photoCount) >= PACKAGE_THRESHOLD;
+}
 
 export function normalizePackageCategory(value) {
   const tag = normalizeCategoryTag(value);
@@ -12,14 +37,97 @@ export function normalizePackageCategory(value) {
   return match || tag;
 }
 
-/** Packages whose category matches any gallery category_tag (case-insensitive). */
-export function filterPackagesForCollection(packages, collection) {
+/**
+ * Resolve gallery category for digital packaging.
+ * Matches Wedding / Portrait / Event from category_tags; otherwise Default.
+ */
+export function resolveCollectionPackageCategory(collection) {
   const tags = categoryTagsFromCollection(collection).map((t) => t.toLowerCase());
-  if (!tags.length || !Array.isArray(packages)) return [];
+  for (const cat of STORE_PACKAGE_CATEGORIES) {
+    if (cat === 'Default') continue;
+    if (tags.includes(cat.toLowerCase())) return cat;
+  }
+  return 'Default';
+}
+
+export function findTierPrice(packages, category, photoCount) {
+  if (!category || !Array.isArray(packages)) return null;
+  const cat = String(category).toLowerCase();
+  const count = Number(photoCount);
+  const row = packages.find(
+    (p) =>
+      String(p.category_tag || '').toLowerCase() === cat
+      && Number(p.photo_count) === count
+      && (p.is_active !== false)
+  );
+  return row || null;
+}
+
+function parsePriceInput(value) {
+  const n = parseInt(String(value ?? '').replace(/\D/g, ''), 10);
+  return Number.isFinite(n) ? Math.max(0, n) : null;
+}
+
+function tierOffer(row, category, photoCount) {
+  if (!row) return null;
+  const price = Number(row.price);
+  if (!Number.isFinite(price) || price <= 0) return null;
+  const label =
+    photoCount === 1
+      ? `${category} · Single Photo`
+      : `${category} · ${photoCount} Photos`;
+  return { price, package: row, label, photo_count: photoCount };
+}
+
+/**
+ * Resolve single + pack offerings for a gallery from store_packages only.
+ * Never mixes Wedding / Portrait / Event prices across categories.
+ * Falls back to Default category rows when the matched category has no tier.
+ */
+export function resolveDigitalCategoryPricing(packages, collection, { photoCount } = {}) {
+  const category = resolveCollectionPackageCategory(collection);
+  const count = Number(photoCount) || 0;
+  const packageEligible = isPackageCollection(count);
+
+  const pickTier = (tierCount) => {
+    const primary = findTierPrice(packages, category, tierCount);
+    if (primary) return tierOffer(primary, category, tierCount);
+    if (category !== 'Default') {
+      const fallback = findTierPrice(packages, 'Default', tierCount);
+      if (fallback) return tierOffer(fallback, 'Default', tierCount);
+    }
+    return null;
+  };
+
+  const single = pickTier(1);
+
+  const packs = packageEligible
+    ? PACKAGE_PACK_TIERS
+      .filter((n) => count >= n)
+      .map((n) => pickTier(n))
+      .filter(Boolean)
+    : [];
+
+  return {
+    category,
+    packageEligible,
+    single,
+    packs,
+    /** @deprecated Use packs — first pack for older UI. */
+    pack: packs[0] || null,
+    entireFallback: null,
+  };
+}
+
+/** Packages whose category matches the gallery's resolved category (or Default). */
+export function filterPackagesForCollection(packages, collection) {
+  const category = resolveCollectionPackageCategory(collection);
+  if (!Array.isArray(packages)) return [];
+  const cat = category.toLowerCase();
   return packages.filter((pkg) => {
-    if (!pkg?.is_active && pkg?.is_active !== undefined) return false;
-    const cat = String(pkg.category_tag || '').toLowerCase();
-    return cat && tags.includes(cat);
+    if (pkg?.is_active === false) return false;
+    const tag = String(pkg.category_tag || '').toLowerCase();
+    return tag === cat || tag === 'default';
   });
 }
 
@@ -37,6 +145,113 @@ export async function fetchStorePackages(photographerId, { activeOnly = false } 
   const { data, error } = await query;
   if (error) throw error;
   return data || [];
+}
+
+/**
+ * Build UI state: { Wedding: { '1': '40', '10': '199', ... }, ... }
+ */
+export function categoryPricingFromPackages(packages) {
+  const out = emptyCategoryPricingMap();
+  for (const row of packages || []) {
+    const cat = normalizePackageCategory(row.category_tag);
+    if (!out[cat]) continue;
+    const count = Number(row.photo_count);
+    if (!PACKAGE_PRICE_TIERS.includes(count)) continue;
+    out[cat][String(count)] = String(Math.round(Number(row.price) || 0));
+  }
+  return out;
+}
+
+function buildTierPayload(cat, photoCount, price, sortOrder) {
+  return {
+    category_tag: cat,
+    name: photoCount === 1 ? `${cat} · Single Photo` : `${cat} · ${photoCount} Photos`,
+    photo_count: photoCount,
+    price,
+    package_type: 'digital',
+    description:
+      photoCount === 1
+        ? `Single high-resolution download for ${cat} galleries`
+        : `${photoCount}-photo social sharing package for ${cat} galleries`,
+    is_active: price > 0 || photoCount === 1,
+    sort_order: sortOrder,
+  };
+}
+
+/**
+ * Save category digital pricing via fetch + insert/update (reliable; no ON CONFLICT dependency).
+ */
+export async function saveCategoryDigitalPricing(photographerId, pricingMap) {
+  if (!photographerId) throw new Error('Missing photographer');
+
+  const existing = await fetchStorePackages(photographerId);
+  const toInsert = [];
+  const updateJobs = [];
+
+  for (let i = 0; i < STORE_PACKAGE_CATEGORIES.length; i += 1) {
+    const cat = STORE_PACKAGE_CATEGORIES[i];
+    const entry = pricingMap?.[cat] || {};
+
+    for (let t = 0; t < PACKAGE_PRICE_TIERS.length; t += 1) {
+      const photoCount = PACKAGE_PRICE_TIERS[t];
+      const raw = entry[String(photoCount)] ?? entry[photoCount]
+        ?? (photoCount === 1 ? entry.single : null)
+        ?? (photoCount === 10 ? entry.pack : null);
+      const parsed = parsePriceInput(raw);
+      const price = parsed == null ? 0 : parsed;
+
+      const match = existing.find(
+        (p) =>
+          String(p.category_tag || '').toLowerCase() === cat.toLowerCase()
+          && Number(p.photo_count) === photoCount
+      );
+
+      // Skip never-priced empty packs
+      if (!match && price <= 0 && photoCount !== 1) continue;
+
+      const payload = buildTierPayload(
+        cat,
+        photoCount,
+        price,
+        i * PACKAGE_PRICE_TIERS.length + t
+      );
+
+      if (match) {
+        // Clear / deactivate empty packs that already exist
+        if (price <= 0 && photoCount !== 1) {
+          updateJobs.push(
+            updateStorePackage(match.id, photographerId, {
+              ...payload,
+              is_active: false,
+              price: 0,
+            })
+          );
+        } else {
+          updateJobs.push(updateStorePackage(match.id, photographerId, payload));
+        }
+      } else {
+        toInsert.push({ photographer_id: photographerId, ...payload });
+      }
+    }
+  }
+
+  const results = [];
+
+  if (updateJobs.length) {
+    const updated = await Promise.all(updateJobs);
+    results.push(...updated);
+  }
+
+  if (toInsert.length) {
+    const { data, error } = await supabase
+      .from('store_packages')
+      .insert(toInsert)
+      .select();
+    if (error) throw new Error(error.message || 'Failed to insert package prices');
+    results.push(...(data || []));
+  }
+
+  return results;
 }
 
 export async function createStorePackage(photographerId, payload) {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Lottie from 'lottie-react';
 import { ChevronLeft, ChevronDown } from 'lucide-react';
 import CartItemPreview from './CartItemPreview';
@@ -18,11 +18,24 @@ export default function PaymentPage({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [showDetails, setShowDetails] = useState(true);
 
-  const DIGITAL_PRODUCTS = ['digital_download', 'digital_download_all', 'digital_package'];
-  const allDigital = cartItems.length > 0 && cartItems.every(i => DIGITAL_PRODUCTS.includes(i.productId));
+  // Freeze cart for this screen so totals never flash to ₹0 while order is placing
+  const lockedCartRef = useRef(null);
+  useEffect(() => {
+    if (!lockedCartRef.current && Array.isArray(cartItems) && cartItems.length > 0) {
+      lockedCartRef.current = cartItems;
+    }
+  }, [cartItems]);
 
-  const totalItems = cartItems.reduce((acc, item) => acc + item.quantity, 0);
-  const itemsTotal = cartItems.reduce((acc, item) => acc + item.unitPrice * item.quantity, 0);
+  const displayCart =
+    (lockedCartRef.current && lockedCartRef.current.length > 0)
+      ? lockedCartRef.current
+      : (cartItems || []);
+
+  const DIGITAL_PRODUCTS = ['digital_download', 'digital_download_all', 'digital_package'];
+  const allDigital = displayCart.length > 0 && displayCart.every(i => DIGITAL_PRODUCTS.includes(i.productId));
+
+  const totalItems = displayCart.reduce((acc, item) => acc + (Number(item.quantity) || 0), 0);
+  const itemsTotal = displayCart.reduce((acc, item) => acc + (Number(item.unitPrice) || 0) * (Number(item.quantity) || 0), 0);
   const shipping = allDigital ? 0 : (itemsTotal > 0 ? 111.04 : 0);
   const taxes = 0.00;
   const estimatedTotal = itemsTotal + shipping + taxes;
@@ -39,6 +52,11 @@ export default function PaymentPage({
   const [errors, setErrors] = useState({});
 
   const handlePayNow = async () => {
+    if (!displayCart.length || estimatedTotal <= 0) {
+      setErrors({ submit: 'Your cart is empty or total is ₹0. Go back and add a paid item.' });
+      return;
+    }
+
     if (paymentMethod === 'Credit Card') {
       const newErrors = {};
       if (!formData.email) newErrors.email = 'Required';
@@ -258,7 +276,7 @@ export default function PaymentPage({
                 
                 {/* Itemized List with Frame Previews */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem', marginBottom: '1.5rem', borderBottom: '1px solid #eee', paddingBottom: '1.5rem', maxHeight: '250px', overflowY: 'auto' }}>
-                  {cartItems.map((item) => (
+                  {displayCart.map((item) => (
                     <div key={item.id} style={{ display: 'flex', gap: '0.75rem', fontSize: '0.85rem', alignItems: 'center' }}>
                       <div style={{ width: '50px', height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', background: '#f7f7f7', border: '1px solid #eaeaea', flexShrink: 0 }}>
                         <div style={{ transform: 'scale(0.16)', transformOrigin: 'center center', width: '307.25px', height: '307.25px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>

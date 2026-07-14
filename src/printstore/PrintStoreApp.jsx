@@ -264,6 +264,11 @@ export default function PrintStoreApp() {
   const [selectedProductType, setSelectedProductType] = useState('');
   const [viewingPhoto, setViewingPhoto] = useState(null); // Photo currently open in lightbox
   const [gallerySelectedPhoto, setGallerySelectedPhoto] = useState(null); // Photo selected from gallery for shop use
+  const gallerySelectedPhotoUrl =
+    gallerySelectedPhoto?.url
+    || gallerySelectedPhoto?.web_url
+    || gallerySelectedPhoto?.thumbnail_url
+    || '';
   const [collectionPhotos, setCollectionPhotos] = useState([]);
 
   const [loading, setLoading] = useState(true);
@@ -824,7 +829,7 @@ export default function PrintStoreApp() {
                       item.border === updatedItem.border) ? updatedItem : item
                 );
               } else if (payload.eventType === 'DELETE') {
-                updated = updated.filter(item => item.id !== payload.old.id);
+                updated = updated.filter((item) => String(item.id) !== String(payload.old.id));
               }
               localStorage.setItem('pixnxt_printstore_cart', JSON.stringify(updated));
               return updated;
@@ -1451,9 +1456,15 @@ export default function PrintStoreApp() {
   const handlePlaceOrder = async (shippingDetails) => {
     try {
       const DIGITAL = ['digital_download', 'digital_download_all', 'digital_package'];
+      if (!cartItems.length) {
+        throw new Error('Cart is empty. Please add items before paying.');
+      }
       const allDigital = cartItems.length > 0 && cartItems.every(i => DIGITAL.includes(i.productId));
 
       const subtotal = cartItems.reduce((acc, item) => acc + item.unitPrice * item.quantity, 0);
+      if (subtotal <= 0) {
+        throw new Error('Order total is ₹0. Please add a priced digital product before paying.');
+      }
       const shipping = allDigital ? 0 : (subtotal > 100 ? 0 : 9.99);
       const tax = allDigital ? 0 : subtotal * 0.08;
       const total = subtotal + shipping + tax;
@@ -1519,24 +1530,9 @@ export default function PrintStoreApp() {
 
       if (itemsError) throw itemsError;
 
-      let userId = null;
-      if (!sessionId) {
-        try {
-          const { data } = await supabase.auth.getUser();
-          if (data?.user) {
-            userId = data.user.id;
-          }
-        } catch (authErr) { }
-      }
-
-      if (userId || sessionId) {
-        const query = supabase.from('printstore_cart_items').delete();
-        if (userId) {
-          await query.eq('user_id', userId);
-        } else {
-          await query.eq('session_id', sessionId);
-        }
-      }
+      // Keep cartItems in React state until payment success UI finishes.
+      // Clearing here (or deleting DB cart rows here) causes PaymentPage to
+      // flash ₹0.00 / 0 items via realtime DELETE while still "Placing order…".
 
       const completedOrderData = {
         id: order.id,
@@ -1569,10 +1565,6 @@ export default function PrintStoreApp() {
         }))
       };
       setCompletedOrder(completedOrderData);
-
-      setCartItems([]);
-      localStorage.removeItem('pixnxt_printstore_cart');
-
       // Update local shipping address state so it persists
       setSavedShippingAddress({
         recipientName: shippingDetails.name,
@@ -1718,7 +1710,7 @@ export default function PrintStoreApp() {
             photographer={photographer}
             notificationCount={notifCount}
             onOpenNotifications={() => setViewMode('notifications')}
-            selectedPhotoUrl={gallerySelectedPhoto?.url}
+            selectedPhotoUrl={gallerySelectedPhotoUrl}
           />
         )}
 
@@ -1773,7 +1765,23 @@ export default function PrintStoreApp() {
             onBack={() => setCheckoutState('review')}
             onPlaceOrder={handlePlaceOrder}
             shippingAddress={savedShippingAddress}
-            onPaymentSuccess={() => {
+            onPaymentSuccess={async () => {
+              try {
+                let userId = null;
+                if (!sessionId) {
+                  try {
+                    const { data } = await supabase.auth.getUser();
+                    if (data?.user) userId = data.user.id;
+                  } catch (_) { /* ignore */ }
+                }
+                if (userId || sessionId) {
+                  const query = supabase.from('printstore_cart_items').delete();
+                  if (userId) await query.eq('user_id', userId);
+                  else await query.eq('session_id', sessionId);
+                }
+              } catch (e) {
+                console.warn('Cart cleanup after payment failed:', e);
+              }
               setCartItems([]);
               localStorage.removeItem('pixnxt_printstore_cart');
               setCheckoutState('completed');
@@ -1783,7 +1791,7 @@ export default function PrintStoreApp() {
           selectedProductForDetail ? (
             <ProductDetailPage
               product={selectedProductForDetail}
-              selectedPhotoUrl={gallerySelectedPhoto?.url}
+              selectedPhotoUrl={gallerySelectedPhotoUrl}
               onBack={() => {
                 setSelectedProductForDetail(null);
                 window.scrollTo({ top: 0, behavior: 'instant' });
@@ -1812,7 +1820,7 @@ export default function PrintStoreApp() {
             <div className="store-shopping-flow all-products-view">
               <AllProducts
                 products={products.length > 0 ? products : MOCK_PRODUCTS}
-                selectedPhotoUrl={gallerySelectedPhoto?.url}
+                selectedPhotoUrl={gallerySelectedPhotoUrl}
                 photos={collectionPhotos}
                 onSelectProduct={(prod) => {
                   setSelectedProductForDetail(prod);
@@ -1827,7 +1835,7 @@ export default function PrintStoreApp() {
                 <div ref={shopRef} className="shop-section-wrapper">
                   <ShopLanding
                     products={products.length > 0 ? products : MOCK_PRODUCTS}
-                    selectedPhotoUrl={gallerySelectedPhoto?.url}
+                    selectedPhotoUrl={gallerySelectedPhotoUrl}
                     onSelectProduct={(prod) => {
                       setSelectedProductForDetail(prod);
                       window.scrollTo({ top: 0, behavior: 'instant' });

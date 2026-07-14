@@ -3,10 +3,15 @@ import { MOCK_PHOTOS } from '../data/mockStoreData';
 import { galleryService } from '../../services/gallery.service';
 
 export default function ShopLanding({ products, selectedPhotoUrl, onSelectProduct, onExploreAll, photos = [], collection, onUnlockVault }) {
-  // Use collection photos if available, fall back to selected photo, then to default placeholder
-  const firstPhotoUrl = selectedPhotoUrl || photos[0]?.url || photos[0]?.web_url || "";
-  const secondPhotoUrl = photos[1]?.url || photos[1]?.web_url || selectedPhotoUrl || firstPhotoUrl;
-  const thirdPhotoUrl = photos[2]?.url || photos[2]?.web_url || selectedPhotoUrl || firstPhotoUrl;
+  // When shop was opened from a specific gallery photo, use that photo for ALL previews.
+  // Never mix in other gallery photos — that looked like frames “randomly choosing” images.
+  const primaryPhotoUrl =
+    selectedPhotoUrl
+    || photos[0]?.url
+    || photos[0]?.web_url
+    || "";
+  const firstPhotoUrl = primaryPhotoUrl;
+  const secondPhotoUrl = primaryPhotoUrl;
 
   const getDaysRemaining = (expiryDate) => {
     if (!expiryDate) return 0;
@@ -130,12 +135,9 @@ export default function ShopLanding({ products, selectedPhotoUrl, onSelectProduc
                 </div>
               ) : product.id === 'print_pack' ? (
                 <div className="print-pack-container">
-                  {[0, 1, 2, 3].map((i) => {
-                    const photoUrl = photos[i]?.url || selectedPhotoUrl || product.image;
-                    return (
-                      <img key={i} src={photoUrl} alt={product.name} className={`print-pack-img img-${i}`} />
-                    );
-                  })}
+                  {[0, 1, 2, 3].map((i) => (
+                    <img key={i} src={firstPhotoUrl || product.image} alt={product.name} className={`print-pack-img img-${i}`} />
+                  ))}
                 </div>
               ) : product.id === 'deckled_prints' ? (
                 <div className="deckled-print-wrapper">
