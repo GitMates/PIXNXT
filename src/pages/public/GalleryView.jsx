@@ -99,6 +99,19 @@ const GalleryView = () => {
     }
   });
 
+  // Keep banner in sync when StoreDashboard APPLY writes from another tab
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (e.key !== 'pixnxt_sales_campaigns' || e.newValue == null) return;
+      try {
+        const parsed = JSON.parse(e.newValue);
+        if (Array.isArray(parsed)) setCampaigns(parsed);
+      } catch (_) { /* ignore */ }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
   useEffect(() => {
     if (collection?.store_banner_text) {
       const txt = collection.store_banner_text;
@@ -106,7 +119,14 @@ const GalleryView = () => {
         try {
           const parsed = JSON.parse(txt);
           if (Array.isArray(parsed)) {
-            setCampaigns(parsed);
+            setCampaigns((prev) => {
+              const isLive = (list) => list?.some(c =>
+                c.enabled || Object.values(c.banners || {}).some(b => b?.enabled)
+              );
+              // Prefer DB when it has a live campaign; otherwise keep a fresher APPLY from localStorage
+              if (isLive(parsed) || !isLive(prev)) return parsed;
+              return prev;
+            });
           }
         } catch (e) {
           console.error("Error parsing campaign from database store_banner_text:", e);
@@ -116,8 +136,13 @@ const GalleryView = () => {
   }, [collection]);
 
   const activeCampaign = useMemo(() => {
-    // Look for any enabled campaign (Anniversary, Birthday, Seasonal)
-    return campaigns?.find(c => c.enabled) || campaigns?.find(c => c.id === 'anniversary') || null;
+    if (!campaigns?.length) return null;
+    // Prefer an explicitly enabled campaign, then any with an active banner
+    const explicitlyEnabled = campaigns.find(c => c.enabled);
+    if (explicitlyEnabled) return explicitlyEnabled;
+    return campaigns.find(c =>
+      Object.values(c.banners || {}).some(b => b?.enabled)
+    ) || null;
   }, [campaigns]);
 
   const [showShopModal, setShowShopModal] = useState(false);
@@ -1433,32 +1458,37 @@ const GalleryView = () => {
       data-gallery-chrome="large"
       data-gallery-viewport={isMobileViewport ? 'mobile' : 'desktop'}
     >
-      {/* Dynamic Sales Promotion Text Banner — very small thin bar */}
+      {/* Sales Automation Text Banner — thin bar pinned to top of cover / social sharing preview */}
       {activeCampaign?.banners?.text_banner?.enabled && (
-        <div style={{
-          backgroundColor: activeCampaign.banners.text_banner.bg_color || '#4a5338',
-          color: activeCampaign.banners.text_banner.text_color || '#ffffff',
-          padding: '5px 16px',
-          textAlign: 'center',
-          fontSize: '10px',
-          fontWeight: 600,
-          letterSpacing: '0.06em',
-          textTransform: 'uppercase',
-          position: 'relative',
-          zIndex: 1000,
-          fontFamily: "'Inter', sans-serif",
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          lineHeight: 1.3
-        }}>
-          <div>
+        <div
+          style={{
+            backgroundColor: activeCampaign.banners.text_banner.bg_color || '#4a5338',
+            color: activeCampaign.banners.text_banner.text_color || '#ffffff',
+            padding: '8px 20px',
+            textAlign: 'center',
+            fontSize: '12px',
+            fontWeight: 500,
+            letterSpacing: '0.02em',
+            position: 'sticky',
+            top: 0,
+            zIndex: 1100,
+            fontFamily: "'Inter', sans-serif",
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            lineHeight: 1.4,
+            width: '100%',
+            boxSizing: 'border-box',
+          }}
+          data-sales-banner="text"
+        >
+          <span>
             {(() => {
               let text = activeCampaign.banners.text_banner.text || '';
               const discountVal = activeCampaign.discount ? `${activeCampaign.discount}%` : '30%';
               const code = activeCampaign.discountCode || 'HAPPYANI';
               const expDate = new Date();
-              expDate.setDate(expDate.getDate() + 14);
+              expDate.setDate(expDate.getDate() + (Number(activeCampaign.durationDays) || 14));
               const expFormatted = expDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
               return text
@@ -1468,7 +1498,7 @@ const GalleryView = () => {
                 .replace(/{exp-date}/g, expFormatted)
                 .replace(/{exp_date}/g, expFormatted);
             })()}
-          </div>
+          </span>
         </div>
       )}
 

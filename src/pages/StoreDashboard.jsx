@@ -350,6 +350,55 @@ export default function StoreDashboard() {
   const [previewChannel, setPreviewChannel] = useState('email');
   const [yearsDropdownOpen, setYearsDropdownOpen] = useState(false);
   const [expandedBannerPreview, setExpandedBannerPreview] = useState(null);
+  const [sendingTestNotification, setSendingTestNotification] = useState(null); // null | 'email' | 'whatsapp'
+
+  const handleSendTestNotification = async (type) => {
+    try {
+      const colId = (collections && collections.length > 0) ? collections[0].id : null;
+      if (!colId) {
+        alert("No collections found to link this campaign test to.");
+        return;
+      }
+
+      let recipient = '';
+      if (type === 'email') {
+        recipient = prompt("Enter test email address:", "nandha@example.com");
+      } else {
+        recipient = prompt("Enter test WhatsApp phone number (with country code, e.g. 919876543210):", "919876543210");
+      }
+
+      if (!recipient) return;
+
+      setSendingTestNotification(type);
+
+      const currentCampaign = campaigns.find(c => c.id === selectedCampaign);
+      const activeBannerKey = currentCampaign ? Object.keys(currentCampaign.banners).find(k => currentCampaign.banners[k].enabled) : null;
+      const activeBanner = currentCampaign && activeBannerKey ? currentCampaign.banners[activeBannerKey] : null;
+
+      const { data, error } = await supabase.functions.invoke('send-store-campaign-reminders', {
+        body: {
+          test: true,
+          testType: type,
+          recipient: recipient,
+          collectionId: colId,
+          campaignId: selectedCampaign,
+          emailKey: selectedAutomation._emailKey,
+          emailConfig: selectedAutomation,
+          activeBannerKey,
+          activeBanner,
+          siteOrigin: window.location.origin
+        }
+      });
+
+      if (error) throw error;
+      alert(`Test ${type === 'email' ? 'email' : 'WhatsApp'} sent successfully to ${recipient}!`);
+    } catch (err) {
+      console.error("Error sending test notification:", err);
+      alert(`Failed to send test notification: ${err.message || err}`);
+    } finally {
+      setSendingTestNotification(null);
+    }
+  };
   const [startMonthsDropdownOpen, setStartMonthsDropdownOpen] = useState(false);
   const [startDaysDropdownOpen, setStartDaysDropdownOpen] = useState(false);
   const [durationMonthsDropdownOpen, setDurationMonthsDropdownOpen] = useState(false);
@@ -3000,20 +3049,24 @@ export default function StoreDashboard() {
                               <div
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setCampaigns(prev => prev.map(c => c.id === campaign.id
-                                    ? {
-                                        ...c,
-                                        banners: Object.keys(c.banners).reduce((acc, key) => {
-                                          acc[key] = {
-                                            ...c.banners[key],
-                                            enabled: key === item.key ? !c.banners[item.key].enabled : false
-                                          };
-                                          return acc;
-                                        }, {}),
-                                        modified: { ...c.modified, banners: true }
-                                      }
-                                    : c
-                                  ));
+                                  const turningOn = !campaign.banners[item.key].enabled;
+                                  setCampaigns(prev => prev.map(c => {
+                                    if (c.id !== campaign.id) {
+                                      return turningOn ? { ...c, enabled: false } : c;
+                                    }
+                                    return {
+                                      ...c,
+                                      enabled: turningOn,
+                                      banners: Object.keys(c.banners).reduce((acc, key) => {
+                                        acc[key] = {
+                                          ...c.banners[key],
+                                          enabled: key === item.key ? turningOn : false
+                                        };
+                                        return acc;
+                                      }, {}),
+                                      modified: { ...c.modified, banners: true }
+                                    };
+                                  }));
                                 }}
                                 style={{
                                   position: 'absolute', top: '-6px', right: '-6px', zIndex: 10,
@@ -3280,36 +3333,38 @@ export default function StoreDashboard() {
                         <button
                           onClick={() => {
                             const { _campaignId, _bannerKey, _emailKey, ...data } = selectedAutomation;
+                            let updatedCampaigns = campaigns;
                             if (activeModal === 'start_date') {
-                              setCampaigns(prev => prev.map(c => c.id === _campaignId
+                              updatedCampaigns = campaigns.map(c => c.id === _campaignId
                                 ? { ...c, startDays: Number(data.startDays), modified: { ...c.modified, startDate: true } }
                                 : c
-                              ));
+                              );
                             } else if (activeModal === 'duration') {
-                              setCampaigns(prev => prev.map(c => c.id === _campaignId
+                              updatedCampaigns = campaigns.map(c => c.id === _campaignId
                                 ? { ...c, durationDays: Number(data.durationDays), modified: { ...c.modified, duration: true } }
                                 : c
-                              ));
+                              );
                             } else if (activeModal === 'years_repeat') {
-                              setCampaigns(prev => prev.map(c => c.id === _campaignId
+                              updatedCampaigns = campaigns.map(c => c.id === _campaignId
                                 ? { ...c, yearsRepeat: Number(data.yearsRepeat), modified: { ...c.modified, yearsRepeat: true } }
                                 : c
-                              ));
+                              );
                             } else if (activeModal === 'discount') {
-                              setCampaigns(prev => prev.map(c => c.id === _campaignId
+                              updatedCampaigns = campaigns.map(c => c.id === _campaignId
                                 ? { ...c, discount: data.discount, discountCode: data.discountCode, modified: { ...c.modified, discount: true } }
                                 : c
-                              ));
+                              );
                             } else if (activeModal === 'edit_email') {
-                              setCampaigns(prev => prev.map(c => c.id === _campaignId
+                              updatedCampaigns = campaigns.map(c => c.id === _campaignId
                                 ? { ...c, emails: { ...c.emails, [_emailKey]: { ...data } }, modified: { ...c.modified, emails: true } }
                                 : c
-                              ));
+                              );
                             } else {
-                              // banner types
-                              setCampaigns(prev => prev.map(c => c.id === _campaignId
+                              // banner types — APPLY enables this campaign + selected banner for gallery visitors
+                              updatedCampaigns = campaigns.map(c => c.id === _campaignId
                                 ? {
                                     ...c,
+                                    enabled: true,
                                     banners: Object.keys(c.banners).reduce((acc, key) => {
                                       acc[key] = {
                                         ...c.banners[key],
@@ -3319,9 +3374,50 @@ export default function StoreDashboard() {
                                     }, {}),
                                     modified: { ...c.modified, banners: true }
                                   }
-                                : c
-                              ));
+                                : { ...c, enabled: false }
+                              );
                             }
+                            setCampaigns(updatedCampaigns);
+
+                            // Trigger automatic test email to photographer's logged-in email
+                            if (user?.email && (activeModal === 'edit_email' || ['text_banner', 'large_banner', 'photo_banner', 'store_rotator'].includes(activeModal))) {
+                              const colId = (collections && collections.length > 0) ? collections[0].id : null;
+                              if (colId) {
+                                const currentCampaign = updatedCampaigns.find(c => c.id === _campaignId);
+                                
+                                // Determine email template config to send
+                                let emailConfig = currentCampaign?.emails?.announcement;
+                                if (activeModal === 'edit_email') {
+                                  emailConfig = data;
+                                }
+
+                                let activeBannerKey = activeModal !== 'edit_email' ? activeModal : (currentCampaign ? Object.keys(currentCampaign.banners).find(k => currentCampaign.banners[k].enabled) : null);
+                                let activeBanner = activeModal !== 'edit_email' ? data : (currentCampaign && activeBannerKey ? currentCampaign.banners[activeBannerKey] : null);
+
+                                supabase.functions.invoke('send-store-campaign-reminders', {
+                                  body: {
+                                    test: true,
+                                    testType: 'email',
+                                    recipient: user.email,
+                                    collectionId: colId,
+                                    campaignId: _campaignId,
+                                    emailKey: activeModal === 'edit_email' ? _emailKey : 'announcement',
+                                    emailConfig: emailConfig,
+                                    activeBannerKey,
+                                    activeBanner,
+                                    photographerId: user.id,
+                                    siteOrigin: window.location.origin
+                                  }
+                                }).then(({ error }) => {
+                                  if (error) {
+                                    console.error("Auto-apply email trigger failed:", error);
+                                  } else {
+                                    console.log("Auto-apply email preview triggered successfully to:", user.email);
+                                  }
+                                }).catch(err => console.error("Error triggering auto-apply email:", err));
+                              }
+                            }
+
                             setActiveModal(null);
                           }}
                           style={{ padding: '10px 36px', fontSize: '11px', fontWeight: 700, border: 'none', borderRadius: '2px', backgroundColor: '#efefef', color: '#2c2c2d', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.08em', transition: 'background-color 0.2s' }}
@@ -4532,6 +4628,38 @@ export default function StoreDashboard() {
                                   </div>
                                 </div>
                               )}
+                              {/* Send Test Notification Button Panel */}
+                              <div style={{ marginTop: '24px', borderTop: '1px solid #eaeaea', paddingTop: '20px' }}>
+                                <label style={{ display: 'block', fontSize: '9.5px', fontWeight: 700, color: '#a0a0a0', letterSpacing: '0.1em', marginBottom: '8px' }}>SEND TEST NOTIFICATION</label>
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                  <button
+                                    onClick={() => handleSendTestNotification('email')}
+                                    disabled={sendingTestNotification !== null}
+                                    style={{
+                                      flex: 1, padding: '8px 12px', fontSize: '11px', fontWeight: 600,
+                                      border: '1px solid #dcdcdc', backgroundColor: '#fff', cursor: 'pointer',
+                                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                                      opacity: sendingTestNotification !== null ? 0.6 : 1
+                                    }}
+                                  >
+                                    <span>✉</span>
+                                    <span>{sendingTestNotification === 'email' ? 'Sending...' : 'Test Email'}</span>
+                                  </button>
+                                  <button
+                                    onClick={() => handleSendTestNotification('whatsapp')}
+                                    disabled={sendingTestNotification !== null}
+                                    style={{
+                                      flex: 1, padding: '8px 12px', fontSize: '11px', fontWeight: 600,
+                                      border: '1px solid #dcdcdc', backgroundColor: '#fff', cursor: 'pointer',
+                                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                                      opacity: sendingTestNotification !== null ? 0.6 : 1
+                                    }}
+                                  >
+                                    <span>💬</span>
+                                    <span>{sendingTestNotification === 'whatsapp' ? 'Sending...' : 'Test WhatsApp'}</span>
+                                  </button>
+                                </div>
+                              </div>
                             </div>
                           )}
 
@@ -4541,28 +4669,30 @@ export default function StoreDashboard() {
                         <div style={{ flex: 1, backgroundColor: '#f6f6f6', padding: '32px', display: 'flex', flexDirection: 'column', gap: '20px', overflowY: 'auto', minHeight: 0, borderLeft: '1px solid #eee' }}>
                           
                           {/* Channel Preview Tab Switcher */}
-                          <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', justifyContent: 'center' }}>
-                            <button
-                              onClick={() => setPreviewChannel('email')}
-                              style={{
-                                padding: '6px 14px', fontSize: '11px', fontWeight: 700, borderRadius: '20px',
-                                border: previewChannel === 'email' ? 'none' : '1px solid #dcdcdc',
-                                backgroundColor: previewChannel === 'email' ? '#2c2c2d' : '#ffffff',
-                                color: previewChannel === 'email' ? '#ffffff' : '#2c2c2d',
-                                cursor: 'pointer', outline: 'none'
-                              }}
-                            >EMAIL PREVIEW</button>
-                            <button
-                              onClick={() => setPreviewChannel('whatsapp')}
-                              style={{
-                                padding: '6px 14px', fontSize: '11px', fontWeight: 700, borderRadius: '20px',
-                                border: previewChannel === 'whatsapp' ? 'none' : '1px solid #dcdcdc',
-                                backgroundColor: previewChannel === 'whatsapp' ? '#16a34a' : '#ffffff',
-                                color: previewChannel === 'whatsapp' ? '#ffffff' : '#2c2c2d',
-                                cursor: 'pointer', outline: 'none'
-                              }}
-                            >WHATSAPP PREVIEW</button>
-                          </div>
+                          {activeModal === 'edit_email' && (
+                            <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', justifyContent: 'center' }}>
+                              <button
+                                onClick={() => setPreviewChannel('email')}
+                                style={{
+                                  padding: '6px 14px', fontSize: '11px', fontWeight: 700, borderRadius: '20px',
+                                  border: previewChannel === 'email' ? 'none' : '1px solid #dcdcdc',
+                                  backgroundColor: previewChannel === 'email' ? '#2c2c2d' : '#ffffff',
+                                  color: previewChannel === 'email' ? '#ffffff' : '#2c2c2d',
+                                  cursor: 'pointer', outline: 'none'
+                                }}
+                              >EMAIL PREVIEW</button>
+                              <button
+                                onClick={() => setPreviewChannel('whatsapp')}
+                                style={{
+                                  padding: '6px 14px', fontSize: '11px', fontWeight: 700, borderRadius: '20px',
+                                  border: previewChannel === 'whatsapp' ? 'none' : '1px solid #dcdcdc',
+                                  backgroundColor: previewChannel === 'whatsapp' ? '#16a34a' : '#ffffff',
+                                  color: previewChannel === 'whatsapp' ? '#ffffff' : '#2c2c2d',
+                                  cursor: 'pointer', outline: 'none'
+                                }}
+                              >WHATSAPP PREVIEW</button>
+                            </div>
+                          )}
 
                           {activeModal === 'edit_email' && previewChannel === 'email' ? (
                             /* ─── EMAIL LIVE PREVIEW ─── */
@@ -4850,6 +4980,38 @@ export default function StoreDashboard() {
                                     </div>
                                   </div>
 
+                                  {activeModal === 'text_banner' && (
+                                    <div style={{
+                                      backgroundColor: selectedAutomation.bg_color || '#4a5338',
+                                      color: selectedAutomation.text_color || '#ffffff',
+                                      padding: '6px 16px',
+                                      textAlign: 'center',
+                                      fontSize: '9px',
+                                      fontWeight: 600,
+                                      letterSpacing: '0.04em',
+                                      fontFamily: "'Inter', sans-serif",
+                                      lineHeight: 1.3,
+                                      borderBottom: '1px solid rgba(0,0,0,0.06)'
+                                    }}>
+                                      {(() => {
+                                        let text = selectedAutomation.text || '';
+                                        const campaign = campaigns.find(c => c.id === selectedCampaign) || {};
+                                        const discountVal = campaign.discount ? `${campaign.discount}%` : '30%';
+                                        const code = campaign.discountCode || 'HAPPYANI';
+                                        const expDate = new Date();
+                                        expDate.setDate(expDate.getDate() + 14);
+                                        const expFormatted = expDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+                                        return text
+                                          .replace(/{discount-value}/g, discountVal)
+                                          .replace(/{discount_value}/g, discountVal)
+                                          .replace(/{code}/g, code)
+                                          .replace(/{exp-date}/g, expFormatted)
+                                          .replace(/{exp_date}/g, expFormatted);
+                                      })()}
+                                    </div>
+                                  )}
+
                                   {/* Gallery body view */}
                                   <div style={{ padding: '20px 24px 24px' }}>
                                     {/* Scene title */}
@@ -4951,6 +5113,11 @@ export default function StoreDashboard() {
                                           ))}
                                         </div>
                                       </div>
+                                    ) : activeModal === 'text_banner' ? (
+                                      <div style={{ padding: '0 16px 24px', display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '12px' }}>
+                                        <div style={{ gridColumn: 'span 8', height: '110px', backgroundColor: '#f0f0f0' }} />
+                                        <div style={{ gridColumn: 'span 4', height: '110px', backgroundColor: '#f0f0f0' }} />
+                                      </div>
                                     ) : (
                                       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                                         {/* Large Banner Area */}
@@ -5028,6 +5195,39 @@ export default function StoreDashboard() {
                                       <div style={{ width: '4px', height: '4px', border: '1px solid #c8c8c8', borderRadius: '50%' }} />
                                       <div style={{ width: '12px', height: '2px', backgroundColor: '#e2e2e2' }} />
                                     </div>
+
+                                    {activeModal === 'text_banner' && (
+                                      <div style={{
+                                        backgroundColor: selectedAutomation.bg_color || '#4a5338',
+                                        color: selectedAutomation.text_color || '#ffffff',
+                                        padding: '4px 8px',
+                                        textAlign: 'center',
+                                        fontSize: '7px',
+                                        fontWeight: 600,
+                                        letterSpacing: '0.04em',
+                                        fontFamily: "'Inter', sans-serif",
+                                        lineHeight: 1.2,
+                                        borderBottom: '1px solid rgba(0,0,0,0.06)'
+                                      }}>
+                                        {(() => {
+                                          let text = selectedAutomation.text || '';
+                                          const campaign = campaigns.find(c => c.id === selectedCampaign) || {};
+                                          const discountVal = campaign.discount ? `${campaign.discount}%` : '30%';
+                                          const code = campaign.discountCode || 'HAPPYANI';
+                                          const expDate = new Date();
+                                          expDate.setDate(expDate.getDate() + 14);
+                                          const expFormatted = expDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+                                          return text
+                                            .replace(/{discount-value}/g, discountVal)
+                                            .replace(/{discount_value}/g, discountVal)
+                                            .replace(/{code}/g, code)
+                                            .replace(/{exp-date}/g, expFormatted)
+                                            .replace(/{exp_date}/g, expFormatted);
+                                        })()}
+                                      </div>
+                                    )}
+
                                     <div style={{ padding: '8px' }}>
                                       {activeModal === 'photo_banner' ? (
                                         <div>
@@ -5101,6 +5301,18 @@ export default function StoreDashboard() {
                                             </div>
                                           </div>
                                           <div style={{ height: '40px', backgroundColor: '#f0f0f0' }} />
+                                        </div>
+                                      ) : activeModal === 'text_banner' ? (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                          <div style={{ textAlign: 'center', fontSize: '8px', fontWeight: 500, fontFamily: "'Georgia', serif", margin: '4px 0', color: '#2c2c2d' }}>
+                                            Scene Name
+                                          </div>
+                                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                                            <div style={{ height: '40px', backgroundColor: '#f0f0f0' }} />
+                                            <div style={{ height: '40px', backgroundColor: '#f0f0f0' }} />
+                                            <div style={{ height: '40px', backgroundColor: '#f0f0f0' }} />
+                                            <div style={{ height: '40px', backgroundColor: '#f0f0f0' }} />
+                                          </div>
                                         </div>
                                       ) : (
                                         <div>
