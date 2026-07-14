@@ -19,10 +19,12 @@ import {
 import {
   ShoppingBag, Settings, ChevronDown, ChevronUp,
   LogOut, User, Gift, DollarSign, Package, ChevronLeft, ChevronRight, Eye, Mail, Phone,
-  Search, Bell, Home, PanelLeftClose, PanelLeftOpen, Layers, ToggleLeft, ToggleRight
+  Search, Bell, Home, PanelLeftClose, PanelLeftOpen, Layers, ToggleLeft, ToggleRight, Boxes
 } from 'lucide-react';
 import helpPng from '../assets/icons/help.png';
 import notificationPng from '../assets/icons/notification.png';
+import StorePackagesPanel from '../components/store/StorePackagesPanel';
+import StorePurchaseTable, { DIGITAL_CATALOG_PRODUCT_TYPES } from '../components/store/StorePurchaseTable';
 import './Dashboard.css';
 import '../printstore/PrintStore.css';
 import '../styles/clientGalleryTheme.css';
@@ -94,6 +96,10 @@ export default function StoreDashboard() {
   const [globalVaultDescLifetime, setGlobalVaultDescLifetime] = useState('Permanent lifetime storage access.');
   const [globalStoreEnabled, setGlobalStoreEnabled] = useState(true);
   const [savingStoreSettings, setSavingStoreSettings] = useState(false);
+  const [vaultPurchases, setVaultPurchases] = useState([]);
+  const [loadingVaultPurchases, setLoadingVaultPurchases] = useState(false);
+  const [digitalPurchases, setDigitalPurchases] = useState([]);
+  const [loadingDigitalPurchases, setLoadingDigitalPurchases] = useState(false);
 
   // Sales Automations — campaign-based state
   const [campaigns, setCampaigns] = useState([
@@ -774,7 +780,9 @@ export default function StoreDashboard() {
 
 
   const filteredProducts = useMemo(() => {
-    let list = [...products];
+    let list = [...products].filter(
+      (p) => !DIGITAL_CATALOG_PRODUCT_TYPES.includes(p.product_type)
+    );
 
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
@@ -810,9 +818,19 @@ export default function StoreDashboard() {
   }, [products, searchQuery, categoryFilter, profitFilter, priceStatusFilter]);
 
   const categoriesList = useMemo(() => {
-    const list = new Set(products.map(p => p.product_type).filter(Boolean));
+    const list = new Set(
+      products
+        .filter((p) => !DIGITAL_CATALOG_PRODUCT_TYPES.includes(p.product_type))
+        .map((p) => p.product_type)
+        .filter(Boolean)
+    );
     return Array.from(list);
   }, [products]);
+
+  const shopProductsForManager = useMemo(
+    () => products.filter((p) => !DIGITAL_CATALOG_PRODUCT_TYPES.includes(p.product_type)),
+    [products]
+  );
 
   const handleSelectAll = (e) => {
     if (e.target.checked) {
@@ -1206,6 +1224,121 @@ export default function StoreDashboard() {
     return map;
   }, [orders, orderItems]);
 
+  // Load Vault + Digital purchase tables for store manager
+  useEffect(() => {
+    async function loadPurchaseTables() {
+      if (!user || !collections.length) {
+        setVaultPurchases([]);
+        setDigitalPurchases([]);
+        return;
+      }
+
+      const collectionIds = collections.map((c) => c.id);
+      const collectionNameById = Object.fromEntries(
+        collections.map((c) => [c.id, c.name || '—'])
+      );
+
+      setLoadingVaultPurchases(true);
+      try {
+        const { data: vaultRows, error: vaultErr } = await supabase
+          .from('buylink_plans')
+          .select('*')
+          .in('collection_id', collectionIds)
+          .order('created_at', { ascending: false });
+        if (vaultErr) throw vaultErr;
+
+        const planLabel = (type) => {
+          if (type === '1month') return '1 Month Extension';
+          if (type === '1year') return '1 Year Extension';
+          return 'Lifetime Vault';
+        };
+
+        setVaultPurchases(
+          (vaultRows || []).map((row) => ({
+            id: row.id,
+            status: row.status || 'completed',
+            customer_name: row.customer_name,
+            customer_email: row.customer_email,
+            collection_name: collectionNameById[row.collection_id] || '—',
+            created_at: row.created_at,
+            amount: row.amount_paid,
+            plan_label: planLabel(row.plan_type),
+            payment_method: row.payment_method,
+            payment_intent_id: row.payment_intent_id,
+            detail: row.plan_type ? `Plan type: ${row.plan_type}` : '',
+          }))
+        );
+      } catch (err) {
+        console.error('Failed to load vault purchases:', err);
+        setVaultPurchases([]);
+      } finally {
+        setLoadingVaultPurchases(false);
+      }
+
+      setLoadingDigitalPurchases(true);
+      try {
+        const digitalTypes = ['digital_download', 'digital_download_all', 'digital_package'];
+        const digitalItemRows = (orderItems || []).filter((item) =>
+          digitalTypes.includes(item.product_type)
+        );
+        const orderIds = [...new Set(digitalItemRows.map((i) => i.order_id))];
+        const photographerOrders = (orders || []).filter(
+          (o) =>
+            orderIds.includes(o.id) &&
+            (o.photographer_id === user.id ||
+              (o.collection_id && collectionIds.includes(o.collection_id)))
+        );
+
+        // Also include orders matched only via items when photographer_id unset
+        const fallbackOrders = (orders || []).filter((o) => orderIds.includes(o.id));
+        const sourceOrders = photographerOrders.length ? photographerOrders : fallbackOrders;
+
+        setDigitalPurchases(
+          sourceOrders.map((order) => {
+            const items = digitalItemRows.filter((i) => i.order_id === order.id);
+            const first = items[0];
+            const type = first?.product_type;
+            let planLabel = first?.product_name || 'Digital Download';
+            if (type === 'digital_download') planLabel = first?.product_name || 'Single Photo';
+            if (type === 'digital_download_all') planLabel = first?.product_name || 'Entire Collection';
+            if (type === 'digital_package') {
+              const count = first?.options?.photo_count;
+              const cat = first?.options?.category_tag;
+              planLabel = first?.product_name
+                || [cat, count ? `${count} photos` : null].filter(Boolean).join(' · ')
+                || 'Package';
+            }
+            const collectionName =
+              (order.collection_id && collectionNameById[order.collection_id]) ||
+              orderCollectionNames[order.id] ||
+              '—';
+
+            return {
+              id: order.id,
+              status: order.status || 'completed',
+              customer_name: order.customer_name,
+              customer_email: order.customer_email,
+              collection_name: collectionName,
+              created_at: order.created_at,
+              amount: order.total,
+              plan_label: planLabel,
+              payment_method: order.payment_provider,
+              payment_intent_id: order.payment_intent_id,
+              detail: items.map((i) => i.product_name || i.product_type).join(', '),
+            };
+          }).sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        );
+      } catch (err) {
+        console.error('Failed to build digital purchases:', err);
+        setDigitalPurchases([]);
+      } finally {
+        setLoadingDigitalPurchases(false);
+      }
+    }
+
+    loadPurchaseTables();
+  }, [user, collections, orders, orderItems, orderCollectionNames]);
+
   // Filtered orders
   const filteredOrders = useMemo(() => {
     return orders.filter(order => {
@@ -1514,7 +1647,10 @@ export default function StoreDashboard() {
       {/* Main Layout */}
       <div className="store-dashboard-layout" style={{ marginTop: '76px' }}>
         {/* Sidebar — client gallery dark theme */}
-        <aside className="store-dashboard-sidebar" style={{ width: isSidebarCollapsed ? '64px' : '240px', transition: 'width 0.25s ease', overflowX: 'hidden', position: 'relative' }}>
+        <aside
+          className="store-dashboard-sidebar"
+          style={{ width: isSidebarCollapsed ? '64px' : '240px', transition: 'width 0.25s ease' }}
+        >
           {!isSidebarCollapsed && (
             <div className="sidebar-header-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', borderBottom: '1px solid #e0e0e0', paddingBottom: '20px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -1587,6 +1723,12 @@ export default function StoreDashboard() {
                 {!isSidebarCollapsed && <span>Digital Download</span>}
               </Link>
             </li>
+            <li className={activeViewTab === 'packages' ? 'active' : ''}>
+              <Link to="#" onClick={(e) => { e.preventDefault(); setActiveViewTab('packages'); }} title="Packages" style={isSidebarCollapsed ? { justifyContent: 'center', paddingLeft: '0', paddingRight: '0' } : {}}>
+                <Boxes size={18} />
+                {!isSidebarCollapsed && <span>Packages</span>}
+              </Link>
+            </li>
             <li className={activeViewTab === 'settings' ? 'active' : ''}>
               <Link to="#" onClick={(e) => { e.preventDefault(); setActiveViewTab('settings'); }} title="Vault" style={isSidebarCollapsed ? { justifyContent: 'center', paddingLeft: '0', paddingRight: '0' } : {}}>
                 <Settings size={18} />
@@ -1600,32 +1742,16 @@ export default function StoreDashboard() {
               </Link>
             </li>
           </ul>
-          {/* Sidebar collapse/expand toggle */}
-          <button
-            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-            style={{
-              position: 'absolute',
-              bottom: '24px',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              width: '36px',
-              height: '36px',
-              borderRadius: '50%',
-              border: '1px solid rgba(0,0,0,0.08)',
-              backgroundColor: 'rgba(255,255,255,0.7)',
-              backdropFilter: 'blur(8px)',
-              WebkitBackdropFilter: 'blur(8px)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-              transition: 'all 0.2s ease'
-            }}
-            title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          >
-            {isSidebarCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
-          </button>
+          <div className="store-dashboard-sidebar-footer">
+            <button
+              type="button"
+              className="store-dashboard-sidebar-toggle"
+              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
+              {isSidebarCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+            </button>
+          </div>
         </aside>
 
         {/* Content Area */}
@@ -2497,6 +2623,28 @@ export default function StoreDashboard() {
                 </div>
               )}
             </div>
+          ) : activeViewTab === 'packages' ? (
+            <>
+              {notification && (
+                <div style={{
+                  padding: '12px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: 600,
+                  backgroundColor: notification.type === 'error' ? 'rgba(254, 226, 226, 0.95)' : 'rgba(236, 253, 245, 0.9)',
+                  backdropFilter: 'blur(8px)',
+                  color: notification.type === 'error' ? '#b91c1c' : '#059669',
+                  border: `1px solid ${notification.type === 'error' ? 'rgba(252, 165, 165, 0.5)' : 'rgba(167, 243, 208, 0.4)'}`,
+                  margin: '20px 24px 0',
+                }}>
+                  {notification.text}
+                </div>
+              )}
+              <StorePackagesPanel
+                photographerId={user?.id}
+                onNotify={(n) => {
+                  setNotification(n);
+                  setTimeout(() => setNotification(null), 4000);
+                }}
+              />
+            </>
           ) : activeViewTab === 'digital_downloads' ? (
             <div className="store-dashboard-content">
               {notification && (
@@ -2666,6 +2814,15 @@ export default function StoreDashboard() {
                     </div>
                   </div>
                 )}
+
+                <StorePurchaseTable
+                  title="Digital Download Purchases"
+                  subtitle="Who bought single, entire-collection, or category packages from your galleries."
+                  rows={digitalPurchases}
+                  loading={loadingDigitalPurchases}
+                  emptyText="No digital download purchases yet."
+                  planColumnLabel="Product"
+                />
               </div>
             </div>
           ) : activeViewTab === 'products' ? (
@@ -2749,7 +2906,7 @@ export default function StoreDashboard() {
                   flex: '1 1 140px'
                 }}>
                   <div style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Total</div>
-                  <div style={{ fontSize: '22px', fontWeight: 700, color: '#111' }}>{products.length}</div>
+                  <div style={{ fontSize: '22px', fontWeight: 700, color: '#111' }}>{shopProductsForManager.length}</div>
                 </div>
                 <div style={{
                   padding: '14px 20px',
@@ -2761,7 +2918,7 @@ export default function StoreDashboard() {
                   flex: '1 1 140px'
                 }}>
                   <div style={{ fontSize: '11px', fontWeight: 600, color: '#065f46', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Active</div>
-                  <div style={{ fontSize: '22px', fontWeight: 700, color: '#059669' }}>{products.filter(p => p.is_visible).length}</div>
+                  <div style={{ fontSize: '22px', fontWeight: 700, color: '#059669' }}>{shopProductsForManager.filter(p => p.is_visible).length}</div>
                 </div>
                 <div style={{
                   padding: '14px 20px',
@@ -2773,7 +2930,7 @@ export default function StoreDashboard() {
                   flex: '1 1 140px'
                 }}>
                   <div style={{ fontSize: '11px', fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Inactive</div>
-                  <div style={{ fontSize: '22px', fontWeight: 700, color: '#64748b' }}>{products.filter(p => !p.is_visible).length}</div>
+                  <div style={{ fontSize: '22px', fontWeight: 700, color: '#64748b' }}>{shopProductsForManager.filter(p => !p.is_visible).length}</div>
                 </div>
               </div>
 
@@ -2781,7 +2938,7 @@ export default function StoreDashboard() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {loadingProducts ? (
                   <div style={{ padding: '60px', textAlign: 'center', color: '#64748b', fontSize: '14px' }}>Loading products...</div>
-                ) : products.filter(p => {
+                ) : shopProductsForManager.filter(p => {
                   if (searchQuery) {
                     const q = searchQuery.toLowerCase();
                     const matchesSearch = (p.name || '').toLowerCase().includes(q) || (p.product_type || '').toLowerCase().includes(q) || (p.id || '').toLowerCase().includes(q);
@@ -2792,7 +2949,7 @@ export default function StoreDashboard() {
                   return true;
                 }).length === 0 ? (
                   <div style={{ padding: '60px', textAlign: 'center', color: '#64748b', fontSize: '14px' }}>No products found.</div>
-                ) : products.filter(p => {
+                ) : shopProductsForManager.filter(p => {
                   if (searchQuery) {
                     const q = searchQuery.toLowerCase();
                     const matchesSearch = (p.name || '').toLowerCase().includes(q) || (p.product_type || '').toLowerCase().includes(q) || (p.id || '').toLowerCase().includes(q);
@@ -5838,6 +5995,15 @@ export default function StoreDashboard() {
                     </div>
                   </div>
                 </div>
+
+                <StorePurchaseTable
+                  title="Vault Purchases"
+                  subtitle="Clients who bought gallery extensions or lifetime vault access."
+                  rows={vaultPurchases}
+                  loading={loadingVaultPurchases}
+                  emptyText="No vault purchases yet."
+                  planColumnLabel="Plan"
+                />
               </div>
             </div>
           )}

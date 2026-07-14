@@ -703,16 +703,16 @@ export default function PrintStoreApp() {
         }
       }
 
-      // Filter only visible products and sort by creation time
+      // Filter only visible print products (digital downloads are sold via gallery, not Print Lab shop)
       const visibleProducts = (data || [])
-        .filter(p => p.is_visible)
+        .filter((p) => p.is_visible && !['digital_download', 'digital_download_all'].includes(p.product_type))
         .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
       setProducts(visibleProducts.map(mapProductRow));
     } catch (err) {
       console.error("Error loading print store products:", err);
       // Fallback to static mock products if db query fails
-      setProducts(MOCK_PRODUCTS);
+      setProducts(MOCK_PRODUCTS.filter((p) => !['digital_download', 'digital_download_all'].includes(p.id)));
     }
   };
 
@@ -734,7 +734,11 @@ export default function PrintStoreApp() {
               .order('created_at', { ascending: true });
             if (!error && data) {
               console.log('Realtime products list refreshed:', data);
-              setProducts(data.map(mapProductRow));
+              setProducts(
+                data
+                  .filter((p) => !['digital_download', 'digital_download_all'].includes(p.product_type))
+                  .map(mapProductRow)
+              );
             }
           } catch (err) {
             console.error('Realtime products refresh error:', err);
@@ -924,7 +928,7 @@ export default function PrintStoreApp() {
               let productDbId = matchedProduct ? matchedProduct.db_id : null;
 
               // Ensure digital download products exist in printstore_products
-              if (!productDbId && ['digital_download', 'digital_download_all'].includes(local.productId)) {
+              if (!productDbId && ['digital_download', 'digital_download_all', 'digital_package'].includes(local.productId)) {
                 const { data: existingDigital } = await supabase
                   .from('printstore_products')
                   .select('id')
@@ -1446,7 +1450,7 @@ export default function PrintStoreApp() {
 
   const handlePlaceOrder = async (shippingDetails) => {
     try {
-      const DIGITAL = ['digital_download', 'digital_download_all'];
+      const DIGITAL = ['digital_download', 'digital_download_all', 'digital_package'];
       const allDigital = cartItems.length > 0 && cartItems.every(i => DIGITAL.includes(i.productId));
 
       const subtotal = cartItems.reduce((acc, item) => acc + item.unitPrice * item.quantity, 0);
@@ -1464,6 +1468,7 @@ export default function PrintStoreApp() {
         .insert({
           photographer_id: photographerId,
           session_id: sessionId || null,
+          collection_id: collectionId || null,
           customer_name: shippingDetails.name,
           customer_email: shippingDetails.email,
           shipping_address: {
@@ -1478,7 +1483,7 @@ export default function PrintStoreApp() {
           discount_amount: 0.00,
           subtotal: subtotal,
           total: total,
-          status: 'pending',
+          status: allDigital ? 'completed' : 'pending',
           payment_provider: 'stripe',
           payment_intent_id: 'mock_pi_' + Math.random().toString(36).substr(2, 9)
         })
@@ -1503,7 +1508,8 @@ export default function PrintStoreApp() {
           layout: item.layout,
           photos: item.photos,
           photo: item.photo,
-          rotation: item.rotation
+          rotation: item.rotation,
+          ...(item.options || {}),
         }
       }));
 
@@ -1902,7 +1908,7 @@ export default function PrintStoreApp() {
                 {/* Meta details */}
                 {(() => {
                   const allDigital = (completedOrder.items || []).every(i =>
-                    ['digital_download', 'digital_download_all'].includes(i.productId || i.product_type)
+                    ['digital_download', 'digital_download_all', 'digital_package'].includes(i.productId || i.product_type)
                   );
                   const shortId = completedOrder.id ? completedOrder.id.split('-')[0].toUpperCase() : 'MOCK';
                   return (
@@ -1929,7 +1935,7 @@ export default function PrintStoreApp() {
                 {/* Shipping address OR email delivery notice */}
                 {(() => {
                   const allDigital = (completedOrder.items || []).every(i =>
-                    ['digital_download', 'digital_download_all'].includes(i.productId || i.product_type)
+                    ['digital_download', 'digital_download_all', 'digital_package'].includes(i.productId || i.product_type)
                   );
                   if (allDigital) {
                     return (
@@ -1973,10 +1979,11 @@ export default function PrintStoreApp() {
                           <span style={{ fontWeight: 700, color: '#111' }}>{item.productName || item.product_name}</span>
                           <span style={{ display: 'block', fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
                             {item.size?.label || item.options?.size?.label
-                              ? (item.size?.label || item.options?.size?.label)
-                              : (item.productId === 'digital_download_all' || item.product_type === 'digital_download_all'
+                              || (item.productId === 'digital_download_all' || item.product_type === 'digital_download_all'
                                   ? 'All Photos'
-                                  : 'High Resolution')}
+                                  : (item.productId === 'digital_package' || item.product_type === 'digital_package'
+                                      ? (`${item.options?.photo_count || ''} Photos`.trim() || 'Package')
+                                      : 'High Resolution'))}
                             {item.frame?.label ? ` | Frame: ${item.frame.label}` : ''}
                           </span>
                         </div>
@@ -1992,7 +1999,7 @@ export default function PrintStoreApp() {
                 {/* Costs breakdown — hide shipping/tax for all-digital */}
                 {(() => {
                   const allDigital = (completedOrder.items || []).every(i =>
-                    ['digital_download', 'digital_download_all'].includes(i.productId || i.product_type)
+                    ['digital_download', 'digital_download_all', 'digital_package'].includes(i.productId || i.product_type)
                   );
                   return (
                     <div style={{ marginLeft: 'auto', maxWidth: '280px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px', borderBottom: '1px solid #f2ede4', paddingBottom: '16px', marginBottom: '24px' }}>
@@ -2032,7 +2039,7 @@ export default function PrintStoreApp() {
                         const shortId = completedOrder.id ? completedOrder.id.split('-')[0].toUpperCase() : 'MOCK';
                         
                         const allDigital = (completedOrder.items || []).every(i =>
-                          ['digital_download', 'digital_download_all'].includes(i.productId || i.product_type)
+                          ['digital_download', 'digital_download_all', 'digital_package'].includes(i.productId || i.product_type)
                         );
 
                         doc.setFont("helvetica", "bold");
@@ -2090,7 +2097,9 @@ export default function PrintStoreApp() {
                           const sizeLabel = item.size?.label || item.options?.size?.label
                             || (item.productId === 'digital_download_all' || item.product_type === 'digital_download_all'
                                 ? 'All Photos'
-                                : 'High Resolution');
+                                : (item.productId === 'digital_package' || item.product_type === 'digital_package'
+                                    ? (item.size?.label || item.options?.size?.label || `${item.options?.photo_count || ''} Photos`.trim() || 'Package')
+                                    : 'High Resolution'));
                           doc.text(`${nameLabel} (${sizeLabel})`, 20, y);
                           doc.text(`${item.quantity}`, 130, y);
                           const unitP = item.unitPrice || item.unit_price || 0;

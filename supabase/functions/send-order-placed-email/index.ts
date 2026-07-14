@@ -30,11 +30,18 @@ function formatSizeLabel(item: any): string {
   const label = item.options?.size?.label || item.options?.size;
   if (label) return String(label);
   if (item.product_type === 'digital_download_all') return 'All Photos';
+  if (item.product_type === 'digital_package') {
+    const count = item.options?.photo_count;
+    const cat = item.options?.category_tag;
+    if (count && cat) return `${cat} · ${count} Photos`;
+    if (count) return `${count} Photos`;
+    return 'Package';
+  }
   if (item.product_type === 'digital_download') return 'High Resolution';
   return 'Default';
 }
 
-const DIGITAL_TYPES = ['digital_download', 'digital_download_all'];
+const DIGITAL_TYPES = ['digital_download', 'digital_download_all', 'digital_package'];
 
 const DEFAULT_R2_BASE = 'https://pub-de49e8c7da824ad9af0c9289299d8467.r2.dev';
 
@@ -138,6 +145,13 @@ serve(async (req) => {
             downloadSection = `
               ${thumbUrl ? `<div style="margin: 10px 0;"><img src="${thumbUrl}" alt="Your photo" style="max-width:100%; max-height:180px; border-radius:6px; border:1px solid #e8e5e0; display:block;" /></div>` : ''}
               ${photoUrl ? `<a href="${photoUrl}" style="display:inline-block; margin-top:8px; padding:8px 16px; background-color:#111; color:#fff; text-decoration:none; border-radius:4px; font-size:12px; font-weight:bold; text-transform:uppercase; letter-spacing:0.05em;">⬇ Download Photo</a>` : ''}
+            `;
+          } else if (item.product_type === 'digital_package') {
+            const count = item.options?.photo_count || '';
+            downloadSection = `
+              <div style="margin-top:10px; padding:10px 14px; background:#ecfdf5; border-radius:6px; border:1px solid #bbf7d0; color:#059669; font-size:13px;">
+                📦 Package purchase confirmed${count ? ` (up to ${count} photos)` : ''}. Open your gallery to download your photos.
+              </div>
             `;
           } else {
             // Entire collection — show a note instead of embedding all photos

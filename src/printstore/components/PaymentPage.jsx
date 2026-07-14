@@ -18,7 +18,7 @@ export default function PaymentPage({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [showDetails, setShowDetails] = useState(true);
 
-  const DIGITAL_PRODUCTS = ['digital_download', 'digital_download_all'];
+  const DIGITAL_PRODUCTS = ['digital_download', 'digital_download_all', 'digital_package'];
   const allDigital = cartItems.length > 0 && cartItems.every(i => DIGITAL_PRODUCTS.includes(i.productId));
 
   const totalItems = cartItems.reduce((acc, item) => acc + item.quantity, 0);
@@ -268,7 +268,7 @@ export default function PaymentPage({
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 500, color: '#111', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.productName}</div>
                         <div style={{ color: '#666', fontSize: '0.75rem', marginTop: '2px' }}>
-                          {item.size?.label || (item.productId === 'digital_download_all' ? 'All Photos' : 'High Resolution')} • Qty: {item.quantity}
+                          {item.size?.label || (item.productId === 'digital_download_all' ? 'All Photos' : item.productId === 'digital_package' ? (item.size?.label || `${item.options?.photo_count || ''} Photos`) : 'High Resolution')} • Qty: {item.quantity}
                         </div>
                       </div>
                       <div style={{ fontWeight: 500, flexShrink: 0 }}>

@@ -27,6 +27,11 @@ import { GalleryEmptyGrid } from '../../components/features/Gallery/GalleryEmpty
 import { smoothScrollToElement, smoothScrollToTop } from '../../lib/smoothGalleryScroll';
 import { getPhotoFullDisplayUrl } from '../../lib/photoDisplayUrl';
 import {
+  buildDigitalPackageCartItem,
+  fetchStorePackages,
+  filterPackagesForCollection,
+} from '../../lib/storePackages';
+import {
   countGalleryMedia,
   filterGalleryMediaByType,
   shouldShowGalleryMediaFilter,
@@ -207,7 +212,9 @@ const GalleryView = () => {
   const [isPurchaseAllDefault, setIsPurchaseAllDefault] = useState(false);
   const [pendingDownloadPhoto, setPendingDownloadPhoto] = useState(null);
   const [isPendingDownloadAll, setIsPendingDownloadAll] = useState(false);
-  const [selectedDownloadType, setSelectedDownloadType] = useState('single'); // 'single' or 'all'
+  const [selectedDownloadType, setSelectedDownloadType] = useState('single'); // 'single' | 'all' | 'package'
+  const [selectedStorePackage, setSelectedStorePackage] = useState(null);
+  const [storePackages, setStorePackages] = useState([]);
 
   // Permanent Vault States
   const [showVaultPaymentModal, setShowVaultPaymentModal] = useState(false);
@@ -816,7 +823,9 @@ const GalleryView = () => {
 
       if (!ordersError && orders && orders.length > 0) {
         const boughtAll = orders.some(o => 
-          (o.printstore_order_items || []).some(item => item.product_type === 'digital_download_all')
+          (o.printstore_order_items || []).some(item =>
+            item.product_type === 'digital_download_all' || item.product_type === 'digital_package'
+          )
         );
         
         if (boughtAll) {
@@ -998,6 +1007,13 @@ const GalleryView = () => {
         if (data.photographer_id) {
           const p = await galleryService.getPhotographerProfile(data.photographer_id);
           setPhotographer(p);
+          try {
+            const pkgs = await fetchStorePackages(data.photographer_id, { activeOnly: true });
+            setStorePackages(filterPackagesForCollection(pkgs, data));
+          } catch (pkgErr) {
+            console.warn('Could not load store packages:', pkgErr);
+            setStorePackages([]);
+          }
         }
 
         // Check for existing session email
@@ -2287,7 +2303,7 @@ const GalleryView = () => {
                 {/* Option 1: Single Download item (only if not forced all) */}
                 {!isPurchaseAllDefault && (
                   <button
-                    onClick={() => { setSelectedDownloadType('single'); setShowDigitalPurchaseDetail(true); }}
+                    onClick={() => { setSelectedDownloadType('single'); setSelectedStorePackage(null); setShowDigitalPurchaseDetail(true); }}
                     style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', padding: '16px 0', border: 'none', borderBottom: '1px solid #e2e8f0', background: 'none', color: '#1a1a1a', textAlign: 'left', cursor: 'pointer' }}
                   >
                     <span style={{ fontSize: '13px', fontWeight: 500 }}>Single Photo Download (High Resolution)</span>
@@ -2297,12 +2313,38 @@ const GalleryView = () => {
 
                 {/* Option 2: Entire Collection Download item */}
                 <button
-                  onClick={() => { setSelectedDownloadType('all'); setShowDigitalPurchaseDetail(true); }}
+                  onClick={() => { setSelectedDownloadType('all'); setSelectedStorePackage(null); setShowDigitalPurchaseDetail(true); }}
                   style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', padding: '16px 0', border: 'none', borderBottom: '1px solid #e2e8f0', background: 'none', color: '#1a1a1a', textAlign: 'left', cursor: 'pointer' }}
                 >
                   <span style={{ fontSize: '13px', fontWeight: 500 }}>Entire Collection Download (All Photos)</span>
                   <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748b' }}>₹{(collection.digital_download_price_all || 199).toFixed(2)} &gt;</span>
                 </button>
+
+                {storePackages.length > 0 && (
+                  <>
+                    <div style={{ marginTop: '20px', marginBottom: '8px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#111', borderBottom: '2px solid #111', width: 'fit-content', paddingBottom: '4px' }}>
+                      Category Packages
+                    </div>
+                    {storePackages.map((pkg) => (
+                      <button
+                        key={pkg.id}
+                        onClick={() => { setSelectedDownloadType('package'); setSelectedStorePackage(pkg); setShowDigitalPurchaseDetail(true); }}
+                        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', padding: '16px 0', border: 'none', borderBottom: '1px solid #e2e8f0', background: 'none', color: '#1a1a1a', textAlign: 'left', cursor: 'pointer' }}
+                      >
+                        <span style={{ fontSize: '13px', fontWeight: 500 }}>
+                          {pkg.name}
+                          <span style={{ display: 'block', marginTop: '3px', fontSize: '11px', color: '#64748b', fontWeight: 500 }}>
+                            {pkg.category_tag} · up to {pkg.photo_count} photos
+                            {pkg.description ? ` — ${pkg.description}` : ''}
+                          </span>
+                        </span>
+                        <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748b', flexShrink: 0, marginLeft: '12px' }}>
+                          ₹{Number(pkg.price || 0).toFixed(2)} &gt;
+                        </span>
+                      </button>
+                    ))}
+                  </>
+                )}
 
                 {isPurchaseAllDefault ? (
                   <div style={{ marginTop: '24px', fontSize: '12px', color: '#64748b', lineHeight: 1.5 }}>
@@ -2343,12 +2385,22 @@ const GalleryView = () => {
                     &larr;
                   </button>
                   <span style={{ fontSize: '13px', fontWeight: 700, color: '#111' }}>
-                    {selectedDownloadType === 'all' ? 'Entire Collection Download (All Photos)' : 'Single Photo Download (High Resolution)'}
+                    {selectedDownloadType === 'package' && selectedStorePackage
+                      ? selectedStorePackage.name
+                      : selectedDownloadType === 'all'
+                        ? 'Entire Collection Download (All Photos)'
+                        : 'Single Photo Download (High Resolution)'}
                   </span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                   <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748b' }}>
-                    Total: ₹{((selectedDownloadType === 'all' ? collection.digital_download_price_all : collection.digital_download_price_single) || (selectedDownloadType === 'all' ? 199 : 40)).toFixed(2)}
+                    Total: ₹{(
+                      selectedDownloadType === 'package' && selectedStorePackage
+                        ? Number(selectedStorePackage.price) || 0
+                        : selectedDownloadType === 'all'
+                          ? (collection.digital_download_price_all || 199)
+                          : (collection.digital_download_price_single || 40)
+                    ).toFixed(2)}
                   </span>
                   <button
                     onClick={() => {
@@ -2361,7 +2413,65 @@ const GalleryView = () => {
                         cart = [];
                       }
 
+                      const isPackage = selectedDownloadType === 'package' && selectedStorePackage;
                       const isAll = selectedDownloadType === 'all';
+
+                      if (isPackage) {
+                        const existingPkgIdx = cart.findIndex((item) => {
+                          const pid = item.productId || item.product_id;
+                          const pkgId = item.options?.packageId;
+                          return pid === 'digital_package' && pkgId === selectedStorePackage.id;
+                        });
+                        if (existingPkgIdx === -1) {
+                          cart.push(buildDigitalPackageCartItem(selectedStorePackage));
+                        }
+                        localStorage.setItem(cartKey, JSON.stringify(cart));
+
+                        const savedEmail = localStorage.getItem(`pixnxt_fav_email_${collection.id}`);
+                        if (savedEmail) {
+                          galleryService.createOrGetSession(collection.id, savedEmail).then(async (session) => {
+                            if (!session?.id) return;
+                            let productDbId = null;
+                            const { data: dbProducts } = await supabase
+                              .from('printstore_products')
+                              .select('id')
+                              .eq('product_type', 'digital_package')
+                              .limit(1);
+                            productDbId = dbProducts?.[0]?.id || null;
+                            if (!productDbId) {
+                              const { data: inserted } = await supabase
+                                .from('printstore_products')
+                                .insert({
+                                  product_type: 'digital_package',
+                                  name: selectedStorePackage.name,
+                                  base_price: Number(selectedStorePackage.price) || 0,
+                                  image_url: null,
+                                  is_active: true,
+                                  options: { selling_price: Number(selectedStorePackage.price) || 0 },
+                                })
+                                .select('id')
+                                .maybeSingle();
+                              productDbId = inserted?.id || null;
+                            }
+                            const cartItem = buildDigitalPackageCartItem(selectedStorePackage);
+                            await supabase.from('printstore_cart_items').insert({
+                              session_id: session.id,
+                              product_id: productDbId,
+                              quantity: 1,
+                              options: cartItem.options,
+                            });
+                          }).catch((e) => {
+                            console.error('Error syncing package to Supabase cart:', e);
+                          });
+                        }
+
+                        setShowDigitalDownloadModal(false);
+                        setShowDigitalPurchaseDetail(false);
+                        setSelectedStorePackage(null);
+                        window.location.assign(`/printstore?slug=${collection.slug}&cart=open`);
+                        return;
+                      }
+
                       const itemProductId = isAll ? 'digital_download_all' : 'digital_download';
                       const itemProductName = isAll
                         ? 'Entire Collection Download (All Photos)'
@@ -2492,11 +2602,16 @@ const GalleryView = () => {
               {/* Detail Content View (Scrollable left column if all) */}
               <div style={{ display: 'flex', flex: 1, height: 'calc(100% - 60px)' }}>
                 {/* Left side Image / Grid */}
-                <div style={{ width: '50%', height: '100%', background: '#f8fafc', display: 'flex', flexDirection: 'column', padding: '24px', boxSizing: 'border-box', position: 'relative', overflowY: selectedDownloadType === 'all' ? 'auto' : 'hidden', justifyContent: selectedDownloadType === 'all' ? 'flex-start' : 'center', alignItems: 'center' }}>
-                  {selectedDownloadType === 'all' ? (
+                <div style={{ width: '50%', height: '100%', background: '#f8fafc', display: 'flex', flexDirection: 'column', padding: '24px', boxSizing: 'border-box', position: 'relative', overflowY: (selectedDownloadType === 'all' || selectedDownloadType === 'package') ? 'auto' : 'hidden', justifyContent: (selectedDownloadType === 'all' || selectedDownloadType === 'package') ? 'flex-start' : 'center', alignItems: 'center' }}>
+                  {(selectedDownloadType === 'all' || selectedDownloadType === 'package') ? (
                     <div style={{ width: '100%' }}>
+                      {selectedDownloadType === 'package' && selectedStorePackage && (
+                        <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#64748b', marginBottom: '12px', textAlign: 'center' }}>
+                          {selectedStorePackage.category_tag} · up to {selectedStorePackage.photo_count} photos
+                        </div>
+                      )}
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', width: '100%', backgroundColor: '#f8fafc' }}>
-                        {(filteredPhotos || []).map((p, idx) => (
+                        {(filteredPhotos || []).slice(0, selectedDownloadType === 'package' && selectedStorePackage ? selectedStorePackage.photo_count : undefined).map((p, idx) => (
                           <div key={idx} style={{ aspectRatio: '1', overflow: 'hidden', backgroundColor: '#e2e8f0', borderRadius: '4px' }}>
                             <img src={p.web_url || p.thumbnail_url || p.full_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                           </div>

@@ -3,7 +3,7 @@ import { Trash2, Info, Mail, Phone } from 'lucide-react';
 import '../PrintStore.css';
 import CartItemPreview from './CartItemPreview';
 
-const DIGITAL_PRODUCTS = ['digital_download', 'digital_download_all'];
+const DIGITAL_PRODUCTS = ['digital_download', 'digital_download_all', 'digital_package'];
 
 export default function ReviewPage({
   cartItems,
@@ -221,6 +221,16 @@ export default function ReviewPage({
                         {item.productId === 'digital_download_all' && collectionPhotos.length > 0 && (
                           <span style={{ display: 'block', marginTop: '4px', fontWeight: 600, color: '#111', fontSize: '13px' }}>
                             {collectionPhotos.length} photos included
+                          </span>
+                        )}
+                        {item.productId === 'digital_package' && (
+                          <span style={{ display: 'block', marginTop: '4px', fontWeight: 600, color: '#111', fontSize: '13px' }}>
+                            {item.options?.category_tag || 'Package'}
+                            {item.options?.photo_count
+                              ? ` · up to ${item.options.photo_count} photos`
+                              : item.size?.label
+                                ? ` · ${item.size.label}`
+                                : ''}
                           </span>
                         )}
                       </p>
