@@ -6,6 +6,13 @@ import { SmoothMediaImage } from '../../../ui/SmoothMediaImage';
 import { isGalleryVideo } from '../../../../lib/galleryMediaType';
 import { getPhotoVideoPoster, getPhotoVideoSrc } from '../../../../lib/photoDisplayUrl';
 import { PhotoPrivateControls, PhotoPrivateBadge } from '../../ClientExclusiveAccess';
+import {
+  BannerBouquetSvg,
+  formatBannerPlaceholders,
+  getBannerFontFamily,
+  padTimerPart,
+  resolveBannerBackgroundImage,
+} from '../../../../lib/salesCampaignBanner';
 import './MasonryGrid.css';
  
 export function MasonryGrid({
@@ -330,16 +337,13 @@ export function MasonryGrid({
 
   const renderPromoCard = (photo) => {
     const isPhotoBanner = photo.type === 'photo_banner';
-    const bannerConfig = isPhotoBanner 
-      ? activeCampaign?.banners?.photo_banner 
+    const bannerConfig = isPhotoBanner
+      ? activeCampaign?.banners?.photo_banner
       : activeCampaign?.banners?.store_rotator;
 
     const isMobileView = isMobileViewport || isPreviewMobile;
-    const desktopImg = bannerConfig?.desktop_image || '';
-    const mobileImg = bannerConfig?.mobile_image || '';
-    const bgImage = isMobileView
-      ? (mobileImg ? `url(${mobileImg})` : (desktopImg ? `url(${desktopImg})` : 'none'))
-      : (desktopImg ? `url(${desktopImg})` : 'none');
+    const bgImage = resolveBannerBackgroundImage(bannerConfig, isMobileView);
+    const fontFamily = getBannerFontFamily(bannerConfig?.font || 'Playfair Display');
 
     const bannerStyle = {
       bg: bannerConfig?.bg_color || (isPhotoBanner ? '#d4c9b5' : '#eae5d8'),
@@ -347,10 +351,27 @@ export function MasonryGrid({
       titleColor: bannerConfig?.title_color || (isPhotoBanner ? '#1a1a1a' : '#2c3e2d'),
       subtitleColor: bannerConfig?.subtitle_color || (isPhotoBanner ? '#444444' : '#4a5a4b'),
       ctaBg: bannerConfig?.cta_bg || (isPhotoBanner ? '#1a1a1a' : '#3a4a38'),
-      ctaColor: bannerConfig?.cta_color || '#ffffff',
-      font: bannerConfig?.font || 'Playfair Display',
-      timerColor: bannerConfig?.title_color || (isPhotoBanner ? '#1a1a1a' : '#2c3e2d')
+      ctaColor: (bannerConfig?.cta_color && bannerConfig.cta_color !== '#ffffff')
+        ? bannerConfig.cta_color
+        : (bannerConfig?.bg_color || '#ffffff'),
+      timerColor: bannerConfig?.timer_color || bannerConfig?.title_color || (isPhotoBanner ? '#1a1a1a' : '#2c3e2d'),
     };
+
+    const title = formatBannerPlaceholders(
+      bannerConfig?.title || (isPhotoBanner ? 'Anniversary Sale' : 'Your Wedding in Print'),
+      activeCampaign
+    );
+    const subtitle = formatBannerPlaceholders(
+      bannerConfig?.subtitle || (isPhotoBanner
+        ? 'Celebrate with {discount-value} OFF prints.'
+        : 'Anniversary Gift! Celebrate those special moments with {discount-value} off all prints until {exp-date}.'),
+      activeCampaign
+    );
+    const codeLine = formatBannerPlaceholders(
+      bannerConfig?.code || `Code: {code}`,
+      activeCampaign
+    );
+    const ctaLabel = bannerConfig?.cta || (isPhotoBanner ? 'CLAIM OFFER' : 'CLAIM OFFER');
 
     return (
       <Motion.div
@@ -369,6 +390,7 @@ export function MasonryGrid({
           aspectRatio: '1 / 1'
         }}
         onClick={() => onVisitShop?.()}
+        data-sales-banner={isPhotoBanner ? 'photo' : 'store_rotator'}
       >
         <div style={{
           width: '100%',
@@ -385,9 +407,8 @@ export function MasonryGrid({
           alignItems: 'center',
           justifyContent: 'center',
           textAlign: 'center',
-          fontFamily: bannerStyle.font === 'Playfair Display' ? "'Playfair Display', serif" : (bannerStyle.font === 'Georgia' ? "'Georgia', serif" : (bannerStyle.font === 'Montserrat' ? "'Montserrat', sans-serif" : "'Inter', sans-serif"))
+          fontFamily,
         }}>
-          {/* Text contrast overlay if custom background image is present */}
           {bannerStyle.backgroundImage && bannerStyle.backgroundImage !== 'none' && (
             <div style={{
               position: 'absolute',
@@ -421,110 +442,88 @@ export function MasonryGrid({
                 textAlign: 'center',
                 gap: '6px'
               }}>
-                <div style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: '4px',
-                  width: '100%'
+                <h3 style={{
+                  fontSize: isMobileView ? '13px' : '16px',
+                  fontWeight: 700,
+                  color: bannerStyle.titleColor,
+                  margin: 0,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
+                  fontFamily,
                 }}>
-                  <h3 style={{
-                    fontSize: isMobileView ? '13px' : '16px',
-                    fontWeight: 700,
-                    color: bannerStyle.titleColor,
-                    margin: 0,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.04em'
-                  }}>
-                    {(() => {
-                      let text = bannerConfig?.title || '';
-                      const discountVal = activeCampaign?.discount ? `${activeCampaign.discount}%` : '30%';
-                      return text.replace(/{discount-value}/g, discountVal).replace(/{discount_value}/g, discountVal).replace(/{code}/g, activeCampaign?.discountCode || 'HAPPYANI');
-                    })()}
-                  </h3>
-                  <p style={{
-                    fontSize: isMobileView ? '9px' : '10px',
-                    color: bannerStyle.subtitleColor,
-                    margin: '0 0 2px 0',
-                    lineHeight: 1.3,
-                    maxWidth: '240px'
-                  }}>
-                    {(() => {
-                      let text = bannerConfig?.subtitle || '';
-                      const discountVal = activeCampaign?.discount ? `${activeCampaign.discount}%` : '30%';
-                      const expDate = new Date(); expDate.setDate(expDate.getDate() + 14);
-                      const expFormatted = expDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-                      return text.replace(/{discount-value}/g, discountVal).replace(/{discount_value}/g, discountVal).replace(/{exp-date}/g, expFormatted).replace(/{exp_date}/g, expFormatted).replace(/{code}/g, activeCampaign?.discountCode || 'HAPPYANI');
-                    })()}
-                  </p>
-                  <div style={{
-                    fontSize: isMobileView ? '8.5px' : '9.5px',
-                    color: bannerStyle.subtitleColor,
-                    fontWeight: 700,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.05em'
-                  }}>
-                    {bannerConfig?.code ? bannerConfig.code.replace(/{code}/g, activeCampaign?.discountCode || 'HAPPYANI') : `Code: ${activeCampaign?.discountCode || 'HAPPYANI'}`}
-                  </div>
-
-                  {/* Countdown Timer */}
-                  <div style={{ marginTop: '4px' }}>
-                    <div style={{
-                      display: 'flex',
-                      gap: '5px',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: bannerStyle.timerColor
-                    }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                        <span style={{ fontSize: isMobileView ? '12px' : '15px', fontWeight: 700, lineHeight: 1 }}>
-                          {String(timeLeft.days).padStart(2, '0')}
-                        </span>
-                        <span style={{ fontSize: '5px', textTransform: 'uppercase', opacity: 0.8, fontWeight: 700, marginTop: '2px' }}>day</span>
-                      </div>
-                      <span style={{ fontSize: '10px', fontWeight: 700, alignSelf: 'flex-start', marginTop: '-2px' }}>:</span>
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                        <span style={{ fontSize: isMobileView ? '12px' : '15px', fontWeight: 700, lineHeight: 1 }}>
-                          {String(timeLeft.hours).padStart(2, '0')}
-                        </span>
-                        <span style={{ fontSize: '5px', textTransform: 'uppercase', opacity: 0.8, fontWeight: 700, marginTop: '2px' }}>hrs</span>
-                      </div>
-                      <span style={{ fontSize: '10px', fontWeight: 700, alignSelf: 'flex-start', marginTop: '-2px' }}>:</span>
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                        <span style={{ fontSize: isMobileView ? '12px' : '15px', fontWeight: 700, lineHeight: 1 }}>
-                          {String(timeLeft.minutes).padStart(2, '0')}
-                        </span>
-                        <span style={{ fontSize: '5px', textTransform: 'uppercase', opacity: 0.8, fontWeight: 700, marginTop: '2px' }}>min</span>
-                      </div>
-                      <span style={{ fontSize: '10px', fontWeight: 700, alignSelf: 'flex-start', marginTop: '-2px' }}>:</span>
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                        <span style={{ fontSize: isMobileView ? '12px' : '15px', fontWeight: 700, lineHeight: 1 }}>
-                          {String(timeLeft.seconds).padStart(2, '0')}
-                        </span>
-                        <span style={{ fontSize: '5px', textTransform: 'uppercase', opacity: 0.8, fontWeight: 700, marginTop: '2px' }}>sec</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onVisitShop?.(); }}
-                    style={{
-                      marginTop: '6px',
-                      padding: '5px 14px',
-                      fontSize: '8px',
-                      fontWeight: 700,
-                      backgroundColor: bannerStyle.ctaBg,
-                      color: bannerStyle.ctaColor,
-                      border: 'none',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.08em',
-                      cursor: 'pointer',
-                      borderRadius: '1px'
-                    }}
-                  >
-                    {bannerConfig?.cta || 'CLAIM OFFER'}
-                  </button>
+                  {title}
+                </h3>
+                <p style={{
+                  fontSize: isMobileView ? '9px' : '10px',
+                  color: bannerStyle.subtitleColor,
+                  margin: '0 0 2px 0',
+                  lineHeight: 1.3,
+                  maxWidth: '240px',
+                  fontFamily: "'Inter', sans-serif",
+                }}>
+                  {subtitle}
+                </p>
+                <div style={{
+                  fontSize: isMobileView ? '8.5px' : '9.5px',
+                  color: bannerStyle.subtitleColor,
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  fontFamily: "'Inter', sans-serif",
+                }}>
+                  {codeLine}
                 </div>
+
+                <div style={{ marginTop: '4px' }}>
+                  <div style={{
+                    display: 'flex',
+                    gap: '5px',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: bannerStyle.timerColor
+                  }}>
+                    {[
+                      { value: timeLeft.days, label: 'day' },
+                      { value: timeLeft.hours, label: 'hrs' },
+                      { value: timeLeft.minutes, label: 'min' },
+                      { value: timeLeft.seconds, label: 'sec' },
+                    ].map((part, idx) => (
+                      <React.Fragment key={part.label}>
+                        {idx > 0 && (
+                          <span style={{ fontSize: '10px', fontWeight: 700, alignSelf: 'flex-start', marginTop: '-2px' }}>:</span>
+                        )}
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                          <span style={{ fontSize: isMobileView ? '12px' : '15px', fontWeight: 700, lineHeight: 1 }}>
+                            {padTimerPart(part.value)}
+                          </span>
+                          <span style={{ fontSize: '5px', textTransform: 'uppercase', opacity: 0.8, fontWeight: 700, marginTop: '2px' }}>
+                            {part.label}
+                          </span>
+                        </div>
+                      </React.Fragment>
+                    ))}
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onVisitShop?.(); }}
+                  style={{
+                    marginTop: '6px',
+                    padding: '5px 14px',
+                    fontSize: '8px',
+                    fontWeight: 700,
+                    backgroundColor: bannerStyle.ctaBg,
+                    color: bannerStyle.ctaColor,
+                    border: 'none',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.08em',
+                    cursor: 'pointer',
+                    borderRadius: '1px'
+                  }}
+                >
+                  {ctaLabel}
+                </button>
               </div>
             ) : (
               <div style={{
@@ -539,51 +538,45 @@ export function MasonryGrid({
                 gap: '4px',
                 textAlign: 'center'
               }}>
-                <span style={{ fontSize: '8px', fontWeight: 700, letterSpacing: '0.12em', color: '#bfa38a', textTransform: 'uppercase', marginBottom: '2px' }}>
-                  {bannerConfig?.code ? bannerConfig.code.replace(/{code}/g, activeCampaign?.discountCode || 'HAPPYANI') : 'EXCLUSIVE OFFER'}
+                <span style={{
+                  fontSize: '8px',
+                  fontWeight: 700,
+                  letterSpacing: '0.12em',
+                  color: '#bfa38a',
+                  textTransform: 'uppercase',
+                  marginBottom: '2px',
+                  fontFamily: "'Inter', sans-serif",
+                }}>
+                  {codeLine}
                 </span>
                 <h3 style={{
                   fontSize: isMobileView ? '13px' : '15px',
                   fontWeight: 700,
                   margin: 0,
                   color: bannerStyle.titleColor,
-                  textTransform: 'uppercase'
+                  textTransform: 'uppercase',
+                  fontFamily,
                 }}>
-                  {(() => {
-                    let text = bannerConfig?.title || '';
-                    const discountVal = activeCampaign?.discount ? `${activeCampaign.discount}%` : '30%';
-                    return text.replace(/{discount-value}/g, discountVal).replace(/{discount_value}/g, discountVal);
-                  })()}
+                  {title}
                 </h3>
                 <p style={{
                   fontSize: isMobileView ? '9px' : '10px',
                   lineHeight: 1.3,
                   color: bannerStyle.subtitleColor,
                   margin: '0 0 4px 0',
-                  maxWidth: '240px'
+                  maxWidth: '240px',
+                  fontFamily: "'Inter', sans-serif",
                 }}>
-                  {(() => {
-                    let text = bannerConfig?.subtitle || '';
-                    const discountVal = activeCampaign?.discount ? `${activeCampaign.discount}%` : '30%';
-                    const expDate = new Date(); expDate.setDate(expDate.getDate() + 14);
-                    const expFormatted = expDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-                    return text.replace(/{discount-value}/g, discountVal).replace(/{discount_value}/g, discountVal).replace(/{exp-date}/g, expFormatted).replace(/{exp_date}/g, expFormatted);
-                  })()}
+                  {subtitle}
                 </p>
 
-                {/* Double small bouquets below text */}
-                <div style={{ display: 'flex', gap: '4px', margin: '3px 0' }}>
-                  <svg viewBox="0 0 100 100" style={{ width: '18px', height: '18px' }}>
-                    <circle cx="48" cy="32" r="7" fill="#ffffff" stroke="#dcdcdc" strokeWidth="1" />
-                    <path d="M42 66 L50 46" stroke="#5d6050" strokeWidth="4" />
-                  </svg>
-                  <svg viewBox="0 0 100 100" style={{ width: '18px', height: '18px' }}>
-                    <circle cx="48" cy="32" r="7" fill="#ffffff" stroke="#dcdcdc" strokeWidth="1" />
-                    <path d="M42 66 L50 46" stroke="#5d6050" strokeWidth="4" />
-                  </svg>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: '4px 0' }}>
+                  <BannerBouquetSvg size={28} />
+                  <BannerBouquetSvg size={40} />
                 </div>
 
                 <button
+                  type="button"
                   onClick={(e) => { e.stopPropagation(); onVisitShop?.(); }}
                   style={{
                     padding: '6px 16px',
@@ -599,7 +592,7 @@ export function MasonryGrid({
                     marginTop: '4px'
                   }}
                 >
-                  {bannerConfig?.cta || 'CLAIM OFFER'}
+                  {ctaLabel}
                 </button>
               </div>
             )}

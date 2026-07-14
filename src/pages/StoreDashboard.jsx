@@ -3,6 +3,15 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase/client';
 import { galleryService } from '../services/gallery.service';
+import { storageService } from '../services/storage.service';
+import {
+  buildGalleryCampaignPayload,
+  compressBannerImageFile,
+  hasPendingBannerImageUpload,
+  mergeGalleryCampaignsFromDb,
+  persistSalesCampaignsLocally,
+  SALES_CAMPAIGNS_STORAGE_KEY,
+} from '../lib/salesCampaignBanner';
 import {
   ShoppingBag, Settings, ChevronDown, ChevronUp,
   LogOut, User, Gift, DollarSign, Package, ChevronLeft, ChevronRight, Eye, Mail, Phone,
@@ -98,8 +107,8 @@ export default function StoreDashboard() {
       discountCode: 'HAPPYANI',
       banners: {
         text_banner: { enabled: true, text: 'Happy anniversary! Enjoy {discount-value} off print products, valid thru {exp-date}! Enter {code} at checkout', bg_color: '#4a5338', text_color: '#ffffff' },
-        large_banner: { enabled: false, title: 'Relive It in Print', subtitle: 'Get these moments off the screen and into your hands with {discount-value} off, this {exp-date}.', cta: 'Visit Shop', bg_color: '#eae5d8', title_color: '#2c3e2d', subtitle_color: '#4a5a4b', cta_bg: '#3a4a38', cta_color: '#ffffff', font: 'Playfair Display', desktop_image: '', mobile_image: '' },
-        photo_banner: { enabled: false, title: 'One Year Anniversary', subtitle: '20% off all prints', bg_color: '#d4c9b5', desktop_image: '', mobile_image: '' },
+        large_banner: { enabled: false, title: 'Relive It in Print', subtitle: 'Get these moments off the screen and into your hands with {discount-value} off, this {exp-date}.', code: 'Code: {code}', cta: 'Visit Shop', bg_color: '#eae5d8', title_color: '#2c3e2d', subtitle_color: '#4a5a4b', cta_bg: '#3a4a38', cta_color: '#ffffff', timer_color: '#3a4a38', font: 'Playfair Display', desktop_image: '', mobile_image: '' },
+        photo_banner: { enabled: false, title: 'One Year Anniversary', subtitle: '20% off all prints', code: 'Code: {code}', cta: 'CLAIM OFFER', bg_color: '#d4c9b5', title_color: '#1a1a1a', subtitle_color: '#444444', cta_bg: '#1a1a1a', cta_color: '#ffffff', timer_color: '#3a4a38', font: 'Playfair Display', desktop_image: '', mobile_image: '' },
         store_rotator: { enabled: false, title: 'Your Wedding in Print', subtitle: 'Anniversary Gift! Celebrate those special moments with {discount-value} off all prints until {exp-date}.', code: 'Code: {code}', cta: 'CLAIM OFFER', bg_color: '#eae5d8', title_color: '#2c3e2d', subtitle_color: '#4a5a4b', cta_bg: '#3a4a38', cta_color: '#ffffff', font: 'Playfair Display', desktop_image: '', mobile_image: '' }
       },
       modified: { yearsRepeat: true, startDate: true, duration: true, discount: true, banners: true, emails: false },
@@ -184,8 +193,8 @@ export default function StoreDashboard() {
       discountCode: 'BIRTHDAY20',
       banners: {
         text_banner: { enabled: false, text: 'Happy Birthday! Enjoy {discount-value} off all prints today only!', bg_color: '#7c3aed', text_color: '#ffffff' },
-        large_banner: { enabled: false, title: 'Happy Birthday!', subtitle: 'Celebrate with {discount-value} off all prints today only!', cta: 'Shop Now', bg_color: '#f0e8f5', title_color: '#4a1d96', subtitle_color: '#6d28d9', cta_bg: '#7c3aed', cta_color: '#ffffff', font: 'Playfair Display', desktop_image: '', mobile_image: '' },
-        photo_banner: { enabled: false, title: 'Birthday Offer', subtitle: 'Celebrate with prints!', bg_color: '#e9d5ff', desktop_image: '', mobile_image: '' },
+        large_banner: { enabled: false, title: 'Happy Birthday!', subtitle: 'Celebrate with {discount-value} off all prints today only!', code: 'Code: {code}', cta: 'Shop Now', bg_color: '#f0e8f5', title_color: '#4a1d96', subtitle_color: '#6d28d9', cta_bg: '#7c3aed', cta_color: '#ffffff', timer_color: '#4a1d96', font: 'Playfair Display', desktop_image: '', mobile_image: '' },
+        photo_banner: { enabled: false, title: 'Birthday Offer', subtitle: 'Celebrate with prints!', code: 'Code: {code}', cta: 'CLAIM OFFER', bg_color: '#e9d5ff', title_color: '#4a1d96', subtitle_color: '#6d28d9', cta_bg: '#7c3aed', cta_color: '#ffffff', timer_color: '#4a1d96', font: 'Playfair Display', desktop_image: '', mobile_image: '' },
         store_rotator: { enabled: false, title: 'Your Birthday in Print', subtitle: 'Happy Birthday! Celebrate with {discount-value} off all prints until {exp-date}.', code: 'Code: {code}', cta: 'CLAIM OFFER', bg_color: '#f0e8f5', title_color: '#4a1d96', subtitle_color: '#6d28d9', cta_bg: '#7c3aed', cta_color: '#ffffff', font: 'Playfair Display', desktop_image: '', mobile_image: '' }
       },
       modified: { yearsRepeat: true, startDate: true, duration: true, discount: true, banners: true, emails: false },
@@ -270,8 +279,8 @@ export default function StoreDashboard() {
       discountCode: 'SEASON25',
       banners: {
         text_banner: { enabled: false, text: 'Season sale! {discount-value} off all prints — limited time offer!', bg_color: '#92400e', text_color: '#ffffff' },
-        large_banner: { enabled: false, title: 'Season Sale', subtitle: '{discount-value} off everything — limited time only!', cta: 'Shop Sale', bg_color: '#fef3e8', title_color: '#92400e', subtitle_color: '#b45309', cta_bg: '#d97706', cta_color: '#ffffff', font: 'Georgia', desktop_image: '', mobile_image: '' },
-        photo_banner: { enabled: false, title: 'Season Sale', subtitle: 'Limited time offer!', bg_color: '#fde68a', desktop_image: '', mobile_image: '' },
+        large_banner: { enabled: false, title: 'Season Sale', subtitle: '{discount-value} off everything — limited time only!', code: 'Code: {code}', cta: 'Shop Sale', bg_color: '#fef3e8', title_color: '#92400e', subtitle_color: '#b45309', cta_bg: '#d97706', cta_color: '#ffffff', timer_color: '#92400e', font: 'Georgia', desktop_image: '', mobile_image: '' },
+        photo_banner: { enabled: false, title: 'Season Sale', subtitle: 'Limited time offer!', code: 'Code: {code}', cta: 'CLAIM OFFER', bg_color: '#fde68a', title_color: '#92400e', subtitle_color: '#b45309', cta_bg: '#d97706', cta_color: '#ffffff', timer_color: '#92400e', font: 'Georgia', desktop_image: '', mobile_image: '' },
         store_rotator: { enabled: false, title: 'Season Sale', subtitle: 'Limited Time Offer! Enjoy {discount-value} off all prints until {exp-date}.', code: 'Code: {code}', cta: 'CLAIM OFFER', bg_color: '#fef3e8', title_color: '#92400e', subtitle_color: '#b45309', cta_bg: '#d97706', cta_color: '#ffffff', font: 'Georgia', desktop_image: '', mobile_image: '' }
       },
       modified: { yearsRepeat: true, startDate: true, duration: true, discount: true, banners: true, emails: false },
@@ -345,6 +354,35 @@ export default function StoreDashboard() {
   ]);
   const [selectedCampaign, setSelectedCampaign] = useState(null); // which campaign detail is open
   const [activeModal, setActiveModal] = useState(null);           // 'text_banner' | 'large_banner' | 'photo_banner'
+  const [bannerImageUploading, setBannerImageUploading] = useState(null); // 'desktop_image' | 'mobile_image' | null
+
+  const uploadSalesBannerImage = async (file, field) => {
+    if (!file) return null;
+    if (!user?.id) throw new Error('Sign in to upload banner images.');
+    const compressed = await compressBannerImageFile(file);
+    const rawExt = (compressed.name?.split('.').pop() || 'jpg').toLowerCase();
+    const ext = /^[a-z0-9]+$/.test(rawExt) ? rawExt : 'jpg';
+    const campaignId = selectedCampaign || 'campaign';
+    const bannerKey = activeModal || 'banner';
+    const path = `sales-banners/${user.id}/${campaignId}/${bannerKey}-${field}-${Date.now()}.${ext}`;
+    const { url } = await storageService.upload(path, compressed);
+    if (!url) throw new Error('Upload succeeded but no public URL was returned.');
+    return url;
+  };
+
+  const handleBannerImageUpload = async (field, file) => {
+    if (!file) return;
+    try {
+      setBannerImageUploading(field);
+      const url = await uploadSalesBannerImage(file, field);
+      setSelectedAutomation((prev) => ({ ...prev, [field]: url }));
+    } catch (err) {
+      console.error('Banner image upload failed:', err);
+      alert(`Failed to upload banner image: ${err.message || err}`);
+    } finally {
+      setBannerImageUploading(null);
+    }
+  };
   const [selectedAutomation, setSelectedAutomation] = useState(null);
   const [automationModalTab, setAutomationModalTab] = useState('content');
   const [previewChannel, setPreviewChannel] = useState('email');
@@ -406,7 +444,7 @@ export default function StoreDashboard() {
 
   // Sync campaigns state to/from localStorage for client gallery view access
   useEffect(() => {
-    const stored = localStorage.getItem('pixnxt_sales_campaigns');
+    const stored = localStorage.getItem(SALES_CAMPAIGNS_STORAGE_KEY);
     if (stored) {
       try {
         setCampaigns(JSON.parse(stored));
@@ -426,7 +464,7 @@ export default function StoreDashboard() {
         try {
           const parsed = JSON.parse(withCampaign.store_banner_text);
           if (Array.isArray(parsed)) {
-            setCampaigns(parsed);
+            setCampaigns((prev) => mergeGalleryCampaignsFromDb(prev, parsed));
           }
         } catch (e) {
           console.error("Error parsing campaign from database:", e);
@@ -438,28 +476,31 @@ export default function StoreDashboard() {
   const saveCampaignsToDatabase = async (updatedCampaigns) => {
     try {
       const collectionIds = (collections || []).map(c => c.id).filter(Boolean);
-      if (collectionIds.length > 0) {
-        const jsonStr = JSON.stringify(updatedCampaigns);
-        const { error } = await supabase
-          .from('collections')
-          .update({ store_banner_text: jsonStr })
-          .in('id', collectionIds);
-        if (error) throw error;
-        console.log("Successfully saved campaign settings to database for collections:", collectionIds);
-      }
+      if (collectionIds.length === 0) return true;
+
+      const payload = buildGalleryCampaignPayload(updatedCampaigns);
+      const jsonStr = JSON.stringify(payload);
+      const { error } = await supabase
+        .from('collections')
+        .update({ store_banner_text: jsonStr })
+        .in('id', collectionIds);
+      if (error) throw error;
+      console.log("Successfully saved gallery banner settings for collections:", collectionIds);
+      return true;
     } catch (err) {
-      console.error("Error saving campaign settings to database:", err);
+      console.error("Error saving gallery banner settings to database:", err);
+      return false;
     }
   };
 
   const isInitialMount = useRef(true);
 
   useEffect(() => {
-    localStorage.setItem('pixnxt_sales_campaigns', JSON.stringify(campaigns));
     if (isInitialMount.current) {
       isInitialMount.current = false;
       return;
     }
+    persistSalesCampaignsLocally(campaigns);
     if (collections && collections.length > 0) {
       saveCampaignsToDatabase(campaigns);
     }
@@ -1187,8 +1228,10 @@ export default function StoreDashboard() {
     const cta = banner.cta;
 
     const bgImage = isMobile
-      ? (banner.mobile_image ? `url(${banner.mobile_image})` : (banner.desktop_image ? `url(${banner.desktop_image})` : 'none'))
-      : (banner.desktop_image ? `url(${banner.desktop_image})` : 'none');
+      ? (banner.mobile_image
+          ? `url("${String(banner.mobile_image).replace(/"/g, '\\"')}")`
+          : (banner.desktop_image ? `url("${String(banner.desktop_image).replace(/"/g, '\\"')}")` : 'none'))
+      : (banner.desktop_image ? `url("${String(banner.desktop_image).replace(/"/g, '\\"')}")` : 'none');
 
     const getFont = (f) => {
       if (f === 'Playfair Display') return "'Playfair Display', serif";
@@ -3331,8 +3374,16 @@ export default function StoreDashboard() {
                           >CANCEL</button>
                         )}
                         <button
-                          onClick={() => {
+                          onClick={async () => {
+                            if (bannerImageUploading) {
+                              alert('Please wait for the banner image upload to finish.');
+                              return;
+                            }
                             const { _campaignId, _bannerKey, _emailKey, ...data } = selectedAutomation;
+                            if (['large_banner', 'photo_banner', 'store_rotator'].includes(activeModal) && hasPendingBannerImageUpload(data)) {
+                              alert('Banner image is still processing. Wait for the upload preview to appear, then click APPLY again.');
+                              return;
+                            }
                             let updatedCampaigns = campaigns;
                             if (activeModal === 'start_date') {
                               updatedCampaigns = campaigns.map(c => c.id === _campaignId
@@ -3378,6 +3429,8 @@ export default function StoreDashboard() {
                               );
                             }
                             setCampaigns(updatedCampaigns);
+                            persistSalesCampaignsLocally(updatedCampaigns);
+                            const savedToDb = await saveCampaignsToDatabase(updatedCampaigns);
 
                             // Trigger automatic test email to photographer's logged-in email
                             if (user?.email && (activeModal === 'edit_email' || ['text_banner', 'large_banner', 'photo_banner', 'store_rotator'].includes(activeModal))) {
@@ -3418,12 +3471,29 @@ export default function StoreDashboard() {
                               }
                             }
 
+                            if (['large_banner', 'photo_banner', 'store_rotator'].includes(activeModal) && !savedToDb) {
+                              console.warn('Banner saved locally; gallery sync to database will retry on next change.');
+                            }
+
                             setActiveModal(null);
                           }}
-                          style={{ padding: '10px 36px', fontSize: '11px', fontWeight: 700, border: 'none', borderRadius: '2px', backgroundColor: '#efefef', color: '#2c2c2d', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.08em', transition: 'background-color 0.2s' }}
-                          onMouseEnter={e => e.currentTarget.style.backgroundColor = '#e5e5e5'}
+                          style={{
+                            padding: '10px 36px',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            border: 'none',
+                            borderRadius: '2px',
+                            backgroundColor: '#efefef',
+                            color: '#2c2c2d',
+                            cursor: bannerImageUploading ? 'wait' : 'pointer',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.08em',
+                            transition: 'background-color 0.2s',
+                            opacity: bannerImageUploading ? 0.65 : 1,
+                          }}
+                          onMouseEnter={e => { if (!bannerImageUploading) e.currentTarget.style.backgroundColor = '#e5e5e5'; }}
                           onMouseLeave={e => e.currentTarget.style.backgroundColor = '#efefef'}
-                        >APPLY</button>
+                        >{bannerImageUploading ? 'UPLOADING…' : 'APPLY'}</button>
                       </div>
                     </div>
 
@@ -3867,23 +3937,19 @@ export default function StoreDashboard() {
                                         onClick={() => document.getElementById('desktop-upload-large').click()}
                                         style={{ width: '80px', height: '60px', border: '1px dashed #cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '20px', color: '#94a3b8', backgroundColor: '#fff', backgroundImage: selectedAutomation.desktop_image ? `url(${selectedAutomation.desktop_image})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center' }}
                                       >
-                                        {!selectedAutomation.desktop_image && '+'}
+                                        {!selectedAutomation.desktop_image && (bannerImageUploading === 'desktop_image' ? '…' : '+')}
                                       </div>
                                       <input
                                         type="file"
                                         id="desktop-upload-large"
                                         accept="image/*"
                                         style={{ display: 'none' }}
-                                        onChange={e => {
-                                          const file = e.target.files[0];
-                                          if (file) {
-                                            const reader = new FileReader();
-                                            reader.onloadend = () => {
-                                              setSelectedAutomation(prev => ({ ...prev, desktop_image: reader.result }));
-                                            };
-                                            reader.readAsDataURL(file);
-                                          }
+                                        onChange={(e) => {
+                                          const file = e.target.files?.[0];
+                                          e.target.value = '';
+                                          handleBannerImageUpload('desktop_image', file);
                                         }}
+                                        disabled={bannerImageUploading === 'desktop_image'}
                                       />
                                     </div>
                                   </div>
@@ -3906,23 +3972,19 @@ export default function StoreDashboard() {
                                         onClick={() => document.getElementById('mobile-upload-large').click()}
                                         style={{ width: '80px', height: '60px', border: '1px dashed #cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '20px', color: '#94a3b8', backgroundColor: '#fff', backgroundImage: selectedAutomation.mobile_image ? `url(${selectedAutomation.mobile_image})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center' }}
                                       >
-                                        {!selectedAutomation.mobile_image && '+'}
+                                        {!selectedAutomation.mobile_image && (bannerImageUploading === 'mobile_image' ? '…' : '+')}
                                       </div>
                                       <input
                                         type="file"
                                         id="mobile-upload-large"
                                         accept="image/*"
                                         style={{ display: 'none' }}
-                                        onChange={e => {
-                                          const file = e.target.files[0];
-                                          if (file) {
-                                            const reader = new FileReader();
-                                            reader.onloadend = () => {
-                                              setSelectedAutomation(prev => ({ ...prev, mobile_image: reader.result }));
-                                            };
-                                            reader.readAsDataURL(file);
-                                          }
+                                        onChange={(e) => {
+                                          const file = e.target.files?.[0];
+                                          e.target.value = '';
+                                          handleBannerImageUpload('mobile_image', file);
                                         }}
+                                        disabled={bannerImageUploading === 'mobile_image'}
                                       />
                                     </div>
                                   </div>
@@ -3977,6 +4039,18 @@ export default function StoreDashboard() {
                                         />
                                       </div>
                                       <span style={{ fontSize: '13px', color: '#4a4a4a' }}>Title + Button</span>
+                                    </div>
+
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                      <div style={{ position: 'relative', width: '26px', height: '26px', border: '1px solid #c8c8c8', cursor: 'pointer', backgroundColor: selectedAutomation.timer_color || '#3a4a38', flexShrink: 0 }}>
+                                        <input
+                                          type="color"
+                                          value={selectedAutomation.timer_color || '#3a4a38'}
+                                          onChange={e => setSelectedAutomation(prev => ({ ...prev, timer_color: e.target.value }))}
+                                          style={{ position: 'absolute', top: 0, left: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
+                                        />
+                                      </div>
+                                      <span style={{ fontSize: '13px', color: '#4a4a4a' }}>Timer</span>
                                     </div>
                                   </div>
                                 </div>
@@ -4059,23 +4133,19 @@ export default function StoreDashboard() {
                                         onClick={() => document.getElementById('desktop-upload-photo').click()}
                                         style={{ width: '80px', height: '60px', border: '1px dashed #cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '20px', color: '#94a3b8', backgroundColor: '#fff', backgroundImage: selectedAutomation.desktop_image ? `url(${selectedAutomation.desktop_image})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center' }}
                                       >
-                                        {!selectedAutomation.desktop_image && '+'}
+                                        {!selectedAutomation.desktop_image && (bannerImageUploading === 'desktop_image' ? '…' : '+')}
                                       </div>
                                       <input
                                         type="file"
                                         id="desktop-upload-photo"
                                         accept="image/*"
                                         style={{ display: 'none' }}
-                                        onChange={e => {
-                                          const file = e.target.files[0];
-                                          if (file) {
-                                            const reader = new FileReader();
-                                            reader.onloadend = () => {
-                                              setSelectedAutomation(prev => ({ ...prev, desktop_image: reader.result }));
-                                            };
-                                            reader.readAsDataURL(file);
-                                          }
+                                        onChange={(e) => {
+                                          const file = e.target.files?.[0];
+                                          e.target.value = '';
+                                          handleBannerImageUpload('desktop_image', file);
                                         }}
+                                        disabled={bannerImageUploading === 'desktop_image'}
                                       />
                                     </div>
                                   </div>
@@ -4098,23 +4168,19 @@ export default function StoreDashboard() {
                                         onClick={() => document.getElementById('mobile-upload-photo').click()}
                                         style={{ width: '80px', height: '60px', border: '1px dashed #cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '20px', color: '#94a3b8', backgroundColor: '#fff', backgroundImage: selectedAutomation.mobile_image ? `url(${selectedAutomation.mobile_image})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center' }}
                                       >
-                                        {!selectedAutomation.mobile_image && '+'}
+                                        {!selectedAutomation.mobile_image && (bannerImageUploading === 'mobile_image' ? '…' : '+')}
                                       </div>
                                       <input
                                         type="file"
                                         id="mobile-upload-photo"
                                         accept="image/*"
                                         style={{ display: 'none' }}
-                                        onChange={e => {
-                                          const file = e.target.files[0];
-                                          if (file) {
-                                            const reader = new FileReader();
-                                            reader.onloadend = () => {
-                                              setSelectedAutomation(prev => ({ ...prev, mobile_image: reader.result }));
-                                            };
-                                            reader.readAsDataURL(file);
-                                          }
+                                        onChange={(e) => {
+                                          const file = e.target.files?.[0];
+                                          e.target.value = '';
+                                          handleBannerImageUpload('mobile_image', file);
                                         }}
+                                        disabled={bannerImageUploading === 'mobile_image'}
                                       />
                                     </div>
                                   </div>
@@ -4224,7 +4290,8 @@ export default function StoreDashboard() {
                                   {[
                                     { key: 'title', label: 'HEADER TEXT', placeholder: 'Your Wedding in Print' },
                                     { key: 'subtitle', label: 'BODY TEXT', placeholder: 'Anniversary Gift! Celebrate those special moments...' },
-                                    { key: 'code', label: 'CODE', placeholder: 'Code: {code}' }
+                                    { key: 'code', label: 'CODE', placeholder: 'Code: {code}' },
+                                    { key: 'cta', label: 'BUTTON TEXT', placeholder: 'CLAIM OFFER' }
                                   ].map(({ key, label, placeholder }) => (
                                     <div key={key}>
                                       <label style={{ display: 'block', fontSize: '9.5px', fontWeight: 700, color: '#a0a0a0', letterSpacing: '0.1em', marginBottom: '6px' }}>{label}</label>
@@ -4262,23 +4329,19 @@ export default function StoreDashboard() {
                                         onClick={() => document.getElementById('desktop-upload-rotator').click()}
                                         style={{ width: '80px', height: '60px', border: '1px dashed #cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '20px', color: '#94a3b8', backgroundColor: '#fff', backgroundImage: selectedAutomation.desktop_image ? `url(${selectedAutomation.desktop_image})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center' }}
                                       >
-                                        {!selectedAutomation.desktop_image && '+'}
+                                        {!selectedAutomation.desktop_image && (bannerImageUploading === 'desktop_image' ? '…' : '+')}
                                       </div>
                                       <input
                                         type="file"
                                         id="desktop-upload-rotator"
                                         accept="image/*"
                                         style={{ display: 'none' }}
-                                        onChange={e => {
-                                          const file = e.target.files[0];
-                                          if (file) {
-                                            const reader = new FileReader();
-                                            reader.onloadend = () => {
-                                              setSelectedAutomation(prev => ({ ...prev, desktop_image: reader.result }));
-                                            };
-                                            reader.readAsDataURL(file);
-                                          }
+                                        onChange={(e) => {
+                                          const file = e.target.files?.[0];
+                                          e.target.value = '';
+                                          handleBannerImageUpload('desktop_image', file);
                                         }}
+                                        disabled={bannerImageUploading === 'desktop_image'}
                                       />
                                     </div>
                                   </div>
@@ -4301,23 +4364,19 @@ export default function StoreDashboard() {
                                         onClick={() => document.getElementById('mobile-upload-rotator').click()}
                                         style={{ width: '80px', height: '60px', border: '1px dashed #cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '20px', color: '#94a3b8', backgroundColor: '#fff', backgroundImage: selectedAutomation.mobile_image ? `url(${selectedAutomation.mobile_image})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center' }}
                                       >
-                                        {!selectedAutomation.mobile_image && '+'}
+                                        {!selectedAutomation.mobile_image && (bannerImageUploading === 'mobile_image' ? '…' : '+')}
                                       </div>
                                       <input
                                         type="file"
                                         id="mobile-upload-rotator"
                                         accept="image/*"
                                         style={{ display: 'none' }}
-                                        onChange={e => {
-                                          const file = e.target.files[0];
-                                          if (file) {
-                                            const reader = new FileReader();
-                                            reader.onloadend = () => {
-                                              setSelectedAutomation(prev => ({ ...prev, mobile_image: reader.result }));
-                                            };
-                                            reader.readAsDataURL(file);
-                                          }
+                                        onChange={(e) => {
+                                          const file = e.target.files?.[0];
+                                          e.target.value = '';
+                                          handleBannerImageUpload('mobile_image', file);
                                         }}
+                                        disabled={bannerImageUploading === 'mobile_image'}
                                       />
                                     </div>
                                   </div>

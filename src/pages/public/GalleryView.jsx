@@ -66,6 +66,15 @@ import {
   SLIDESHOW_CHANGED_EVENT,
   withResolvedSlideshowEnabled,
 } from '../../lib/collectionFeatureFlags';
+import {
+  BannerBouquetSvg,
+  formatBannerPlaceholders,
+  getBannerFontFamily,
+  padTimerPart,
+  resolveBannerBackgroundImage,
+  SALES_CAMPAIGNS_STORAGE_KEY,
+  SALES_CAMPAIGNS_UPDATED_EVENT,
+} from '../../lib/salesCampaignBanner';
 
 /** Stable string ids so Supabase UUIDs match `photo.id` from the collection payload. */
 function normalizeFavoritePhotoId(id) {
@@ -91,7 +100,7 @@ const GalleryView = () => {
   
   // Sales campaigns loaded from StoreDashboard localStorage for client site banner rendering
   const [campaigns, setCampaigns] = useState(() => {
-    const stored = localStorage.getItem('pixnxt_sales_campaigns');
+    const stored = localStorage.getItem(SALES_CAMPAIGNS_STORAGE_KEY);
     try {
       return stored ? JSON.parse(stored) : [];
     } catch (e) {
@@ -99,17 +108,24 @@ const GalleryView = () => {
     }
   });
 
-  // Keep banner in sync when StoreDashboard APPLY writes from another tab
+  // Keep banner in sync when StoreDashboard APPLY writes from another tab or same session
   useEffect(() => {
     const onStorage = (e) => {
-      if (e.key !== 'pixnxt_sales_campaigns' || e.newValue == null) return;
+      if (e.key !== SALES_CAMPAIGNS_STORAGE_KEY || e.newValue == null) return;
       try {
         const parsed = JSON.parse(e.newValue);
         if (Array.isArray(parsed)) setCampaigns(parsed);
       } catch (_) { /* ignore */ }
     };
+    const onCampaignsUpdated = (e) => {
+      if (Array.isArray(e.detail)) setCampaigns(e.detail);
+    };
     window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
+    window.addEventListener(SALES_CAMPAIGNS_UPDATED_EVENT, onCampaignsUpdated);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener(SALES_CAMPAIGNS_UPDATED_EVENT, onCampaignsUpdated);
+    };
   }, []);
 
   useEffect(() => {
@@ -144,6 +160,38 @@ const GalleryView = () => {
       Object.values(c.banners || {}).some(b => b?.enabled)
     ) || null;
   }, [campaigns]);
+
+  const [campaignTimeLeft, setCampaignTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+
+  useEffect(() => {
+    if (!activeCampaign?.banners?.large_banner?.enabled) return undefined;
+    const storageKey = `pixnxt_campaign_timer_${activeCampaign.id || 'default'}`;
+    let targetTime = localStorage.getItem(storageKey);
+    if (!targetTime) {
+      const now = new Date();
+      now.setDate(now.getDate() + Number(activeCampaign.durationDays || 14));
+      targetTime = String(now.getTime());
+      localStorage.setItem(storageKey, targetTime);
+    }
+
+    const updateTimer = () => {
+      const difference = Number(targetTime) - Date.now();
+      if (difference <= 0) {
+        setCampaignTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+        return;
+      }
+      setCampaignTimeLeft({
+        days: Math.floor(difference / (1000 * 60 * 60 * 24)),
+        hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
+        minutes: Math.floor((difference / 1000 / 60) % 60),
+        seconds: Math.floor((difference / 1000) % 60),
+      });
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [activeCampaign]);
 
   const [showShopModal, setShowShopModal] = useState(false);
   const [showPrintLabModal, setShowPrintLabModal] = useState(false);
@@ -1255,185 +1303,171 @@ const GalleryView = () => {
     });
   }, [filteredPhotos]);
 
-  /* ── Large Banner (rectangle bar) — rendered ABOVE the image grid ── */
+  /* ── Large Banner — matches Sales Automation desktop expanded / scene layout ── */
   const largeBannerMarkup = useMemo(() => {
     if (!activeCampaign?.banners?.large_banner?.enabled) return null;
     const lb = activeCampaign.banners.large_banner;
-    const discountVal = activeCampaign.discount ? `${activeCampaign.discount}%` : '30%';
-    const expDate = new Date(); expDate.setDate(expDate.getDate() + 14);
-    const expFormatted = expDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-    
-    const desktopImg = lb.desktop_image || '';
-    const mobileImg = lb.mobile_image || '';
-    const isMobile = window.innerWidth <= 768;
-    const bgImage = isMobile
-      ? (mobileImg ? `url(${mobileImg})` : (desktopImg ? `url(${desktopImg})` : 'none'))
-      : (desktopImg ? `url(${desktopImg})` : 'none');
+    const bgImage = resolveBannerBackgroundImage(lb, isMobileViewport);
+    const fontFamily = getBannerFontFamily(lb.font);
+    const timerColor = lb.timer_color || lb.title_color || '#3a4a38';
+    const title = formatBannerPlaceholders(lb.title || 'Relive It in Print', activeCampaign);
+    const subtitle = formatBannerPlaceholders(
+      lb.subtitle || 'Get these moments off the screen and into your hands with {discount-value} off, this {exp-date}.',
+      activeCampaign
+    );
+    const codeLine = formatBannerPlaceholders(lb.code || 'Code: {code}', activeCampaign);
+    const ctaLabel = lb.cta || 'Visit Shop';
+    // Sales Style tab: "Background + Button text" uses bg_color for CTA label
+    const ctaTextColor = lb.cta_color && lb.cta_color !== '#ffffff'
+      ? lb.cta_color
+      : (lb.bg_color || '#ffffff');
 
     return (
-      <div style={{
-        width: '100%',
-        backgroundColor: lb.bg_color || '#eae5d8',
-        backgroundImage: bgImage,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        padding: '28px 32px',
-        boxSizing: 'border-box',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        textAlign: 'center',
-        marginBottom: '12px',
-        borderTop: '1px solid rgba(0,0,0,0.05)',
-        borderBottom: '1px solid rgba(0,0,0,0.05)',
-        fontFamily: "'Inter', sans-serif",
-        position: 'relative'
-      }}>
+      <div
+        data-sales-banner="large"
+        style={{
+          width: '100%',
+          backgroundColor: lb.bg_color || '#eae5d8',
+          backgroundImage: bgImage,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          padding: isMobileViewport ? '24px 20px' : '28px 36px',
+          boxSizing: 'border-box',
+          display: 'flex',
+          flexDirection: isMobileViewport ? 'column' : 'row',
+          alignItems: 'center',
+          justifyContent: isMobileViewport ? 'center' : 'space-between',
+          textAlign: isMobileViewport ? 'center' : 'left',
+          marginBottom: '12px',
+          borderTop: '1px solid rgba(0,0,0,0.05)',
+          borderBottom: '1px solid rgba(0,0,0,0.05)',
+          position: 'relative',
+          gap: isMobileViewport ? '16px' : '24px',
+          minHeight: isMobileViewport ? 'auto' : '160px',
+        }}
+      >
         {bgImage !== 'none' && (
-          <div style={{
-            position: 'absolute',
-            inset: 0,
-            backgroundColor: 'rgba(255, 255, 255, 0.45)',
-            zIndex: 1,
-            pointerEvents: 'none'
-          }} />
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              backgroundColor: 'rgba(255, 255, 255, 0.45)',
+              zIndex: 1,
+              pointerEvents: 'none',
+            }}
+          />
         )}
-        <div style={{ position: 'relative', zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <h3 style={{
-            fontSize: '18px', fontWeight: 700, margin: '0 0 6px 0',
-            fontFamily: lb.font === 'Playfair Display' ? "'Playfair Display', serif" : "'Inter', sans-serif",
-            color: lb.title_color || '#2c3e2d', letterSpacing: '0.04em', textTransform: 'uppercase'
-          }}>
-            {(lb.title || '').replace(/{discount-value}/g, discountVal).replace(/{discount_value}/g, discountVal)}
+        <div
+          style={{
+            position: 'relative',
+            zIndex: 2,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: isMobileViewport ? 'center' : 'flex-start',
+            gap: '6px',
+            flex: 1,
+            maxWidth: isMobileViewport ? '100%' : '640px',
+          }}
+        >
+          <h3
+            style={{
+              fontSize: isMobileViewport ? '16px' : '22px',
+              fontWeight: 700,
+              margin: 0,
+              fontFamily,
+              color: lb.title_color || '#2c3e2d',
+              letterSpacing: '0.02em',
+            }}
+          >
+            {title}
           </h3>
-          <p style={{ fontSize: '12px', color: lb.subtitle_color || '#4a5a4b', maxWidth: '520px', lineHeight: 1.5, margin: '0 0 14px 0' }}>
-            {(lb.subtitle || '').replace(/{discount-value}/g, discountVal).replace(/{discount_value}/g, discountVal).replace(/{exp-date}/g, expFormatted).replace(/{exp_date}/g, expFormatted)}
+          <p
+            style={{
+              fontSize: isMobileViewport ? '11px' : '13px',
+              color: lb.subtitle_color || '#4a5a4b',
+              maxWidth: '520px',
+              lineHeight: 1.5,
+              margin: 0,
+              fontFamily: "'Inter', sans-serif",
+            }}
+          >
+            {subtitle}
           </p>
+          <div
+            style={{
+              fontSize: isMobileViewport ? '10px' : '11px',
+              color: lb.subtitle_color || '#4a5a4b',
+              fontWeight: 600,
+              fontFamily: "'Inter', sans-serif",
+            }}
+          >
+            {codeLine}
+          </div>
+
+          <div style={{ marginTop: '4px' }}>
+            <div
+              style={{
+                fontSize: isMobileViewport ? '18px' : '22px',
+                fontWeight: 700,
+                color: timerColor,
+                fontFamily: "'Inter', sans-serif",
+                letterSpacing: '0.06em',
+              }}
+            >
+              {`${padTimerPart(campaignTimeLeft.days)} : ${padTimerPart(campaignTimeLeft.hours)} : ${padTimerPart(campaignTimeLeft.minutes)} : ${padTimerPart(campaignTimeLeft.seconds)}`}
+            </div>
+            <div
+              style={{
+                display: 'flex',
+                gap: isMobileViewport ? '10px' : '14px',
+                justifyContent: isMobileViewport ? 'center' : 'flex-start',
+                fontSize: '8px',
+                color: '#888',
+                marginTop: '2px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+              }}
+            >
+              <span>day</span>
+              <span>hrs</span>
+              <span>min</span>
+              <span>sec</span>
+            </div>
+          </div>
+
           <button
+            type="button"
             onClick={() => setShowPrintLabModal(true)}
             style={{
-              padding: '10px 32px', fontSize: '10px', fontWeight: 700,
-              backgroundColor: lb.cta_bg || '#3a4a38', color: lb.cta_color || '#ffffff',
-              border: 'none', textTransform: 'uppercase', letterSpacing: '0.1em',
-              cursor: 'pointer', transition: 'opacity 0.2s', borderRadius: '0px'
+              marginTop: '10px',
+              padding: isMobileViewport ? '9px 22px' : '10px 28px',
+              fontSize: '10px',
+              fontWeight: 700,
+              backgroundColor: lb.cta_bg || '#3a4a38',
+              color: ctaTextColor,
+              border: 'none',
+              textTransform: 'uppercase',
+              letterSpacing: '0.1em',
+              cursor: 'pointer',
+              transition: 'opacity 0.2s',
+              borderRadius: '1px',
             }}
-            onMouseEnter={e => e.currentTarget.style.opacity = '0.9'}
-            onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+            onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.9'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
           >
-            {lb.cta || 'Visit Shop'}
+            {ctaLabel}
           </button>
         </div>
+
+        {!isMobileViewport && (
+          <div style={{ position: 'relative', zIndex: 2, flexShrink: 0 }}>
+            <BannerBouquetSvg size={88} />
+          </div>
+        )}
+        {isMobileViewport && <BannerBouquetSvg size={40} style={{ position: 'relative', zIndex: 2 }} />}
       </div>
     );
-  }, [activeCampaign]);
-
-  /* ── Inline banners (Photo Banner = square card, Store Rotator = square card) — rendered BETWEEN image grids ── */
-  const promoBannersMarkup = useMemo(() => {
-    if (!activeCampaign) return null;
-    return (
-      <>
-        {/* Photo Banner — SQUARE card */}
-        {activeCampaign.banners?.photo_banner?.enabled && (
-          <div style={{ display: 'flex', justifyContent: 'center', width: '100%', margin: '28px 0' }}>
-            <div style={{
-              width: '340px', minHeight: '340px',
-              backgroundColor: activeCampaign.banners.photo_banner.bg_color || '#d4c9b5',
-              padding: '28px 24px', boxSizing: 'border-box',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-              textAlign: 'center', fontFamily: "'Inter', sans-serif",
-              boxShadow: '0 4px 20px rgba(0,0,0,0.06)', aspectRatio: '1 / 1'
-            }}>
-              <h3 style={{
-                fontSize: '17px', fontWeight: 700,
-                fontFamily: "'Playfair Display', serif",
-                color: '#1a1a1a', marginBottom: '6px',
-                textTransform: 'uppercase', letterSpacing: '0.04em'
-              }}>
-                {activeCampaign.banners.photo_banner.title || 'Special Promotion'}
-              </h3>
-              <p style={{ fontSize: '11.5px', color: '#444444', marginBottom: '18px', lineHeight: 1.4 }}>
-                {activeCampaign.banners.photo_banner.subtitle || 'Custom prints and gifts at exclusive discounted pricing'}
-              </p>
-              <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', width: '100%', marginBottom: '18px' }}>
-                {['Classic Prints', 'Matted Frames', 'Canvas Wall Art'].map((p, idx) => (
-                  <div key={idx} style={{
-                    flex: 1, backgroundColor: '#ffffff', border: '1px solid rgba(0,0,0,0.04)',
-                    padding: '8px 4px', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 0
-                  }}>
-                    <div style={{ fontSize: '18px', marginBottom: '4px' }}>🖼️</div>
-                    <span style={{
-                      fontSize: '8px', fontWeight: 600, color: '#1a1a1a',
-                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                      width: '100%', textAlign: 'center'
-                    }}>{p}</span>
-                  </div>
-                ))}
-              </div>
-              <button
-                onClick={() => setShowPrintLabModal(true)}
-                style={{
-                  padding: '10px 24px', fontSize: '9px', fontWeight: 700,
-                  backgroundColor: '#1a1a1a', color: '#ffffff', border: 'none',
-                  textTransform: 'uppercase', letterSpacing: '0.08em', cursor: 'pointer'
-                }}
-              >
-                SHOP NOW
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Store Rotator — SQUARE card */}
-        {activeCampaign.banners?.store_rotator?.enabled && (
-          <div style={{ display: 'flex', justifyContent: 'center', width: '100%', margin: '28px 0' }}>
-            <div style={{
-              width: '340px', minHeight: '340px',
-              backgroundColor: activeCampaign.banners.store_rotator.bg_color || '#eae5d8',
-              padding: '28px 24px', boxSizing: 'border-box',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-              textAlign: 'center', fontFamily: "'Inter', sans-serif",
-              boxShadow: '0 4px 20px rgba(0,0,0,0.06)', aspectRatio: '1 / 1'
-            }}>
-              <span style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.15em', color: '#bfa38a', textTransform: 'uppercase', marginBottom: '6px' }}>
-                {activeCampaign.banners.store_rotator.code ? activeCampaign.banners.store_rotator.code.replace(/{code}/g, activeCampaign.discountCode || 'HAPPYANI') : 'EXCLUSIVE OFFER'}
-              </span>
-              <h3 style={{
-                fontSize: '17px', fontWeight: 700, margin: '0 0 6px 0',
-                fontFamily: activeCampaign.banners.store_rotator.font === 'Playfair Display' ? "'Playfair Display', serif" : "'Inter', sans-serif",
-                color: activeCampaign.banners.store_rotator.title_color || '#2c3e2d', textTransform: 'uppercase'
-              }}>
-                {(() => {
-                  let text = activeCampaign.banners.store_rotator.title || '';
-                  const discountVal = activeCampaign.discount ? `${activeCampaign.discount}%` : '30%';
-                  return text.replace(/{discount-value}/g, discountVal).replace(/{discount_value}/g, discountVal);
-                })()}
-              </h3>
-              <p style={{ fontSize: '11.5px', lineHeight: 1.5, color: activeCampaign.banners.store_rotator.subtitle_color || '#4a5a4b', marginBottom: '18px' }}>
-                {(() => {
-                  let text = activeCampaign.banners.store_rotator.subtitle || '';
-                  const discountVal = activeCampaign.discount ? `${activeCampaign.discount}%` : '30%';
-                  const expDate = new Date(); expDate.setDate(expDate.getDate() + 14);
-                  const expFormatted = expDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-                  return text.replace(/{discount-value}/g, discountVal).replace(/{discount_value}/g, discountVal).replace(/{exp-date}/g, expFormatted).replace(/{exp_date}/g, expFormatted);
-                })()}
-              </p>
-              <button
-                onClick={() => setShowPrintLabModal(true)}
-                style={{
-                  padding: '10px 24px', fontSize: '9px', fontWeight: 700,
-                  backgroundColor: activeCampaign.banners.store_rotator.cta_bg || '#3a4a38',
-                  color: activeCampaign.banners.store_rotator.cta_color || '#ffffff',
-                  border: 'none', textTransform: 'uppercase', letterSpacing: '0.08em', cursor: 'pointer'
-                }}
-              >
-                {activeCampaign.banners.store_rotator.cta || 'CLAIM OFFER'}
-              </button>
-            </div>
-          </div>
-        )}
-      </>
-    );
-  }, [activeCampaign]);
+  }, [activeCampaign, campaignTimeLeft, isMobileViewport]);
 
   if (loading) return (
     <div className="flex h-screen items-center justify-center bg-white">
