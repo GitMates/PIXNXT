@@ -36,6 +36,42 @@ function formatSizeLabel(item: any): string {
 
 const DIGITAL_TYPES = ['digital_download', 'digital_download_all'];
 
+const DEFAULT_R2_BASE = 'https://pub-de49e8c7da824ad9af0c9289299d8467.r2.dev';
+
+/** Force file download via Supabase edge fn — site /api/r2-media returns SPA HTML on Vercel. */
+function getForcedDownloadUrl(rawUrl: string, filename: string): string {
+  if (!rawUrl) return '';
+
+  const r2Base = (Deno.env.get('R2_PUBLIC_URL') || DEFAULT_R2_BASE).replace(/\/+$/, '');
+  const supabaseUrl = (Deno.env.get('SUPABASE_URL') || '').replace(/\/+$/, '');
+  if (!supabaseUrl) return rawUrl;
+
+  let r2Path = '';
+  if (rawUrl.startsWith(r2Base)) {
+    r2Path = rawUrl.slice(r2Base.length).replace(/^\//, '');
+  } else {
+    try {
+      const parsed = new URL(rawUrl);
+      if (parsed.hostname.includes('r2.dev')) {
+        r2Path = parsed.pathname.replace(/^\//, '');
+      }
+    } catch {
+      r2Path = rawUrl.replace(/^\//, '');
+    }
+  }
+
+  if (!r2Path) return rawUrl;
+
+  const encodedPath = r2Path
+    .split('/')
+    .filter(Boolean)
+    .map((seg) => encodeURIComponent(decodeURIComponent(seg)))
+    .join('/');
+
+  const safeName = (filename || 'photo.jpg').replace(/[^\w.\-() ]+/g, '_').slice(0, 180) || 'photo.jpg';
+  return `${supabaseUrl}/functions/v1/download-media?path=${encodedPath}&filename=${encodeURIComponent(safeName)}`;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -92,32 +128,16 @@ serve(async (req) => {
         const isDigital = DIGITAL_TYPES.includes(item.product_type);
         const sizeLabel = formatSizeLabel(item);
 
-        function getProxiedDownloadUrl(url: string, baseOrigin: string, filename: string): string {
-          if (!url) return '';
-          const r2Base = 'https://pub-de49e8c7da824ad9af0c9289299d8467.r2.dev';
-          let processedUrl = url;
-          if (url.startsWith(r2Base)) {
-            const relativePath = url.slice(r2Base.length).replace(/^\//, '');
-            const encodedSegments = relativePath
-              .split('/')
-              .map(seg => encodeURIComponent(decodeURIComponent(seg)))
-              .join('/');
-            processedUrl = `${baseOrigin || 'https://pixnxt.com'}/api/r2-media/${encodedSegments}`;
-          }
-          const separator = processedUrl.includes('?') ? '&' : '?';
-          return `${processedUrl}${separator}download=true&filename=${encodeURIComponent(filename)}`;
-        }
-
         let downloadSection = '';
         if (isDigital) {
           if (item.product_type === 'digital_download') {
             // Single photo download — embed thumbnail + download button
             const rawPhotoUrl = item.options?.photo?.full_url || item.options?.photo?.web_url || item.options?.photo?.url || '';
-            const photoUrl = getProxiedDownloadUrl(rawPhotoUrl, siteOrigin, item.options?.photo?.filename || 'photo.jpg');
+            const photoUrl = getForcedDownloadUrl(rawPhotoUrl, item.options?.photo?.filename || 'photo.jpg');
             const thumbUrl = item.options?.photo?.thumbnail_url || item.options?.photo?.web_url || rawPhotoUrl;
             downloadSection = `
               ${thumbUrl ? `<div style="margin: 10px 0;"><img src="${thumbUrl}" alt="Your photo" style="max-width:100%; max-height:180px; border-radius:6px; border:1px solid #e8e5e0; display:block;" /></div>` : ''}
-              ${photoUrl ? `<a href="${photoUrl}" style="display:inline-block; margin-top:8px; padding:8px 16px; background-color:#111; color:#fff; text-decoration:none; border-radius:4px; font-size:12px; font-weight:bold; text-transform:uppercase; letter-spacing:0.05em;" target="_blank">⬇ Download Photo</a>` : ''}
+              ${photoUrl ? `<a href="${photoUrl}" style="display:inline-block; margin-top:8px; padding:8px 16px; background-color:#111; color:#fff; text-decoration:none; border-radius:4px; font-size:12px; font-weight:bold; text-transform:uppercase; letter-spacing:0.05em;">⬇ Download Photo</a>` : ''}
             `;
           } else {
             // Entire collection — show a note instead of embedding all photos
@@ -196,23 +216,7 @@ serve(async (req) => {
         const isSingle = item.product_type === 'digital_download';
         const rawPhotoUrl = item.options?.photo?.full_url || item.options?.photo?.web_url || item.options?.photo?.url || '';
         const thumbUrl = item.options?.photo?.thumbnail_url || item.options?.photo?.web_url || rawPhotoUrl;
-
-        function getProxiedDownloadUrl(url: string, baseOrigin: string, filename: string): string {
-          if (!url) return '';
-          const r2Base = 'https://pub-de49e8c7da824ad9af0c9289299d8467.r2.dev';
-          let processedUrl = url;
-          if (url.startsWith(r2Base)) {
-            const relativePath = url.slice(r2Base.length).replace(/^\//, '');
-            const encodedSegments = relativePath
-              .split('/')
-              .map(seg => encodeURIComponent(decodeURIComponent(seg)))
-              .join('/');
-            processedUrl = `${baseOrigin || 'https://pixnxt.com'}/api/r2-media/${encodedSegments}`;
-          }
-          const separator = processedUrl.includes('?') ? '&' : '?';
-          return `${processedUrl}${separator}download=true&filename=${encodeURIComponent(filename)}`;
-        }
-        const photoUrl = getProxiedDownloadUrl(rawPhotoUrl, siteOrigin, item.options?.photo?.filename || 'photo.jpg');
+        const photoUrl = getForcedDownloadUrl(rawPhotoUrl, item.options?.photo?.filename || 'photo.jpg');
 
         return `
           <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:20px; margin-bottom:20px; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
@@ -230,7 +234,7 @@ serve(async (req) => {
             
             <div style="margin-top:12px;">
               ${isSingle && photoUrl ? `
-                <a href="${photoUrl}" style="display:inline-block; padding:12px 24px; background-color:#10b981; color:#ffffff; text-decoration:none; border-radius:6px; font-size:13px; font-weight:bold; text-transform:uppercase; letter-spacing:0.06em; box-shadow:0 2px 4px rgba(16,185,129,0.2);" target="_blank">
+                <a href="${photoUrl}" style="display:inline-block; padding:12px 24px; background-color:#10b981; color:#ffffff; text-decoration:none; border-radius:6px; font-size:13px; font-weight:bold; text-transform:uppercase; letter-spacing:0.06em; box-shadow:0 2px 4px rgba(16,185,129,0.2);">
                   ⬇ Download Image File
                 </a>
               ` : `

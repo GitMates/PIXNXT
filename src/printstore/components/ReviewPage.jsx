@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Trash2, Info, Plus, Mail } from 'lucide-react';
+import { Trash2, Info, Mail, Phone } from 'lucide-react';
 import '../PrintStore.css';
 import CartItemPreview from './CartItemPreview';
-import { supabase } from '../../lib/supabase/client';
 
 const DIGITAL_PRODUCTS = ['digital_download', 'digital_download_all'];
 
@@ -18,13 +17,17 @@ export default function ReviewPage({
   initialAddress
 }) {
   const [customerEmail, setCustomerEmail] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState(initialAddress?.phoneNumber || initialAddress?.phone || '');
+  const [street, setStreet] = useState(initialAddress?.street || initialAddress?.address || '');
+  const [city, setCity] = useState(initialAddress?.city || '');
+  const [zipCode, setZipCode] = useState(initialAddress?.zipCode || initialAddress?.zip || '');
+  const [recipientName, setRecipientName] = useState(initialAddress?.recipientName || initialAddress?.accountName || '');
+  const [formError, setFormError] = useState('');
 
-  // Detect if the entire cart is digital (no physical items needing shipping)
   const allDigital = cartItems.length > 0 && cartItems.every(i => DIGITAL_PRODUCTS.includes(i.productId));
 
   useEffect(() => {
     function loadEmail() {
-      // Fetch the email entered by the client/visitor before coming to the cart
       if (collectionId) {
         const visitorEmail = localStorage.getItem(`pixnxt_fav_email_${collectionId}`);
         if (visitorEmail) {
@@ -33,7 +36,6 @@ export default function ReviewPage({
         }
       }
 
-      // Fallback: try cached shipping address email
       try {
         const cached = localStorage.getItem('pixnxt_printstore_address');
         const parsed = cached ? JSON.parse(cached) : null;
@@ -43,21 +45,66 @@ export default function ReviewPage({
         }
       } catch (_) {}
 
-      // Fall back to empty / placeholder if neither is available yet (will be entered at payment)
       setCustomerEmail('');
     }
-    if (allDigital) loadEmail();
-  }, [allDigital, collectionId]);
+    loadEmail();
+  }, [collectionId]);
+
+  useEffect(() => {
+    if (!initialAddress) return;
+    setPhoneNumber(initialAddress.phoneNumber || initialAddress.phone || '');
+    setStreet(initialAddress.street || initialAddress.address || '');
+    setCity(initialAddress.city || '');
+    setZipCode(initialAddress.zipCode || initialAddress.zip || '');
+    setRecipientName(initialAddress.recipientName || initialAddress.accountName || '');
+  }, [initialAddress]);
 
   const totalItems = cartItems.reduce((acc, item) => acc + item.quantity, 0);
-  // For all-digital carts: shipping = 0, taxes = 0
   const itemsTotal = cartItems.reduce((acc, item) => acc + item.unitPrice * item.quantity, 0);
   const shipping = allDigital ? 0 : (itemsTotal > 0 ? 111.04 : 0);
   const estimatedTotal = itemsTotal + shipping;
 
+  const handleContinue = () => {
+    setFormError('');
+    if (!allDigital) {
+      const phone = String(phoneNumber || '').replace(/\D/g, '');
+      if (!recipientName.trim()) {
+        setFormError('Enter recipient name.');
+        return;
+      }
+      if (!street.trim() || !city.trim() || !zipCode.trim()) {
+        setFormError('Enter a complete shipping address.');
+        return;
+      }
+      if (phone.length < 10) {
+        setFormError('Enter a valid 10-digit phone number for delivery / WhatsApp.');
+        return;
+      }
+    }
+
+    const email = customerEmail
+      || (collectionId ? localStorage.getItem(`pixnxt_fav_email_${collectionId}`) : '')
+      || initialAddress?.email
+      || '';
+
+    onContinueToPayment({
+      ...(initialAddress || {}),
+      recipientName: recipientName || initialAddress?.recipientName || '',
+      accountName: recipientName || initialAddress?.accountName || '',
+      email,
+      street: street || initialAddress?.street || '',
+      address: street || initialAddress?.address || '',
+      city: city || initialAddress?.city || '',
+      zipCode: zipCode || initialAddress?.zipCode || '',
+      zip: zipCode || initialAddress?.zip || '',
+      phoneNumber: String(phoneNumber || '').replace(/\D/g, ''),
+      phone: String(phoneNumber || '').replace(/\D/g, ''),
+      country: 'India',
+    });
+  };
+
   return (
     <div className="cart-page-container">
-      {/* Header */}
       <div className="pdp-products-page__header" style={{ background: '#ffffff', borderBottom: '1px solid #eee', margin: '0 -40px' }}>
         <div className="pt-editor-header-wrapper">
           <div className="pt-editor-header pt-container">
@@ -80,10 +127,7 @@ export default function ReviewPage({
       </div>
 
       <div className="cart-page-content">
-        {/* Left Column: Items */}
         <div className="cart-items-column">
-
-          {/* Delivery notice — email for digital, address for physical */}
           {allDigital ? (
             <div className="delivery-summary-block" style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
               <Mail size={20} color="#555" style={{ marginTop: '2px', flexShrink: 0 }} />
@@ -104,17 +148,56 @@ export default function ReviewPage({
           ) : (
             <div className="delivery-summary-block">
               <h3>We'll deliver the items to:</h3>
-              {initialAddress && (
-                <p className="delivery-address-text">
-                  {[initialAddress.street, initialAddress.city, initialAddress.zipCode, initialAddress.country].filter(Boolean).join(', ')}
-                </p>
-              )}
+              <div style={{ display: 'grid', gap: '10px', marginTop: '12px' }}>
+                <input
+                  type="text"
+                  placeholder="Recipient name"
+                  value={recipientName}
+                  onChange={(e) => setRecipientName(e.target.value)}
+                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '14px', boxSizing: 'border-box' }}
+                />
+                <input
+                  type="text"
+                  placeholder="Street address"
+                  value={street}
+                  onChange={(e) => setStreet(e.target.value)}
+                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '14px', boxSizing: 'border-box' }}
+                />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <input
+                    type="text"
+                    placeholder="City"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '14px', boxSizing: 'border-box' }}
+                  />
+                  <input
+                    type="text"
+                    placeholder="ZIP / PIN"
+                    value={zipCode}
+                    onChange={(e) => setZipCode(e.target.value.replace(/[^\d]/g, '').slice(0, 10))}
+                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '14px', boxSizing: 'border-box' }}
+                  />
+                </div>
+                <div style={{ position: 'relative' }}>
+                  <Phone size={16} color="#777" style={{ position: 'absolute', left: 12, top: 13 }} />
+                  <input
+                    type="tel"
+                    placeholder="Phone number (WhatsApp)"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 15))}
+                    style={{ width: '100%', padding: '10px 12px 10px 36px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '14px', boxSizing: 'border-box' }}
+                  />
+                </div>
+                {formError && (
+                  <p style={{ margin: 0, color: '#d32f2f', fontSize: '12px' }}>{formError}</p>
+                )}
+              </div>
             </div>
           )}
 
           <hr className="review-divider" />
 
-          {/* Items List */}
           <div className="review-items-container">
             {cartItems.length === 0 ? (
               <div className="cart-empty-message">Your cart is empty.</div>
@@ -145,7 +228,6 @@ export default function ReviewPage({
                         ₹{(item.unitPrice * item.quantity).toFixed(2)}
                       </div>
 
-                      {/* Quantity — hidden for digital items */}
                       {!isDigital && (
                         <div className="cart-quantity-control">
                           <button onClick={() => onUpdateQuantity(item.id, Math.max(1, item.quantity - 1))}>-</button>
@@ -165,7 +247,6 @@ export default function ReviewPage({
                       <div className="cart-item-price">
                         ₹{(item.unitPrice * item.quantity).toFixed(2)}
                       </div>
-                      {/* No "International delivery" badge for digital downloads */}
                       {!isDigital && (
                         <div className="international-delivery-badge">
                           International<br />delivery
@@ -179,7 +260,6 @@ export default function ReviewPage({
           </div>
         </div>
 
-        {/* Right Column: Summary */}
         <div className="cart-summary-column">
           <div className="cart-summary-box">
             <div className="summary-total-row">
@@ -189,7 +269,7 @@ export default function ReviewPage({
 
             <button
               className="continue-shipping-btn"
-              onClick={() => onContinueToPayment(initialAddress || {})}
+              onClick={handleContinue}
               disabled={cartItems.length === 0}
             >
               Continue to payment
@@ -207,7 +287,6 @@ export default function ReviewPage({
                 </div>
               </div>
 
-              {/* Shipping & Taxes — hidden for all-digital carts */}
               {!allDigital && (
                 <>
                   <div className="payment-row">
@@ -220,14 +299,6 @@ export default function ReviewPage({
                   </div>
                 </>
               )}
-
-              <div className="coupons-section">
-                <span className="coupons-label"><Info size={14} color="#777" style={{ marginRight: '4px' }} /> Coupons</span>
-                <div className="coupon-input-row">
-                  <input type="text" placeholder="Enter coupon code" />
-                  <button className="apply-coupon-btn"><Plus size={14} /> Apply</button>
-                </div>
-              </div>
             </div>
           </div>
         </div>

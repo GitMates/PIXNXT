@@ -8,7 +8,11 @@ import {
   buildGalleryCampaignPayload,
   compressBannerImageFile,
   hasPendingBannerImageUpload,
+  hasPendingEmailImageUpload,
+  isUsablePublicImageUrl,
   mergeGalleryCampaignsFromDb,
+  resolveEmailHeroPresentation,
+  sanitizeEmailReminderConfig,
   persistSalesCampaignsLocally,
   SALES_CAMPAIGNS_STORAGE_KEY,
 } from '../lib/salesCampaignBanner';
@@ -117,6 +121,7 @@ export default function StoreDashboard() {
           enabled: true,
           subject: "I didn't forget your anniversary! Print your favorite moments",
           title: "HAPPY ANNIVERSARY! {discount-value} OFF ALL WEDDING PRINT PRODUCTS",
+          message: "Celebrate those special moments with {discount-value} off all prints until {exp-date}. Enter code {code} at checkout.",
           button_text: "VISIT SHOP",
           bg_color: "#ffffff",
           text_color: "#000000",
@@ -133,6 +138,7 @@ export default function StoreDashboard() {
           enabled: false,
           subject: "Anniversary gift code is expiring soon!",
           title: "1 WEEK LEFT TO ENJOY {discount-value} OFF ALL WEDDING PRINTS",
+          message: "Your anniversary gift code expires in one week. Enter {code} at checkout for {discount-value} off prints.",
           button_text: "VISIT SHOP",
           bg_color: "#ffffff",
           text_color: "#000000",
@@ -165,6 +171,7 @@ export default function StoreDashboard() {
           enabled: false,
           subject: "Last day: {discount-value} off prints",
           title: "24 HOURS LEFT TO PRINT YOUR MEMORIES WITH {DISCOUNT-VALUE} OFF",
+          message: "Last chance! Use code {code} today for {discount-value} off all prints before it expires.",
           button_text: "VISIT STORE",
           bg_color: "#ffffff",
           text_color: "#000000",
@@ -355,6 +362,8 @@ export default function StoreDashboard() {
   const [selectedCampaign, setSelectedCampaign] = useState(null); // which campaign detail is open
   const [activeModal, setActiveModal] = useState(null);           // 'text_banner' | 'large_banner' | 'photo_banner'
   const [bannerImageUploading, setBannerImageUploading] = useState(null); // 'desktop_image' | 'mobile_image' | null
+  const [emailImageUploading, setEmailImageUploading] = useState(false);
+  const [applyingReminder, setApplyingReminder] = useState(false);
 
   const uploadSalesBannerImage = async (file, field) => {
     if (!file) return null;
@@ -383,6 +392,34 @@ export default function StoreDashboard() {
       setBannerImageUploading(null);
     }
   };
+
+  const uploadEmailCustomImage = async (file) => {
+    if (!file) return null;
+    if (!user?.id) throw new Error('Sign in to upload images.');
+    const compressed = await compressBannerImageFile(file);
+    const rawExt = (compressed.name?.split('.').pop() || 'jpg').toLowerCase();
+    const ext = /^[a-z0-9]+$/.test(rawExt) ? rawExt : 'jpg';
+    const campaignId = selectedCampaign || 'campaign';
+    const emailKey = selectedAutomation?._emailKey || 'email';
+    const path = `sales-reminders/${user.id}/${campaignId}/${emailKey}-${Date.now()}.${ext}`;
+    const { url } = await storageService.upload(path, compressed);
+    if (!url) throw new Error('Upload succeeded but no public URL was returned.');
+    return url;
+  };
+
+  const handleEmailCustomImageUpload = async (file) => {
+    if (!file) return;
+    try {
+      setEmailImageUploading(true);
+      const url = await uploadEmailCustomImage(file);
+      setSelectedAutomation((prev) => ({ ...prev, custom_image: url }));
+    } catch (err) {
+      console.error('Email image upload failed:', err);
+      alert(`Failed to upload image: ${err.message || err}`);
+    } finally {
+      setEmailImageUploading(false);
+    }
+  };
   const [selectedAutomation, setSelectedAutomation] = useState(null);
   const [automationModalTab, setAutomationModalTab] = useState('content');
   const [previewChannel, setPreviewChannel] = useState('email');
@@ -397,12 +434,16 @@ export default function StoreDashboard() {
         alert("No collections found to link this campaign test to.");
         return;
       }
+      if (!user?.id) {
+        alert("Sign in to send reminders.");
+        return;
+      }
 
       let recipient = '';
       if (type === 'email') {
-        recipient = prompt("Enter test email address:", "nandha@example.com");
+        recipient = prompt("Enter test email address:", user.email || "");
       } else {
-        recipient = prompt("Enter test WhatsApp phone number (with country code, e.g. 919876543210):", "919876543210");
+        recipient = prompt("Enter test WhatsApp phone number (with country code, e.g. 919876543210):", "");
       }
 
       if (!recipient) return;
@@ -413,22 +454,30 @@ export default function StoreDashboard() {
       const activeBannerKey = currentCampaign ? Object.keys(currentCampaign.banners).find(k => currentCampaign.banners[k].enabled) : null;
       const activeBanner = currentCampaign && activeBannerKey ? currentCampaign.banners[activeBannerKey] : null;
 
+      const { _campaignId, _bannerKey, _emailKey, ...emailPayload } = sanitizeEmailReminderConfig(selectedAutomation);
+
       const { data, error } = await supabase.functions.invoke('send-store-campaign-reminders', {
         body: {
+          mode: 'test',
           test: true,
           testType: type,
-          recipient: recipient,
+          recipient,
           collectionId: colId,
+          photographerId: user.id,
           campaignId: selectedCampaign,
-          emailKey: selectedAutomation._emailKey,
-          emailConfig: selectedAutomation,
+          emailKey: _emailKey,
+          emailConfig: emailPayload,
           activeBannerKey,
           activeBanner,
+          discount: currentCampaign?.discount,
+          discountCode: currentCampaign?.discountCode,
+          durationDays: currentCampaign?.durationDays,
           siteOrigin: window.location.origin
         }
       });
 
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
       alert(`Test ${type === 'email' ? 'email' : 'WhatsApp'} sent successfully to ${recipient}!`);
     } catch (err) {
       console.error("Error sending test notification:", err);
@@ -3199,7 +3248,11 @@ export default function StoreDashboard() {
                               <div
                                 key={item.key}
                                 onClick={() => {
-                                  setSelectedAutomation({ ...emailConfig, _campaignId: campaign.id, _emailKey: item.key });
+                                  setSelectedAutomation(sanitizeEmailReminderConfig({
+                                    ...emailConfig,
+                                    _campaignId: campaign.id,
+                                    _emailKey: item.key,
+                                  }));
                                   setAutomationModalTab('email');
                                   setActiveModal('edit_email');
                                 }}
@@ -3374,12 +3427,20 @@ export default function StoreDashboard() {
                           >CANCEL</button>
                         )}
                         <button
+                          disabled={applyingReminder || bannerImageUploading || emailImageUploading}
                           onClick={async () => {
                             if (bannerImageUploading) {
                               alert('Please wait for the banner image upload to finish.');
                               return;
                             }
-                            const { _campaignId, _bannerKey, _emailKey, ...data } = selectedAutomation;
+                            if (emailImageUploading) {
+                              alert('Please wait for the email image upload to finish.');
+                              return;
+                            }
+                            if (!selectedAutomation) return;
+
+                            const emailPayload = sanitizeEmailReminderConfig(selectedAutomation);
+                            const { _campaignId, _bannerKey, _emailKey, ...data } = emailPayload;
                             if (['large_banner', 'photo_banner', 'store_rotator'].includes(activeModal) && hasPendingBannerImageUpload(data)) {
                               alert('Banner image is still processing. Wait for the upload preview to appear, then click APPLY again.');
                               return;
@@ -3432,33 +3493,86 @@ export default function StoreDashboard() {
                             persistSalesCampaignsLocally(updatedCampaigns);
                             const savedToDb = await saveCampaignsToDatabase(updatedCampaigns);
 
-                            // Trigger automatic test email to photographer's logged-in email
-                            if (user?.email && (activeModal === 'edit_email' || ['text_banner', 'large_banner', 'photo_banner', 'store_rotator'].includes(activeModal))) {
+                            // Main Clients Reminders APPLY → save design + send Email/WhatsApp to shop clients
+                            if (activeModal === 'edit_email') {
+                              if (!user?.id) {
+                                alert('Sign in to apply and send reminders.');
+                                return;
+                              }
+
+                              const colId = (collections && collections.length > 0) ? collections[0].id : null;
+                              const currentCampaign = updatedCampaigns.find(c => c.id === _campaignId);
+                              const activeBannerKey = currentCampaign
+                                ? Object.keys(currentCampaign.banners || {}).find(k => currentCampaign.banners[k]?.enabled)
+                                : null;
+                              const activeBanner = activeBannerKey ? currentCampaign.banners[activeBannerKey] : null;
+
+                              setApplyingReminder(true);
+                              try {
+                                const { data: sendResult, error: sendError } = await supabase.functions.invoke('send-store-campaign-reminders', {
+                                  body: {
+                                    mode: 'apply',
+                                    photographerId: user.id,
+                                    collectionId: colId,
+                                    campaignId: _campaignId,
+                                    emailKey: _emailKey,
+                                    emailConfig: data,
+                                    activeBannerKey,
+                                    activeBanner,
+                                    discount: currentCampaign?.discount,
+                                    discountCode: currentCampaign?.discountCode,
+                                    durationDays: currentCampaign?.durationDays,
+                                    siteOrigin: window.location.origin,
+                                  }
+                                });
+                                if (sendError) {
+                                  const fnMsg = sendError.context?.body
+                                    ? (typeof sendError.context.body === 'string'
+                                      ? JSON.parse(sendError.context.body)?.error
+                                      : sendError.context.body?.error)
+                                    : null;
+                                  throw new Error(fnMsg || sendError.message || 'Send failed');
+                                }
+                                if (sendResult?.error) throw new Error(sendResult.error);
+
+                                const emailed = sendResult?.emailed || 0;
+                                const whatsapped = sendResult?.whatsapped || 0;
+                                if (sendResult?.warning) {
+                                  alert(`Reminder design saved.\n${sendResult.warning}`);
+                                } else {
+                                  alert(`Reminder applied.\nEmail sent: ${emailed}\nWhatsApp sent: ${whatsapped}`);
+                                }
+                              } catch (sendErr) {
+                                console.error("Main Clients Reminders apply failed:", sendErr);
+                                alert(`Reminder design saved locally, but send failed: ${sendErr.message || sendErr}`);
+                              } finally {
+                                setApplyingReminder(false);
+                              }
+                            } else if (user?.email && ['text_banner', 'large_banner', 'photo_banner', 'store_rotator'].includes(activeModal)) {
+                              // Banner APPLY still triggers photographer preview email only
                               const colId = (collections && collections.length > 0) ? collections[0].id : null;
                               if (colId) {
                                 const currentCampaign = updatedCampaigns.find(c => c.id === _campaignId);
-                                
-                                // Determine email template config to send
-                                let emailConfig = currentCampaign?.emails?.announcement;
-                                if (activeModal === 'edit_email') {
-                                  emailConfig = data;
-                                }
-
-                                let activeBannerKey = activeModal !== 'edit_email' ? activeModal : (currentCampaign ? Object.keys(currentCampaign.banners).find(k => currentCampaign.banners[k].enabled) : null);
-                                let activeBanner = activeModal !== 'edit_email' ? data : (currentCampaign && activeBannerKey ? currentCampaign.banners[activeBannerKey] : null);
+                                const emailConfig = currentCampaign?.emails?.announcement;
+                                const activeBannerKey = activeModal;
+                                const activeBanner = data;
 
                                 supabase.functions.invoke('send-store-campaign-reminders', {
                                   body: {
+                                    mode: 'test',
                                     test: true,
                                     testType: 'email',
                                     recipient: user.email,
                                     collectionId: colId,
+                                    photographerId: user.id,
                                     campaignId: _campaignId,
-                                    emailKey: activeModal === 'edit_email' ? _emailKey : 'announcement',
+                                    emailKey: 'announcement',
                                     emailConfig: emailConfig,
                                     activeBannerKey,
                                     activeBanner,
-                                    photographerId: user.id,
+                                    discount: currentCampaign?.discount,
+                                    discountCode: currentCampaign?.discountCode,
+                                    durationDays: currentCampaign?.durationDays,
                                     siteOrigin: window.location.origin
                                   }
                                 }).then(({ error }) => {
@@ -3485,15 +3599,15 @@ export default function StoreDashboard() {
                             borderRadius: '2px',
                             backgroundColor: '#efefef',
                             color: '#2c2c2d',
-                            cursor: bannerImageUploading ? 'wait' : 'pointer',
+                            cursor: (applyingReminder || bannerImageUploading || emailImageUploading) ? 'wait' : 'pointer',
                             textTransform: 'uppercase',
                             letterSpacing: '0.08em',
                             transition: 'background-color 0.2s',
-                            opacity: bannerImageUploading ? 0.65 : 1,
+                            opacity: (applyingReminder || bannerImageUploading || emailImageUploading) ? 0.65 : 1,
                           }}
-                          onMouseEnter={e => { if (!bannerImageUploading) e.currentTarget.style.backgroundColor = '#e5e5e5'; }}
+                          onMouseEnter={e => { if (!applyingReminder && !bannerImageUploading && !emailImageUploading) e.currentTarget.style.backgroundColor = '#e5e5e5'; }}
                           onMouseLeave={e => e.currentTarget.style.backgroundColor = '#efefef'}
-                        >{bannerImageUploading ? 'UPLOADING…' : 'APPLY'}</button>
+                        >{(applyingReminder || bannerImageUploading || emailImageUploading) ? (applyingReminder ? 'APPLYING…' : 'UPLOADING…') : 'APPLY'}</button>
                       </div>
                     </div>
 
@@ -4448,24 +4562,37 @@ export default function StoreDashboard() {
 
                               <button
                                 onClick={() => document.getElementById('email-image-file').click()}
-                                style={{ width: '100%', padding: '12px', fontSize: '11px', fontWeight: 700, border: 'none', borderRadius: '2px', backgroundColor: '#efefef', color: '#2c2c2d', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.08em' }}
+                                disabled={emailImageUploading}
+                                style={{ width: '100%', padding: '12px', fontSize: '11px', fontWeight: 700, border: 'none', borderRadius: '2px', backgroundColor: '#efefef', color: '#2c2c2d', cursor: emailImageUploading ? 'wait' : 'pointer', textTransform: 'uppercase', letterSpacing: '0.08em', opacity: emailImageUploading ? 0.65 : 1 }}
                               >
-                                {selectedAutomation.custom_image ? 'CHANGE IMAGE' : 'UPLOAD IMAGE'}
+                                {emailImageUploading ? 'UPLOADING…' : (isUsablePublicImageUrl(selectedAutomation.custom_image) ? 'CHANGE IMAGE' : 'UPLOAD IMAGE')}
                               </button>
+                              {isUsablePublicImageUrl(selectedAutomation.custom_image) && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px', border: '1px solid #e2e8f0', backgroundColor: '#fafafa' }}>
+                                  <img
+                                    src={selectedAutomation.custom_image}
+                                    alt="Email hero"
+                                    style={{ width: '72px', height: '48px', objectFit: 'cover', borderRadius: '2px', border: '1px solid #ddd', flexShrink: 0 }}
+                                  />
+                                  <span style={{ fontSize: '11px', color: '#64748b', flex: 1 }}>Uploaded image ready for email</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedAutomation(prev => ({ ...prev, custom_image: '' }))}
+                                    style={{ padding: '4px 8px', fontSize: '10px', border: '1px solid #ddd', background: '#fff', cursor: 'pointer' }}
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
+                              )}
                               <input
                                 type="file"
                                 id="email-image-file"
                                 accept="image/*"
                                 style={{ display: 'none' }}
                                 onChange={e => {
-                                  const file = e.target.files[0];
-                                  if (file) {
-                                    const reader = new FileReader();
-                                    reader.onloadend = () => {
-                                      setSelectedAutomation(prev => ({ ...prev, custom_image: reader.result }));
-                                    };
-                                    reader.readAsDataURL(file);
-                                  }
+                                  const file = e.target.files?.[0];
+                                  if (file) handleEmailCustomImageUpload(file);
+                                  e.target.value = '';
                                 }}
                               />
 
@@ -4540,19 +4667,14 @@ export default function StoreDashboard() {
                                   </div>
 
                                   <div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                                      <label style={{ display: 'block', fontSize: '9.5px', fontWeight: 700, color: '#a0a0a0', letterSpacing: '0.1em' }}>MESSAGE</label>
-                                      <button
-                                        onClick={() => {
-                                          const msg = prompt('Edit Email Message:', selectedAutomation.message || 'Keep the memories alive with prints.');
-                                          if (msg !== null) setSelectedAutomation(prev => ({ ...prev, message: msg }));
-                                        }}
-                                        style={{ padding: '2px 8px', fontSize: '10.5px', border: 'none', backgroundColor: '#efefef', cursor: 'pointer' }}
-                                      >Edit</button>
-                                    </div>
-                                    <div style={{ padding: '10px', border: '1px solid #e2e8f0', backgroundColor: '#f9f9f9', fontSize: '12px', color: '#555', minHeight: '48px', borderRadius: '2px' }}>
-                                      {selectedAutomation.message || 'Keep the memories alive with prints. You can redeem your gift code at checkout.'}
-                                    </div>
+                                    <label style={{ display: 'block', fontSize: '9.5px', fontWeight: 700, color: '#a0a0a0', letterSpacing: '0.1em', marginBottom: '6px' }}>MESSAGE</label>
+                                    <textarea
+                                      rows={4}
+                                      value={selectedAutomation.message || ''}
+                                      onChange={e => setSelectedAutomation(prev => ({ ...prev, message: e.target.value }))}
+                                      placeholder="Keep the memories alive with prints. You can redeem your gift code at checkout."
+                                      style={{ width: '100%', padding: '10px 12px', border: '1px solid #dcdcdc', borderRadius: '2px', fontSize: '13px', outline: 'none', boxSizing: 'border-box', fontFamily: 'sans-serif', lineHeight: 1.5, resize: 'vertical' }}
+                                    />
                                   </div>
 
                                   <div>
@@ -4776,83 +4898,84 @@ export default function StoreDashboard() {
                                   NANDHA
                                 </div>
 
-                                {/* Custom image placeholder or Active Store Banner Preview */}
+                                {/* Email hero: uploaded image + active sales banner */}
                                  {(() => {
                                    const currentCampaign = campaigns.find(c => c.id === selectedCampaign);
-                                   const activeBannerKey = currentCampaign ? Object.keys(currentCampaign.banners).find(k => currentCampaign.banners[k].enabled) : null;
-                                   const activeBanner = currentCampaign && activeBannerKey ? currentCampaign.banners[activeBannerKey] : null;
-
-                                   if (activeBanner) {
-                                     return (
-                                       <div style={{
-                                         width: '100%',
-                                         marginBottom: '32px',
-                                         position: 'relative',
-                                         border: '1px solid #dcdcdc'
-                                       }}>
-                                         {/* Expand button overlay */}
-                                         <button
-                                           type="button"
-                                           onClick={() => setExpandedBannerPreview({ banner: activeBanner, key: activeBannerKey })}
-                                           style={{
-                                             position: 'absolute',
-                                             top: '10px',
-                                             right: '10px',
-                                             zIndex: 30,
-                                             padding: '4px 10px',
-                                             fontSize: '9.5px',
-                                             fontWeight: 700,
-                                             backgroundColor: 'rgba(0,0,0,0.7)',
-                                             color: '#fff',
-                                             border: 'none',
-                                             borderRadius: '3px',
-                                             cursor: 'pointer',
-                                             display: 'flex',
-                                             alignItems: 'center',
-                                             gap: '4px',
-                                             textTransform: 'uppercase',
-                                             letterSpacing: '0.04em'
-                                           }}
-                                           title="Expand View"
-                                         >
-                                           ⤢ EXPAND
-                                         </button>
-                                         <div style={{ pointerEvents: 'none' }}>
-                                           {renderHighFidelityBanner(activeBannerKey, activeBanner, true)}
-                                         </div>
-                                       </div>
-                                     );
-                                   }
+                                   const activeBannerKey = currentCampaign
+                                     ? Object.keys(currentCampaign.banners || {}).find(k => currentCampaign.banners[k]?.enabled)
+                                     : null;
+                                   const activeBanner = currentCampaign && activeBannerKey
+                                     ? currentCampaign.banners[activeBannerKey]
+                                     : null;
+                                   const hero = resolveEmailHeroPresentation(selectedAutomation.custom_image, activeBanner);
 
                                    return (
-                                     <div style={{
-                                       width: '100%',
-                                       height: '240px',
-                                       backgroundColor: '#efefef',
-                                       backgroundImage: selectedAutomation.custom_image ? `url(${selectedAutomation.custom_image})` : 'none',
-                                       backgroundSize: 'cover',
-                                       backgroundPosition: 'center',
-                                       display: 'flex',
-                                       flexDirection: 'column',
-                                       alignItems: 'center',
-                                       justifyContent: 'center',
-                                       gap: '8px',
-                                       border: '1px solid #e5e5e5',
-                                       marginBottom: '32px',
-                                       boxSizing: 'border-box',
-                                       padding: '16px'
-                                     }}>
-                                       {!selectedAutomation.custom_image && (
-                                         <>
+                                     <div style={{ width: '100%', marginBottom: '32px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                       {hero.standaloneCustomImage && (
+                                         <div style={{ width: '100%', border: '1px solid #dcdcdc', overflow: 'hidden' }}>
+                                           <img
+                                             src={hero.standaloneCustomImage}
+                                             alt="Email hero"
+                                             style={{ display: 'block', width: '100%', maxHeight: '240px', objectFit: 'cover' }}
+                                           />
+                                         </div>
+                                       )}
+
+                                       {hero.bannerForRender && activeBannerKey ? (
+                                         <div style={{ width: '100%', position: 'relative', border: '1px solid #dcdcdc' }}>
+                                           <button
+                                             type="button"
+                                             onClick={() => setExpandedBannerPreview({ banner: hero.bannerForRender, key: activeBannerKey })}
+                                             style={{
+                                               position: 'absolute',
+                                               top: '10px',
+                                               right: '10px',
+                                               zIndex: 30,
+                                               padding: '4px 10px',
+                                               fontSize: '9.5px',
+                                               fontWeight: 700,
+                                               backgroundColor: 'rgba(0,0,0,0.7)',
+                                               color: '#fff',
+                                               border: 'none',
+                                               borderRadius: '3px',
+                                               cursor: 'pointer',
+                                               display: 'flex',
+                                               alignItems: 'center',
+                                               gap: '4px',
+                                               textTransform: 'uppercase',
+                                               letterSpacing: '0.04em',
+                                             }}
+                                             title="Expand View"
+                                           >
+                                             ⤢ EXPAND
+                                           </button>
+                                           <div style={{ pointerEvents: 'none' }}>
+                                             {renderHighFidelityBanner(activeBannerKey, hero.bannerForRender, true)}
+                                           </div>
+                                         </div>
+                                       ) : !hero.standaloneCustomImage ? (
+                                         <div style={{
+                                           width: '100%',
+                                           height: '240px',
+                                           backgroundColor: '#efefef',
+                                           display: 'flex',
+                                           flexDirection: 'column',
+                                           alignItems: 'center',
+                                           justifyContent: 'center',
+                                           gap: '8px',
+                                           border: '1px solid #e5e5e5',
+                                           boxSizing: 'border-box',
+                                           padding: '16px',
+                                         }}>
                                            <svg viewBox="0 0 100 100" style={{ width: '40px', height: '40px', fill: '#cccccc' }}>
                                              <path d="M15 80 L85 80 L85 20 L15 20 Z M25 70 L45 45 L55 58 L75 35 L80 70 Z" />
                                              <circle cx="35" cy="35" r="5" />
                                            </svg>
                                            <div style={{ fontSize: '9.5px', color: '#999999', letterSpacing: '0.08em', fontWeight: 500 }}>
-                                             VISITORS WILL SEE THE GALLERY COVER HERE
+                                             UPLOAD IMAGE OR ENABLE A SALES BANNER
                                            </div>
-                                         </>
-                                       )}
+                                         </div>
+                                       ) : null}
                                      </div>
                                    );
                                  })()}

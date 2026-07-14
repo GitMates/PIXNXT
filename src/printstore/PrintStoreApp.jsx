@@ -38,6 +38,8 @@ import {
   PRINT_SIZES
 } from './data/mockStoreData';
 import { ShoppingBag, Heart, X, Check, Upload, Bookmark, ChevronLeft, ChevronRight, MoreVertical, ArrowUp, CreditCard, ShieldCheck, Loader2, AlertCircle } from 'lucide-react';
+import Lottie from 'lottie-react';
+import paymentSuccessAnimation from '../assets/animations/payment-success.json';
 import './PrintStore.css';
 
 export default function PrintStoreApp() {
@@ -564,7 +566,43 @@ export default function PrintStoreApp() {
       quantity: item.quantity,
       unitPrice: parseFloat(opts.unitPrice || 0),
       totalPrice: parseFloat(opts.unitPrice || 0) * item.quantity,
-      product_db_id: item.product_id
+      product_db_id: item.product_id,
+      options: opts,
+    };
+  };
+
+  const normalizeLocalCartItem = (item) => {
+    if (!item || typeof item !== 'object') return null;
+    const opts = item.options || {};
+    const productId = item.productId || item.product_id || opts.productId || '';
+    const photo = item.photo || opts.photo || null;
+    const size = item.size || opts.size || null;
+    const unitPrice = Number(item.unitPrice ?? opts.unitPrice ?? 0);
+    const quantity = Number(item.quantity || 1);
+    return {
+      ...item,
+      id: item.id || `local_${Date.now()}`,
+      productId,
+      productName: item.productName || opts.productName || productId,
+      photo,
+      photos: item.photos || opts.photos || [],
+      size,
+      frame: item.frame || opts.frame || null,
+      paper: item.paper || opts.paper || null,
+      border: item.border || opts.border || 'none',
+      layout: item.layout || opts.layout || null,
+      rotation: item.rotation || opts.rotation || 0,
+      quantity,
+      unitPrice,
+      totalPrice: Number(item.totalPrice ?? unitPrice * quantity),
+      options: {
+        ...opts,
+        productId,
+        productName: item.productName || opts.productName || productId,
+        photo,
+        size,
+        unitPrice,
+      },
     };
   };
 
@@ -823,7 +861,9 @@ export default function PrintStoreApp() {
       const localCart = localStorage.getItem('pixnxt_printstore_cart');
       if (localCart) {
         try {
-          localItems = JSON.parse(localCart) || [];
+          localItems = (JSON.parse(localCart) || [])
+            .map(normalizeLocalCartItem)
+            .filter(Boolean);
         } catch (e) {}
       }
 
@@ -864,10 +904,12 @@ export default function PrintStoreApp() {
           const missingLocals = localItems.filter(local => {
             return !dbCartData.some(dbItem => {
               const opts = dbItem.options || {};
+              const localPhotoId = local.photo?.id || local.options?.photo?.id;
+              const dbPhotoId = opts.photo?.id;
               return (
-                opts.productId === local.productId &&
-                opts.photo?.id === local.photo?.id &&
-                opts.size?.id === local.size?.id &&
+                (opts.productId === local.productId) &&
+                (opts.photo?.id === localPhotoId || (!localPhotoId && !dbPhotoId)) &&
+                ((opts.size?.id || opts.size?.label) === (local.size?.id || local.size?.label) || (!local.size && !opts.size)) &&
                 opts.frame?.id === local.frame?.id &&
                 opts.paper?.id === local.paper?.id &&
                 opts.border === local.border
@@ -876,10 +918,36 @@ export default function PrintStoreApp() {
           });
 
           if (missingLocals.length > 0) {
-            const inserts = missingLocals.map(local => {
-              const matchedProduct = products.find(p => p.id === local.productId);
-              const productDbId = matchedProduct ? matchedProduct.db_id : null;
-              return {
+            const inserts = [];
+            for (const local of missingLocals) {
+              let matchedProduct = products.find(p => p.id === local.productId);
+              let productDbId = matchedProduct ? matchedProduct.db_id : null;
+
+              // Ensure digital download products exist in printstore_products
+              if (!productDbId && ['digital_download', 'digital_download_all'].includes(local.productId)) {
+                const { data: existingDigital } = await supabase
+                  .from('printstore_products')
+                  .select('id')
+                  .eq('product_type', local.productId)
+                  .limit(1);
+                productDbId = existingDigital?.[0]?.id || null;
+                if (!productDbId) {
+                  const { data: created } = await supabase
+                    .from('printstore_products')
+                    .insert({
+                      product_type: local.productId,
+                      name: local.productName || local.productId,
+                      base_price: local.unitPrice || 0,
+                      is_active: true,
+                      options: { selling_price: local.unitPrice || 0 },
+                    })
+                    .select('id')
+                    .maybeSingle();
+                  productDbId = created?.id || null;
+                }
+              }
+
+              inserts.push({
                 user_id: userId,
                 session_id: userId ? null : (currentSessionId || null),
                 product_id: productDbId,
@@ -887,9 +955,9 @@ export default function PrintStoreApp() {
                 options: {
                   productId: local.productId,
                   productName: local.productName,
-                  photo: local.photo,
+                  photo: local.photo || local.options?.photo || null,
                   photos: local.photos,
-                  size: local.size,
+                  size: local.size || local.options?.size || null,
                   frame: local.frame,
                   paper: local.paper,
                   border: local.border,
@@ -897,8 +965,8 @@ export default function PrintStoreApp() {
                   rotation: local.rotation || 0,
                   unitPrice: local.unitPrice
                 }
-              };
-            });
+              });
+            }
 
             const { data: insertedData } = await supabase
               .from('printstore_cart_items')
@@ -913,18 +981,38 @@ export default function PrintStoreApp() {
 
         if (dbCartData.length > 0) {
           const mappedCart = dbCartData.map(mapCartItemRow);
-          setCartItems(mappedCart);
-          localStorage.setItem('pixnxt_printstore_cart', JSON.stringify(mappedCart));
-          return;
-        } else {
-          setCartItems([]);
-          localStorage.setItem('pixnxt_printstore_cart', '[]');
+          // Keep any local-only digital items that failed DB insert (e.g. FK issues)
+          const merged = [...mappedCart];
+          for (const local of localItems) {
+            const exists = merged.some(db =>
+              db.productId === local.productId
+              && (db.photo?.id || null) === (local.photo?.id || null)
+              && (db.size?.label || db.size?.id || '') === (local.size?.label || local.size?.id || '')
+            );
+            if (!exists) merged.push(local);
+          }
+          setCartItems(merged);
+          localStorage.setItem('pixnxt_printstore_cart', JSON.stringify(merged));
           return;
         }
+
+        // DB empty — keep local cart (do NOT wipe digital downloads)
+        if (localItems.length > 0) {
+          setCartItems(localItems);
+          localStorage.setItem('pixnxt_printstore_cart', JSON.stringify(localItems));
+          return;
+        }
+
+        setCartItems([]);
+        localStorage.setItem('pixnxt_printstore_cart', '[]');
+        return;
       }
 
       // No session or user yet, just use local items
       setCartItems(localItems);
+      if (localItems.length > 0) {
+        localStorage.setItem('pixnxt_printstore_cart', JSON.stringify(localItems));
+      }
     } catch (err) {
       console.error("Error in loadCart:", err);
       const localCart = localStorage.getItem('pixnxt_printstore_cart');
@@ -1382,6 +1470,7 @@ export default function PrintStoreApp() {
             address: shippingDetails.address,
             city: shippingDetails.city,
             zip: shippingDetails.zip,
+            phone: shippingDetails.phone || '',
             country: 'India'
           },
           shipping_amount: shipping,
@@ -1451,6 +1540,7 @@ export default function PrintStoreApp() {
           address: shippingDetails.address,
           city: shippingDetails.city,
           zip: shippingDetails.zip,
+          phone: shippingDetails.phone || '',
           country: 'India'
         },
         shipping_amount: shipping,
@@ -1486,7 +1576,8 @@ export default function PrintStoreApp() {
         city: shippingDetails.city,
         zipCode: shippingDetails.zip,
         country: 'India',
-        phoneNumber: '',
+        phoneNumber: shippingDetails.phone || '',
+        phone: shippingDetails.phone || '',
         sameBilling: true
       });
 
@@ -1789,14 +1880,19 @@ export default function PrintStoreApp() {
             {/* Header Success info */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '32px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div style={{ width: '56px', height: '56px', flexShrink: 0, borderRadius: '50%', backgroundColor: '#ecfdf5', color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Check size={32} strokeWidth={3} />
+                <div style={{ width: '72px', height: '72px', flexShrink: 0 }}>
+                  <Lottie
+                    animationData={paymentSuccessAnimation}
+                    loop={false}
+                    autoplay
+                    style={{ width: '100%', height: '100%' }}
+                  />
                 </div>
                 <h2 style={{ fontFamily: "'EB Garamond', serif", fontSize: '26px', fontWeight: 600, color: '#111', margin: 0, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                   Thank you for your order!
                 </h2>
               </div>
-              <p style={{ fontSize: '14.5px', color: '#64748b', margin: '4px 0 0 72px' }}>
+              <p style={{ fontSize: '14.5px', color: '#64748b', margin: '4px 0 0 88px' }}>
                 Your order has been placed successfully. A receipt has been sent to your email.
               </p>
             </div>
@@ -1822,6 +1918,9 @@ export default function PrintStoreApp() {
                         <span style={{ display: 'block', color: '#64748b', fontWeight: 600, marginBottom: '4px', textTransform: 'uppercase', fontSize: '11px', letterSpacing: '0.05em' }}>Customer Info</span>
                         <strong style={{ color: '#111' }}>{completedOrder.customer_name}</strong>
                         <span style={{ display: 'block', color: '#64748b', marginTop: '2px' }}>{completedOrder.customer_email}</span>
+                        {completedOrder.shipping_address?.phone && (
+                          <span style={{ display: 'block', color: '#64748b', marginTop: '2px' }}>+91 {completedOrder.shipping_address.phone}</span>
+                        )}
                       </div>
                     </div>
                   );
@@ -1851,6 +1950,9 @@ export default function PrintStoreApp() {
                         <span style={{ display: 'block', color: '#64748b', fontWeight: 600, marginBottom: '6px', textTransform: 'uppercase', fontSize: '11px', letterSpacing: '0.05em' }}>Shipping Destination</span>
                         <span style={{ display: 'block', color: '#111', lineHeight: 1.5 }}>
                           {completedOrder.customer_name}<br />
+                          {completedOrder.shipping_address?.phone && (
+                            <>+91 {completedOrder.shipping_address.phone}<br /></>
+                          )}
                           {completedOrder.shipping_address?.address}, {completedOrder.shipping_address?.city}<br />
                           {completedOrder.shipping_address?.zip}, India
                         </span>
@@ -1947,25 +2049,30 @@ export default function PrintStoreApp() {
                         doc.text("Customer Details", 20, 55);
                         doc.setFont("helvetica", "normal");
                         doc.setFontSize(10);
+                        const receiptPhone = completedOrder.shipping_address?.phone || '';
                         doc.text(`Name: ${completedOrder.customer_name || ''}`, 20, 62);
                         doc.text(`Email: ${completedOrder.customer_email || ''}`, 20, 68);
+                        if (receiptPhone) {
+                          doc.text(`Phone: +91 ${receiptPhone}`, 20, 74);
+                        }
 
+                        const sectionY = receiptPhone ? 86 : 80;
                         if (!allDigital) {
                           doc.setFont("helvetica", "bold");
                           doc.setFontSize(12);
-                          doc.text("Shipping Address", 20, 80);
+                          doc.text("Shipping Address", 20, sectionY);
                           doc.setFont("helvetica", "normal");
                           doc.setFontSize(10);
-                          doc.text(`${completedOrder.shipping_address?.address || ''}`, 20, 87);
-                          doc.text(`${completedOrder.shipping_address?.city || ''}, ${completedOrder.shipping_address?.zip || ''}`, 20, 93);
+                          doc.text(`${completedOrder.shipping_address?.address || ''}`, 20, sectionY + 7);
+                          doc.text(`${completedOrder.shipping_address?.city || ''}, ${completedOrder.shipping_address?.zip || ''}`, 20, sectionY + 13);
                         } else {
                           doc.setFont("helvetica", "bold");
                           doc.setFontSize(12);
-                          doc.text("Delivery Info", 20, 80);
+                          doc.text("Delivery Info", 20, sectionY);
                           doc.setFont("helvetica", "normal");
                           doc.setFontSize(10);
-                          doc.text(`Digital files will be sent to email:`, 20, 87);
-                          doc.text(`${completedOrder.customer_email || ''}`, 20, 93);
+                          doc.text(`Digital files will be sent to email:`, 20, sectionY + 7);
+                          doc.text(`${completedOrder.customer_email || ''}`, 20, sectionY + 13);
                         }
 
                         doc.setFont("helvetica", "bold");

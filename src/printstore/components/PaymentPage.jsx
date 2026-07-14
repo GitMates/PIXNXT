@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
+import Lottie from 'lottie-react';
 import { ChevronLeft, ChevronDown } from 'lucide-react';
 import CartItemPreview from './CartItemPreview';
+import paymentSuccessAnimation from '../../assets/animations/payment-success.json';
 
 
 export default function PaymentPage({
@@ -65,16 +67,17 @@ export default function PaymentPage({
         await onPlaceOrder({
           name: shippingAddress?.recipientName || shippingAddress?.accountName || '',
           email: shippingAddress?.email || formData.email,
-          address: shippingAddress?.street || '',
+          address: shippingAddress?.street || shippingAddress?.address || '',
           city: shippingAddress?.city || '',
-          zip: shippingAddress?.zipCode || ''
+          zip: shippingAddress?.zipCode || shippingAddress?.zip || '',
+          phone: shippingAddress?.phoneNumber || shippingAddress?.phone || '',
         });
       }
 
       setIsSuccess(true);
       setTimeout(() => {
         if (onPaymentSuccess) onPaymentSuccess();
-      }, 2500);
+      }, 2800);
     } catch (err) {
       console.error('Failed to place order:', err);
       setErrors({ submit: 'Failed to place order. Please try again.' });
@@ -87,11 +90,15 @@ export default function PaymentPage({
     <div className="cart-page-container payment-page-container">
       {isSuccess && (
         <div className="success-overlay">
-          <svg className="success-checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
-            <circle className="success-checkmark__circle" cx="26" cy="26" r="25" fill="none" />
-            <path className="success-checkmark__check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8" />
-          </svg>
-          <div className="success-text">Payment Successful!</div>
+          <div style={{ width: 160, height: 160 }}>
+            <Lottie
+              animationData={paymentSuccessAnimation}
+              loop={false}
+              autoplay
+              style={{ width: '100%', height: '100%' }}
+            />
+          </div>
+          <div className="success-text" style={{ opacity: 1, animation: 'none' }}>Payment Successful!</div>
         </div>
       )}
 

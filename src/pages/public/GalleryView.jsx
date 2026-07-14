@@ -2353,75 +2353,117 @@ const GalleryView = () => {
                   <button
                     onClick={() => {
                       const cartKey = 'pixnxt_printstore_cart';
-                      const cartStr = localStorage.getItem(cartKey) || '[]';
-                      const cart = JSON.parse(cartStr);
-                      
+                      let cart = [];
+                      try {
+                        cart = JSON.parse(localStorage.getItem(cartKey) || '[]');
+                        if (!Array.isArray(cart)) cart = [];
+                      } catch {
+                        cart = [];
+                      }
+
                       const isAll = selectedDownloadType === 'all';
                       const itemProductId = isAll ? 'digital_download_all' : 'digital_download';
-                      const itemProductName = isAll ? 'Entire Collection Download (All Photos)' : 'Single Photo Download (High Resolution)';
-                      const itemUnitPrice = (isAll ? collection.digital_download_price_all : collection.digital_download_price_single) || (isAll ? 199 : 40);
-                      
-                      const existing = cart.find(item => (item.product_id === itemProductId || item.productId === itemProductId) && (isAll || item.options?.photo?.id === digitalDownloadPhoto.id));
-                      if (!existing) {
+                      const itemProductName = isAll
+                        ? 'Entire Collection Download (All Photos)'
+                        : 'Single Photo Download (High Resolution)';
+                      const itemUnitPrice = Number(
+                        (isAll ? collection.digital_download_price_all : collection.digital_download_price_single)
+                        || (isAll ? 199 : 40)
+                      );
+                      const photo = isAll ? null : digitalDownloadPhoto;
+                      const size = { id: isAll ? 'all_photos' : 'hi_res', label: isAll ? 'All Photos' : 'High Resolution' };
+
+                      const existingIdx = cart.findIndex((item) => {
+                        const pid = item.productId || item.product_id;
+                        const itemPhotoId = item.photo?.id || item.options?.photo?.id;
+                        return pid === itemProductId && (isAll || itemPhotoId === photo?.id);
+                      });
+
+                      if (existingIdx === -1) {
                         cart.push({
                           id: `dig-${Date.now()}`,
                           productId: itemProductId,
-                          product_id: itemProductId,
                           productName: itemProductName,
                           unitPrice: itemUnitPrice,
+                          totalPrice: itemUnitPrice,
                           quantity: 1,
+                          photo,
+                          size,
+                          frame: null,
+                          paper: null,
+                          border: 'none',
                           options: {
-                            photo: isAll ? null : digitalDownloadPhoto,
-                            size: { label: isAll ? 'All Photos' : 'High Resolution' }
-                          }
+                            productId: itemProductId,
+                            productName: itemProductName,
+                            photo,
+                            size,
+                            unitPrice: itemUnitPrice,
+                          },
                         });
-                        localStorage.setItem(cartKey, JSON.stringify(cart));
                       }
+
+                      localStorage.setItem(cartKey, JSON.stringify(cart));
 
                       // Sync to Supabase in background (non-blocking)
                       const savedEmail = localStorage.getItem(`pixnxt_fav_email_${collection.id}`);
                       if (savedEmail) {
                         galleryService.createOrGetSession(collection.id, savedEmail).then(async (session) => {
-                          if (session?.id) {
-                            const { data: dbProducts } = await supabase
+                          if (!session?.id) return;
+
+                          let productDbId = null;
+                          const { data: dbProducts } = await supabase
+                            .from('printstore_products')
+                            .select('id')
+                            .eq('product_type', itemProductId)
+                            .limit(1);
+                          productDbId = dbProducts?.[0]?.id || null;
+
+                          if (!productDbId) {
+                            const { data: inserted } = await supabase
                               .from('printstore_products')
+                              .insert({
+                                product_type: itemProductId,
+                                name: itemProductName,
+                                base_price: itemUnitPrice,
+                                image_url: null,
+                                is_active: true,
+                                options: { selling_price: itemUnitPrice },
+                              })
                               .select('id')
-                              .eq('product_type', itemProductId)
-                              .limit(1);
-
-                            const productDbId = dbProducts?.[0]?.id;
-                            if (productDbId) {
-                              const checkQuery = supabase
-                                .from('printstore_cart_items')
-                                .select('id')
-                                .eq('session_id', session.id)
-                                .eq('product_id', productDbId);
-
-                              const { data: existingDbItems } = await checkQuery.limit(1);
-
-                              if (!existingDbItems || existingDbItems.length === 0) {
-                                await supabase
-                                  .from('printstore_cart_items')
-                                  .insert({
-                                    session_id: session.id,
-                                    product_id: productDbId,
-                                    quantity: 1,
-                                    options: {
-                                      productId: itemProductId,
-                                      productName: itemProductName,
-                                      photo: isAll ? null : digitalDownloadPhoto,
-                                      size: { label: isAll ? 'All Photos' : 'High Resolution' },
-                                      unitPrice: itemUnitPrice
-                                    }
-                                  });
-                              }
-                            }
+                              .maybeSingle();
+                            productDbId = inserted?.id || null;
                           }
-                        }).catch(e => {
-                          console.error("Error syncing digital item to Supabase cart:", e);
+
+                          const { data: existingDbItems } = await supabase
+                            .from('printstore_cart_items')
+                            .select('id, options')
+                            .eq('session_id', session.id);
+
+                          const alreadyInDb = (existingDbItems || []).some((row) => {
+                            const opts = row.options || {};
+                            return opts.productId === itemProductId
+                              && (isAll || opts.photo?.id === photo?.id);
+                          });
+
+                          if (!alreadyInDb) {
+                            await supabase.from('printstore_cart_items').insert({
+                              session_id: session.id,
+                              product_id: productDbId,
+                              quantity: 1,
+                              options: {
+                                productId: itemProductId,
+                                productName: itemProductName,
+                                photo,
+                                size,
+                                unitPrice: itemUnitPrice,
+                              },
+                            });
+                          }
+                        }).catch((e) => {
+                          console.error('Error syncing digital item to Supabase cart:', e);
                         });
                       }
-                      
+
                       setShowDigitalDownloadModal(false);
                       setShowDigitalPurchaseDetail(false);
                       window.location.assign(`/printstore?slug=${collection.slug}&cart=open`);

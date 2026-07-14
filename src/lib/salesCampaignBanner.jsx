@@ -74,6 +74,59 @@ export function hasPendingBannerImageUpload(banner = {}) {
   );
 }
 
+export function hasPendingEmailImageUpload(emailConfig = {}) {
+  return String(emailConfig.custom_image || '').startsWith('data:');
+}
+
+export function isUsablePublicImageUrl(url) {
+  const str = String(url || '').trim();
+  if (!str || str.startsWith('data:')) return false;
+  return /^https?:\/\//i.test(str);
+}
+
+/** Merge uploaded email hero image with active sales banner for preview + send. */
+export function resolveEmailHeroPresentation(customImage, activeBanner) {
+  const custom = isUsablePublicImageUrl(customImage) ? String(customImage).trim() : '';
+  const bannerDesktop = String(activeBanner?.desktop_image || '').trim();
+  const bannerMobile = String(activeBanner?.mobile_image || '').trim();
+  const bannerOwnImage = isUsablePublicImageUrl(bannerDesktop) || isUsablePublicImageUrl(bannerMobile);
+
+  const bannerForRender = activeBanner
+    ? {
+        ...activeBanner,
+        desktop_image: isUsablePublicImageUrl(bannerDesktop)
+          ? bannerDesktop
+          : (!bannerOwnImage && custom ? custom : ''),
+        mobile_image: isUsablePublicImageUrl(bannerMobile)
+          ? bannerMobile
+          : (isUsablePublicImageUrl(bannerDesktop)
+              ? bannerDesktop
+              : (!bannerOwnImage && custom ? custom : '')),
+      }
+    : null;
+
+  // When a sales banner is active, use the uploaded image inside that banner only (no duplicate hero).
+  const standaloneCustomImage = custom && !activeBanner ? custom : '';
+
+  return {
+    standaloneCustomImage,
+    bannerForRender,
+  };
+}
+
+/** Normalize reminder email fields and strip invalid inline images. */
+export function sanitizeEmailReminderConfig(config = {}) {
+  const customImage = isUsablePublicImageUrl(config.custom_image) ? config.custom_image : '';
+  return {
+    ...config,
+    custom_image: customImage,
+    message: config.message ?? '',
+    subject: config.subject ?? '',
+    title: config.title ?? '',
+    button_text: config.button_text || 'VISIT SHOP',
+  };
+}
+
 /** Resize large banner uploads so R2 PUT stays fast and reliable. */
 export async function compressBannerImageFile(file, maxEdge = 2400, quality = 0.88) {
   if (!file?.type?.startsWith('image/')) return file;
