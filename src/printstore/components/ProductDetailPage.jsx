@@ -4,9 +4,10 @@ import Cropper from 'react-easy-crop';
 import getCroppedImg from '../../lib/cropImageUtils';
 import { MOCK_SIZES, MOCK_PAPERS, MOCK_FRAMES, MATTED_FRAME_SIZES, GALLERY_BOARD_SIZES, CIRCULAR_FRAME_SIZES, PRINT_PACK_SIZES, DECKLED_PRINTS_SIZES, PANORAMIC_PRINTS_SIZES, CANVAS_SIZES, MOCK_WRAPS, FLOAT_FRAME_SIZES, PRINT_SIZES, ACRYLIC_PRINT_SIZES, MOCK_FINISHINGS, MATTED_COLLAGE_SIZES, MATTED_COLLAGE_LAYOUTS, MOCK_PHOTOS } from '../data/mockStoreData';
 
-import circularRoom from '../circular frames_files/0.webp';
-import floatRoom from '../float frames_files/1.webp';
-import kRoom from '../k_files/1.webp';
+import circularRoom from '../assets/circular-room.webp';
+import floatRoom from '../assets/float-room.webp';
+import kRoom from '../assets/k-room.webp';
+import layoutLab1 from '../assets/layout-lab-1.png';
 import { CircularDeckleSvg } from './CircularDeckleSvg';
 import DibondPreview from './DibondPreview';
 import FramesPreview from './FramesPreview';
@@ -20,7 +21,7 @@ const WALL_OPTIONS = [
 ];
 
 const LAYOUT_OPTIONS = [
-  { id: 'layout-1', thumbnail: '/printstore/Matted Frame Collages_files/layout_lab-1_des-1997053.png', label: '2 Photos Vertical' }
+  { id: 'layout-1', thumbnail: layoutLab1, label: '2 Photos Vertical' }
 ];
 
 const getCollageDimensions = (sizeLabel, layoutType) => {

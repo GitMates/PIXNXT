@@ -412,120 +412,171 @@ const GalleryView = () => {
   );
 
   useEffect(() => {
-    if (isPaidDigitalDownloadOn) {
-      /* ── Right-click prevention on images ── */
-      const handleContextMenu = (e) => {
-        if (e.target.tagName === 'IMG' || e.target.closest('.masonry-grid-container') || e.target.closest('.photo-lightbox-root')) {
+    if (!isPaidDigitalDownloadOn) return undefined;
+
+    /* Capture deterrent for paid digital galleries (Mac / Windows / mobile).
+       OS-level screenshots cannot be fully blocked from the browser; we blank
+       the viewport the instant common capture shortcuts or focus loss fire so
+       the captured frame is empty — not a grey blur of the photos. */
+    const SHIELD = 'pixnxt-capture-shield';
+    let shieldUntil = 0;
+    let releaseTimer = null;
+
+    const armShield = (ms = 1200) => {
+      document.documentElement.classList.add(SHIELD);
+      document.body.classList.add(SHIELD);
+      shieldUntil = Math.max(shieldUntil, Date.now() + ms);
+      clearTimeout(releaseTimer);
+      releaseTimer = setTimeout(tryRelease, ms + 40);
+    };
+
+    const tryRelease = () => {
+      if (Date.now() < shieldUntil) {
+        releaseTimer = setTimeout(tryRelease, shieldUntil - Date.now() + 20);
+        return;
+      }
+      if (document.hidden || (typeof document.hasFocus === 'function' && !document.hasFocus())) {
+        return;
+      }
+      document.documentElement.classList.remove(SHIELD);
+      document.body.classList.remove(SHIELD);
+    };
+
+    const handleContextMenu = (e) => {
+      if (
+        e.target.tagName === 'IMG'
+        || e.target.closest('.masonry-grid-container')
+        || e.target.closest('.photo-lightbox-root')
+      ) {
+        e.preventDefault();
+      }
+    };
+
+    const handleDragStart = (e) => {
+      if (e.target.tagName === 'IMG') e.preventDefault();
+    };
+
+    const handleKeyDown = (e) => {
+      const metaOrCtrl = e.metaKey || e.ctrlKey;
+      const shift = e.shiftKey;
+      const code = e.code || '';
+
+      if (metaOrCtrl && ['c', 'C', 's', 'S', 'p', 'P'].includes(e.key)) {
+        e.preventDefault();
+      }
+
+      // Windows PrintScreen / some browsers
+      if (code === 'PrintScreen' || e.key === 'PrintScreen' || e.key === 'PrtScn') {
+        e.preventDefault();
+        armShield(1600);
+        try { navigator.clipboard.writeText(''); } catch (_) { /* ignore */ }
+        return;
+      }
+
+      // macOS Cmd+Shift+3/4/5 often swallows the digit; arm as soon as Cmd+Shift is held.
+      // Windows Win+Shift+S / Ctrl+Shift screenshot tools share the same chord.
+      if (metaOrCtrl && shift) {
+        armShield(1800);
+        if (['Digit3', 'Digit4', 'Digit5', 'KeyS'].includes(code)) {
           e.preventDefault();
         }
-      };
+      }
+    };
 
-      /* ── Drag prevention ── */
-      const handleDragStart = (e) => {
-        if (e.target.tagName === 'IMG') {
-          e.preventDefault();
-        }
-      };
+    const handleKeyUp = (e) => {
+      if (e.key === 'Meta' || e.key === 'Control' || e.key === 'Shift' || e.key === 'OS') {
+        shieldUntil = Math.max(shieldUntil, Date.now() + 500);
+        tryRelease();
+      }
+    };
 
-      /* ── Keyboard shortcut blocking & key-press screenshot protection ── */
-      const handleKeyDown = (e) => {
-        const isCmdOrCtrl = e.metaKey || e.ctrlKey;
-        // Block Ctrl/Cmd+C, Ctrl/Cmd+S
-        if (isCmdOrCtrl && (e.key === 'c' || e.key === 'C' || e.key === 's' || e.key === 'S')) {
-          e.preventDefault();
-        }
-        // Block PrintScreen
-        if (e.key === 'PrintScreen' || e.key === 'PrtScn') {
-          e.preventDefault();
-          // Clear clipboard after PrintScreen attempt
-          try { navigator.clipboard.writeText(''); } catch (_) {}
-        }
-        // If user presses Meta (Cmd), Ctrl or Shift key (preparing to screenshot)
-        if (e.key === 'Meta' || e.key === 'Control' || e.key === 'Shift') {
-          document.body.classList.add('pixnxt-screenshot-guard');
-        }
-      };
+    // Focus loss / app switch / screen-record UI → blank gallery before capture
+    const handleWindowBlur = () => armShield(2500);
+    const handleWindowFocus = () => {
+      shieldUntil = Math.max(shieldUntil, Date.now() + 450);
+      tryRelease();
+    };
+    const handleVisibilityChange = () => {
+      if (document.hidden) armShield(3500);
+      else {
+        shieldUntil = Math.max(shieldUntil, Date.now() + 450);
+        tryRelease();
+      }
+    };
+    const handlePageHide = () => armShield(3500);
 
-      const handleKeyUp = (e) => {
-        if (e.key === 'Meta' || e.key === 'Control' || e.key === 'Shift') {
-          // Keep blurred briefly to protect against snapshot timing
-          setTimeout(() => {
-            document.body.classList.remove('pixnxt-screenshot-guard');
-          }, 350);
-        }
-      };
+    document.addEventListener('contextmenu', handleContextMenu);
+    document.addEventListener('dragstart', handleDragStart);
+    document.addEventListener('keydown', handleKeyDown, true);
+    document.addEventListener('keyup', handleKeyUp, true);
+    window.addEventListener('blur', handleWindowBlur);
+    window.addEventListener('focus', handleWindowFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pagehide', handlePageHide);
 
-      /* ── Screenshot blur protection ── */
-      const handleWindowBlur = () => {
-        document.body.classList.add('pixnxt-screenshot-guard');
-      };
-      const handleWindowFocus = () => {
-        document.body.classList.remove('pixnxt-screenshot-guard');
-      };
-      const handleVisibilityChange = () => {
-        if (document.hidden) {
-          document.body.classList.add('pixnxt-screenshot-guard');
-        } else {
-          setTimeout(() => document.body.classList.remove('pixnxt-screenshot-guard'), 300);
-        }
-      };
+    const style = document.createElement('style');
+    style.id = 'pixnxt-security-styles';
+    style.innerHTML = `
+      @media print {
+        html, body { display: none !important; }
+      }
+      .masonry-grid-container img,
+      .photo-lightbox-root img,
+      .gallery-view img {
+        -webkit-user-drag: none !important;
+        user-select: none !important;
+        -webkit-touch-callout: none !important;
+      }
+      html.${SHIELD},
+      body.${SHIELD} {
+        background: #0f0f0f !important;
+      }
+      html.${SHIELD} img,
+      html.${SHIELD} video,
+      html.${SHIELD} canvas,
+      body.${SHIELD} img,
+      body.${SHIELD} video,
+      body.${SHIELD} canvas {
+        visibility: hidden !important;
+        opacity: 0 !important;
+      }
+      body.${SHIELD}::after {
+        content: "Screenshots & screen recording are disabled while digital downloads are available for purchase.";
+        position: fixed;
+        inset: 0;
+        z-index: 2147483646;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 32px;
+        text-align: center;
+        background: #0f0f0f;
+        color: #f5f5f5;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 15px;
+        font-weight: 500;
+        letter-spacing: 0.02em;
+        line-height: 1.45;
+        pointer-events: none;
+      }
+    `;
+    document.head.appendChild(style);
 
-      // Mouseout event: if cursor leaves page window (potential print/snip tool clicked)
-      const handleMouseOut = (e) => {
-        if (!e.relatedTarget && !e.toElement) {
-          document.body.classList.add('pixnxt-screenshot-guard');
-        }
-      };
-      const handleMouseEnter = () => {
-        document.body.classList.remove('pixnxt-screenshot-guard');
-      };
-
-      document.addEventListener('contextmenu', handleContextMenu);
-      document.addEventListener('dragstart', handleDragStart);
-      document.addEventListener('keydown', handleKeyDown);
-      document.addEventListener('keyup', handleKeyUp);
-      window.addEventListener('blur', handleWindowBlur);
-      window.addEventListener('focus', handleWindowFocus);
-      document.addEventListener('visibilitychange', handleVisibilityChange);
-      document.addEventListener('mouseout', handleMouseOut);
-      document.addEventListener('mouseenter', handleMouseEnter);
-
-      const style = document.createElement('style');
-      style.id = 'pixnxt-security-styles';
-      style.innerHTML = `
-        @media print {
-          body { display: none !important; }
-        }
-        body {
-          transition: filter 0.15s ease-out !important;
-        }
-        /* Full body blur guard — activated on window blur / key combinations */
-        body.pixnxt-screenshot-guard {
-          filter: blur(60px) brightness(0.6) grayscale(0.5) !important;
-          pointer-events: none !important;
-          user-select: none !important;
-        }
-        body.pixnxt-screenshot-guard img,
-        body.pixnxt-screenshot-guard video {
-          opacity: 0 !important;
-        }
-      `;
-      document.head.appendChild(style);
-
-      return () => {
-        document.removeEventListener('contextmenu', handleContextMenu);
-        document.removeEventListener('dragstart', handleDragStart);
-        document.removeEventListener('keydown', handleKeyDown);
-        document.removeEventListener('keyup', handleKeyUp);
-        window.removeEventListener('blur', handleWindowBlur);
-        window.removeEventListener('focus', handleWindowFocus);
-        document.removeEventListener('visibilitychange', handleVisibilityChange);
-        document.removeEventListener('mouseout', handleMouseOut);
-        document.removeEventListener('mouseenter', handleMouseEnter);
-        document.body.classList.remove('pixnxt-screenshot-guard');
-        style.remove();
-      };
-    }
+    return () => {
+      clearTimeout(releaseTimer);
+      document.removeEventListener('contextmenu', handleContextMenu);
+      document.removeEventListener('dragstart', handleDragStart);
+      document.removeEventListener('keydown', handleKeyDown, true);
+      document.removeEventListener('keyup', handleKeyUp, true);
+      window.removeEventListener('blur', handleWindowBlur);
+      window.removeEventListener('focus', handleWindowFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pagehide', handlePageHide);
+      document.documentElement.classList.remove(SHIELD);
+      document.body.classList.remove(SHIELD);
+      document.body.classList.remove('pixnxt-screenshot-guard');
+      style.remove();
+    };
   }, [isPaidDigitalDownloadOn]);
 
   const handleShopClick = useCallback(async (photo) => {

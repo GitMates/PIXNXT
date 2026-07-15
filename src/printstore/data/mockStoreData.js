@@ -1,3 +1,5 @@
+import layoutLab1 from '../assets/layout-lab-1.png';
+
 export const MOCK_PHOTOS = [
   {
     id: "photo_1",
@@ -329,7 +331,7 @@ export const MOCK_FINISHINGS = [
 ];
 
 export const MOCK_LAYOUTS = [
-  { id: 'layout-1', label: '2 Photos Vertical', thumbnail: '/printstore/Matted Frame Collages_files/layout_lab-1_des-1997053.png', photoCount: 2 }
+  { id: 'layout-1', label: '2 Photos Vertical', thumbnail: layoutLab1, photoCount: 2 }
 ];
 
 export const MATTED_COLLAGE_SIZES = [
