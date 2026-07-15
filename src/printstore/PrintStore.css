@@ -2932,15 +2932,15 @@ div.customizer-grid-item[class*="product-card-"] {
   width: 280px !important;
   height: 280px !important;
   aspect-ratio: 1 / 1 !important;
-  background: #ffffff !important; /* Mat background inside square frame */
-  border: 1px solid rgba(0, 0, 0, 0.09) !important; /* Inner bevel/depth border of frame */
+  background: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.09) !important;
   box-shadow: 
-    0 0 0 16px var(--frame-color, #ffffff), /* Thick outer wood frame */
-    0 0 0 17px rgba(0, 0, 0, 0.05), /* Outer edge outline of frame */
-    inset 0 0 0 1px rgba(0, 0, 0, 0.03), /* Extra inner crisp separation */
-    inset 0 3px 7px rgba(0, 0, 0, 0.08) !important; /* Outer shadow below the frame removed */
-  margin: 2rem auto !important; /* Centered inside card */
-  border-radius: 0px !important; /* Make corners sharp */
+    0 0 0 16px var(--frame-color, #ffffff),
+    0 0 0 17px rgba(0, 0, 0, 0.05),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.03),
+    inset 0 3px 7px rgba(0, 0, 0, 0.08) !important;
+  margin: 2rem auto !important;
+  border-radius: 0px !important;
   box-sizing: border-box;
   display: flex !important;
   align-items: center !important;
@@ -2948,37 +2948,66 @@ div.customizer-grid-item[class*="product-card-"] {
   overflow: visible !important;
   position: relative;
 }
-/* Nested clean circle cutout border in the mat */
+/* One clean circular mat opening — bevel only; mat white shows around wrinkled photo */
 .product-card-circular_frames .product-image-box::before {
   content: '';
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 205px;
-  height: 205px;
+  width: 190px;
+  height: 190px;
   border-radius: 50%;
-  border: 1px solid rgba(0, 0, 0, 0.07);
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.04);
+  border: 1.5px solid rgba(255, 255, 255, 0.98);
+  box-shadow:
+    inset 0 2px 6px rgba(0, 0, 0, 0.12),
+    inset 0 1px 2px rgba(0, 0, 0, 0.06),
+    0 0 0 1px rgba(0, 0, 0, 0.04);
   background: transparent;
   pointer-events: none;
-  z-index: 1;
+  z-index: 3;
+}
+.product-card-circular_frames .product-image-box::after {
+  display: none !important;
+  content: none !important;
 }
 .product-card-circular_frames .product-image {
-  border-radius: 50% !important; /* Base circular shape */
-  width: 175px !important;
-  height: 175px !important;
+  /* Slightly smaller than the mat hole so white gap shows, then wrinkled edge */
+  border-radius: 0 !important;
+  width: 172px !important;
+  height: 172px !important;
   object-fit: cover !important;
-  border: 10px solid #ffffff !important; /* White paper border that gets torn by the deckled filter */
+  border: none !important;
   box-shadow: none !important;
   position: relative !important;
   z-index: 2 !important;
-  /* Apply deckled rough edge filter and a realistic paper drop shadow */
-  filter: url(#deckled-edge) drop-shadow(4px 6px 8px rgba(0, 0, 0, 0.22)) !important;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20200%20200%22%3E%3Cpath%20fill%3D%22white%22%20d%3D%22M195.25%20100.00L195.26%20104.99L194.67%20109.95L193.66%20114.83L192.50%20119.66L191.33%20124.47L190.07%20129.26L188.51%20133.98L186.53%20138.53L184.17%20142.89L181.57%20147.09L178.84%20151.20L175.99%20155.21L172.97%20159.09L169.75%20162.80L166.37%20166.37L162.92%20169.88L159.43%20173.39L155.79%20176.79L151.88%20179.89L147.62%20182.48L143.09%20184.56L138.43%20186.31L133.76%20187.95L129.12%20189.62L124.44%20191.20L119.66%20192.50L114.79%20193.35L109.86%20193.79L104.92%20193.96L100.00%20194.02L95.07%20193.98L90.15%20193.73L85.24%20193.21L80.35%20192.44L75.48%20191.50L70.62%20190.42L65.80%20189.09L61.13%20187.30L56.71%20184.96L52.56%20182.16L48.61%20179.14L44.70%20176.12L40.76%20173.16L36.86%20170.12L33.17%20166.83L29.81%20163.20L26.77%20159.30L23.93%20155.27L21.16%20151.20L18.45%20147.08L15.91%20142.84L13.64%20138.45L11.64%20133.92L9.85%20129.29L8.26%20124.58L6.95%20119.78L6.09%20114.87L5.78%20109.90L5.92%20104.93L6.25%20100.00L6.52%2095.10L6.70%2090.19L6.99%2085.27L7.63%2080.37L8.77%2075.56L10.32%2070.86L12.06%2066.24L13.87%2061.65L15.77%2057.08L17.89%2052.59L20.33%2048.26L23.09%2044.12L26.09%2040.15L29.29%2036.34L32.72%2032.72L36.46%2029.43L40.48%2026.50L44.70%2023.89L48.94%2021.38L53.12%2018.80L57.28%2016.16L61.55%2013.65L66.03%2011.50L70.71%209.87L75.52%208.64L80.37%207.63L85.22%206.68L90.10%205.82L95.03%205.22L100.00%205.02L104.97%205.24L109.90%205.77L114.80%206.54L119.65%207.57L124.40%208.94L129.02%2010.67L133.53%2012.64L138.00%2014.64L142.51%2016.56L147.06%2018.48L151.54%2020.63L155.79%2023.22L159.70%2026.28L163.33%2029.67L166.81%2033.19L170.26%2036.73L173.65%2040.36L176.83%2044.18L179.66%2048.27L182.13%2052.58L184.31%2057.04L186.30%2061.58L188.09%2066.19L189.60%2070.89L190.82%2075.67L191.82%2080.48L192.76%2085.31L193.75%2090.15L194.66%2095.04L195.25%20100.00Z%22%2F%3E%3C%2Fsvg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20200%20200%22%3E%3Cpath%20fill%3D%22white%22%20d%3D%22M195.25%20100.00L195.26%20104.99L194.67%20109.95L193.66%20114.83L192.50%20119.66L191.33%20124.47L190.07%20129.26L188.51%20133.98L186.53%20138.53L184.17%20142.89L181.57%20147.09L178.84%20151.20L175.99%20155.21L172.97%20159.09L169.75%20162.80L166.37%20166.37L162.92%20169.88L159.43%20173.39L155.79%20176.79L151.88%20179.89L147.62%20182.48L143.09%20184.56L138.43%20186.31L133.76%20187.95L129.12%20189.62L124.44%20191.20L119.66%20192.50L114.79%20193.35L109.86%20193.79L104.92%20193.96L100.00%20194.02L95.07%20193.98L90.15%20193.73L85.24%20193.21L80.35%20192.44L75.48%20191.50L70.62%20190.42L65.80%20189.09L61.13%20187.30L56.71%20184.96L52.56%20182.16L48.61%20179.14L44.70%20176.12L40.76%20173.16L36.86%20170.12L33.17%20166.83L29.81%20163.20L26.77%20159.30L23.93%20155.27L21.16%20151.20L18.45%20147.08L15.91%20142.84L13.64%20138.45L11.64%20133.92L9.85%20129.29L8.26%20124.58L6.95%20119.78L6.09%20114.87L5.78%20109.90L5.92%20104.93L6.25%20100.00L6.52%2095.10L6.70%2090.19L6.99%2085.27L7.63%2080.37L8.77%2075.56L10.32%2070.86L12.06%2066.24L13.87%2061.65L15.77%2057.08L17.89%2052.59L20.33%2048.26L23.09%2044.12L26.09%2040.15L29.29%2036.34L32.72%2032.72L36.46%2029.43L40.48%2026.50L44.70%2023.89L48.94%2021.38L53.12%2018.80L57.28%2016.16L61.55%2013.65L66.03%2011.50L70.71%209.87L75.52%208.64L80.37%207.63L85.22%206.68L90.10%205.82L95.03%205.22L100.00%205.02L104.97%205.24L109.90%205.77L114.80%206.54L119.65%207.57L124.40%208.94L129.02%2010.67L133.53%2012.64L138.00%2014.64L142.51%2016.56L147.06%2018.48L151.54%2020.63L155.79%2023.22L159.70%2026.28L163.33%2029.67L166.81%2033.19L170.26%2036.73L173.65%2040.36L176.83%2044.18L179.66%2048.27L182.13%2052.58L184.31%2057.04L186.30%2061.58L188.09%2066.19L189.60%2070.89L190.82%2075.67L191.82%2080.48L192.76%2085.31L193.75%2090.15L194.66%2095.04L195.25%20100.00Z%22%2F%3E%3C%2Fsvg%3E");
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.14)) !important;
   transition: transform 0.4s ease, filter 0.4s ease !important;
 }
 .product-card-circular_frames:hover .product-image {
-  transform: scale(1.03) !important;
+  transform: scale(1.02) !important;
+}
+/* Shared circular-frame deckle photo (PDP / customizer overlays) */
+.cf-deckle-photo {
+  border-radius: 0 !important;
+  border: none !important;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20200%20200%22%3E%3Cpath%20fill%3D%22white%22%20d%3D%22M195.25%20100.00L195.26%20104.99L194.67%20109.95L193.66%20114.83L192.50%20119.66L191.33%20124.47L190.07%20129.26L188.51%20133.98L186.53%20138.53L184.17%20142.89L181.57%20147.09L178.84%20151.20L175.99%20155.21L172.97%20159.09L169.75%20162.80L166.37%20166.37L162.92%20169.88L159.43%20173.39L155.79%20176.79L151.88%20179.89L147.62%20182.48L143.09%20184.56L138.43%20186.31L133.76%20187.95L129.12%20189.62L124.44%20191.20L119.66%20192.50L114.79%20193.35L109.86%20193.79L104.92%20193.96L100.00%20194.02L95.07%20193.98L90.15%20193.73L85.24%20193.21L80.35%20192.44L75.48%20191.50L70.62%20190.42L65.80%20189.09L61.13%20187.30L56.71%20184.96L52.56%20182.16L48.61%20179.14L44.70%20176.12L40.76%20173.16L36.86%20170.12L33.17%20166.83L29.81%20163.20L26.77%20159.30L23.93%20155.27L21.16%20151.20L18.45%20147.08L15.91%20142.84L13.64%20138.45L11.64%20133.92L9.85%20129.29L8.26%20124.58L6.95%20119.78L6.09%20114.87L5.78%20109.90L5.92%20104.93L6.25%20100.00L6.52%2095.10L6.70%2090.19L6.99%2085.27L7.63%2080.37L8.77%2075.56L10.32%2070.86L12.06%2066.24L13.87%2061.65L15.77%2057.08L17.89%2052.59L20.33%2048.26L23.09%2044.12L26.09%2040.15L29.29%2036.34L32.72%2032.72L36.46%2029.43L40.48%2026.50L44.70%2023.89L48.94%2021.38L53.12%2018.80L57.28%2016.16L61.55%2013.65L66.03%2011.50L70.71%209.87L75.52%208.64L80.37%207.63L85.22%206.68L90.10%205.82L95.03%205.22L100.00%205.02L104.97%205.24L109.90%205.77L114.80%206.54L119.65%207.57L124.40%208.94L129.02%2010.67L133.53%2012.64L138.00%2014.64L142.51%2016.56L147.06%2018.48L151.54%2020.63L155.79%2023.22L159.70%2026.28L163.33%2029.67L166.81%2033.19L170.26%2036.73L173.65%2040.36L176.83%2044.18L179.66%2048.27L182.13%2052.58L184.31%2057.04L186.30%2061.58L188.09%2066.19L189.60%2070.89L190.82%2075.67L191.82%2080.48L192.76%2085.31L193.75%2090.15L194.66%2095.04L195.25%20100.00Z%22%2F%3E%3C%2Fsvg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20200%20200%22%3E%3Cpath%20fill%3D%22white%22%20d%3D%22M195.25%20100.00L195.26%20104.99L194.67%20109.95L193.66%20114.83L192.50%20119.66L191.33%20124.47L190.07%20129.26L188.51%20133.98L186.53%20138.53L184.17%20142.89L181.57%20147.09L178.84%20151.20L175.99%20155.21L172.97%20159.09L169.75%20162.80L166.37%20166.37L162.92%20169.88L159.43%20173.39L155.79%20176.79L151.88%20179.89L147.62%20182.48L143.09%20184.56L138.43%20186.31L133.76%20187.95L129.12%20189.62L124.44%20191.20L119.66%20192.50L114.79%20193.35L109.86%20193.79L104.92%20193.96L100.00%20194.02L95.07%20193.98L90.15%20193.73L85.24%20193.21L80.35%20192.44L75.48%20191.50L70.62%20190.42L65.80%20189.09L61.13%20187.30L56.71%20184.96L52.56%20182.16L48.61%20179.14L44.70%20176.12L40.76%20173.16L36.86%20170.12L33.17%20166.83L29.81%20163.20L26.77%20159.30L23.93%20155.27L21.16%20151.20L18.45%20147.08L15.91%20142.84L13.64%20138.45L11.64%20133.92L9.85%20129.29L8.26%20124.58L6.95%20119.78L6.09%20114.87L5.78%20109.90L5.92%20104.93L6.25%20100.00L6.52%2095.10L6.70%2090.19L6.99%2085.27L7.63%2080.37L8.77%2075.56L10.32%2070.86L12.06%2066.24L13.87%2061.65L15.77%2057.08L17.89%2052.59L20.33%2048.26L23.09%2044.12L26.09%2040.15L29.29%2036.34L32.72%2032.72L36.46%2029.43L40.48%2026.50L44.70%2023.89L48.94%2021.38L53.12%2018.80L57.28%2016.16L61.55%2013.65L66.03%2011.50L70.71%209.87L75.52%208.64L80.37%207.63L85.22%206.68L90.10%205.82L95.03%205.22L100.00%205.02L104.97%205.24L109.90%205.77L114.80%206.54L119.65%207.57L124.40%208.94L129.02%2010.67L133.53%2012.64L138.00%2014.64L142.51%2016.56L147.06%2018.48L151.54%2020.63L155.79%2023.22L159.70%2026.28L163.33%2029.67L166.81%2033.19L170.26%2036.73L173.65%2040.36L176.83%2044.18L179.66%2048.27L182.13%2052.58L184.31%2057.04L186.30%2061.58L188.09%2066.19L189.60%2070.89L190.82%2075.67L191.82%2080.48L192.76%2085.31L193.75%2090.15L194.66%2095.04L195.25%20100.00Z%22%2F%3E%3C%2Fsvg%3E");
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.14));
 }
 
 .product-card-float_frames {
@@ -6500,17 +6529,21 @@ div.cart-item-image-wrapper.has-frame-size .cart-item-product-image-box {
   max-width: unset !important;
 }
 .composition-preview__overlay.product-card-circular_frames .product-image {
-  width: var(--cf-print-size, 50cqi) !important; /* 62.5% of 80cqi */
+  width: var(--cf-print-size, 50cqi) !important;
   height: var(--cf-print-size, 50cqi) !important;
   aspect-ratio: 1 / 1 !important;
   max-width: unset !important;
   max-height: unset !important;
-  border: 2.5cqi solid #ffffff !important; /* White paper border that gets torn by the deckled filter */
+  border: none !important;
 }
 .composition-preview__overlay.product-card-circular_frames .product-image-box::before {
-  width: var(--cf-mat-hole, 58.5cqi) !important; /* approx 1.17x print size */
+  width: var(--cf-mat-hole, 58.5cqi) !important;
   height: var(--cf-mat-hole, 58.5cqi) !important;
   display: block !important;
+}
+.composition-preview__overlay.product-card-circular_frames .product-image-box::after {
+  display: none !important;
+  content: none !important;
 }
 
 .media-set-preview__composition-container .product-card-matted_collages,

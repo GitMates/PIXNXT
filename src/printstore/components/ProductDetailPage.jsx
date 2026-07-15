@@ -2322,21 +2322,24 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
                                         height: `${cfPrintMatPct}%`,
                                         position: 'absolute', zIndex: 1
                                       }}>
-                                        <img src={photoUrl} alt="" style={{
-                                          width: '100%', height: '100%',
-                                          objectFit: 'cover',
-                                          borderRadius: '50%',
-                                          border: '2.5% solid #ffffff',
-                                          filter: 'url(#deckled-edge) drop-shadow(2px 5px 8px rgba(0,0,0,0.15))'
-                                        }} />
+                                        <img
+                                          src={photoUrl}
+                                          alt=""
+                                          className="cf-deckle-photo"
+                                          style={{
+                                            width: '100%',
+                                            height: '100%',
+                                            objectFit: 'cover',
+                                          }}
+                                        />
                                       </div>
                                       <div className="cf-mat-hole" style={{
                                         width: `${cfMatHoleMatPct}%`,
                                         height: `${cfMatHoleMatPct}%`,
                                         borderRadius: '50%',
-                                        border: '1px solid rgba(0,0,0,0.08)',
+                                        border: '1.5px solid rgba(255,255,255,0.95)',
                                         position: 'absolute', zIndex: 2, pointerEvents: 'none',
-                                        boxShadow: '0 0 0 2000px #f9f9f9, inset 0 2px 6px rgba(0,0,0,0.12), inset 0 1px 3px rgba(0,0,0,0.08)'
+                                        boxShadow: '0 0 0 2000px #f9f9f9, inset 0 2px 6px rgba(0,0,0,0.12), inset 0 1px 2px rgba(0,0,0,0.06)'
                                       }}></div>
                                     </div>
                                   </div>

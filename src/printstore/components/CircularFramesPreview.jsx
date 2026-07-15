@@ -44,25 +44,29 @@ export default function CircularFramesPreview({ product, selectedFrame, currentA
               display: 'flex', alignItems: 'center', justifyContent: 'center'
             }}>
               <div className="cf-photo-container" style={{
-                width: '60%',
-                height: '60%',
+                width: '64%',
+                height: '64%',
                 position: 'absolute', zIndex: 1
               }}>
-                <img src={product.image} alt="" style={{
-                  width: '100%', height: '100%',
-                  objectFit: 'cover',
-                  borderRadius: '50%',
-                  border: '2px solid #ffffff',
-                  filter: 'url(#deckled-edge) drop-shadow(2px 5px 8px rgba(0,0,0,0.15))'
-                }} />
+                <img
+                  src={product.image}
+                  alt=""
+                  className="cf-deckle-photo"
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                  }}
+                />
               </div>
+              {/* Perfect circular mat opening — photo sits just inside with wrinkled edge */}
               <div className="cf-mat-hole" style={{
                 width: '70%',
                 height: '70%',
                 borderRadius: '50%',
-                border: '1px solid rgba(0,0,0,0.08)',
+                border: '1.5px solid rgba(255,255,255,0.95)',
                 position: 'absolute', zIndex: 2, pointerEvents: 'none',
-                boxShadow: '0 0 0 2000px #f9f9f9, inset 0 2px 6px rgba(0,0,0,0.12), inset 0 1px 3px rgba(0,0,0,0.08)'
+                boxShadow: '0 0 0 2000px #f9f9f9, inset 0 2px 6px rgba(0,0,0,0.12), inset 0 1px 2px rgba(0,0,0,0.06)'
               }}></div>
             </div>
           </div>
