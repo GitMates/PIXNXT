@@ -5,13 +5,18 @@ import { supabase } from '../lib/supabase/client';
 import { galleryService } from '../services/gallery.service';
 import { storageService } from '../services/storage.service';
 import {
+  applyEmailStyleTemplateColors,
   buildGalleryCampaignPayload,
   compressBannerImageFile,
+  ColorTemplatePicker,
+  EmailOfferStripPreview,
+  ensureEmailOfferStripColors,
   hasPendingBannerImageUpload,
   hasPendingEmailImageUpload,
   isUsablePublicImageUrl,
   mergeGalleryCampaignsFromDb,
   resolveEmailHeroPresentation,
+  resolveEmailOfferStripColors,
   sanitizeEmailReminderConfig,
   persistSalesCampaignsLocally,
   SALES_CAMPAIGNS_STORAGE_KEY,
@@ -471,7 +476,11 @@ export default function StoreDashboard() {
       const activeBannerKey = currentCampaign ? Object.keys(currentCampaign.banners).find(k => currentCampaign.banners[k].enabled) : null;
       const activeBanner = currentCampaign && activeBannerKey ? currentCampaign.banners[activeBannerKey] : null;
 
-      const { _campaignId, _bannerKey, _emailKey, ...emailPayload } = sanitizeEmailReminderConfig(selectedAutomation);
+      const emailPayload = ensureEmailOfferStripColors(
+        sanitizeEmailReminderConfig(selectedAutomation)
+      );
+      const { _campaignId, _bannerKey, _emailKey, ...cleanEmailConfig } = emailPayload;
+      const offerStripColors = resolveEmailOfferStripColors(cleanEmailConfig, null);
 
       const { data, error } = await supabase.functions.invoke('send-store-campaign-reminders', {
         body: {
@@ -483,7 +492,8 @@ export default function StoreDashboard() {
           photographerId: user.id,
           campaignId: selectedCampaign,
           emailKey: _emailKey,
-          emailConfig: emailPayload,
+          emailConfig: cleanEmailConfig,
+          offerStripColors,
           activeBannerKey,
           activeBanner,
           discount: currentCampaign?.discount,
@@ -1534,7 +1544,7 @@ export default function StoreDashboard() {
             {cta && (
               <button style={{
                 padding: isMobile ? '8px 24px' : '10px 32px', fontSize: isMobile ? '9px' : '10px', fontWeight: 700,
-                backgroundColor: banner.cta_bg || '#3a4a38', color: banner.cta_color || '#ffffff',
+                backgroundColor: banner.cta_bg || '#3a4a38', color: banner.cta_color || banner.bg_color || '#ffffff',
                 border: 'none', cursor: 'default', textTransform: 'uppercase', letterSpacing: '0.08em'
               }}>{cta}</button>
             )}
@@ -1574,7 +1584,7 @@ export default function StoreDashboard() {
             </p>
             {/* Timer */}
             <div style={{ margin: '8px 0', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <div style={{ fontSize: isMobile ? '16px' : '18px', fontWeight: 700, color: banner.title_color || '#1a1a1a', fontFamily: "'Inter', sans-serif", letterSpacing: '0.04em' }}>
+              <div style={{ fontSize: isMobile ? '16px' : '18px', fontWeight: 700, color: banner.timer_color || banner.title_color || '#1a1a1a', fontFamily: "'Inter', sans-serif", letterSpacing: '0.04em' }}>
                 00 : 00 : 00 : 00
               </div>
               <div style={{ display: 'flex', gap: '8px', fontSize: '5px', color: '#666', marginTop: '1px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
@@ -1584,7 +1594,7 @@ export default function StoreDashboard() {
             {cta && (
               <button style={{
                 padding: '8px 20px', fontSize: '9px', fontWeight: 700,
-                backgroundColor: banner.cta_bg || '#1a1a1a', color: banner.cta_color || '#ffffff',
+                backgroundColor: banner.cta_bg || '#1a1a1a', color: banner.cta_color || banner.bg_color || '#ffffff',
                 border: 'none', cursor: 'default', textTransform: 'uppercase', letterSpacing: '0.08em'
               }}>{cta}</button>
             )}
@@ -1647,7 +1657,7 @@ export default function StoreDashboard() {
             {cta && (
               <button style={{
                 padding: '6px 16px', fontSize: '9px', fontWeight: 700,
-                backgroundColor: banner.cta_bg || '#3a4a38', color: banner.cta_color || '#ffffff',
+                backgroundColor: banner.cta_bg || '#3a4a38', color: banner.cta_color || banner.bg_color || '#ffffff',
                 border: 'none', cursor: 'default', textTransform: 'uppercase', letterSpacing: '0.08em'
               }}>{cta}</button>
             )}
@@ -3490,11 +3500,11 @@ export default function StoreDashboard() {
                               <div
                                 key={item.key}
                                 onClick={() => {
-                                  setSelectedAutomation(sanitizeEmailReminderConfig({
+                                  setSelectedAutomation(ensureEmailOfferStripColors(sanitizeEmailReminderConfig({
                                     ...emailConfig,
                                     _campaignId: campaign.id,
                                     _emailKey: item.key,
-                                  }));
+                                  })));
                                   setAutomationModalTab('email');
                                   setActiveModal('edit_email');
                                 }}
@@ -3681,7 +3691,7 @@ export default function StoreDashboard() {
                             }
                             if (!selectedAutomation) return;
 
-                            const emailPayload = sanitizeEmailReminderConfig(selectedAutomation);
+                            const emailPayload = ensureEmailOfferStripColors(sanitizeEmailReminderConfig(selectedAutomation));
                             const { _campaignId, _bannerKey, _emailKey, ...data } = emailPayload;
                             if (['large_banner', 'photo_banner', 'store_rotator'].includes(activeModal) && hasPendingBannerImageUpload(data)) {
                               alert('Banner image is still processing. Wait for the upload preview to appear, then click APPLY again.');
@@ -3751,6 +3761,7 @@ export default function StoreDashboard() {
 
                               setApplyingReminder(true);
                               try {
+                                const offerStripColors = resolveEmailOfferStripColors(data, null);
                                 const { data: sendResult, error: sendError } = await supabase.functions.invoke('send-store-campaign-reminders', {
                                   body: {
                                     mode: 'apply',
@@ -3759,6 +3770,7 @@ export default function StoreDashboard() {
                                     campaignId: _campaignId,
                                     emailKey: _emailKey,
                                     emailConfig: data,
+                                    offerStripColors,
                                     activeBannerKey,
                                     activeBanner,
                                     discount: currentCampaign?.discount,
@@ -4357,13 +4369,27 @@ export default function StoreDashboard() {
                                     </select>
                                   </div>
 
+                                  <ColorTemplatePicker
+                                    kind="banner"
+                                    values={selectedAutomation}
+                                    onApply={(colors) => setSelectedAutomation((prev) => ({ ...prev, ...colors }))}
+                                  />
+
                                   <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '8px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                                       <div style={{ position: 'relative', width: '26px', height: '26px', border: '1px solid #c8c8c8', cursor: 'pointer', backgroundColor: selectedAutomation.bg_color || '#eae5d8', flexShrink: 0 }}>
                                         <input
                                           type="color"
                                           value={selectedAutomation.bg_color || '#eae5d8'}
-                                          onChange={e => setSelectedAutomation(prev => ({ ...prev, bg_color: e.target.value }))}
+                                          onChange={e => {
+                                            const val = e.target.value;
+                                            setSelectedAutomation(prev => ({
+                                              ...prev,
+                                              bg_color: val,
+                                              cta_color: val,
+                                              color_template: null,
+                                            }));
+                                          }}
                                           style={{ position: 'absolute', top: 0, left: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
                                         />
                                       </div>
@@ -4375,7 +4401,7 @@ export default function StoreDashboard() {
                                         <input
                                           type="color"
                                           value={selectedAutomation.subtitle_color || '#4a5a4b'}
-                                          onChange={e => setSelectedAutomation(prev => ({ ...prev, subtitle_color: e.target.value }))}
+                                          onChange={e => setSelectedAutomation(prev => ({ ...prev, subtitle_color: e.target.value, color_template: null }))}
                                           style={{ position: 'absolute', top: 0, left: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
                                         />
                                       </div>
@@ -4389,7 +4415,7 @@ export default function StoreDashboard() {
                                           value={selectedAutomation.cta_bg || '#3a4a38'}
                                           onChange={e => {
                                             const val = e.target.value;
-                                            setSelectedAutomation(prev => ({ ...prev, cta_bg: val, title_color: val }));
+                                            setSelectedAutomation(prev => ({ ...prev, cta_bg: val, title_color: val, color_template: null }));
                                           }}
                                           style={{ position: 'absolute', top: 0, left: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
                                         />
@@ -4402,7 +4428,7 @@ export default function StoreDashboard() {
                                         <input
                                           type="color"
                                           value={selectedAutomation.timer_color || '#3a4a38'}
-                                          onChange={e => setSelectedAutomation(prev => ({ ...prev, timer_color: e.target.value }))}
+                                          onChange={e => setSelectedAutomation(prev => ({ ...prev, timer_color: e.target.value, color_template: null }))}
                                           style={{ position: 'absolute', top: 0, left: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
                                         />
                                       </div>
@@ -4553,13 +4579,27 @@ export default function StoreDashboard() {
                                     </select>
                                   </div>
 
+                                  <ColorTemplatePicker
+                                    kind="banner"
+                                    values={selectedAutomation}
+                                    onApply={(colors) => setSelectedAutomation((prev) => ({ ...prev, ...colors }))}
+                                  />
+
                                   <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '8px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                                       <div style={{ position: 'relative', width: '26px', height: '26px', border: '1px solid #c8c8c8', cursor: 'pointer', backgroundColor: selectedAutomation.bg_color || '#eae5d8', flexShrink: 0 }}>
                                         <input
                                           type="color"
                                           value={selectedAutomation.bg_color || '#eae5d8'}
-                                          onChange={e => setSelectedAutomation(prev => ({ ...prev, bg_color: e.target.value }))}
+                                          onChange={e => {
+                                            const val = e.target.value;
+                                            setSelectedAutomation(prev => ({
+                                              ...prev,
+                                              bg_color: val,
+                                              cta_color: val,
+                                              color_template: null,
+                                            }));
+                                          }}
                                           style={{ position: 'absolute', top: 0, left: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
                                         />
                                       </div>
@@ -4571,7 +4611,7 @@ export default function StoreDashboard() {
                                         <input
                                           type="color"
                                           value={selectedAutomation.subtitle_color || '#4a5a4b'}
-                                          onChange={e => setSelectedAutomation(prev => ({ ...prev, subtitle_color: e.target.value }))}
+                                          onChange={e => setSelectedAutomation(prev => ({ ...prev, subtitle_color: e.target.value, color_template: null }))}
                                           style={{ position: 'absolute', top: 0, left: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
                                         />
                                       </div>
@@ -4585,7 +4625,7 @@ export default function StoreDashboard() {
                                           value={selectedAutomation.cta_bg || '#3a4a38'}
                                           onChange={e => {
                                             const val = e.target.value;
-                                            setSelectedAutomation(prev => ({ ...prev, cta_bg: val, title_color: val }));
+                                            setSelectedAutomation(prev => ({ ...prev, cta_bg: val, title_color: val, color_template: null }));
                                           }}
                                           style={{ position: 'absolute', top: 0, left: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
                                         />
@@ -4598,7 +4638,7 @@ export default function StoreDashboard() {
                                         <input
                                           type="color"
                                           value={selectedAutomation.timer_color || '#3a4a38'}
-                                          onChange={e => setSelectedAutomation(prev => ({ ...prev, timer_color: e.target.value }))}
+                                          onChange={e => setSelectedAutomation(prev => ({ ...prev, timer_color: e.target.value, color_template: null }))}
                                           style={{ position: 'absolute', top: 0, left: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
                                         />
                                       </div>
@@ -4749,13 +4789,27 @@ export default function StoreDashboard() {
                                     </select>
                                   </div>
 
+                                  <ColorTemplatePicker
+                                    kind="banner"
+                                    values={selectedAutomation}
+                                    onApply={(colors) => setSelectedAutomation((prev) => ({ ...prev, ...colors }))}
+                                  />
+
                                   <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '8px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                                       <div style={{ position: 'relative', width: '26px', height: '26px', border: '1px solid #c8c8c8', cursor: 'pointer', backgroundColor: selectedAutomation.bg_color || '#eae5d8', flexShrink: 0 }}>
                                         <input
                                           type="color"
                                           value={selectedAutomation.bg_color || '#eae5d8'}
-                                          onChange={e => setSelectedAutomation(prev => ({ ...prev, bg_color: e.target.value }))}
+                                          onChange={e => {
+                                            const val = e.target.value;
+                                            setSelectedAutomation(prev => ({
+                                              ...prev,
+                                              bg_color: val,
+                                              cta_color: val,
+                                              color_template: null,
+                                            }));
+                                          }}
                                           style={{ position: 'absolute', top: 0, left: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
                                         />
                                       </div>
@@ -4767,7 +4821,7 @@ export default function StoreDashboard() {
                                         <input
                                           type="color"
                                           value={selectedAutomation.subtitle_color || '#4a5a4b'}
-                                          onChange={e => setSelectedAutomation(prev => ({ ...prev, subtitle_color: e.target.value }))}
+                                          onChange={e => setSelectedAutomation(prev => ({ ...prev, subtitle_color: e.target.value, color_template: null }))}
                                           style={{ position: 'absolute', top: 0, left: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
                                         />
                                       </div>
@@ -4973,6 +5027,46 @@ export default function StoreDashboard() {
                               {/* EDIT EMAIL STYLE */}
                               {automationModalTab === 'style' && (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+
+                                  <ColorTemplatePicker
+                                    kind="email"
+                                    values={selectedAutomation}
+                                    onApply={(colors) => setSelectedAutomation((prev) => ({
+                                      ...prev,
+                                      ...applyEmailStyleTemplateColors(colors),
+                                    }))}
+                                  />
+
+                                  <div style={{ marginTop: '4px' }}>
+                                    <label style={{ display: 'block', fontSize: '9.5px', fontWeight: 700, color: '#a0a0a0', letterSpacing: '0.1em', marginBottom: '10px' }}>
+                                      OFFER STRIP (BELOW IMAGE)
+                                    </label>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                      {[
+                                        { key: 'offer_bg_color', label: 'Strip background', fallback: '#eae5d8' },
+                                        { key: 'offer_title_color', label: 'Strip title', fallback: '#3a4a38' },
+                                        { key: 'offer_subtitle_color', label: 'Strip subtitle', fallback: '#4a5a4b' },
+                                      ].map(({ key, label, fallback }) => (
+                                        <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                          <div style={{ position: 'relative', width: '26px', height: '26px', border: '1px solid #c8c8c8', cursor: 'pointer', backgroundColor: selectedAutomation[key] || fallback, flexShrink: 0 }}>
+                                            <input
+                                              type="color"
+                                              value={selectedAutomation[key] || fallback}
+                                              onChange={e => setSelectedAutomation(prev => ({ ...prev, [key]: e.target.value, color_template: null }))}
+                                              style={{ position: 'absolute', top: 0, left: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
+                                            />
+                                          </div>
+                                          <span style={{ fontSize: '13px', color: '#4a4a4a' }}>{label}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+
+                                  <div style={{ borderTop: '1px solid #eee', paddingTop: '14px', marginTop: '4px' }}>
+                                    <label style={{ display: 'block', fontSize: '9.5px', fontWeight: 700, color: '#a0a0a0', letterSpacing: '0.1em', marginBottom: '10px' }}>
+                                      EMAIL BODY
+                                    </label>
+                                  </div>
                                   
                                   {/* Swatch 1: Main Body Background Color */}
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -4980,7 +5074,7 @@ export default function StoreDashboard() {
                                       <input
                                         type="color"
                                         value={selectedAutomation.bg_color || '#ffffff'}
-                                        onChange={e => setSelectedAutomation(prev => ({ ...prev, bg_color: e.target.value }))}
+                                        onChange={e => setSelectedAutomation(prev => ({ ...prev, bg_color: e.target.value, color_template: null }))}
                                         style={{ position: 'absolute', top: 0, left: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
                                       />
                                     </div>
@@ -4993,7 +5087,7 @@ export default function StoreDashboard() {
                                       <input
                                         type="color"
                                         value={selectedAutomation.text_color || '#000000'}
-                                        onChange={e => setSelectedAutomation(prev => ({ ...prev, text_color: e.target.value }))}
+                                        onChange={e => setSelectedAutomation(prev => ({ ...prev, text_color: e.target.value, color_template: null }))}
                                         style={{ position: 'absolute', top: 0, left: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
                                       />
                                     </div>
@@ -5006,7 +5100,7 @@ export default function StoreDashboard() {
                                       <input
                                         type="color"
                                         value={selectedAutomation.btn_color || '#5d6050'}
-                                        onChange={e => setSelectedAutomation(prev => ({ ...prev, btn_color: e.target.value }))}
+                                        onChange={e => setSelectedAutomation(prev => ({ ...prev, btn_color: e.target.value, color_template: null }))}
                                         style={{ position: 'absolute', top: 0, left: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
                                       />
                                     </div>
@@ -5019,7 +5113,7 @@ export default function StoreDashboard() {
                                       <input
                                         type="color"
                                         value={selectedAutomation.btn_text_color || '#ffffff'}
-                                        onChange={e => setSelectedAutomation(prev => ({ ...prev, btn_text_color: e.target.value }))}
+                                        onChange={e => setSelectedAutomation(prev => ({ ...prev, btn_text_color: e.target.value, color_template: null }))}
                                         style={{ position: 'absolute', top: 0, left: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
                                       />
                                     </div>
@@ -5135,12 +5229,12 @@ export default function StoreDashboard() {
                                 textAlign: 'center',
                                 fontFamily: "'Georgia', 'Playfair Display', serif"
                               }}>
-                                {/* Brand/Logo */}
-                                <div style={{ fontSize: '14px', fontWeight: 500, letterSpacing: '0.24em', textTransform: 'uppercase', marginBottom: '32px', color: selectedAutomation.text_color || '#000000' }}>
-                                  NANDHA
+                                {/* Brand mark — site name (like Pixieset header) */}
+                                <div style={{ fontSize: '15px', fontWeight: 600, letterSpacing: '0.35em', textTransform: 'uppercase', marginBottom: '32px', color: selectedAutomation.text_color || '#000000' }}>
+                                  PIXNXT
                                 </div>
 
-                                {/* Email hero: uploaded image + active sales banner */}
+                                {/* Email hero + offer strip (matches sent mail layout) */}
                                  {(() => {
                                    const currentCampaign = campaigns.find(c => c.id === selectedCampaign);
                                    const activeBannerKey = currentCampaign
@@ -5150,75 +5244,55 @@ export default function StoreDashboard() {
                                      ? currentCampaign.banners[activeBannerKey]
                                      : null;
                                    const hero = resolveEmailHeroPresentation(selectedAutomation.custom_image, activeBanner);
+                                   const discountVal = currentCampaign?.discount ? `${currentCampaign.discount}%` : '30%';
+                                   const expDate = new Date();
+                                   expDate.setDate(expDate.getDate() + (Number(currentCampaign?.durationDays) || 14));
+                                   const expFormatted = expDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+                                   const code = currentCampaign?.discountCode || 'HAPPYANI';
+                                   const formatT = (t) => (t || '')
+                                     .replace(/{discount-value}/g, discountVal)
+                                     .replace(/{discount_value}/g, discountVal)
+                                     .replace(/{code}/g, code)
+                                     .replace(/{exp-date}/g, expFormatted)
+                                     .replace(/{exp_date}/g, expFormatted);
+
+                                   const heroImageUrl = hero.heroImageUrl || hero.standaloneCustomImage || '';
+
+                                   if (!heroImageUrl && !activeBanner) {
+                                     return (
+                                       <div style={{
+                                         width: '100%',
+                                         marginBottom: '32px',
+                                         height: '240px',
+                                         backgroundColor: '#efefef',
+                                         display: 'flex',
+                                         flexDirection: 'column',
+                                         alignItems: 'center',
+                                         justifyContent: 'center',
+                                         gap: '8px',
+                                         border: '1px solid #e5e5e5',
+                                         boxSizing: 'border-box',
+                                         padding: '16px',
+                                       }}>
+                                         <svg viewBox="0 0 100 100" style={{ width: '40px', height: '40px', fill: '#cccccc' }}>
+                                           <path d="M15 80 L85 80 L85 20 L15 20 Z M25 70 L45 45 L55 58 L75 35 L80 70 Z" />
+                                           <circle cx="35" cy="35" r="5" />
+                                         </svg>
+                                         <div style={{ fontSize: '9.5px', color: '#999999', letterSpacing: '0.08em', fontWeight: 500 }}>
+                                           UPLOAD IMAGE OR ENABLE A SALES BANNER
+                                         </div>
+                                       </div>
+                                     );
+                                   }
 
                                    return (
-                                     <div style={{ width: '100%', marginBottom: '32px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                       {hero.standaloneCustomImage && (
-                                         <div style={{ width: '100%', border: '1px solid #dcdcdc', overflow: 'hidden' }}>
-                                           <img
-                                             src={hero.standaloneCustomImage}
-                                             alt="Email hero"
-                                             style={{ display: 'block', width: '100%', maxHeight: '240px', objectFit: 'cover' }}
-                                           />
-                                         </div>
-                                       )}
-
-                                       {hero.bannerForRender && activeBannerKey ? (
-                                         <div style={{ width: '100%', position: 'relative', border: '1px solid #dcdcdc' }}>
-                                           <button
-                                             type="button"
-                                             onClick={() => setExpandedBannerPreview({ banner: hero.bannerForRender, key: activeBannerKey })}
-                                             style={{
-                                               position: 'absolute',
-                                               top: '10px',
-                                               right: '10px',
-                                               zIndex: 30,
-                                               padding: '4px 10px',
-                                               fontSize: '9.5px',
-                                               fontWeight: 700,
-                                               backgroundColor: 'rgba(0,0,0,0.7)',
-                                               color: '#fff',
-                                               border: 'none',
-                                               borderRadius: '3px',
-                                               cursor: 'pointer',
-                                               display: 'flex',
-                                               alignItems: 'center',
-                                               gap: '4px',
-                                               textTransform: 'uppercase',
-                                               letterSpacing: '0.04em',
-                                             }}
-                                             title="Expand View"
-                                           >
-                                             ⤢ EXPAND
-                                           </button>
-                                           <div style={{ pointerEvents: 'none' }}>
-                                             {renderHighFidelityBanner(activeBannerKey, hero.bannerForRender, true)}
-                                           </div>
-                                         </div>
-                                       ) : !hero.standaloneCustomImage ? (
-                                         <div style={{
-                                           width: '100%',
-                                           height: '240px',
-                                           backgroundColor: '#efefef',
-                                           display: 'flex',
-                                           flexDirection: 'column',
-                                           alignItems: 'center',
-                                           justifyContent: 'center',
-                                           gap: '8px',
-                                           border: '1px solid #e5e5e5',
-                                           boxSizing: 'border-box',
-                                           padding: '16px',
-                                         }}>
-                                           <svg viewBox="0 0 100 100" style={{ width: '40px', height: '40px', fill: '#cccccc' }}>
-                                             <path d="M15 80 L85 80 L85 20 L15 20 Z M25 70 L45 45 L55 58 L75 35 L80 70 Z" />
-                                             <circle cx="35" cy="35" r="5" />
-                                           </svg>
-                                           <div style={{ fontSize: '9.5px', color: '#999999', letterSpacing: '0.08em', fontWeight: 500 }}>
-                                             UPLOAD IMAGE OR ENABLE A SALES BANNER
-                                           </div>
-                                         </div>
-                                       ) : null}
-                                     </div>
+                                     <EmailOfferStripPreview
+                                       key={`strip-${selectedAutomation.offer_bg_color || ''}-${selectedAutomation.offer_title_color || ''}-${selectedAutomation.color_template || ''}`}
+                                       heroImageUrl={heroImageUrl}
+                                       activeBanner={activeBanner}
+                                       emailConfig={selectedAutomation}
+                                       formatPlaceholders={formatT}
+                                     />
                                    );
                                  })()}
 
@@ -5574,7 +5648,7 @@ export default function StoreDashboard() {
                                               <button style={{
                                                 marginTop: '4px', padding: '4px 14px', fontSize: '8.5px', fontWeight: 700,
                                                 backgroundColor: selectedAutomation.cta_bg || '#3a4a38',
-                                                color: selectedAutomation.bg_color || '#ffffff',
+                                                color: selectedAutomation.cta_color || selectedAutomation.bg_color || '#ffffff',
                                                 border: 'none', borderRadius: '1px', cursor: 'default', textTransform: 'uppercase', letterSpacing: '0.06em'
                                               }}>{selectedAutomation.cta}</button>
                                             )}
@@ -5766,7 +5840,7 @@ export default function StoreDashboard() {
                                               <button style={{
                                                 marginTop: '2px', padding: '3px 12px', fontSize: '6.5px', fontWeight: 700,
                                                 backgroundColor: selectedAutomation.cta_bg || '#3a4a38',
-                                                color: selectedAutomation.bg_color || '#ffffff',
+                                                color: selectedAutomation.cta_color || selectedAutomation.bg_color || '#ffffff',
                                                 border: 'none', borderRadius: '1px', cursor: 'default', textTransform: 'uppercase', letterSpacing: '0.06em'
                                               }}>{selectedAutomation.cta}</button>
                                             )}
@@ -5839,7 +5913,7 @@ export default function StoreDashboard() {
                                           <button style={{
                                             marginTop: '8px', padding: '5px 12px', fontSize: '7.5px', fontWeight: 700,
                                             backgroundColor: selectedAutomation.cta_bg || '#3a4a38',
-                                            color: selectedAutomation.bg_color || '#ffffff',
+                                            color: selectedAutomation.cta_color || selectedAutomation.bg_color || '#ffffff',
                                             border: 'none', borderRadius: '1px', cursor: 'default', textTransform: 'uppercase', letterSpacing: '0.06em'
                                           }}>{selectedAutomation.cta}</button>
                                         )}
@@ -5915,7 +5989,7 @@ export default function StoreDashboard() {
                                           <button style={{
                                             marginTop: '4px', padding: '3px 8px', fontSize: '6px', fontWeight: 700,
                                             backgroundColor: selectedAutomation.cta_bg || '#3a4a38',
-                                            color: selectedAutomation.bg_color || '#ffffff',
+                                            color: selectedAutomation.cta_color || selectedAutomation.bg_color || '#ffffff',
                                             border: 'none', borderRadius: '1px', cursor: 'default', textTransform: 'uppercase', letterSpacing: '0.06em'
                                           }}>{selectedAutomation.cta}</button>
                                         )}

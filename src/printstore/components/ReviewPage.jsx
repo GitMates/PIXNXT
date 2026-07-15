@@ -25,9 +25,16 @@ export default function ReviewPage({
   const [formError, setFormError] = useState('');
 
   const allDigital = cartItems.length > 0 && cartItems.every(i => DIGITAL_PRODUCTS.includes(i.productId));
+  const hasDigital = cartItems.some(i => DIGITAL_PRODUCTS.includes(i.productId));
+  const hasPhysical = cartItems.some(i => !DIGITAL_PRODUCTS.includes(i.productId));
+  const mixedCart = hasDigital && hasPhysical;
 
   useEffect(() => {
     function loadEmail() {
+      if (initialAddress?.email) {
+        setCustomerEmail(initialAddress.email);
+        return;
+      }
       if (collectionId) {
         const visitorEmail = localStorage.getItem(`pixnxt_fav_email_${collectionId}`);
         if (visitorEmail) {
@@ -48,7 +55,7 @@ export default function ReviewPage({
       setCustomerEmail('');
     }
     loadEmail();
-  }, [collectionId]);
+  }, [collectionId, initialAddress?.email]);
 
   useEffect(() => {
     if (!initialAddress) return;
@@ -66,6 +73,16 @@ export default function ReviewPage({
 
   const handleContinue = () => {
     setFormError('');
+    const email = (customerEmail
+      || (collectionId ? localStorage.getItem(`pixnxt_fav_email_${collectionId}`) : '')
+      || initialAddress?.email
+      || '').trim();
+
+    if (!email || !/\S+@\S+\.\S+/.test(email)) {
+      setFormError('Enter a valid email address.');
+      return;
+    }
+
     if (!allDigital) {
       const phone = String(phoneNumber || '').replace(/\D/g, '');
       if (!recipientName.trim()) {
@@ -81,11 +98,6 @@ export default function ReviewPage({
         return;
       }
     }
-
-    const email = customerEmail
-      || (collectionId ? localStorage.getItem(`pixnxt_fav_email_${collectionId}`) : '')
-      || initialAddress?.email
-      || '';
 
     onContinueToPayment({
       ...(initialAddress || {}),
@@ -129,21 +141,28 @@ export default function ReviewPage({
       <div className="cart-page-content">
         <div className="cart-items-column">
           {allDigital ? (
-            <div className="delivery-summary-block" style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-              <Mail size={20} color="#555" style={{ marginTop: '2px', flexShrink: 0 }} />
-              <div>
-                <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: '#333', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  Your downloads will be sent to your email
-                </h3>
-                {customerEmail && (
-                  <p style={{ margin: '6px 0 0', fontSize: '14px', color: '#555', fontWeight: 500 }}>
-                    {customerEmail}
+            <div className="delivery-summary-block">
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                <Mail size={20} color="#555" style={{ marginTop: '2px', flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: '#333', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Your downloads will be sent to your email
+                  </h3>
+                  <input
+                    type="email"
+                    placeholder="Email address"
+                    value={customerEmail}
+                    onChange={(e) => setCustomerEmail(e.target.value)}
+                    style={{ width: '100%', marginTop: '10px', padding: '10px 12px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '14px', boxSizing: 'border-box' }}
+                  />
+                  <p style={{ margin: '6px 0 0', fontSize: '12px', color: '#888' }}>
+                    High-resolution files will be available after payment confirmation.
                   </p>
-                )}
-                <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#888' }}>
-                  High-resolution files will be available after payment confirmation.
-                </p>
+                </div>
               </div>
+              {formError && (
+                <p style={{ margin: '10px 0 0', color: '#d32f2f', fontSize: '12px' }}>{formError}</p>
+              )}
             </div>
           ) : (
             <div className="delivery-summary-block">
@@ -156,6 +175,16 @@ export default function ReviewPage({
                   onChange={(e) => setRecipientName(e.target.value)}
                   style={{ width: '100%', padding: '10px 12px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '14px', boxSizing: 'border-box' }}
                 />
+                <div style={{ position: 'relative' }}>
+                  <Mail size={16} color="#777" style={{ position: 'absolute', left: 12, top: 13 }} />
+                  <input
+                    type="email"
+                    placeholder="Email address"
+                    value={customerEmail}
+                    onChange={(e) => setCustomerEmail(e.target.value)}
+                    style={{ width: '100%', padding: '10px 12px 10px 36px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '14px', boxSizing: 'border-box' }}
+                  />
+                </div>
                 <input
                   type="text"
                   placeholder="Street address"
@@ -191,6 +220,19 @@ export default function ReviewPage({
                 </div>
                 {formError && (
                   <p style={{ margin: 0, color: '#d32f2f', fontSize: '12px' }}>{formError}</p>
+                )}
+                {mixedCart && (
+                  <div className="digital-delivery-notice">
+                    <Mail size={16} color="#777" style={{ flexShrink: 0, marginTop: '1px' }} />
+                    <div>
+                      <p className="digital-delivery-notice__title">Digital downloads in this order</p>
+                      <p className="digital-delivery-notice__text">
+                        Your images will be sent to your email
+                        {customerEmail.trim() ? ` (${customerEmail.trim()})` : ''}
+                        {' '}after payment confirmation.
+                      </p>
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
@@ -260,6 +302,11 @@ export default function ReviewPage({
                       {!isDigital && (
                         <div className="international-delivery-badge">
                           International<br />delivery
+                        </div>
+                      )}
+                      {isDigital && (
+                        <div className="email-delivery-badge">
+                          Email<br />delivery
                         </div>
                       )}
                     </div>

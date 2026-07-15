@@ -216,6 +216,9 @@ const GalleryView = () => {
   const [selectedDownloadType, setSelectedDownloadType] = useState('single'); // 'single' | 'all' | 'package'
   const [selectedStorePackage, setSelectedStorePackage] = useState(null);
   const [storePackages, setStorePackages] = useState([]);
+  /** Sticky-bar mode: user picks package photos from the live gallery */
+  const [packagePickerActive, setPackagePickerActive] = useState(false);
+  const [packageSelectedPhotos, setPackageSelectedPhotos] = useState([]);
 
   // Permanent Vault States
   const [showVaultPaymentModal, setShowVaultPaymentModal] = useState(false);
@@ -414,32 +417,31 @@ const GalleryView = () => {
   useEffect(() => {
     if (!isPaidDigitalDownloadOn) return undefined;
 
-    /* Capture deterrent for paid digital galleries (Mac / Windows / mobile).
-       OS-level screenshots cannot be fully blocked from the browser; we blank
-       the viewport the instant common capture shortcuts or focus loss fire so
-       the captured frame is empty — not a grey blur of the photos. */
+    /* Capture deterrent only for real screenshot chords / print.
+       Never arm on tab switch / blur; clear any stuck shield when returning. */
     const SHIELD = 'pixnxt-capture-shield';
     let shieldUntil = 0;
     let releaseTimer = null;
+    const isMac = typeof navigator !== 'undefined'
+      && /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent || '');
+
+    const clearShield = () => {
+      shieldUntil = 0;
+      clearTimeout(releaseTimer);
+      releaseTimer = null;
+      document.documentElement.classList.remove(SHIELD);
+      document.body.classList.remove(SHIELD);
+      document.body.classList.remove('pixnxt-screenshot-guard');
+    };
 
     const armShield = (ms = 1200) => {
       document.documentElement.classList.add(SHIELD);
       document.body.classList.add(SHIELD);
       shieldUntil = Math.max(shieldUntil, Date.now() + ms);
       clearTimeout(releaseTimer);
-      releaseTimer = setTimeout(tryRelease, ms + 40);
-    };
-
-    const tryRelease = () => {
-      if (Date.now() < shieldUntil) {
-        releaseTimer = setTimeout(tryRelease, shieldUntil - Date.now() + 20);
-        return;
-      }
-      if (document.hidden || (typeof document.hasFocus === 'function' && !document.hasFocus())) {
-        return;
-      }
-      document.documentElement.classList.remove(SHIELD);
-      document.body.classList.remove(SHIELD);
+      releaseTimer = setTimeout(() => {
+        if (Date.now() >= shieldUntil) clearShield();
+      }, ms + 40);
     };
 
     const handleContextMenu = (e) => {
@@ -465,7 +467,7 @@ const GalleryView = () => {
         e.preventDefault();
       }
 
-      // Windows PrintScreen / some browsers
+      // Windows PrintScreen
       if (code === 'PrintScreen' || e.key === 'PrintScreen' || e.key === 'PrtScn') {
         e.preventDefault();
         armShield(1600);
@@ -473,46 +475,31 @@ const GalleryView = () => {
         return;
       }
 
-      // macOS Cmd+Shift+3/4/5 often swallows the digit; arm as soon as Cmd+Shift is held.
-      // Windows Win+Shift+S / Ctrl+Shift screenshot tools share the same chord.
-      if (metaOrCtrl && shift) {
+      // macOS screenshot: Cmd+Shift+3/4/5 only (digit may be swallowed by OS — still arm on digit when we see it)
+      if (e.metaKey && shift && ['Digit3', 'Digit4', 'Digit5'].includes(code)) {
+        e.preventDefault();
         armShield(1800);
-        if (['Digit3', 'Digit4', 'Digit5', 'KeyS'].includes(code)) {
-          e.preventDefault();
-        }
+        return;
+      }
+
+      // Windows Snipping: Win+Shift+S (not Cmd+Shift+S on Mac — that is Save As)
+      if (!isMac && e.metaKey && shift && code === 'KeyS') {
+        e.preventDefault();
+        armShield(1800);
       }
     };
 
-    const handleKeyUp = (e) => {
-      if (e.key === 'Meta' || e.key === 'Control' || e.key === 'Shift' || e.key === 'OS') {
-        shieldUntil = Math.max(shieldUntil, Date.now() + 500);
-        tryRelease();
-      }
+    // Coming back to this tab/screen — never show the shield; only clear leftovers
+    const handleReturnToPage = () => {
+      if (!document.hidden) clearShield();
     };
-
-    // Focus loss / app switch / screen-record UI → blank gallery before capture
-    const handleWindowBlur = () => armShield(2500);
-    const handleWindowFocus = () => {
-      shieldUntil = Math.max(shieldUntil, Date.now() + 450);
-      tryRelease();
-    };
-    const handleVisibilityChange = () => {
-      if (document.hidden) armShield(3500);
-      else {
-        shieldUntil = Math.max(shieldUntil, Date.now() + 450);
-        tryRelease();
-      }
-    };
-    const handlePageHide = () => armShield(3500);
 
     document.addEventListener('contextmenu', handleContextMenu);
     document.addEventListener('dragstart', handleDragStart);
     document.addEventListener('keydown', handleKeyDown, true);
-    document.addEventListener('keyup', handleKeyUp, true);
-    window.addEventListener('blur', handleWindowBlur);
-    window.addEventListener('focus', handleWindowFocus);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('pagehide', handlePageHide);
+    document.addEventListener('visibilitychange', handleReturnToPage);
+    window.addEventListener('focus', handleReturnToPage);
+    window.addEventListener('pageshow', handleReturnToPage);
 
     const style = document.createElement('style');
     style.id = 'pixnxt-security-styles';
@@ -561,35 +548,44 @@ const GalleryView = () => {
       }
     `;
     document.head.appendChild(style);
+    // Ensure a fresh visit never starts with a leftover shield
+    clearShield();
 
     return () => {
-      clearTimeout(releaseTimer);
+      clearShield();
       document.removeEventListener('contextmenu', handleContextMenu);
       document.removeEventListener('dragstart', handleDragStart);
       document.removeEventListener('keydown', handleKeyDown, true);
-      document.removeEventListener('keyup', handleKeyUp, true);
-      window.removeEventListener('blur', handleWindowBlur);
-      window.removeEventListener('focus', handleWindowFocus);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('pagehide', handlePageHide);
-      document.documentElement.classList.remove(SHIELD);
-      document.body.classList.remove(SHIELD);
-      document.body.classList.remove('pixnxt-screenshot-guard');
+      document.removeEventListener('visibilitychange', handleReturnToPage);
+      window.removeEventListener('focus', handleReturnToPage);
+      window.removeEventListener('pageshow', handleReturnToPage);
       style.remove();
     };
   }, [isPaidDigitalDownloadOn]);
+
+  const goToPrintstore = useCallback((queryExtra = '') => {
+    if (!collection?.slug) return;
+    const returnPath = `/gallery/${collection.slug}?socialSharing=1`;
+    try {
+      sessionStorage.setItem('pixnxt_printstore_return', JSON.stringify({ path: returnPath }));
+    } catch (_) { /* ignore */ }
+    const q = queryExtra.startsWith('&') || queryExtra.startsWith('?')
+      ? queryExtra.replace(/^[?&]/, '&')
+      : (queryExtra ? `&${queryExtra}` : '');
+    window.location.assign(`/printstore?slug=${collection.slug}${q}`);
+  }, [collection?.slug]);
 
   const handleShopClick = useCallback(async (photo) => {
     if (!photo || !collection) return;
     const savedEmail = localStorage.getItem(`pixnxt_fav_email_${collection.id}`);
     if (savedEmail) {
-      window.location.assign(`/printstore?slug=${collection.slug}&photo=${photo.id}`);
+      goToPrintstore(`photo=${photo.id}`);
     } else {
       setPendingShopPhoto(photo);
       setShopEmail(email || '');
       setShowShopModal(true);
     }
-  }, [collection, email]);
+  }, [collection, email, goToPrintstore]);
 
   const handleShopEmailSubmit = async () => {
     if (!shopEmail || !collection) return;
@@ -608,7 +604,7 @@ const GalleryView = () => {
         setIsPendingDownloadAll(false);
         handleDigitalDownloadClick(photoToPass);
       } else if (pendingShopPhoto) {
-        window.location.assign(`/printstore?slug=${collection.slug}&photo=${pendingShopPhoto.id}`);
+        goToPrintstore(`photo=${pendingShopPhoto.id}`);
       }
     } catch (e) {
       console.error("Failed to register shop email session:", e);
@@ -871,56 +867,11 @@ const GalleryView = () => {
       return;
     }
 
-    try {
-      const { data: orders, error: ordersError } = await supabase
-        .from('printstore_orders')
-        .select('id, status, printstore_order_items(product_type, options)')
-        .eq('collection_id', collection.id)
-        .eq('customer_email', savedEmail)
-        .in('status', ['completed', 'paid', 'success']);
-
-      if (!ordersError && orders && orders.length > 0) {
-        // Entire-collection purchase only unlocks the “check your email” path —
-        // never start a direct browser download while paid digital is on.
-        const boughtAll = orders.some((o) =>
-          (o.printstore_order_items || []).some((item) =>
-            item.product_type === 'digital_download_all'
-          )
-        );
-
-        const boughtThisPhoto = photo && orders.some((o) =>
-          (o.printstore_order_items || []).some((item) =>
-            item.product_type === 'digital_download'
-            && (
-              item.options?.photo?.id === photo.id
-              || item.options?.photo_id === photo.id
-            )
-          )
-        );
-
-        // digital_package purchases are fulfilled by email after checkout —
-        // they must NOT unlock free gallery downloads.
-        if (boughtAll || boughtThisPhoto) {
-          setPrivateToastThumb(photo?.thumbnail_url || photo?.web_url || photo?.full_url || null);
-          setPrivateToast(
-            boughtAll
-              ? 'This collection was purchased — check your email for download links.'
-              : 'This photo was purchased — check your email for the download link.'
-          );
-          window.setTimeout(() => setPrivateToast(null), 4500);
-          return;
-        }
-      }
-
-      setDigitalDownloadPhoto(photo || filteredPhotos[0] || null);
-      setIsPurchaseAllDefault(!photo);
-      setShowDigitalDownloadModal(true);
-    } catch (err) {
-      console.error('Error verifying digital download purchase:', err);
-      setDigitalDownloadPhoto(photo || filteredPhotos[0] || null);
-      setIsPurchaseAllDefault(!photo);
-      setShowDigitalDownloadModal(true);
-    }
+    // Always open buy popup when paid digital is on — do not short-circuit
+    // with “already purchased / check your email” (every download stays paid).
+    setDigitalDownloadPhoto(photo || filteredPhotos[0] || null);
+    setIsPurchaseAllDefault(!photo);
+    setShowDigitalDownloadModal(true);
   };
 
   const handleDownloadClick = async (photoOrEvent = null) => {
@@ -1181,6 +1132,40 @@ const GalleryView = () => {
     setIsSlideshowActive(autoplay);
   }, []);
 
+  const startPackageGalleryPicker = useCallback((pack) => {
+    if (!pack) return;
+    setSelectedDownloadType('package');
+    setSelectedStorePackage(pack);
+    setPackageSelectedPhotos([]);
+    setPackagePickerActive(true);
+    setShowDigitalDownloadModal(false);
+    setShowDigitalPurchaseDetail(false);
+    // Bring the live gallery into view for selection
+    window.setTimeout(() => {
+      try {
+        window.scrollTo({ top: Math.max(0, window.innerHeight * 0.55), behavior: 'smooth' });
+      } catch (_) { /* ignore */ }
+    }, 50);
+  }, []);
+
+  const exitPackageGalleryPicker = useCallback(() => {
+    setPackagePickerActive(false);
+    setPackageSelectedPhotos([]);
+    setSelectedStorePackage(null);
+    setSelectedDownloadType('single');
+  }, []);
+
+  const togglePackagePhotoSelection = useCallback((photo) => {
+    if (!photo?.id || !selectedStorePackage) return;
+    const max = Math.max(1, Number(selectedStorePackage.photo_count) || 1);
+    setPackageSelectedPhotos((prev) => {
+      const exists = prev.some((p) => String(p.id) === String(photo.id));
+      if (exists) return prev.filter((p) => String(p.id) !== String(photo.id));
+      if (prev.length >= max) return prev;
+      return [...prev, photo];
+    });
+  }, [selectedStorePackage]);
+
   /** Base list for the active tab — must NOT get a new array reference when only `favoritedPhotos` changes
    *  (otherwise MasonryGrid + framer-motion `whileInView` can re-run and leave tiles stuck at opacity 0). */
   const photosForActiveSet = useMemo(() => {
@@ -1249,6 +1234,88 @@ const GalleryView = () => {
     if (!showMediaFilter) return filteredPhotosBase;
     return filterGalleryMediaByType(filteredPhotosBase, mediaFilter);
   }, [filteredPhotosBase, showMediaFilter, mediaFilter]);
+
+  const handleGridImageClick = useCallback((index) => {
+    const photo = filteredPhotos?.[index];
+    if (packagePickerActive && photo) {
+      togglePackagePhotoSelection(photo);
+      return;
+    }
+    openLightbox(index);
+  }, [packagePickerActive, filteredPhotos, togglePackagePhotoSelection, openLightbox]);
+
+  const packagePickLimit = Math.max(1, Number(selectedStorePackage?.photo_count) || 1);
+  const packagePickCount = packageSelectedPhotos.length;
+  const packagePickComplete = packagePickerActive && packagePickCount === packagePickLimit;
+
+  const addPackageSelectionToCart = useCallback(() => {
+    if (!packagePickComplete || !selectedStorePackage || !collection?.slug) return;
+    const cartKey = 'pixnxt_printstore_cart';
+    let cart = [];
+    try {
+      cart = JSON.parse(localStorage.getItem(cartKey) || '[]');
+      if (!Array.isArray(cart)) cart = [];
+    } catch {
+      cart = [];
+    }
+
+    const cartItem = buildDigitalPackageCartItem(selectedStorePackage, packageSelectedPhotos);
+    const existingPkgIdx = cart.findIndex((item) => {
+      const pid = item.productId || item.product_id;
+      const pkgId = item.options?.packageId;
+      return pid === 'digital_package' && pkgId === selectedStorePackage.id;
+    });
+    if (existingPkgIdx >= 0) cart[existingPkgIdx] = cartItem;
+    else cart.push(cartItem);
+    localStorage.setItem(cartKey, JSON.stringify(cart));
+
+    const savedEmail = localStorage.getItem(`pixnxt_fav_email_${collection.id}`);
+    if (savedEmail) {
+      galleryService.createOrGetSession(collection.id, savedEmail).then(async (session) => {
+        if (!session?.id) return;
+        let productDbId = null;
+        const { data: dbProducts } = await supabase
+          .from('printstore_products')
+          .select('id')
+          .eq('product_type', 'digital_package')
+          .limit(1);
+        productDbId = dbProducts?.[0]?.id || null;
+        if (!productDbId) {
+          const { data: inserted } = await supabase
+            .from('printstore_products')
+            .insert({
+              product_type: 'digital_package',
+              name: selectedStorePackage.name,
+              base_price: Number(selectedStorePackage.price) || 0,
+              image_url: null,
+              is_active: true,
+              options: { selling_price: Number(selectedStorePackage.price) || 0 },
+            })
+            .select('id')
+            .maybeSingle();
+          productDbId = inserted?.id || null;
+        }
+        await supabase.from('printstore_cart_items').insert({
+          session_id: session.id,
+          product_id: productDbId,
+          quantity: 1,
+          options: cartItem.options,
+        });
+      }).catch((e) => {
+        console.error('Error syncing package to Supabase cart:', e);
+      });
+    }
+
+    exitPackageGalleryPicker();
+    goToPrintstore('cart=open');
+  }, [
+    packagePickComplete,
+    selectedStorePackage,
+    collection,
+    packageSelectedPhotos,
+    exitPackageGalleryPicker,
+    goToPrintstore,
+  ]);
 
   const handleShopHeaderClick = useCallback(() => {
     if (lightboxIndex !== -1 && filteredPhotos[lightboxIndex]) {
@@ -1404,10 +1471,8 @@ const GalleryView = () => {
     );
     const codeLine = formatBannerPlaceholders(lb.code || 'Code: {code}', activeCampaign);
     const ctaLabel = lb.cta || 'Visit Shop';
-    // Sales Style tab: "Background + Button text" uses bg_color for CTA label
-    const ctaTextColor = lb.cta_color && lb.cta_color !== '#ffffff'
-      ? lb.cta_color
-      : (lb.bg_color || '#ffffff');
+    // Sales Style tab: "Background + Button text" — prefer explicit cta_color, else bg_color
+    const ctaTextColor = lb.cta_color || lb.bg_color || '#ffffff';
 
     return (
       <div
@@ -1575,17 +1640,29 @@ const GalleryView = () => {
   return (
     <div
       className={cn('gallery-view-page min-h-screen transition-colors duration-500', `theme-${effectiveSettings.color_palette}`, `font-${effectiveSettings.font_family}`, `nav-style-${navigationStyle}`, `style-${effectiveSettings.cover_style}`)}
-      style={{ backgroundColor: 'var(--gallery-secondary-bg)', color: 'var(--gallery-text)' }}
+      style={{
+        backgroundColor: 'var(--gallery-secondary-bg)',
+        color: 'var(--gallery-text)',
+        ...(activeCampaign?.banners?.text_banner?.enabled
+          ? { '--pixnxt-text-banner-h': '40px' }
+          : {}),
+      }}
       data-gallery-chrome="large"
       data-gallery-viewport={isMobileViewport ? 'mobile' : 'desktop'}
+      data-has-text-banner={activeCampaign?.banners?.text_banner?.enabled ? 'true' : undefined}
     >
-      {/* Sales Automation Text Banner — thin bar pinned to top of cover / social sharing preview */}
+      {/* Sales Automation Text Banner — sticks above collection bar, never covers title */}
       {activeCampaign?.banners?.text_banner?.enabled && (
         <div
+          ref={(el) => {
+            if (!el) return;
+            const h = Math.ceil(el.getBoundingClientRect().height) || 40;
+            document.documentElement.style.setProperty('--pixnxt-text-banner-h', `${h}px`);
+          }}
           style={{
             backgroundColor: activeCampaign.banners.text_banner.bg_color || '#4a5338',
             color: activeCampaign.banners.text_banner.text_color || '#ffffff',
-            padding: '8px 20px',
+            padding: '10px 20px',
             textAlign: 'center',
             fontSize: '12px',
             fontWeight: 500,
@@ -1600,6 +1677,7 @@ const GalleryView = () => {
             lineHeight: 1.4,
             width: '100%',
             boxSizing: 'border-box',
+            flexShrink: 0,
           }}
           data-sales-banner="text"
         >
@@ -1929,10 +2007,13 @@ const GalleryView = () => {
                 <MasonryGrid
                   key={`grid-single-${activeSetId ?? 'highlights'}-${mediaFilter}-${effectiveSettings.grid_style}`}
                   photos={filteredPhotos}
-                  onImageClick={openLightbox}
+                  onImageClick={handleGridImageClick}
                   activeCampaign={activeCampaign}
                   activeProducts={activeProducts}
                   onVisitShop={() => setShowPrintLabModal(true)}
+                  packagePickerActive={packagePickerActive}
+                  packageSelectedPhotoIds={packageSelectedPhotos.map((p) => p.id)}
+                  packagePickLimit={packagePickLimit}
                   {...gridProps}
                 />
               </div>
@@ -2329,6 +2410,75 @@ const GalleryView = () => {
           </div>
         );
       })()}
+      {/* Package picker sticky top bar — gallery stays interactive underneath */}
+      {packagePickerActive && selectedStorePackage && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 2100,
+            backgroundColor: '#ffffff',
+            borderBottom: '1px solid #e2e8f0',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '14px 20px',
+            gap: '16px',
+            boxSizing: 'border-box',
+            fontFamily: "'europa', sans-serif",
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
+            <button
+              type="button"
+              onClick={exitPackageGalleryPicker}
+              style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#111', fontSize: '18px', padding: 0, lineHeight: 1 }}
+              aria-label="Back"
+            >
+              &larr;
+            </button>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#111', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {selectedStorePackage.name || `${packagePickLimit}-Photo Package`}
+              </div>
+              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px', fontWeight: 600 }}>
+                Selected {packagePickCount}/{packagePickLimit}
+                {packagePickCount < packagePickLimit
+                  ? ` · tap photos below to choose ${packagePickLimit - packagePickCount} more`
+                  : ' · ready to add'}
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexShrink: 0 }}>
+            <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748b' }}>
+              Total: ₹{(Number(selectedStorePackage.price) || 0).toFixed(2)}
+            </span>
+            <button
+              type="button"
+              onClick={addPackageSelectionToCart}
+              disabled={!packagePickComplete}
+              style={{
+                padding: '10px 22px',
+                fontSize: '11px',
+                fontWeight: 700,
+                backgroundColor: packagePickComplete ? '#111' : '#cbd5e1',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '9999px',
+                cursor: packagePickComplete ? 'pointer' : 'not-allowed',
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+              }}
+            >
+              Add to Cart
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 6) Paid Digital Download Modals */}
       {showDigitalDownloadModal && digitalDownloadPhoto && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, padding: '20px', boxSizing: 'border-box', backdropFilter: 'blur(6px)' }}>
@@ -2512,9 +2662,7 @@ const GalleryView = () => {
                   <button
                     key={packOffer.package?.id || packOffer.photo_count}
                     onClick={() => {
-                      setSelectedDownloadType('package');
-                      setSelectedStorePackage(packOffer.package);
-                      setShowDigitalPurchaseDetail(true);
+                      startPackageGalleryPicker(packOffer.package);
                     }}
                     style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', padding: '16px 0', border: 'none', borderBottom: '1px solid #e2e8f0', background: 'none', color: '#1a1a1a', textAlign: 'left', cursor: 'pointer' }}
                   >
@@ -2556,9 +2704,7 @@ const GalleryView = () => {
                         <div
                           key={`card-${packOffer.package?.id || packOffer.photo_count}`}
                           onClick={() => {
-                            setSelectedDownloadType('package');
-                            setSelectedStorePackage(packOffer.package);
-                            setShowDigitalPurchaseDetail(true);
+                            startPackageGalleryPicker(packOffer.package);
                           }}
                           style={{ border: '1px solid #e2e8f0', padding: '12px', display: 'flex', flexDirection: 'column', width: '148px', boxSizing: 'border-box', cursor: 'pointer', background: '#f8fafc', borderRadius: '8px' }}
                           className="hover:border-black/30"
@@ -2679,7 +2825,7 @@ const GalleryView = () => {
                         setShowDigitalDownloadModal(false);
                         setShowDigitalPurchaseDetail(false);
                         setSelectedStorePackage(null);
-                        window.location.assign(`/printstore?slug=${collection.slug}&cart=open`);
+                        goToPrintstore('cart=open');
                         return;
                       }
 
@@ -2693,6 +2839,17 @@ const GalleryView = () => {
                           : (digitalPricing?.single?.price || 0)
                       );
                       const photo = isAll ? null : digitalDownloadPhoto;
+                      const photoForCart = photo
+                        ? {
+                            id: photo.id,
+                            filename: photo.filename || photo.name || '',
+                            url: photo.url || photo.web_url || photo.thumbnail_url || photo.full_url || photo.display_url || '',
+                            web_url: photo.web_url || photo.url || photo.display_url || '',
+                            thumbnail_url: photo.thumbnail_url || photo.web_url || photo.url || '',
+                            full_url: photo.full_url || photo.web_url || photo.url || '',
+                            display_url: photo.display_url || photo.web_url || photo.url || '',
+                          }
+                        : null;
                       const size = { id: isAll ? 'all_photos' : 'hi_res', label: isAll ? 'All Photos' : 'High Resolution' };
 
                       const existingIdx = cart.findIndex((item) => {
@@ -2709,7 +2866,7 @@ const GalleryView = () => {
                           unitPrice: itemUnitPrice,
                           totalPrice: itemUnitPrice,
                           quantity: 1,
-                          photo,
+                          photo: photoForCart,
                           size,
                           frame: null,
                           paper: null,
@@ -2717,7 +2874,7 @@ const GalleryView = () => {
                           options: {
                             productId: itemProductId,
                             productName: itemProductName,
-                            photo,
+                            photo: photoForCart,
                             size,
                             unitPrice: itemUnitPrice,
                           },
@@ -2775,7 +2932,7 @@ const GalleryView = () => {
                               options: {
                                 productId: itemProductId,
                                 productName: itemProductName,
-                                photo,
+                                photo: photoForCart,
                                 size,
                                 unitPrice: itemUnitPrice,
                               },
@@ -2788,7 +2945,7 @@ const GalleryView = () => {
 
                       setShowDigitalDownloadModal(false);
                       setShowDigitalPurchaseDetail(false);
-                      window.location.assign(`/printstore?slug=${collection.slug}&cart=open`);
+                      goToPrintstore('cart=open');
                     }}
                     style={{
                       padding: '10px 24px',

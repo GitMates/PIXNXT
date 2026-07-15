@@ -2,9 +2,13 @@ import React from 'react';
 import { ImageIcon } from 'lucide-react';
 import { isSlotLandscape, adjustPhotoUrl } from '../data/mockStoreData';
 
-export default function CartItemPreview({ item, collectionPhotos = [] }) {
+export default function CartItemPreview({ item, collectionPhotos = [], compact = false }) {
   if (!item) return null;
   const product = { id: item.productId }; // We mainly need product.id
+  const scrollGridInset = compact ? '1px' : '3px';
+  const scrollGridGap = compact ? '1px' : '3px';
+  const allPhotosRowHeight = compact ? 22 : 88;
+  const packageRowHeight = compact ? 22 : 42;
   const selectedSize = item.size || {};
   const initialCustomBorderWidthCm = item.customBorderWidthCm || 0;
   const selectedBorder = item.border || 'none';
@@ -15,20 +19,79 @@ export default function CartItemPreview({ item, collectionPhotos = [] }) {
 
   const getPhotoSrc = () => item.editedPhotoUrl || item.photo?.url || '';
 
+  const resolvePackagePhotos = () => {
+    const rawList = (item.photos?.length ? item.photos : null)
+      || (item.options?.photos?.length ? item.options.photos : null)
+      || [];
+    const hydrated = rawList.map((photo) => {
+      const photoId = photo?.id != null ? String(photo.id) : '';
+      const match = photoId
+        ? collectionPhotos.find((p) => p && String(p.id) === photoId)
+        : null;
+      const merged = match ? { ...photo, ...match } : photo;
+      const src =
+        merged.web_url
+        || merged.thumbnail_url
+        || merged.full_url
+        || merged.url
+        || merged.display_url
+        || '';
+      return { ...merged, _src: src };
+    }).filter((p) => p._src);
+
+    if (hydrated.length > 0) return hydrated;
+
+    const ids = item.options?.selected_photo_ids || [];
+    return ids.map((id) => {
+      const match = collectionPhotos.find((p) => p && String(p.id) === String(id));
+      if (!match) return null;
+      const src =
+        match.web_url
+        || match.thumbnail_url
+        || match.full_url
+        || match.url
+        || match.display_url
+        || '';
+      return src ? { ...match, _src: src } : null;
+    }).filter(Boolean);
+  };
+
   // 0a. Digital Download – Single photo
   if (product.id === 'digital_download') {
-    const photo = item.options?.photo || item.photo || {};
-    const url = photo.web_url || photo.thumbnail_url || photo.full_url || photo.url || '';
+    const raw = item.options?.photo || item.photo || {};
+    const photoId = raw?.id != null ? String(raw.id) : '';
+    const match = photoId
+      ? collectionPhotos.find((p) => p && String(p.id) === photoId)
+      : null;
+    const photo = match ? { ...raw, ...match } : raw;
+    const url =
+      photo.web_url
+      || photo.thumbnail_url
+      || photo.full_url
+      || photo.url
+      || photo.display_url
+      || '';
     return (
-      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fcfcfc', border: '1px solid #e2e8f0', borderRadius: '4px', overflow: 'hidden', position: 'relative' }}>
+      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f4f4f4', borderRadius: '4px', overflow: 'hidden', position: 'relative' }}>
         {url ? (
-          <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <img
+            src={url}
+            alt=""
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            onError={(e) => {
+              // Fall back to collection photo URL if cart URL is stale
+              if (match) {
+                const fallback =
+                  match.thumbnail_url || match.web_url || match.url || match.full_url || '';
+                if (fallback && e.currentTarget.src !== fallback) {
+                  e.currentTarget.src = fallback;
+                }
+              }
+            }}
+          />
         ) : (
           <ImageIcon size={28} strokeWidth={1.5} color="#888" />
         )}
-        <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <span style={{ color: '#fff', fontSize: '20px', fontWeight: 'bold' }}>↓</span>
-        </div>
       </div>
     );
   }
@@ -56,20 +119,21 @@ export default function CartItemPreview({ item, collectionPhotos = [] }) {
         {/* Scrollable inner grid — gridAutoRows fixed so rows overflow and scroll kicks in */}
         <div style={{
           position: 'absolute',
-          inset: '3px',
+          inset: scrollGridInset,
           overflowY: 'auto',
           overflowX: 'hidden',
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
-          gridAutoRows: '88px',
-          gap: '3px',
+          gridAutoRows: `${allPhotosRowHeight}px`,
+          gap: scrollGridGap,
           scrollbarWidth: 'thin',
           scrollbarColor: 'rgba(255,255,255,0.25) transparent',
+          WebkitOverflowScrolling: 'touch',
         }}>
           {collectionPhotos.map((p, idx) => {
             const src = p.url || p.web_url || p.thumbnail_url || p.full_url || '';
             return (
-              <div key={idx} style={{ height: '88px', overflow: 'hidden', backgroundColor: '#1e1e1e', borderRadius: '2px', flexShrink: 0 }}>
+              <div key={idx} style={{ height: `${allPhotosRowHeight}px`, overflow: 'hidden', backgroundColor: '#1e1e1e', borderRadius: '2px', flexShrink: 0 }}>
                 <img
                   src={src}
                   alt=""
@@ -86,6 +150,7 @@ export default function CartItemPreview({ item, collectionPhotos = [] }) {
           })}
         </div>
         {/* Photo count badge pinned to the bottom of the outer container */}
+        {!compact && (
         <div style={{
           position: 'absolute',
           bottom: 0,
@@ -110,6 +175,119 @@ export default function CartItemPreview({ item, collectionPhotos = [] }) {
             {collectionPhotos.length} Photos
           </span>
         </div>
+        )}
+      </div>
+    );
+  }
+
+  // 0c. Digital package — scroll selected photos in the cart thumbnail box
+  if (product.id === 'digital_package') {
+    const packagePhotos = resolvePackagePhotos();
+    const photoCount = packagePhotos.length
+      || Number(item.options?.photo_count)
+      || Number(item.size?.label?.match(/\d+/)?.[0])
+      || 0;
+
+    if (packagePhotos.length === 0) {
+      return (
+        <div style={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: '#1a1a1a',
+          borderRadius: '4px',
+          flexDirection: 'column',
+          gap: '6px',
+        }}>
+          <ImageIcon size={28} strokeWidth={1.5} color="#666" />
+          <span style={{ color: '#888', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            {photoCount ? `${photoCount} Photos` : 'Package'}
+          </span>
+        </div>
+      );
+    }
+
+    return (
+      <div
+        className="cart-package-photo-scroll"
+        style={{
+          width: '100%',
+          height: '100%',
+          position: 'relative',
+          borderRadius: '4px',
+          overflow: 'hidden',
+          backgroundColor: '#111',
+        }}
+      >
+        <div
+          className="cart-package-photo-scroll__grid"
+          style={{
+            position: 'absolute',
+            inset: compact ? '1px' : '2px',
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gridAutoRows: `${packageRowHeight}px`,
+            gap: scrollGridGap,
+            scrollbarWidth: 'thin',
+            scrollbarColor: 'rgba(255,255,255,0.35) transparent',
+            WebkitOverflowScrolling: 'touch',
+          }}
+        >
+          {packagePhotos.map((p, idx) => (
+            <div
+              key={p.id || `pkg-${idx}`}
+              style={{
+                height: `${packageRowHeight}px`,
+                overflow: 'hidden',
+                backgroundColor: '#1e1e1e',
+                borderRadius: '2px',
+                flexShrink: 0,
+              }}
+            >
+              <img
+                src={p._src}
+                alt=""
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  objectPosition: 'center',
+                  display: 'block',
+                }}
+              />
+            </div>
+          ))}
+        </div>
+        {packagePhotos.length > 1 && !compact && (
+          <div style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            background: 'linear-gradient(transparent, rgba(0,0,0,0.88))',
+            padding: '14px 4px 4px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            pointerEvents: 'none',
+            zIndex: 2,
+          }}>
+            <span style={{
+              color: '#fff',
+              fontSize: '9px',
+              fontWeight: 800,
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
+              textShadow: '0 1px 2px rgba(0,0,0,0.7)',
+            }}>
+              {packagePhotos.length} Photos
+            </span>
+          </div>
+        )}
       </div>
     );
   }

@@ -33,6 +33,9 @@ export default function PaymentPage({
 
   const DIGITAL_PRODUCTS = ['digital_download', 'digital_download_all', 'digital_package'];
   const allDigital = displayCart.length > 0 && displayCart.every(i => DIGITAL_PRODUCTS.includes(i.productId));
+  const hasDigital = displayCart.some(i => DIGITAL_PRODUCTS.includes(i.productId));
+  const hasPhysical = displayCart.some(i => !DIGITAL_PRODUCTS.includes(i.productId));
+  const mixedCart = hasDigital && hasPhysical;
 
   const totalItems = displayCart.reduce((acc, item) => acc + (Number(item.quantity) || 0), 0);
   const itemsTotal = displayCart.reduce((acc, item) => acc + (Number(item.unitPrice) || 0) * (Number(item.quantity) || 0), 0);
@@ -43,13 +46,19 @@ export default function PaymentPage({
   const [isSuccess, setIsSuccess] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
-    email: (collectionId ? localStorage.getItem(`pixnxt_fav_email_${collectionId}`) : '') || '',
+    email: shippingAddress?.email || (collectionId ? localStorage.getItem(`pixnxt_fav_email_${collectionId}`) : '') || '',
     cardNumber: '',
     expiration: '',
     cvc: '',
     country: 'India'
   });
   const [errors, setErrors] = useState({});
+
+  useEffect(() => {
+    if (shippingAddress?.email) {
+      setFormData((prev) => ({ ...prev, email: shippingAddress.email }));
+    }
+  }, [shippingAddress?.email]);
 
   const handlePayNow = async () => {
     if (!displayCart.length || estimatedTotal <= 0) {
@@ -145,6 +154,20 @@ export default function PaymentPage({
       <div className="cart-page-content">
         {/* Left Column: Payment Options */}
         <div className="cart-items-column">
+
+          {mixedCart && (
+            <div className="digital-delivery-notice payment-mixed-delivery-notice">
+              <div>
+                <p className="digital-delivery-notice__title">This order includes digital downloads and printed items</p>
+                <p className="digital-delivery-notice__text">
+                  Printed products will be shipped to your address.
+                  {' '}Your digital images will be sent to{' '}
+                  <strong>{shippingAddress?.email || formData.email || 'your email'}</strong>
+                  {' '}after payment.
+                </p>
+              </div>
+            </div>
+          )}
           
           <div className="payment-method-selector">
             <label className="payment-label">Payment method</label>
@@ -275,25 +298,47 @@ export default function PaymentPage({
                 <h4 className="details-heading">Payment details</h4>
                 
                 {/* Itemized List with Frame Previews */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem', marginBottom: '1.5rem', borderBottom: '1px solid #eee', paddingBottom: '1.5rem', maxHeight: '250px', overflowY: 'auto' }}>
-                  {displayCart.map((item) => (
-                    <div key={item.id} style={{ display: 'flex', gap: '0.75rem', fontSize: '0.85rem', alignItems: 'center' }}>
-                      <div style={{ width: '50px', height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', background: '#f7f7f7', border: '1px solid #eaeaea', flexShrink: 0 }}>
-                        <div style={{ transform: 'scale(0.16)', transformOrigin: 'center center', width: '307.25px', height: '307.25px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          <CartItemPreview item={item} collectionPhotos={collectionPhotos} />
+                <div
+                  className="payment-itemized-list"
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '1rem',
+                    marginTop: '1rem',
+                    marginBottom: '1.5rem',
+                    borderBottom: '1px solid #eee',
+                    paddingBottom: '1.5rem',
+                    maxHeight: '250px',
+                    overflowY: 'auto',
+                    paddingRight: '10px',
+                    scrollbarGutter: 'stable',
+                  }}
+                >
+                  {displayCart.map((item) => {
+                    const isDigital = DIGITAL_PRODUCTS.includes(item.productId);
+                    return (
+                      <div key={item.id} style={{ display: 'flex', gap: '0.75rem', fontSize: '0.85rem', alignItems: 'center', minWidth: 0 }}>
+                        <div className={`payment-item-thumb-wrapper product-card-${item.productId}`}>
+                          {isDigital ? (
+                            <CartItemPreview item={item} collectionPhotos={collectionPhotos} compact />
+                          ) : (
+                            <div className="payment-item-thumb-frame">
+                              <CartItemPreview item={item} collectionPhotos={collectionPhotos} />
+                            </div>
+                          )}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 500, color: '#111', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.productName}</div>
+                          <div style={{ color: '#666', fontSize: '0.75rem', marginTop: '2px' }}>
+                            {item.size?.label || (item.productId === 'digital_download_all' ? 'All Photos' : item.productId === 'digital_package' ? (item.size?.label || `${item.options?.photo_count || ''} Photos`) : 'High Resolution')} • Qty: {item.quantity}
+                          </div>
+                        </div>
+                        <div style={{ fontWeight: 500, flexShrink: 0, paddingLeft: '4px' }}>
+                          ₹{(item.unitPrice * item.quantity).toFixed(2)}
                         </div>
                       </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 500, color: '#111', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.productName}</div>
-                        <div style={{ color: '#666', fontSize: '0.75rem', marginTop: '2px' }}>
-                          {item.size?.label || (item.productId === 'digital_download_all' ? 'All Photos' : item.productId === 'digital_package' ? (item.size?.label || `${item.options?.photo_count || ''} Photos`) : 'High Resolution')} • Qty: {item.quantity}
-                        </div>
-                      </div>
-                      <div style={{ fontWeight: 500, flexShrink: 0 }}>
-                        ₹{(item.unitPrice * item.quantity).toFixed(2)}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 
                 <div className="summary-row">

@@ -303,6 +303,44 @@ export default function PrintStoreApp() {
     }
   });
 
+  // Re-hydrate digital cart thumbnails from live collection photos (fixes stale/missing URLs)
+  useEffect(() => {
+    if (!collectionPhotos?.length) return;
+    setCartItems((prev) => {
+      if (!Array.isArray(prev) || prev.length === 0) return prev;
+      let changed = false;
+      const next = prev.map((item) => {
+        if (item.productId !== 'digital_download') return item;
+        const raw = item.options?.photo || item.photo;
+        if (!raw?.id) return item;
+        const match = collectionPhotos.find((p) => p && String(p.id) === String(raw.id));
+        if (!match) return item;
+        const hydrated = {
+          ...raw,
+          url: match.url || match.web_url || match.thumbnail_url || raw.url || '',
+          web_url: match.web_url || match.url || raw.web_url || '',
+          thumbnail_url: match.thumbnail_url || match.web_url || match.url || raw.thumbnail_url || '',
+          full_url: match.full_url || match.web_url || match.url || raw.full_url || '',
+          display_url: match.display_url || match.web_url || match.url || raw.display_url || '',
+        };
+        const before = raw.web_url || raw.thumbnail_url || raw.url || '';
+        const after = hydrated.web_url || hydrated.thumbnail_url || hydrated.url || '';
+        if (before === after && (raw.web_url || raw.thumbnail_url)) return item;
+        changed = true;
+        return {
+          ...item,
+          photo: hydrated,
+          options: { ...(item.options || {}), photo: hydrated },
+        };
+      });
+      if (!changed) return prev;
+      try {
+        localStorage.setItem('pixnxt_printstore_cart', JSON.stringify(next));
+      } catch (_) { /* ignore */ }
+      return next;
+    });
+  }, [collectionPhotos]);
+
   const [savedShippingAddress, setSavedShippingAddress] = useState(() => {
     try {
       const cached = localStorage.getItem('pixnxt_printstore_address');
@@ -381,7 +419,12 @@ export default function PrintStoreApp() {
             const mappedPhotos = photosData.map(p => ({
               id: p.id,
               name: p.filename || `Photo`,
-              url: p.full_url || p.web_url || p.thumbnail_url,
+              filename: p.filename || '',
+              url: p.full_url || p.web_url || p.thumbnail_url || '',
+              web_url: p.web_url || p.full_url || p.thumbnail_url || '',
+              thumbnail_url: p.thumbnail_url || p.web_url || p.full_url || '',
+              full_url: p.full_url || p.web_url || p.thumbnail_url || '',
+              display_url: p.web_url || p.full_url || p.thumbnail_url || '',
               aspectRatio: p.width && p.height ? (p.width > p.height ? '3:2' : '2:3') : '2:3'
             }));
             setCollectionPhotos(mappedPhotos);
@@ -1380,18 +1423,42 @@ export default function PrintStoreApp() {
   };
 
   const handleBackFromCart = () => {
+    // Came from inside printstore (shop → cart): restore that view
     if (previousViewState) {
       setSelectedProductForDetail(previousViewState.selectedProductForDetail);
       setViewMode(previousViewState.viewMode);
       setActiveTab(previousViewState.activeTab);
       setActiveCollection(previousViewState.activeCollection);
-    } else {
-      // Fallback: reset to default shopping view
-      setSelectedProductForDetail(null);
-      setViewMode('landing');
-      setActiveTab('shop');
-      setActiveCollection('portraits');
+      setPreviousViewState(null);
+      setCheckoutState('shopping');
+      return;
     }
+
+    // Came from gallery (package/digital add-to-cart opens /printstore?cart=open with no in-app previous state)
+    const params = new URLSearchParams(window.location.search);
+    const slug = params.get('slug') || params.get('collection') || '';
+    let returnPath = null;
+    try {
+      const raw = sessionStorage.getItem('pixnxt_printstore_return');
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (parsed?.path) returnPath = parsed.path;
+    } catch (_) { /* ignore */ }
+
+    if (!returnPath && slug) {
+      returnPath = `/gallery/${slug}?socialSharing=1`;
+    }
+
+    if (returnPath) {
+      try { sessionStorage.removeItem('pixnxt_printstore_return'); } catch (_) { /* ignore */ }
+      // Drop cart=open from history intent — go back to social sharing gallery
+      window.location.assign(returnPath);
+      return;
+    }
+
+    setSelectedProductForDetail(null);
+    setViewMode('landing');
+    setActiveTab('shop');
+    setActiveCollection('portraits');
     setCheckoutState('shopping');
   };
 
@@ -1721,7 +1788,6 @@ export default function PrintStoreApp() {
             collectionPhotos={collectionPhotos}
             onUpdateQuantity={handleUpdateCartQuantity}
             onRemoveItem={handleRemoveCartItem}
-            onUpdateItemPhoto={handleUpdateItemPhoto}
             onEditItem={(item) => {
               setEditingCartItemId(item.id);
               setActiveCustomizerProduct(products.find(p => p.id === item.productId) || products[0] || MOCK_PRODUCTS[0]);

@@ -319,12 +319,20 @@ export async function deleteStorePackage(id, photographerId) {
   if (error) throw error;
 }
 
-export function buildDigitalPackageCartItem(pkg) {
+export function buildDigitalPackageCartItem(pkg, selectedPhotos = []) {
   const unitPrice = Number(pkg.price) || 0;
   const size = {
     id: `package_${pkg.photo_count}`,
     label: `${pkg.photo_count} Photos`,
   };
+  const photos = (selectedPhotos || []).map((photo) => ({
+    id: photo.id,
+    filename: photo.filename || photo.name || '',
+    url: photo.url || photo.web_url || photo.thumbnail_url || photo.full_url || '',
+    web_url: photo.web_url || photo.url || '',
+    thumbnail_url: photo.thumbnail_url || photo.web_url || photo.url || '',
+    full_url: photo.full_url || photo.web_url || photo.url || '',
+  }));
   return {
     id: `pkg-${pkg.id}-${Date.now()}`,
     productId: 'digital_package',
@@ -332,7 +340,8 @@ export function buildDigitalPackageCartItem(pkg) {
     unitPrice,
     totalPrice: unitPrice,
     quantity: 1,
-    photo: null,
+    photo: photos[0] || null,
+    photos,
     size,
     frame: null,
     paper: null,
@@ -346,6 +355,8 @@ export function buildDigitalPackageCartItem(pkg) {
       description: pkg.description || '',
       size,
       unitPrice,
+      photos,
+      selected_photo_ids: photos.map((p) => p.id),
     },
   };
 }

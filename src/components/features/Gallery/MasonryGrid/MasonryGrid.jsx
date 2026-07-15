@@ -45,29 +45,47 @@ export function MasonryGrid({
   activeCampaign = null,
   activeProducts = [],
   onVisitShop = null,
+  packagePickerActive = false,
+  packageSelectedPhotoIds = [],
+  packagePickLimit = 0,
 }) {
   const [dynamicAspectRatios, setDynamicAspectRatios] = useState({});
+  const [colsCount, setColsCount] = useState(customColumnCount || 3);
 
   const displayPhotos = useMemo(() => {
     const hasInlineBanner = !!(activeCampaign?.banners?.photo_banner?.enabled || activeCampaign?.banners?.store_rotator?.enabled);
-    if (!hasInlineBanner || photos.length === 0) return photos.map((p, idx) => ({ ...p, _originalIndex: idx }));
+    if (!hasInlineBanner || photos.length === 0) {
+      return photos.map((p, idx) => ({ ...p, _originalIndex: idx }));
+    }
 
     const result = photos.map((p, idx) => ({ ...p, _originalIndex: idx }));
-    // Insert special promo banner item at index 1
-    result.splice(1, 0, {
+    const columns = Math.max(1, colsCount || 3);
+    const centerCol = Math.floor(columns / 2);
+
+    // Square promo sits in the masonry flow so neighboring images fill left/right gaps.
+    // Prefer center column of the second visual row when there are enough photos.
+    let insertAt = Math.min(1, result.length);
+    if (result.length >= columns + centerCol) {
+      insertAt = columns + centerCol;
+    } else if (result.length >= 2) {
+      insertAt = Math.min(centerCol, result.length);
+    } else {
+      insertAt = result.length;
+    }
+
+    result.splice(insertAt, 0, {
       isPromoBanner: true,
       id: 'campaign-promo-tile',
-      type: activeCampaign.banners.photo_banner?.enabled ? 'photo_banner' : 'store_rotator'
+      type: activeCampaign.banners.photo_banner?.enabled ? 'photo_banner' : 'store_rotator',
     });
     return result;
-  }, [photos, activeCampaign]);
+  }, [photos, activeCampaign, colsCount]);
 
   useEffect(() => {
     displayPhotos.forEach(photo => {
       if (photo.isPromoBanner) return;
       if (!photo.width || !photo.height) {
         const src = photo.full_url || photo.web_url || photo.thumbnail_url;
-        // Skip dimension probing for video files — use 16:9 fallback
         if (isGalleryVideo(photo)) {
           setDynamicAspectRatios(prev => ({ ...prev, [photo.id]: 16 / 9 }));
           return;
@@ -268,8 +286,6 @@ export function MasonryGrid({
     };
   })();
 
-  const [colsCount, setColsCount] = useState(3);
-
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 23, minutes: 59, seconds: 59 });
 
   useEffect(() => {
@@ -325,15 +341,7 @@ export function MasonryGrid({
     return () => window.removeEventListener('resize', updateCols);
   }, [customColumnCount]);
 
-  const columns = useMemo(() => {
-    if (isHorizontal) return [displayPhotos];
-    
-    const cols = Array.from({ length: colsCount }, () => []);
-    displayPhotos.forEach((photo, idx) => {
-      cols[idx % colsCount].push(photo);
-    });
-    return cols;
-  }, [displayPhotos, colsCount, isHorizontal]);
+  // columns built below for masonry distribution
 
   const renderPromoCard = (photo) => {
     const isPhotoBanner = photo.type === 'photo_banner';
@@ -351,9 +359,7 @@ export function MasonryGrid({
       titleColor: bannerConfig?.title_color || (isPhotoBanner ? '#1a1a1a' : '#2c3e2d'),
       subtitleColor: bannerConfig?.subtitle_color || (isPhotoBanner ? '#444444' : '#4a5a4b'),
       ctaBg: bannerConfig?.cta_bg || (isPhotoBanner ? '#1a1a1a' : '#3a4a38'),
-      ctaColor: (bannerConfig?.cta_color && bannerConfig.cta_color !== '#ffffff')
-        ? bannerConfig.cta_color
-        : (bannerConfig?.bg_color || '#ffffff'),
+      ctaColor: bannerConfig?.cta_color || bannerConfig?.bg_color || '#ffffff',
       timerColor: bannerConfig?.timer_color || bannerConfig?.title_color || (isPhotoBanner ? '#1a1a1a' : '#2c3e2d'),
     };
 
@@ -384,10 +390,10 @@ export function MasonryGrid({
           flex: `0 0 340px`,
           aspectRatio: '1 / 1',
           maxWidth: '100%',
-          margin: 0
+          margin: 0,
         } : {
           width: '100%',
-          aspectRatio: '1 / 1'
+          aspectRatio: '1 / 1',
         }}
         onClick={() => onVisitShop?.()}
         data-sales-banner={isPhotoBanner ? 'photo' : 'store_rotator'}
@@ -616,6 +622,10 @@ export function MasonryGrid({
     const isPrivate = Boolean(photo.is_private);
     const useClientActionBar = Boolean(isClientViewer && allowMarkPrivate);
     const privateBadgeBlocksTopLeft = Boolean(showPrivateBadge && isPrivate);
+    const packageSelectedIndex = packagePickerActive
+      ? packageSelectedPhotoIds.findIndex((id) => String(id) === String(photo.id))
+      : -1;
+    const isPackageSelected = packageSelectedIndex >= 0;
 
     return (
       <Motion.div
@@ -623,7 +633,8 @@ export function MasonryGrid({
         variants={item}
         className={cn(
           'relative overflow-hidden group cursor-pointer min-w-0 w-full max-w-full',
-          centerVideosLayout && 'masonry-grid-video-item'
+          centerVideosLayout && 'masonry-grid-video-item',
+          isPackageSelected && 'ring-2 ring-black ring-offset-2'
         )}
         style={isHorizontal ? {
           flex: useFixedVideoTile
@@ -679,6 +690,44 @@ export function MasonryGrid({
               }}
               loading="lazy"
             />
+          )}
+
+          {packagePickerActive && (
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                pointerEvents: 'none',
+                border: isPackageSelected ? '3px solid #111' : '3px solid transparent',
+                boxSizing: 'border-box',
+                background: isPackageSelected ? 'rgba(0,0,0,0.18)' : 'transparent',
+              }}
+            >
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 10,
+                  right: 10,
+                  minWidth: 28,
+                  height: 28,
+                  borderRadius: '9999px',
+                  background: isPackageSelected ? '#111' : 'rgba(255,255,255,0.92)',
+                  color: isPackageSelected ? '#fff' : '#111',
+                  border: '1px solid rgba(0,0,0,0.15)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 11,
+                  fontWeight: 800,
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                  padding: '0 6px',
+                }}
+              >
+                {isPackageSelected
+                  ? `${packageSelectedIndex + 1}/${packagePickLimit || packageSelectedPhotoIds.length || '?'}`
+                  : '+'}
+              </div>
+            </div>
           )}
 
           {showFilename && (
@@ -819,6 +868,15 @@ export function MasonryGrid({
     );
   };
 
+  const columns = useMemo(() => {
+    if (isHorizontal) return [displayPhotos];
+    const cols = Array.from({ length: colsCount }, () => []);
+    displayPhotos.forEach((photo, idx) => {
+      cols[idx % colsCount].push(photo);
+    });
+    return cols;
+  }, [displayPhotos, colsCount, isHorizontal]);
+
   if (!isHorizontal) {
     return (
       <Motion.div
@@ -831,20 +889,16 @@ export function MasonryGrid({
           (isPreviewMobile || isMobileViewport) && 'preview-mobile',
           className
         )}
-        style={{
-          gap: `${gap}px`
-        }}
+        style={{ gap: `${gap}px` }}
       >
         {columns.map((columnItems, colIdx) => (
-          <div 
-            key={colIdx} 
+          <div
+            key={colIdx}
             className="flex-1 flex flex-col min-w-0"
             style={{ gap: `${gap}px` }}
           >
             {columnItems.map((photo, idx) => {
-              if (photo.isPromoBanner) {
-                return renderPromoCard(photo);
-              }
+              if (photo.isPromoBanner) return renderPromoCard(photo);
               return renderPhotoItem(photo, idx);
             })}
           </div>
@@ -869,9 +923,7 @@ export function MasonryGrid({
       style={{ gap: `${gap}px` }}
     >
       {displayPhotos.map((photo, index) => {
-        if (photo.isPromoBanner) {
-          return renderPromoCard(photo);
-        }
+        if (photo.isPromoBanner) return renderPromoCard(photo);
         return renderPhotoItem(photo, index);
       })}
     </Motion.div>

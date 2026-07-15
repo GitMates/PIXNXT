@@ -95,7 +95,94 @@ function resolveEmailHeroPresentation(customImage: unknown, activeBanner: any) {
 
   const standaloneCustomImage = custom && !activeBanner ? custom : "";
 
-  return { standaloneCustomImage, bannerForRender };
+  const heroImageUrl = custom
+    || bannerDesktop
+    || bannerMobile
+    || "";
+
+  return { standaloneCustomImage, bannerForRender, heroImageUrl };
+}
+
+const BANNER_COLOR_TEMPLATES: Record<string, {
+  bg_color: string;
+  subtitle_color: string;
+  cta_bg: string;
+  cta_color: string;
+  title_color: string;
+  offer_bg_color?: string;
+  offer_title_color?: string;
+  offer_subtitle_color?: string;
+}> = {
+  forest: {
+    bg_color: "#EAE5D8", subtitle_color: "#4A5A4B", cta_bg: "#3A4A38", cta_color: "#EAE5D8", title_color: "#3A4A38",
+    offer_bg_color: "#3A4A38", offer_title_color: "#F5F0E6", offer_subtitle_color: "#C5D0C0",
+  },
+  ink: {
+    bg_color: "#F5F5F3", subtitle_color: "#5A5A5A", cta_bg: "#1F1F1F", cta_color: "#F5F5F3", title_color: "#1F1F1F",
+    offer_bg_color: "#1F1F1F", offer_title_color: "#FFFFFF", offer_subtitle_color: "#B8B8B8",
+  },
+  slate: {
+    bg_color: "#EEF2F5", subtitle_color: "#5B6B78", cta_bg: "#2C3E50", cta_color: "#EEF2F5", title_color: "#2C3E50",
+    offer_bg_color: "#2C3E50", offer_title_color: "#EEF2F5", offer_subtitle_color: "#A8B8C8",
+  },
+  rose: {
+    bg_color: "#F6EEEA", subtitle_color: "#7A5F5F", cta_bg: "#6B3F3F", cta_color: "#F6EEEA", title_color: "#6B3F3F",
+    offer_bg_color: "#6B3F3F", offer_title_color: "#F6EEEA", offer_subtitle_color: "#E0C4C4",
+  },
+  midnight: {
+    bg_color: "#1A1A1A", subtitle_color: "#B0B0B0", cta_bg: "#EDE8DF", cta_color: "#1A1A1A", title_color: "#EDE8DF",
+    offer_bg_color: "#EDE8DF", offer_title_color: "#1A1A1A", offer_subtitle_color: "#5A5348",
+  },
+};
+
+function resolveEmailOfferStripColors(emailConfig: any, _activeBanner: any) {
+  const tpl = emailConfig?.color_template
+    ? BANNER_COLOR_TEMPLATES[String(emailConfig.color_template)]
+    : null;
+  // Style-only — never reuse previous sales-banner / last-sent colors (root cause of tan strip).
+  const bg = String(emailConfig?.offer_bg_color || tpl?.offer_bg_color || tpl?.cta_bg || "#3A4A38").trim();
+  const title = String(emailConfig?.offer_title_color || tpl?.offer_title_color || tpl?.cta_color || "#F5F0E6").trim();
+  const subtitle = String(emailConfig?.offer_subtitle_color || tpl?.offer_subtitle_color || tpl?.subtitle_color || "#C5D0C0").trim();
+  return {
+    bg,
+    title,
+    subtitle,
+    ctaBg: String(emailConfig?.offer_cta_bg || tpl?.cta_bg || "#3A4A38").trim(),
+    ctaColor: String(emailConfig?.offer_cta_color || tpl?.cta_color || "#F5F0E6").trim(),
+  };
+}
+
+function renderEmailOfferStripHtml(
+  banner: any,
+  heroImageUrl: string,
+  colors: { bg: string; title: string; subtitle: string; ctaBg: string; ctaColor: string },
+  vars: Record<string, string>,
+): string {
+  if (!banner && !heroImageUrl) return "";
+
+  const title = applyTemplate(banner?.title || "One Year Anniversary", vars);
+  const subtitle = applyTemplate(banner?.subtitle || "20% off all prints", vars);
+  const imageBlock = heroImageUrl
+    ? `<tr><td style="padding:0;line-height:0;font-size:0;">
+        <img src="${escapeHtml(heroImageUrl)}" alt="" width="540" style="display:block;width:100%;max-height:280px;object-fit:cover;border:0;" />
+      </td></tr>`
+    : "";
+
+  // Inline hex only from Style resolve — do not read banner.bg_color here.
+  return `
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border-radius:0;overflow:hidden;margin-bottom:28px;border:1px solid #e2e8f0;">
+      ${imageBlock}
+      <tr>
+        <td bgcolor="${escapeHtml(colors.bg)}" style="padding:24px 20px;text-align:center;background-color:${escapeHtml(colors.bg)} !important;">
+          <h2 style="margin:0 0 8px;font-size:18px;font-weight:700;color:${escapeHtml(colors.title)} !important;text-transform:uppercase;font-family:Georgia,serif;letter-spacing:0.04em;">
+            ${escapeHtml(title)}
+          </h2>
+          <p style="margin:0;font-size:12px;color:${escapeHtml(colors.subtitle)} !important;font-family:Arial,sans-serif;line-height:1.5;">
+            ${escapeHtml(subtitle)}
+          </p>
+        </td>
+      </tr>
+    </table>`;
 }
 
 function toEmailImageUrl(rawUrl: string): string {
@@ -250,7 +337,7 @@ function buildEmailHtml(options: {
     ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 24px;">
         <tr>
           <td align="center" style="padding:0;">
-            <img src="${escapeHtml(customImage)}" alt="" width="460" style="display:block;width:100%;max-width:460px;height:auto;max-height:280px;object-fit:cover;border-radius:4px;border:0;" />
+            <img src="${escapeHtml(customImage)}" alt="" width="460" style="display:block;width:100%;max-width:460px;height:auto;max-height:280px;object-fit:cover;border-radius:0;border:0;" />
           </td>
         </tr>
       </table>`
@@ -269,8 +356,8 @@ function buildEmailHtml(options: {
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:540px;background-color:${wrapperBg};box-shadow:0 10px 30px rgba(0,0,0,0.05);border-radius:8px;overflow:hidden;">
           <tr>
             <td style="padding:40px;text-align:center;">
-              <p style="margin:0 0 32px;font-size:14px;font-weight:500;letter-spacing:0.24em;text-transform:uppercase;color:${textHexColor};font-family:Georgia,serif;">
-                ${escapeHtml(photographerName)}
+              <p style="margin:0 0 32px;font-size:15px;font-weight:600;letter-spacing:0.35em;text-transform:uppercase;color:${textHexColor};font-family:Georgia,serif;">
+                PIXNXT
               </p>
               ${customImageHtml}
               ${bannerHtml}
@@ -434,6 +521,7 @@ serve(async (req) => {
         collectionId: preferredCollectionId,
         recipient: manualRecipient,
         testType,
+        offerStripColors,
       } = body;
 
       if (!photographerId || !campaignId || !emailKey || !emailConfig) {
@@ -454,7 +542,18 @@ serve(async (req) => {
         discount_code: discountCode || null,
         duration_days: durationDays ?? null,
         active_banner_key: activeBannerKey || null,
-        active_banner: sanitizeBannerForEmail(activeBanner || {}),
+        // Also embed Style strip in JSON so it survives even before migration columns exist
+        active_banner: {
+          ...sanitizeBannerForEmail(activeBanner || {}),
+          __offer_strip: {
+            color_template: emailConfig.color_template || null,
+            offer_bg_color: emailConfig.offer_bg_color || offerStripColors?.bg || null,
+            offer_title_color: emailConfig.offer_title_color || offerStripColors?.title || null,
+            offer_subtitle_color: emailConfig.offer_subtitle_color || offerStripColors?.subtitle || null,
+            offer_cta_bg: emailConfig.offer_cta_bg || offerStripColors?.ctaBg || null,
+            offer_cta_color: emailConfig.offer_cta_color || offerStripColors?.ctaColor || null,
+          },
+        },
         layout: emailConfig.layout || "Standard",
         subject: emailConfig.subject || "",
         title: emailConfig.title || "",
@@ -467,18 +566,49 @@ serve(async (req) => {
         logo_type: emailConfig.logo_type || "Dark Logo, for light background",
         icons_type: emailConfig.icons_type || "Dark Icons, for light background",
         custom_image: sanitizeImageField(emailConfig.custom_image),
+        color_template: emailConfig.color_template || null,
+        offer_bg_color: emailConfig.offer_bg_color || offerStripColors?.bg || null,
+        offer_title_color: emailConfig.offer_title_color || offerStripColors?.title || null,
+        offer_subtitle_color: emailConfig.offer_subtitle_color || offerStripColors?.subtitle || null,
+        offer_cta_bg: emailConfig.offer_cta_bg || offerStripColors?.ctaBg || null,
+        offer_cta_color: emailConfig.offer_cta_color || offerStripColors?.ctaColor || null,
         whatsapp_enabled: !!emailConfig.whatsapp_enabled,
         whatsapp_template: emailConfig.whatsapp_template || "",
         updated_at: new Date().toISOString(),
       };
 
-      const { data: savedReminder, error: upsertError } = await supabaseAdmin
-        .from("main_clients_reminders")
-        .upsert(reminderRow, { onConflict: "photographer_id,campaign_id,reminder_key" })
-        .select("*")
-        .single();
+      let savedReminder: any = null;
+      {
+        const firstTry = await supabaseAdmin
+          .from("main_clients_reminders")
+          .upsert(reminderRow, { onConflict: "photographer_id,campaign_id,reminder_key" })
+          .select("*")
+          .single();
 
-      if (upsertError) throw upsertError;
+        if (firstTry.error && /offer_|color_template/i.test(firstTry.error.message || "")) {
+          // Migration not applied yet — retry without new columns
+          const {
+            color_template: _ct,
+            offer_bg_color: _ob,
+            offer_title_color: _ot,
+            offer_subtitle_color: _os,
+            offer_cta_bg: _ocb,
+            offer_cta_color: _occ,
+            ...legacyRow
+          } = reminderRow;
+          const secondTry = await supabaseAdmin
+            .from("main_clients_reminders")
+            .upsert(legacyRow, { onConflict: "photographer_id,campaign_id,reminder_key" })
+            .select("*")
+            .single();
+          if (secondTry.error) throw secondTry.error;
+          savedReminder = secondTry.data;
+        } else if (firstTry.error) {
+          throw firstTry.error;
+        } else {
+          savedReminder = firstTry.data;
+        }
+      }
 
       const { data: photographer, error: photogError } = await supabaseAdmin
         .from("photographers")
@@ -646,12 +776,22 @@ serve(async (req) => {
         const bodyHtml = buildMessageHtml(messageBody);
         const hero = resolveEmailHeroPresentation(emailConfig.custom_image, activeBanner);
         const emailImage = toEmailImageUrl(hero.standaloneCustomImage);
-        const bannerHtml = activeBannerKey && hero.bannerForRender
-          ? renderBannerHtmlForEmail(
-            activeBannerKey,
-            sanitizeBannerForEmail(hero.bannerForRender),
-            vars,
-          )
+        const heroImageUrl = toEmailImageUrl(hero.heroImageUrl || hero.standaloneCustomImage);
+        // Prefer explicit strip colors from the client (matches Style preview); then emailConfig Style fields.
+        const stripFromClient = offerStripColors && typeof offerStripColors === "object"
+          ? offerStripColors
+          : null;
+        const offerColors = stripFromClient?.bg
+          ? {
+            bg: String(stripFromClient.bg),
+            title: String(stripFromClient.title || "#F5F0E6"),
+            subtitle: String(stripFromClient.subtitle || "#C5D0C0"),
+            ctaBg: String(stripFromClient.ctaBg || stripFromClient.bg),
+            ctaColor: String(stripFromClient.ctaColor || "#F5F0E6"),
+          }
+          : resolveEmailOfferStripColors(emailConfig, activeBanner);
+        const bannerHtml = (heroImageUrl || activeBanner)
+          ? renderEmailOfferStripHtml(activeBanner, heroImageUrl, offerColors, vars)
           : "";
 
         const html = buildEmailHtml({
@@ -668,7 +808,7 @@ serve(async (req) => {
           bgColor: emailConfig.bg_color || "#ffffff",
           textColor: emailConfig.text_color || "#000000",
           layout: emailConfig.layout || "Standard",
-          customImage: emailImage,
+          customImage: bannerHtml ? "" : emailImage,
         });
 
         const emailHeaders = buildReminderEmailHeaders({
@@ -840,6 +980,12 @@ serve(async (req) => {
           icons_type: reminder.icons_type,
           layout: reminder.layout,
           custom_image: reminder.custom_image,
+          color_template: reminder.color_template,
+          offer_bg_color: reminder.offer_bg_color,
+          offer_title_color: reminder.offer_title_color,
+          offer_subtitle_color: reminder.offer_subtitle_color,
+          offer_cta_bg: reminder.offer_cta_bg,
+          offer_cta_color: reminder.offer_cta_color,
           whatsapp_enabled: reminder.whatsapp_enabled,
           whatsapp_template: reminder.whatsapp_template,
         },
