@@ -3017,7 +3017,7 @@ div.customizer-grid-item[class*="product-card-"] {
   width: 245px !important;
   height: 310px !important;
   aspect-ratio: 245 / 310 !important;
-  background: #ffffff !important; /* White board background */
+  background: #f7f7f7 !important; /* Slightly off-white mat so white print border reads clearly */
   border: 22px solid var(--frame-color, #ebd2b0) !important; /* Thicker natural oak wood frame */
   box-shadow: 
     inset 0 0 0 1px rgba(0, 0, 0, 0.15), /* Inner dark separation line at frame edge */
@@ -3034,8 +3034,10 @@ div.customizer-grid-item[class*="product-card-"] {
   position: relative;
 }
 .product-card-float_frames .product-image {
+  /* White paper margin; outer edge deckled via mask — photo pixels stay straight */
   background: #ffffff !important;
-  padding: 10px !important; /* White border around B&W photo */
+  padding: 16px !important;
+  box-sizing: border-box !important;
   width: auto !important;
   height: auto !important;
   max-width: 72% !important;
@@ -3043,8 +3045,15 @@ div.customizer-grid-item[class*="product-card-"] {
   object-fit: contain !important;
   border: none !important;
   box-shadow: none !important;
-  /* Apply deckled rough edge and drop-shadow under the floating paper */
-  filter: url(#deckled-edge) drop-shadow(4px 8px 12px rgba(0, 0, 0, 0.18)) !important;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20200%20260%22%20preserveAspectRatio%3D%22none%22%3E%3Cpath%20fill%3D%22white%22%20d%3D%22M4.00%204.75L9.33%205.04L14.67%204.74L20.00%204.36L25.33%204.31L30.67%204.47L36.00%204.37L41.33%203.84L46.67%203.29L52.00%203.28L57.33%203.90L62.67%204.58L68.00%204.69L73.33%204.18L78.67%203.57L84.00%203.38L89.33%203.57L94.67%203.67L100.00%203.43L105.33%203.14L110.67%203.34L116.00%204.11L121.33%204.91L126.67%205.10L132.00%204.60L137.33%203.97L142.67%203.77L148.00%204.03L153.33%204.26L158.67%204.12L164.00%203.83L169.33%203.88L174.67%204.40L180.00%204.92L185.33%204.84L190.67%204.09L196.00%203.25L197.22%2011.00L196.65%2018.00L196.05%2025.00L195.99%2032.00L196.06%2039.00L195.67%2046.00L195.11%2053.00L195.18%2060.00L195.99%2067.00L196.63%2074.00L196.39%2081.00L195.67%2088.00L195.39%2095.00L195.74%20102.00L196.01%20109.00L195.84%20116.00L195.73%20123.00L196.29%20130.00L197.12%20137.00L197.26%20144.00L196.47%20151.00L195.60%20158.00L195.44%20165.00L195.75%20172.00L195.77%20179.00L195.45%20186.00L195.46%20193.00L196.10%20200.00L196.64%20207.00L196.33%20214.00L195.49%20221.00L195.12%20228.00L195.60%20235.00L196.24%20242.00L196.36%20249.00L196.21%20256.00L190.67%20257.26L185.33%20256.79L180.00%20255.99L174.67%20255.60L169.33%20255.73L164.00%20255.80L158.67%20255.39L153.33%20254.87L148.00%20254.94L142.67%20255.68L137.33%20256.43L132.00%20256.54L126.67%20256.18L121.33%20256.02L116.00%20256.33L110.67%20256.64L105.33%20256.36L100.00%20255.68L94.67%20255.33L89.33%20255.71L84.00%20256.37L78.67%20256.59L73.33%20256.27L68.00%20256.02L62.67%20256.25L57.33%20256.63L52.00%20256.48L46.67%20255.70L41.33%20254.97L36.00%20254.93L30.67%20255.42L25.33%20255.74L20.00%20255.61L14.67%20255.49L9.33%20255.94L4.00%20256.78L4.87%20249.00L4.55%20242.00L4.11%20235.00L3.94%20228.00L4.03%20221.00L4.10%20214.00L3.97%20207.00L3.76%20200.00L3.74%20193.00L3.96%20186.00L4.17%20179.00L4.04%20172.00L3.58%20165.00L3.21%20158.00L3.40%20151.00L4.18%20144.00L5.04%20137.00L5.32%20130.00L4.77%20123.00L3.78%20116.00L3.10%20109.00L3.17%20102.00L3.78%2095.00L4.32%2088.00L4.36%2081.00L3.96%2074.00L3.57%2067.00L3.53%2060.00L3.83%2053.00L4.15%2046.00L4.27%2039.00L4.25%2032.00L4.32%2025.00L4.53%2018.00L4.61%2011.00Z%22%2F%3E%3C%2Fsvg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20200%20260%22%20preserveAspectRatio%3D%22none%22%3E%3Cpath%20fill%3D%22white%22%20d%3D%22M4.00%204.75L9.33%205.04L14.67%204.74L20.00%204.36L25.33%204.31L30.67%204.47L36.00%204.37L41.33%203.84L46.67%203.29L52.00%203.28L57.33%203.90L62.67%204.58L68.00%204.69L73.33%204.18L78.67%203.57L84.00%203.38L89.33%203.57L94.67%203.67L100.00%203.43L105.33%203.14L110.67%203.34L116.00%204.11L121.33%204.91L126.67%205.10L132.00%204.60L137.33%203.97L142.67%203.77L148.00%204.03L153.33%204.26L158.67%204.12L164.00%203.83L169.33%203.88L174.67%204.40L180.00%204.92L185.33%204.84L190.67%204.09L196.00%203.25L197.22%2011.00L196.65%2018.00L196.05%2025.00L195.99%2032.00L196.06%2039.00L195.67%2046.00L195.11%2053.00L195.18%2060.00L195.99%2067.00L196.63%2074.00L196.39%2081.00L195.67%2088.00L195.39%2095.00L195.74%20102.00L196.01%20109.00L195.84%20116.00L195.73%20123.00L196.29%20130.00L197.12%20137.00L197.26%20144.00L196.47%20151.00L195.60%20158.00L195.44%20165.00L195.75%20172.00L195.77%20179.00L195.45%20186.00L195.46%20193.00L196.10%20200.00L196.64%20207.00L196.33%20214.00L195.49%20221.00L195.12%20228.00L195.60%20235.00L196.24%20242.00L196.36%20249.00L196.21%20256.00L190.67%20257.26L185.33%20256.79L180.00%20255.99L174.67%20255.60L169.33%20255.73L164.00%20255.80L158.67%20255.39L153.33%20254.87L148.00%20254.94L142.67%20255.68L137.33%20256.43L132.00%20256.54L126.67%20256.18L121.33%20256.02L116.00%20256.33L110.67%20256.64L105.33%20256.36L100.00%20255.68L94.67%20255.33L89.33%20255.71L84.00%20256.37L78.67%20256.59L73.33%20256.27L68.00%20256.02L62.67%20256.25L57.33%20256.63L52.00%20256.48L46.67%20255.70L41.33%20254.97L36.00%20254.93L30.67%20255.42L25.33%20255.74L20.00%20255.61L14.67%20255.49L9.33%20255.94L4.00%20256.78L4.87%20249.00L4.55%20242.00L4.11%20235.00L3.94%20228.00L4.03%20221.00L4.10%20214.00L3.97%20207.00L3.76%20200.00L3.74%20193.00L3.96%20186.00L4.17%20179.00L4.04%20172.00L3.58%20165.00L3.21%20158.00L3.40%20151.00L4.18%20144.00L5.04%20137.00L5.32%20130.00L4.77%20123.00L3.78%20116.00L3.10%20109.00L3.17%20102.00L3.78%2095.00L4.32%2088.00L4.36%2081.00L3.96%2074.00L3.57%2067.00L3.53%2060.00L3.83%2053.00L4.15%2046.00L4.27%2039.00L4.25%2032.00L4.32%2025.00L4.53%2018.00L4.61%2011.00Z%22%2F%3E%3C%2Fsvg%3E");
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  filter: drop-shadow(2px 5px 10px rgba(0, 0, 0, 0.18)) !important;
   transition: transform 0.4s ease !important;
 }
 .product-card-float_frames .product-image.landscape-image {
@@ -4015,14 +4024,55 @@ body.crop-modal-active .scroll-to-top-btn {
   box-sizing: border-box !important;
   background: transparent !important;
 }
-/* Float frame photo: img tag gets the deckled SVG filter */
+/* Float frames — outer paper deckle only (no image warp) */
+.ff-deckle-paper {
+  background-color: #ffffff;
+  box-sizing: border-box;
+  /* Slight white print border between photo and deckle edge */
+  padding: 8.5%;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20200%20260%22%20preserveAspectRatio%3D%22none%22%3E%3Cpath%20fill%3D%22white%22%20d%3D%22M4.00%204.75L9.33%205.04L14.67%204.74L20.00%204.36L25.33%204.31L30.67%204.47L36.00%204.37L41.33%203.84L46.67%203.29L52.00%203.28L57.33%203.90L62.67%204.58L68.00%204.69L73.33%204.18L78.67%203.57L84.00%203.38L89.33%203.57L94.67%203.67L100.00%203.43L105.33%203.14L110.67%203.34L116.00%204.11L121.33%204.91L126.67%205.10L132.00%204.60L137.33%203.97L142.67%203.77L148.00%204.03L153.33%204.26L158.67%204.12L164.00%203.83L169.33%203.88L174.67%204.40L180.00%204.92L185.33%204.84L190.67%204.09L196.00%203.25L197.22%2011.00L196.65%2018.00L196.05%2025.00L195.99%2032.00L196.06%2039.00L195.67%2046.00L195.11%2053.00L195.18%2060.00L195.99%2067.00L196.63%2074.00L196.39%2081.00L195.67%2088.00L195.39%2095.00L195.74%20102.00L196.01%20109.00L195.84%20116.00L195.73%20123.00L196.29%20130.00L197.12%20137.00L197.26%20144.00L196.47%20151.00L195.60%20158.00L195.44%20165.00L195.75%20172.00L195.77%20179.00L195.45%20186.00L195.46%20193.00L196.10%20200.00L196.64%20207.00L196.33%20214.00L195.49%20221.00L195.12%20228.00L195.60%20235.00L196.24%20242.00L196.36%20249.00L196.21%20256.00L190.67%20257.26L185.33%20256.79L180.00%20255.99L174.67%20255.60L169.33%20255.73L164.00%20255.80L158.67%20255.39L153.33%20254.87L148.00%20254.94L142.67%20255.68L137.33%20256.43L132.00%20256.54L126.67%20256.18L121.33%20256.02L116.00%20256.33L110.67%20256.64L105.33%20256.36L100.00%20255.68L94.67%20255.33L89.33%20255.71L84.00%20256.37L78.67%20256.59L73.33%20256.27L68.00%20256.02L62.67%20256.25L57.33%20256.63L52.00%20256.48L46.67%20255.70L41.33%20254.97L36.00%20254.93L30.67%20255.42L25.33%20255.74L20.00%20255.61L14.67%20255.49L9.33%20255.94L4.00%20256.78L4.87%20249.00L4.55%20242.00L4.11%20235.00L3.94%20228.00L4.03%20221.00L4.10%20214.00L3.97%20207.00L3.76%20200.00L3.74%20193.00L3.96%20186.00L4.17%20179.00L4.04%20172.00L3.58%20165.00L3.21%20158.00L3.40%20151.00L4.18%20144.00L5.04%20137.00L5.32%20130.00L4.77%20123.00L3.78%20116.00L3.10%20109.00L3.17%20102.00L3.78%2095.00L4.32%2088.00L4.36%2081.00L3.96%2074.00L3.57%2067.00L3.53%2060.00L3.83%2053.00L4.15%2046.00L4.27%2039.00L4.25%2032.00L4.32%2025.00L4.53%2018.00L4.61%2011.00Z%22%2F%3E%3C%2Fsvg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20200%20260%22%20preserveAspectRatio%3D%22none%22%3E%3Cpath%20fill%3D%22white%22%20d%3D%22M4.00%204.75L9.33%205.04L14.67%204.74L20.00%204.36L25.33%204.31L30.67%204.47L36.00%204.37L41.33%203.84L46.67%203.29L52.00%203.28L57.33%203.90L62.67%204.58L68.00%204.69L73.33%204.18L78.67%203.57L84.00%203.38L89.33%203.57L94.67%203.67L100.00%203.43L105.33%203.14L110.67%203.34L116.00%204.11L121.33%204.91L126.67%205.10L132.00%204.60L137.33%203.97L142.67%203.77L148.00%204.03L153.33%204.26L158.67%204.12L164.00%203.83L169.33%203.88L174.67%204.40L180.00%204.92L185.33%204.84L190.67%204.09L196.00%203.25L197.22%2011.00L196.65%2018.00L196.05%2025.00L195.99%2032.00L196.06%2039.00L195.67%2046.00L195.11%2053.00L195.18%2060.00L195.99%2067.00L196.63%2074.00L196.39%2081.00L195.67%2088.00L195.39%2095.00L195.74%20102.00L196.01%20109.00L195.84%20116.00L195.73%20123.00L196.29%20130.00L197.12%20137.00L197.26%20144.00L196.47%20151.00L195.60%20158.00L195.44%20165.00L195.75%20172.00L195.77%20179.00L195.45%20186.00L195.46%20193.00L196.10%20200.00L196.64%20207.00L196.33%20214.00L195.49%20221.00L195.12%20228.00L195.60%20235.00L196.24%20242.00L196.36%20249.00L196.21%20256.00L190.67%20257.26L185.33%20256.79L180.00%20255.99L174.67%20255.60L169.33%20255.73L164.00%20255.80L158.67%20255.39L153.33%20254.87L148.00%20254.94L142.67%20255.68L137.33%20256.43L132.00%20256.54L126.67%20256.18L121.33%20256.02L116.00%20256.33L110.67%20256.64L105.33%20256.36L100.00%20255.68L94.67%20255.33L89.33%20255.71L84.00%20256.37L78.67%20256.59L73.33%20256.27L68.00%20256.02L62.67%20256.25L57.33%20256.63L52.00%20256.48L46.67%20255.70L41.33%20254.97L36.00%20254.93L30.67%20255.42L25.33%20255.74L20.00%20255.61L14.67%20255.49L9.33%20255.94L4.00%20256.78L4.87%20249.00L4.55%20242.00L4.11%20235.00L3.94%20228.00L4.03%20221.00L4.10%20214.00L3.97%20207.00L3.76%20200.00L3.74%20193.00L3.96%20186.00L4.17%20179.00L4.04%20172.00L3.58%20165.00L3.21%20158.00L3.40%20151.00L4.18%20144.00L5.04%20137.00L5.32%20130.00L4.77%20123.00L3.78%20116.00L3.10%20109.00L3.17%20102.00L3.78%2095.00L4.32%2088.00L4.36%2081.00L3.96%2074.00L3.57%2067.00L3.53%2060.00L3.83%2053.00L4.15%2046.00L4.27%2039.00L4.25%2032.00L4.32%2025.00L4.53%2018.00L4.61%2011.00Z%22%2F%3E%3C%2Fsvg%3E");
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  filter: drop-shadow(2px 6px 12px rgba(0, 0, 0, 0.2));
+}
+.ff-deckle-paper > img,
+.ff-deckle-paper .ff-deckle-photo,
+.ff-deckle-paper .single-customizer-img,
+.ff-deckle-paper .single-image-wrapper {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Keep photo rectangle straight — no displacement filters */
+  filter: none !important;
+  -webkit-mask-image: none !important;
+  mask-image: none !important;
+  /* Inner edge of photo sits cleanly inside the white border */
+  background: #ffffff;
+}
+.ff-deckle-paper .single-image-wrapper img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
 .float-frame-preview-photo {
   display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  filter: url(#deckled-edge) drop-shadow(3px 6px 10px rgba(0, 0, 0, 0.22));
+  filter: none !important;
 }
+.float-frame-photo-container.ff-deckle-paper,
+.float-frame-photo-container {
+  overflow: visible !important;
+}
+
 .pdp-overlay-matted_collages {
   background: #ffffff;
   padding: 10px 8px !important;
@@ -4622,7 +4672,7 @@ body.crop-modal-active .scroll-to-top-btn {
 }
 .pdp-closeup__animation {
   position: relative;
-  height: 604.63px;
+  height: 560px;
 }
 .pt-trio-scope {
   width: 100%;
@@ -4631,74 +4681,77 @@ body.crop-modal-active .scroll-to-top-btn {
 .pt-trio-scope__container {
   position: relative;
   width: 100%;
-  height: 604.63px;
+  height: 560px;
   overflow: visible;
 }
 
-/* All images start at the SAME base size (339.5 × 226.33) */
+/* Equal small cards — triangle layout */
 .pt-trio-scope__container__image {
   position: absolute;
-  width: 339.5px;
-  height: 226.33px;
+  width: 300px;
+  height: 200px;
   background-size: cover;
   background-position: center;
   border-radius: 3px;
   overflow: hidden;
   cursor: pointer;
-  transition: transform 0.5s cubic-bezier(0.23, 1, 0.32, 1),
-              box-shadow 0.5s ease;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+  transition: transform 0.35s cubic-bezier(0.23, 1, 0.32, 1),
+              box-shadow 0.35s ease,
+              z-index 0s;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+  z-index: 2;
 }
 
-/* ===== FIXED POSITIONS — no overlap at base size ===== */
+/* Top of triangle */
+.pt-trio-scope__container__image:nth-child(2) {
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  transform-origin: center top;
+}
 
-/* Image 1: bottom-left — scales toward right & up */
+/* Bottom-left of triangle */
 .pt-trio-scope__container__image:nth-child(1) {
-  top: 370px;
-  left: 0;
+  top: 290px;
+  left: 28px;
+  transform: none;
   transform-origin: left bottom;
 }
 
-/* Image 2: upper-center — scales toward right & down */
-.pt-trio-scope__container__image:nth-child(2) {
-  top: 10px;
-  left: 200px;
-  transform-origin: left top;
-}
-
-/* Image 3: right side — scales toward left & down */
+/* Bottom-right of triangle */
 .pt-trio-scope__container__image:nth-child(3) {
-  top: 280px;
+  top: 290px;
   left: auto;
-  right: 0;
-  transform-origin: right top;
+  right: 28px;
+  transform: none;
+  transform-origin: right bottom;
 }
 
-/* ===== SCALE ROLES ===== */
-
-/* Big: 601.4 / 339.5 = 1.77 */
-.pt-trio-scope__container__image.trio-role-big {
-  transform: scale(1.77);
-  z-index: 10;
-  box-shadow: 0 12px 40px rgba(0,0,0,0.12);
-}
-
-/* Small: stays at base size */
-.pt-trio-scope__container__image.trio-role-small {
-  transform: scale(1);
-  z-index: 5;
-}
-
-/* Tiny: 261.9 / 339.5 = 0.77 */
+/* Keep roles for compatibility — all render at the same small size */
+.pt-trio-scope__container__image.trio-role-big,
+.pt-trio-scope__container__image.trio-role-small,
 .pt-trio-scope__container__image.trio-role-tiny {
-  transform: scale(0.77);
-  z-index: 3;
+  /* size comes from base rule; roles only affect stacking on hover via JS class */
 }
 
-/* Hover glow on non-big images */
-.pt-trio-scope__container__image.trio-role-small:hover,
-.pt-trio-scope__container__image.trio-role-tiny:hover {
-  box-shadow: 0 12px 32px rgba(0,0,0,0.16);
+.pt-trio-scope__container__image.is-active {
+  z-index: 12;
+}
+
+/* Slight hover lift — same for every card */
+.pt-trio-scope__container__image:nth-child(2):hover,
+.pt-trio-scope__container__image:nth-child(2).is-active:hover {
+  transform: translateX(-50%) translateY(-8px) scale(1.05);
+  box-shadow: 0 14px 36px rgba(0,0,0,0.18);
+  z-index: 20;
+}
+.pt-trio-scope__container__image:nth-child(1):hover,
+.pt-trio-scope__container__image:nth-child(1).is-active:hover,
+.pt-trio-scope__container__image:nth-child(3):hover,
+.pt-trio-scope__container__image:nth-child(3).is-active:hover {
+  transform: translateY(-8px) scale(1.05);
+  box-shadow: 0 14px 36px rgba(0,0,0,0.18);
+  z-index: 20;
 }
 
 .pt-trio-scope__image-label {
@@ -4716,6 +4769,7 @@ body.crop-modal-active .scroll-to-top-btn {
   text-align: center;
   opacity: 0;
   transition: opacity 0.3s ease;
+  pointer-events: none;
 }
 .pt-trio-scope__container__image:hover .pt-trio-scope__image-label {
   opacity: 1;
@@ -5095,11 +5149,21 @@ body.crop-modal-active .scroll-to-top-btn {
   .pt-trio-scope__container {
     height: 300px;
   }
-  /* Scale trio images down for mobile */
-  .pt-trio-scope__container__image { width: 180px !important; height: 120px !important; }
-  .pt-trio-scope__container__image:nth-child(1) { top: 170px !important; left: 5px !important; }
-  .pt-trio-scope__container__image:nth-child(2) { top: 10px !important; left: 100px !important; }
-  .pt-trio-scope__container__image:nth-child(3) { top: 130px !important; right: 0 !important; }
+  /* Equal small triangle on mobile */
+  .pt-trio-scope__container__image { width: 148px !important; height: 99px !important; }
+  .pt-trio-scope__container__image:nth-child(1) { top: 175px !important; left: 8px !important; transform: none !important; }
+  .pt-trio-scope__container__image:nth-child(2) { top: 12px !important; left: 50% !important; transform: translateX(-50%) !important; }
+  .pt-trio-scope__container__image:nth-child(3) { top: 175px !important; right: 8px !important; left: auto !important; transform: none !important; }
+  .pt-trio-scope__container__image:nth-child(2):hover,
+  .pt-trio-scope__container__image:nth-child(2).is-active:hover {
+    transform: translateX(-50%) translateY(-6px) scale(1.05) !important;
+  }
+  .pt-trio-scope__container__image:nth-child(1):hover,
+  .pt-trio-scope__container__image:nth-child(1).is-active:hover,
+  .pt-trio-scope__container__image:nth-child(3):hover,
+  .pt-trio-scope__container__image:nth-child(3).is-active:hover {
+    transform: translateY(-6px) scale(1.05) !important;
+  }
   .pdp-intro {
     grid-template-columns: 1fr;
   }

@@ -1526,22 +1526,13 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
                 <div className="pt-trio-scope" data-component="PDP-5-1-1">
                   <div className="pt-trio-scope__container">
                     {(details.trioImages || activeDetails.map(d => d.url)).slice(0, 3).map((imgUrl, idx) => {
-                      const order = [(activeTrioIndex) % 3, (activeTrioIndex + 1) % 3, (activeTrioIndex + 2) % 3];
-                      let role = 'tiny';
-                      if (idx === order[0]) role = 'big';
-                      else if (idx === order[1]) role = 'small';
-                      
-                      const imgToDisplay = imgUrl;
-                      
                       return (
                         <div 
                           key={idx} 
-                          className={`pt-trio-scope__container__image trio-role-${role}`}
-                          data-role={role}
-                          style={{ backgroundImage: `url(${imgToDisplay})` }}
-                          onMouseEnter={() => {
-                            if (role !== 'big') setActiveTrioIndex(idx);
-                          }}
+                          className={`pt-trio-scope__container__image trio-role-small${activeTrioIndex === idx ? ' is-active' : ''}`}
+                          data-role="small"
+                          style={{ backgroundImage: `url(${imgUrl})` }}
+                          onMouseEnter={() => setActiveTrioIndex(idx)}
                         >
                           <div className="pt-trio-scope__image-label">{details.trioImages ? '' : (activeDetails[idx]?.name || '')}</div>
                         </div>
@@ -2072,21 +2063,20 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
                                       : { width: '100%', height: '100%', top: '0%', left: '0%' })
                                 }}>
                                   {product.id === 'float_frames' ? (
-                                    <div style={{
+                                    <div
+                                      className="ff-deckle-paper"
+                                      style={{
                                       position: 'absolute', 
                                       width: '100%', 
                                       height: '100%', 
                                       left: '0px', 
                                       top: '0px',
-                                      backgroundColor: '#ffffff',
-                                      padding: '3px',
                                       boxSizing: 'border-box',
-                                      filter: 'url(#slight-deckled-edge) drop-shadow(2px 6px 12px rgba(0,0,0,0.22))'
                                     }}>
                                       <img 
                                         src={photoUrl}
                                         alt=""
-                                        className="float-frame-preview-photo"
+                                        className="float-frame-preview-photo ff-deckle-photo"
                                         style={{ 
                                           width: '100%', 
                                           height: '100%', 
@@ -2374,30 +2364,33 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
                                 <div className="composition-preview__overlay" style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 1 }}>
                                   <div className="float-frame-shadow" style={{ position: 'absolute', width: '100%', height: '100%', backgroundColor: selectedFrame?.color || '#111111', boxShadow: '0 8px 24px rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                     <div className="float-frame-mat" style={{ 
-                                      width: `${ffMatWidthPct}%`, height: `${ffMatHeightPct}%`, backgroundColor: '#fdfdfd',
+                                      width: `${ffMatWidthPct}%`, height: `${ffMatHeightPct}%`, backgroundColor: '#f5f5f5',
                                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                                       boxShadow: 'inset 0 2px 6px rgba(0,0,0,0.1)'
                                     }}>
-                                      {/* Floating Photo with deckled edges */}
-                                      <div style={{
+                                      {/* Floating photo: outer paper deckle only; image stays straight */}
+                                      <div
+                                        className="ff-deckle-paper"
+                                        style={{
                                         position: 'relative',
                                         width: `${ffPrintWidthPct}%`, 
                                         height: `${ffPrintHeightPct}%`, 
-                                        backgroundColor: '#fff',
-                                        padding: '3px',
                                         boxSizing: 'border-box',
-                                        filter: 'url(#slight-deckled-edge) drop-shadow(2px 6px 12px rgba(0,0,0,0.22))', /* Deckled shadow */
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center'
                                       }}>
-                                        <div style={{
-                                          width: '100%',
-                                          height: '100%',
-                                          backgroundImage: `url(${photoUrl})`,
-                                          backgroundSize: 'cover',
-                                          backgroundPosition: 'center center'
-                                        }}></div>
+                                        <img
+                                          src={photoUrl}
+                                          alt=""
+                                          className="ff-deckle-photo"
+                                          style={{
+                                            width: '100%',
+                                            height: '100%',
+                                            objectFit: 'cover',
+                                            display: 'block',
+                                          }}
+                                        />
                                       </div>
                                     </div>
                                   </div>

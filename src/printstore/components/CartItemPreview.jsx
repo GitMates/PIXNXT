@@ -495,19 +495,15 @@ export default function CartItemPreview({ item, collectionPhotos = [], compact =
         }}
       >
         <div className="float-frame-mat" style={{ 
-          width: '94%', height: '94%', backgroundColor: '#fdfdfd',
+          width: '94%', height: '94%', backgroundColor: '#f5f5f5',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           boxShadow: 'inset 0 2px 6px rgba(0,0,0,0.1)'
         }}>
-          <div className="float-frame-photo-container" style={{
+          <div className="float-frame-photo-container ff-deckle-paper" style={{
             position: 'relative',
             width: `${ffPrintWidthPct}%`, 
             height: `${ffPrintHeightPct}%`, 
-            backgroundColor: '#fff',
-            padding: '3px',
             boxSizing: 'border-box',
-            filter: 'url(#slight-deckled-edge) drop-shadow(2px 6px 12px rgba(0,0,0,0.22))',
-            overflow: 'hidden'
           }}>
             {item.photo ? (
               <div className="single-image-wrapper" style={{ width: '100%', height: '100%', position: 'relative' }}>

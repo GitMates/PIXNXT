@@ -12,24 +12,20 @@ export default function FloatFramesPreview({ product, selectedFrame, currentAspe
       }}>
         <div className="composition-preview__printable-area" style={{ 
           position: 'absolute',
-          width: '78.6987%', height: '82.2006%', top: '8.89968%', left: '10.6507%', backgroundColor: '#ffffff'
+          width: '78.6987%', height: '82.2006%', top: '8.89968%', left: '10.6507%', backgroundColor: '#f5f5f5'
         }}>
-          <div className="composition-preview-box" style={{ 
+          <div className="composition-preview-box ff-deckle-paper" style={{ 
             position: 'absolute',
             width: '56.25%', height: '65%', top: '17.5%', left: '21.875%'
           }}>
             <img 
               src={product.image}
               alt=""
-              className="float-frame-preview-photo"
+              className="float-frame-preview-photo ff-deckle-photo"
               style={{ 
-                position: 'absolute', 
                 width: '100%', 
                 height: '100%', 
-                left: '0px', 
-                top: '0px',
                 objectFit: 'cover',
-                filter: 'url(#deckled-edge) drop-shadow(3px 6px 10px rgba(0,0,0,0.22))'
               }}
             />
           </div>
