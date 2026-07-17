@@ -11,6 +11,7 @@ import {
 import { handleRegisterGuestRequest } from './guestDelivery/registerGuest.js';
 import { handlePublishEventRequest } from './guestDelivery/publishEvent.js';
 import { handleGuestGalleryRequest } from './guestDelivery/getGuestGallery.js';
+import { handleSendGuestEmailRequest } from './guestDelivery/sendGuestEmail.js';
 
 function readJsonBody(req) {
   return new Promise((resolve, reject) => {
@@ -46,6 +47,7 @@ const ROUTES = {
   '/api/guest-delivery/register': (_req, body) => handleRegisterGuestRequest(body),
   '/api/guest-delivery/publish': (req, body) => handlePublishEventRequest(req, body),
   '/api/guest-delivery/gallery': (_req, body) => handleGuestGalleryRequest(body),
+  '/api/guest-delivery/send-email': (req, body) => handleSendGuestEmailRequest(req, body),
 };
 
 /** Vite dev-server middleware for local API routes */

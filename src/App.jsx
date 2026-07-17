@@ -59,6 +59,15 @@ function GuestDeliveryPublicRoutes() {
     <Routes>
       <Route path="/e/:slug/register" element={<EventGuestRegister />} />
       <Route path="/e/:slug/g/:token" element={<EventGuestGallery />} />
+      <Route
+        path="/e/*"
+        element={
+          <div style={{ padding: '48px 24px', textAlign: 'center', fontFamily: 'system-ui, sans-serif' }}>
+            <h1 style={{ fontSize: 20, marginBottom: 8 }}>Link not found</h1>
+            <p style={{ color: '#666' }}>This guest delivery link is invalid or incomplete.</p>
+          </div>
+        }
+      />
     </Routes>
   );
 }

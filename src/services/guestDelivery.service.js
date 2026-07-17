@@ -1,7 +1,7 @@
 import { supabase } from '../lib/supabase/client';
 
 const EVENT_FIELDS =
-  'id, photographer_id, name, event_date, slug, cover_image_url, status, registration_enabled, match_threshold, published_at, photo_count, guest_count, settings, created_at, updated_at';
+  'id, photographer_id, name, event_date, slug, cover_image_url, status, registration_enabled, match_threshold, published_at, photo_count, guest_count, collection_id, settings, created_at, updated_at';
 
 function normalizeName(name) {
   return String(name || '').trim();
@@ -149,6 +149,41 @@ export const guestDeliveryService = {
       .eq('id', eventId);
 
     if (error) throw error;
+  },
+
+  async createLinkedEvent({ collectionId, photographerId, name, eventDate, slug }) {
+    await ensurePhotographer(photographerId);
+    const eventSlug = slug
+      ? `${slug.replace(/[^\w-]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')}-${Date.now().toString(36)}`
+      : generateSlug(name);
+    const now = new Date().toISOString();
+    const { data, error } = await supabase
+      .from('guest_delivery_events')
+      .insert([{
+        photographer_id: photographerId,
+        name: normalizeName(name),
+        event_date: eventDate || null,
+        slug: eventSlug,
+        status: 'draft',
+        registration_enabled: true,
+        collection_id: collectionId,
+        settings: {},
+        updated_at: now,
+      }])
+      .select(EVENT_FIELDS)
+      .single();
+    if (error) throw error;
+    return data;
+  },
+
+  async getEventByCollectionId(collectionId) {
+    const { data, error } = await supabase
+      .from('guest_delivery_events')
+      .select(EVENT_FIELDS)
+      .eq('collection_id', collectionId)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
   },
 
   async incrementPhotoCount(eventId, delta = 1) {

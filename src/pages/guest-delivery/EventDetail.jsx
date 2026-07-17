@@ -143,7 +143,9 @@ export default function EventDetail() {
       }
 
       if (emailErrors.length === matchedGuests.length && matchedGuests.length > 0) {
-        message += '\n\nEmail could not be sent. Deploy the send-guest-delivery-email edge function and configure SMTP in Supabase.';
+        message += `\n\nEmail error: ${emailErrors[0]}`;
+      } else if (emailErrors.length) {
+        message += `\n\nEmail errors:\n${emailErrors.map((e) => `- ${e}`).join('\n')}`;
       }
 
       alert(message);

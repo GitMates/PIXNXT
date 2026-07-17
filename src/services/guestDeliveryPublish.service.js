@@ -8,6 +8,7 @@ async function readFunctionErrorMessage(error) {
     try {
       const body = await error.context.json();
       if (body?.error) message = body.error;
+      else if (body?.message) message = body.message;
     } catch {
       /* use default */
     }
@@ -55,6 +56,7 @@ export const guestDeliveryPublishService = {
       throw new Error('You must be signed in to send emails.');
     }
 
+    // Same pattern as mobile gallery invite — this is what successfully sent mail before.
     const { data, error } = await supabase.functions.invoke('send-guest-delivery-email', {
       headers: {
         Authorization: `Bearer ${session.access_token}`,
@@ -64,6 +66,7 @@ export const guestDeliveryPublishService = {
         guestId,
         sendCopy,
         siteOrigin: getPublicSiteOrigin(),
+        accessToken: session.access_token,
       },
     });
 

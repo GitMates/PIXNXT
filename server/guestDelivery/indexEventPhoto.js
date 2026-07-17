@@ -64,27 +64,73 @@ export async function indexGuestDeliveryPhoto(photoId, { supabase, force = false
   return { photoId: photo.id, indexed: true, indexedAt, faceCount };
 }
 
-export async function indexEventPhotos(eventId, { supabase, force = false } = {}) {
+async function indexCollectionPhoto(photoId, eventId, { supabase, force = false } = {}) {
+  const db = supabase || getSupabaseAdmin();
+  const { data: photo, error } = await db
+    .from('photos')
+    .select('id, full_url, thumbnail_url')
+    .eq('id', photoId)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!photo) throw new Error('Photo not found.');
+
+  const imageUrl = photo.full_url || photo.thumbnail_url;
+  const rawBytes = await downloadImageBytes(imageUrl);
+  const imageBytes = new Uint8Array(await normalizeImageToJpegBytes(rawBytes));
+  const collId = rekognitionCollectionId(eventId);
+
+  const analysis = await analyzeImageBytes(imageBytes, {
+    collectionId: collId,
+    externalImageId: String(photo.id),
+    indexFaces: true,
+  });
+
+  const faceCount = analysis.faces?.length || 0;
+  if (faceCount === 0) {
+    return { photoId: photo.id, indexed: false, faceCount: 0, reason: 'no_faces_detected' };
+  }
+
+  return { photoId: photo.id, indexed: true, indexedAt: new Date().toISOString(), faceCount };
+}
+
+export async function indexEventPhotos(eventId, { supabase, force = false, collectionId = null } = {}) {
   const db = supabase || getSupabaseAdmin();
   if (!db) throw new Error('Supabase is not configured.');
 
-  const { data: photos, error } = await db
-    .from('guest_delivery_photos')
-    .select('id, ai_indexed_at')
-    .eq('event_id', eventId)
-    .order('position', { ascending: true })
-    .order('created_at', { ascending: true });
-
-  if (error) throw error;
+  let photos;
+  if (collectionId) {
+    const { data, error } = await db
+      .from('photos')
+      .select('id')
+      .eq('collection_id', collectionId)
+      .order('position', { ascending: true })
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    photos = data || [];
+  } else {
+    const { data, error } = await db
+      .from('guest_delivery_photos')
+      .select('id, ai_indexed_at')
+      .eq('event_id', eventId)
+      .order('position', { ascending: true })
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    photos = data || [];
+  }
 
   const pending = force
-    ? photos || []
-    : (photos || []).filter((p) => !p.ai_indexed_at);
+    ? photos
+    : collectionId
+      ? photos
+      : photos.filter((p) => !p.ai_indexed_at);
   const results = [];
 
   for (const photo of pending) {
     try {
-      const result = await indexGuestDeliveryPhoto(photo.id, { supabase: db, force });
+      const result = collectionId
+        ? await indexCollectionPhoto(photo.id, eventId, { supabase: db, force })
+        : await indexGuestDeliveryPhoto(photo.id, { supabase: db, force });
       results.push({ photoId: photo.id, ok: true, result });
     } catch (err) {
       results.push({ photoId: photo.id, ok: false, error: err?.message || 'Failed to index photo' });
@@ -95,7 +141,7 @@ export async function indexEventPhotos(eventId, { supabase, force = false } = {}
   const noFaces = results.filter((r) => r.ok && r.result?.reason === 'no_faces_detected').length;
 
   return {
-    total: photos?.length || 0,
+    total: photos.length,
     pending: pending.length,
     indexed: indexedWithFaces,
     noFaces,

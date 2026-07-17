@@ -17,7 +17,8 @@ function isValidEmail(email) {
 }
 
 function generateAccessToken() {
-  const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  // Avoid ambiguous characters (0/O, 1/l/I) so emailed links are easy to copy.
+  const chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789';
   let token = '';
   for (let i = 0; i < 24; i += 1) {
     token += chars[Math.floor(Math.random() * chars.length)];

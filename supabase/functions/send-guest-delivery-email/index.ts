@@ -50,8 +50,10 @@ function resolveSiteOrigin(siteOrigin: string | null | undefined): string {
   );
   const fromClient = String(siteOrigin || '').replace(/\/$/, '');
 
+  // Prefer localhost when the app is running locally so email links are testable before deploy.
+  if (fromClient && isLocalOrigin(fromClient)) return fromClient;
   if (fromSecret) return fromSecret;
-  if (fromClient && !isLocalOrigin(fromClient) && !/vercel\.app/i.test(fromClient)) return fromClient;
+  if (fromClient && !/vercel\.app/i.test(fromClient)) return fromClient;
   return fromClient || fromSecret || '';
 }
 
@@ -127,19 +129,23 @@ serve(async (req) => {
   }
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const { eventId, guestId, sendCopy = false, siteOrigin } = await req.json();
+    const { eventId, guestId, sendCopy = false, siteOrigin, accessToken } = await req.json();
 
     if (!eventId || !guestId) {
       return new Response(JSON.stringify({ error: 'eventId and guestId are required' }), {
         status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const authHeader = req.headers.get('Authorization');
+    const token =
+      authHeader?.replace(/^Bearer\s+/i, '').trim() ||
+      String(accessToken || '').trim();
+
+    if (!token) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -151,7 +157,6 @@ serve(async (req) => {
       throw new Error('Supabase environment is not configured for this function');
     }
 
-    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
     const {

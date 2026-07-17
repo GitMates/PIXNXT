@@ -4,6 +4,7 @@ import { DatePicker } from '../components/ui/DatePicker';
 import { ClientGallerySelect } from '../components/features/ClientGallery/ClientGallerySelect';
 import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
+import { guestDeliveryService } from '../services/guestDelivery.service';
 import '../styles/clientGalleryTheme.css';
 import '../styles/collectionDashboardTheme.css';
 import './CreateCollection.css';
@@ -23,6 +24,7 @@ const CreateCollection = () => {
     const [name, setName] = useState('');
     const [date, setDate] = useState('');
     const [preset, setPreset] = useState('default');
+    const [guestDeliveryEnabled, setGuestDeliveryEnabled] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState(null);
 
@@ -45,10 +47,11 @@ const CreateCollection = () => {
         setError(null);
         
         try {
+            const collectionSlug = `${generateSlug(name)}-${Date.now().toString(36)}`;
             const collectionData = {
                 photographer_id: user.id,
                 name,
-                slug: `${generateSlug(name)}-${Date.now().toString(36)}`,
+                slug: collectionSlug,
                 event_date: date || null,
                 status: 'draft',
                 font_family: 'sans_1',
@@ -59,10 +62,25 @@ const CreateCollection = () => {
                 nav_style: 'icons',
                 privacy: 'public',
                 cover_style: 'photo',
+                guest_delivery_enabled: guestDeliveryEnabled,
                 ...(folderId ? { folder_id: folderId } : {}),
             };
 
             const newCollection = await galleryService.createCollection(collectionData);
+
+            if (guestDeliveryEnabled) {
+                try {
+                    await guestDeliveryService.createLinkedEvent({
+                        collectionId: newCollection.id,
+                        photographerId: user.id,
+                        name,
+                        eventDate: date || null,
+                        slug: collectionSlug,
+                    });
+                } catch (gdErr) {
+                    console.error('Guest delivery event creation failed:', gdErr);
+                }
+            }
             
             navigate(`/collections/manage?id=${newCollection.id}`);
         } catch (err) {
@@ -137,6 +155,24 @@ const CreateCollection = () => {
                                 aria-label="Collection preset"
                                 options={PRESET_OPTIONS}
                             />
+                        </div>
+
+                        <div className="cc-form-group">
+                            <label className="cc-label cc-toggle-row">
+                                <span>Guest Delivery</span>
+                                <button
+                                    type="button"
+                                    role="switch"
+                                    aria-checked={guestDeliveryEnabled}
+                                    className={`cc-toggle ${guestDeliveryEnabled ? 'cc-toggle--on' : ''}`}
+                                    onClick={() => setGuestDeliveryEnabled((v) => !v)}
+                                >
+                                    <span className="cc-toggle-thumb" />
+                                </button>
+                            </label>
+                            {guestDeliveryEnabled && (
+                                <p className="cc-hint">Guests can register via QR with a selfie. After publishing, matched photos are emailed as personal gallery links.</p>
+                            )}
                         </div>
 
                         <div className="cc-actions">

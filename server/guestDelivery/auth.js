@@ -1,7 +1,7 @@
 import { getSupabaseAdmin, getSupabaseUserClient } from '../photoAi/supabaseAdmin.js';
 
 const EVENT_FIELDS =
-  'id, photographer_id, name, slug, status, match_threshold, registration_enabled, photo_count, guest_count';
+  'id, photographer_id, name, slug, status, match_threshold, registration_enabled, photo_count, guest_count, collection_id';
 
 export async function assertPhotographerOwnsEvent(req, eventId) {
   const authHeader = req.headers?.authorization || req.headers?.Authorization;

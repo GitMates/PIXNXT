@@ -16,12 +16,12 @@ export async function handleGuestGalleryRequest(body) {
 
   const { data: event, error: eventError } = await db
     .from('guest_delivery_events')
-    .select('id, name, slug, status, event_date, cover_image_url, published_at')
+    .select('id, name, slug, status, event_date, cover_image_url, published_at, collection_id')
     .eq('slug', slug)
     .maybeSingle();
 
   if (eventError) throw eventError;
-  if (!event) throw new Error('Gallery not found.');
+  if (!event) throw new Error('Event not found for this link.');
   if (event.status !== 'published') {
     throw new Error('This gallery is not available yet.');
   }
@@ -34,7 +34,7 @@ export async function handleGuestGalleryRequest(body) {
     .maybeSingle();
 
   if (guestError) throw guestError;
-  if (!guest) throw new Error('Gallery not found.');
+  if (!guest) throw new Error('Invalid or expired guest link. Use Copy link from Guests, or resend the email.');
 
   const { data: matches, error: matchError } = await db
     .from('event_guest_matches')
@@ -61,13 +61,24 @@ export async function handleGuestGalleryRequest(body) {
     };
   }
 
-  const { data: photos, error: photosError } = await db
-    .from('guest_delivery_photos')
-    .select(PHOTO_FIELDS)
-    .eq('event_id', event.id)
-    .in('id', photoIds);
-
-  if (photosError) throw photosError;
+  let photos;
+  if (event.collection_id) {
+    const { data, error: pErr } = await db
+      .from('photos')
+      .select(PHOTO_FIELDS)
+      .eq('collection_id', event.collection_id)
+      .in('id', photoIds);
+    if (pErr) throw pErr;
+    photos = data;
+  } else {
+    const { data, error: pErr } = await db
+      .from('guest_delivery_photos')
+      .select(PHOTO_FIELDS)
+      .eq('event_id', event.id)
+      .in('id', photoIds);
+    if (pErr) throw pErr;
+    photos = data;
+  }
 
   const similarityByPhotoId = Object.fromEntries(
     (matches || []).map((m) => [m.photo_id, m.similarity])

@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { guestDeliveryGuestsService } from '../../services/guestDeliveryGuests.service';
+import { guestDeliveryPublishService } from '../../services/guestDeliveryPublish.service';
+import { getGuestPersonalGalleryUrl } from '../../lib/guestDeliveryLinks';
 
 const STATUS_LABELS = {
   pending: 'Waiting for publish',
@@ -13,6 +15,7 @@ const STATUS_LABELS = {
 const EventGuestsPanel = ({ event, photographerId, onGuestCountChange, refreshKey = 0 }) => {
   const [guests, setGuests] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [sendingGuestId, setSendingGuestId] = useState(null);
   const onGuestCountChangeRef = useRef(onGuestCountChange);
   const hasLoadedRef = useRef(false);
 
@@ -53,6 +56,45 @@ const EventGuestsPanel = ({ event, photographerId, onGuestCountChange, refreshKe
     } catch (err) {
       console.error(err);
       alert('Failed to remove guest.');
+    }
+  };
+
+  const handleCopyLink = async (guest) => {
+    const url = getGuestPersonalGalleryUrl(event?.slug, guest.access_token);
+    try {
+      await navigator.clipboard.writeText(url);
+      const opened = window.confirm(
+        `Gallery link copied.\n\n${url}\n\nOpen it now in this browser? (Use this to test locally — email links use production until you deploy.)`
+      );
+      if (opened) window.open(url, '_blank', 'noopener,noreferrer');
+    } catch {
+      prompt('Copy this gallery link and open it while npm run dev is running:', url);
+    }
+  };
+
+  const handleSendEmail = async (guest) => {
+    if (!event?.id || event.status !== 'published') {
+      alert('Publish the event first before sending delivery emails.');
+      return;
+    }
+    if ((guest.matched_photo_count || 0) < 1) {
+      alert('This guest has no matched photos to deliver.');
+      return;
+    }
+
+    setSendingGuestId(guest.id);
+    try {
+      await guestDeliveryPublishService.sendDeliveryEmail({
+        eventId: event.id,
+        guestId: guest.id,
+      });
+      await loadGuests({ silent: true });
+      alert(`Email sent to ${guest.email}.`);
+    } catch (err) {
+      console.error(err);
+      alert(err?.message || 'Failed to send email.');
+    } finally {
+      setSendingGuestId(null);
     }
   };
 
@@ -97,6 +139,11 @@ const EventGuestsPanel = ({ event, photographerId, onGuestCountChange, refreshKe
                         <img src={guest.selfie_url} alt="" className="gd-guest-avatar" loading="lazy" />
                       ) : null}
                       {guest.name}
+                      {guest.matched_photo_count > 0 ? (
+                        <span className="gd-muted" style={{ display: 'block', fontSize: 12 }}>
+                          {guest.matched_photo_count} photo{guest.matched_photo_count === 1 ? '' : 's'}
+                        </span>
+                      ) : null}
                     </div>
                   </td>
                   <td>{guest.email}</td>
@@ -108,9 +155,30 @@ const EventGuestsPanel = ({ event, photographerId, onGuestCountChange, refreshKe
                     </span>
                   </td>
                   <td>
-                    <button type="button" className="gd-btn-text gd-btn-danger" onClick={() => handleDelete(guest)}>
-                      Remove
-                    </button>
+                    <div className="gd-guest-actions">
+                      {guest.matched_photo_count > 0 && (
+                        <>
+                          <button type="button" className="gd-btn-text" onClick={() => handleCopyLink(guest)}>
+                            Copy link
+                          </button>
+                          <button
+                            type="button"
+                            className="gd-btn-text"
+                            disabled={sendingGuestId === guest.id || event.status !== 'published'}
+                            onClick={() => handleSendEmail(guest)}
+                          >
+                            {sendingGuestId === guest.id
+                              ? 'Sending…'
+                              : guest.delivery_status === 'sent'
+                                ? 'Resend'
+                                : 'Send email'}
+                          </button>
+                        </>
+                      )}
+                      <button type="button" className="gd-btn-text gd-btn-danger" onClick={() => handleDelete(guest)}>
+                        Remove
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

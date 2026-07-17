@@ -16,15 +16,21 @@ export async function handlePublishEventRequest(req, body) {
     throw new Error('Archived events cannot be published.');
   }
 
-  const [{ data: photos, error: photosError }, { data: guests, error: guestsError }] =
-    await Promise.all([
-      db.from('guest_delivery_photos').select('id').eq('event_id', eventId),
-      db
-        .from('event_guests')
-        .select(GUEST_FIELDS)
-        .eq('event_id', eventId)
-        .order('registered_at', { ascending: true }),
-    ]);
+  const useCollectionPhotos = Boolean(event.collection_id);
+
+  const [photosResult, guestsResult] = await Promise.all([
+    useCollectionPhotos
+      ? db.from('photos').select('id').eq('collection_id', event.collection_id)
+      : db.from('guest_delivery_photos').select('id').eq('event_id', eventId),
+    db
+      .from('event_guests')
+      .select(GUEST_FIELDS)
+      .eq('event_id', eventId)
+      .order('registered_at', { ascending: true }),
+  ]);
+
+  const { data: photos, error: photosError } = photosResult;
+  const { data: guests, error: guestsError } = guestsResult;
 
   if (photosError) throw photosError;
   if (guestsError) throw guestsError;
@@ -37,10 +43,16 @@ export async function handlePublishEventRequest(req, body) {
   }
 
   await db.from('event_guest_matches').delete().eq('event_id', eventId);
-  await db.from('guest_delivery_photos').update({ ai_indexed_at: null }).eq('event_id', eventId);
+  if (!useCollectionPhotos) {
+    await db.from('guest_delivery_photos').update({ ai_indexed_at: null }).eq('event_id', eventId);
+  }
 
   await resetGuestDeliveryCollection(eventId);
-  const indexing = await indexEventPhotos(eventId, { supabase: db, force: true });
+  const indexing = await indexEventPhotos(eventId, {
+    supabase: db,
+    force: true,
+    collectionId: useCollectionPhotos ? event.collection_id : null,
+  });
 
   if (indexing.indexed === 0) {
     const detail =
