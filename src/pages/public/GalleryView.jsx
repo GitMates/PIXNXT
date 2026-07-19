@@ -20,12 +20,13 @@ import {
   GalleryStickyNav,
   GallerySetHeading,
   GallerySetDescription,
+  GalleryMediaFilter,
 } from '../../components/features/Gallery/GalleryChrome';
 import { renderMiniFrame } from '../../printstore/components/StoreHeader';
 import { GalleryBackToTop } from '../../components/features/Gallery/GalleryBackToTop/GalleryBackToTop';
 import { GalleryEmptyGrid } from '../../components/features/Gallery/GalleryEmptyGrid/GalleryEmptyGrid';
 import { smoothScrollToElement, smoothScrollToTop } from '../../lib/smoothGalleryScroll';
-import { getPhotoFullDisplayUrl } from '../../lib/photoDisplayUrl';
+import { getPhotoFullDisplayUrl, resolveMediaUrl } from '../../lib/photoDisplayUrl';
 import {
   buildDigitalPackageCartItem,
   fetchStorePackages,
@@ -81,6 +82,9 @@ import {
   SALES_CAMPAIGNS_STORAGE_KEY,
   SALES_CAMPAIGNS_UPDATED_EVENT,
 } from '../../lib/salesCampaignBanner';
+import { filterPhotosByIds } from '../../lib/photoAiSearch';
+import { useGalleryPeople } from '../../hooks/useGalleryPeople';
+import { GalleryPeopleStrip } from '../../components/features/Gallery/GalleryPeopleStrip/GalleryPeopleStrip';
 
 /** Stable string ids so Supabase UUIDs match `photo.id` from the collection payload. */
 function normalizeFavoritePhotoId(id) {
@@ -985,6 +989,11 @@ const GalleryView = () => {
   const shareUrl = typeof window !== 'undefined' ? window.location.origin + "/gallery/" + (slug || '') : '';
   const shareTitle = collection?.name || 'Collection';
 
+  const galleryPeople = useGalleryPeople(collection?.id, {
+    enabled: Boolean(collection?.id) && !isFavoriteListMode,
+    isPublic: true,
+  });
+
   useEffect(() => {
     const fetchGallery = async () => {
       try {
@@ -1230,10 +1239,20 @@ const GalleryView = () => {
 
   const showMediaFilter = shouldShowGalleryMediaFilter(mediaCounts);
 
+  const photosAfterPeopleFilter = useMemo(() => {
+    if (galleryPeople.selfieMatchPhotoIds.length) {
+      return filterPhotosByIds(filteredPhotosBase, galleryPeople.selfieMatchPhotoIds);
+    }
+    if (galleryPeople.activePerson?.photoIds?.length) {
+      return filterPhotosByIds(filteredPhotosBase, galleryPeople.activePerson.photoIds);
+    }
+    return filteredPhotosBase;
+  }, [filteredPhotosBase, galleryPeople.selfieMatchPhotoIds, galleryPeople.activePerson]);
+
   const filteredPhotos = useMemo(() => {
-    if (!showMediaFilter) return filteredPhotosBase;
-    return filterGalleryMediaByType(filteredPhotosBase, mediaFilter);
-  }, [filteredPhotosBase, showMediaFilter, mediaFilter]);
+    if (!showMediaFilter) return photosAfterPeopleFilter;
+    return filterGalleryMediaByType(photosAfterPeopleFilter, mediaFilter);
+  }, [photosAfterPeopleFilter, showMediaFilter, mediaFilter]);
 
   const handleGridImageClick = useCallback((index) => {
     const photo = filteredPhotos?.[index];
@@ -1730,18 +1749,27 @@ const GalleryView = () => {
         data-cover-text-scale={isMobileViewport ? 'compact' : 'large'}
       >
         {(() => {
-          const activePhotoUrl = collection.cover_url || (collection.photos?.[0]?.web_url);
+          const activePhotoUrl = resolveMediaUrl(
+            collection.cover_url || (collection.photos?.[0]?.full_url || collection.photos?.[0]?.web_url || '')
+          );
           const { x: focalX, y: focalY } = getCollectionFocal(collection);
+
+          const displayPhotographerName =
+            photographer?.business_name?.trim() ||
+            photographer?.display_name?.trim() ||
+            [photographer?.first_name, photographer?.last_name].filter(Boolean).join(' ').trim() ||
+            '';
 
           const props = {
             title: collection.name,
-            subtitle: photographer?.display_name || '',
+            subtitle: displayPhotographerName,
             date: formatCoverDate(collection.event_date || collection.created_at),
             photoUrl: activePhotoUrl,
             focalX,
             focalY,
             onViewGallery: scrollToGallery,
             isGalleryView: true,
+            coverLogoUrl: photographer?.cover_logo_url || photographer?.logo_url,
           };
 
           const activeCoverStyle = effectiveSettings.cover_style;
@@ -1889,7 +1917,12 @@ const GalleryView = () => {
             isGalleryViewMobile={isMobileViewport}
             navigationStyle={navigationStyle}
             collectionTitle={collection.name}
-            photographerName={photographer?.display_name}
+            photographerName={
+              photographer?.business_name?.trim() ||
+              photographer?.display_name?.trim() ||
+              [photographer?.first_name, photographer?.last_name].filter(Boolean).join(' ').trim() ||
+              ''
+            }
             sets={visibleSets.map((set) => ({ id: set.id, name: set.name }))}
             showHighlightsTab={canViewHighlights(collection, isClientViewer)}
             activeSetId={activeSetId}
@@ -1954,10 +1987,33 @@ const GalleryView = () => {
 
           {!setDescriptionText &&
             !isFavoriteListMode &&
-            (() => {
-              const raw = (activeSetId ? collection.sets?.find((s) => s.id === activeSetId)?.name : 'Highlights') || 'Highlights';
-              return <GallerySetHeading variant="galleryView" label={String(raw).toLowerCase()} />;
-            })()}
+            showMediaFilter && (
+              <div className="flex w-full justify-center mb-8 border-b pb-4" style={{ borderColor: 'rgba(0,0,0,0.05)' }}>
+                <GalleryMediaFilter
+                  value={mediaFilter}
+                  onChange={setMediaFilter}
+                  photoCount={mediaCounts.photos}
+                  videoCount={mediaCounts.videos}
+                  variant="galleryView"
+                  layout="inline"
+                />
+              </div>
+            )}
+
+          {!isFavoriteListMode ? (
+            <GalleryPeopleStrip
+              variant="gallery"
+              people={galleryPeople.people}
+              loading={galleryPeople.loading}
+              activePersonId={galleryPeople.activePersonId}
+              selfieSearching={galleryPeople.selfieSearching}
+              selfieMessage={galleryPeople.selfieMessage}
+              isFilterActive={galleryPeople.isFilterActive}
+              onSelectPerson={galleryPeople.selectPerson}
+              onSelfiePick={galleryPeople.searchBySelfie}
+              onClearFilter={galleryPeople.clearFilter}
+            />
+          ) : null}
 
           {filteredPhotos.length === 0 &&
           showMediaFilter &&

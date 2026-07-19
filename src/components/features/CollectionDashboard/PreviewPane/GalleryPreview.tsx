@@ -15,6 +15,7 @@ import {
   GalleryStickyNav,
   GallerySetHeading,
   GallerySetDescription,
+  GalleryMediaFilter,
 } from '../../Gallery/GalleryChrome';
 import {
   isCollectionFeatureEnabled,
@@ -29,8 +30,11 @@ import {
 import { normalizeNavigationStyle } from '../../../../lib/navStyle';
 import { GalleryBackToTop } from '../../Gallery/GalleryBackToTop/GalleryBackToTop';
 import { GalleryEmptyGrid } from '../../Gallery/GalleryEmptyGrid/GalleryEmptyGrid';
+import { GalleryPeopleStrip } from '../../Gallery/GalleryPeopleStrip/GalleryPeopleStrip';
 import { smoothScrollToElement, smoothScrollToTop } from '../../../../lib/smoothGalleryScroll';
 import { getPhotoFullDisplayUrl } from '../../../../lib/photoDisplayUrl';
+import { filterPhotosByIds } from '../../../../lib/photoAiSearch';
+import { useGalleryPeople } from '../../../../hooks/useGalleryPeople';
 import './GalleryPreview.css';
 
 function normalizeFavoritePhotoId(id: string | number | null | undefined): string | null {
@@ -49,6 +53,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
   onSetActiveSet,
   photographerName = 'PHOTOGRAPHER',
   isPreviewMobile = false,
+  coverLogoUrl,
 }) => {
   const { coverStyle, fontFamily, colorPalette, grid } = settings;
   const navigationStyle = normalizeNavigationStyle(grid.navigation);
@@ -85,6 +90,11 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
   const collectionId = dashboardState?.collection?.id as string | undefined;
   const favFeatureOn = dashboardState?.favoritePhotos !== false;
   const storageKey = collectionId ? `pixnxt_fav_email_${collectionId}` : null;
+
+  const galleryPeople = useGalleryPeople(collectionId, {
+    enabled: Boolean(collectionId),
+    isPublic: true,
+  });
 
   const [lightboxIndex, setLightboxIndex] = useState(-1);
   const [isSlideshowActive, setIsSlideshowActive] = useState(false);
@@ -234,8 +244,18 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
 
   const showMediaFilter = shouldShowGalleryMediaFilter(mediaCounts);
 
+  const photosAfterPeopleFilter = useMemo(() => {
+    if (galleryPeople.selfieMatchPhotoIds.length) {
+      return filterPhotosByIds(photosSortedForGrid, galleryPeople.selfieMatchPhotoIds);
+    }
+    if (galleryPeople.activePerson?.photoIds?.length) {
+      return filterPhotosByIds(photosSortedForGrid, galleryPeople.activePerson.photoIds);
+    }
+    return photosSortedForGrid;
+  }, [photosSortedForGrid, galleryPeople.selfieMatchPhotoIds, galleryPeople.activePerson]);
+
   const filteredPhotos = useMemo(() => {
-    let list = photosSortedForGrid;
+    let list = photosAfterPeopleFilter;
     if (showOnlyFavorites) {
       const favSet = new Set(favoritedPhotos);
       list = list.filter(
@@ -246,7 +266,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
       list = filterGalleryMediaByType(list, mediaFilter);
     }
     return list;
-  }, [photosSortedForGrid, showOnlyFavorites, favoritedPhotos, showMediaFilter, mediaFilter]);
+  }, [photosAfterPeopleFilter, showOnlyFavorites, favoritedPhotos, showMediaFilter, mediaFilter]);
 
   const showEmptyPlaceholderGrid =
     !showOnlyFavorites &&
@@ -442,6 +462,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
       focalY: dashboardState?.focalY,
       isPreview: true, // dashboard pane layout only
       onViewGallery: coverStyle !== 'none' ? scrollToGallery : undefined,
+      coverLogoUrl,
     };
 
     switch (coverStyle) {
@@ -530,11 +551,35 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
           mediaVideoCount={mediaCounts.videos}
         />
 
-        {setDescriptionText ? (
+        {setDescriptionText && (
           <GallerySetDescription variant="preview" text={setDescriptionText} isDark={isPreviewDark} />
-        ) : (
-          <GallerySetHeading variant="preview" label={activeSetLabel} />
         )}
+
+        {!setDescriptionText && showMediaFilter && (
+          <div className="flex w-full justify-center mb-8 border-b pb-4" style={{ borderColor: 'rgba(0,0,0,0.05)' }}>
+            <GalleryMediaFilter
+              value={mediaFilter}
+              onChange={setMediaFilter}
+              photoCount={mediaCounts.photos}
+              videoCount={mediaCounts.videos}
+              variant="preview"
+              layout="inline"
+            />
+          </div>
+        )}
+
+        <GalleryPeopleStrip
+          variant="preview"
+          people={galleryPeople.people}
+          loading={galleryPeople.loading}
+          activePersonId={galleryPeople.activePersonId}
+          selfieSearching={galleryPeople.selfieSearching}
+          selfieMessage={galleryPeople.selfieMessage}
+          isFilterActive={galleryPeople.isFilterActive}
+          onSelectPerson={galleryPeople.selectPerson}
+          onSelfiePick={galleryPeople.searchBySelfie}
+          onClearFilter={galleryPeople.clearFilter}
+        />
 
         {showOnlyFavorites && favFeatureOn && (
           <div

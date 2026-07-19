@@ -1,4 +1,4 @@
-﻿/* Slightly larger cover hero text â€” public GalleryView only */
+/* Slightly larger cover hero text â€” public GalleryView only */
 .gallery-view-hero[data-cover-text-scale='large'] .cover-text-grid__subtitle:not(.cover-stamp-layout__brand):not(.cover-journal-layout__brand):not(.cover-novel-layout__brand):not(.cover-vintage-layout__brand) {
   font-size: 7px !important;
   line-height: 1.25 !important;
@@ -136,22 +136,22 @@
 }
 
 .gallery-view-hero[data-cover-text-scale='large'] .cover-text-grid__date:not(.cover-vintage-layout__date):not(.cover-journal-layout__date):not(.cover-stamp-layout__date) {
-  font-size: 8px !important;
+  font-size: 12px !important;
   line-height: 1.25 !important;
   margin-bottom: 24px !important;
   letter-spacing: 0.3em !important;
 }
 
 .gallery-view-hero[data-cover-text-scale='large'] .cover-text-grid__description {
-  font-size: 8px !important;
+  font-size: 11px !important;
   line-height: 1.4 !important;
   margin-bottom: 24px !important;
 }
 
 .gallery-view-hero[data-cover-text-scale='large'] .cover-text-grid__button,
 .gallery-view-hero[data-cover-text-scale='large'] button {
-  font-size: 7px !important;
-  padding: 12px 36px !important;
+  font-size: 11px !important;
+  padding: 14px 44px !important;
   letter-spacing: 0.2em !important;
 }
 
@@ -265,13 +265,13 @@
 }
 
 .gallery-view-page[data-gallery-chrome='large'] .gallery-chrome__brand-subtitle {
-  font-size: 6px !important;
+  font-size: 8.5px !important;
   letter-spacing: 0.3em !important;
 }
 
 .gallery-view-page[data-gallery-chrome='large'] .gallery-chrome__tab,
 .gallery-view-page[data-gallery-chrome='large'] .gallery-chrome__action {
-  font-size: 7px !important;
+  font-size: 9.5px !important;
   letter-spacing: 0.2em !important;
 }
 
@@ -386,7 +386,7 @@
   }
 
   .gallery-view-page[data-gallery-chrome='large'] .gallery-chrome__brand-subtitle {
-    font-size: 4px !important;
+    font-size: 6px !important;
     margin-top: 0.25rem !important;
     letter-spacing: 0.22em !important;
   }
@@ -410,7 +410,7 @@
 
   .gallery-view-page[data-gallery-chrome='large'] .gallery-chrome__tab {
     flex-shrink: 0;
-    font-size: 5px !important;
+    font-size: 7.5px !important;
     white-space: nowrap;
   }
 

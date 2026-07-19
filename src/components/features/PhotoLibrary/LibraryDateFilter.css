@@ -1,0 +1,210 @@
+.pl-date-filter {
+  display: flex;
+  min-width: 520px;
+  background: oklch(0.995 0.004 85);
+  border: 1px solid oklch(0.905 0.007 82);
+  border-radius: 0.75rem;
+  box-shadow:
+    -3px -3px 8px oklch(1 0.004 85 / 0.75),
+    3px 3px 9px oklch(0.4 0.01 70 / 0.09);
+  animation: plDateFadeIn 0.15s ease-out;
+  overflow: hidden;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  color: #1a1a1a;
+}
+
+@keyframes plDateFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.pl-date-filter-calendar {
+  flex: 1;
+  padding: 1.25rem 1.5rem;
+  border-right: 1px solid oklch(0.905 0.007 82);
+}
+
+.pl-date-filter-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.pl-date-filter-month {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.pl-date-filter-nav {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.pl-date-filter-nav button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  border-radius: 9999px;
+  background: transparent;
+  color: #71717a;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.pl-date-filter-nav button:hover {
+  background: oklch(0.952 0.005 85);
+  color: #1a1a1a;
+}
+
+.pl-date-filter-hint,
+.pl-date-filter-active {
+  margin: 0 0 1rem;
+  font-size: 0.8125rem;
+  color: #71717a;
+}
+
+.pl-date-filter-active {
+  color: #1a1a1a;
+  font-weight: 600;
+}
+
+.pl-date-weekdays,
+.pl-date-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.pl-date-weekdays {
+  margin-bottom: 0.5rem;
+}
+
+.pl-date-weekdays span {
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #71717a;
+}
+
+.pl-date-day {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  border-radius: 9999px;
+}
+
+.pl-date-day--muted {
+  color: #d4d4d8;
+}
+
+.pl-date-day--selectable {
+  border: none;
+  background: transparent;
+  color: #1a1a1a;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.pl-date-day--selectable:hover {
+  background: oklch(0.952 0.005 85);
+}
+
+.pl-date-day--today:not(.pl-date-day--endpoint) {
+  color: #593116;
+  font-weight: 700;
+}
+
+.pl-date-day--in-range:not(.pl-date-day--endpoint) {
+  background: #eceae6;
+  color: #1a1a1a;
+  border-radius: 0;
+}
+
+.pl-date-day--endpoint {
+  background: #1a1a1a;
+  color: #fff;
+  font-weight: 600;
+  border-radius: 9999px;
+}
+
+.pl-date-clear {
+  margin-top: 1rem;
+  border: none;
+  background: transparent;
+  color: #71717a;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+}
+
+.pl-date-clear:hover {
+  color: #1a1a1a;
+}
+
+.pl-date-filter-quick {
+  width: 11.5rem;
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.pl-date-filter-quick-label {
+  margin: 0 0 0.75rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #71717a;
+}
+
+.pl-date-quick-btn {
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #333;
+  padding: 0.625rem 0;
+  cursor: pointer;
+  font-family: inherit;
+  transition: color 0.15s ease;
+}
+
+.pl-date-quick-btn:hover {
+  color: #1a1a1a;
+}
+
+@media screen and (max-width: 768px) {
+  .pl-date-filter {
+    min-width: 0;
+    width: calc(100vw - 32px);
+    flex-direction: column;
+  }
+
+  .pl-date-filter-calendar {
+    border-right: none;
+    border-bottom: 1px solid oklch(0.905 0.007 82);
+  }
+
+  .pl-date-filter-quick {
+    width: 100%;
+  }
+}
