@@ -3,25 +3,14 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from 'tailwindcss'
 import autoprefixer from 'autoprefixer'
 import path from 'path'
-import { devApiMiddleware } from './server/devApiMiddleware.js'
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  // Make server-only vars (AWS_*, etc.) available to dev API middleware
-  Object.assign(process.env, env)
   const r2Public = env.VITE_R2_PUBLIC_URL?.replace(/\/+$/, '')
 
   return {
-    plugins: [
-      react(),
-      {
-        name: 'pixnxt-dev-api',
-        configureServer(server) {
-          server.middlewares.use(devApiMiddleware())
-        },
-      },
-    ],
+    plugins: [react()],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),

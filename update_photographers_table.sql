@@ -24,8 +24,7 @@ ADD COLUMN IF NOT EXISTS social_tiktok TEXT,
 ADD COLUMN IF NOT EXISTS social_pinterest TEXT,
 ADD COLUMN IF NOT EXISTS social_youtube TEXT,
 ADD COLUMN IF NOT EXISTS social_vimeo TEXT,
-ADD COLUMN IF NOT EXISTS social_linkedin TEXT,
-ADD COLUMN IF NOT EXISTS cover_logo_url TEXT;
+ADD COLUMN IF NOT EXISTS social_linkedin TEXT;
 
 -- (Optional) If you want to start completely fresh and don't care about existing data, 
 -- you can drop and recreate the table, but ALTER TABLE is much safer!

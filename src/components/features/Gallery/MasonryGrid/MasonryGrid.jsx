@@ -4,7 +4,7 @@ import { Download, Heart, Share2, Play } from 'lucide-react';
 import { cn } from '../../../../lib/utils';
 import { SmoothMediaImage } from '../../../ui/SmoothMediaImage';
 import { isGalleryVideo } from '../../../../lib/galleryMediaType';
-import { getPhotoVideoPoster, getPhotoVideoSrc, resolveMediaUrl } from '../../../../lib/photoDisplayUrl';
+import { getPhotoVideoPoster, getPhotoVideoSrc } from '../../../../lib/photoDisplayUrl';
 import { PhotoPrivateControls, PhotoPrivateBadge } from '../../ClientExclusiveAccess';
 import './MasonryGrid.css';
 
@@ -38,8 +38,7 @@ export function MasonryGrid({
   useEffect(() => {
     photos.forEach(photo => {
       if (!photo.width || !photo.height) {
-        const src = resolveMediaUrl(photo.full_url || photo.web_url || photo.thumbnail_url || '');
-        // Skip dimension probing for video files — use 16:9 fallback
+        const src = photo.full_url || photo.web_url || photo.thumbnail_url;
         if (isGalleryVideo(photo)) {
           setDynamicAspectRatios(prev => ({ ...prev, [photo.id]: 16 / 9 }));
           return;
@@ -162,6 +161,135 @@ export function MasonryGrid({
               centerVideosLayout && 'masonry-grid-video-item',
               !isHorizontal && !centerVideosLayout && 'mb-[var(--grid-gap)] w-full max-w-full break-inside-avoid'
             )}
+          </div>
+        </div>
+      </Motion.div>
+    );
+  };
+
+  const renderPhotoItem = (photo, index) => {
+    const src = isGalleryVideo(photo)
+      ? getPhotoVideoSrc(photo)
+      : photo.full_url || photo.web_url || photo.thumbnail_url;
+    const aspectRatio = (photo.width && photo.height)
+      ? (photo.width / photo.height)
+      : (dynamicAspectRatios[photo.id] || 1.5);
+    const useFixedVideoTile = centerVideosLayout && isGalleryVideo(photo);
+    const tileAspectRatio = useFixedVideoTile ? VIDEO_TILE_ASPECT : aspectRatio;
+
+    const isFav = favoritedPhotoIds?.some((fid) => String(fid) === String(photo.id));
+    const isPrivate = Boolean(photo.is_private);
+    const useClientActionBar = Boolean(isClientViewer && allowMarkPrivate);
+    const privateBadgeBlocksTopLeft = Boolean(showPrivateBadge && isPrivate);
+    const packageSelectedIndex = packagePickerActive
+      ? packageSelectedPhotoIds.findIndex((id) => String(id) === String(photo.id))
+      : -1;
+    const isPackageSelected = packageSelectedIndex >= 0;
+
+    return (
+      <Motion.div
+        key={`${photo.id}-${index}`}
+        variants={item}
+        className={cn(
+          'relative overflow-hidden group cursor-pointer min-w-0 w-full max-w-full',
+          centerVideosLayout && 'masonry-grid-video-item',
+          isPackageSelected && 'ring-2 ring-black ring-offset-2'
+        )}
+        style={isHorizontal ? {
+          flex: useFixedVideoTile
+            ? `0 1 ${VIDEO_TILE_MAX_WIDTH_PX}px`
+            : `${tileAspectRatio} 1 ${baseRowHeight * tileAspectRatio}px`,
+          aspectRatio: useFixedVideoTile ? String(VIDEO_TILE_ASPECT) : String(tileAspectRatio),
+          maxWidth: useFixedVideoTile ? undefined : '100%',
+          margin: 0
+        } : {
+          width: '100%'
+        }}
+        onClick={() => onImageClick(photo._originalIndex)}
+      >
+        <div
+          className={cn(
+            'relative h-full w-full min-w-0',
+            useFixedVideoTile && 'masonry-grid-video-frame'
+          )}
+          style={{ backgroundColor: 'var(--gallery-secondary-bg)' }}
+        >
+          {isGalleryVideo(photo) ? (
+            <>
+            <video
+              src={src}
+              poster={getPhotoVideoPoster(photo)}
+              className={cn(
+                'gallery-masonry-media',
+                useFixedVideoTile && 'gallery-masonry-media--video-fixed'
+              )}
+              style={
+                useFixedVideoTile
+                  ? { objectFit: 'cover', width: '100%', height: '100%' }
+                  : { objectFit: 'cover', aspectRatio: String(tileAspectRatio) }
+              }
+              muted
+              loop
+              playsInline
+              preload="metadata"
+              onMouseEnter={(e) => e.currentTarget.play().catch(() => { })}
+              onMouseLeave={(e) => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; }}
+            />
+            </>
+          ) : (
+            <SmoothMediaImage
+              src={src}
+              thumbSrc={photo.thumbnail_url}
+              alt={photo.filename || `Gallery image ${index + 1}`}
+              wrapClassName="gallery-masonry-media"
+              className="block w-full max-w-full"
+              objectFit="cover"
+              style={{
+                aspectRatio: String(aspectRatio),
+              }}
+              loading="lazy"
+            />
+          )}
+
+          {packagePickerActive && (
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                pointerEvents: 'none',
+                border: isPackageSelected ? '3px solid #111' : '3px solid transparent',
+                boxSizing: 'border-box',
+                background: isPackageSelected ? 'rgba(0,0,0,0.18)' : 'transparent',
+              }}
+            >
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 10,
+                  right: 10,
+                  minWidth: 28,
+                  height: 28,
+                  borderRadius: '9999px',
+                  background: isPackageSelected ? '#111' : 'rgba(255,255,255,0.92)',
+                  color: isPackageSelected ? '#fff' : '#111',
+                  border: '1px solid rgba(0,0,0,0.15)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 11,
+                  fontWeight: 800,
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                  padding: '0 6px',
+                }}
+              >
+                {isPackageSelected
+                  ? `${packageSelectedIndex + 1}/${packagePickLimit || packageSelectedPhotoIds.length || '?'}`
+                  : '+'}
+              </div>
+            </div>
+          )}
+
+          {showFilename && (
             style={isHorizontal ? {
               flex: useFixedVideoTile
                 ? `0 1 ${VIDEO_TILE_MAX_WIDTH_PX}px`

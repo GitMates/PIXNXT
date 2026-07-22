@@ -256,31 +256,40 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                         </div>
                     </div>
                     <p className="settings-desc small">Allow visitors to view the images in their collection as a slideshow. <span className="settings-link">Learn more</span></p>
-                </div>
+                    <button
+                        type="button"
+                        className={`settings-action-btn secondary ${showGeneralAdditionalOptions ? 'active' : ''}`}
+                        onClick={() => setShowGeneralAdditionalOptions(!showGeneralAdditionalOptions)}
+                    >
+                        Additional options <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: showGeneralAdditionalOptions ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </button>
 
-                <div className="settings-toggle-section">
-                    <div className="settings-toggle-row">
-                        <div className="toggle-info">
-                            <label className="settings-label">Social Sharing</label>
+                    {showGeneralAdditionalOptions && (
+                        <div className="additional-options-panel">
+                            <div className="settings-toggle-row">
+                                <div className="toggle-info">
+                                    <label className="settings-label">Social Sharing</label>
+                                </div>
+                                <div className="toggle-control">
+                                    <label className="cd-toggle">
+                                        <input
+                                            type="checkbox"
+                                            checked={socialSharing}
+                                            onChange={() => {
+                                                const newValue = !socialSharing;
+                                                setSocialSharing(newValue);
+                                                setCollection(prev => prev ? { ...prev, social_sharing_enabled: newValue } : prev);
+                                                void persistGalleryVisitorFlags({ social_sharing_enabled: newValue });
+                                            }}
+                                        />
+                                        <span className="cd-toggle-slider"></span>
+                                    </label>
+                                    <span className="toggle-state-label">{socialSharing ? 'On' : 'Off'}</span>
+                                </div>
+                            </div>
+                            <p className="settings-desc small no-margin">Allow collection visitors to share your work to social media.</p>
                         </div>
-                        <div className="toggle-control">
-                            <label className="cd-toggle">
-                                <input
-                                    type="checkbox"
-                                    checked={socialSharing}
-                                    onChange={() => {
-                                        const newValue = !socialSharing;
-                                        setSocialSharing(newValue);
-                                        setCollection(prev => prev ? { ...prev, social_sharing_enabled: newValue } : prev);
-                                        void persistGalleryVisitorFlags({ social_sharing_enabled: newValue });
-                                    }}
-                                />
-                                <span className="cd-toggle-slider"></span>
-                            </label>
-                            <span className="toggle-state-label">{socialSharing ? 'On' : 'Off'}</span>
-                        </div>
-                    </div>
-                    <p className="settings-desc small">Allow collection visitors to share your work to social media. <span className="settings-link">Learn more</span></p>
+                    )}
                 </div>
 
                 <div className="settings-section">
