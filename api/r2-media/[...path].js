@@ -32,6 +32,14 @@ export default async function handler(req, res) {
     const contentType = upstream.headers.get('content-type') || 'application/octet-stream';
     res.setHeader('Content-Type', contentType);
     res.setHeader('Cache-Control', 'public, max-age=300');
+
+    // Force download if download query param is passed
+    const isDownload = req.query.download === 'true' || req.query.download === '1' || req.query.dl === '1';
+    if (isDownload) {
+      const filename = req.query.filename || subPath.split('/').pop() || 'download.jpg';
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    }
+
     const buffer = Buffer.from(await upstream.arrayBuffer());
     res.status(200).send(buffer);
   } catch (err) {

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion as Motion } from 'framer-motion';
 import * as Covers from '../../components/features/CollectionDashboard/PreviewPane/CoverStyles';
+import { supabase } from '../../lib/supabase/client';
 
 import { MasonryGrid } from '../../components/features/Gallery/MasonryGrid/MasonryGrid';
 import { PhotoLightbox } from '../../components/features/Gallery/PhotoLightbox/PhotoLightbox';
@@ -9,7 +10,7 @@ import { galleryService } from '../../services/gallery.service';
 import { cn } from '../../lib/utils';
 import { Container } from '../../components/ui/Container';
 import { Typography } from '../../components/ui/Typography';
-import { X, Mail, Share2, Download, Heart, Play } from 'lucide-react';
+import { X, Mail, Share2, Download, Heart, Play, ShoppingBag, ShoppingCart, CreditCard, ShieldCheck, AlertCircle, Loader2 } from 'lucide-react';
 import { DownloadModal } from '../../components/features/Gallery/DownloadModal/DownloadModal';
 import { ShareCollectionModal } from '../../components/features/Gallery/ShareCollectionModal/ShareCollectionModal';
 import { downloadSinglePhotoFile } from '../../lib/downloadPhoto';
@@ -20,10 +21,17 @@ import {
   GallerySetHeading,
   GallerySetDescription,
 } from '../../components/features/Gallery/GalleryChrome';
+import { renderMiniFrame } from '../../printstore/components/StoreHeader';
 import { GalleryBackToTop } from '../../components/features/Gallery/GalleryBackToTop/GalleryBackToTop';
 import { GalleryEmptyGrid } from '../../components/features/Gallery/GalleryEmptyGrid/GalleryEmptyGrid';
 import { smoothScrollToElement, smoothScrollToTop } from '../../lib/smoothGalleryScroll';
 import { getPhotoFullDisplayUrl } from '../../lib/photoDisplayUrl';
+import {
+  buildDigitalPackageCartItem,
+  fetchStorePackages,
+  PACKAGE_THRESHOLD,
+  resolveDigitalCategoryPricing,
+} from '../../lib/storePackages';
 import {
   countGalleryMedia,
   filterGalleryMediaByType,
@@ -73,9 +81,6 @@ import {
   SALES_CAMPAIGNS_STORAGE_KEY,
   SALES_CAMPAIGNS_UPDATED_EVENT,
 } from '../../lib/salesCampaignBanner';
-import { filterPhotosByIds } from '../../lib/photoAiSearch';
-import { useGalleryPeople } from '../../hooks/useGalleryPeople';
-import { GalleryPeopleStrip } from '../../components/features/Gallery/GalleryPeopleStrip/GalleryPeopleStrip';
 
 /** Stable string ids so Supabase UUIDs match `photo.id` from the collection payload. */
 function normalizeFavoritePhotoId(id) {
@@ -95,8 +100,518 @@ const GalleryView = () => {
   const [isSlideshowActive, setIsSlideshowActive] = useState(false);
   const [showFavoriteModal, setShowFavoriteModal] = useState(false);
   const [showDownloadModal, setShowDownloadModal] = useState(false);
+  const [showNoImageShopModal, setShowNoImageShopModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [email, setEmail] = useState('');
+  
+  // Sales campaigns loaded from StoreDashboard localStorage for client site banner rendering
+  const [campaigns, setCampaigns] = useState(() => {
+    const stored = localStorage.getItem(SALES_CAMPAIGNS_STORAGE_KEY);
+    try {
+      return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+
+  // Keep banner in sync when StoreDashboard APPLY writes from another tab or same session
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (e.key !== SALES_CAMPAIGNS_STORAGE_KEY || e.newValue == null) return;
+      try {
+        const parsed = JSON.parse(e.newValue);
+        if (Array.isArray(parsed)) setCampaigns(parsed);
+      } catch (_) { /* ignore */ }
+    };
+    const onCampaignsUpdated = (e) => {
+      if (Array.isArray(e.detail)) setCampaigns(e.detail);
+    };
+    window.addEventListener('storage', onStorage);
+    window.addEventListener(SALES_CAMPAIGNS_UPDATED_EVENT, onCampaignsUpdated);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener(SALES_CAMPAIGNS_UPDATED_EVENT, onCampaignsUpdated);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (collection?.store_banner_text) {
+      const txt = collection.store_banner_text;
+      if (txt.startsWith('[') || txt.startsWith('{')) {
+        try {
+          const parsed = JSON.parse(txt);
+          if (Array.isArray(parsed)) {
+            setCampaigns((prev) => {
+              const isLive = (list) => list?.some(c =>
+                c.enabled || Object.values(c.banners || {}).some(b => b?.enabled)
+              );
+              // Prefer DB when it has a live campaign; otherwise keep a fresher APPLY from localStorage
+              if (isLive(parsed) || !isLive(prev)) return parsed;
+              return prev;
+            });
+          }
+        } catch (e) {
+          console.error("Error parsing campaign from database store_banner_text:", e);
+        }
+      }
+    }
+  }, [collection]);
+
+  const activeCampaign = useMemo(() => {
+    if (!campaigns?.length) return null;
+    // Prefer an explicitly enabled campaign, then any with an active banner
+    const explicitlyEnabled = campaigns.find(c => c.enabled);
+    if (explicitlyEnabled) return explicitlyEnabled;
+    return campaigns.find(c =>
+      Object.values(c.banners || {}).some(b => b?.enabled)
+    ) || null;
+  }, [campaigns]);
+
+  const [campaignTimeLeft, setCampaignTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+
+  useEffect(() => {
+    if (!activeCampaign?.banners?.large_banner?.enabled) return undefined;
+    const storageKey = `pixnxt_campaign_timer_${activeCampaign.id || 'default'}`;
+    let targetTime = localStorage.getItem(storageKey);
+    if (!targetTime) {
+      const now = new Date();
+      now.setDate(now.getDate() + Number(activeCampaign.durationDays || 14));
+      targetTime = String(now.getTime());
+      localStorage.setItem(storageKey, targetTime);
+    }
+
+    const updateTimer = () => {
+      const difference = Number(targetTime) - Date.now();
+      if (difference <= 0) {
+        setCampaignTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+        return;
+      }
+      setCampaignTimeLeft({
+        days: Math.floor(difference / (1000 * 60 * 60 * 24)),
+        hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
+        minutes: Math.floor((difference / 1000 / 60) % 60),
+        seconds: Math.floor((difference / 1000) % 60),
+      });
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [activeCampaign]);
+
+  const [showShopModal, setShowShopModal] = useState(false);
+  const [showPrintLabModal, setShowPrintLabModal] = useState(false);
+  const [shopEmail, setShopEmail] = useState('');
+  const [pendingShopPhoto, setPendingShopPhoto] = useState(null);
+  const [isSubmittingShopEmail, setIsSubmittingShopEmail] = useState(false);
+  const [activeProducts, setActiveProducts] = useState([]);
+
+  // Paid Digital Download States
+  const [showDigitalDownloadModal, setShowDigitalDownloadModal] = useState(false);
+  const [digitalDownloadPhoto, setDigitalDownloadPhoto] = useState(null);
+  const [showDigitalPurchaseDetail, setShowDigitalPurchaseDetail] = useState(false);
+  const [isPurchaseAllDefault, setIsPurchaseAllDefault] = useState(false);
+  const [pendingDownloadPhoto, setPendingDownloadPhoto] = useState(null);
+  const [isPendingDownloadAll, setIsPendingDownloadAll] = useState(false);
+  const [selectedDownloadType, setSelectedDownloadType] = useState('single'); // 'single' | 'all' | 'package'
+  const [selectedStorePackage, setSelectedStorePackage] = useState(null);
+  const [storePackages, setStorePackages] = useState([]);
+  /** Sticky-bar mode: user picks package photos from the live gallery */
+  const [packagePickerActive, setPackagePickerActive] = useState(false);
+  const [packageSelectedPhotos, setPackageSelectedPhotos] = useState([]);
+
+  // Permanent Vault States
+  const [showVaultPaymentModal, setShowVaultPaymentModal] = useState(false);
+  const [selectedVaultPlan, setSelectedVaultPlan] = useState(null);
+  const [vaultCardName, setVaultCardName] = useState('');
+  const [vaultCardNumber, setVaultCardNumber] = useState('');
+  const [vaultCardExpiry, setVaultCardExpiry] = useState('');
+  const [vaultCardCvc, setVaultCardCvc] = useState('');
+  const [isVaultPaying, setIsVaultPaying] = useState(false);
+  const [vaultEmail, setVaultEmail] = useState('');
+  const [vaultError, setVaultError] = useState('');
+  const [vaultPurchasedState, setVaultPurchasedState] = useState(false);
+  const [vaultPlan, setVaultPlan] = useState(null); // from vault_extension_plans table
+  const [vaultPaymentMethod, setVaultPaymentMethod] = useState('Credit Card');
+
+  const openVaultModal = () => {
+    setVaultError('');
+    setSelectedVaultPlan(null);
+    setVaultPaymentMethod('Credit Card'); // reset to default
+    setShowVaultPaymentModal(true);
+  };
+
+  const getExtensionExpiryDate = (plan) => {
+    if (!collection?.auto_expiry) {
+      const now = new Date();
+      if (plan === '1month') now.setDate(now.getDate() + 30);
+      else if (plan === '1year') now.setDate(now.getDate() + 365);
+      return now.toLocaleDateString('en-IN', { dateStyle: 'long' });
+    }
+    const baseDate = new Date(collection.auto_expiry);
+    if (plan === '1month') {
+      baseDate.setDate(baseDate.getDate() + 30);
+      return baseDate.toLocaleDateString('en-IN', { dateStyle: 'long' });
+    } else if (plan === '1year') {
+      baseDate.setDate(baseDate.getDate() + 365);
+      return baseDate.toLocaleDateString('en-IN', { dateStyle: 'long' });
+    }
+    return 'Permanent';
+  };
+
+  useEffect(() => {
+    if (collection?.id) {
+      // 1. Fetch vault settings (enabled, price, desc, etc.)
+      galleryService.fetchVaultPlan(collection.id).then(plan => {
+        if (plan) setVaultPlan(plan);
+      });
+      // 2. Fetch from database if they already purchased the permanent vault for this gallery!
+      supabase
+        .from('buylink_plans')
+        .select('id')
+        .eq('collection_id', collection.id)
+        .eq('status', 'completed')
+        .limit(1)
+        .then(({ data, error }) => {
+          if (!error && data && data.length > 0) {
+            setVaultPurchasedState(true);
+          } else {
+            // fallback to local storage
+            setVaultPurchasedState(localStorage.getItem(`pixnxt_vault_purchased_${collection.id}`) === 'true');
+          }
+        });
+    }
+  }, [collection?.id]);
+
+  useEffect(() => {
+    if (email && !vaultEmail) {
+      setVaultEmail(email);
+    }
+  }, [email]);
+
+  const handleVaultPaymentSubmit = async (e) => {
+    e.preventDefault();
+    setVaultError('');
+
+    const targetEmail = vaultEmail || email;
+    if (!targetEmail) {
+      setVaultError('Please enter your email address for delivery confirmation.');
+      return;
+    }
+
+    if (vaultPaymentMethod === 'Credit Card') {
+      if (!vaultCardName.trim()) {
+        setVaultError('Cardholder Name is required');
+        return;
+      }
+      if (!vaultCardNumber.trim() || vaultCardNumber.replace(/\s/g, '').length < 16) {
+        setVaultError('Please enter a valid 16-digit card number');
+        return;
+      }
+      if (!vaultCardExpiry.trim() || !/^\d{2}\/\d{2}$/.test(vaultCardExpiry)) {
+        setVaultError('Please enter a valid expiry date (MM/YY)');
+        return;
+      }
+      if (!vaultCardCvc.trim() || vaultCardCvc.length < 3) {
+        setVaultError('Please enter a valid 3-digit CVC');
+        return;
+      }
+    }
+
+    setIsVaultPaying(true);
+
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      let price = 499;
+      let planName = 'Permanent Vault Storage Access';
+
+      if (selectedVaultPlan === '1month') {
+        price = parseFloat(vaultPlan?.price_1month || 99);
+        planName = 'Gallery Access Extension (1 Month)';
+      } else if (selectedVaultPlan === '1year') {
+        price = parseFloat(vaultPlan?.price_1year || 299);
+        planName = 'Gallery Access Extension (1 Year)';
+      } else {
+        price = parseFloat(vaultPlan?.price_lifetime || 499);
+        planName = 'Permanent Vault Storage Access';
+      }
+
+      const { data: purchase, error: purchaseError } = await supabase
+        .from('buylink_plans')
+        .insert({
+          collection_id: collection.id,
+          customer_name: vaultCardName || 'Client Visitor',
+          customer_email: targetEmail,
+          amount_paid: price,
+          plan_type: selectedVaultPlan || 'lifetime',
+          status: 'completed',
+          payment_method: vaultPaymentMethod || 'Credit Card',
+          payment_intent_id: 'mock_pi_vault_' + Math.random().toString(36).substr(2, 9)
+        })
+        .select()
+        .single();
+
+      if (purchaseError) throw purchaseError;
+
+      localStorage.setItem(`pixnxt_vault_purchased_${collection.id}`, 'true');
+      localStorage.setItem(`pixnxt_vault_purchased_plan_${collection.id}`, selectedVaultPlan);
+      setVaultPurchasedState(true);
+
+      try {
+        await fetch(`${supabase.supabaseUrl}/functions/v1/send-order-placed-email`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabase.supabaseKey}`
+          },
+          body: JSON.stringify({
+            orderId: purchase.id,
+            recipientEmail: targetEmail,
+            siteOrigin: window.location.origin
+          })
+        });
+      } catch (emailErr) {
+        console.warn('Could not trigger vault order placing email:', emailErr);
+      }
+
+      setIsVaultPaying(false);
+      setShowVaultPaymentModal(false);
+    } catch (err) {
+      console.error('Vault payment error:', err);
+      setIsVaultPaying(false);
+      setVaultError(err.message || 'Payment failed. Please check your card details.');
+    }
+  };
+
+  useEffect(() => {
+    async function loadActiveProducts() {
+      try {
+        const { data, error } = await supabase
+          .from('printstore_products')
+          .select('*')
+          .eq('is_visible', true)
+          .order('created_at', { ascending: true });
+        if (!error && data) {
+          setActiveProducts(data);
+        }
+      } catch (err) {
+        console.error("Error loading active products for Print Lab:", err);
+      }
+    }
+    loadActiveProducts();
+  }, []);
+
+  useEffect(() => {
+    if (email) {
+      setShopEmail(email);
+    }
+  }, [email]);
+
+  const isPaidDigitalDownloadOn = !!(
+    collection?.digital_download_enabled === true
+    || collection?.digital_download_enabled === 'true'
+    || collection?.digital_download_enabled === 1
+  );
+
+  useEffect(() => {
+    if (!isPaidDigitalDownloadOn) return undefined;
+
+    /* Capture deterrent only for real screenshot chords / print.
+       Never arm on tab switch / blur; clear any stuck shield when returning. */
+    const SHIELD = 'pixnxt-capture-shield';
+    let shieldUntil = 0;
+    let releaseTimer = null;
+    const isMac = typeof navigator !== 'undefined'
+      && /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent || '');
+
+    const clearShield = () => {
+      shieldUntil = 0;
+      clearTimeout(releaseTimer);
+      releaseTimer = null;
+      document.documentElement.classList.remove(SHIELD);
+      document.body.classList.remove(SHIELD);
+      document.body.classList.remove('pixnxt-screenshot-guard');
+    };
+
+    const armShield = (ms = 1200) => {
+      document.documentElement.classList.add(SHIELD);
+      document.body.classList.add(SHIELD);
+      shieldUntil = Math.max(shieldUntil, Date.now() + ms);
+      clearTimeout(releaseTimer);
+      releaseTimer = setTimeout(() => {
+        if (Date.now() >= shieldUntil) clearShield();
+      }, ms + 40);
+    };
+
+    const handleContextMenu = (e) => {
+      if (
+        e.target.tagName === 'IMG'
+        || e.target.closest('.masonry-grid-container')
+        || e.target.closest('.photo-lightbox-root')
+      ) {
+        e.preventDefault();
+      }
+    };
+
+    const handleDragStart = (e) => {
+      if (e.target.tagName === 'IMG') e.preventDefault();
+    };
+
+    const handleKeyDown = (e) => {
+      const metaOrCtrl = e.metaKey || e.ctrlKey;
+      const shift = e.shiftKey;
+      const code = e.code || '';
+
+      if (metaOrCtrl && ['c', 'C', 's', 'S', 'p', 'P'].includes(e.key)) {
+        e.preventDefault();
+      }
+
+      // Windows PrintScreen
+      if (code === 'PrintScreen' || e.key === 'PrintScreen' || e.key === 'PrtScn') {
+        e.preventDefault();
+        armShield(1600);
+        try { navigator.clipboard.writeText(''); } catch (_) { /* ignore */ }
+        return;
+      }
+
+      // macOS screenshot: Cmd+Shift+3/4/5 only (digit may be swallowed by OS — still arm on digit when we see it)
+      if (e.metaKey && shift && ['Digit3', 'Digit4', 'Digit5'].includes(code)) {
+        e.preventDefault();
+        armShield(1800);
+        return;
+      }
+
+      // Windows Snipping: Win+Shift+S (not Cmd+Shift+S on Mac — that is Save As)
+      if (!isMac && e.metaKey && shift && code === 'KeyS') {
+        e.preventDefault();
+        armShield(1800);
+      }
+    };
+
+    // Coming back to this tab/screen — never show the shield; only clear leftovers
+    const handleReturnToPage = () => {
+      if (!document.hidden) clearShield();
+    };
+
+    document.addEventListener('contextmenu', handleContextMenu);
+    document.addEventListener('dragstart', handleDragStart);
+    document.addEventListener('keydown', handleKeyDown, true);
+    document.addEventListener('visibilitychange', handleReturnToPage);
+    window.addEventListener('focus', handleReturnToPage);
+    window.addEventListener('pageshow', handleReturnToPage);
+
+    const style = document.createElement('style');
+    style.id = 'pixnxt-security-styles';
+    style.innerHTML = `
+      @media print {
+        html, body { display: none !important; }
+      }
+      .masonry-grid-container img,
+      .photo-lightbox-root img,
+      .gallery-view img {
+        -webkit-user-drag: none !important;
+        user-select: none !important;
+        -webkit-touch-callout: none !important;
+      }
+      html.${SHIELD},
+      body.${SHIELD} {
+        background: #0f0f0f !important;
+      }
+      html.${SHIELD} img,
+      html.${SHIELD} video,
+      html.${SHIELD} canvas,
+      body.${SHIELD} img,
+      body.${SHIELD} video,
+      body.${SHIELD} canvas {
+        visibility: hidden !important;
+        opacity: 0 !important;
+      }
+      body.${SHIELD}::after {
+        content: "Screenshots & screen recording are disabled while digital downloads are available for purchase.";
+        position: fixed;
+        inset: 0;
+        z-index: 2147483646;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 32px;
+        text-align: center;
+        background: #0f0f0f;
+        color: #f5f5f5;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 15px;
+        font-weight: 500;
+        letter-spacing: 0.02em;
+        line-height: 1.45;
+        pointer-events: none;
+      }
+    `;
+    document.head.appendChild(style);
+    // Ensure a fresh visit never starts with a leftover shield
+    clearShield();
+
+    return () => {
+      clearShield();
+      document.removeEventListener('contextmenu', handleContextMenu);
+      document.removeEventListener('dragstart', handleDragStart);
+      document.removeEventListener('keydown', handleKeyDown, true);
+      document.removeEventListener('visibilitychange', handleReturnToPage);
+      window.removeEventListener('focus', handleReturnToPage);
+      window.removeEventListener('pageshow', handleReturnToPage);
+      style.remove();
+    };
+  }, [isPaidDigitalDownloadOn]);
+
+  const goToPrintstore = useCallback((queryExtra = '') => {
+    if (!collection?.slug) return;
+    const returnPath = `/gallery/${collection.slug}?socialSharing=1`;
+    try {
+      sessionStorage.setItem('pixnxt_printstore_return', JSON.stringify({ path: returnPath }));
+    } catch (_) { /* ignore */ }
+    const q = queryExtra.startsWith('&') || queryExtra.startsWith('?')
+      ? queryExtra.replace(/^[?&]/, '&')
+      : (queryExtra ? `&${queryExtra}` : '');
+    window.location.assign(`/printstore?slug=${collection.slug}${q}`);
+  }, [collection?.slug]);
+
+  const handleShopClick = useCallback(async (photo) => {
+    if (!photo || !collection) return;
+    const savedEmail = localStorage.getItem(`pixnxt_fav_email_${collection.id}`);
+    if (savedEmail) {
+      goToPrintstore(`photo=${photo.id}`);
+    } else {
+      setPendingShopPhoto(photo);
+      setShopEmail(email || '');
+      setShowShopModal(true);
+    }
+  }, [collection, email, goToPrintstore]);
+
+  const handleShopEmailSubmit = async () => {
+    if (!shopEmail || !collection) return;
+    try {
+      setIsSubmittingShopEmail(true);
+      const session = await galleryService.createOrGetSession(collection.id, shopEmail);
+      localStorage.setItem(`pixnxt_fav_email_${collection.id}`, shopEmail);
+      localStorage.setItem('pixnxt_printstore_email', shopEmail);
+      
+      setShowShopModal(false);
+      setIsSubmittingShopEmail(false);
+      
+      if (pendingDownloadPhoto || isPendingDownloadAll) {
+        const photoToPass = isPendingDownloadAll ? null : pendingDownloadPhoto;
+        setPendingDownloadPhoto(null);
+        setIsPendingDownloadAll(false);
+        handleDigitalDownloadClick(photoToPass);
+      } else if (pendingShopPhoto) {
+        goToPrintstore(`photo=${pendingShopPhoto.id}`);
+      }
+    } catch (e) {
+      console.error("Failed to register shop email session:", e);
+      alert("Failed to submit email. Please try again.");
+      setIsSubmittingShopEmail(false);
+    }
+  };
   const [activeSetId, setActiveSetId] = useState(null);
   const [mediaFilter, setMediaFilter] = useState('photos');
   const [selectedDownloadPhoto, setSelectedDownloadPhoto] = useState(null);
@@ -336,8 +851,34 @@ const GalleryView = () => {
     }
   };
 
+  const handleDigitalDownloadClick = async (photoOrEvent = null) => {
+    const photo = (photoOrEvent && photoOrEvent.id) ? photoOrEvent : null;
+    const savedEmail = localStorage.getItem(`pixnxt_fav_email_${collection.id}`);
+    if (!savedEmail) {
+      if (photo) {
+        setPendingDownloadPhoto(photo);
+        setIsPendingDownloadAll(false);
+      } else {
+        setPendingDownloadPhoto(filteredPhotos[0] || null);
+        setIsPendingDownloadAll(true);
+      }
+      setShopEmail(email || '');
+      setShowShopModal(true);
+      return;
+    }
+
+    // Always open buy popup when paid digital is on — do not short-circuit
+    // with “already purchased / check your email” (every download stays paid).
+    setDigitalDownloadPhoto(photo || filteredPhotos[0] || null);
+    setIsPurchaseAllDefault(!photo);
+    setShowDigitalDownloadModal(true);
+  };
+
   const handleDownloadClick = async (photoOrEvent = null) => {
-    // Distinguish between a photo object and a browser event
+    if (isPaidDigitalDownloadOn) {
+      handleDigitalDownloadClick(photoOrEvent);
+      return;
+    }
     const photo = (photoOrEvent && photoOrEvent.id) ? photoOrEvent : null;
 
     if (photo) {
@@ -383,6 +924,14 @@ const GalleryView = () => {
     }
   };
 
+  const handleDownloadButtonAction = useCallback((photo) => {
+    if (isPaidDigitalDownloadOn) {
+      handleDigitalDownloadClick(photo);
+    } else {
+      handleDownloadClick(photo);
+    }
+  }, [isPaidDigitalDownloadOn, handleDigitalDownloadClick, handleDownloadClick]);
+
   const galleryRef = useRef(null);
 
   const scrollToGallery = useCallback(() => {
@@ -423,13 +972,15 @@ const GalleryView = () => {
   const isGalleryDark = effectiveSettings.color_palette === 'dark';
 
   const showGalleryDownload =
-    isCollectionFeatureEnabled(collection?.downloads_enabled) &&
-    isCollectionFeatureEnabled(collection?.gallery_download_enabled);
+    (isCollectionFeatureEnabled(collection?.downloads_enabled) &&
+    isCollectionFeatureEnabled(collection?.gallery_download_enabled)) ||
+    isPaidDigitalDownloadOn;
   const showGalleryShare = isCollectionFeatureEnabled(collection?.social_sharing_enabled);
   const showGallerySlideshow = isSlideshowEnabledForCollection(collection);
   const showSinglePhotoDownload =
-    isCollectionFeatureEnabled(collection?.downloads_enabled) &&
-    isCollectionFeatureEnabled(collection?.single_photo_download_enabled);
+    (isCollectionFeatureEnabled(collection?.downloads_enabled) &&
+    isCollectionFeatureEnabled(collection?.single_photo_download_enabled)) ||
+    isPaidDigitalDownloadOn;
 
   const shareUrl = typeof window !== 'undefined' ? window.location.origin + "/gallery/" + (slug || '') : '';
   const shareTitle = collection?.name || 'Collection';
@@ -469,6 +1020,13 @@ const GalleryView = () => {
         if (data.photographer_id) {
           const p = await galleryService.getPhotographerProfile(data.photographer_id);
           setPhotographer(p);
+          try {
+            const pkgs = await fetchStorePackages(data.photographer_id, { activeOnly: true });
+            setStorePackages(pkgs || []);
+          } catch (pkgErr) {
+            console.warn('Could not load store packages:', pkgErr);
+            setStorePackages([]);
+          }
         }
 
         // Check for existing session email
@@ -574,6 +1132,40 @@ const GalleryView = () => {
     setIsSlideshowActive(autoplay);
   }, []);
 
+  const startPackageGalleryPicker = useCallback((pack) => {
+    if (!pack) return;
+    setSelectedDownloadType('package');
+    setSelectedStorePackage(pack);
+    setPackageSelectedPhotos([]);
+    setPackagePickerActive(true);
+    setShowDigitalDownloadModal(false);
+    setShowDigitalPurchaseDetail(false);
+    // Bring the live gallery into view for selection
+    window.setTimeout(() => {
+      try {
+        window.scrollTo({ top: Math.max(0, window.innerHeight * 0.55), behavior: 'smooth' });
+      } catch (_) { /* ignore */ }
+    }, 50);
+  }, []);
+
+  const exitPackageGalleryPicker = useCallback(() => {
+    setPackagePickerActive(false);
+    setPackageSelectedPhotos([]);
+    setSelectedStorePackage(null);
+    setSelectedDownloadType('single');
+  }, []);
+
+  const togglePackagePhotoSelection = useCallback((photo) => {
+    if (!photo?.id || !selectedStorePackage) return;
+    const max = Math.max(1, Number(selectedStorePackage.photo_count) || 1);
+    setPackageSelectedPhotos((prev) => {
+      const exists = prev.some((p) => String(p.id) === String(photo.id));
+      if (exists) return prev.filter((p) => String(p.id) !== String(photo.id));
+      if (prev.length >= max) return prev;
+      return [...prev, photo];
+    });
+  }, [selectedStorePackage]);
+
   /** Base list for the active tab — must NOT get a new array reference when only `favoritedPhotos` changes
    *  (otherwise MasonryGrid + framer-motion `whileInView` can re-run and leave tiles stuck at opacity 0). */
   const photosForActiveSet = useMemo(() => {
@@ -622,6 +1214,15 @@ const GalleryView = () => {
 
   const mediaCounts = useMemo(() => countGalleryMedia(filteredPhotosBase), [filteredPhotosBase]);
 
+  const digitalPricing = useMemo(() => {
+    if (!collection) return null;
+    const collectionMedia = countGalleryMedia(collection.photos || []);
+    const photoCount = collectionMedia.photos > 0
+      ? collectionMedia.photos
+      : (collection.photos || []).length;
+    return resolveDigitalCategoryPricing(storePackages, collection, { photoCount });
+  }, [collection, storePackages]);
+
   useEffect(() => {
     if (mediaCounts.photos > 0) setMediaFilter('photos');
     else if (mediaCounts.videos > 0) setMediaFilter('videos');
@@ -633,6 +1234,96 @@ const GalleryView = () => {
     if (!showMediaFilter) return filteredPhotosBase;
     return filterGalleryMediaByType(filteredPhotosBase, mediaFilter);
   }, [filteredPhotosBase, showMediaFilter, mediaFilter]);
+
+  const handleGridImageClick = useCallback((index) => {
+    const photo = filteredPhotos?.[index];
+    if (packagePickerActive && photo) {
+      togglePackagePhotoSelection(photo);
+      return;
+    }
+    openLightbox(index);
+  }, [packagePickerActive, filteredPhotos, togglePackagePhotoSelection, openLightbox]);
+
+  const packagePickLimit = Math.max(1, Number(selectedStorePackage?.photo_count) || 1);
+  const packagePickCount = packageSelectedPhotos.length;
+  const packagePickComplete = packagePickerActive && packagePickCount === packagePickLimit;
+
+  const addPackageSelectionToCart = useCallback(() => {
+    if (!packagePickComplete || !selectedStorePackage || !collection?.slug) return;
+    const cartKey = 'pixnxt_printstore_cart';
+    let cart = [];
+    try {
+      cart = JSON.parse(localStorage.getItem(cartKey) || '[]');
+      if (!Array.isArray(cart)) cart = [];
+    } catch {
+      cart = [];
+    }
+
+    const cartItem = buildDigitalPackageCartItem(selectedStorePackage, packageSelectedPhotos);
+    const existingPkgIdx = cart.findIndex((item) => {
+      const pid = item.productId || item.product_id;
+      const pkgId = item.options?.packageId;
+      return pid === 'digital_package' && pkgId === selectedStorePackage.id;
+    });
+    if (existingPkgIdx >= 0) cart[existingPkgIdx] = cartItem;
+    else cart.push(cartItem);
+    localStorage.setItem(cartKey, JSON.stringify(cart));
+
+    const savedEmail = localStorage.getItem(`pixnxt_fav_email_${collection.id}`);
+    if (savedEmail) {
+      galleryService.createOrGetSession(collection.id, savedEmail).then(async (session) => {
+        if (!session?.id) return;
+        let productDbId = null;
+        const { data: dbProducts } = await supabase
+          .from('printstore_products')
+          .select('id')
+          .eq('product_type', 'digital_package')
+          .limit(1);
+        productDbId = dbProducts?.[0]?.id || null;
+        if (!productDbId) {
+          const { data: inserted } = await supabase
+            .from('printstore_products')
+            .insert({
+              product_type: 'digital_package',
+              name: selectedStorePackage.name,
+              base_price: Number(selectedStorePackage.price) || 0,
+              image_url: null,
+              is_active: true,
+              options: { selling_price: Number(selectedStorePackage.price) || 0 },
+            })
+            .select('id')
+            .maybeSingle();
+          productDbId = inserted?.id || null;
+        }
+        await supabase.from('printstore_cart_items').insert({
+          session_id: session.id,
+          product_id: productDbId,
+          quantity: 1,
+          options: cartItem.options,
+        });
+      }).catch((e) => {
+        console.error('Error syncing package to Supabase cart:', e);
+      });
+    }
+
+    exitPackageGalleryPicker();
+    goToPrintstore('cart=open');
+  }, [
+    packagePickComplete,
+    selectedStorePackage,
+    collection,
+    packageSelectedPhotos,
+    exitPackageGalleryPicker,
+    goToPrintstore,
+  ]);
+
+  const handleShopHeaderClick = useCallback(() => {
+    if (lightboxIndex !== -1 && filteredPhotos[lightboxIndex]) {
+      handleShopClick(filteredPhotos[lightboxIndex]);
+    } else {
+      setShowNoImageShopModal(true);
+    }
+  }, [lightboxIndex, filteredPhotos, handleShopClick]);
 
   const showEmptyPlaceholderGrid =
     !isFavoriteListMode &&
@@ -766,6 +1457,170 @@ const GalleryView = () => {
     });
   }, [filteredPhotos]);
 
+  /* ── Large Banner — matches Sales Automation desktop expanded / scene layout ── */
+  const largeBannerMarkup = useMemo(() => {
+    if (!activeCampaign?.banners?.large_banner?.enabled) return null;
+    const lb = activeCampaign.banners.large_banner;
+    const bgImage = resolveBannerBackgroundImage(lb, isMobileViewport);
+    const fontFamily = getBannerFontFamily(lb.font);
+    const timerColor = lb.timer_color || lb.title_color || '#3a4a38';
+    const title = formatBannerPlaceholders(lb.title || 'Relive It in Print', activeCampaign);
+    const subtitle = formatBannerPlaceholders(
+      lb.subtitle || 'Get these moments off the screen and into your hands with {discount-value} off, this {exp-date}.',
+      activeCampaign
+    );
+    const codeLine = formatBannerPlaceholders(lb.code || 'Code: {code}', activeCampaign);
+    const ctaLabel = lb.cta || 'Visit Shop';
+    // Sales Style tab: "Background + Button text" — prefer explicit cta_color, else bg_color
+    const ctaTextColor = lb.cta_color || lb.bg_color || '#ffffff';
+
+    return (
+      <div
+        data-sales-banner="large"
+        style={{
+          width: '100%',
+          backgroundColor: lb.bg_color || '#eae5d8',
+          backgroundImage: bgImage,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          padding: isMobileViewport ? '24px 20px' : '28px 36px',
+          boxSizing: 'border-box',
+          display: 'flex',
+          flexDirection: isMobileViewport ? 'column' : 'row',
+          alignItems: 'center',
+          justifyContent: isMobileViewport ? 'center' : 'space-between',
+          textAlign: isMobileViewport ? 'center' : 'left',
+          marginBottom: '12px',
+          borderTop: '1px solid rgba(0,0,0,0.05)',
+          borderBottom: '1px solid rgba(0,0,0,0.05)',
+          position: 'relative',
+          gap: isMobileViewport ? '16px' : '24px',
+          minHeight: isMobileViewport ? 'auto' : '160px',
+        }}
+      >
+        {bgImage !== 'none' && (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              backgroundColor: 'rgba(255, 255, 255, 0.45)',
+              zIndex: 1,
+              pointerEvents: 'none',
+            }}
+          />
+        )}
+        <div
+          style={{
+            position: 'relative',
+            zIndex: 2,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: isMobileViewport ? 'center' : 'flex-start',
+            gap: '6px',
+            flex: 1,
+            maxWidth: isMobileViewport ? '100%' : '640px',
+          }}
+        >
+          <h3
+            style={{
+              fontSize: isMobileViewport ? '16px' : '22px',
+              fontWeight: 700,
+              margin: 0,
+              fontFamily,
+              color: lb.title_color || '#2c3e2d',
+              letterSpacing: '0.02em',
+            }}
+          >
+            {title}
+          </h3>
+          <p
+            style={{
+              fontSize: isMobileViewport ? '11px' : '13px',
+              color: lb.subtitle_color || '#4a5a4b',
+              maxWidth: '520px',
+              lineHeight: 1.5,
+              margin: 0,
+              fontFamily: "'Inter', sans-serif",
+            }}
+          >
+            {subtitle}
+          </p>
+          <div
+            style={{
+              fontSize: isMobileViewport ? '10px' : '11px',
+              color: lb.subtitle_color || '#4a5a4b',
+              fontWeight: 600,
+              fontFamily: "'Inter', sans-serif",
+            }}
+          >
+            {codeLine}
+          </div>
+
+          <div style={{ marginTop: '4px' }}>
+            <div
+              style={{
+                fontSize: isMobileViewport ? '18px' : '22px',
+                fontWeight: 700,
+                color: timerColor,
+                fontFamily: "'Inter', sans-serif",
+                letterSpacing: '0.06em',
+              }}
+            >
+              {`${padTimerPart(campaignTimeLeft.days)} : ${padTimerPart(campaignTimeLeft.hours)} : ${padTimerPart(campaignTimeLeft.minutes)} : ${padTimerPart(campaignTimeLeft.seconds)}`}
+            </div>
+            <div
+              style={{
+                display: 'flex',
+                gap: isMobileViewport ? '10px' : '14px',
+                justifyContent: isMobileViewport ? 'center' : 'flex-start',
+                fontSize: '8px',
+                color: '#888',
+                marginTop: '2px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+              }}
+            >
+              <span>day</span>
+              <span>hrs</span>
+              <span>min</span>
+              <span>sec</span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowPrintLabModal(true)}
+            style={{
+              marginTop: '10px',
+              padding: isMobileViewport ? '9px 22px' : '10px 28px',
+              fontSize: '10px',
+              fontWeight: 700,
+              backgroundColor: lb.cta_bg || '#3a4a38',
+              color: ctaTextColor,
+              border: 'none',
+              textTransform: 'uppercase',
+              letterSpacing: '0.1em',
+              cursor: 'pointer',
+              transition: 'opacity 0.2s',
+              borderRadius: '1px',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.9'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
+          >
+            {ctaLabel}
+          </button>
+        </div>
+
+        {!isMobileViewport && (
+          <div style={{ position: 'relative', zIndex: 2, flexShrink: 0 }}>
+            <BannerBouquetSvg size={88} />
+          </div>
+        )}
+        {isMobileViewport && <BannerBouquetSvg size={40} style={{ position: 'relative', zIndex: 2 }} />}
+      </div>
+    );
+  }, [activeCampaign, campaignTimeLeft, isMobileViewport]);
+
   if (loading) return (
     <div className="flex h-screen items-center justify-center bg-white">
       <div className="text-sm font-bold tracking-[0.6em] uppercase text-zinc-200 animate-pulse">
@@ -785,10 +1640,90 @@ const GalleryView = () => {
   return (
     <div
       className={cn('gallery-view-page min-h-screen transition-colors duration-500', `theme-${effectiveSettings.color_palette}`, `font-${effectiveSettings.font_family}`, `nav-style-${navigationStyle}`, `style-${effectiveSettings.cover_style}`)}
-      style={{ backgroundColor: 'var(--gallery-secondary-bg)', color: 'var(--gallery-text)' }}
+      style={{
+        backgroundColor: 'var(--gallery-secondary-bg)',
+        color: 'var(--gallery-text)',
+        ...(activeCampaign?.banners?.text_banner?.enabled
+          ? { '--pixnxt-text-banner-h': '40px' }
+          : {}),
+      }}
       data-gallery-chrome="large"
       data-gallery-viewport={isMobileViewport ? 'mobile' : 'desktop'}
+      data-has-text-banner={activeCampaign?.banners?.text_banner?.enabled ? 'true' : undefined}
     >
+      {/* Sales Automation Text Banner — sticks above collection bar, never covers title */}
+      {activeCampaign?.banners?.text_banner?.enabled && (
+        <div
+          ref={(el) => {
+            if (!el) return;
+            const h = Math.ceil(el.getBoundingClientRect().height) || 40;
+            document.documentElement.style.setProperty('--pixnxt-text-banner-h', `${h}px`);
+          }}
+          style={{
+            backgroundColor: activeCampaign.banners.text_banner.bg_color || '#4a5338',
+            color: activeCampaign.banners.text_banner.text_color || '#ffffff',
+            padding: '10px 20px',
+            textAlign: 'center',
+            fontSize: '12px',
+            fontWeight: 500,
+            letterSpacing: '0.02em',
+            position: 'sticky',
+            top: 0,
+            zIndex: 1100,
+            fontFamily: "'Inter', sans-serif",
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            lineHeight: 1.4,
+            width: '100%',
+            boxSizing: 'border-box',
+            flexShrink: 0,
+          }}
+          data-sales-banner="text"
+        >
+          <span>
+            {(() => {
+              let text = activeCampaign.banners.text_banner.text || '';
+              const discountVal = activeCampaign.discount ? `${activeCampaign.discount}%` : '30%';
+              const code = activeCampaign.discountCode || 'HAPPYANI';
+              const expDate = new Date();
+              expDate.setDate(expDate.getDate() + (Number(activeCampaign.durationDays) || 14));
+              const expFormatted = expDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+              return text
+                .replace(/{discount-value}/g, discountVal)
+                .replace(/{discount_value}/g, discountVal)
+                .replace(/{code}/g, code)
+                .replace(/{exp-date}/g, expFormatted)
+                .replace(/{exp_date}/g, expFormatted);
+            })()}
+          </span>
+        </div>
+      )}
+
+      {vaultPurchasedState && (
+        <div style={{
+          backgroundColor: '#059669',
+          color: '#ffffff',
+          padding: '12px 24px',
+          textAlign: 'center',
+          fontSize: '11px',
+          fontWeight: 800,
+          letterSpacing: '0.08em',
+          textTransform: 'uppercase',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: '8px',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+          position: 'relative',
+          zIndex: 1000,
+          fontFamily: "'europa', sans-serif"
+        }}>
+          <span>💚 Lifetime Vault Storage Active — This gallery is permanently online</span>
+        </div>
+      )}
+
       {/* Hero Section */}
       <div
         className="gallery-view-hero w-full h-[100dvh] [&>div]:!h-full"
@@ -866,6 +1801,89 @@ const GalleryView = () => {
               {activeFavoriteList.description.trim()}
             </div>
           ) : null}
+
+          {/* Permanent Vault Storage Alert/Banner */}
+          {collection?.auto_expiry && vaultPlan?.vault_enabled === true && (
+            <div style={{ maxWidth: '1200px', margin: '0 auto 24px auto', padding: '0 8px' }}>
+              {!vaultPurchasedState ? (
+                <div style={{
+                  background: 'linear-gradient(90deg, #18181b 0%, #27272a 100%)',
+                  color: '#ffffff',
+                  padding: '16px 24px',
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '16px',
+                  borderRadius: '8px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+                  fontFamily: 'var(--font-heading, "Outfit", sans-serif)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ fontSize: '20px' }}>🔒</span>
+                    <div>
+                      <h4 style={{ margin: 0, fontSize: '13px', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                        Permanent Vault Storage
+                      </h4>
+                      <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#a1a1aa' }}>
+                        This gallery will expire on <strong>{new Date(collection.auto_expiry).toLocaleDateString('en-IN', { dateStyle: 'long' })}</strong>. Buy Permanent Vault to keep these memories online forever.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={openVaultModal}
+                    style={{
+                      background: '#ffffff',
+                      color: '#111111',
+                      border: 'none',
+                      borderRadius: '4px',
+                      padding: '8px 16px',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.08em',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
+                    onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
+                  >
+                    Unlock Lifetime Access (₹{vaultPlan?.price_lifetime || '499'})
+                  </button>
+                </div>
+              ) : (
+                <div style={{
+                  background: '#ecfdf5',
+                  border: '1px solid #bbf7d0',
+                  color: '#065f46',
+                  padding: '16px 24px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  borderRadius: '8px',
+                  fontFamily: 'var(--font-heading, "Outfit", sans-serif)'
+                }}>
+                  <span style={{ fontSize: '20px' }}>✅</span>
+                  <div>
+                    <h4 style={{ margin: 0, fontSize: '13px', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#047857' }}>
+                      {localStorage.getItem(`pixnxt_vault_purchased_plan_${collection.id}`) === '1month' ? '1 Month Extension Unlocked' : localStorage.getItem(`pixnxt_vault_purchased_plan_${collection.id}`) === '1year' ? '1 Year Extension Unlocked' : 'Permanent Vault Unlocked'}
+                    </h4>
+                    <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#047857' }}>
+                      {localStorage.getItem(`pixnxt_vault_purchased_plan_${collection.id}`) === '1month' ? (
+                        <>Thank you! 1 Month gallery access extension has been purchased. Your gallery is active until <strong>{getExtensionExpiryDate('1month')}</strong>.</>
+                      ) : localStorage.getItem(`pixnxt_vault_purchased_plan_${collection.id}`) === '1year' ? (
+                        <>Thank you! 1 Year gallery access extension has been purchased. Your gallery is active until <strong>{getExtensionExpiryDate('1year')}</strong>.</>
+                      ) : (
+                        <>Thank you! Lifetime storage has been purchased. This gallery will remain online permanently.</>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           <GalleryStickyNav
             isGalleryView
             isGalleryViewMobile={isMobileViewport}
@@ -880,6 +1898,7 @@ const GalleryView = () => {
             showDownload={showGalleryDownload}
             showShare={showGalleryShare}
             showSlideshow={showGallerySlideshow}
+            showShop={collection?.store_enabled !== false}
             favoritedCount={favoritedPhotos.length}
             isDownloadingAll={isDownloadingAll}
             downloadLabel={isDownloadingAll ? `${downloadProgress.done} / ${downloadProgress.total}` : 'Download'}
@@ -887,6 +1906,13 @@ const GalleryView = () => {
             onDownloadClick={handleDownloadClick}
             onShareClick={() => setShowShareModal(true)}
             onSlideshowClick={handleStartSlideshow}
+            onShopClick={handleShopHeaderClick}
+            showPrintLab={collection?.store_enabled !== false}
+            onPrintLabClick={() => setShowPrintLabModal(true)}
+            showBuyGallery={vaultPlan?.vault_enabled === true && !vaultPurchasedState}
+            buyGalleryLabel="Buy Link"
+            onBuyGalleryClick={openVaultModal}
+            isPaidDownload={isPaidDigitalDownloadOn}
             isDark={isGalleryDark}
             mediaFilter={!isFavoriteListMode ? mediaFilter : undefined}
             onMediaFilterChange={!isFavoriteListMode ? setMediaFilter : undefined}
@@ -947,32 +1973,52 @@ const GalleryView = () => {
 
           {showEmptyPlaceholderGrid ? (
             <GalleryEmptyGrid className="mt-2" />
-          ) : (
-            <MasonryGrid
-              key={`${activeSetId ?? 'highlights'}-${mediaFilter}-${effectiveSettings.grid_style}-${collection.thumbnail_size}-${collection.grid_spacing}-${collection.gallery_photo_sort}-${collection.show_filenames ? 'fn1' : 'fn0'}-${isClientViewer ? 'client' : 'guest'}-${isMobileViewport ? 'm' : 'd'}`}
-              photos={filteredPhotos}
-              isMobileViewport={isMobileViewport}
-              videosOnly={mediaFilter === 'videos'}
-              isHorizontal={effectiveSettings.grid_style?.toLowerCase() === 'horizontal'}
-              gridSettings={galleryGridSettings}
-              onImageClick={openLightbox}
-              onFavorite={(photo) => handleFavoritePhotoToggle(photo)}
-              onDownload={handleDownloadClick}
-              onShare={() => setShowShareModal(true)}
-              onTogglePrivate={handleTogglePhotoPrivate}
-              isClientViewer={isClientViewer}
-              allowMarkPrivate={Boolean(collection?.allow_clients_mark_private)}
-              showPrivateBadge={isClientViewer}
-              showDownload={showSinglePhotoDownload}
-              showFavorite={collection?.favorites_enabled !== false}
-              showShare={showGalleryShare}
-              favoritedPhotoIds={favoritedPhotos}
-              customRowHeight={galleryCustomRowHeight}
-              customColumnCount={galleryCustomColumnCount}
-              showFilename={collection?.show_filenames === true}
-              className="mt-2"
-            />
-          )}
+          ) : (() => {
+            const gridProps = {
+              isMobileViewport,
+              videosOnly: mediaFilter === 'videos',
+              isHorizontal: effectiveSettings.grid_style?.toLowerCase() === 'horizontal',
+              gridSettings: galleryGridSettings,
+              onFavorite: (photo) => handleFavoritePhotoToggle(photo),
+              onDownload: handleDownloadButtonAction,
+              onShare: () => setShowShareModal(true),
+              onTogglePrivate: handleTogglePhotoPrivate,
+              isClientViewer,
+              allowMarkPrivate: Boolean(collection?.allow_clients_mark_private),
+              showPrivateBadge: isClientViewer,
+              showDownload: showSinglePhotoDownload,
+              isPaidDownload: isPaidDigitalDownloadOn,
+              showFavorite: collection?.favorites_enabled !== false,
+              showShare: showGalleryShare,
+              showShop: collection?.store_enabled !== false,
+              onShop: handleShopClick,
+              favoritedPhotoIds: favoritedPhotos,
+              customRowHeight: galleryCustomRowHeight,
+              customColumnCount: galleryCustomColumnCount,
+              showFilename: collection?.show_filenames === true,
+              className: 'mt-2',
+            };
+
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                {/* Large Banner — rectangle bar ABOVE grid */}
+                {largeBannerMarkup}
+
+                <MasonryGrid
+                  key={`grid-single-${activeSetId ?? 'highlights'}-${mediaFilter}-${effectiveSettings.grid_style}`}
+                  photos={filteredPhotos}
+                  onImageClick={handleGridImageClick}
+                  activeCampaign={activeCampaign}
+                  activeProducts={activeProducts}
+                  onVisitShop={() => setShowPrintLabModal(true)}
+                  packagePickerActive={packagePickerActive}
+                  packageSelectedPhotoIds={packageSelectedPhotos.map((p) => p.id)}
+                  packagePickLimit={packagePickLimit}
+                  {...gridProps}
+                />
+              </div>
+            );
+          })()}
 
           {filteredPhotos.length > 0 ? (
             <GalleryBackToTop onClick={scrollToTop} />
@@ -1022,11 +2068,14 @@ const GalleryView = () => {
           const photo = filteredPhotos[lightboxIndex];
           if (photo) handleFavoritePhotoToggle(photo);
         }}
-        onDownload={() => handleDownloadClick(filteredPhotos[lightboxIndex])}
+        onDownload={() => handleDownloadButtonAction(filteredPhotos[lightboxIndex])}
         onShare={() => setShowShareModal(true)}
+        onShop={() => handleShopClick(filteredPhotos[lightboxIndex])}
         showDownload={showSinglePhotoDownload}
+            isPaidDownload={isPaidDigitalDownloadOn}
         showFavorite={collection?.favorites_enabled !== false}
         showShare={showGalleryShare}
+        showShop={collection?.store_enabled !== false}
         isFavorited={(() => {
           const id = normalizeFavoritePhotoId(filteredPhotos[lightboxIndex]?.id);
           return !!id && favoritedPhotos.includes(id);
@@ -1118,6 +2167,85 @@ const GalleryView = () => {
         )}
       </AnimatePresence>
 
+      {/* Shop Modal */}
+      <AnimatePresence>
+        {showShopModal && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+            <Motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowShopModal(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <Motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.95 }}
+              className={cn(
+                'relative w-full max-w-lg p-8 shadow-2xl md:p-10 rounded-none',
+                isGalleryDark ? 'bg-[#1a1a1a] text-white ring-1 ring-white/10' : 'bg-white text-zinc-900'
+              )}
+            >
+              <button
+                type="button"
+                onClick={() => setShowShopModal(false)}
+                className={cn(
+                  'absolute right-4 top-4 transition-colors',
+                  isGalleryDark ? 'text-white/50 hover:text-white' : 'text-zinc-400 hover:text-zinc-950'
+                )}
+              >
+                <X size={20} />
+              </button>
+
+              <div className={cn('mb-8 pr-8', isGalleryDark ? 'text-left' : 'text-center')}>
+                {!isGalleryDark && (
+                  <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-zinc-50">
+                    <Mail className="text-zinc-400" size={24} strokeWidth={1.5} />
+                  </div>
+                )}
+                <h3 className="gallery-heading mb-3 text-lg font-bold uppercase tracking-[0.2em] md:text-xl">
+                  Shop
+                </h3>
+                <p className={cn('gallery-body-text text-sm leading-relaxed', isGalleryDark ? 'text-white/60' : 'text-zinc-500')}>
+                  Enter your email address to access the print shop and customize prints, frames, and canvases with this photo.
+                </p>
+              </div>
+
+              <div className="space-y-5">
+                <input
+                  type="email"
+                  placeholder="Email address"
+                  value={shopEmail}
+                  onChange={(e) => setShopEmail(e.target.value)}
+                  className={cn(
+                    'gallery-body-text w-full rounded-none border px-3 py-3 text-sm outline-none transition-colors',
+                    isGalleryDark
+                      ? 'border-white/20 bg-black/40 text-white placeholder:text-white/35 focus:border-white/50'
+                      : 'border-zinc-200 bg-white py-3 focus:border-zinc-950'
+                  )}
+                />
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    className={cn(
+                      'gallery-body-text px-8 py-3 text-[6px] font-bold uppercase tracking-[0.25em] transition-opacity disabled:opacity-50',
+                      isGalleryDark
+                        ? 'bg-white/10 text-white hover:bg-white/20'
+                        : 'w-full bg-zinc-950 py-4 text-white hover:bg-zinc-800 md:w-auto'
+                    )}
+                    onClick={handleShopEmailSubmit}
+                    disabled={isSubmittingShopEmail}
+                  >
+                    {isSubmittingShopEmail ? 'Please wait…' : 'Sign in'}
+                  </button>
+                </div>
+              </div>
+            </Motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Favorite confirmation toast (Pixieset-style) */}
       <AnimatePresence>
         {favoriteToast && (
@@ -1189,6 +2317,1095 @@ const GalleryView = () => {
       />
 
       <ClientExclusiveToast message={privateToast} thumbnailUrl={privateToastThumb} />
+
+      {/* No Image Selected Shop Modal */}
+      {showNoImageShopModal && (
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="glass max-w-sm w-full rounded-none p-6 text-center shadow-2xl border border-white/20 theme-mono" style={{ backgroundColor: 'var(--cg-card, #ffffff)', borderRadius: '0px' }}>
+            <ShoppingBag size={48} className="mx-auto mb-4 text-[#1A1A1A]" />
+            <h3 className="text-lg font-semibold text-[#1A1A1A] mb-2 uppercase tracking-wide">
+              no image is selected to shop
+            </h3>
+            <p className="text-sm text-[#71717A] mb-6 leading-relaxed">
+              Please click on a photo from the gallery and click the shop icon on it to start customizing products.
+            </p>
+            <button
+              onClick={() => setShowNoImageShopModal(false)}
+              className="w-full py-3 px-4 rounded-none text-white bg-[#1A1A1A] hover:bg-[#333333] transition-all font-medium uppercase tracking-widest text-xs"
+              style={{ borderRadius: '0px' }}
+            >
+              {collection?.name || 'SAM WEDDING'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Print Lab Explore Modal */}
+      {showPrintLabModal && (() => {
+        const PRINTLAB_PRODUCTS = [
+          { id: 'dibond', name: 'Dibond Prints', desc: 'Sturdy & lightweight wall display' },
+          { id: 'matted_frame', name: 'Matted Frames', desc: 'Iconic matted wooden frame' },
+          { id: 'gallery_board', name: 'Gallery Boards', desc: 'Prints mounted onto firm backboard' },
+          { id: 'frames', name: 'Frames', desc: 'Classic wood frames' },
+          { id: 'canvas', name: 'Canvas', desc: 'Texture you can see and feel' },
+          { id: 'acrylic_prints', name: 'Acrylic Prints', desc: 'Striking clarity, minimalistic style' },
+          { id: 'circular_frames', name: 'Circular Frames', desc: 'Handtorn circular print in a frame' },
+          { id: 'float_frames', name: 'Float Frames', desc: 'Floating print in a deep frame' },
+          { id: 'matted_collages', name: 'Matted Collages', desc: 'Multiple photos in one frame' },
+          { id: 'prints', name: 'Prints', desc: 'Quality photographic prints' },
+          { id: 'deckled_prints', name: 'Deckled Prints', desc: 'Hand-torn feathered edges' },
+          { id: 'panoramic_prints', name: 'Panoramic Prints', desc: 'Wide format prints' },
+        ].filter(p => {
+          if (activeProducts && activeProducts.length > 0) {
+            const dbProd = activeProducts.find(dp => dp.id === p.id || dp.product_type === p.id);
+            return dbProd ? dbProd.is_visible : false;
+          }
+          return true;
+        });
+        const collectionPhotos = filteredPhotos.filter(p => p && (p.url || p.display_url || p.thumbnail_url || p.web_url));
+        const selectedShopPhoto =
+          (lightboxIndex >= 0 && filteredPhotos[lightboxIndex])
+          || collectionPhotos[0]
+          || null;
+        const selectedShopUrl = selectedShopPhoto
+          ? (getPhotoFullDisplayUrl(selectedShopPhoto) || selectedShopPhoto.url || selectedShopPhoto.web_url || selectedShopPhoto.display_url || '')
+          : '';
+        return (
+          <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, padding: '20px', boxSizing: 'border-box', backdropFilter: 'blur(6px)' }}>
+            <div style={{ backgroundColor: '#ffffff', borderRadius: '0px', width: '100%', maxWidth: '820px', maxHeight: '85vh', overflow: 'auto', padding: '32px', boxSizing: 'border-box', position: 'relative', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+              <button onClick={() => setShowPrintLabModal(false)} style={{ position: 'absolute', top: '16px', right: '16px', border: 'none', background: 'none', cursor: 'pointer', padding: '4px' }}>
+                <X size={22} color="#666" />
+              </button>
+              <div style={{ textAlign: 'center', marginBottom: '28px' }}>
+                <h2 style={{ fontFamily: "'EB Garamond', serif", fontSize: '26px', fontWeight: 700, color: '#111', margin: '0 0 6px 0', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Print Lab</h2>
+                <p style={{ fontSize: '14px', color: '#64748b', margin: 0 }}>Explore our premium collection of print products</p>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '24px', marginBottom: '28px' }}>
+                {PRINTLAB_PRODUCTS.map((prod, idx) => (
+                  <div key={prod.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', padding: '16px 8px', borderRadius: '12px', transition: 'background-color 0.2s', cursor: 'default' }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f8f8f6'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '130px' }}>
+                      {renderMiniFrame(prod.id, selectedShopUrl || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=400&h=400')}
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#111', letterSpacing: '0.02em' }}>{prod.name}</div>
+                      <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>{prod.desc}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <button
+                  onClick={() => setShowPrintLabModal(false)}
+                  style={{ padding: '12px 32px', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', border: 'none', borderRadius: '9999px', backgroundColor: '#111', color: '#fff', cursor: 'pointer', transition: 'background-color 0.2s' }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#333'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#111'}
+                >
+                  Click Shop on Images to Buy Products
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+      {/* Package picker sticky top bar — gallery stays interactive underneath */}
+      {packagePickerActive && selectedStorePackage && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 2100,
+            backgroundColor: '#ffffff',
+            borderBottom: '1px solid #e2e8f0',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '14px 20px',
+            gap: '16px',
+            boxSizing: 'border-box',
+            fontFamily: "'europa', sans-serif",
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
+            <button
+              type="button"
+              onClick={exitPackageGalleryPicker}
+              style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#111', fontSize: '18px', padding: 0, lineHeight: 1 }}
+              aria-label="Back"
+            >
+              &larr;
+            </button>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#111', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {selectedStorePackage.name || `${packagePickLimit}-Photo Package`}
+              </div>
+              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px', fontWeight: 600 }}>
+                Selected {packagePickCount}/{packagePickLimit}
+                {packagePickCount < packagePickLimit
+                  ? ` · tap photos below to choose ${packagePickLimit - packagePickCount} more`
+                  : ' · ready to add'}
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexShrink: 0 }}>
+            <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748b' }}>
+              Total: ₹{(Number(selectedStorePackage.price) || 0).toFixed(2)}
+            </span>
+            <button
+              type="button"
+              onClick={addPackageSelectionToCart}
+              disabled={!packagePickComplete}
+              style={{
+                padding: '10px 22px',
+                fontSize: '11px',
+                fontWeight: 700,
+                backgroundColor: packagePickComplete ? '#111' : '#cbd5e1',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '9999px',
+                cursor: packagePickComplete ? 'pointer' : 'not-allowed',
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+              }}
+            >
+              Add to Cart
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 6) Paid Digital Download Modals */}
+      {showDigitalDownloadModal && digitalDownloadPhoto && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, padding: '20px', boxSizing: 'border-box', backdropFilter: 'blur(6px)' }}>
+          {!showDigitalPurchaseDetail ? (
+            /* Modal 1: Choice screen */
+            <div style={{ backgroundColor: '#ffffff', borderRadius: '0px', width: '100%', maxWidth: '820px', display: 'flex', height: '520px', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.15)', color: '#1a1a1a', fontFamily: "'europa', sans-serif" }}>
+              {/* Left Photo / Collage View */}
+              <div style={{
+                width: '40%',
+                height: '100%',
+                background: '#f8fafc',
+                display: 'flex',
+                flexDirection: 'column',
+                boxSizing: 'border-box',
+                overflow: 'hidden',
+                borderRight: '1px solid #e2e8f0',
+              }}>
+                <div style={{
+                  flex: 1,
+                  minHeight: 0,
+                  overflowY: (isPurchaseAllDefault || !digitalPricing?.packageEligible) ? 'auto' : 'hidden',
+                  padding: '16px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: (isPurchaseAllDefault || !digitalPricing?.packageEligible) ? 'flex-start' : 'center',
+                  alignItems: 'center',
+                  boxSizing: 'border-box',
+                }}>
+                  {(isPurchaseAllDefault || (!digitalPricing?.packageEligible && filteredPhotos.length > 0)) ? (
+                    <div style={{ width: '100%' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#1a1a1a', marginBottom: '12px', textAlign: 'center' }}>
+                        {!digitalPricing?.packageEligible
+                          ? `Select a photo (${filteredPhotos.length})`
+                          : `All Photos (${filteredPhotos.length})`}
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', width: '100%' }}>
+                        {(filteredPhotos || []).map((p) => {
+                          const selected = digitalDownloadPhoto?.id === p.id;
+                          const canPickSingle = !digitalPricing?.packageEligible || isPurchaseAllDefault;
+                          return (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => {
+                                if (!canPickSingle) return;
+                                setDigitalDownloadPhoto(p);
+                                setIsPurchaseAllDefault(false);
+                              }}
+                              style={{
+                                aspectRatio: '1',
+                                overflow: 'hidden',
+                                backgroundColor: '#e2e8f0',
+                                borderRadius: '4px',
+                                padding: 0,
+                                border: selected ? '2px solid #111' : '2px solid transparent',
+                                cursor: canPickSingle ? 'pointer' : 'default',
+                                position: 'relative',
+                                boxSizing: 'border-box',
+                              }}
+                            >
+                              <img
+                                src={p.web_url || p.thumbnail_url || p.full_url}
+                                alt=""
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                              />
+                              {selected && (
+                                <span style={{
+                                  position: 'absolute',
+                                  bottom: '6px',
+                                  left: '6px',
+                                  right: '6px',
+                                  fontSize: '9px',
+                                  fontWeight: 700,
+                                  letterSpacing: '0.04em',
+                                  textTransform: 'uppercase',
+                                  color: '#fff',
+                                  background: 'rgba(17,17,17,0.75)',
+                                  padding: '3px 4px',
+                                  borderRadius: '2px',
+                                  textAlign: 'center',
+                                }}>
+                                  Selected
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <img
+                      src={digitalDownloadPhoto.web_url || digitalDownloadPhoto.thumbnail_url || digitalDownloadPhoto.full_url}
+                      alt=""
+                      style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                    />
+                  )}
+                </div>
+                <div style={{
+                  flexShrink: 0,
+                  padding: '10px 14px',
+                  borderTop: '1px solid #e2e8f0',
+                  background: '#f8fafc',
+                  fontSize: '10px',
+                  color: '#64748b',
+                  lineHeight: 1.35,
+                }}>
+                  ⓘ Watermarks do not appear on final products.
+                </div>
+              </div>
+              {/* Right Options Details */}
+              <div style={{ width: '60%', height: '100%', padding: '40px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+                <button onClick={() => setShowDigitalDownloadModal(false)} style={{ position: 'absolute', top: '16px', right: '16px', border: 'none', background: 'none', cursor: 'pointer', padding: '4px' }}>
+                  <X size={22} color="#111" />
+                </button>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '16px', marginBottom: '24px' }}>
+                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#111' }}>
+                    {isPurchaseAllDefault ? 'Buy Digital Downloads' : 'Buy This Photo'}
+                  </h3>
+                  <button onClick={() => { setShowDigitalDownloadModal(false); handleShopClick(digitalDownloadPhoto); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }} className="hover:text-black">
+                    Visit Store &gt;
+                  </button>
+                </div>
+
+                <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#111', marginBottom: '16px', borderBottom: '2px solid #111', width: 'fit-content', paddingBottom: '4px' }}>
+                  Digital Options
+                  {digitalPricing?.category ? (
+                    <span style={{ marginLeft: '8px', fontWeight: 600, color: '#64748b', textTransform: 'none', letterSpacing: 0 }}>
+                      · {digitalPricing.category}
+                    </span>
+                  ) : null}
+                </div>
+
+                {/* Single download — category-specific price from store_packages */}
+                {digitalPricing?.single && (isPurchaseAllDefault ? !digitalPricing?.packageEligible : true) && (
+                  <button
+                    onClick={() => {
+                      if (isPurchaseAllDefault && !digitalPricing?.packageEligible) {
+                        // Need a photo selected first when opened from “buy all” / <10 mode
+                        if (!digitalDownloadPhoto?.id) return;
+                        setIsPurchaseAllDefault(false);
+                      }
+                      setSelectedDownloadType('single');
+                      setSelectedStorePackage(null);
+                      setShowDigitalPurchaseDetail(true);
+                    }}
+                    disabled={isPurchaseAllDefault && !digitalPricing?.packageEligible && !digitalDownloadPhoto?.id}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      width: '100%',
+                      padding: '16px 0',
+                      border: 'none',
+                      borderBottom: '1px solid #e2e8f0',
+                      background: 'none',
+                      color: '#1a1a1a',
+                      textAlign: 'left',
+                      cursor: (isPurchaseAllDefault && !digitalPricing?.packageEligible && !digitalDownloadPhoto?.id) ? 'not-allowed' : 'pointer',
+                      opacity: (isPurchaseAllDefault && !digitalPricing?.packageEligible && !digitalDownloadPhoto?.id) ? 0.5 : 1,
+                    }}
+                  >
+                    <span style={{ fontSize: '13px', fontWeight: 500 }}>
+                      {digitalPricing.single.label}
+                      {isPurchaseAllDefault && !digitalPricing?.packageEligible && (
+                        <span style={{ display: 'block', marginTop: '3px', fontSize: '11px', color: '#64748b', fontWeight: 500 }}>
+                          {digitalDownloadPhoto?.id
+                            ? 'Selected photo from the grid on the left'
+                            : 'Tap a photo on the left to buy this single download'}
+                        </span>
+                      )}
+                    </span>
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748b' }}>
+                      ₹{Number(digitalPricing.single.price).toFixed(2)} &gt;
+                    </span>
+                  </button>
+                )}
+
+                {/* Packs for this gallery category only — only tiers that fit photo count */}
+                {(digitalPricing?.packs || []).map((packOffer) => (
+                  <button
+                    key={packOffer.package?.id || packOffer.photo_count}
+                    onClick={() => {
+                      startPackageGalleryPicker(packOffer.package);
+                    }}
+                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', padding: '16px 0', border: 'none', borderBottom: '1px solid #e2e8f0', background: 'none', color: '#1a1a1a', textAlign: 'left', cursor: 'pointer' }}
+                  >
+                    <span style={{ fontSize: '13px', fontWeight: 500 }}>
+                      {packOffer.label}
+                      <span style={{ display: 'block', marginTop: '3px', fontSize: '11px', color: '#64748b', fontWeight: 500 }}>
+                        {packOffer.photo_count} high-resolution photos for social sharing
+                      </span>
+                    </span>
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748b', flexShrink: 0, marginLeft: '12px' }}>
+                      ₹{Number(packOffer.price || 0).toFixed(2)} &gt;
+                    </span>
+                  </button>
+                ))}
+
+                {!digitalPricing?.single && !isPurchaseAllDefault && (
+                  <div style={{ marginTop: '8px', fontSize: '12px', color: '#64748b', lineHeight: 1.5 }}>
+                    ⓘ Digital download prices are not configured for this gallery’s category yet.
+                  </div>
+                )}
+
+                {!digitalPricing?.packageEligible && digitalPricing?.single && (
+                  <div style={{ marginTop: '16px', fontSize: '12px', color: '#64748b', lineHeight: 1.5 }}>
+                    ⓘ This gallery has fewer than {PACKAGE_THRESHOLD} photos. Select any photo on the left, then buy the single download.
+                  </div>
+                )}
+
+                {isPurchaseAllDefault && digitalPricing?.packageEligible ? (
+                  <div style={{ marginTop: '24px', fontSize: '12px', color: '#64748b', lineHeight: 1.5 }}>
+                    {digitalPricing?.packs?.length
+                      ? 'ⓘ Choose a photo package above, or select a photo on the left to buy a single download.'
+                      : 'ⓘ No packages are priced for this category yet. Select a photo on the left to buy a single download.'}
+                  </div>
+                ) : (digitalPricing?.packs?.length > 0 && !isPurchaseAllDefault) ? (
+                  <>
+                    <div style={{ marginTop: '24px', marginBottom: '16px', fontSize: '13px', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#111' }}>Shop Package</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                      {digitalPricing.packs.map((packOffer) => (
+                        <div
+                          key={`card-${packOffer.package?.id || packOffer.photo_count}`}
+                          onClick={() => {
+                            startPackageGalleryPicker(packOffer.package);
+                          }}
+                          style={{ border: '1px solid #e2e8f0', padding: '12px', display: 'flex', flexDirection: 'column', width: '148px', boxSizing: 'border-box', cursor: 'pointer', background: '#f8fafc', borderRadius: '8px' }}
+                          className="hover:border-black/30"
+                        >
+                          <div style={{ width: '100%', height: '80px', backgroundColor: '#e2e8f0', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderRadius: '4px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px', width: '100%', height: '100%' }}>
+                              {(filteredPhotos.slice(0, 4) || []).map((p, idx) => (
+                                <img key={idx} src={p.web_url || p.thumbnail_url || p.full_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              ))}
+                            </div>
+                            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <Download size={20} color="#fff" />
+                            </div>
+                          </div>
+                          <span style={{ fontSize: '10px', fontWeight: 700, marginTop: '8px', color: '#111', lineHeight: 1.2 }}>
+                            {packOffer.photo_count}-Photo Package
+                          </span>
+                          <span style={{ fontSize: '10px', color: '#64748b', marginTop: '2px' }}>
+                            ₹{Number(packOffer.price || 0).toFixed(2)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : null}
+              </div>
+            </div>
+          ) : (
+            /* Modal 2: Product purchasing detail screen */
+            <div style={{ backgroundColor: '#ffffff', borderRadius: '0px', width: '100%', maxWidth: '820px', display: 'flex', flexDirection: 'column', height: '520px', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.15)', color: '#1a1a1a', fontFamily: "'europa', sans-serif" }}>
+              {/* Top Header Bar */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', borderBottom: '1px solid #e2e8f0', boxSizing: 'border-box' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <button onClick={() => setShowDigitalPurchaseDetail(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#111', display: 'flex', alignItems: 'center', fontSize: '18px' }}>
+                    &larr;
+                  </button>
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: '#111' }}>
+                    {selectedDownloadType === 'package' && selectedStorePackage
+                      ? (selectedStorePackage.name || `${selectedStorePackage.photo_count}-Photo Package`)
+                      : selectedDownloadType === 'all'
+                        ? 'Entire Collection Download (All Photos)'
+                        : (digitalPricing?.single?.label || 'Single Photo Download')}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748b' }}>
+                    Total: ₹{(
+                      selectedDownloadType === 'package' && selectedStorePackage
+                        ? Number(selectedStorePackage.price) || 0
+                        : selectedDownloadType === 'all'
+                          ? Number(collection.digital_download_price_all) || 0
+                          : Number(digitalPricing?.single?.price) || 0
+                    ).toFixed(2)}
+                  </span>
+                  <button
+                    onClick={() => {
+                      const cartKey = 'pixnxt_printstore_cart';
+                      let cart = [];
+                      try {
+                        cart = JSON.parse(localStorage.getItem(cartKey) || '[]');
+                        if (!Array.isArray(cart)) cart = [];
+                      } catch {
+                        cart = [];
+                      }
+
+                      const isPackage = selectedDownloadType === 'package' && selectedStorePackage;
+                      const isAll = selectedDownloadType === 'all';
+
+                      if (isPackage) {
+                        const existingPkgIdx = cart.findIndex((item) => {
+                          const pid = item.productId || item.product_id;
+                          const pkgId = item.options?.packageId;
+                          return pid === 'digital_package' && pkgId === selectedStorePackage.id;
+                        });
+                        if (existingPkgIdx === -1) {
+                          cart.push(buildDigitalPackageCartItem(selectedStorePackage));
+                        }
+                        localStorage.setItem(cartKey, JSON.stringify(cart));
+
+                        const savedEmail = localStorage.getItem(`pixnxt_fav_email_${collection.id}`);
+                        if (savedEmail) {
+                          galleryService.createOrGetSession(collection.id, savedEmail).then(async (session) => {
+                            if (!session?.id) return;
+                            let productDbId = null;
+                            const { data: dbProducts } = await supabase
+                              .from('printstore_products')
+                              .select('id')
+                              .eq('product_type', 'digital_package')
+                              .limit(1);
+                            productDbId = dbProducts?.[0]?.id || null;
+                            if (!productDbId) {
+                              const { data: inserted } = await supabase
+                                .from('printstore_products')
+                                .insert({
+                                  product_type: 'digital_package',
+                                  name: selectedStorePackage.name,
+                                  base_price: Number(selectedStorePackage.price) || 0,
+                                  image_url: null,
+                                  is_active: true,
+                                  options: { selling_price: Number(selectedStorePackage.price) || 0 },
+                                })
+                                .select('id')
+                                .maybeSingle();
+                              productDbId = inserted?.id || null;
+                            }
+                            const cartItem = buildDigitalPackageCartItem(selectedStorePackage);
+                            await supabase.from('printstore_cart_items').insert({
+                              session_id: session.id,
+                              product_id: productDbId,
+                              quantity: 1,
+                              options: cartItem.options,
+                            });
+                          }).catch((e) => {
+                            console.error('Error syncing package to Supabase cart:', e);
+                          });
+                        }
+
+                        setShowDigitalDownloadModal(false);
+                        setShowDigitalPurchaseDetail(false);
+                        setSelectedStorePackage(null);
+                        goToPrintstore('cart=open');
+                        return;
+                      }
+
+                      const itemProductId = isAll ? 'digital_download_all' : 'digital_download';
+                      const itemProductName = isAll
+                        ? 'Entire Collection Download (All Photos)'
+                        : (digitalPricing?.single?.label || 'Single Photo Download');
+                      const itemUnitPrice = Number(
+                        isAll
+                          ? (collection.digital_download_price_all || 0)
+                          : (digitalPricing?.single?.price || 0)
+                      );
+                      const photo = isAll ? null : digitalDownloadPhoto;
+                      const photoForCart = photo
+                        ? {
+                            id: photo.id,
+                            filename: photo.filename || photo.name || '',
+                            url: photo.url || photo.web_url || photo.thumbnail_url || photo.full_url || photo.display_url || '',
+                            web_url: photo.web_url || photo.url || photo.display_url || '',
+                            thumbnail_url: photo.thumbnail_url || photo.web_url || photo.url || '',
+                            full_url: photo.full_url || photo.web_url || photo.url || '',
+                            display_url: photo.display_url || photo.web_url || photo.url || '',
+                          }
+                        : null;
+                      const size = { id: isAll ? 'all_photos' : 'hi_res', label: isAll ? 'All Photos' : 'High Resolution' };
+
+                      const existingIdx = cart.findIndex((item) => {
+                        const pid = item.productId || item.product_id;
+                        const itemPhotoId = item.photo?.id || item.options?.photo?.id;
+                        return pid === itemProductId && (isAll || itemPhotoId === photo?.id);
+                      });
+
+                      if (existingIdx === -1) {
+                        cart.push({
+                          id: `dig-${Date.now()}`,
+                          productId: itemProductId,
+                          productName: itemProductName,
+                          unitPrice: itemUnitPrice,
+                          totalPrice: itemUnitPrice,
+                          quantity: 1,
+                          photo: photoForCart,
+                          size,
+                          frame: null,
+                          paper: null,
+                          border: 'none',
+                          options: {
+                            productId: itemProductId,
+                            productName: itemProductName,
+                            photo: photoForCart,
+                            size,
+                            unitPrice: itemUnitPrice,
+                          },
+                        });
+                      }
+
+                      localStorage.setItem(cartKey, JSON.stringify(cart));
+
+                      // Sync to Supabase in background (non-blocking)
+                      const savedEmail = localStorage.getItem(`pixnxt_fav_email_${collection.id}`);
+                      if (savedEmail) {
+                        galleryService.createOrGetSession(collection.id, savedEmail).then(async (session) => {
+                          if (!session?.id) return;
+
+                          let productDbId = null;
+                          const { data: dbProducts } = await supabase
+                            .from('printstore_products')
+                            .select('id')
+                            .eq('product_type', itemProductId)
+                            .limit(1);
+                          productDbId = dbProducts?.[0]?.id || null;
+
+                          if (!productDbId) {
+                            const { data: inserted } = await supabase
+                              .from('printstore_products')
+                              .insert({
+                                product_type: itemProductId,
+                                name: itemProductName,
+                                base_price: itemUnitPrice,
+                                image_url: null,
+                                is_active: true,
+                                options: { selling_price: itemUnitPrice },
+                              })
+                              .select('id')
+                              .maybeSingle();
+                            productDbId = inserted?.id || null;
+                          }
+
+                          const { data: existingDbItems } = await supabase
+                            .from('printstore_cart_items')
+                            .select('id, options')
+                            .eq('session_id', session.id);
+
+                          const alreadyInDb = (existingDbItems || []).some((row) => {
+                            const opts = row.options || {};
+                            return opts.productId === itemProductId
+                              && (isAll || opts.photo?.id === photo?.id);
+                          });
+
+                          if (!alreadyInDb) {
+                            await supabase.from('printstore_cart_items').insert({
+                              session_id: session.id,
+                              product_id: productDbId,
+                              quantity: 1,
+                              options: {
+                                productId: itemProductId,
+                                productName: itemProductName,
+                                photo: photoForCart,
+                                size,
+                                unitPrice: itemUnitPrice,
+                              },
+                            });
+                          }
+                        }).catch((e) => {
+                          console.error('Error syncing digital item to Supabase cart:', e);
+                        });
+                      }
+
+                      setShowDigitalDownloadModal(false);
+                      setShowDigitalPurchaseDetail(false);
+                      goToPrintstore('cart=open');
+                    }}
+                    style={{
+                      padding: '10px 24px',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      backgroundColor: '#111',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '9999px',
+                      cursor: 'pointer',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.08em',
+                      transition: 'background-color 0.2s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#333'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#111'}
+                  >
+                    Add to Cart
+                  </button>
+                </div>
+              </div>
+
+              {/* Detail Content View (Scrollable left column if all) */}
+              <div style={{ display: 'flex', flex: 1, height: 'calc(100% - 60px)' }}>
+                {/* Left side Image / Grid */}
+                <div style={{ width: '50%', height: '100%', background: '#f8fafc', display: 'flex', flexDirection: 'column', padding: '24px', boxSizing: 'border-box', position: 'relative', overflowY: (selectedDownloadType === 'all' || selectedDownloadType === 'package') ? 'auto' : 'hidden', justifyContent: (selectedDownloadType === 'all' || selectedDownloadType === 'package') ? 'flex-start' : 'center', alignItems: 'center' }}>
+                  {(selectedDownloadType === 'all' || selectedDownloadType === 'package') ? (
+                    <div style={{ width: '100%' }}>
+                      {selectedDownloadType === 'package' && selectedStorePackage && (
+                        <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#64748b', marginBottom: '12px', textAlign: 'center' }}>
+                          {selectedStorePackage.category_tag} · up to {selectedStorePackage.photo_count} photos
+                        </div>
+                      )}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', width: '100%', backgroundColor: '#f8fafc' }}>
+                        {(filteredPhotos || []).slice(0, selectedDownloadType === 'package' && selectedStorePackage ? selectedStorePackage.photo_count : undefined).map((p, idx) => (
+                          <div key={idx} style={{ aspectRatio: '1', overflow: 'hidden', backgroundColor: '#e2e8f0', borderRadius: '4px' }}>
+                            <img src={p.web_url || p.thumbnail_url || p.full_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <img src={digitalDownloadPhoto.web_url || digitalDownloadPhoto.thumbnail_url || digitalDownloadPhoto.full_url} alt="" style={{ maxWidth: '100%', maxHeight: '90%', objectFit: 'contain', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                  )}
+                </div>
+                {/* Right side details info */}
+                <div style={{ width: '50%', height: '100%', padding: '40px 32px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: '20px', borderLeft: '1px solid #e2e8f0', backgroundColor: '#ffffff' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                    <Download size={20} color="#64748b" style={{ flexShrink: 0, marginTop: '2px' }} />
+                    <div>
+                      <h4 style={{ margin: '0 0 4px 0', fontSize: '13px', fontWeight: 700, color: '#111' }}>Digital files are delivered via email upon checkout</h4>
+                      <p style={{ margin: 0, fontSize: '12px', color: '#64748b', lineHeight: 1.4 }}>
+                        A download link will be sent to the email address entered during purchase checkout once payment is completed.
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginTop: '12px' }}>
+                    <span style={{ fontSize: '16px', color: '#64748b', flexShrink: 0 }}>🛈</span>
+                    <div>
+                      <h4 style={{ margin: '0 0 4px 0', fontSize: '12px', fontWeight: 600, color: '#334155' }}>
+                        Note: The original high-resolution images with no watermark will be used.
+                      </h4>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      {/* 7) Permanent Vault Payment Modal */}
+      <AnimatePresence>
+        {showVaultPaymentModal && (
+          <div className="fixed inset-0 z-[250] flex items-center justify-center p-4">
+            <Motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowVaultPaymentModal(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <Motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.95 }}
+              style={{ fontFamily: "'europa', sans-serif" }}
+              className={cn(
+                'relative w-full shadow-2xl rounded-none text-left p-8 max-w-md',
+                isGalleryDark ? 'bg-[#1a1a1a] text-white ring-1 ring-white/10' : 'bg-white text-zinc-900'
+              )}
+            >
+              <button
+                type="button"
+                onClick={() => setShowVaultPaymentModal(false)}
+                className={cn(
+                  'absolute right-4 top-4 transition-colors',
+                  isGalleryDark ? 'text-white/50 hover:text-white' : 'text-zinc-400 hover:text-zinc-950'
+                )}
+              >
+                <X size={20} />
+              </button>
+
+              {selectedVaultPlan === null ? (
+                <div>
+                  <h2 className="text-center text-[15px] font-bold uppercase tracking-[0.3em] mb-2" style={{ color: isGalleryDark ? '#fff' : '#111' }}>
+                    Extend Gallery Access
+                  </h2>
+                  <p className="text-center text-[13px] text-zinc-500 mb-8">
+                    Choose a plan to extend this gallery's active duration or store it permanently.
+                  </p>
+
+                  <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '8px' }}>
+                    {/* Centered single Lifetime card */}
+                    <div style={{
+                      border: isGalleryDark ? '2px solid var(--gallery-text, #111)' : '2px solid #111',
+                      backgroundColor: isGalleryDark ? '#1a1a1a' : '#fff',
+                      padding: '24px 20px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      textAlign: 'center',
+                      borderRadius: '8px',
+                      position: 'relative',
+                      width: '100%',
+                      maxWidth: '300px'
+                    }}>
+                      <span style={{ position: 'absolute', top: '-10px', fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', backgroundColor: 'var(--gallery-text, #111)', color: 'var(--gallery-bg, #fff)', padding: '2px 6px', borderRadius: '4px' }}>Best Value</span>
+                      <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b', marginBottom: '8px', marginTop: '4px' }}>Lifetime</span>
+                      <strong style={{ fontSize: '24px', fontWeight: 800, color: isGalleryDark ? '#fff' : '#111', marginBottom: '8px' }}>
+                        ₹{vaultPlan?.price_lifetime || '499'}
+                      </strong>
+                      <span style={{ fontSize: '11.5px', color: '#64748b', marginBottom: '8px', lineHeight: 1.4, minHeight: '34px' }}>
+                        {vaultPlan?.desc_lifetime || 'Permanent lifetime storage access.'}
+                      </span>
+                      <span style={{ fontSize: '11px', color: '#047857', fontWeight: 700, marginBottom: '16px' }}>
+                        Active Online: Unlimited
+                      </span>
+                      <button
+                        onClick={() => setSelectedVaultPlan('lifetime')}
+                        style={{
+                          width: '100%',
+                          padding: '10px 12px',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                          border: 'none',
+                          cursor: 'pointer',
+                          backgroundColor: 'var(--gallery-text, #111)',
+                          color: 'var(--gallery-bg, #fff)'
+                        }}
+                      >
+                        Choose Plan
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedVaultPlan(null)}
+                    style={{
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      border: 'none',
+                      background: 'none',
+                      color: isGalleryDark ? '#fff' : '#111',
+                      cursor: 'pointer',
+                      padding: 0,
+                      marginBottom: '20px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    &larr; Back to plans
+                  </button>
+
+                  <h2 className="text-[15px] font-bold uppercase tracking-[0.3em] mb-2" style={{ color: isGalleryDark ? '#fff' : '#111' }}>
+                    Checkout
+                  </h2>
+                  <p className="text-[13px] text-zinc-500 mb-4">
+                    Unlock permanent gallery vault access via secure card payment.
+                  </p>
+
+                  {/* Plan Description Card */}
+                  <div style={{
+                    padding: '14px 18px',
+                    backgroundColor: isGalleryDark ? '#262626' : '#fcfbfa',
+                    borderLeft: '4px solid var(--gallery-accent, #059669)',
+                    borderTop: isGalleryDark ? '1px solid #3f3f46' : '1px solid #f2ede4',
+                    borderRight: isGalleryDark ? '1px solid #3f3f46' : '1px solid #f2ede4',
+                    borderBottom: isGalleryDark ? '1px solid #3f3f46' : '1px solid #f2ede4',
+                    borderRadius: '0 8px 8px 0',
+                    marginBottom: '20px',
+                    fontSize: '12.5px',
+                    lineHeight: 1.5,
+                    color: isGalleryDark ? '#d4d4d8' : '#4b5563'
+                  }}>
+                    {vaultPlan?.desc_lifetime || 'Permanent lifetime storage access.'}
+                  </div>
+
+                {/* Price Details */}
+                <div style={{
+                  background: isGalleryDark ? '#262626' : '#fcfbfa',
+                  border: isGalleryDark ? '1px solid #3f3f46' : '1px solid #f2ede4',
+                  borderRadius: '8px',
+                  padding: '16px',
+                  marginBottom: '20px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <span style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b', fontWeight: 600 }}>Plan Type</span>
+                      <strong style={{ color: isGalleryDark ? '#fff' : '#111', fontSize: '14px' }}>
+                        Lifetime Permanent Vault
+                      </strong>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b', fontWeight: 600 }}>Amount Due</span>
+                      <strong style={{ color: isGalleryDark ? '#fff' : '#111', fontSize: '18px', fontWeight: 700 }}>
+                        ₹{vaultPlan?.price_lifetime || '499'}
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Payment Method Selector Tabs */}
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setVaultPaymentMethod('Credit Card')}
+                    style={{
+                      flex: 1,
+                      padding: '10px 16px',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      border: vaultPaymentMethod === 'Credit Card' ? '2px solid var(--gallery-accent, #059669)' : (isGalleryDark ? '1px solid #3f3f46' : '1px solid #e2e8f0'),
+                      backgroundColor: vaultPaymentMethod === 'Credit Card' ? (isGalleryDark ? '#1f2937' : '#f0fdf4') : 'transparent',
+                      color: vaultPaymentMethod === 'Credit Card' ? (isGalleryDark ? '#34d399' : '#059669') : (isGalleryDark ? '#9ca3af' : '#4b5563'),
+                      cursor: 'pointer',
+                      borderRadius: '6px',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    💳 Credit Card
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setVaultPaymentMethod('UPI')}
+                    style={{
+                      flex: 1,
+                      padding: '10px 16px',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      border: vaultPaymentMethod === 'UPI' ? '2px solid var(--gallery-accent, #059669)' : (isGalleryDark ? '1px solid #3f3f46' : '1px solid #e2e8f0'),
+                      backgroundColor: vaultPaymentMethod === 'UPI' ? (isGalleryDark ? '#1f2937' : '#f0fdf4') : 'transparent',
+                      color: vaultPaymentMethod === 'UPI' ? (isGalleryDark ? '#34d399' : '#059669') : (isGalleryDark ? '#9ca3af' : '#4b5563'),
+                      cursor: 'pointer',
+                      borderRadius: '6px',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    📱 UPI
+                  </button>
+                </div>
+
+                {/* Card / UPI Form */}
+                <form onSubmit={handleVaultPaymentSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-[0.1em] text-zinc-400 mb-1.5">Delivery Email</label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="name@example.com"
+                      value={vaultEmail}
+                      onChange={(e) => setVaultEmail(e.target.value)}
+                      className={cn(
+                        'w-full border rounded px-3 py-2 text-[14px] outline-none transition-colors',
+                        isGalleryDark ? 'border-zinc-700 bg-zinc-800 text-white focus:border-white' : 'border-zinc-200 bg-white focus:border-black'
+                      )}
+                    />
+                  </div>
+
+                  {vaultPaymentMethod === 'Credit Card' ? (
+                    <>
+                      <div>
+                        <label className="block text-[11px] font-bold uppercase tracking-[0.1em] text-zinc-400 mb-1.5">Cardholder Name</label>
+                        <input
+                          type="text"
+                          required={vaultPaymentMethod === 'Credit Card'}
+                          placeholder="John Doe"
+                          value={vaultCardName}
+                          onChange={(e) => setVaultCardName(e.target.value)}
+                          className={cn(
+                            'w-full border rounded px-3 py-2 text-[14px] outline-none transition-colors',
+                            isGalleryDark ? 'border-zinc-700 bg-zinc-800 text-white focus:border-white' : 'border-zinc-200 bg-white focus:border-black'
+                          )}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold uppercase tracking-[0.1em] text-zinc-400 mb-1.5">Card Number</label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            required={vaultPaymentMethod === 'Credit Card'}
+                            placeholder="4242 4242 4242 4242"
+                            value={vaultCardNumber}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/\D/g, '').slice(0, 16);
+                              const formatted = val.replace(/(.{4})/g, '$1 ').trim();
+                              setVaultCardNumber(formatted);
+                            }}
+                            className={cn(
+                              'w-full border rounded pl-10 pr-3 py-2 text-[14px] outline-none transition-colors',
+                              isGalleryDark ? 'border-zinc-700 bg-zinc-800 text-white focus:border-white' : 'border-zinc-200 bg-white focus:border-black'
+                            )}
+                          />
+                          <CreditCard size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[11px] font-bold uppercase tracking-[0.1em] text-zinc-400 mb-1.5">Expiry Date</label>
+                          <input
+                            type="text"
+                            required={vaultPaymentMethod === 'Credit Card'}
+                            placeholder="MM/YY"
+                            value={vaultCardExpiry}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                              const formatted = val.length > 2 ? `${val.slice(0, 2)}/${val.slice(2)}` : val;
+                              setVaultCardExpiry(formatted);
+                            }}
+                            className={cn(
+                              'w-full border rounded px-3 py-2 text-[14px] outline-none transition-colors',
+                              isGalleryDark ? 'border-zinc-700 bg-zinc-800 text-white focus:border-white' : 'border-zinc-200 bg-white focus:border-black'
+                            )}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold uppercase tracking-[0.1em] text-zinc-400 mb-1.5">Security Code (CVC)</label>
+                          <input
+                            type="text"
+                            required={vaultPaymentMethod === 'Credit Card'}
+                            placeholder="123"
+                            value={vaultCardCvc}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/\D/g, '').slice(0, 3);
+                              setVaultCardCvc(val);
+                            }}
+                            className={cn(
+                              'w-full border rounded px-3 py-2 text-[14px] outline-none transition-colors',
+                              isGalleryDark ? 'border-zinc-700 bg-zinc-800 text-white focus:border-white' : 'border-zinc-200 bg-white focus:border-black'
+                            )}
+                          />
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '20px',
+                      border: isGalleryDark ? '1px solid #3f3f46' : '1px solid #e2e8f0',
+                      borderRadius: '8px',
+                      backgroundColor: isGalleryDark ? '#262626' : '#fafafa'
+                    }}>
+                      <div style={{
+                        padding: '16px',
+                        backgroundColor: '#fff',
+                        border: '1px solid #eaeaea',
+                        borderRadius: '8px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '8px',
+                        marginBottom: '12px'
+                      }}>
+                        {/* Visual mockup of a QR code using pure CSS */}
+                        <div style={{
+                          width: '120px',
+                          height: '120px',
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(3, 1fr)',
+                          gridTemplateRows: 'repeat(3, 1fr)',
+                          gap: '6px',
+                          padding: '6px',
+                          background: '#fff'
+                        }}>
+                          <div style={{ border: '5px solid #111', background: 'transparent' }} />
+                          <div style={{ background: '#111', opacity: 0.15 }} />
+                          <div style={{ border: '5px solid #111', background: 'transparent' }} />
+                          <div style={{ background: '#111', opacity: 0.2 }} />
+                          <div style={{ background: '#111' }} />
+                          <div style={{ background: '#111', opacity: 0.3 }} />
+                          <div style={{ border: '5px solid #111', background: 'transparent' }} />
+                          <div style={{ background: '#111', opacity: 0.25 }} />
+                          <div style={{ background: '#111' }} />
+                        </div>
+                        <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Scan with any UPI App</span>
+                      </div>
+                      <p className="text-[12px] text-center text-zinc-500 max-w-[240px]">
+                        Scan the code to complete secure UPI transfer.
+                      </p>
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: '#64748b', background: isGalleryDark ? '#262626' : '#f8fafc', padding: '10px 12px', borderRadius: '6px', border: isGalleryDark ? '1px dashed #3f3f46' : '1px dashed #e2e8f0', marginTop: '16px' }}>
+                    <ShieldCheck size={16} className="text-[#10b981] flex-shrink-0" />
+                    <span>This is a secure simulated Stripe test payment. Any inputs will succeed.</span>
+                  </div>
+
+                  {vaultError && (
+                    <div className="flex items-center gap-2 text-rose-500 text-[13px] justify-center mt-2">
+                      <AlertCircle size={14} />
+                      <span>{vaultError}</span>
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={isVaultPaying}
+                    className="w-full bg-[#111] text-white py-4 text-[13px] font-bold uppercase tracking-[0.25em] hover:bg-zinc-800 transition-colors mt-4 flex items-center justify-center gap-2 disabled:opacity-70"
+                    style={{
+                      backgroundColor: isGalleryDark ? '#fff' : '#111',
+                      color: isGalleryDark ? '#111' : '#fff'
+                    }}
+                  >
+                    {isVaultPaying ? (
+                      <>
+                        <Loader2 size={14} className="animate-spin" />
+                        Processing payment...
+                      </>
+                    ) : (
+                      vaultPaymentMethod === 'UPI' ? 'Confirm UPI Payment' : 'Pay & Unlock Access'
+                    )}
+                  </button>
+                </form>
+              </div>
+              )}
+            </Motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
