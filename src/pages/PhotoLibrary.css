@@ -2,52 +2,83 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-    background-color: var(--cg-background, oklch(0.968 0.006 85));
+    background-color: #ffffff;
     height: 100vh;
     overflow-y: auto;
-    color: var(--cg-foreground, #1a1a1a);
-    --pl-gutter: 40px;
 }
 
 .pl-header {
     display: flex;
     align-items: center;
-    padding: 24px var(--pl-gutter);
-    min-height: 80px;
+    padding: 24px 40px;
+    height: 80px;
     flex-shrink: 0;
-    position: relative;
-    z-index: 20;
-}
-
-.pl-header-copy {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    margin-right: 40px;
-    flex-shrink: 0;
-}
-
-.pl-subtitle {
-    margin: 0;
-    font-size: 14px;
-    color: #71717a;
 }
 
 .pl-title {
-    font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
-    font-size: 1.625rem;
-    font-weight: 500;
-    letter-spacing: -0.02em;
-    color: var(--cg-foreground, #1a1a1a);
+    font-size: 26px;
+    font-weight: 700;
+    color: #333;
     margin: 0;
+    margin-right: 40px;
 }
 
 .pl-header-actions {
     display: flex;
     align-items: center;
     gap: 12px;
-    flex: 1;
-    justify-content: flex-end;
+}
+
+.pl-search-container {
+    display: flex;
+    align-items: center;
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 0;
+    padding: 0 16px;
+    height: 48px;
+    width: 450px;
+}
+
+.pl-search-container svg:first-child {
+    margin-right: 12px;
+    color: #999;
+    flex-shrink: 0;
+}
+
+.pl-search-container input {
+    border: none;
+    background: transparent;
+    outline: none;
+    font-size: 17px;
+    font-weight: 500;
+    color: #444;
+    width: 100%;
+    margin-top: 1px;
+}
+
+.pl-search-container input::placeholder {
+    color: #a0a6ab;
+    font-weight: 500;
+}
+
+.pl-search-divider {
+    width: 1px;
+    height: 24px;
+    background-color: #ededed;
+    margin: 0 16px;
+    flex-shrink: 0;
+}
+
+.pl-calendar-icon {
+    color: #999;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color 0.2s;
+}
+
+.pl-calendar-icon:hover {
+    color: #666;
 }
 
 .pl-empty-state {
@@ -96,70 +127,14 @@
     background-color: #8BDFDD;
 }
 
-.pl-loading {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #64748b;
-    font-size: 16px;
-}
-
-.pl-loading--error {
-    color: #b91c1c;
-}
-
-.pl-content {
-    padding: 0 0 48px;
-}
-
-.pl-results-summary {
-    margin: 0 0 24px;
-    padding: 0 var(--pl-gutter);
-    font-size: 14px;
-    color: #71717a;
-}
-
-.pl-month-section + .pl-month-section {
-    margin-top: 8px;
-}
-
-.pl-month-label {
-    margin: 0 0 12px;
-    padding: 0 var(--pl-gutter);
-    font-size: 18px;
-    font-weight: 600;
-    color: #1a1a1a;
-}
-
-.pl-library-grid {
-    padding-top: 0;
-    padding-left: var(--pl-gutter);
-    padding-right: var(--pl-gutter);
-}
-
-.pl-library-photo-card:focus-visible {
-    outline: 2px solid #1a1a1a;
-    outline-offset: 2px;
-}
-
-.pl-empty-state--compact {
-    padding-top: 48px;
-    padding-bottom: 48px;
-}
-
 /* ============================================================
    PHOTO LIBRARY â€” MOBILE RESPONSIVE
    ============================================================ */
 @media screen and (max-width: 768px) {
-    .pl-main {
-        --pl-gutter: 16px;
-    }
-
     .pl-header {
         flex-direction: column !important;
         height: auto !important;
-        padding: 16px var(--pl-gutter) !important;
+        padding: 16px !important;
         align-items: flex-start !important;
         gap: 12px !important;
     }
@@ -168,18 +143,39 @@
         font-size: 22px !important;
         margin-bottom: 8px !important;
         width: 100% !important;
+        position: relative !important;
+        top: -4px !important;
+        /* Slightly up */
+        left: -4px !important;
+        /* Slightly left */
     }
 
     .pl-header-actions {
         width: 100% !important;
     }
 
-    .pl-content {
-        padding: 0 0 32px !important;
+    .pl-search-container {
+        width: 100% !important;
+        max-width: 100% !important;
+        height: 44px !important;
+        padding: 0 16px !important;
+        margin-top: 10px !important; /* Slightly down */
+        margin-bottom: 0 !important;
+        box-sizing: border-box !important;
+    }
+
+    .pl-search-divider {
+        display: block !important;
+        margin: 0 12px !important;
+    }
+
+    .pl-calendar-icon {
+        display: block !important;
     }
 
     .pl-empty-state {
         padding-top: 40px !important;
     }
 }
+
 

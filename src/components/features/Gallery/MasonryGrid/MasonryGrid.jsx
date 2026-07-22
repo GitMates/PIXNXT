@@ -4,7 +4,7 @@ import { Download, Heart, Share2, Play, ShoppingBag, ArrowDownToLine } from 'luc
 import { cn } from '../../../../lib/utils';
 import { SmoothMediaImage } from '../../../ui/SmoothMediaImage';
 import { isGalleryVideo } from '../../../../lib/galleryMediaType';
-import { getPhotoVideoPoster, getPhotoVideoSrc, resolveMediaUrl } from '../../../../lib/photoDisplayUrl';
+import { getPhotoVideoPoster, getPhotoVideoSrc } from '../../../../lib/photoDisplayUrl';
 import { PhotoPrivateControls, PhotoPrivateBadge } from '../../ClientExclusiveAccess';
 import {
   BannerBouquetSvg,
@@ -85,8 +85,7 @@ export function MasonryGrid({
     displayPhotos.forEach(photo => {
       if (photo.isPromoBanner) return;
       if (!photo.width || !photo.height) {
-        const src = resolveMediaUrl(photo.full_url || photo.web_url || photo.thumbnail_url || '');
-        // Skip dimension probing for video files — use 16:9 fallback
+        const src = photo.full_url || photo.web_url || photo.thumbnail_url;
         if (isGalleryVideo(photo)) {
           setDynamicAspectRatios(prev => ({ ...prev, [photo.id]: 16 / 9 }));
           return;
@@ -612,7 +611,7 @@ export function MasonryGrid({
   const renderPhotoItem = (photo, index) => {
     const src = isGalleryVideo(photo)
       ? getPhotoVideoSrc(photo)
-      : resolveMediaUrl(photo.full_url || photo.web_url || photo.thumbnail_url || '');
+      : photo.full_url || photo.web_url || photo.thumbnail_url;
     const aspectRatio = (photo.width && photo.height)
       ? (photo.width / photo.height)
       : (dynamicAspectRatios[photo.id] || 1.5);
@@ -681,7 +680,7 @@ export function MasonryGrid({
           ) : (
             <SmoothMediaImage
               src={src}
-              thumbSrc={resolveMediaUrl(photo.thumbnail_url || photo.web_url || photo.full_url || '')}
+              thumbSrc={photo.thumbnail_url}
               alt={photo.filename || `Gallery image ${index + 1}`}
               wrapClassName="gallery-masonry-media"
               className="block w-full max-w-full"

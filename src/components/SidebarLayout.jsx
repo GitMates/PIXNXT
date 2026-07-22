@@ -8,13 +8,11 @@ import {
     Database,
     Plus,
     Images,
-    LayoutGrid,
     Star,
     BookOpen,
     Settings,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
-import SmartAlbumNotifications from './smart-albums/SmartAlbumNotifications';
 import { getUserDisplayLabel, getUserInitial } from '../lib/userInitials';
 import { cn } from '../lib/utils';
 import { galleryService } from '../services/gallery.service';
@@ -26,7 +24,6 @@ import '../pages/ClientGallery.css';
 
 const NAV_ITEMS = [
     { label: 'Collections', href: '/client-gallery', match: (p) => p === '/client-gallery' || p.startsWith('/collections') || p.startsWith('/folders'), icon: Images },
-    { label: 'Library', href: '/photos', match: (p) => p === '/photos', icon: LayoutGrid },
     { label: 'Starred', href: '/starred/collections', match: (p) => p.startsWith('/starred'), icon: Star },
     { label: 'Homepage', href: '/homepage', match: (p) => p === '/homepage', icon: BookOpen },
     { label: 'Settings', href: '/settings', match: (p) => p.startsWith('/settings'), icon: Settings },
@@ -315,11 +312,10 @@ const SidebarLayout = ({ children }) => {
                             </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                            <SmartAlbumNotifications 
-                                userId={user?.id} 
-                                variant="sidebar" 
-                                className="neu-circle relative inline-flex size-8 items-center justify-center rounded-full text-[#71717A] hover:text-[#1A1A1A]" 
-                            />
+                            <button type="button" className="neu-circle relative inline-flex size-8 items-center justify-center rounded-full text-[#71717A] hover:text-[#1A1A1A]" aria-label="Notifications">
+                                <Bell className="size-4" />
+                                <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-[#1A1A1A]" />
+                            </button>
                             <AppSwitcherMenu />
                         </div>
                     </div>

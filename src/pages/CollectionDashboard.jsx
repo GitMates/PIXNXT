@@ -48,13 +48,6 @@ import { prepareUploadFile } from '../lib/prepareUploadFile';
 import { clearMediaUrlCache } from '../lib/imageLoadCache';
 import { categoryTagsFromCollection, categoryTagsToDb } from '../lib/categoryTags';
 import { isMissingDbColumnError } from '../lib/focalPoint';
-import { photoAiService } from '../services/photoAi.service';
-import {
-    filterPhotosByPerson,
-    filterPhotosByIds,
-} from '../lib/photoAiSearch';
-import { CollectionPhotoAiToolbar } from '../components/features/CollectionDashboard/Photos/CollectionPhotoAiToolbar';
-import '../components/features/CollectionDashboard/Photos/CollectionPhotoAiToolbar.css';
 import {
     appendFocalToCoverUrl,
     focalPercentToElementStyle,
@@ -82,7 +75,6 @@ import {
     readCachedSlideshowEnabled,
 } from '../lib/collectionFeatureFlags';
 import { MoveCollectionModal } from '../components/features/Collections/MoveCollectionModal';
-import { supabase } from '../lib/supabase/client';
 
 const CollectionDashboard = () => {
     const navigate = useNavigate();
@@ -96,23 +88,6 @@ const CollectionDashboard = () => {
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [collection, setCollection] = useState(null);
     const [photos, setPhotos] = useState([]);
-    const [profile, setProfile] = useState(null);
-
-    useEffect(() => {
-        if (!user?.id) {
-            setProfile(null);
-            return;
-        }
-        supabase
-            .from('photographers')
-            .select('*')
-            .eq('id', user.id)
-            .single()
-            .then(({ data }) => {
-                if (data) setProfile(data);
-            })
-            .catch((err) => console.error('Error loading photographer profile:', err));
-    }, [user?.id]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [saving, setSaving] = useState(false);
@@ -141,17 +116,6 @@ const CollectionDashboard = () => {
     const [moveMode, setMoveMode] = useState('move'); // 'move' or 'copy'
     const [showSetMenu, setShowSetMenu] = useState(null); // set id or null
     const [showSortMenu, setShowSortMenu] = useState(false);
-    const [showPeoplePanel, setShowPeoplePanel] = useState(false);
-    const [activePersonId, setActivePersonId] = useState(null);
-    const [photoAiRows, setPhotoAiRows] = useState([]);
-    const [photoAiPeople, setPhotoAiPeople] = useState([]);
-    const [photoAiLoadingPeople, setPhotoAiLoadingPeople] = useState(false);
-    const [selfiePreview, setSelfiePreview] = useState('');
-    const [selfieMatchPhotoIds, setSelfieMatchPhotoIds] = useState([]);
-    const [selfieSearching, setSelfieSearching] = useState(false);
-    const [selfieMessage, setSelfieMessage] = useState('');
-  const [photoAiTableMissing, setPhotoAiTableMissing] = useState(false);
-  const [photoAiIndexing, setPhotoAiIndexing] = useState(false);
     const [selectedPhotos, setSelectedPhotos] = useState([]);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [photosToDelete, setPhotosToDelete] = useState([]);
@@ -1416,29 +1380,6 @@ const CollectionDashboard = () => {
     }, [collectionId]);
 
     useEffect(() => {
-        if (!collectionId) {
-            setPhotoAiRows([]);
-            setPhotoAiTableMissing(false);
-            return;
-        }
-        let cancelled = false;
-        (async () => {
-            try {
-                const { rows, tableMissing } = await photoAiService.getMetadataForCollection(collectionId);
-                if (!cancelled) {
-                    setPhotoAiRows(rows);
-                    setPhotoAiTableMissing(tableMissing);
-                }
-            } catch (err) {
-                console.warn('Photo AI metadata load failed:', err);
-            }
-        })();
-        return () => {
-            cancelled = true;
-        };
-    }, [collectionId]);
-
-    useEffect(() => {
         setLightboxImgFailed(false);
     }, [lightboxOpenIndex]);
 
@@ -1555,199 +1496,6 @@ const CollectionDashboard = () => {
         return sortDashboardPhotos(filtered, sortOption);
     }, [photos, activeSetId, sortOption]);
 
-    const photoAiMetadataMap = useMemo(
-        () => photoAiService.metadataToMap(photoAiRows),
-        [photoAiRows]
-    );
-
-    const activePerson = useMemo(
-        () => photoAiPeople.find((p) => p.id === activePersonId) || null,
-        [photoAiPeople, activePersonId]
-    );
-
-    const aiFilteredPhotos = useMemo(() => {
-        let result = sortedPhotos;
-        if (selfieMatchPhotoIds.length) {
-            result = filterPhotosByIds(result, selfieMatchPhotoIds);
-        } else if (activePerson) {
-            result = filterPhotosByPerson(result, photoAiMetadataMap, activePerson);
-        }
-        return result;
-    }, [sortedPhotos, photoAiMetadataMap, activePerson, selfieMatchPhotoIds]);
-
-    const isPhotoAiFilterActive = Boolean(
-        activePersonId || selfieMatchPhotoIds.length
-    );
-
-    const handleSelfieSearch = useCallback(async (imageBase64) => {
-        if (!collectionId || !imageBase64) return;
-        setSelfieSearching(true);
-        setSelfieMessage('');
-        setSelfiePreview(imageBase64);
-        setActivePersonId(null);
-        setSelfieMatchPhotoIds([]);
-        try {
-            const result = await photoAiService.searchBySelfie(collectionId, imageBase64);
-            if (result.matched && result.photoIds?.length) {
-                setSelfieMatchPhotoIds(result.photoIds);
-                setSelfieMessage(result.message || `Found ${result.photoIds.length} matching photos.`);
-                if (result.people?.[0]?.id) {
-                    setActivePersonId(result.people[0].id);
-                }
-            } else {
-                setSelfieMatchPhotoIds([]);
-                setSelfieMessage(result.message || 'No matching faces found in this gallery.');
-            }
-        } catch (err) {
-            setSelfieMatchPhotoIds([]);
-            setSelfieMessage(err?.message || 'Selfie search failed.');
-        } finally {
-            setSelfieSearching(false);
-        }
-    }, [collectionId]);
-
-    const handleClearSelfie = useCallback(() => {
-        setSelfiePreview('');
-        setSelfieMatchPhotoIds([]);
-        setSelfieMessage('');
-        setActivePersonId(null);
-    }, []);
-
-    const handleTogglePersonHidden = useCallback(async (personId, hidden) => {
-        if (!collectionId || !personId) return;
-        try {
-            await photoAiService.setPersonHidden(collectionId, personId, hidden);
-            if (hidden && activePersonId === personId) {
-                setActivePersonId(null);
-            }
-            setPhotoAiPeople((prev) =>
-                prev.map((person) =>
-                    person.id === personId ? { ...person, isHidden: hidden } : person
-                )
-            );
-        } catch (err) {
-            console.warn('Failed to update person visibility:', err);
-            alert(err?.message || 'Could not update person visibility.');
-        }
-    }, [collectionId, activePersonId]);
-
-    const photoAiRowsRef = useRef(photoAiRows);
-    photoAiRowsRef.current = photoAiRows;
-
-    const peopleLoadingRef = useRef(false);
-    const photoAiAutoSyncKeyRef = useRef('');
-    const uploadsWereBusyRef = useRef(false);
-
-    const loadPhotoAiPeople = useCallback(async (options = {}) => {
-        if (!collectionId || photoAiTableMissing) return;
-        const rows = photoAiRowsRef.current;
-        if (!rows.length) {
-            setPhotoAiPeople([]);
-            return;
-        }
-        if (peopleLoadingRef.current) return;
-
-        const silent = Boolean(options.silent);
-        peopleLoadingRef.current = true;
-        if (!silent) {
-            setPhotoAiLoadingPeople(true);
-        }
-        try {
-            const people = await photoAiService.getPeople(collectionId, {
-                forceRecluster: Boolean(options.forceRecluster),
-                metadataRows: rows,
-                includeHidden: true,
-            });
-            setPhotoAiPeople(Array.isArray(people) ? people : []);
-        } catch (err) {
-            console.warn('Failed to load clustered people:', err);
-            if (!silent) setPhotoAiPeople([]);
-        } finally {
-            peopleLoadingRef.current = false;
-            if (!silent) setPhotoAiLoadingPeople(false);
-        }
-    }, [collectionId, photoAiTableMissing]);
-
-    const refreshPhotoAiMetadata = useCallback(async () => {
-        if (!collectionId) return { rows: [], tableMissing: false };
-        try {
-            const { rows, tableMissing } = await photoAiService.getMetadataForCollection(collectionId);
-            setPhotoAiRows(rows);
-            setPhotoAiTableMissing(tableMissing);
-            return { rows, tableMissing };
-        } catch (err) {
-            console.warn('Photo AI metadata refresh failed:', err);
-            return { rows: [], tableMissing: false };
-        }
-    }, [collectionId]);
-
-    const indexablePhotoCount = useMemo(
-        () => photos.filter((photo) => isGalleryImagePhoto(photo)).length,
-        [photos]
-    );
-
-    const photoAiSyncingRef = useRef(false);
-
-    const runPhotoAiAutoSync = useCallback(async () => {
-        if (!collectionId || photoAiTableMissing || photoAiSyncingRef.current) return;
-
-        const { rows, tableMissing } = await photoAiService.getMetadataForCollection(collectionId);
-        if (tableMissing) {
-            setPhotoAiTableMissing(true);
-            return;
-        }
-
-        const stale = !(await photoAiService.isPeopleCacheFresh(collectionId, rows));
-        const unindexed = indexablePhotoCount > rows.length;
-        if (!unindexed && !stale) {
-            setPhotoAiRows(rows);
-            return;
-        }
-
-        photoAiSyncingRef.current = true;
-        setPhotoAiIndexing(true);
-        try {
-            await photoAiService.syncCollection(collectionId);
-            await refreshPhotoAiMetadata();
-            if (showPeoplePanel) {
-                await loadPhotoAiPeople({ silent: true });
-            }
-        } catch (err) {
-            console.warn('Photo AI auto-sync failed:', err);
-        } finally {
-            photoAiSyncingRef.current = false;
-            setPhotoAiIndexing(false);
-        }
-    }, [
-        collectionId,
-        photoAiTableMissing,
-        indexablePhotoCount,
-        showPeoplePanel,
-        refreshPhotoAiMetadata,
-        loadPhotoAiPeople,
-    ]);
-
-    const prevShowPeoplePanelRef = useRef(false);
-
-    useEffect(() => {
-        const justOpened = showPeoplePanel && !prevShowPeoplePanelRef.current;
-        prevShowPeoplePanelRef.current = showPeoplePanel;
-
-        if (!showPeoplePanel || photoAiTableMissing || photoAiRows.length === 0) return;
-
-        void loadPhotoAiPeople({ silent: !justOpened });
-    }, [showPeoplePanel, photoAiTableMissing, photoAiRows.length, loadPhotoAiPeople]);
-
-    useEffect(() => {
-        if (!collectionId || indexablePhotoCount === 0 || photoAiTableMissing) return;
-
-        const syncKey = `${collectionId}:${indexablePhotoCount}`;
-        if (photoAiAutoSyncKeyRef.current === syncKey) return;
-        photoAiAutoSyncKeyRef.current = syncKey;
-
-        void runPhotoAiAutoSync();
-    }, [collectionId, indexablePhotoCount, photoAiTableMissing, runPhotoAiAutoSync]);
-
     // Get the active set object
     const activeSet = activeSetId ? sets.find(s => s.id === activeSetId) : null;
     const activeSetName = activeSet ? activeSet.name : highlightsName;
@@ -1814,33 +1562,6 @@ const CollectionDashboard = () => {
     });
 
     useEffect(() => {
-        if (!collectionId) return;
-
-        const uploadsBusy = uploadState.files.some((f) =>
-            ['waiting', 'uploading', 'processing'].includes(f.status)
-        );
-        const wasBusy = uploadsWereBusyRef.current;
-        uploadsWereBusyRef.current = uploadsBusy;
-
-        if (!wasBusy || uploadsBusy) return;
-
-        const timer = window.setTimeout(() => {
-            void refreshPhotoAiMetadata().then(() => {
-                photoAiAutoSyncKeyRef.current = '';
-                if (showPeoplePanel) {
-                    void loadPhotoAiPeople({ silent: true });
-                }
-            });
-        }, 3500);
-
-        return () => window.clearTimeout(timer);
-    }, [uploadState.files, collectionId, showPeoplePanel, refreshPhotoAiMetadata, loadPhotoAiPeople]);
-
-    useEffect(() => {
-        photoAiAutoSyncKeyRef.current = '';
-    }, [collectionId]);
-
-    useEffect(() => {
         if (!highlightsEnabled && activeSetId == null && sets.length > 0) {
             setActiveSetId(sets[0].id);
         }
@@ -1848,7 +1569,7 @@ const CollectionDashboard = () => {
 
     const gridPhotos = useMemo(() => {
         const viewSetId = highlightsEnabled ? activeSetId : (activeSetId ?? sets[0]?.id ?? null);
-        const completedNames = new Set(aiFilteredPhotos.map((p) => p.filename));
+        const completedNames = new Set(sortedPhotos.map((p) => p.filename));
         const pending = uploadState.files
             .filter(
                 (f) =>
@@ -1867,8 +1588,8 @@ const CollectionDashboard = () => {
                 _uploadPending: true,
                 _uploadProgress: f.progress,
             }));
-        return [...aiFilteredPhotos, ...pending];
-    }, [aiFilteredPhotos, uploadState.files, collectionId, highlightsEnabled, activeSetId, sets]);
+        return [...sortedPhotos, ...pending];
+    }, [sortedPhotos, uploadState.files, collectionId, highlightsEnabled, activeSetId, sets]);
 
     useEffect(() => {
         if (!pendingUploadScrollRef.current || activeSidebarTab !== 'photos') return;
@@ -3096,45 +2817,8 @@ const CollectionDashboard = () => {
                         {activeSidebarTab === 'photos' && (
                             <>
                                 <div className="cd-main-header">
-                                    <h2 className="cd-main-title">
-                                        {activeSetName} ({isPhotoAiFilterActive ? `${aiFilteredPhotos.length} of ${activeSetPhotoCount}` : activeSetPhotoCount})
-                                    </h2>
-                                    <div
-                                        className={`cd-main-actions${showPeoplePanel ? ' cd-main-actions--ai-panel-open' : ''}`}
-                                    >
-                                        <CollectionPhotoAiToolbar
-                                            showPeople={showPeoplePanel}
-                                            onTogglePeople={() => {
-                                                setShowPeoplePanel((v) => !v);
-                                                setShowSortMenu(false);
-                                                setShowGridSettings(false);
-                                            }}
-                                            people={photoAiPeople}
-                                            activePersonId={activePersonId}
-                                            onSelectPerson={(id) => {
-                                                setActivePersonId((current) => (current === id ? null : id));
-                                                setSelfieMatchPhotoIds([]);
-                                                setSelfieMessage('');
-                                                setSelfiePreview('');
-                                            }}
-                                            onClearPerson={() => {
-                                                setActivePersonId(null);
-                                                handleClearSelfie();
-                                            }}
-                                            loadingPeople={photoAiLoadingPeople}
-                                            selfiePreview={selfiePreview}
-                                            selfieSearching={selfieSearching}
-                                            selfieMessage={selfieMessage}
-                                            onSelfieSearch={handleSelfieSearch}
-                                            onClearSelfie={handleClearSelfie}
-                                            onTogglePersonHidden={handleTogglePersonHidden}
-                                            onClosePanels={() => {
-                                                setShowPeoplePanel(false);
-                                            }}
-                                            analyzing={photoAiIndexing}
-                                            indexedCount={photoAiRows.length}
-                                            tableMissing={photoAiTableMissing}
-                                        />
+                                    <h2 className="cd-main-title">{activeSetName} ({activeSetPhotoCount})</h2>
+                                    <div className="cd-main-actions">
                                         <div className={`cd-sort-wrapper${showSortMenu ? ' cd-sort-wrapper--open' : ''}`} ref={sortRef}>
                                             <button type="button" className="cd-icon-btn sort-btn" onClick={() => { setShowGridSettings(false); setShowSortMenu(!showSortMenu); }}>
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="16" y2="12"></line><line x1="8" y1="18" x2="12" y2="18"></line><line x1="3" y1="6" x2="3" y2="18"></line><polyline points="1 15 3 18 5 15"></polyline></svg>
@@ -3411,14 +3095,7 @@ const CollectionDashboard = () => {
                                     gridPhotos={photos}
                                     previewMode={previewMode}
                                     onPreviewModeChange={setPreviewMode}
-                                    photographerName={
-                                        profile?.business_name?.trim() ||
-                                        profile?.display_name?.trim() ||
-                                        [profile?.first_name, profile?.last_name].filter(Boolean).join(' ').trim() ||
-                                        user?.display_name ||
-                                        'PHOTOGRAPHER'
-                                    }
-                                    coverLogoUrl={profile?.cover_logo_url || profile?.logo_url}
+                                    photographerName={user?.display_name || 'PHOTOGRAPHER'}
                                     dashboardState={{
                                         focalX: collectionFocal.x,
                                         focalY: collectionFocal.y,
