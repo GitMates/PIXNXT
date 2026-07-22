@@ -4,7 +4,6 @@ import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { Heart, Play } from 'lucide-react';
 import { galleryService } from '../services/gallery.service';
 import { useAuth } from '../hooks/useAuth';
-import { supabase } from '../lib/supabase/client';
 import { DesignTab } from '../components/features/CollectionDashboard/DesignTab';
 import { PreviewPane } from '../components/features/CollectionDashboard/PreviewPane';
 import { ChangeCoverModal } from '../components/features/CollectionDashboard/CoverSettings/ChangeCoverModal';
@@ -39,7 +38,6 @@ import { DownloadSettings } from '../components/features/CollectionDashboard/Set
 import { FavoriteSettings } from '../components/features/CollectionDashboard/Settings/FavoriteSettings';
 import { GeneralSettings } from '../components/features/CollectionDashboard/Settings/GeneralSettings';
 import { PrivacySettings } from '../components/features/CollectionDashboard/Settings/PrivacySettings';
-import { StoreSettings } from '../components/features/CollectionDashboard/Settings/StoreSettings';
 import { useUploadQueue } from '../components/features/CollectionDashboard/Upload/useUploadQueue';
 import { UPLOAD_VIEW_COLLECTION_EVENT } from '../components/features/CollectionDashboard/Upload/GlobalUploadShell';
 import { getFileMime, isImageMime, getUploadMediaType, isUploadableMediaFile } from '../lib/fileMime';
@@ -231,9 +229,6 @@ const CollectionDashboard = () => {
     const [favoritePhotos, setFavoritePhotos] = useState(true);
     const [favoriteNotes, setFavoriteNotes] = useState(true);
     
-    // Store/Shop State
-    const [storeEnabled, setStoreEnabled] = useState(true);
-    
     // Create Favorite List Modal State
     const [showCreateFavoriteListModal, setShowCreateFavoriteListModal] = useState(false);
     const [favoriteListEmail, setFavoriteListEmail] = useState('');
@@ -243,11 +238,6 @@ const CollectionDashboard = () => {
     const [favoriteActivity, setFavoriteActivity] = useState([]);
     const [downloadActivity, setDownloadActivity] = useState([]);
     const [loadingActivity, setLoadingActivity] = useState(false);
-    
-    // Store Orders State
-    const [storeOrders, setStoreOrders] = useState([]);
-    const [storeOrderItems, setStoreOrderItems] = useState([]);
-    const [storeOrdersLoading, setStoreOrdersLoading] = useState(false);
     const [editingFavoriteList, setEditingFavoriteList] = useState(null);
     const [selectedFavoriteListId, setSelectedFavoriteListId] = useState(null);
     const [favoriteDetailRows, setFavoriteDetailRows] = useState([]);
@@ -728,62 +718,6 @@ const CollectionDashboard = () => {
         }
     };
 
-    const fetchStoreOrders = async () => {
-        if (!collectionId) return;
-        try {
-            setStoreOrdersLoading(true);
-            const { data: colPhotos, error: photosErr } = await supabase
-                .from('photos')
-                .select('id')
-                .eq('collection_id', collectionId);
-            
-            if (photosErr) throw photosErr;
-            
-            if (!colPhotos || colPhotos.length === 0) {
-                setStoreOrders([]);
-                setStoreOrderItems([]);
-                return;
-            }
-            
-            const colPhotoIds = new Set(colPhotos.map(p => p.id));
-            
-            const { data: ordersData, error: ordersErr } = await supabase
-                .from('printstore_orders')
-                .select('*')
-                .order('created_at', { ascending: false });
-
-            if (ordersErr) throw ordersErr;
-
-            const { data: itemsData, error: itemsErr } = await supabase
-                .from('printstore_order_items')
-                .select('*');
-
-            if (itemsErr) throw itemsErr;
-
-            if (!ordersData || !itemsData) {
-                setStoreOrders([]);
-                setStoreOrderItems([]);
-                return;
-            }
-
-            const filteredItems = itemsData.filter(item => {
-                const opt = item.options || {};
-                const photoId = opt.photo?.id || (opt.photos && opt.photos[0]?.id);
-                return photoId && colPhotoIds.has(photoId);
-            });
-
-            const filteredOrderIds = new Set(filteredItems.map(item => item.order_id));
-            const filteredOrders = ordersData.filter(order => filteredOrderIds.has(order.id));
-
-            setStoreOrders(filteredOrders);
-            setStoreOrderItems(itemsData);
-        } catch (err) {
-            console.error('Failed to fetch store orders for collection:', err);
-        } finally {
-            setStoreOrdersLoading(false);
-        }
-    };
-
     const fetchReminders = async () => {
         if (!collectionId) return;
         try {
@@ -798,7 +732,6 @@ const CollectionDashboard = () => {
         if (collectionId) {
             fetchFavoriteActivity();
             fetchDownloadActivity();
-            fetchStoreOrders();
             fetchReminders();
         }
     }, [collectionId]);
@@ -1324,9 +1257,6 @@ const CollectionDashboard = () => {
                 // Initialize favorite settings
                 if (data.favorites_enabled !== undefined) setFavoritePhotos(data.favorites_enabled);
                 if (data.favorites_allow_comments !== undefined) setFavoriteNotes(data.favorites_allow_comments);
-
-                // Initialize store/shop settings
-                if (data.store_enabled !== undefined) setStoreEnabled(data.store_enabled);
 
                 // Initialize expiry email settings
                 if (data.expiry_email_timing) setExpiryEmailTiming(data.expiry_email_timing);
@@ -2199,24 +2129,6 @@ const CollectionDashboard = () => {
         return () => clearTimeout(timeoutId);
     }, [favoritePhotos, favoriteNotes, collectionId, collection, loading]);
 
-    // Auto-save shop settings
-    useEffect(() => {
-        if (!collection || loading) return;
-
-        const saveShopSettings = async () => {
-            try {
-                await galleryService.updateCollection(collectionId, {
-                    store_enabled: storeEnabled
-                });
-            } catch (err) {
-                console.error('Error auto-saving shop settings:', err);
-            }
-        };
-
-        const timeoutId = setTimeout(saveShopSettings, 1000);
-        return () => clearTimeout(timeoutId);
-    }, [storeEnabled, collectionId, collection, loading]);
-
     // Derived values
     const collectionName = collection?.name || 'Loading...';
     const collectionDate = collection?.event_date
@@ -2742,16 +2654,6 @@ const CollectionDashboard = () => {
                                         {favoritePhotos ? 'ON' : 'OFF'}
                                     </span>
                                 </div>
-                                <div
-                                    className={`cd-design-nav-item ${activeSettingsTab === 'shop' ? 'active' : ''}`}
-                                    onClick={() => setActiveSettingsTab('shop')}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" /><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" /></svg>
-                                    <span>Print Lab</span>
-                                    <span className={`tab-badge${storeEnabled ? '' : ' off'}`}>
-                                        {storeEnabled ? 'ON' : 'OFF'}
-                                    </span>
-                                </div>
 
                             </div>
                         )}
@@ -3101,7 +3003,7 @@ const CollectionDashboard = () => {
                                         focalY: collectionFocal.y,
                                         activeSetId: activeSetId,
                                         sets: sets,
-                                        collection: { ...collection, highlights_enabled: highlightsEnabled, store_enabled: storeEnabled },
+                                        collection: { ...collection, highlights_enabled: highlightsEnabled },
                                         photoDownload: photoDownload,
                                         galleryDownload: galleryDownload,
                                         singlePhotoDownload: singlePhotoDownload,
@@ -3226,15 +3128,6 @@ const CollectionDashboard = () => {
                             />
                         )}
 
-                        {activeSidebarTab === 'settings' && activeSettingsTab === 'shop' && (
-                            <StoreSettings
-                                storeEnabled={storeEnabled}
-                                setStoreEnabled={setStoreEnabled}
-                                setActiveSidebarTab={setActiveSidebarTab}
-                                setActiveActivitySubTab={setActiveActivitySubTab}
-                            />
-                        )}
-
                         {activeSidebarTab === 'activity' && (
                         <ActivityView
                             activeActivityMenu={activeActivityMenu}
@@ -3278,9 +3171,6 @@ const CollectionDashboard = () => {
                             handleExportDownloadActivityPdf={handleExportDownloadActivityPdf}
                             downloadDetailPhotos={downloadDetailPhotos}
                             loadingActivity={loadingActivity}
-                            storeOrders={storeOrders}
-                            storeOrderItems={storeOrderItems}
-                            storeOrdersLoading={storeOrdersLoading}
                             favoriteActivitySortMenuRef={favoriteActivitySortMenuRef}
                             favoriteActivityMenuRef={favoriteActivityMenuRef}
                             favoriteDetailToolbarMenuRef={favoriteDetailToolbarMenuRef}

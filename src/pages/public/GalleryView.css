@@ -235,12 +235,6 @@
   background-color: color-mix(in srgb, var(--gallery-bg), transparent 12%) !important;
 }
 
-/* Keep collection bar under the text banner — never cover the gallery title */
-.gallery-view-page[data-gallery-chrome='large'][data-has-text-banner='true'] .gallery-sticky-nav--gallery-view {
-  top: var(--pixnxt-text-banner-h, 40px);
-  z-index: 1050;
-}
-
 /* Gallery chrome (nav + set heading) â€” public gallery only */
 .gallery-view-page[data-gallery-chrome='large'] .gallery-chrome__brand-title {
   font-size: 2rem !important;

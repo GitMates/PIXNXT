@@ -1,4 +1,3 @@
-import { openSpaPath } from '@/lib/spaNavigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import { useSearchParams, useNavigate } from 'react-router-dom';
@@ -422,6 +421,10 @@ export default function CollectionDashboard() {
     return null;
   };
 
+  function openSpaPath(arg0: string): void {
+    throw new Error('Function not implemented.');
+  }
+
   return (
     <div className="cd-layout">
       <DashboardSidebar
@@ -443,17 +446,7 @@ export default function CollectionDashboard() {
           collectionName={collection?.name || ''}
           status={status}
           onStatusChange={(newStatus: 'DRAFT' | 'PUBLISHED') => setStatus(newStatus)}
-          onPreview={() => {
-            const params = new URLSearchParams({
-              coverStyle: dashboardState.designSettings.coverStyle,
-              font: dashboardState.designSettings.fontFamily,
-              color: dashboardState.designSettings.colorPalette,
-              grid: dashboardState.designSettings.grid.style,
-              slideshow: dashboardState.slideshow ? '1' : '0',
-              socialSharing: dashboardState.socialSharing ? '1' : '0',
-            });
-            openSpaPath(`/gallery/${collection?.slug}?${params.toString()}`);
-          }}
+          onPreview={() => openSpaPath(`/gallery/${collection?.slug}`)}
           onShare={() => { }}
           onBack={() => navigate('/dashboard')}
           moreMenu={{

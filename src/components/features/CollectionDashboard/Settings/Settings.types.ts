@@ -89,10 +89,3 @@ export interface FavoriteSettingsProps {
   setActiveSidebarTab: (tab: string) => void;
   setActiveActivitySubTab: (tab: string) => void;
 }
-
-export interface StoreSettingsProps {
-  storeEnabled: boolean;
-  setStoreEnabled: (val: boolean) => void;
-  setActiveSidebarTab: (tab: string) => void;
-  setActiveActivitySubTab: (tab: string) => void;
-}
