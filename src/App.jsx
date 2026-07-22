@@ -37,6 +37,7 @@ import PrintStoreApp from './printstore/PrintStoreApp';
 import LabApp from './printstore/lab/LabApp';
 import PhotographerApp from './printstore/photographer/PhotographerApp';
 import StoreDashboard from './pages/StoreDashboard';
+import RekognitionTest from './pages/dev/RekognitionTest';
 import { GlobalUploadShell } from './components/features/CollectionDashboard/Upload/GlobalUploadShell';
 
 function MobileGalleryViewRedirect() {
@@ -218,6 +219,7 @@ function App() {
           <Route path="/store/orders" element={<ProtectedRoute><StoreDashboard /></ProtectedRoute>} />
           <Route path="/lab/*" element={<LabApp />} />
           <Route path="/photographer" element={<PhotographerApp />} />
+          <Route path="/dev/rekognition" element={<ProtectedRoute><RekognitionTest /></ProtectedRoute>} />
         </Routes>
 
         {!hideLayout && <Footer />}

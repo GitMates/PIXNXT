@@ -81,6 +81,9 @@ import {
   SALES_CAMPAIGNS_STORAGE_KEY,
   SALES_CAMPAIGNS_UPDATED_EVENT,
 } from '../../lib/salesCampaignBanner';
+import { filterPhotosByIds } from '../../lib/photoAiSearch';
+import { useGalleryPeople } from '../../hooks/useGalleryPeople';
+import { GalleryPeopleStrip } from '../../components/features/Gallery/GalleryPeopleStrip/GalleryPeopleStrip';
 
 /** Stable string ids so Supabase UUIDs match `photo.id` from the collection payload. */
 function normalizeFavoritePhotoId(id) {
@@ -621,6 +624,11 @@ const GalleryView = () => {
   // Favorites state
   const [sessionId, setSessionId] = useState(null);
   const [favoritedPhotos, setFavoritedPhotos] = useState([]);
+  const galleryPeople = useGalleryPeople(collection?.id, {
+    enabled: Boolean(collection?.id),
+    isPublic: true,
+  });
+
   const [pendingFavoritePhotoId, setPendingFavoritePhotoId] = useState(null);
   const [isSubmittingEmail, setIsSubmittingEmail] = useState(false);
   const [favoriteListPhotos, setFavoriteListPhotos] = useState([]);
@@ -1230,10 +1238,20 @@ const GalleryView = () => {
 
   const showMediaFilter = shouldShowGalleryMediaFilter(mediaCounts);
 
+  const photosAfterPeopleFilter = useMemo(() => {
+    if (galleryPeople.selfieMatchPhotoIds.length) {
+      return filterPhotosByIds(filteredPhotosBase, galleryPeople.selfieMatchPhotoIds);
+    }
+    if (galleryPeople.activePerson?.photoIds?.length) {
+      return filterPhotosByIds(filteredPhotosBase, galleryPeople.activePerson.photoIds);
+    }
+    return filteredPhotosBase;
+  }, [filteredPhotosBase, galleryPeople.selfieMatchPhotoIds, galleryPeople.activePerson]);
+
   const filteredPhotos = useMemo(() => {
-    if (!showMediaFilter) return filteredPhotosBase;
-    return filterGalleryMediaByType(filteredPhotosBase, mediaFilter);
-  }, [filteredPhotosBase, showMediaFilter, mediaFilter]);
+    if (!showMediaFilter) return photosAfterPeopleFilter;
+    return filterGalleryMediaByType(photosAfterPeopleFilter, mediaFilter);
+  }, [photosAfterPeopleFilter, showMediaFilter, mediaFilter]);
 
   const handleGridImageClick = useCallback((index) => {
     const photo = filteredPhotos?.[index];
@@ -1958,6 +1976,21 @@ const GalleryView = () => {
               const raw = (activeSetId ? collection.sets?.find((s) => s.id === activeSetId)?.name : 'Highlights') || 'Highlights';
               return <GallerySetHeading variant="galleryView" label={String(raw).toLowerCase()} />;
             })()}
+
+          {!isFavoriteListMode ? (
+            <GalleryPeopleStrip
+              variant="gallery"
+              people={galleryPeople.people}
+              loading={galleryPeople.loading}
+              activePersonId={galleryPeople.activePersonId}
+              selfieSearching={galleryPeople.selfieSearching}
+              selfieMessage={galleryPeople.selfieMessage}
+              isFilterActive={galleryPeople.isFilterActive}
+              onSelectPerson={galleryPeople.selectPerson}
+              onSelfiePick={galleryPeople.searchBySelfie}
+              onClearFilter={galleryPeople.clearFilter}
+            />
+          ) : null}
 
           {filteredPhotos.length === 0 &&
           showMediaFilter &&

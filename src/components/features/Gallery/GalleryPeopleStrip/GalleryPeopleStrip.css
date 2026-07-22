@@ -1,0 +1,164 @@
+.gallery-people-strip {
+  margin: 0 0 2rem;
+  padding: 0 0 0.25rem;
+}
+
+.gallery-people-strip__intro {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 1.1rem;
+}
+
+.gallery-people-strip__intro-icon {
+  flex-shrink: 0;
+  color: var(--gallery-meta-text, #71717a);
+  opacity: 0.85;
+}
+
+.gallery-people-strip__intro-text {
+  margin: 0;
+  font-family: var(--body-font, 'Inter', system-ui, sans-serif);
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--gallery-meta-text, #71717a);
+}
+
+.gallery-people-strip__filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+  padding: 0.55rem 0.85rem;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--gallery-text, #1a1a1a) 6%, transparent);
+  font-family: var(--body-font, 'Inter', system-ui, sans-serif);
+  font-size: 0.78rem;
+  color: var(--gallery-text, #1a1a1a);
+}
+
+.gallery-people-strip__filter-bar button {
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+  color: inherit;
+  flex-shrink: 0;
+}
+
+.gallery-people-strip__status {
+  margin: -0.35rem 0 0.85rem;
+  font-size: 0.78rem;
+  color: var(--gallery-text, #1a1a1a);
+}
+
+.gallery-people-strip__status--muted {
+  color: var(--gallery-meta-text, #71717a);
+}
+
+.gallery-people-strip__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.35rem;
+  overflow-x: auto;
+  padding: 0.15rem 0.25rem 0.5rem;
+  scrollbar-width: thin;
+}
+
+.gallery-people-strip__find,
+.gallery-people-strip__person {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 4.75rem;
+  max-width: 5.5rem;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.gallery-people-strip__find:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.gallery-people-strip__find-circle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 4rem;
+  height: 4rem;
+  border-radius: 50%;
+  border: 1.5px dashed color-mix(in srgb, var(--gallery-text, #1a1a1a) 28%, transparent);
+  color: var(--gallery-meta-text, #71717a);
+  background: color-mix(in srgb, var(--gallery-bg, #f9f9f7) 88%, var(--gallery-text, #1a1a1a));
+}
+
+.gallery-people-strip__find-label,
+.gallery-people-strip__person-name {
+  font-family: var(--body-font, 'Inter', system-ui, sans-serif);
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--gallery-text, #1a1a1a);
+}
+
+.gallery-people-strip__person-meta {
+  font-family: var(--body-font, 'Inter', system-ui, sans-serif);
+  font-size: 0.68rem;
+  line-height: 1.2;
+  color: var(--gallery-meta-text, #71717a);
+}
+
+.gallery-people-strip__person.is-active .gallery-people-strip__avatar {
+  box-shadow: 0 0 0 2px var(--gallery-bg, #fff), 0 0 0 3.5px var(--gallery-text, #1a1a1a);
+}
+
+.gallery-people-strip__avatar.cd-person-face-avatar {
+  border: 1px solid color-mix(in srgb, var(--gallery-text, #1a1a1a) 10%, transparent);
+}
+
+.gallery-people-strip__file-input {
+  display: none;
+}
+
+.gallery-people-strip__loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 1.25rem 0 0;
+  font-size: 0.8rem;
+  color: var(--gallery-meta-text, #71717a);
+  white-space: nowrap;
+}
+
+.gallery-people-strip__spin {
+  animation: gallery-people-spin 0.8s linear infinite;
+}
+
+@keyframes gallery-people-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.gallery-people-strip--preview {
+  margin-bottom: 1rem;
+}
+
+.gallery-people-strip--preview .gallery-people-strip__intro-text {
+  font-size: 0.72rem;
+}
+
+.gallery-people-strip--preview .gallery-people-strip__find-circle,
+.gallery-people-strip--preview .gallery-people-strip__avatar.cd-person-face-avatar {
+  width: 3.25rem;
+  height: 3.25rem;
+}

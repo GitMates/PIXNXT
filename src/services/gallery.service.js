@@ -1119,6 +1119,12 @@ export const galleryService = {
 
     if (dbError) throw dbError;
 
+    if (typeof window !== 'undefined' && photoData?.id) {
+      void import('./photoAiUploadPipeline.js').then(({ queuePhotoAiIndex }) =>
+        queuePhotoAiIndex(collectionId, photoData.id)
+      );
+    }
+
     if (isVideo && thumbnailBlob) {
       const thumbnailPathVideo = `${basePath}/thumb/${fileNameJpg}`;
       void storageService.upload(thumbnailPathVideo, thumbnailBlob).then(({ url: thumbUrl }) =>
