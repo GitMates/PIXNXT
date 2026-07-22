@@ -33,10 +33,6 @@ import AdminUserManagement from './pages/admin/AdminUserManagement';
 import { AdminProtectedRoute } from './components/admin/AdminProtectedRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { UploadQueueProvider, UploadQueueRouteSync } from './contexts/UploadQueueContext';
-import PrintStoreApp from './printstore/PrintStoreApp';
-import LabApp from './printstore/lab/LabApp';
-import PhotographerApp from './printstore/photographer/PhotographerApp';
-import StoreDashboard from './pages/StoreDashboard';
 import { GlobalUploadShell } from './components/features/CollectionDashboard/Upload/GlobalUploadShell';
 import RekognitionTest from './pages/dev/RekognitionTest';
 
@@ -123,10 +119,6 @@ function App() {
     location.pathname.startsWith('/m/') ||
     location.pathname.startsWith('/album-preview/') ||
     location.pathname.startsWith('/admin') ||
-    location.pathname.startsWith('/printstore') ||
-    location.pathname.startsWith('/store') ||
-    location.pathname.startsWith('/lab') ||
-    location.pathname.startsWith('/photographer') ||
     location.pathname.startsWith('/dev/') ||
     /\/smart-albums\/preview\//.test(location.pathname);
 
@@ -216,10 +208,6 @@ function App() {
             <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="users" element={<AdminUserManagement />} />
           </Route>
-          <Route path="/printstore" element={<ErrorBoundary><PrintStoreApp /></ErrorBoundary>} />
-          <Route path="/store/orders" element={<ProtectedRoute><StoreDashboard /></ProtectedRoute>} />
-          <Route path="/lab/*" element={<LabApp />} />
-          <Route path="/photographer" element={<PhotographerApp />} />
         </Routes>
 
         {!hideLayout && <Footer />}

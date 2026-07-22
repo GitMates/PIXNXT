@@ -189,16 +189,6 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
     if (!favFeatureOn) setShowOnlyFavorites(false);
   }, [favFeatureOn]);
 
-  const [vaultEnabled, setVaultEnabled] = useState(false);
-
-  useEffect(() => {
-    if (collectionId) {
-      galleryService.fetchVaultPlan(collectionId).then(plan => {
-        setVaultEnabled(plan?.vault_enabled === true);
-      });
-    }
-  }, [collectionId]);
-
   useEffect(() => {
     if (!storageKey || !collectionId) return;
     const saved = localStorage.getItem(storageKey);
@@ -532,19 +522,12 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
               dashboardState?.collection?.slideshow_enabled ?? dashboardState?.slideshow,
             slideshow: dashboardState?.collection?.slideshow,
           })}
-          showShop={dashboardState?.collection?.store_enabled !== false}
           favoritedCount={favoritedPhotos.length}
           isDownloadingAll={isDownloadingAll}
           onFavoriteClick={handleFavoriteHeaderClick}
           onDownloadClick={handleDownloadClick}
           onShareClick={() => setShowShareModal(true)}
           onSlideshowClick={handleStartSlideshow}
-          onShopClick={() => alert("This is a preview of the Cart navigation. In the live gallery, it opens the store or prompts to select an image.")}
-          showPrintLab={dashboardState?.collection?.store_enabled !== false}
-          onPrintLabClick={() => alert("This is a preview of Print Lab. In the live gallery, it shows an explore popup of all frame products.")}
-          showBuyGallery={vaultEnabled}
-          buyGalleryLabel="Buy Link"
-          onBuyGalleryClick={() => alert("This is a preview of the Buy Link button. In the live gallery, it pops open the extension subscriptions card popup.")}
           mediaFilter={mediaFilter}
           onMediaFilterChange={setMediaFilter}
           mediaPhotoCount={mediaCounts.photos}
@@ -662,7 +645,6 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
                 }
                 showFavorite={favFeatureOn}
                 showShare={isCollectionFeatureEnabled(dashboardState?.socialSharing)}
-                showShop={dashboardState?.collection?.store_enabled !== false}
                 favoritedPhotoIds={favoritedPhotos}
                 customRowHeight={previewCustomRowHeight}
                 customColumnCount={previewCustomColumnCount}
@@ -712,7 +694,6 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
         showDownload={dashboardState?.photoDownload !== false && dashboardState?.singlePhotoDownload !== false}
         showFavorite={favFeatureOn}
         showShare={isCollectionFeatureEnabled(dashboardState?.socialSharing)}
-        showShop={dashboardState?.collection?.store_enabled !== false}
         favoriteCount={favFeatureOn ? favoritedPhotos.length : undefined}
         isFavorited={(() => {
           const id = normalizeFavoritePhotoId(filteredPhotos[lightboxIndex]?.id);

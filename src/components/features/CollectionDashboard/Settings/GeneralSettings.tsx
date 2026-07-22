@@ -68,20 +68,6 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
     showGeneralAdditionalOptions,
     setShowGeneralAdditionalOptions,
 }) => {
-    const [vaultEnabled, setVaultEnabled] = React.useState(false);
-    const [vaultPrice, setVaultPrice] = React.useState('499');
-
-    React.useEffect(() => {
-        if (collectionId) {
-            galleryService.fetchVaultPlan(collectionId).then(plan => {
-                if (plan) {
-                    setVaultEnabled(plan.vault_enabled === true);
-                    setVaultPrice(String(plan.price_lifetime || '499'));
-                }
-            });
-        }
-    }, [collectionId]);
-
     const broadcastGallerySettings = (settings: {
         slideshow_enabled?: boolean;
         social_sharing_enabled?: boolean;
@@ -189,64 +175,6 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                     </div>
                     <p className="settings-desc">Automatically set your collection to hidden on a specific date (at 11:59pm <span className="highlight-text">GMT+5:30</span>)</p>
                     
-                    {autoExpiry && (
-                        <div style={{
-                            marginTop: '16px',
-                            padding: '16px',
-                            background: '#fcfbfa',
-                            border: '1px solid #f2ede4',
-                            borderRadius: '8px',
-                            marginBottom: '20px'
-                        }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <div style={{ flex: 1, paddingRight: '16px' }}>
-                                    <label className="settings-label" style={{ fontSize: '13px', fontWeight: 600, color: '#111', display: 'block', marginBottom: '2px' }}>Enable Permanent Vault Purchase</label>
-                                    <span className="settings-desc small" style={{ fontSize: '12px', color: '#64748b', display: 'block', lineHeight: 1.4 }}>
-                                        Allow gallery visitors to pay to extend this gallery online forever, overriding the auto expiry.
-                                    </span>
-                                </div>
-                                <div>
-                                    <label className="cd-toggle">
-                                        <input 
-                                            type="checkbox" 
-                                            checked={vaultEnabled} 
-                                            onChange={async (e) => {
-                                                const checked = e.target.checked;
-                                                setVaultEnabled(checked);
-                                                try {
-                                                    await galleryService.upsertVaultPlan(collectionId, { vault_enabled: checked });
-                                                } catch (err) { console.error('Failed to update vault_enabled:', err); }
-                                            }} 
-                                        />
-                                        <span className="cd-toggle-slider"></span>
-                                    </label>
-                                </div>
-                            </div>
-
-                            {vaultEnabled && (
-                                <div style={{ marginTop: '16px', borderTop: '1px solid #f2ede4', paddingTop: '16px' }}>
-                                    <label className="settings-label" style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '6px', color: '#111' }}>Permanent Vault Price (INR)</label>
-                                    <div className="settings-input-wrapper" style={{ maxWidth: '140px' }}>
-                                        <input
-                                            type="number"
-                                            className="settings-input"
-                                            value={vaultPrice}
-                                            onChange={async (e) => {
-                                                const price = e.target.value;
-                                                setVaultPrice(price);
-                                                try {
-                                                    await galleryService.upsertVaultPlan(collectionId, { price_lifetime: parseInt(price) || 499 });
-                                                } catch (err) { console.error('Failed to update vault_price_lifetime:', err); }
-                                            }}
-                                            placeholder="499"
-                                            style={{ padding: '8px 12px' }}
-                                        />
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    )}
-
                     {expiryReminders.length > 0 && (
                         <div className="reminders-list">
                             {expiryReminders.map((reminder) => (
