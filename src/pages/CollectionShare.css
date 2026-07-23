@@ -1,0 +1,877 @@
+.cs-share-shell {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+    background-color: #fff;
+    color: #1a1a1a;
+}
+
+/* TOP HEADER BAR */
+.cs-top-bar {
+    height: 56px;
+    border-bottom: 1px solid #eceae6;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 24px;
+    background-color: #fff;
+    z-index: 10;
+    flex-shrink: 0;
+}
+
+.cs-top-bar-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.cs-close-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #71717a;
+    padding: 4px;
+    border-radius: 50%;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.cs-close-btn:hover {
+    background-color: #f4f4f5;
+    color: #18181b;
+}
+
+.cs-top-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #18181b;
+}
+
+.cs-top-bar-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.cs-top-link {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    color: #52525b;
+    font-weight: 500;
+    padding: 6px 12px;
+    border-radius: 6px;
+    transition: background-color 0.15s ease;
+}
+
+.cs-top-link:hover {
+    background-color: #f4f4f5;
+    color: #18181b;
+}
+
+.cs-direct-link {
+    color: #0d9488;
+}
+
+.cs-direct-link:hover {
+    background-color: #f0fdfa;
+    color: #0f766e;
+}
+
+/* CONTAINER split layout */
+.cs-share-container {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    height: calc(100vh - 56px);
+}
+
+/* LEFT COLUMN: Composer */
+.cs-composer-pane {
+    width: 45%;
+    min-width: 440px;
+    max-width: 620px;
+    border-right: 1px solid #eceae6;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background-color: #fff;
+}
+
+.cs-form {
+    flex: 1;
+    padding: 32px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.cs-form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.cs-to-group {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid #f4f4f5;
+    padding-bottom: 12px;
+}
+
+.cs-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #71717a;
+    min-width: 32px;
+}
+
+.cs-input-borderless {
+    border: none !important;
+    outline: none !important;
+    font-size: 15px;
+    color: #18181b;
+    flex: 1;
+    padding: 0;
+    background: transparent;
+}
+
+.cs-subject-group {
+    border-bottom: 1px solid #f4f4f5;
+    padding-bottom: 8px;
+}
+
+.cs-subject-input {
+    border: none !important;
+    outline: none !important;
+    font-size: 22px;
+    font-weight: 600;
+    color: #18181b;
+    width: 100%;
+    padding: 8px 0;
+    background: transparent;
+}
+
+.cs-subject-input::placeholder {
+    color: #a1a1aa;
+}
+
+.cs-body-group {
+    flex: 1;
+    min-height: 200px;
+}
+
+/* Override RichTextEditor custom styles inside share page composer */
+.cs-composer-pane .set-rte-box {
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.cs-composer-pane .set-rte-toolbar {
+    border-top: 1px solid #f4f4f5 !important;
+    border-bottom: 1px solid #f4f4f5 !important;
+    background-color: #fafafa !important;
+    margin: 0 -32px;
+    padding: 0 32px;
+}
+
+.cs-composer-pane .set-rte-content {
+    flex: 1;
+    padding: 16px 0 !important;
+    font-size: 15px;
+    color: #3f3f46;
+    line-height: 1.6;
+    overflow-y: auto;
+}
+
+.cs-template-trigger-row {
+    position: relative;
+    display: flex;
+    justify-content: flex-start;
+    margin-top: 12px;
+}
+
+.cs-insert-tpl-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #0d9488;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+    padding: 0;
+    transition: color 0.15s ease;
+}
+
+.cs-insert-tpl-btn:hover {
+    color: #0f766e;
+    text-decoration: underline;
+}
+
+.cs-template-dropdown-menu {
+    position: absolute;
+    left: 0;
+    bottom: calc(100% + 8px);
+    width: 220px;
+    background-color: #fff;
+    border: 1px solid #eceae6;
+    border-radius: 12px;
+    box-shadow: 0 -10px 25px rgba(0, 0, 0, 0.08);
+    z-index: 100;
+    padding: 6px 0;
+    overflow: hidden;
+    animation: csDropdownUp 0.15s ease-out;
+}
+
+@keyframes csDropdownUp {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.cs-template-item {
+    width: 100%;
+    padding: 10px 16px;
+    font-size: 13px;
+    color: #3f3f46;
+    text-align: left;
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+.cs-template-item:hover {
+    background-color: #f4f4f5;
+    color: #18181b;
+}
+
+.cs-dropdown-divider {
+    height: 1px;
+    background-color: #eceae6;
+    margin: 6px 0;
+}
+
+.cs-template-item--manage {
+    color: #0d9488;
+    font-weight: 500;
+}
+
+.cs-template-item--manage:hover {
+    background-color: #f0fdfa;
+    color: #0f766e;
+}
+
+.cs-composer-divider {
+    height: 1px;
+    background-color: #eceae6;
+    margin: 12px 0 4px;
+}
+
+.cs-composer-footer-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: auto;
+}
+
+.cs-info-checkboxes {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.cs-checkbox-group-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #71717a;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.cs-checkbox-list {
+    display: flex;
+    gap: 16px;
+}
+
+.cs-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    color: #3f3f46;
+    user-select: none;
+}
+
+.cs-checkbox-label input {
+    width: 15px;
+    height: 15px;
+    accent-color: #0d9488;
+}
+
+.cs-no-passwords-text {
+    font-size: 12px;
+    color: #a1a1aa;
+    margin: 0;
+}
+
+.cs-send-btn-group {
+    display: flex;
+    border-radius: 20px;
+    overflow: hidden;
+    background-color: #0d9488;
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(13, 148, 136, 0.2);
+}
+
+.cs-send-btn {
+    padding: 10px 24px;
+    border: none;
+    background: none;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    border-right: 1px solid rgba(255,255,255,0.2);
+    transition: background-color 0.15s ease;
+}
+
+.cs-send-btn:hover:not(:disabled) {
+    background-color: rgba(0, 0, 0, 0.08);
+}
+
+.cs-send-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.cs-send-dropdown-arrow {
+    padding: 10px 10px;
+    border: none;
+    background: none;
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.15s ease;
+}
+
+.cs-send-dropdown-arrow:hover {
+    background-color: rgba(0, 0, 0, 0.08);
+}
+
+/* RIGHT COLUMN: Live Preview */
+.cs-preview-pane {
+    flex: 1;
+    background-color: #f4f3f0;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.cs-preview-email-frame {
+    flex: 1;
+    overflow-y: auto;
+    padding: 48px;
+    display: flex;
+    justify-content: center;
+}
+
+.cs-email-card {
+    width: 100%;
+    max-width: 580px;
+    background-color: #fff;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+    border-radius: 4px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    height: fit-content;
+    border: 1px solid #e5e5e0;
+}
+
+.cs-email-brand-header {
+    padding: 40px 24px 20px;
+    text-align: center;
+}
+
+.cs-email-brand-text {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    color: #71717a;
+    text-transform: uppercase;
+}
+
+.cs-email-hero-block {
+    padding: 0 24px 30px;
+    text-align: center;
+}
+
+.cs-email-collection-title {
+    font-size: 32px;
+    font-weight: 400;
+    letter-spacing: 0.12em;
+    margin: 0;
+    color: #18181b;
+    text-transform: uppercase;
+}
+
+.cs-email-cover-wrap {
+    width: 100%;
+    height: 360px;
+    overflow: hidden;
+}
+
+.cs-email-cover {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.cs-email-cover-placeholder {
+    width: 100%;
+    height: 240px;
+    background-color: #faf9f6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #a1a1aa;
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    border-top: 1px solid #eceae6;
+    border-bottom: 1px solid #eceae6;
+}
+
+.cs-email-body-content {
+    padding: 40px 48px;
+    font-size: 15px;
+    line-height: 1.6;
+    color: #4b5563;
+}
+
+.cs-email-body-content p {
+    margin-bottom: 1.4em;
+}
+
+.cs-email-access-details {
+    margin-top: 24px;
+    padding: 16px 20px;
+    background-color: #faf9f6;
+    border: 1px dashed #e5e5e0;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.cs-access-title {
+    margin: 0 0 10px 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #18181b;
+}
+
+.cs-email-action-row {
+    padding: 0 48px 48px;
+    text-align: center;
+}
+
+.cs-email-button {
+    display: inline-block;
+    background-color: #111;
+    color: #fff;
+    padding: 14px 40px;
+    border-radius: 24px;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    transition: background-color 0.15s ease;
+}
+
+.cs-email-button:hover {
+    background-color: #27272a;
+}
+
+.cs-email-footer {
+    background-color: #faf9f6;
+    border-top: 1px solid #f4f3f0;
+    padding: 24px;
+    text-align: center;
+    font-size: 11px;
+    color: #a1a1aa;
+}
+
+.cs-footer-copyright {
+    margin: 0;
+    line-height: 1.5;
+}
+
+/* Custom Toast */
+.cs-toast {
+    position: fixed;
+    bottom: 24px;
+    left: 24px;
+    background-color: #18181b;
+    color: #fff;
+    padding: 12px 20px;
+    border-radius: 30px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    animation: csToastIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes csToastIn {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+@media (max-width: 900px) {
+    .cs-share-container {
+        flex-direction: column;
+        overflow-y: auto;
+        height: auto;
+    }
+    .cs-composer-pane {
+        width: 100%;
+        max-width: none;
+        height: auto;
+        border-right: none;
+        border-bottom: 1px solid #eceae6;
+    }
+    .cs-preview-pane {
+        width: 100%;
+        height: auto;
+        padding-bottom: 60px;
+    }
+    .cs-preview-email-frame {
+        padding: 20px;
+    }
+}
+
+/* SCHEDULE BADGE */
+.cs-schedule-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background-color: #f0fdfa;
+    border: 1px solid #ccfbf1;
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 13px;
+    color: #0f766e;
+    margin-top: 12px;
+    width: fit-content;
+    animation: csFadeIn 0.2s ease;
+}
+
+.cs-schedule-clear-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #99f6e4;
+    padding: 2px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+}
+
+.cs-schedule-clear-btn:hover {
+    background-color: #14b8a6;
+    color: #fff;
+}
+
+/* SEND BUTTON DROPDOWN */
+.cs-send-btn-wrapper {
+    position: relative;
+}
+
+.cs-send-dropdown-menu {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 8px);
+    width: 280px;
+    background-color: #fff;
+    border: 1px solid #eceae6;
+    border-radius: 8px;
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.08);
+    z-index: 100;
+    padding: 6px 0;
+    animation: csDropdownUp 0.15s ease-out;
+}
+
+.cs-send-dropdown-item {
+    width: 100%;
+    padding: 12px 16px;
+    font-size: 13px;
+    color: #3f3f46;
+    text-align: left;
+    background: none;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: background-color 0.15s ease;
+}
+
+.cs-send-dropdown-item:hover {
+    background-color: #f4f4f5;
+    color: #18181b;
+}
+
+.cs-send-dropdown-item svg {
+    color: #71717a;
+}
+
+/* CUSTOM SCHEDULE MODAL */
+.cs-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(2px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    animation: csFadeIn 0.2s ease;
+}
+
+.cs-modal-card {
+    background-color: #fff;
+    border-radius: 4px;
+    width: 100%;
+    max-width: 600px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    animation: csModalZoom 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes csModalZoom {
+    from { transform: scale(0.95); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+.cs-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 24px 32px 16px;
+    border-bottom: none;
+}
+
+.cs-modal-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #18181b;
+    letter-spacing: 0.05em;
+}
+
+.cs-modal-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #71717a;
+    padding: 4px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.15s ease;
+}
+
+.cs-modal-close:hover {
+    background-color: #f4f4f5;
+    color: #18181b;
+}
+
+.cs-modal-body {
+    padding: 0 32px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* Green Status Bar */
+.cs-schedule-status-bar {
+    background-color: #f4fcf7;
+    border: 1px solid #e1f5e8;
+    color: #3b8253;
+    font-size: 14px;
+    padding: 14px 18px;
+    border-radius: 4px;
+    line-height: 1.5;
+}
+
+.cs-schedule-status-bar strong {
+    color: #166534;
+    font-weight: 600;
+}
+
+/* Fields Row */
+.cs-schedule-fields-row {
+    display: flex;
+    gap: 24px;
+}
+
+.cs-schedule-field-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.cs-schedule-field-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #4b5563;
+}
+
+.cs-schedule-input-wrapper {
+    display: flex;
+    align-items: center;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    padding: 0 12px;
+    height: 44px;
+    background-color: #fff;
+    transition: border-color 0.15s ease;
+}
+
+.cs-schedule-input-wrapper:focus-within {
+    border-color: #0d9488;
+}
+
+.cs-schedule-input-date,
+.cs-schedule-select-time {
+    border: none !important;
+    outline: none !important;
+    flex: 1;
+    font-size: 14px;
+    color: #1f2937;
+    background: transparent;
+    height: 100%;
+    cursor: pointer;
+}
+
+.cs-schedule-select-time {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+}
+
+.cs-schedule-clear {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #9ca3af;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    transition: color 0.15s ease;
+}
+
+.cs-schedule-clear:hover {
+    color: #4b5563;
+}
+
+/* Checkbox Copy Row */
+.cs-schedule-copy-row {
+    margin-top: 8px;
+}
+
+.cs-schedule-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #374151;
+    user-select: none;
+}
+
+.cs-schedule-checkbox-label input {
+    width: 18px;
+    height: 18px;
+    accent-color: #0d9488;
+}
+
+.cs-checkbox-text {
+    font-size: 14px;
+    font-weight: 500;
+    color: #374151;
+}
+
+/* Modal Footer Flat */
+.cs-modal-footer--flat {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 16px;
+    padding: 0 32px 32px;
+    background-color: #fff !important;
+    border-top: none !important;
+}
+
+.cs-modal-cancel-flat {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    color: #4b5563;
+    padding: 10px 16px;
+    transition: color 0.15s ease;
+}
+
+.cs-modal-cancel-flat:hover {
+    color: #1f2937;
+    text-decoration: underline;
+}
+
+.cs-modal-confirm-teal {
+    padding: 12px 36px;
+    background-color: #0d9488;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(13, 148, 136, 0.2);
+    transition: background-color 0.15s ease;
+}
+
+.cs-modal-confirm-teal:hover {
+    background-color: #0f766e;
+}
+
+

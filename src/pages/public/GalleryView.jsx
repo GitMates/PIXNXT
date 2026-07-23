@@ -640,8 +640,23 @@ const GalleryView = () => {
   const [privateToast, setPrivateToast] = useState(null);
   const [privateToastThumb, setPrivateToastThumb] = useState(null);
 
+  // Preference Settings from localStorage
+  const [showTosModal, setShowTosModal] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const tosText = localStorage.getItem('tos_text') || '';
+  const privacyText = localStorage.getItem('privacy_policy_text') || '';
+  const [showCookieBanner, setShowCookieBanner] = useState(() => {
+    return localStorage.getItem('cookie_banner_enabled') === 'true' && !sessionStorage.getItem('cookie_banner_acknowledged');
+  });
+
   const [searchParams] = useSearchParams();
   const listId = searchParams.get('list');
+  const photosParam = searchParams.get('photos');
+
+  const sharedPhotoIds = useMemo(() => {
+    if (!photosParam) return null;
+    return new Set(photosParam.split(',').map(id => id.trim()).filter(Boolean));
+  }, [photosParam]);
 
   const getPickListId = useCallback(() => {
     if (!collection?.id) return null;
@@ -1299,6 +1314,9 @@ const GalleryView = () => {
 
   const filteredPhotosBase = useMemo(() => {
     let base = photosForActiveSet;
+    if (sharedPhotoIds) {
+      base = base.filter((p) => sharedPhotoIds.has(String(p.id)));
+    }
     if (!collection) return base;
     if (isClientExclusiveEnabled(collection)) {
       base = filterPhotosForViewer(
@@ -1311,7 +1329,7 @@ const GalleryView = () => {
     }
     const sortKey = normalizeGalleryPhotoSort(collection.gallery_photo_sort);
     return sortPhotosForGallery(base, sortKey);
-  }, [collection, photosForActiveSet, isClientViewer, activeSetId]);
+  }, [collection, photosForActiveSet, isClientViewer, activeSetId, sharedPhotoIds]);
 
   const mediaCounts = useMemo(() => countGalleryMedia(filteredPhotosBase), [filteredPhotosBase]);
 
@@ -1568,6 +1586,7 @@ const GalleryView = () => {
     });
   }, [filteredPhotos]);
 
+<<<<<<< Updated upstream
   /* ── Large Banner — matches Sales Automation desktop expanded / scene layout ── */
   const largeBannerMarkup = useMemo(() => {
     if (!activeCampaign?.banners?.large_banner?.enabled) return null;
@@ -1731,6 +1750,57 @@ const GalleryView = () => {
       </div>
     );
   }, [activeCampaign, campaignTimeLeft, isMobileViewport]);
+=======
+  const hasAutoOpenedRef = useRef(false);
+  useEffect(() => {
+    if (!collection || hasAutoOpenedRef.current) return;
+    const photoId = searchParams.get('photo');
+    if (!photoId) return;
+
+    const targetPhoto = (collection.photos || []).find((p) => String(p.id) === String(photoId));
+    if (!targetPhoto) return;
+
+    // 1. If target photo is in a set, switch to that set first
+    const targetSetId = targetPhoto.set_id || null;
+    if (activeSetId !== targetSetId) {
+      setActiveSetId(targetSetId);
+      return;
+    }
+
+    // 2. Find photo index in the current filtered photos
+    const idx = filteredPhotos.findIndex((p) => String(p.id) === String(photoId));
+    if (idx >= 0) {
+      setLightboxIndex(idx);
+      hasAutoOpenedRef.current = true;
+    }
+  }, [collection, searchParams, activeSetId, filteredPhotos]);
+
+  useEffect(() => {
+    if (lightboxIndex >= 0 && filteredPhotos[lightboxIndex]) {
+      const currentPhotoId = filteredPhotos[lightboxIndex].id;
+      if (searchParams.get('photo') !== String(currentPhotoId)) {
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.set('photo', String(currentPhotoId));
+        navigate(`${window.location.pathname}?${nextParams.toString()}`, { replace: true });
+      }
+    }
+  }, [lightboxIndex, filteredPhotos, searchParams, navigate]);
+
+  const hasAutoSelectedSetRef = useRef(false);
+  useEffect(() => {
+    if (!collection || !sharedPhotoIds || hasAutoSelectedSetRef.current) return;
+    const hasSharedInActive = (collection.photos || []).some(
+      (p) => sharedPhotoIds.has(String(p.id)) && (p.set_id === activeSetId || (!p.set_id && !activeSetId))
+    );
+    if (!hasSharedInActive) {
+      const firstSetWithShared = (collection.photos || []).find((p) => sharedPhotoIds.has(String(p.id)));
+      if (firstSetWithShared) {
+        setActiveSetId(firstSetWithShared.set_id || null);
+      }
+    }
+    hasAutoSelectedSetRef.current = true;
+  }, [collection, sharedPhotoIds, activeSetId]);
+>>>>>>> Stashed changes
 
   if (loading) return (
     <div className="flex h-screen items-center justify-center bg-white">
@@ -2099,6 +2169,7 @@ const GalleryView = () => {
 
           {showEmptyPlaceholderGrid ? (
             <GalleryEmptyGrid className="mt-2" />
+<<<<<<< Updated upstream
           ) : (() => {
             const gridProps = {
               isMobileViewport,
@@ -2145,6 +2216,34 @@ const GalleryView = () => {
               </div>
             );
           })()}
+=======
+          ) : (
+            <MasonryGrid
+              key={`${activeSetId ?? 'highlights'}-${mediaFilter}-${effectiveSettings.grid_style}-${collection.thumbnail_size}-${collection.grid_spacing}-${collection.gallery_photo_sort}-${collection.show_filenames ? 'fn1' : 'fn0'}-${isClientViewer ? 'client' : 'guest'}-${isMobileViewport ? 'm' : 'd'}`}
+              photos={filteredPhotos}
+              isMobileViewport={isMobileViewport}
+              videosOnly={mediaFilter === 'videos'}
+              isHorizontal={effectiveSettings.grid_style?.toLowerCase() === 'horizontal'}
+              gridSettings={galleryGridSettings}
+              onImageClick={openLightbox}
+              onFavorite={(photo) => handleFavoritePhotoToggle(photo)}
+              onDownload={handleDownloadClick}
+              onShare={() => setShowShareModal(true)}
+              onTogglePrivate={handleTogglePhotoPrivate}
+              isClientViewer={isClientViewer}
+              allowMarkPrivate={Boolean(collection?.allow_clients_mark_private)}
+              showPrivateBadge={isClientViewer}
+              showDownload={showSinglePhotoDownload}
+              showFavorite={collection?.favorites_enabled !== false}
+              showShare={showGalleryShare}
+              favoritedPhotoIds={favoritedPhotos}
+              customRowHeight={galleryCustomRowHeight}
+              customColumnCount={galleryCustomColumnCount}
+              showFilename={false}
+              className="mt-2"
+            />
+          )}
+>>>>>>> Stashed changes
 
           {filteredPhotos.length > 0 ? (
             <GalleryBackToTop onClick={scrollToTop} />
@@ -2152,18 +2251,67 @@ const GalleryView = () => {
         </Container>
       </main>
 
-      {/* Global Footer Branding */}
+      {/* Global Footer Branding & Policies */}
       {!(photographer?.hide_branding === true || localStorage.getItem('hide_branding') === 'true') && (
         <footer
           className={cn('mt-12 border-t py-8', isGalleryDark ? 'border-white/10' : '')}
           style={{ borderTopColor: isGalleryDark ? undefined : 'rgba(0,0,0,0.05)', backgroundColor: 'var(--gallery-bg)' }}
         >
           <Container className="max-w-none px-4 md:px-8 lg:px-12">
-            <div className="text-center">
+            <div className="text-center flex flex-col items-center gap-2">
               <Typography variant="label" style={{ color: 'var(--gallery-meta-text)', opacity: 0.5 }}>© {new Date().getFullYear()} PIXNXT. All Rights Reserved.</Typography>
+              {(tosText || privacyText) && (
+                <div className="flex gap-4 text-xs mt-2" style={{ color: 'var(--gallery-meta-text)', opacity: 0.6 }}>
+                  {tosText && (
+                    <button type="button" onClick={() => setShowTosModal(true)} className="hover:underline">Terms of Service</button>
+                  )}
+                  {privacyText && (
+                    <button type="button" onClick={() => setShowPrivacyModal(true)} className="hover:underline">Privacy Policy</button>
+                  )}
+                </div>
+              )}
             </div>
           </Container>
         </footer>
+      )}
+
+      {/* Policies Modals */}
+      {showTosModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowTosModal(false)}>
+          <div className="bg-white text-black p-6 rounded-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <h2 className="text-xl font-medium mb-4">Terms of Service</h2>
+            <div className="whitespace-pre-wrap text-sm text-gray-700">{tosText}</div>
+            <button className="mt-6 px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200" onClick={() => setShowTosModal(false)}>Close</button>
+          </div>
+        </div>
+      )}
+      {showPrivacyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowPrivacyModal(false)}>
+          <div className="bg-white text-black p-6 rounded-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <h2 className="text-xl font-medium mb-4">Privacy Policy</h2>
+            <div className="whitespace-pre-wrap text-sm text-gray-700">{privacyText}</div>
+            <button className="mt-6 px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200" onClick={() => setShowPrivacyModal(false)}>Close</button>
+          </div>
+        </div>
+      )}
+
+      {/* Cookie Banner */}
+      {showCookieBanner && (
+        <div className="fixed bottom-0 left-0 right-0 z-[100] bg-white border-t border-gray-200 p-4 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4" style={{ backgroundColor: 'var(--gallery-bg)' }}>
+          <p className="text-sm m-0" style={{ color: 'var(--gallery-text)' }}>
+            This website uses cookies to ensure you get the best experience on our website.
+          </p>
+          <button 
+            className="px-6 py-2 bg-black text-white rounded whitespace-nowrap text-sm font-medium hover:bg-gray-800 transition-colors"
+            style={{ backgroundColor: 'var(--gallery-text)', color: 'var(--gallery-bg)' }}
+            onClick={() => {
+              sessionStorage.setItem('cookie_banner_acknowledged', 'true');
+              setShowCookieBanner(false);
+            }}
+          >
+            Got it!
+          </button>
+        </div>
       )}
 
       {/* Lightbox */}
@@ -2172,6 +2320,11 @@ const GalleryView = () => {
         onClose={() => {
           setLightboxIndex(-1);
           setIsSlideshowActive(false);
+          if (searchParams.has('photo')) {
+            const nextParams = new URLSearchParams(searchParams);
+            nextParams.delete('photo');
+            navigate(`${window.location.pathname}?${nextParams.toString()}`, { replace: true });
+          }
         }}
         images={photoUrls}
         photos={filteredPhotos}

@@ -35,7 +35,9 @@ const DASHBOARD_PHOTO_FIELDS = `
   original_storage_path,
   size_bytes,
   photographer_id,
-  created_at
+  created_at,
+  watermarked_url,
+  watermarked_storage_path
 `.replace(/\s+/g, '');
 
 const PHOTO_STORAGE_PATH_COLUMNS = [
@@ -838,7 +840,8 @@ export const galleryService = {
           created_at,
           exif_taken_at,
           media_type,
-          is_private
+          is_private,
+          watermarked_url
         ),
         sets!sets_collection_id_fkey (
           id,

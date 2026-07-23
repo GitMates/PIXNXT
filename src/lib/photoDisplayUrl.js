@@ -58,6 +58,9 @@ function pickDisplayableUrl(...urls) {
 
 export function getPhotoGridDisplayUrl(photo, preferOriginalAspect = false) {
   if (!photo) return '';
+  if (photo.watermarked_url) {
+    return resolveMediaUrl(photo.watermarked_url);
+  }
   if (isRawMedia(photo)) {
     return getRawPreviewUrl(photo);
   }
@@ -70,6 +73,9 @@ export function getPhotoGridDisplayUrl(photo, preferOriginalAspect = false) {
 /** Lightbox / large view — for RAW use JPEG preview, not the original file. */
 export function getPhotoFullDisplayUrl(photo) {
   if (!photo) return '';
+  if (photo.watermarked_url) {
+    return resolveMediaUrl(photo.watermarked_url);
+  }
   if (isVideoMedia(photo)) {
     return getPhotoVideoSrc(photo);
   }
@@ -226,6 +232,9 @@ export function getPhotoVideoPoster(photo) {
 export function getPhotoDisplayFallbacks(photo, preferOriginalAspect = false) {
   if (!photo) return [];
   const seen = new Set();
+  if (photo.watermarked_url) {
+    return [resolveMediaUrl(photo.watermarked_url)];
+  }
   if (isVideoMedia(photo)) {
     return getPhotoDownloadUrlCandidates(photo);
   }

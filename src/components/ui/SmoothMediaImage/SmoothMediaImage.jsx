@@ -62,7 +62,7 @@ export function SmoothMediaImage({
           observer.disconnect();
         }
       },
-      { root: null, rootMargin: '400px 0px', threshold: 0.01 }
+      { root: null, rootMargin: '800px 0px', threshold: 0.01 }
     );
 
     observer.observe(node);

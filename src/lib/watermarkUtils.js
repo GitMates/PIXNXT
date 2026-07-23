@@ -7,6 +7,7 @@ import { getProxiedMediaFetchUrl } from './r2MediaProxy';
  * @returns {Promise<Blob>} The watermarked image blob
  */
 export async function applyWatermarkToBlob(blob, options) {
+  console.log("[applyWatermarkToBlob] options:", options);
   if (!options) return blob;
 
   return new Promise((resolve, reject) => {

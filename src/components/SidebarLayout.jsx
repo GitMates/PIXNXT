@@ -43,7 +43,19 @@ const SidebarLayout = ({ children }) => {
     const profileDropdownRef = useRef(null);
     const { user, logout } = useAuth();
     const [showProfileDropdown, setShowProfileDropdown] = useState(false);
-    const [profile, setProfile] = useState(null);
+    const [profile, setProfile] = useState(() => {
+        if (typeof window !== 'undefined' && user?.id) {
+            const cached = localStorage.getItem(`photographer_profile_${user.id}`);
+            if (cached) {
+                try {
+                    return JSON.parse(cached);
+                } catch (e) {
+                    return null;
+                }
+            }
+        }
+        return null;
+    });
 
     const getProfileDisplayName = () => {
         const fromProfile =
@@ -83,13 +95,26 @@ const SidebarLayout = ({ children }) => {
             setProfile(null);
             return;
         }
+
+        const cached = localStorage.getItem(`photographer_profile_${user.id}`);
+        if (cached) {
+            try {
+                setProfile(JSON.parse(cached));
+            } catch (e) {
+                console.warn('Failed to parse cached photographer profile:', e);
+            }
+        }
+
         supabase
             .from('photographers')
             .select('*')
             .eq('id', user.id)
             .single()
             .then(({ data }) => {
-                if (data) setProfile(data);
+                if (data) {
+                    setProfile(data);
+                    localStorage.setItem(`photographer_profile_${user.id}`, JSON.stringify(data));
+                }
             })
             .catch((err) => console.error('Error loading photographer profile:', err));
     }, [user?.id]);

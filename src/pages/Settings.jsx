@@ -9,6 +9,7 @@ import { ClientGallerySelect } from '../components/features/ClientGallery/Client
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase/client';
 import { galleryService } from '../services/gallery.service';
+import RichTextEditor from '../components/RichTextEditor';
 import './Settings.css';
 import './ClientGallery.css';
 
@@ -29,6 +30,12 @@ const Settings = () => {
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [toastMessage, setToastMessage] = useState('');
+
+    const showToast = (msg) => {
+        setToastMessage(msg);
+        setTimeout(() => setToastMessage(''), 3000);
+    };
 
     const fetchProfile = useCallback(async () => {
         if (!user?.id) return;
@@ -99,10 +106,18 @@ const Settings = () => {
                     {activeTab === 'watermark' && <WatermarkTab profile={profile} updateProfile={updateProfile} />}
                     {activeTab === 'presets' && <PresetsTab profile={profile} />}
                     {activeTab === 'email-templates' && <EmailTemplatesTab profile={profile} />}
-                    {activeTab === 'preferences' && <PreferencesTab profile={profile} updateProfile={updateProfile} />}
+                    {activeTab === 'preferences' && <PreferencesTab profile={profile} updateProfile={updateProfile} showToast={showToast} />}
                     {activeTab === 'integrations' && <IntegrationsTab profile={profile} updateProfile={updateProfile} />}
                 </div>
             </ClientGalleryPageShell>
+            {toastMessage && (
+                <div className="set-toast">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                    {toastMessage}
+                </div>
+            )}
         </SidebarLayout>
     );
 };
@@ -624,6 +639,7 @@ const WatermarkTab = ({ profile, updateProfile }) => {
 };
 
 const PresetsTab = ({ profile }) => {
+    const navigate = useNavigate();
     const [presets, setPresets] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showAddForm, setShowAddForm] = useState(false);
@@ -674,6 +690,7 @@ const PresetsTab = ({ profile }) => {
                 setPresets(prev => [...prev, data]);
                 setNewPresetName('');
                 setShowAddForm(false);
+                navigate(`/settings/presets/${data.id}`);
             }
         } catch (err) {
             console.error('Error adding preset:', err);
@@ -708,10 +725,15 @@ const PresetsTab = ({ profile }) => {
                 ) : (
                     <div className="set-list-container mt-2" style={{ border: '1px solid #eee', borderRadius: '4px', overflow: 'hidden', marginBottom: '20px' }}>
                         {presets.map(preset => (
-                            <div key={preset.id} className="set-list-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid #eee', background: '#fff' }}>
+                            <div 
+                                key={preset.id} 
+                                className="set-list-item" 
+                                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid #eee', background: '#fff', cursor: 'pointer' }}
+                                onClick={() => navigate(`/settings/presets/${preset.id}`)}
+                            >
                                 <span style={{ fontWeight: '500' }}>{preset.name}</span>
                                 <button
-                                    onClick={() => handleDeletePreset(preset.id)}
+                                    onClick={(e) => { e.stopPropagation(); handleDeletePreset(preset.id); }}
                                     style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px' }}
                                 >
                                     Delete
@@ -721,63 +743,76 @@ const PresetsTab = ({ profile }) => {
                     </div>
                 )}
 
-                {showAddForm ? (
-                    <form onSubmit={handleAddPreset} style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '15px' }}>
-                        <div className="set-input-wrap neu-inset cg-field-shell flex-grow" style={{ flexGrow: 1 }}>
-                            <input
-                                className="set-input"
-                                type="text"
-                                placeholder="Preset name (e.g. Wedding, Portrait)"
-                                value={newPresetName}
-                                onChange={(e) => setNewPresetName(e.target.value)}
-                                autoFocus
-                            />
-                        </div>
-                        <button
-                            type="submit"
-                            style={{ padding: '10px 20px', backgroundColor: '#0d9488', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                        >
-                            Add
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setShowAddForm(false)}
-                            style={{ padding: '10px 20px', backgroundColor: '#e5e7eb', color: '#374151', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                        >
-                            Cancel
-                        </button>
-                    </form>
-                ) : (
-                    <div
-                        className="set-action-text mt-2"
-                        onClick={() => setShowAddForm(true)}
-                        style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#0d9488', cursor: 'pointer', fontWeight: '500' }}
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
-                        Add Preset
-                    </div>
-                )}
+                <div
+                    className="set-action-text mt-2"
+                    onClick={() => setShowAddForm(true)}
+                    style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#0d9488', cursor: 'pointer', fontWeight: '500' }}
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+                    Add Preset
+                </div>
 
                 <p className="set-help-text mt-4">Collection presets allow you to apply default settings when creating a new collection so you don't have to make changes every time.</p>
             </div>
+
+            {showAddForm && (
+                <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+                    <div style={{ backgroundColor: '#fff', borderRadius: '8px', padding: '24px', width: '400px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', position: 'relative' }}>
+                        <button 
+                            onClick={() => setShowAddForm(false)} 
+                            style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        </button>
+                        
+                        <h3 style={{ fontSize: '14px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '24px', color: '#111827' }}>Create New Preset</h3>
+                        
+                        <form onSubmit={handleAddPreset}>
+                            <div style={{ marginBottom: '24px' }}>
+                                <label style={{ display: 'block', fontSize: '13px', color: '#374151', marginBottom: '8px' }}>Give your new preset a name</label>
+                                <input
+                                    type="text"
+                                    value={newPresetName}
+                                    onChange={(e) => setNewPresetName(e.target.value)}
+                                    autoFocus
+                                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '14px' }}
+                                />
+                            </div>
+                            
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowAddForm(false)}
+                                    style={{ padding: '8px 16px', background: 'none', border: 'none', color: '#4b5563', fontSize: '14px', cursor: 'pointer', fontWeight: '500' }}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={!newPresetName.trim()}
+                                    style={{ padding: '8px 24px', backgroundColor: '#0d9488', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '14px', cursor: 'pointer', fontWeight: '500', opacity: !newPresetName.trim() ? 0.7 : 1 }}
+                                >
+                                    Create
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
-
-import { mobileGalleryEmailTemplatesService } from '../services/mobileGalleryEmailTemplates.service';
+import { clientGalleryEmailTemplatesService } from '../services/clientGalleryEmailTemplates.service';
 
 const EmailTemplatesTab = ({ profile }) => {
+    const navigate = useNavigate();
     const [templates, setTemplates] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [showAddForm, setShowAddForm] = useState(false);
-    const [name, setName] = useState('');
-    const [subject, setSubject] = useState('');
-    const [body, setBody] = useState('');
 
     const fetchTemplates = useCallback(async () => {
         if (!profile?.id) return;
         try {
-            const data = await mobileGalleryEmailTemplatesService.getTemplates(profile.id);
+            const data = await clientGalleryEmailTemplatesService.getTemplates(profile.id);
             setTemplates(data || []);
         } catch (err) {
             console.error('Error fetching email templates:', err);
@@ -790,158 +825,225 @@ const EmailTemplatesTab = ({ profile }) => {
         fetchTemplates();
     }, [fetchTemplates]);
 
-    const handleAddTemplate = async (e) => {
-        e.preventDefault();
-        if (!name.trim() || !profile?.id) return;
-        try {
-            const newTpl = {
-                id: crypto.randomUUID(),
-                name: name.trim(),
-                subject: subject.trim() || 'Your photos are ready!',
-                body: body.trim() || 'Hi, your photos are ready to view.',
-                created_at: new Date().toISOString()
+    const collectionSharingTemplates = templates.filter(t => t.category === 'collection-sharing');
+    const autoExpiryTemplates = templates.filter(t => t.category === 'auto-expiry');
+
+    const TemplateListItem = ({ tpl, index, isLast }) => {
+        const [showMenu, setShowMenu] = useState(false);
+        const menuRef = useRef(null);
+
+        useEffect(() => {
+            const handleClickOutside = (event) => {
+                if (menuRef.current && !menuRef.current.contains(event.target)) {
+                    setShowMenu(false);
+                }
             };
-            const updated = [...templates, newTpl];
-            await mobileGalleryEmailTemplatesService.saveTemplates(profile.id, updated);
-            setTemplates(updated);
-            setName('');
-            setSubject('');
-            setBody('');
-            setShowAddForm(false);
-        } catch (err) {
-            console.error('Error adding email template:', err);
-            alert(`Failed to add template: ${err.message}`);
-        }
+            document.addEventListener('mousedown', handleClickOutside);
+            return () => document.removeEventListener('mousedown', handleClickOutside);
+        }, []);
+
+        const handleDelete = async (e) => {
+            e.stopPropagation();
+            setShowMenu(false);
+            if (!window.confirm('Are you sure you want to delete this template?')) return;
+            try {
+                await clientGalleryEmailTemplatesService.deleteTemplate(profile.id, tpl.id);
+                setTemplates(prev => prev.filter(t => t.id !== tpl.id));
+            } catch (err) {
+                console.error('Error deleting template:', err);
+                alert(`Failed to delete template: ${err.message}`);
+            }
+        };
+
+        const handleEdit = (e) => {
+            e.stopPropagation();
+            setShowMenu(false);
+            navigate(`/settings/email-templates/${tpl.id}/edit`);
+        };
+
+        return (
+            <div 
+                className="set-list-item" 
+                style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center', 
+                    padding: '16px 20px', 
+                    marginBottom: '8px', 
+                    border: '1px solid #eceae6', 
+                    borderBottom: '1px solid #eceae6', 
+                    borderRadius: '6px',
+                    background: '#fff',
+                    cursor: 'pointer'
+                }}
+                onClick={() => navigate(`/settings/email-templates/${tpl.id}/edit`)}
+            >
+                <span style={{ fontWeight: '500', fontSize: '14px', color: '#333' }}>{tpl.name}</span>
+                <div style={{ position: 'relative' }} ref={menuRef}>
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setShowMenu(!showMenu);
+                        }}
+                        style={{ color: '#aaa', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '4px' }}
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
+                    </button>
+                    {showMenu && (
+                        <div style={{
+                            position: 'absolute',
+                            top: '100%',
+                            right: 0,
+                            marginTop: '8px',
+                            background: '#fff',
+                            border: '1px solid #eaeaea',
+                            borderRadius: '4px',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                            zIndex: 10,
+                            minWidth: '120px',
+                            display: 'flex',
+                            flexDirection: 'column'
+                        }}>
+                            <button 
+                                onClick={handleEdit}
+                                style={{ padding: '10px 16px', background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: '#333' }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9f9f9'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                                Edit
+                            </button>
+                            <button 
+                                onClick={handleDelete}
+                                style={{ padding: '10px 16px', background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: '#333' }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9f9f9'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                Delete
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
     };
 
-    const handleDeleteTemplate = async (id) => {
-        if (!window.confirm('Are you sure you want to delete this template?')) return;
-        try {
-            const updated = templates.filter(t => t.id !== id);
-            await mobileGalleryEmailTemplatesService.saveTemplates(profile.id, updated);
-            setTemplates(updated);
-        } catch (err) {
-            console.error('Error deleting template:', err);
-            alert(`Failed to delete template: ${err.message}`);
-        }
+    const renderTemplateList = (list) => {
+        return (
+            <div className="set-list-container mt-2" style={{ border: 'none', background: 'transparent', overflow: 'visible', marginBottom: '20px' }}>
+                {list.map((tpl, index) => (
+                    <TemplateListItem key={tpl.id} tpl={tpl} index={index} isLast={index === list.length - 1} />
+                ))}
+            </div>
+        );
     };
 
     return (
         <div className="set-tab-content">
-            <div className="set-section border-sub">
-                <h3 className="set-section-title">Collection Sharing Email Templates</h3>
+            <div className="set-section" style={{ paddingBottom: '30px', borderBottom: '1px solid #eaeaea', marginBottom: '30px' }}>
+                <h3 className="set-section-title" style={{ fontSize: '16px', fontWeight: '600', marginBottom: '15px' }}>Collection Sharing Email</h3>
 
                 {loading ? (
                     <div style={{ padding: '20px 0', color: '#666' }}>Loading templates...</div>
-                ) : templates.length === 0 ? (
-                    <p className="set-help-text mt-2" style={{ margin: '15px 0' }}>No custom email templates found.</p>
                 ) : (
-                    <div className="set-list-container mt-2" style={{ border: '1px solid #eee', borderRadius: '4px', overflow: 'hidden', marginBottom: '20px' }}>
-                        {templates.map(tpl => (
-                            <div key={tpl.id} className="set-list-item" style={{ display: 'flex', flexDirection: 'column', padding: '16px', borderBottom: '1px solid #eee', background: '#fff' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                                    <span style={{ fontWeight: '600', fontSize: '14px' }}>{tpl.name}</span>
-                                    <button
-                                        onClick={() => handleDeleteTemplate(tpl.id)}
-                                        style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px' }}
-                                    >
-                                        Delete
-                                    </button>
-                                </div>
-                                <div style={{ fontSize: '12px', color: '#555', marginBottom: '4px' }}><strong>Subject:</strong> {tpl.subject}</div>
-                                <div style={{ fontSize: '12px', color: '#777', whiteSpace: 'pre-wrap', background: '#f9f9f9', padding: '8px', borderRadius: '4px' }}>{tpl.body}</div>
-                            </div>
-                        ))}
-                    </div>
+                    <>
+                        {renderTemplateList(collectionSharingTemplates)}
+                        <div
+                            className="set-action-text mt-3"
+                            onClick={() => navigate('/settings/email-templates/create')}
+                            style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#2dd4bf', cursor: 'pointer', fontWeight: '500', fontSize: '14px' }}
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+                            Add Email Template
+                        </div>
+                        <p className="set-help-text mt-3" style={{ fontSize: '13px', color: '#888' }}>
+                            Create a custom email template and save time when sharing collections with your clients.<br/>
+                            <span style={{ color: '#2dd4bf', cursor: 'pointer' }}>Learn more</span>
+                        </p>
+                    </>
                 )}
+            </div>
 
-                {showAddForm ? (
-                    <form onSubmit={handleAddTemplate} style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '20px', padding: '16px', border: '1px solid #ddd', borderRadius: '4px', background: '#fafafa' }}>
-                        <div>
-                            <label style={{ fontSize: '12px', fontWeight: '600', display: 'block', marginBottom: '4px' }}>Template Name</label>
-                            <div className="set-input-wrap neu-inset cg-field-shell">
-                                <input className="set-input" type="text" placeholder="e.g. Wedding Delivery" value={name} onChange={(e) => setName(e.target.value)} required />
-                            </div>
-                        </div>
-                        <div>
-                            <label style={{ fontSize: '12px', fontWeight: '600', display: 'block', marginBottom: '4px' }}>Email Subject</label>
-                            <div className="set-input-wrap neu-inset cg-field-shell">
-                                <input className="set-input" type="text" placeholder="Your {{appName}} photos are ready!" value={subject} onChange={(e) => setSubject(e.target.value)} />
-                            </div>
-                        </div>
-                        <div>
-                            <label style={{ fontSize: '12px', fontWeight: '600', display: 'block', marginBottom: '4px' }}>Email Body</label>
-                            <textarea
-                                style={{ width: '100%', minHeight: '120px', padding: '10px', border: '1px solid #ccc', borderRadius: '4px', fontSize: '13px', fontFamily: 'sans-serif' }}
-                                placeholder="Hi, thank you for having me photograph your event..."
-                                value={body}
-                                onChange={(e) => setBody(e.target.value)}
-                            />
-                        </div>
-                        <div style={{ display: 'flex', gap: '10px' }}>
-                            <button type="submit" style={{ padding: '10px 20px', backgroundColor: '#0d9488', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Create Template</button>
-                            <button type="button" onClick={() => setShowAddForm(false)} style={{ padding: '10px 20px', backgroundColor: '#e5e7eb', color: '#374151', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Cancel</button>
-                        </div>
-                    </form>
+            <div className="set-section">
+                <h3 className="set-section-title" style={{ fontSize: '16px', fontWeight: '600', marginBottom: '15px' }}>Auto Expiry Email</h3>
+
+                {loading ? (
+                    <div style={{ padding: '20px 0', color: '#666' }}>Loading templates...</div>
                 ) : (
-                    <div
-                        className="set-action-text mt-3"
-                        onClick={() => setShowAddForm(true)}
-                        style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#0d9488', cursor: 'pointer', fontWeight: '500' }}
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
-                        Add Email Template
-                    </div>
+                    <>
+                        {renderTemplateList(autoExpiryTemplates)}
+                        <p className="set-help-text mt-3" style={{ fontSize: '13px', color: '#888' }}>
+                            You can send reminder emails to individual email addresses and/or to client emails that belong to an activity list. <span style={{ color: '#2dd4bf', cursor: 'pointer' }}>Learn more</span>
+                        </p>
+                    </>
                 )}
             </div>
         </div>
     );
 };
 
-const PreferencesTab = ({ profile, updateProfile }) => {
-    const [rawToggle, setRawToggle] = useState(false);
-    const [cookieToggle, setCookieToggle] = useState(() => localStorage.getItem('cookie_banner_enabled') === 'true');
-    const [language, setLanguage] = useState(profile?.default_language || 'english');
-    const [filenameDisplay, setFilenameDisplay] = useState(() => localStorage.getItem('filename_display') || 'show');
-    const [sharpening, setSharpening] = useState(() => localStorage.getItem('sharpening_level') || 'optimal');
-    const [uploadQuality, setUploadQuality] = useState(() => localStorage.getItem('upload_quality') || 'original');
-    const [tos, setTos] = useState(() => localStorage.getItem('tos_text') || '');
-    const [privacyPolicy, setPrivacyPolicy] = useState(() => localStorage.getItem('privacy_policy_text') || '');
+const PreferencesTab = ({ profile, updateProfile, showToast }) => {
+    const getInitialString = (key, fallback) => {
+        if (profile && profile[key] !== undefined && profile[key] !== null) return profile[key];
+        return localStorage.getItem(key) || fallback;
+    };
+
+    const getInitialBool = (key) => {
+        if (profile && profile[key] !== undefined && profile[key] !== null) return profile[key];
+        return localStorage.getItem(key) === 'true';
+    };
+
+    const [rawToggle, setRawToggle] = useState(getInitialBool('raw_photo_support'));
+    const [cookieToggle, setCookieToggle] = useState(getInitialBool('cookie_banner_enabled'));
+    const [language, setLanguage] = useState(getInitialString('default_language', 'english'));
+    const [filenameDisplay, setFilenameDisplay] = useState(getInitialString('filename_display', 'show'));
+    const [sharpening, setSharpening] = useState(getInitialString('sharpening_level', 'optimal'));
+    const [uploadQuality, setUploadQuality] = useState(getInitialString('upload_quality', 'original'));
+    const [tos, setTos] = useState(getInitialString('tos_text', ''));
+    const [privacyPolicy, setPrivacyPolicy] = useState(getInitialString('privacy_policy_text', ''));
 
     const handleLanguageChange = async (val) => {
         setLanguage(val);
-        await updateProfile({ default_language: val });
+        localStorage.setItem('default_language', val);
+        await updateProfile({ default_language: val }).catch(e => console.warn(e));
     };
 
-    const handleFilenameDisplayChange = (val) => {
+    const handleFilenameDisplayChange = async (val) => {
         setFilenameDisplay(val);
         localStorage.setItem('filename_display', val);
     };
 
-    const handleSharpeningChange = (val) => {
+    const handleSharpeningChange = async (val) => {
         setSharpening(val);
         localStorage.setItem('sharpening_level', val);
     };
 
-    const handleUploadQualityChange = (val) => {
+    const handleUploadQualityChange = async (val) => {
         setUploadQuality(val);
         localStorage.setItem('upload_quality', val);
     };
 
-    const handleCookieToggle = () => {
+    const handleRawToggle = async () => {
+        const next = !rawToggle;
+        setRawToggle(next);
+        localStorage.setItem('raw_photo_support', next.toString());
+    };
+
+    const handleCookieToggle = async () => {
         const next = !cookieToggle;
         setCookieToggle(next);
         localStorage.setItem('cookie_banner_enabled', next.toString());
     };
 
-    const saveTos = () => {
+    const saveTos = async () => {
         localStorage.setItem('tos_text', tos);
-        alert('Terms of Service saved!');
+        showToast('Terms of Service saved!');
     };
 
-    const savePrivacyPolicy = () => {
+    const savePrivacyPolicy = async () => {
         localStorage.setItem('privacy_policy_text', privacyPolicy);
-        alert('Privacy Policy saved!');
+        showToast('Privacy Policy saved!');
     };
 
     return (
@@ -1005,7 +1107,7 @@ const PreferencesTab = ({ profile, updateProfile }) => {
             <div className="set-section mt-4">
                 <h3 className="set-section-title">RAW Photo Support</h3>
                 <div className="set-toggle-row">
-                    <button className={`set-toggle ${rawToggle ? 'on' : 'off'}`} onClick={() => setRawToggle(!rawToggle)}>
+                    <button className={`set-toggle ${rawToggle ? 'on' : 'off'}`} onClick={handleRawToggle}>
                         <div className="set-toggle-handle"></div>
                     </button>
                     <span className="set-toggle-label">{rawToggle ? 'On' : 'Off'}</span>
@@ -1016,11 +1118,10 @@ const PreferencesTab = ({ profile, updateProfile }) => {
             <div className="set-section mt-4">
                 <h3 className="set-section-title">Terms of Service</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <textarea
-                        style={{ width: '100%', minHeight: '100px', padding: '10px', border: '1px solid #ccc', borderRadius: '4px', fontSize: '13px' }}
-                        placeholder="Enter terms of service..."
+                    <RichTextEditor
                         value={tos}
-                        onChange={(e) => setTos(e.target.value)}
+                        onChange={(val) => setTos(val)}
+                        placeholder="Enter terms of service..."
                     />
                     <button
                         onClick={saveTos}
@@ -1035,11 +1136,10 @@ const PreferencesTab = ({ profile, updateProfile }) => {
             <div className="set-section mt-4">
                 <h3 className="set-section-title">Privacy Policy</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <textarea
-                        style={{ width: '100%', minHeight: '100px', padding: '10px', border: '1px solid #ccc', borderRadius: '4px', fontSize: '13px' }}
-                        placeholder="Enter privacy policy..."
+                    <RichTextEditor
                         value={privacyPolicy}
-                        onChange={(e) => setPrivacyPolicy(e.target.value)}
+                        onChange={(val) => setPrivacyPolicy(val)}
+                        placeholder="Enter privacy policy..."
                     />
                     <button
                         onClick={savePrivacyPolicy}
