@@ -7,8 +7,9 @@ import {
   Trash2, Camera, Upload, AlertCircle, Info, ExternalLink, Edit2, Play, Pause, Check, X
 } from 'lucide-react';
 import CartItemPreview from '../components/CartItemPreview';
-import { MOCK_PHOTOS } from '../data/mockStoreData';
 import { getShortId } from '../utils/idFormat';
+import { getLabItemPhotoUrl, buildLabPreviewItem, filterLabPhysicalItems } from './labPhotoUrl';
+import LabFramedThumb from './LabFramedThumb';
 
 export default function LabQualityControlDetailsPage() {
   const { orderId } = useParams();
@@ -73,7 +74,7 @@ export default function LabQualityControlDetailsPage() {
             .select('*')
             .eq('order_id', orderId);
           if (dbItems) {
-            currentItems = dbItems;
+            currentItems = filterLabPhysicalItems(dbItems);
           }
         }
       }
@@ -89,46 +90,9 @@ export default function LabQualityControlDetailsPage() {
 
   const activeItem = items[selectedItemIdx] || null;
 
-  const buildPreviewItem = (item) => {
-    if (!item) return null;
-    const opts = item.options || {};
-    return {
-      productId: item.product_type || '',
-      productName: item.product_name || '',
-      photo: opts.photo || null,
-      photos: opts.photos || [],
-      size: opts.size || null,
-      frame: opts.frame || null,
-      paper: opts.paper || null,
-      border: opts.border || 'none',
-      layout: opts.layout || null,
-      rotation: opts.rotation || 0,
-      quantity: item.quantity,
-      unitPrice: parseFloat(item.unit_price || 0),
-    };
-  };
+  const buildPreviewItem = (item) => buildLabPreviewItem(item);
 
-  const getPhotoThumbnail = (item) => {
-    if (!item) return '';
-    const opts = item.options || {};
-    let photoOption = opts.photo;
-    if (!photoOption && opts.photos && opts.photos.length > 0) {
-      photoOption = opts.photos[0];
-    }
-    if (!photoOption) return '';
-    if (typeof photoOption === 'string') {
-      if (photoOption.startsWith('http://') || photoOption.startsWith('https://') || photoOption.startsWith('data:')) {
-        return photoOption;
-      }
-      const mock = MOCK_PHOTOS.find(p => p.id === photoOption);
-      if (mock) return mock.url;
-      return '';
-    }
-    if (typeof photoOption === 'object' && photoOption.url) {
-      return photoOption.url;
-    }
-    return '';
-  };
+  const getPhotoThumbnail = (item) => getLabItemPhotoUrl(item);
 
   // Toggle checklist item
   const handleToggleCheck = (key) => {
@@ -350,7 +314,7 @@ export default function LabQualityControlDetailsPage() {
     return (
       <div style={{ padding: '32px', textAlign: 'center' }}>
         <h2 style={{ color: '#ef4444' }}>Order Not Found</h2>
-        <button onClick={() => navigate('/lab/quality-control')} style={{ marginTop: '16px', padding: '8px 16px', background: '#0f766e', color: '#fff', border: 'none', borderRadius: '6px' }}>
+        <button onClick={() => navigate('/lab/quality-control')} style={{ marginTop: '16px', padding: '8px 16px', background: '#1A1A1A', color: '#fff', border: 'none', borderRadius: '6px' }}>
           Back to QC Center
         </button>
       </div>
@@ -391,7 +355,7 @@ export default function LabQualityControlDetailsPage() {
             <button 
               onClick={handleApprove}
               disabled={isSubmitting}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', border: 'none', borderRadius: '6px', padding: '8px 16px', backgroundColor: '#0f766e', fontSize: '13px', fontWeight: 'bold', color: '#fff', cursor: 'pointer' }}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', border: 'none', borderRadius: '6px', padding: '8px 16px', backgroundColor: '#1A1A1A', fontSize: '13px', fontWeight: 'bold', color: '#fff', cursor: 'pointer' }}
             >
               <Check size={14} /> Approve
             </button>
@@ -413,7 +377,7 @@ export default function LabQualityControlDetailsPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           
           {/* Card: Order Info */}
-          <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '18px' }}>
+          <div style={{ backgroundColor: '#fff', border: '1px solid #ECEAE6', borderRadius: 14, padding: '18px' }}>
             <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0f172a', margin: '0 0 14px 0', borderBottom: '1px solid #f1f5f9', paddingBottom: '6px', textTransform: 'uppercase' }}>
               Order Information
             </h3>
@@ -454,7 +418,7 @@ export default function LabQualityControlDetailsPage() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ color: '#64748b' }}>Inspector</span>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: '600' }}>
-                  <span>👤</span> Karthik
+                  Karthik
                 </span>
               </div>
             </div>
@@ -466,17 +430,15 @@ export default function LabQualityControlDetailsPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           
           {/* Card: Product Preview */}
-          <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '18px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ backgroundColor: '#fff', border: '1px solid #ECEAE6', borderRadius: 14, padding: '18px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0f172a', margin: 0, textTransform: 'uppercase' }}>
               Product Preview
             </h3>
             
             {/* Large Preview Only - Removed Thumbnail strip entirely */}
-            <div style={{ border: '1px solid #e2e8f0', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8fafc', padding: '10px', minHeight: '220px' }}>
+            <div style={{ borderRadius: 12, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent', padding: '10px', minHeight: '220px' }}>
               {activeItem ? (
-                <div style={{ width: '100%', height: '180px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <CartItemPreview item={buildPreviewItem(activeItem)} />
-                </div>
+                <LabFramedThumb item={activeItem} size={200} />
               ) : (
                 <span style={{ color: '#94a3b8', fontSize: '12px' }}>No preview available</span>
               )}
@@ -512,7 +474,7 @@ export default function LabQualityControlDetailsPage() {
 
           {/* Card: Specifications */}
           {activeItem && (
-            <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '18px' }}>
+            <div style={{ backgroundColor: '#fff', border: '1px solid #ECEAE6', borderRadius: 14, padding: '18px' }}>
               <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0f172a', margin: '0 0 10px 0', textTransform: 'uppercase', borderBottom: '1px solid #f1f5f9', paddingBottom: '6px' }}>
                 Print Specifications
               </h3>
@@ -552,7 +514,7 @@ export default function LabQualityControlDetailsPage() {
         {/* Column 3: Inspection Checklist */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           
-          <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '18px' }}>
+          <div style={{ backgroundColor: '#fff', border: '1px solid #ECEAE6', borderRadius: 14, padding: '18px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '8px', marginBottom: '12px' }}>
               <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#0f172a', textTransform: 'uppercase' }}>Inspection Checklist</span>
               <button 
@@ -570,7 +532,7 @@ export default function LabQualityControlDetailsPage() {
                     packaging_readiness: true
                   });
                 }}
-                style={{ background: 'none', border: 'none', color: '#0f766e', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}
+                style={{ background: 'none', border: 'none', color: '#1A1A1A', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}
               >
                 Pass All
               </button>
@@ -702,13 +664,13 @@ export default function LabQualityControlDetailsPage() {
                     onClick={startWebcam}
                     style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', backgroundColor: '#fff', fontSize: '12px', fontWeight: '600', color: '#475569', cursor: 'pointer' }}
                   >
-                    📷 Take Photo
+                    Take Photo
                   </button>
 
                   <label 
                     style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', backgroundColor: '#fff', fontSize: '12px', fontWeight: '600', color: '#475569', cursor: 'pointer' }}
                   >
-                    📁 Choose File
+                    Choose File
                     <input 
                       type="file" 
                       multiple 
@@ -807,7 +769,7 @@ export default function LabQualityControlDetailsPage() {
               <button onClick={stopWebcam} style={{ border: 'none', padding: '8px 16px', borderRadius: '6px', background: '#f1f5f9', color: '#475569', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' }}>
                 Cancel
               </button>
-              <button onClick={handleCapturePhoto} style={{ border: 'none', padding: '8px 16px', borderRadius: '6px', background: '#0f766e', color: '#fff', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' }}>
+              <button onClick={handleCapturePhoto} style={{ border: 'none', padding: '8px 16px', borderRadius: '6px', background: '#1A1A1A', color: '#fff', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' }}>
                 Capture Photo
               </button>
             </div>

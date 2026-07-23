@@ -9,15 +9,24 @@ export default function CartItemPreview({ item, collectionPhotos = [], compact =
   const scrollGridGap = compact ? '1px' : '3px';
   const allPhotosRowHeight = compact ? 22 : 88;
   const packageRowHeight = compact ? 22 : 42;
-  const selectedSize = item.size || {};
+  const selectedSize = (item.size && typeof item.size === 'object') ? item.size : {};
   const initialCustomBorderWidthCm = item.customBorderWidthCm || 0;
   const selectedBorder = item.border || 'none';
 
-  const pmatch = selectedSize?.printSize ? selectedSize.printSize.match(/(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)/) : null;
+  const printSizeStr = typeof selectedSize.printSize === 'string' ? selectedSize.printSize : '';
+  const pmatch = printSizeStr ? printSizeStr.match(/(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)/) : null;
   let currentWidthCm = pmatch ? parseFloat(pmatch[1]) : 20;
   let currentHeightCm = pmatch ? parseFloat(pmatch[2]) : 30;
 
-  const getPhotoSrc = () => item.editedPhotoUrl || item.photo?.url || '';
+  const getPhotoSrc = () =>
+    item.editedPhotoUrl
+    || item.photo?.editedPhotoUrl
+    || item.photo?.url
+    || item.photo?.web_url
+    || item.photo?.thumbnail_url
+    || item.photo?.full_url
+    || item.photo?.display_url
+    || (typeof item.photo === 'string' ? item.photo : '');
 
   const resolvePackagePhotos = () => {
     const rawList = (item.photos?.length ? item.photos : null)

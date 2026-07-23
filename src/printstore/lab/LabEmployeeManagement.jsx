@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useLabAuth } from './LabApp';
 import { supabase } from '../../lib/supabase/client';
+import { LAB_UI, labPageStyle, labTitleStyle, labCardStyle, labBtnPrimaryStyle, labBtnSecondaryStyle } from './labUi';
 
 export default function LabEmployeeManagement() {
   const { employees, refreshEmployees, orders } = useLabAuth();
 
-  // Form inputs
   const [empName, setEmpName] = useState('');
   const [empEmail, setEmpEmail] = useState('');
   const [empRole, setEmpRole] = useState('Operator');
@@ -47,80 +47,75 @@ export default function LabEmployeeManagement() {
     return orders.filter(o => o.status !== 'completed' && o.status !== 'cancelled' && deptEmps.includes(o.assigned_employee)).length;
   };
 
+  const fieldStyle = {
+    height: 40,
+    padding: '0 14px',
+    border: `1px solid ${LAB_UI.border}`,
+    borderRadius: 9999,
+    backgroundColor: '#fff',
+    fontSize: 13,
+    outline: 'none',
+    fontFamily: LAB_UI.font,
+    color: LAB_UI.foreground,
+    boxShadow: 'inset 2px 2px 5px rgba(0,0,0,0.04)',
+  };
+
   return (
-    <div style={{ padding: '32px', backgroundColor: '#ffffff', minHeight: '100%', boxSizing: 'border-box', fontFamily: "'europa', sans-serif" }}>
-      
-      {/* Header Area */}
-      <div style={{ borderBottom: '1px solid #eaeaea', paddingBottom: '20px', marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h1 style={{ fontFamily: "'EB Garamond', serif", fontSize: '28px', color: '#005c5a', margin: 0, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-            Employee Management
-          </h1>
-          <p style={{ color: '#777777', fontSize: '13px', margin: '4px 0 0 0' }}>Manage production staff, departments, and monitor work assignments</p>
-        </div>
+    <div style={labPageStyle}>
+      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <h1 style={labTitleStyle}>Employee Management</h1>
         <button
+          type="button"
           onClick={() => setShowAddForm(!showAddForm)}
-          style={{
-            backgroundColor: '#005c5a',
-            color: '#fff',
-            border: 'none',
-            padding: '10px 18px',
-            fontSize: '13px',
-            fontWeight: 'bold',
-            cursor: 'pointer',
-            borderRadius: '4px'
-          }}
+          style={showAddForm ? labBtnSecondaryStyle : labBtnPrimaryStyle}
         >
           {showAddForm ? 'Cancel' : '+ Add Employee'}
         </button>
       </div>
 
       {showAddForm && (
-        <form onSubmit={handleAddEmployee} style={{ padding: '24px', border: '1px solid #cbd5e1', borderRadius: '4px', backgroundColor: '#fafafa', marginBottom: '24px' }}>
-          <h3 style={{ fontSize: '15px', color: '#111', fontWeight: 'bold', margin: '0 0 16px 0', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Add Production Employee</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '16px' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <label style={{ fontSize: '12px', color: '#64748b', fontWeight: '600' }}>Name</label>
+        <form
+          onSubmit={handleAddEmployee}
+          style={{ ...labCardStyle, padding: 24, marginBottom: 24 }}
+        >
+          <h3 style={{ fontSize: 15, color: LAB_UI.foreground, fontWeight: 600, margin: '0 0 16px 0', fontFamily: LAB_UI.titleFont }}>
+            Add Production Employee
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <label style={{ fontSize: 12, color: LAB_UI.muted, fontWeight: 600 }}>Name</label>
               <input
                 type="text"
                 placeholder="e.g. Ramesh Kumar"
                 value={empName}
                 onChange={(e) => setEmpName(e.target.value)}
-                style={{ padding: '8px 10px', border: '1px solid #cbd5e1', fontSize: '12.5px', outline: 'none' }}
+                style={fieldStyle}
                 required
               />
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <label style={{ fontSize: '12px', color: '#64748b', fontWeight: '600' }}>Email</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <label style={{ fontSize: 12, color: LAB_UI.muted, fontWeight: 600 }}>Email</label>
               <input
                 type="email"
                 placeholder="e.g. ramesh@pixnxt.com"
                 value={empEmail}
                 onChange={(e) => setEmpEmail(e.target.value)}
-                style={{ padding: '8px 10px', border: '1px solid #cbd5e1', fontSize: '12.5px', outline: 'none' }}
+                style={fieldStyle}
                 required
               />
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <label style={{ fontSize: '12px', color: '#64748b', fontWeight: '600' }}>Role / Designation</label>
-              <select
-                value={empRole}
-                onChange={(e) => setEmpRole(e.target.value)}
-                style={{ padding: '8px 10px', border: '1px solid #cbd5e1', fontSize: '12.5px', outline: 'none', cursor: 'pointer' }}
-              >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <label style={{ fontSize: 12, color: LAB_UI.muted, fontWeight: 600 }}>Role / Designation</label>
+              <select value={empRole} onChange={(e) => setEmpRole(e.target.value)} style={{ ...fieldStyle, cursor: 'pointer' }}>
                 <option value="Operator">Operator</option>
                 <option value="Supervisor">Supervisor</option>
                 <option value="Technician">Technician</option>
                 <option value="Packer">Packer</option>
               </select>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <label style={{ fontSize: '12px', color: '#64748b', fontWeight: '600' }}>Department</label>
-              <select
-                value={empDept}
-                onChange={(e) => setEmpDept(e.target.value)}
-                style={{ padding: '8px 10px', border: '1px solid #cbd5e1', fontSize: '12.5px', outline: 'none', cursor: 'pointer' }}
-              >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <label style={{ fontSize: 12, color: LAB_UI.muted, fontWeight: 600 }}>Department</label>
+              <select value={empDept} onChange={(e) => setEmpDept(e.target.value)} style={{ ...fieldStyle, cursor: 'pointer' }}>
                 <option value="Printing">Printing</option>
                 <option value="Framing">Framing</option>
                 <option value="Quality Control">Quality Control</option>
@@ -129,75 +124,84 @@ export default function LabEmployeeManagement() {
               </select>
             </div>
           </div>
-          <button
-            type="submit"
-            style={{ backgroundColor: '#005c5a', color: '#fff', border: 'none', padding: '10px 20px', fontWeight: 'bold', fontSize: '12.5px', cursor: 'pointer', borderRadius: '4px', marginTop: '16px' }}
-          >
+          <button type="submit" style={{ ...labBtnPrimaryStyle, marginTop: 16 }}>
             Register Employee
           </button>
         </form>
       )}
 
-      {/* Departments load metrics cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '16px', marginBottom: '28px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 14, marginBottom: 24 }}>
         {['Printing', 'Framing', 'Quality Control', 'Packaging', 'Shipping'].map(dept => {
           const loadCount = getDepartmentLoad(dept);
           return (
-            <div key={dept} style={{ padding: '16px', border: '1px solid #cbd5e1', borderRadius: '4px', backgroundColor: '#fafafa' }}>
-              <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{dept}</div>
-              <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#005c5a', marginTop: '6px' }}>{loadCount}</div>
-              <div style={{ fontSize: '11px', color: '#777', marginTop: '4px' }}>Active Assigned Runs</div>
+            <div key={dept} style={{ ...labCardStyle, padding: 18 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: LAB_UI.muted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                {dept}
+              </div>
+              <div style={{ fontSize: 26, fontWeight: 700, color: LAB_UI.foreground, marginTop: 8 }}>
+                {loadCount}
+              </div>
             </div>
           );
         })}
       </div>
 
-      {/* Staff directory */}
-      <div style={{ border: '1px solid #cbd5e1', borderRadius: '4px', overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
-          <thead>
-            <tr style={{ backgroundColor: '#005c5a', color: '#ffffff', borderBottom: '2px solid #cbd5e1' }}>
-              <th style={{ padding: '14px 16px' }}>Employee ID</th>
-              <th style={{ padding: '14px 16px' }}>Name</th>
-              <th style={{ padding: '14px 16px' }}>Email Address</th>
-              <th style={{ padding: '14px 16px' }}>Designation</th>
-              <th style={{ padding: '14px 16px' }}>Department</th>
-              <th style={{ padding: '14px 16px', textAlign: 'center' }}>Completed Runs</th>
-              <th style={{ padding: '14px 16px', textAlign: 'center' }}>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {employees.map(emp => {
-              const completedCount = orders.filter(o => o.status === 'completed' && o.assigned_employee === emp.name).length + (emp.orders_completed || 0);
-              
-              return (
-                <tr key={emp.id} style={{ borderBottom: '1px solid #eaeaea' }}>
-                  <td style={{ padding: '14px 16px', fontWeight: 'bold', fontFamily: 'monospace' }}>{emp.id ? emp.id.substring(0, 8) : 'N/A'}</td>
-                  <td style={{ padding: '14px 16px', fontWeight: 600 }}>{emp.name}</td>
-                  <td style={{ padding: '14px 16px', color: '#475569' }}>{emp.email}</td>
-                  <td style={{ padding: '14px 16px', color: '#64748b' }}>{emp.role}</td>
-                  <td style={{ padding: '14px 16px', fontWeight: 'bold', color: '#005c5a' }}>{emp.department}</td>
-                  <td style={{ padding: '14px 16px', textAlign: 'center', fontWeight: 'bold' }}>{completedCount}</td>
-                  <td style={{ padding: '14px 16px', textAlign: 'center' }}>
-                    <span style={{
-                      backgroundColor: emp.status === 'active' ? '#d1fae5' : '#fee2e2',
-                      color: emp.status === 'active' ? '#065f46' : '#991b1b',
-                      fontSize: '10px',
-                      fontWeight: 'bold',
-                      padding: '2px 8px',
-                      borderRadius: '12px',
-                      textTransform: 'uppercase'
-                    }}>
-                      {emp.status}
-                    </span>
+      <div style={{ border: `1px solid ${LAB_UI.border}`, borderRadius: 16, overflow: 'hidden', backgroundColor: '#fff', boxShadow: '-4px -4px 12px rgba(255,255,255,0.7), 4px 4px 14px rgba(0,0,0,0.04)' }}>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, textAlign: 'left', minWidth: 900 }}>
+            <thead>
+              <tr style={{ backgroundColor: LAB_UI.primary, color: '#fff', fontWeight: 600 }}>
+                <th style={{ padding: '14px 16px' }}>Employee ID</th>
+                <th style={{ padding: '14px 16px' }}>Name</th>
+                <th style={{ padding: '14px 16px' }}>Email Address</th>
+                <th style={{ padding: '14px 16px' }}>Designation</th>
+                <th style={{ padding: '14px 16px' }}>Department</th>
+                <th style={{ padding: '14px 16px', textAlign: 'center' }}>Completed Runs</th>
+                <th style={{ padding: '14px 16px', textAlign: 'center' }}>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {employees.length === 0 ? (
+                <tr>
+                  <td colSpan={7} style={{ padding: 28, textAlign: 'center', color: LAB_UI.muted }}>
+                    No employees registered yet
                   </td>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              ) : employees.map(emp => {
+                const completedCount = orders.filter(o => o.status === 'completed' && o.assigned_employee === emp.name).length + (emp.orders_completed || 0);
+                return (
+                  <tr
+                    key={emp.id}
+                    style={{ borderBottom: `1px solid ${LAB_UI.border}`, transition: 'background-color 0.15s' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = LAB_UI.hover; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = ''; }}
+                  >
+                    <td style={{ padding: '14px 16px', fontWeight: 700, fontFamily: 'monospace' }}>{emp.id ? emp.id.substring(0, 8) : 'N/A'}</td>
+                    <td style={{ padding: '14px 16px', fontWeight: 600 }}>{emp.name}</td>
+                    <td style={{ padding: '14px 16px', color: LAB_UI.muted }}>{emp.email}</td>
+                    <td style={{ padding: '14px 16px', color: LAB_UI.muted }}>{emp.role}</td>
+                    <td style={{ padding: '14px 16px', fontWeight: 600 }}>{emp.department}</td>
+                    <td style={{ padding: '14px 16px', textAlign: 'center', fontWeight: 700 }}>{completedCount}</td>
+                    <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+                      <span style={{
+                        backgroundColor: emp.status === 'active' ? LAB_UI.successBg : LAB_UI.dangerBg,
+                        color: emp.status === 'active' ? LAB_UI.success : LAB_UI.danger,
+                        fontSize: 10,
+                        fontWeight: 700,
+                        padding: '4px 10px',
+                        borderRadius: 9999,
+                        textTransform: 'uppercase',
+                      }}>
+                        {emp.status}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
-
     </div>
   );
 }

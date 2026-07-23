@@ -5,8 +5,10 @@ import { useNavigate } from 'react-router-dom';
 import { 
   Printer, Check, Plus, Eye, ChevronRight, Filter, ChevronLeft, AlertCircle, RefreshCw
 } from 'lucide-react';
-import { MOCK_PHOTOS } from '../data/mockStoreData';
 import { getShortId } from '../utils/idFormat';
+import LabSearchField from './LabSearchField';
+import { getLabItemPhotoUrl } from './labPhotoUrl';
+import LabFramedThumb from './LabFramedThumb';
 
 export default function LabPackagingCenter() {
   const { orders, orderItems, refreshOrders } = useLabAuth();
@@ -50,27 +52,7 @@ export default function LabPackagingCenter() {
 
   const getOrderItems = (orderId) => orderItems.filter(item => item.order_id === orderId);
 
-  const getPhotoThumbnail = (item) => {
-    if (!item) return '';
-    const opts = item.options || {};
-    let photoOption = opts.photo;
-    if (!photoOption && opts.photos && opts.photos.length > 0) {
-      photoOption = opts.photos[0];
-    }
-    if (!photoOption) return '';
-    if (typeof photoOption === 'string') {
-      if (photoOption.startsWith('http://') || photoOption.startsWith('https://') || photoOption.startsWith('data:')) {
-        return photoOption;
-      }
-      const mock = MOCK_PHOTOS.find(p => p.id === photoOption);
-      if (mock) return mock.url;
-      return '';
-    }
-    if (typeof photoOption === 'object' && photoOption.url) {
-      return photoOption.url;
-    }
-    return '';
-  };
+  const getPhotoThumbnail = (item) => getLabItemPhotoUrl(item);
 
   // Group Packaging List dynamically
   const packagingData = useMemo(() => {
@@ -105,8 +87,8 @@ export default function LabPackagingCenter() {
         customerName: order.customer_name,
         customerEmail: order.customer_email,
         itemsCount,
-        thumbnail: currentItems.length > 0 ? getPhotoThumbnail(currentItems[0]) : '',
-        courier: ws?.carrier || 'Delhivery',
+        thumbnailItem: currentItems[0] || null,
+        courier: ws?.carrier || '—',
         packingType: ws?.box_dimensions || 'Standard Box',
         status: packStatus,
         packer: log?.packed_by || 'David'
@@ -158,7 +140,7 @@ export default function LabPackagingCenter() {
           .from('printstore_orders')
           .update({ 
             status: 'ready_to_ship',
-            shelf_location: 'Shelf ' + ['A-03', 'B-11', 'C-08', 'D-12'][Math.floor(Math.random() * 4)]
+            shelf_location: 'Shelf ' + (String(orderId).replace(/\D/g, '').slice(-2) || '01')
           })
           .eq('id', orderId);
 
@@ -174,7 +156,7 @@ export default function LabPackagingCenter() {
         // Create log entry
         const { error: logError } = await supabase.from('printstore_lab_packaging_logs').insert({
           order_id: orderId,
-          packed_by: 'PACKING OPERATOR DAVID',
+          packed_by: (JSON.parse(localStorage.getItem('pixnxt_lab_session') || '{}')?.email) || 'Lab Operator',
           packaging_type: 'Standard Box',
           bubble_wrap: true,
           corner_protectors: true,
@@ -263,7 +245,7 @@ export default function LabPackagingCenter() {
   }
 
   return (
-    <div style={{ padding: '24px 32px', backgroundColor: '#ffffff', minHeight: '100%', fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif", color: '#1e293b', boxSizing: 'border-box' }}>
+    <div style={{ padding: '24px 32px', backgroundColor: '#F9F9F7', minHeight: '100%', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", color: '#1e293b', boxSizing: 'border-box' }}>
       
       {/* Title Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
@@ -271,9 +253,6 @@ export default function LabPackagingCenter() {
           <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: '0 0 4px 0', color: '#0f172a', textTransform: 'uppercase' }}>
             Packaging Center
           </h1>
-          <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
-            Pack and prepare orders for delivery
-          </p>
         </div>
 
         <div style={{ display: 'flex', gap: '8px' }}>
@@ -288,11 +267,11 @@ export default function LabPackagingCenter() {
             disabled={isSubmitting || selectedOrders.length === 0}
             style={{ 
               padding: '8px 16px', 
-              backgroundColor: selectedOrders.length === 0 ? '#cbd5e1' : '#0f766e', 
+              backgroundColor: selectedOrders.length === 0 ? '#cbd5e1' : '#1A1A1A', 
               border: 'none', 
-              borderRadius: '6px', 
-              fontSize: '12.5px', 
-              fontWeight: 'bold', 
+              borderRadius: '9999px',
+                fontSize: '12.5px',
+                fontWeight: '500', 
               color: '#fff', 
               cursor: selectedOrders.length === 0 ? 'not-allowed' : 'pointer', 
               display: 'flex', 
@@ -309,8 +288,8 @@ export default function LabPackagingCenter() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '16px', marginBottom: '24px' }}>
         
         {/* Card 1: To Pack */}
-        <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', display: 'flex', gap: '14px', alignItems: 'center' }}>
-          <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#fffbeb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>📦</div>
+        <div style={{ backgroundColor: '#fff', border: '1px solid #ECEAE6', borderRadius: 14, padding: '16px', display: 'flex', gap: '14px', alignItems: 'center' }}>
+          <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#fffbeb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}><span style={{ width: 8, height: 8, borderRadius: 9999, background: '#1A1A1A', display: 'block', opacity: 0.35 }} /></div>
           <div>
             <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase', display: 'block' }}>To Pack</span>
             <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#0f172a', display: 'block', margin: '2px 0' }}>{metrics.toPack}</span>
@@ -319,8 +298,8 @@ export default function LabPackagingCenter() {
         </div>
 
         {/* Card 2: Packed Today */}
-        <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', display: 'flex', gap: '14px', alignItems: 'center' }}>
-          <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#ecfdf5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>📅</div>
+        <div style={{ backgroundColor: '#fff', border: '1px solid #ECEAE6', borderRadius: 14, padding: '16px', display: 'flex', gap: '14px', alignItems: 'center' }}>
+          <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#ecfdf5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}><span style={{ width: 8, height: 8, borderRadius: 9999, background: '#1A1A1A', display: 'block', opacity: 0.35 }} /></div>
           <div>
             <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase', display: 'block' }}>Packed Today</span>
             <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#10b981', display: 'block', margin: '2px 0' }}>{metrics.packedToday}</span>
@@ -329,8 +308,8 @@ export default function LabPackagingCenter() {
         </div>
 
         {/* Card 3: Ready to Ship */}
-        <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', display: 'flex', gap: '14px', alignItems: 'center' }}>
-          <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#fff7ed', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>🚚</div>
+        <div style={{ backgroundColor: '#fff', border: '1px solid #ECEAE6', borderRadius: 14, padding: '16px', display: 'flex', gap: '14px', alignItems: 'center' }}>
+          <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#fff7ed', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}><span style={{ width: 8, height: 8, borderRadius: 9999, background: '#1A1A1A', display: 'block', opacity: 0.35 }} /></div>
           <div>
             <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase', display: 'block' }}>Ready to Ship</span>
             <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#ea580c', display: 'block', margin: '2px 0' }}>{metrics.readyToShip}</span>
@@ -339,11 +318,11 @@ export default function LabPackagingCenter() {
         </div>
 
         {/* Card 4: Packing Progress */}
-        <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+        <div style={{ backgroundColor: '#fff', border: '1px solid #ECEAE6', borderRadius: 14, padding: '16px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
           <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase', display: 'block' }}>Packing Progress</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '4px 0 2px 0' }}>
             <div style={{ flex: 1, height: '6px', backgroundColor: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
-              <div style={{ width: `${metrics.progress}%`, height: '100%', backgroundColor: '#0f766e', borderRadius: '3px' }} />
+              <div style={{ width: `${metrics.progress}%`, height: '100%', backgroundColor: '#1A1A1A', borderRadius: '3px' }} />
             </div>
             <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#0f172a' }}>{metrics.progress}%</span>
           </div>
@@ -351,8 +330,8 @@ export default function LabPackagingCenter() {
         </div>
 
         {/* Card 5: Total Packed */}
-        <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', display: 'flex', gap: '14px', alignItems: 'center' }}>
-          <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>🏆</div>
+        <div style={{ backgroundColor: '#fff', border: '1px solid #ECEAE6', borderRadius: 14, padding: '16px', display: 'flex', gap: '14px', alignItems: 'center' }}>
+          <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}><span style={{ width: 8, height: 8, borderRadius: 9999, background: '#1A1A1A', display: 'block', opacity: 0.35 }} /></div>
           <div>
             <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase', display: 'block' }}>Total Packed</span>
             <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#16a34a', display: 'block', margin: '2px 0' }}>{metrics.totalPacked}</span>
@@ -363,19 +342,14 @@ export default function LabPackagingCenter() {
       </div>
 
       {/* Search & Filters row */}
-      <div style={{ display: 'flex', gap: '12px', alignItems: 'center', backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 16px', marginBottom: '20px' }}>
+      <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '20px' }}>
         
         {/* Search */}
-        <div style={{ position: 'relative', flex: 1 }}>
-          <span style={{ position: 'absolute', left: '12px', top: '9px', color: '#94a3b8', fontSize: '13px' }}>🔍</span>
-          <input
-            type="search"
-            placeholder="Search by Order ID, Customer, Product..."
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
-            style={{ width: '100%', padding: '9px 12px 9px 36px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '13px', outline: 'none' }}
-          />
-        </div>
+        <LabSearchField
+          placeholder="Search by Order ID, Customer, Product..."
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+        />
 
         {/* Packers */}
         <select 
@@ -415,7 +389,7 @@ export default function LabPackagingCenter() {
       </div>
 
       {/* Table */}
-      <div style={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px', overflowX: 'auto', marginBottom: '16px' }}>
+      <div style={{ backgroundColor: '#ffffff', border: '1px solid #ECEAE6', borderRadius: 16, overflowX: 'auto', marginBottom: '16px' }}>
         <table style={{ width: '100%', minWidth: '1200px', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
           <thead>
             <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569', fontWeight: 600 }}>
@@ -466,14 +440,12 @@ export default function LabPackagingCenter() {
                   {/* Order ID & Photo Thumbnail */}
                   <td style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap' }}>
-                      <div style={{ width: '32px', height: '32px', borderRadius: '4px', overflow: 'hidden', border: '1px solid #cbd5e1', backgroundColor: '#f1f5f9', flexShrink: 0 }}>
-                        {pack.thumbnail ? (
-                          <img src={pack.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        ) : (
-                          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#94a3b8' }}>📦</div>
-                        )}
-                      </div>
-                      <span style={{ fontWeight: 'bold', color: '#0f766e', fontFamily: 'Courier New, Courier, monospace', whiteSpace: 'nowrap' }}>
+                      {pack.thumbnailItem ? (
+                        <LabFramedThumb item={pack.thumbnailItem} size={32} />
+                      ) : (
+                        <div style={{ width: 32, height: 32 }} />
+                      )}
+                      <span style={{ fontWeight: 'bold', color: '#1A1A1A', fontFamily: 'Courier New, Courier, monospace', whiteSpace: 'nowrap' }}>
                         {pack.orderNumber}
                       </span>
                     </div>
@@ -604,7 +576,7 @@ export default function LabPackagingCenter() {
                 padding: '6px 12px', 
                 border: '1px solid #cbd5e1', 
                 borderRadius: '6px', 
-                backgroundColor: currentPage === idx + 1 ? '#0f766e' : '#fff', 
+                backgroundColor: currentPage === idx + 1 ? '#1A1A1A' : '#fff', 
                 color: currentPage === idx + 1 ? '#fff' : '#475569', 
                 fontSize: '12px', 
                 fontWeight: 'bold',

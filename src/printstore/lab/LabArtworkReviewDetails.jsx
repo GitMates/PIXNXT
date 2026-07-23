@@ -6,31 +6,13 @@ import {
   ArrowLeft, Move, ZoomIn, ZoomOut, RotateCw, RefreshCw, Maximize2, Square, Circle, 
   ArrowUpRight, Edit3, Type, Check, Mail, Trash2, FileText, ChevronRight, History, Crop
 } from 'lucide-react';
-import { MOCK_PHOTOS, isSlotLandscape, adjustPhotoUrl } from '../data/mockStoreData';
+import { resolveLabPhotoUrl, isSlotLandscape, adjustPhotoUrl, filterLabPhysicalItems } from './labPhotoUrl';
 import Cropper from 'react-easy-crop';
 import getCroppedImg from '../../lib/cropImageUtils';
 import { storageService } from '../../services/storage.service';
 import { getShortId } from '../utils/idFormat';
 
-const resolvePhotoUrl = (url, id) => {
-  if (!url || typeof url !== 'string') return '';
-  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:') || url.startsWith('blob:')) {
-    return url;
-  }
-  
-  const mock = MOCK_PHOTOS.find(mp => mp.id === url || mp.id === id);
-  if (mock) {
-    return mock.url;
-  }
-
-  const r2PublicUrl = import.meta.env.VITE_R2_PUBLIC_URL || '';
-  if (r2PublicUrl) {
-    const baseUrl = r2PublicUrl.endsWith('/') ? r2PublicUrl : `${r2PublicUrl}/`;
-    return `${baseUrl}${url}`;
-  }
-  
-  return url;
-};
+const resolvePhotoUrl = (url, id) => resolveLabPhotoUrl(url || id);
 
 export default function LabArtworkReviewDetails() {
   const { orderId } = useParams();
@@ -61,7 +43,7 @@ export default function LabArtworkReviewDetails() {
     return pid === 'print_pack' || name.includes('print pack');
   }, [orderItem]);
 
-  const frameColor = opts.frameColor || (typeof opts.frame === 'object' ? opts.frame?.label : opts.frame) || (isFramedProduct ? 'Black Wood (1 inch)' : 'No Frame');
+  const frameColor = opts.frameColor || (typeof opts.frame === 'object' ? opts.frame?.label : opts.frame) || (isFramedProduct ? '—' : 'No Frame');
   const borderSize = opts.borderSize || (typeof opts.mat === 'object' ? opts.mat?.label : opts.mat) || (isFramedProduct ? '2 cm Mat' : 'No Mat');
   const glassType = opts.glassType || (typeof opts.glass === 'object' ? opts.glass?.label : opts.glass) || 'Anti-Glare Glass';
   const printSize = opts.printSize || (typeof opts.size === 'object' ? opts.size?.label : opts.size) || '13x18 cm (Portrait)';
@@ -361,7 +343,7 @@ export default function LabArtworkReviewDetails() {
         url = resolvePhotoUrl(photoOption.url, photoOption.id);
       }
     }
-    return url || 'https://images.unsplash.com/photo-1541701494587-cb58502866ab?q=80&w=600&auto=format&fit=crop';
+    return url || '';
   }, [opts]);
 
   // States
@@ -419,14 +401,14 @@ export default function LabArtworkReviewDetails() {
     try {
       setLoading(true);
       
-      // Fetch fresh order item to bypass caching delay
-      const { data: itemData } = await supabase
+      // Fetch fresh order item to bypass caching delay (physical lab items only)
+      const { data: itemsData } = await supabase
         .from('printstore_order_items')
         .select('*')
-        .eq('order_id', orderId)
-        .maybeSingle();
-      if (itemData) {
-        setFreshOrderItem(itemData);
+        .eq('order_id', orderId);
+      const physicalItems = filterLabPhysicalItems(itemsData || []);
+      if (physicalItems[0]) {
+        setFreshOrderItem(physicalItems[0]);
       }
 
       const { data: reviewsData, error } = await supabase
@@ -533,7 +515,7 @@ export default function LabArtworkReviewDetails() {
           id = typeof firstPhoto === 'object' ? firstPhoto.id : '';
         }
         
-        url = resolvePhotoUrl(url || 'https://images.unsplash.com/photo-1541701494587-cb58502866ab?q=80&w=600&auto=format&fit=crop', id);
+        url = resolvePhotoUrl(url || '', id);
         
         photosList = [{
           url,
@@ -970,7 +952,7 @@ export default function LabArtworkReviewDetails() {
     return (
       <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>
         <h3>Order details not found.</h3>
-        <button onClick={() => navigate('/lab/artwork-review')} style={{ padding: '8px 16px', background: '#0f766e', border: 'none', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+        <button onClick={() => navigate('/lab/artwork-review')} style={{ padding: '8px 16px', background: '#1A1A1A', border: 'none', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
           Back to Queue
         </button>
       </div>
@@ -1153,7 +1135,7 @@ export default function LabArtworkReviewDetails() {
                           onClick={() => openCropModal(index)}
                           style={{
                             padding: '6px 10px',
-                            background: '#0f766e',
+                            background: '#1A1A1A',
                             color: '#fff',
                             border: 'none',
                             borderRadius: '4px',
@@ -1240,7 +1222,7 @@ export default function LabArtworkReviewDetails() {
             {[0, 1, 2, 3].map((i) => (
               <img 
                 key={i} 
-                src={displayUrl || "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=800&h=1200"} 
+                src={displayUrl || ""} 
                 alt="" 
                 style={{
                   width: '65%',
@@ -1285,7 +1267,7 @@ export default function LabArtworkReviewDetails() {
                   onClick={() => openCropModal(0)}
                   style={{
                     padding: '6px 10px',
-                    background: '#0f766e',
+                    background: '#1A1A1A',
                     color: '#fff',
                     border: 'none',
                     borderRadius: '4px',
@@ -1380,7 +1362,7 @@ export default function LabArtworkReviewDetails() {
                 onClick={() => openCropModal(0)}
                 style={{
                   padding: '8px 14px',
-                  background: '#0f766e',
+                  background: '#1A1A1A',
                   color: '#fff',
                   border: 'none',
                   borderRadius: '6px',
@@ -1452,7 +1434,7 @@ export default function LabArtworkReviewDetails() {
       <div style={{ backgroundColor: '#f8fafc', padding: '24px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
         <span style={{ 
           padding: '5px 12px', 
-          backgroundColor: isNew ? '#0f766e' : 'rgba(15, 23, 42, 0.75)', 
+          backgroundColor: isNew ? '#1A1A1A' : 'rgba(15, 23, 42, 0.75)', 
           color: '#fff', 
           fontSize: '11px', 
           fontWeight: 'bold', 
@@ -1509,7 +1491,7 @@ export default function LabArtworkReviewDetails() {
       : (opts.editedPhotoUrl || opts.photo?.url || opts.photos?.[0]?.url || opts.photo);
 
     return (
-      <div style={{ border: '1px solid #e2e8f0', borderRadius: '10px', padding: '24px', backgroundColor: '#fff', width: '100%' }}>
+      <div style={{ border: '1px solid #ECEAE6', borderRadius: 16, padding: '24px', backgroundColor: '#fff', width: '100%' }}>
         <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0f172a', margin: '0 0 20px 0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
           {isNewUpload ? "Compare Original vs Customer Replacement Photo" : "Artwork Review Approved & Closed"}
         </h3>
@@ -1523,7 +1505,7 @@ export default function LabArtworkReviewDetails() {
   };
 
   return (
-    <div style={{ padding: '24px', backgroundColor: '#ffffff', minHeight: '100%', fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif", color: '#1e293b', boxSizing: 'border-box' }}>
+    <div style={{ padding: '24px', backgroundColor: '#F9F9F7', minHeight: '100%', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", color: '#1e293b', boxSizing: 'border-box' }}>
       
       {/* Back button and page title */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
@@ -1537,9 +1519,6 @@ export default function LabArtworkReviewDetails() {
           <h1 style={{ fontSize: '20px', fontWeight: 'bold', margin: 0, textTransform: 'uppercase', color: '#0f172a' }}>
             Artwork Review: {order?.customer_name}
           </h1>
-          <span style={{ fontSize: '12px', color: '#64748b' }}>
-            Flag pre-press errors and suggest frame crop alignments before printing
-          </span>
         </div>
       </div>
 
@@ -1554,7 +1533,7 @@ export default function LabArtworkReviewDetails() {
           ) : (
             <>
               {/* Main Workspace Frame container */}
-              <div style={{ border: '1px solid #e2e8f0', borderRadius: '10px', backgroundColor: '#fafafa', padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
+              <div style={{ border: '1px solid #ECEAE6', borderRadius: 16, backgroundColor: '#fafafa', padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
                             {/* Editing Work area containing Image */}
                 <div style={{ position: 'relative', width: '560px', height: '420px', backgroundColor: 'transparent', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'visible' }}>
                   
@@ -1600,7 +1579,7 @@ export default function LabArtworkReviewDetails() {
               </div>
 
               {/* Comparison Original vs Suggested placement bottom panel */}
-              <div style={{ border: '1px solid #e2e8f0', borderRadius: '10px', padding: '20px', backgroundColor: '#fff' }}>
+              <div style={{ border: '1px solid #ECEAE6', borderRadius: 16, padding: '20px', backgroundColor: '#fff' }}>
                 <h3 style={{ fontSize: '13.5px', fontWeight: 'bold', color: '#0f172a', margin: '0 0 14px 0', textTransform: 'uppercase' }}>
                   Compare Original vs Suggested placement
                 </h3>
@@ -1644,7 +1623,7 @@ export default function LabArtworkReviewDetails() {
 
                   {/* Right Side: Suggested Image */}
                   <div style={{ backgroundColor: '#f8fafc', padding: '24px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                    <span style={{ marginBottom: '44px', padding: '4px 10px', backgroundColor: '#0f766e', color: '#fff', fontSize: '11px', fontWeight: 'bold', borderRadius: '4px', zIndex: 10 }}>Suggested Alignment</span>
+                    <span style={{ marginBottom: '44px', padding: '4px 10px', backgroundColor: '#1A1A1A', color: '#fff', fontSize: '11px', fontWeight: 'bold', borderRadius: '4px', zIndex: 10 }}>Suggested Alignment</span>
                     
                     {/* Scale Wrapper without overflow hidden */}
                     <div style={{ position: 'relative', width: `${comparisonDimensions.width}px`, height: `${comparisonDimensions.height}px` }}>
@@ -1687,7 +1666,7 @@ export default function LabArtworkReviewDetails() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           
           {/* Order Details box */}
-          <div style={{ border: '1px solid #e2e8f0', borderRadius: '10px', padding: '18px', backgroundColor: '#fff' }}>
+          <div style={{ border: '1px solid #ECEAE6', borderRadius: 16, padding: '18px', backgroundColor: '#fff' }}>
             <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0f172a', margin: '0 0 14px 0', textTransform: 'uppercase' }}>
               Order Information
             </h3>
@@ -1704,7 +1683,7 @@ export default function LabArtworkReviewDetails() {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: '#64748b' }}>Photographer</span>
-                <strong style={{ color: '#0f172a' }}>{opts.photographer || 'Ramesh Studio'}</strong>
+                <strong style={{ color: '#0f172a' }}>{opts.photographer || '—'}</strong>
               </div>
               <hr style={{ margin: '6px 0', border: 'none', borderTop: '1px solid #f1f5f9' }} />
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -1739,7 +1718,7 @@ export default function LabArtworkReviewDetails() {
           </div>
 
           {isProcessed ? (
-            <div style={{ border: '1px solid #e2e8f0', borderRadius: '10px', padding: '18px', backgroundColor: '#fff', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div style={{ border: '1px solid #ECEAE6', borderRadius: 16, padding: '18px', backgroundColor: '#fff', display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#16a34a', fontWeight: 'bold', fontSize: '13.5px' }}>
                 <Check size={18} /> Artwork Review Approved
               </div>
@@ -1751,7 +1730,7 @@ export default function LabArtworkReviewDetails() {
                 style={{ 
                   width: '100%', 
                   padding: '10px', 
-                  backgroundColor: '#0f766e', 
+                  backgroundColor: '#1A1A1A', 
                   border: 'none', 
                   borderRadius: '8px', 
                   color: '#fff', 
@@ -1764,7 +1743,7 @@ export default function LabArtworkReviewDetails() {
               </button>
             </div>
           ) : isNewUpload ? (
-            <div style={{ border: '1px solid #e2e8f0', borderRadius: '10px', padding: '18px', backgroundColor: '#fff', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div style={{ border: '1px solid #ECEAE6', borderRadius: 16, padding: '18px', backgroundColor: '#fff', display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0f172a', margin: 0, textTransform: 'uppercase' }}>
                 Customer Replacement Received
               </h3>
@@ -1832,7 +1811,7 @@ export default function LabArtworkReviewDetails() {
           ) : (
             <>
               {/* Issue checkboxes checklist */}
-              <div style={{ border: '1px solid #e2e8f0', borderRadius: '10px', padding: '18px', backgroundColor: '#fff' }}>
+              <div style={{ border: '1px solid #ECEAE6', borderRadius: 16, padding: '18px', backgroundColor: '#fff' }}>
                 <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0f172a', margin: '0 0 14px 0', textTransform: 'uppercase' }}>
                   Detected Issues (Check all that apply)
                 </h3>
@@ -1877,7 +1856,7 @@ export default function LabArtworkReviewDetails() {
               </div>
 
               {/* Customer message Rich text editor panel */}
-              <div style={{ border: '1px solid #e2e8f0', borderRadius: '10px', padding: '18px', backgroundColor: '#fff' }}>
+              <div style={{ border: '1px solid #ECEAE6', borderRadius: 16, padding: '18px', backgroundColor: '#fff' }}>
                 <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0f172a', margin: '0 0 10px 0', textTransform: 'uppercase' }}>
                   Message to Customer
                 </h3>
@@ -2017,7 +1996,7 @@ export default function LabArtworkReviewDetails() {
                 step={0.05}
                 value={cropState.zoom}
                 onChange={(e) => setCropState(prev => ({ ...prev, zoom: parseFloat(e.target.value) }))}
-                style={{ flex: 1, accentColor: '#0f766e', cursor: 'pointer', height: '6px', borderRadius: '3px' }}
+                style={{ flex: 1, accentColor: '#1A1A1A', cursor: 'pointer', height: '6px', borderRadius: '3px' }}
               />
               <button 
                 onClick={() => setCropState(prev => ({ ...prev, zoom: Math.min(3, prev.zoom + 0.1) }))}
@@ -2036,7 +2015,7 @@ export default function LabArtworkReviewDetails() {
               </button>
               <button 
                 onClick={handleSaveCrop}
-                style={{ padding: '8px 20px', background: '#0f766e', color: 'white', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}
+                style={{ padding: '8px 20px', background: '#1A1A1A', color: 'white', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}
               >
                 Save Placement
               </button>
