@@ -5,6 +5,13 @@ import { supabase } from '../../lib/supabase/client';
 import CartItemPreview from '../components/CartItemPreview';
 import { MOCK_PHOTOS } from '../data/mockStoreData';
 import { getShortId } from '../utils/idFormat';
+import {
+  LAB_STATUS_COLORS as STATUS_COLORS,
+  LAB_STATUS_LABELS as STATUS_LABELS,
+  getValidNextLabStatuses,
+} from './labOrderStatus';
+import { transitionLabOrderStatus } from './labOrderStatusService';
+import LabPipelineRail from './LabPipelineRail';
 
 const getPhotoThumbnail = (item) => {
   const opts = item?.options || {};
@@ -42,30 +49,6 @@ const employees = [
   { id: 5, name: 'Vijay', role: 'Logistics Supervisor' }
 ];
 
-const STATUS_COLORS = {
-  pending: '#3498db',
-  printing: '#9b59b6',
-  printed: '#005c5a',
-  packaging: '#d35400',
-  ready_to_ship: '#1abc9c',
-  shipped: '#2ecc71',
-  completed: '#27ae60',
-  reprint: '#e74c3c',
-  cancelled: '#95a5a6'
-};
-
-const STATUS_LABELS = {
-  pending: 'New Order',
-  printing: 'Printing',
-  printed: 'Printed (QC)',
-  packaging: 'Packaging',
-  ready_to_ship: 'Ready To Ship',
-  shipped: 'Shipped',
-  completed: 'Delivered',
-  reprint: 'Reprint Required',
-  cancelled: 'Cancelled'
-};
-
 // Map referrer paths to context keys
 const getContextFromReferrer = (pathname) => {
   if (!pathname) return null;
@@ -82,7 +65,9 @@ const getContextFromReferrer = (pathname) => {
 // Map order statuses to context keys (as fallback for direct page reload)
 const getContextFromStatus = (status) => {
   if (status === 'pending' || status === 'printing') return 'print';
+  if (status === 'artwork_review') return 'full';
   if (status === 'printed') return 'qc';
+  if (status === 'framing') return 'full';
   if (status === 'reprint') return 'reprint';
   if (status === 'packaging') return 'packaging';
   if (status === 'ready_to_ship') return 'delivery';
@@ -303,29 +288,13 @@ export default function LabOrderDetail() {
 
   const handleStatusChange = async (newStatus) => {
     if (!order) return;
-    const isConfirmed = window.confirm(`Are you sure you want to change status to "${STATUS_LABELS[newStatus]}"?`);
+    const isConfirmed = window.confirm(
+      `Are you sure you want to change status to "${STATUS_LABELS[newStatus] || newStatus}"?`
+    );
     if (!isConfirmed) return;
     setUpdatingStatus(true);
     try {
-      const { error } = await supabase
-        .from('printstore_orders')
-        .update({ status: newStatus })
-        .eq('id', order.id);
-
-      if (error) {
-        let fallbackStatus = newStatus;
-        if (newStatus === 'printing' || newStatus === 'printed') {
-          fallbackStatus = 'processing';
-        } else if (newStatus === 'packaging' || newStatus === 'ready_to_ship') {
-          fallbackStatus = 'packed';
-        }
-        const { error: fallbackError } = await supabase
-          .from('printstore_orders')
-          .update({ status: fallbackStatus })
-          .eq('id', order.id);
-        if (fallbackError) throw fallbackError;
-      }
-      
+      await transitionLabOrderStatus(order.id, newStatus, { fromStatus: order.status });
       await fetchOrderDetail();
     } catch (err) {
       console.error('Error updating status:', err);
@@ -335,20 +304,7 @@ export default function LabOrderDetail() {
     }
   };
 
-  const getValidNextStatuses = (current) => {
-    const steps = {
-      'pending': ['pending', 'printing', 'cancelled'],
-      'printing': ['printing', 'printed', 'reprint', 'cancelled'],
-      'printed': ['printed', 'packaging', 'reprint', 'cancelled'],
-      'packaging': ['packaging', 'ready_to_ship', 'cancelled'],
-      'ready_to_ship': ['ready_to_ship', 'shipped', 'cancelled'],
-      'shipped': ['shipped', 'completed'],
-      'reprint': ['reprint', 'printing', 'cancelled'],
-      'completed': ['completed'],
-      'cancelled': ['cancelled']
-    };
-    return steps[current] || [current];
-  };
+  const getValidNextStatuses = (current) => getValidNextLabStatuses(current);
 
   const formatPrice = (price) => {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(price);
@@ -632,6 +588,8 @@ export default function LabOrderDetail() {
 
         </div>
       </div>
+
+      <LabPipelineRail status={order.status} />
 
       {/* KPI Cards Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
@@ -1195,12 +1153,9 @@ export function LabQualityControlWorkspace({ order, orderItems, backPath, backLa
     }
     setIsSubmitting(true);
     try {
-      // 1. Update order status to packaging
-      const { error: orderError } = await supabase
-        .from('printstore_orders')
-        .update({ status: 'packaging' })
-        .eq('id', order.id);
-      if (orderError) throw orderError;
+      // 1. Update order status via lab status machine (DB)
+      // Frame products can later be routed pending → … → framing; QC pass enters packaging queue.
+      await transitionLabOrderStatus(order.id, 'packaging', { fromStatus: order.status });
 
       // 2. Log to quality checks table
       const qcLog = {
@@ -1218,17 +1173,7 @@ export function LabQualityControlWorkspace({ order, orderItems, backPath, backLa
         .insert(qcLog);
       if (logError) throw logError;
 
-      // 3. Create timeline entry
-      await supabase
-        .from('printstore_order_tracking')
-        .insert({
-          order_id: order.id,
-          status: 'packaging',
-          label: 'Quality Control Passed',
-          description: `Product passed Noida Hub Quality Control. Inspector: ${inspectorName.trim()}. Transferred to Noida Hub Packaging Center.`
-        });
-
-      alert("✓ Product approved and transferred to Noida Hub Packaging Center!");
+      alert("✓ Product approved and transferred to Packaging Center!");
       onActionSuccess();
       navigate('/lab/quality-control');
     } catch (err) {
@@ -1315,12 +1260,8 @@ export function LabQualityControlWorkspace({ order, orderItems, backPath, backLa
     }
 
     try {
-      // 1. Update order status
-      const { error: orderError } = await supabase
-        .from('printstore_orders')
-        .update({ status: destStatus })
-        .eq('id', order.id);
-      if (orderError) throw orderError;
+      // 1. Update order status via lab status machine (DB)
+      await transitionLabOrderStatus(order.id, destStatus, { fromStatus: order.status });
 
       // 2. Map failedReasons[0] to the closest database check constraint
       const primaryReason = failedReasons[0];
@@ -1355,15 +1296,7 @@ export function LabQualityControlWorkspace({ order, orderItems, backPath, backLa
         .insert(qcLog);
       if (logError) throw logError;
 
-      // 4. Create timeline entry
-      await supabase
-        .from('printstore_order_tracking')
-        .insert({
-          order_id: order.id,
-          status: destStatus,
-          label: `Quality Control Failed: ${destLabel}`,
-          description: `Inspection rejected by ${inspectorName.trim()} (Severity: ${severity}). Failure: ${failedReasons.join(', ')}. Action: Route to ${destLabel}. Description: ${defectDescription}`
-        });
+      // Tracking row is created by DB trigger on status change.
 
       alert(`✓ Product rejected and successfully routed to ${destLabel}!`);
       setShowRejectDialog(false);

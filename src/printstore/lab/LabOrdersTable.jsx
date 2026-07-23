@@ -5,30 +5,10 @@ import { supabase } from '../../lib/supabase/client';
 import { MOCK_PHOTOS } from '../data/mockStoreData';
 import { Copy, Check, Eye } from 'lucide-react';
 import { getShortId } from '../utils/idFormat';
-
-const STATUS_COLORS = {
-  pending: '#f97316',
-  printing: '#a855f7',
-  printed: '#0d9488',
-  packaging: '#8b5cf6',
-  ready_to_ship: '#3b82f6',
-  shipped: '#10b981',
-  completed: '#22c55e',
-  reprint: '#ef4444',
-  cancelled: '#64748b'
-};
-
-const STATUS_LABELS = {
-  pending: 'Pending',
-  printing: 'Printing',
-  printed: 'Printed (QC)',
-  packaging: 'Packaging',
-  ready_to_ship: 'Ready To Deliver',
-  shipped: 'Shipped',
-  completed: 'Completed',
-  reprint: 'Reprint Required',
-  cancelled: 'Cancelled'
-};
+import {
+  LAB_STATUS_COLORS as STATUS_COLORS,
+  LAB_STATUS_LABELS as STATUS_LABELS,
+} from './labOrderStatus';
 
 const getPhotoThumbnail = (item) => {
   const opts = item?.options || {};
