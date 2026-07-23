@@ -82,10 +82,6 @@ const SmartAlbumsSidebarLayout = ({ children }) => {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [showProfileDropdown, setShowProfileDropdown] = useState(false);
     const [showEcosystemMenu, setShowEcosystemMenu] = useState(false);
-<<<<<<< Updated upstream
-    const [profile, setProfile] = useState(null);
-    const [storageUsed, setStorageUsed] = useState(0);
-=======
     const [profile, setProfile] = useState(() => {
         if (typeof window !== 'undefined' && user?.id) {
             const cached = localStorage.getItem(`photographer_profile_${user.id}`);
@@ -99,7 +95,7 @@ const SmartAlbumsSidebarLayout = ({ children }) => {
         }
         return null;
     });
->>>>>>> Stashed changes
+    const [storageUsed, setStorageUsed] = useState(0);
     const navigate = useNavigate();
     const location = useLocation();
     const path = location.pathname;

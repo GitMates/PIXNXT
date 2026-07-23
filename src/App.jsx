@@ -41,12 +41,8 @@ import PhotographerApp from './printstore/photographer/PhotographerApp';
 import StoreDashboard from './pages/StoreDashboard';
 import RekognitionTest from './pages/dev/RekognitionTest';
 import WatermarkEditor from './pages/WatermarkEditor';
-<<<<<<< Updated upstream
 import { GlobalUploadShell } from './components/features/CollectionDashboard/Upload/GlobalUploadShell';
-
-=======
 import EmailTemplateEditor from './pages/EmailTemplateEditor';
->>>>>>> Stashed changes
 
 function MobileGalleryViewRedirect() {
   const { slug } = useParams();

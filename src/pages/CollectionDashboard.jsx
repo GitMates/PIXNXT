@@ -82,13 +82,9 @@ import {
     readCachedSlideshowEnabled,
 } from '../lib/collectionFeatureFlags';
 import { MoveCollectionModal } from '../components/features/Collections/MoveCollectionModal';
-<<<<<<< Updated upstream
-=======
-import { supabase } from '../lib/supabase/client';
 import { applyWatermarkToBlob } from '../lib/watermarkUtils';
 import { storageService } from '../services/storage.service';
 import { getProxiedMediaFetchUrl } from '../lib/r2MediaProxy';
->>>>>>> Stashed changes
 
 const CollectionDashboard = () => {
     const navigate = useNavigate();
@@ -102,8 +98,6 @@ const CollectionDashboard = () => {
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [collection, setCollection] = useState(null);
     const [photos, setPhotos] = useState([]);
-<<<<<<< Updated upstream
-=======
     const [profile, setProfile] = useState(null);
 
     useEffect(() => {
@@ -152,7 +146,6 @@ const CollectionDashboard = () => {
                 }
             });
     }, [user?.id]);
->>>>>>> Stashed changes
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [saving, setSaving] = useState(false);
