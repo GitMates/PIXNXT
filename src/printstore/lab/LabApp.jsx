@@ -22,6 +22,9 @@ import LabQualityControlDetailsPage from './LabQualityControlDetailsPage';
 import LabArtworkReviewList from './LabArtworkReviewList';
 import LabArtworkReviewDetails from './LabArtworkReviewDetails';
 import LabFrameWorkshop from './LabFrameWorkshop';
+import '../../styles/clientGalleryTheme.css';
+import './labTheme.css';
+import { filterLabPhysicalItems } from './labPhotoUrl';
 
 // Create a Lab Auth Context
 export const LabAuthContext = createContext(null);
@@ -100,8 +103,11 @@ const LabApp = () => {
 
             if (itemsError) throw itemsError;
 
-            setOrders(ordersData || []);
-            setOrderItems(itemsData || []);
+            const physicalItems = filterLabPhysicalItems(itemsData || []);
+            const labOrderIds = new Set(physicalItems.map((item) => item.order_id));
+            // Hide digital-only orders from the lab entirely
+            setOrders((ordersData || []).filter((order) => labOrderIds.has(order.id)));
+            setOrderItems(physicalItems);
             setInitialLoaded(true);
         } catch (e) {
             console.error('Error fetching orders:', e);
@@ -147,49 +153,36 @@ const LabApp = () => {
 
     return (
         <LabAuthContext.Provider value={authContextValue}>
-            <style>{`
-                @keyframes lab-spin {
-                    0% { transform: rotate(0deg); }
-                    100% { transform: rotate(360deg); }
-                }
-                .lab-spinner {
-                    width: 40px;
-                    height: 40px;
-                    border: 3.5px solid rgba(148, 163, 184, 0.25);
-                    border-top: 3.5px solid #64748b;
-                    border-radius: 50%;
-                    animation: lab-spin 0.9s linear infinite;
-                    display: inline-block;
-                }
-            `}</style>
-            <Routes>
-                <Route path="auth" element={
-                    labUser ? <Navigate to="/lab/dashboard" replace /> : <LabAuth />
-                } />
-                <Route element={<LabShell />}>
-                    <Route index element={<Navigate to="dashboard" replace />} />
-                    <Route path="dashboard" element={<LabDashboard />} />
-                    <Route path="queue" element={<LabQueue />} />
-                    <Route path="orders/:orderId" element={<LabOrderDetail />} />
-                    <Route path="production" element={<LabProductionBoard />} />
-                    <Route path="worksheets" element={<LabWorksheets />} />
-                    <Route path="print-queue" element={<LabPrintQueue />} />
-                    <Route path="ready-to-deliver" element={<LabReadyToDeliver />} />
-                    <Route path="quality-control" element={<LabQualityControl />} />
-                    <Route path="quality-control/:orderId" element={<LabQualityControlDetailsPage />} />
-                    <Route path="frame-workshop" element={<LabFrameWorkshop />} />
-                    <Route path="packaging" element={<LabPackagingCenter />} />
-                    <Route path="inventory" element={<LabInventory />} />
-                    <Route path="employees" element={<LabEmployeeManagement />} />
-                    <Route path="reprints" element={<LabReprintManager />} />
-                    <Route path="dispatch-history" element={<LabDispatchHistory />} />
-                    <Route path="artwork-review" element={<LabArtworkReviewList />} />
-                    <Route path="artwork-review/:orderId" element={<LabArtworkReviewDetails />} />
-                    <Route path="reports" element={<LabReports />} />
-                    <Route path="settings" element={<LabSettings />} />
-                </Route>
-                <Route path="*" element={<Navigate to="/lab/dashboard" replace />} />
-            </Routes>
+            <div className="theme-mono lab-shell" style={{ minHeight: '100%' }}>
+                <Routes>
+                    <Route path="auth" element={
+                        labUser ? <Navigate to="/lab/dashboard" replace /> : <LabAuth />
+                    } />
+                    <Route element={<LabShell />}>
+                        <Route index element={<Navigate to="dashboard" replace />} />
+                        <Route path="dashboard" element={<LabDashboard />} />
+                        <Route path="queue" element={<LabQueue />} />
+                        <Route path="orders/:orderId" element={<LabOrderDetail />} />
+                        <Route path="production" element={<LabProductionBoard />} />
+                        <Route path="worksheets" element={<LabWorksheets />} />
+                        <Route path="print-queue" element={<LabPrintQueue />} />
+                        <Route path="ready-to-deliver" element={<LabReadyToDeliver />} />
+                        <Route path="quality-control" element={<LabQualityControl />} />
+                        <Route path="quality-control/:orderId" element={<LabQualityControlDetailsPage />} />
+                        <Route path="frame-workshop" element={<LabFrameWorkshop />} />
+                        <Route path="packaging" element={<LabPackagingCenter />} />
+                        <Route path="inventory" element={<LabInventory />} />
+                        <Route path="employees" element={<LabEmployeeManagement />} />
+                        <Route path="reprints" element={<LabReprintManager />} />
+                        <Route path="dispatch-history" element={<LabDispatchHistory />} />
+                        <Route path="artwork-review" element={<LabArtworkReviewList />} />
+                        <Route path="artwork-review/:orderId" element={<LabArtworkReviewDetails />} />
+                        <Route path="reports" element={<LabReports />} />
+                        <Route path="settings" element={<LabSettings />} />
+                    </Route>
+                    <Route path="*" element={<Navigate to="/lab/dashboard" replace />} />
+                </Routes>
+            </div>
         </LabAuthContext.Provider>
     );
 };

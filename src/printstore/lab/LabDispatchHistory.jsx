@@ -5,8 +5,10 @@ import { useNavigate } from 'react-router-dom';
 import { 
   Download, Filter, Eye, ChevronRight, Copy, Share2, MapPin, Truck, Check, Calendar, Plus
 } from 'lucide-react';
-import { MOCK_PHOTOS } from '../data/mockStoreData';
 import { getShortId } from '../utils/idFormat';
+import LabSearchField from './LabSearchField';
+import { getLabItemPhotoUrl } from './labPhotoUrl';
+import LabFramedThumb from './LabFramedThumb';
 
 export default function LabDispatchHistory() {
   const { orders, orderItems } = useLabAuth();
@@ -48,27 +50,7 @@ export default function LabDispatchHistory() {
 
   const getOrderItems = (orderId) => orderItems.filter(item => item.order_id === orderId);
 
-  const getPhotoThumbnail = (item) => {
-    if (!item) return '';
-    const opts = item.options || {};
-    let photoOption = opts.photo;
-    if (!photoOption && opts.photos && opts.photos.length > 0) {
-      photoOption = opts.photos[0];
-    }
-    if (!photoOption) return '';
-    if (typeof photoOption === 'string') {
-      if (photoOption.startsWith('http://') || photoOption.startsWith('https://') || photoOption.startsWith('data:')) {
-        return photoOption;
-      }
-      const mock = MOCK_PHOTOS.find(p => p.id === photoOption);
-      if (mock) return mock.url;
-      return '';
-    }
-    if (typeof photoOption === 'object' && photoOption.url) {
-      return photoOption.url;
-    }
-    return '';
-  };
+  const getPhotoThumbnail = (item) => getLabItemPhotoUrl(item);
 
   // Group Dispatch list dynamically
   const dispatchData = useMemo(() => {
@@ -99,8 +81,8 @@ export default function LabDispatchHistory() {
         customerEmail: order.customer_email,
         itemsCount,
         total: order.total || 0,
-        thumbnail: currentItems.length > 0 ? getPhotoThumbnail(currentItems[0]) : '',
-        courier: ws?.carrier || order.courier_partner || 'Delhivery',
+        thumbnailItem: currentItems[0] || null,
+        courier: ws?.carrier || order.courier_partner || '—',
         trackingNo: ws?.tracking_number || order.tracking_number || '1234567890123',
         dispatchedAt: dispatchDateObj.toISOString(),
         status: order.status === 'completed' ? 'Delivered' : 'In Transit',
@@ -341,7 +323,7 @@ export default function LabDispatchHistory() {
   }
 
   return (
-    <div style={{ padding: '24px 32px', backgroundColor: '#ffffff', minHeight: '100%', fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif", color: '#1e293b', boxSizing: 'border-box' }}>
+    <div style={{ padding: '24px 32px', backgroundColor: '#F9F9F7', minHeight: '100%', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", color: '#1e293b', boxSizing: 'border-box' }}>
       
       {/* Title Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
@@ -349,9 +331,6 @@ export default function LabDispatchHistory() {
           <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: '0 0 4px 0', color: '#0f172a', textTransform: 'uppercase' }}>
             Dispatch History
           </h1>
-          <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
-            Track all dispatched orders and delivery status in real-time
-          </p>
         </div>
 
         <div style={{ display: 'flex', gap: '8px' }}>
@@ -367,13 +346,13 @@ export default function LabDispatchHistory() {
       {/* KPI Cards Row (5 Cards) */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '16px', marginBottom: '24px' }}>
         {[
-          { label: 'Dispatched Today', value: metrics.dispatchedToday, sub: 'Orders left Noida', color: '#3b82f6', bg: '#eff6ff', icon: '📦' },
-          { label: 'Delivered Today', value: metrics.deliveredToday, sub: 'Confirmed drops', color: '#10b981', bg: '#ecfdf5', icon: '✅' },
-          { label: 'In Transit', value: metrics.inTransit, sub: 'Currently en route', color: '#ea580c', bg: '#fff4e6', icon: '🚚' },
-          { label: 'Delivered This Month', value: metrics.deliveredThisMonth, sub: 'Successful deliveries', color: '#8b5cf6', bg: '#f5f3ff', icon: '🏆' },
-          { label: 'Success Rate', value: `${metrics.successRate}%`, sub: 'First-attempt success', color: '#10b981', bg: '#ecfdf5', icon: '📊' }
+          { label: 'Dispatched Today', value: metrics.dispatchedToday, sub: 'Orders left Noida', color: '#3b82f6', bg: '#eff6ff', icon: '' },
+          { label: 'Delivered Today', value: metrics.deliveredToday, sub: 'Confirmed drops', color: '#10b981', bg: '#ecfdf5', icon: '' },
+          { label: 'In Transit', value: metrics.inTransit, sub: 'Currently en route', color: '#ea580c', bg: '#fff4e6', icon: '' },
+          { label: 'Delivered This Month', value: metrics.deliveredThisMonth, sub: 'Successful deliveries', color: '#8b5cf6', bg: '#f5f3ff', icon: '' },
+          { label: 'Success Rate', value: `${metrics.successRate}%`, sub: 'First-attempt success', color: '#10b981', bg: '#ecfdf5', icon: '' }
         ].map((card, i) => (
-          <div key={i} style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', display: 'flex', gap: '14px', alignItems: 'center' }}>
+          <div key={i} style={{ backgroundColor: '#fff', border: '1px solid #ECEAE6', borderRadius: 14, padding: '16px', display: 'flex', gap: '14px', alignItems: 'center' }}>
             <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: card.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>
               {card.icon}
             </div>
@@ -405,7 +384,7 @@ export default function LabDispatchHistory() {
                 border: 'none',
                 fontSize: '12.5px',
                 fontWeight: 'bold',
-                backgroundColor: timeFilter === pill.id ? '#0f766e' : '#fff',
+                backgroundColor: timeFilter === pill.id ? '#1A1A1A' : '#fff',
                 color: timeFilter === pill.id ? '#fff' : '#64748b',
                 cursor: 'pointer',
                 boxShadow: timeFilter === pill.id ? 'none' : '0 1px 2px rgba(0,0,0,0.05)'
@@ -418,19 +397,14 @@ export default function LabDispatchHistory() {
       </div>
 
       {/* Search & Filters Row */}
-      <div style={{ display: 'flex', gap: '12px', alignItems: 'center', backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 16px', marginBottom: '20px' }}>
+      <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '20px' }}>
         
         {/* Search */}
-        <div style={{ position: 'relative', flex: 1 }}>
-          <span style={{ position: 'absolute', left: '12px', top: '9px', color: '#94a3b8', fontSize: '13px' }}>🔍</span>
-          <input
-            type="search"
-            placeholder="Search by Order ID, Customer, Tracking No..."
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setVisibleCount(5); }}
-            style={{ width: '100%', padding: '9px 12px 9px 36px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '13px', outline: 'none' }}
-          />
-        </div>
+        <LabSearchField
+          placeholder="Search by Order ID, Customer, Tracking No..."
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setVisibleCount(5); }}
+        />
 
         {/* Couriers */}
         <select 
@@ -501,16 +475,14 @@ export default function LabDispatchHistory() {
                   >
                     {/* Order info & thumbnail */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <div style={{ width: '40px', height: '40px', borderRadius: '6px', border: '1px solid #cbd5e1', overflow: 'hidden', backgroundColor: '#f1f5f9', flexShrink: 0 }}>
-                        {item.thumbnail ? (
-                          <img src={item.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        ) : (
-                          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', color: '#94a3b8' }}>📦</div>
-                        )}
-                      </div>
+                      {item.thumbnailItem ? (
+                        <LabFramedThumb item={item.thumbnailItem} size={40} />
+                      ) : (
+                        <div style={{ width: 40, height: 40 }} />
+                      )}
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <span style={{ fontWeight: 'bold', color: '#0f766e', fontFamily: 'Courier New, Courier, monospace', fontSize: '13px' }}>
+                          <span style={{ fontWeight: 'bold', color: '#1A1A1A', fontFamily: 'Courier New, Courier, monospace', fontSize: '13px' }}>
                             {item.orderNumber}
                           </span>
                           <Share2 size={11} color="#64748b" onClick={(e) => handleCopyText(e, item.orderNumber)} style={{ cursor: 'pointer' }} />
@@ -530,7 +502,7 @@ export default function LabDispatchHistory() {
                     {/* Courier Partner & Tracking */}
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 'bold', color: '#1e293b', whiteSpace: 'nowrap' }}>
-                        <Truck size={14} color="#0f766e" /> {item.courier}
+                        <Truck size={14} color="#1A1A1A" /> {item.courier}
                       </div>
                       <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px', whiteSpace: 'nowrap' }}>Tracking ID</div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px', whiteSpace: 'nowrap' }}>

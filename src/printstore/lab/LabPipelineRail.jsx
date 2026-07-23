@@ -18,10 +18,11 @@ export default function LabPipelineRail({ status }) {
     <div
       style={{
         background: '#fff',
-        border: '1px solid #e2e8f0',
-        borderRadius: 10,
+        border: '1px solid #ECEAE6',
+        borderRadius: 16,
         padding: '14px 16px',
         marginBottom: 16,
+        boxShadow: '-4px -4px 12px rgba(255,255,255,0.7), 4px 4px 14px rgba(0,0,0,0.04)',
       }}
     >
       <div
@@ -69,7 +70,7 @@ export default function LabPipelineRail({ status }) {
           {LAB_PIPELINE_STEPS.map((step, index) => {
             const done = isLabPipelineStatusDone(status, step.key);
             const active = isLabPipelineStatusActive(status, step.key);
-            const color = active ? getLabStatusColor(step.key) : done ? '#0f766e' : '#cbd5e1';
+            const color = active ? getLabStatusColor(step.key) : done ? '#1A1A1A' : '#cbd5e1';
 
             return (
               <React.Fragment key={step.key}>
@@ -111,7 +112,7 @@ export default function LabPipelineRail({ status }) {
                       height: 2,
                       marginTop: 13,
                       minWidth: 10,
-                      background: done || active ? '#99f6e4' : '#e2e8f0',
+                      background: done || active ? '#ECEAE6' : '#e2e8f0',
                     }}
                   />
                 )}

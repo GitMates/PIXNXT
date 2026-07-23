@@ -18,14 +18,13 @@ export default function LabSettings() {
   };
 
   return (
-    <div style={{ padding: '32px', backgroundColor: '#ffffff', minHeight: '100%', boxSizing: 'border-box', fontFamily: "'europa', sans-serif" }}>
+    <div style={{ padding: '32px', backgroundColor: '#F9F9F7', minHeight: '100%', boxSizing: 'border-box', fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
       
       {/* Header Area */}
       <div style={{ borderBottom: '1px solid #eaeaea', paddingBottom: '20px', marginBottom: '24px' }}>
-        <h1 style={{ fontFamily: "'EB Garamond', serif", fontSize: '28px', color: '#005c5a', margin: 0, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+        <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 28, fontWeight: 500, color: '#1A1A1A', margin: 0, letterSpacing: '-0.02em' }}>
           Lab Settings
         </h1>
-        <p style={{ color: '#777777', fontSize: '13px', margin: '4px 0 0 0' }}>Configure portal thresholds, background refresh intervals, and defaults</p>
       </div>
 
       <div style={{ maxWidth: '600px' }}>
@@ -77,7 +76,7 @@ export default function LabSettings() {
           <button
             type="submit"
             style={{
-              backgroundColor: '#005c5a',
+              backgroundColor: '#1A1A1A',
               color: '#fff',
               border: 'none',
               padding: '10px 20px',

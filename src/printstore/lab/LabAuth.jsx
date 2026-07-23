@@ -3,16 +3,38 @@ import { useNavigate } from 'react-router-dom';
 import { Mail, Lock, LogIn, UserPlus, AlertCircle, CheckCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase/client';
 import { useLabAuth } from './LabApp';
+import './labTheme.css';
+
+const fieldShell = {
+  display: 'flex',
+  alignItems: 'center',
+  minHeight: 44,
+  borderRadius: 9999,
+  padding: '0 14px 0 40px',
+  position: 'relative',
+  backgroundColor: 'oklch(0.952 0.005 85)',
+  boxShadow: 'inset 3px 3px 7px oklch(0.4 0.01 70 / 0.1), inset -3px -3px 7px oklch(1 0.004 85 / 0.85)',
+};
+
+const fieldInput = {
+  width: '100%',
+  border: 'none',
+  outline: 'none',
+  background: 'transparent',
+  color: '#1A1A1A',
+  fontSize: 14,
+  fontFamily: "'Inter', system-ui, sans-serif",
+};
 
 export default function LabAuth() {
   const navigate = useNavigate();
   const { setLabUser } = useLabAuth();
-  
+
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -41,14 +63,12 @@ export default function LabAuth() {
     e.preventDefault();
     setError('');
     setSuccess('');
-    
+
     if (!validateForm()) return;
-    
+
     setLoading(true);
     try {
       if (isSignUp) {
-        // Sign Up
-        // 1. Check if user already exists
         const { data: existingUser, error: checkError } = await supabase
           .from('printstore_lab_users')
           .select('id')
@@ -62,7 +82,6 @@ export default function LabAuth() {
           return;
         }
 
-        // 2. Insert new user
         const { data: newUser, error: insertError } = await supabase
           .from('printstore_lab_users')
           .insert({
@@ -75,21 +94,19 @@ export default function LabAuth() {
         if (insertError) throw insertError;
 
         setSuccess('Account created successfully! Logging you in...');
-        
+
         const sessionData = {
           id: newUser.id,
           email: newUser.email
         };
-        
+
         localStorage.setItem('pixnxt_lab_session', JSON.stringify(sessionData));
-        
+
         setTimeout(() => {
           setLabUser(sessionData);
-          navigate('/lab/orders');
+          navigate('/lab/dashboard');
         }, 1200);
-
       } else {
-        // Log In
         const { data: user, error: loginError } = await supabase
           .from('printstore_lab_users')
           .select('*')
@@ -98,7 +115,7 @@ export default function LabAuth() {
           .maybeSingle();
 
         if (loginError) throw loginError;
-        
+
         if (!user) {
           setError('Invalid email or password.');
           setLoading(false);
@@ -106,17 +123,17 @@ export default function LabAuth() {
         }
 
         setSuccess('Authentication successful! Loading dashboard...');
-        
+
         const sessionData = {
           id: user.id,
           email: user.email
         };
 
         localStorage.setItem('pixnxt_lab_session', JSON.stringify(sessionData));
-        
+
         setTimeout(() => {
           setLabUser(sessionData);
-          navigate('/lab/orders');
+          navigate('/lab/dashboard');
         }, 1200);
       }
     } catch (err) {
@@ -128,75 +145,70 @@ export default function LabAuth() {
   };
 
   return (
-    <div style={{
+    <div className="theme-mono lab-shell" style={{
       display: 'flex',
       minHeight: '100vh',
       width: '100%',
-      backgroundColor: '#fbfbfb',
-      color: '#111111',
+      backgroundColor: '#F9F9F7',
+      color: '#1A1A1A',
       alignItems: 'center',
       justifyContent: 'center',
       padding: '20px',
-      fontFamily: "'europa', 'Inter', sans-serif"
+      fontFamily: "'Inter', system-ui, -apple-system, sans-serif"
     }}>
       <div style={{
         width: '100%',
-        maxWidth: '400px',
-        backgroundColor: '#ffffff',
-        borderRadius: '0px', // Matches minimalist aesthetic of the store
-        padding: '48px 36px',
-        boxShadow: '0 20px 40px rgba(0, 0, 0, 0.04)',
-        border: '1px solid #eaeaea'
+        maxWidth: '420px',
+        backgroundColor: '#FFFFFF',
+        borderRadius: 20,
+        padding: '44px 36px',
+        border: '1px solid #ECEAE6',
+        boxShadow: '-6px -6px 14px rgba(255,255,255,0.8), 6px 6px 18px rgba(0,0,0,0.05)',
       }}>
-        
-        {/* Logo / Branding */}
-        <div style={{ textAlign: 'center', marginBottom: '36px' }}>
+        <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={{
             display: 'inline-flex',
-            width: '46px',
-            height: '46px',
+            width: 48,
+            height: 48,
             borderRadius: '50%',
-            backgroundColor: '#111111',
+            backgroundColor: '#1A1A1A',
             color: '#ffffff',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: '20px',
-            fontWeight: 'bold',
-            marginBottom: '16px',
-            fontFamily: "'EB Garamond', serif"
+            fontSize: 18,
+            fontWeight: 600,
+            marginBottom: 16,
           }}>
             L
           </div>
-          <h2 style={{ 
-            fontSize: '26px', 
-            fontWeight: 500, 
-            margin: '0 0 8px 0', 
-            color: '#111111',
-            fontFamily: "'EB Garamond', 'Times New Roman', serif",
-            letterSpacing: '0.04em',
-            textTransform: 'uppercase'
+          <h2 style={{
+            fontSize: 28,
+            fontWeight: 500,
+            margin: '0 0 8px 0',
+            color: '#1A1A1A',
+            fontFamily: "'Playfair Display', Georgia, serif",
+            letterSpacing: '-0.02em',
           }}>
-            PIXNXT Lab Portal
+            Pixnxt Lab
           </h2>
-          <p style={{ fontSize: '13px', color: '#777777', margin: 0, letterSpacing: '0.02em' }}>
-            {isSignUp ? 'REGISTER AN OPERATOR ACCOUNT' : 'SIGN IN TO MANAGE ORDERS'}
+          <p style={{ fontSize: 13, color: '#71717A', margin: 0 }}>
+            {isSignUp ? 'Create an operator account' : 'Sign in to manage lab orders'}
           </p>
         </div>
 
-        {/* Form Alerts */}
         {error && (
           <div style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '10px',
-            backgroundColor: '#fff5f5',
-            border: '1px solid #fed7d7',
-            color: '#c53030',
+            gap: 10,
+            backgroundColor: '#FEF2F2',
+            border: '1px solid #FECACA',
+            color: '#B91C1C',
             padding: '12px 14px',
-            borderRadius: '0px',
-            fontSize: '13px',
+            borderRadius: 12,
+            fontSize: 13,
             fontWeight: 500,
-            marginBottom: '24px'
+            marginBottom: 20
           }}>
             <AlertCircle size={15} style={{ flexShrink: 0 }} />
             <span>{error}</span>
@@ -207,37 +219,28 @@ export default function LabAuth() {
           <div style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '10px',
-            backgroundColor: '#f0fff4',
-            border: '1px solid #c6f6d5',
-            color: '#22543d',
+            gap: 10,
+            backgroundColor: '#ECFDF5',
+            border: '1px solid #A7F3D0',
+            color: '#207C50',
             padding: '12px 14px',
-            borderRadius: '0px',
-            fontSize: '13px',
+            borderRadius: 12,
+            fontSize: 13,
             fontWeight: 500,
-            marginBottom: '24px'
+            marginBottom: 20
           }}>
             <CheckCircle size={15} style={{ flexShrink: 0 }} />
             <span>{success}</span>
           </div>
         )}
 
-        {/* Input Form */}
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
           <div>
-            <label style={{ 
-              display: 'block', 
-              fontSize: '11px', 
-              fontWeight: 600, 
-              color: '#111111', 
-              textTransform: 'uppercase', 
-              marginBottom: '8px', 
-              letterSpacing: '0.08em' 
-            }}>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#1A1A1A', marginBottom: 8 }}>
               Email Address
             </label>
-            <div style={{ position: 'relative' }}>
-              <Mail size={15} color="#777777" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+            <div style={fieldShell}>
+              <Mail size={15} color="#71717A" style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }} />
               <input
                 type="email"
                 placeholder="operator@pixnxt.com"
@@ -245,39 +248,17 @@ export default function LabAuth() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 disabled={loading}
-                style={{
-                  width: '100%',
-                  padding: '11px 12px 11px 38px',
-                  borderRadius: '0px',
-                  border: '1px solid #cbd5e1',
-                  backgroundColor: '#ffffff',
-                  color: '#111111',
-                  fontSize: '13.5px',
-                  outline: 'none',
-                  transition: 'border-color 0.15s',
-                  boxSizing: 'border-box',
-                  fontFamily: 'inherit'
-                }}
-                onFocus={(e) => e.target.style.borderColor = '#111111'}
-                onBlur={(e) => e.target.style.borderColor = '#cbd5e1'}
+                style={fieldInput}
               />
             </div>
           </div>
 
           <div>
-            <label style={{ 
-              display: 'block', 
-              fontSize: '11px', 
-              fontWeight: 600, 
-              color: '#111111', 
-              textTransform: 'uppercase', 
-              marginBottom: '8px', 
-              letterSpacing: '0.08em' 
-            }}>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#1A1A1A', marginBottom: 8 }}>
               Password
             </label>
-            <div style={{ position: 'relative' }}>
-              <Lock size={15} color="#777777" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+            <div style={fieldShell}>
+              <Lock size={15} color="#71717A" style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }} />
               <input
                 type="password"
                 placeholder="••••••"
@@ -285,40 +266,18 @@ export default function LabAuth() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 disabled={loading}
-                style={{
-                  width: '100%',
-                  padding: '11px 12px 11px 38px',
-                  borderRadius: '0px',
-                  border: '1px solid #cbd5e1',
-                  backgroundColor: '#ffffff',
-                  color: '#111111',
-                  fontSize: '13.5px',
-                  outline: 'none',
-                  transition: 'border-color 0.15s',
-                  boxSizing: 'border-box',
-                  fontFamily: 'inherit'
-                }}
-                onFocus={(e) => e.target.style.borderColor = '#111111'}
-                onBlur={(e) => e.target.style.borderColor = '#cbd5e1'}
+                style={fieldInput}
               />
             </div>
           </div>
 
           {isSignUp && (
             <div>
-              <label style={{ 
-                display: 'block', 
-                fontSize: '11px', 
-                fontWeight: 600, 
-                color: '#111111', 
-                textTransform: 'uppercase', 
-                marginBottom: '8px', 
-                letterSpacing: '0.08em' 
-              }}>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#1A1A1A', marginBottom: 8 }}>
                 Confirm Password
               </label>
-              <div style={{ position: 'relative' }}>
-                <Lock size={15} color="#777777" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+              <div style={fieldShell}>
+                <Lock size={15} color="#71717A" style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }} />
                 <input
                   type="password"
                   placeholder="••••••"
@@ -326,21 +285,7 @@ export default function LabAuth() {
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
                   disabled={loading}
-                  style={{
-                    width: '100%',
-                    padding: '11px 12px 11px 38px',
-                    borderRadius: '0px',
-                    border: '1px solid #cbd5e1',
-                    backgroundColor: '#ffffff',
-                    color: '#111111',
-                    fontSize: '13.5px',
-                    outline: 'none',
-                    transition: 'border-color 0.15s',
-                    boxSizing: 'border-box',
-                    fontFamily: 'inherit'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = '#111111'}
-                  onBlur={(e) => e.target.style.borderColor = '#cbd5e1'}
+                  style={fieldInput}
                 />
               </div>
             </div>
@@ -349,50 +294,45 @@ export default function LabAuth() {
           <button
             type="submit"
             disabled={loading}
+            className="neu-pill"
             style={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '8px',
+              gap: 8,
               width: '100%',
-              padding: '12px',
-              borderRadius: '0px',
-              backgroundColor: '#111111',
+              height: 44,
+              borderRadius: 9999,
               color: '#ffffff',
-              fontSize: '12.5px',
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              letterSpacing: '0.1em',
+              fontSize: 13,
+              fontWeight: 500,
               border: 'none',
               cursor: loading ? 'not-allowed' : 'pointer',
-              transition: 'background-color 0.15s',
-              marginTop: '12px'
+              marginTop: 8,
+              opacity: loading ? 0.6 : 1,
             }}
-            onMouseEnter={(e) => { if (!loading) e.currentTarget.style.backgroundColor = '#222222'; }}
-            onMouseLeave={(e) => { if (!loading) e.currentTarget.style.backgroundColor = '#111111'; }}
           >
             {loading ? (
-              <span>PROCESSING...</span>
+              <span>Processing...</span>
             ) : isSignUp ? (
               <>
                 <UserPlus size={15} />
-                <span>REGISTER OPERATOR</span>
+                <span>Register operator</span>
               </>
             ) : (
               <>
                 <LogIn size={15} />
-                <span>SIGN IN TO LAB</span>
+                <span>Sign in to Lab</span>
               </>
             )}
           </button>
         </form>
 
-        {/* Switch Login/Signup */}
         <div style={{
           textAlign: 'center',
-          marginTop: '28px',
-          borderTop: '1px solid #f1f5f9',
-          paddingTop: '20px'
+          marginTop: 24,
+          borderTop: '1px solid #ECEAE6',
+          paddingTop: 18
         }}>
           <button
             type="button"
@@ -404,21 +344,16 @@ export default function LabAuth() {
             style={{
               background: 'none',
               border: 'none',
-              color: '#111111',
-              fontSize: '12px',
-              fontWeight: 600,
+              color: '#1A1A1A',
+              fontSize: 13,
+              fontWeight: 500,
               cursor: 'pointer',
               outline: 'none',
-              textTransform: 'uppercase',
-              letterSpacing: '0.04em'
             }}
-            onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
-            onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
           >
             {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
           </button>
         </div>
-
       </div>
     </div>
   );

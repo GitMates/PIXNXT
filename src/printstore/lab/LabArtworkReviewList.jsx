@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase/client';
 import { useLabAuth } from './LabApp';
 import { getShortId } from '../utils/idFormat';
-import { Search, Filter, Eye, ShieldAlert, ArrowRight, UserCheck, AlertTriangle, History } from 'lucide-react';
-import { MOCK_PHOTOS } from '../data/mockStoreData';
+import { Filter, Eye, ShieldAlert, ArrowRight, UserCheck, AlertTriangle, History } from 'lucide-react';
+import LabSearchField from './LabSearchField';
+import { getLabItemPhotoUrl } from './labPhotoUrl';
+import LabFramedThumb from './LabFramedThumb';
 
 export default function LabArtworkReviewList() {
   const { orders, orderItems, refreshOrders } = useLabAuth();
@@ -71,31 +73,19 @@ export default function LabArtworkReviewList() {
           status = 'Waiting Customer';
         }
 
-        // Get thumbnail photo
+        // Get thumbnail photo from real order item data only
         const opts = item.options || {};
-        let photoUrl = '';
-        let photoOption = opts.photo || (opts.photos && opts.photos[0]);
-        if (photoOption) {
-          if (typeof photoOption === 'string') {
-            if (photoOption.startsWith('http://') || photoOption.startsWith('https://') || photoOption.startsWith('data:')) {
-              photoUrl = photoOption;
-            } else {
-              const mock = MOCK_PHOTOS.find(p => p.id === photoOption);
-              if (mock) photoUrl = mock.url;
-            }
-          } else if (typeof photoOption === 'object' && photoOption.url) {
-            photoUrl = photoOption.url;
+        const photoUrl = getLabItemPhotoUrl(item);
+
+        let priority = 'Medium';
+        if (dbReview?.notes) {
+          try {
+            priority = JSON.parse(dbReview.notes)?.priority || 'Medium';
+          } catch {
+            priority = 'Medium';
           }
         }
-        if (!photoUrl) {
-          photoUrl = 'https://images.unsplash.com/photo-1541701494587-cb58502866ab?q=80&w=400&auto=format&fit=crop';
-        }
-
-        // Generate deterministic priorities and reviewers
-        const priorities = ['High', 'Medium', 'Low'];
-        const priority = dbReview?.notes ? (JSON.parse(dbReview.notes)?.priority || 'Medium') : priorities[(order.customer_name.charCodeAt(0) + index) % 3];
-        const reviewers = ['Arun Kumar', 'Karthik S', 'Priya S', 'Unassigned'];
-        const reviewer = dbReview?.reviewed_by || reviewers[(order.customer_name.charCodeAt(1) + index) % 4];
+        const reviewer = dbReview?.reviewed_by || 'Unassigned';
 
         list.push({
           id: order.id,
@@ -103,11 +93,11 @@ export default function LabArtworkReviewList() {
           orderNumber: getShortId(order.id, 'order'),
           order,
           item,
-          customerName: order.customer_name || 'Nandha Prabhu R',
-          photographer: opts.photographer || 'Ramesh Studio',
-          productType: item.product_name || 'Framed Photo',
-          frameType: opts.frameType || (typeof opts.frame === 'object' ? opts.frame?.label : opts.frame) || 'Black Wood (1 inch)',
-          printSize: opts.printSize || (typeof opts.size === 'object' ? opts.size?.label : opts.size) || '13x18 cm (Portrait)',
+          customerName: order.customer_name || '—',
+          photographer: opts.photographer || order.photographer_name || '—',
+          productType: item.product_name || '—',
+          frameType: opts.frameType || (typeof opts.frame === 'object' ? opts.frame?.label : opts.frame) || '—',
+          printSize: opts.printSize || (typeof opts.size === 'object' ? opts.size?.label : opts.size) || '—',
           status,
           arrivalTime: order.created_at ? new Date(order.created_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '30 May 2025, 10:23 AM',
           rawArrivalDate: order.created_at ? new Date(order.created_at) : new Date(),
@@ -190,7 +180,7 @@ export default function LabArtworkReviewList() {
   }
 
   return (
-    <div style={{ padding: '24px 32px', backgroundColor: '#ffffff', minHeight: '100%', fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif", color: '#1e293b', boxSizing: 'border-box' }}>
+    <div style={{ padding: '24px 32px', backgroundColor: '#F9F9F7', minHeight: '100%', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", color: '#1e293b', boxSizing: 'border-box' }}>
       
       {/* DB Setup Warning Alert */}
       {dbError && (
@@ -219,21 +209,18 @@ export default function LabArtworkReviewList() {
           <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: '0 0 4px 0', color: '#0f172a', textTransform: 'uppercase' }}>
             Artwork Review Center
           </h1>
-          <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
-            Review customer images, crop boundaries, printable areas, and flag pre-press defects
-          </p>
         </div>
       </div>
 
       {/* KPI statistics cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px', marginBottom: '24px' }}>
         {[
-          { label: 'Pending Reviews', value: stats.pending, bg: '#eff6ff', color: '#3b82f6', icon: '🔍' },
-          { label: 'Waiting Customer', value: stats.waiting, bg: '#fff7ed', color: '#ea580c', icon: '⏳' },
-          { label: 'Approved Today', value: stats.approved, bg: '#ecfdf5', color: '#10b981', icon: '✅' },
-          { label: 'Rejected Today', value: stats.rejected, bg: '#fef2f2', color: '#ef4444', icon: '❌' }
+          { label: 'Pending Reviews', value: stats.pending, bg: '#eff6ff', color: '#3b82f6', icon: '' },
+          { label: 'Waiting Customer', value: stats.waiting, bg: '#fff7ed', color: '#ea580c', icon: '' },
+          { label: 'Approved Today', value: stats.approved, bg: '#ecfdf5', color: '#10b981', icon: '' },
+          { label: 'Rejected Today', value: stats.rejected, bg: '#fef2f2', color: '#ef4444', icon: '' }
         ].map((card, i) => (
-          <div key={i} style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px', display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <div key={i} style={{ backgroundColor: '#fff', border: '1px solid #ECEAE6', borderRadius: 14, padding: '14px', display: 'flex', gap: '10px', alignItems: 'center' }}>
             <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: card.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>
               {card.icon}
             </div>
@@ -246,19 +233,14 @@ export default function LabArtworkReviewList() {
       </div>
 
       {/* Search and Filters Row */}
-      <div style={{ display: 'flex', gap: '12px', alignItems: 'center', backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 16px', marginBottom: '20px' }}>
+      <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '20px' }}>
         
         {/* Search Input */}
-        <div style={{ position: 'relative', flex: 1 }}>
-          <span style={{ position: 'absolute', left: '12px', top: '9px', color: '#94a3b8', fontSize: '13px' }}>🔍</span>
-          <input
-            type="search"
-            placeholder="Search by Order ID, Customer, Photographer..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{ width: '100%', padding: '9px 12px 9px 36px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '13px', outline: 'none' }}
-          />
-        </div>
+        <LabSearchField
+          placeholder="Search by Order ID, Customer, Photographer..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
 
         {/* Review Status Filter */}
         <select 
@@ -300,7 +282,7 @@ export default function LabArtworkReviewList() {
       </div>
 
       {/* Review Queue Table */}
-      <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', overflowX: 'auto' }}>
+      <div style={{ backgroundColor: '#fff', border: '1px solid #ECEAE6', borderRadius: 14, overflowX: 'auto' }}>
         <table style={{ width: '100%', minWidth: '1200px', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12.5px' }}>
           <thead>
             <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
@@ -340,11 +322,9 @@ export default function LabArtworkReviewList() {
               return (
                 <tr key={`${row.id}-${row.orderItemId}`} style={{ borderBottom: '1px solid #f1f5f9', verticalAlign: 'middle' }}>
                   <td style={{ padding: '12px 16px' }}>
-                    <div style={{ width: '42px', height: '42px', borderRadius: '4px', overflow: 'hidden', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc' }}>
-                      <img src={row.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    </div>
+                    <LabFramedThumb item={row.item} size={42} />
                   </td>
-                  <td style={{ padding: '12px 16px', fontWeight: 'bold', fontFamily: 'Courier New, monospace', color: '#0f766e', whiteSpace: 'nowrap' }}>
+                  <td style={{ padding: '12px 16px', fontWeight: 'bold', fontFamily: 'Courier New, monospace', color: '#1A1A1A', whiteSpace: 'nowrap' }}>
                     {row.orderNumber}
                   </td>
                   <td style={{ padding: '12px 16px' }}>
@@ -404,7 +384,7 @@ export default function LabArtworkReviewList() {
                           cursor: 'default'
                         }}
                       >
-                        ⏳ Awaiting
+                        Awaiting
                       </span>
                     ) : ['Customer Approved', 'New Image Uploaded', 'Ready For Print', 'Approved'].includes(row.status) ? (
                       <button
@@ -433,7 +413,7 @@ export default function LabArtworkReviewList() {
                         onClick={() => navigate(`/lab/artwork-review/${row.id}`)}
                         style={{
                           padding: '6px 12px',
-                          backgroundColor: '#0f766e',
+                          backgroundColor: '#1A1A1A',
                           border: 'none',
                           borderRadius: '6px',
                           color: '#fff',
@@ -446,7 +426,7 @@ export default function LabArtworkReviewList() {
                           transition: 'background-color 0.15s'
                         }}
                         onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#0d9488'}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#0f766e'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1A1A1A'}
                       >
                         <Eye size={12} /> Review
                       </button>

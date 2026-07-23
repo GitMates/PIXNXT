@@ -2,40 +2,17 @@ import React, { useState, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useLabAuth } from './LabApp';
 import { supabase } from '../../lib/supabase/client';
-import { MOCK_PHOTOS } from '../data/mockStoreData';
 import { Copy, Check, Eye } from 'lucide-react';
 import { getShortId } from '../utils/idFormat';
+import LabSearchField from './LabSearchField';
+import { getLabItemPhotoUrl } from './labPhotoUrl';
+import LabFramedThumb from './LabFramedThumb';
 import {
   LAB_STATUS_COLORS as STATUS_COLORS,
   LAB_STATUS_LABELS as STATUS_LABELS,
 } from './labOrderStatus';
 
-const getPhotoThumbnail = (item) => {
-  const opts = item?.options || {};
-  let photoOption = opts.photo;
-  
-  if (!photoOption && opts.photos && opts.photos.length > 0) {
-    photoOption = opts.photos[0];
-  }
-  
-  if (!photoOption) return '';
-  if (typeof photoOption === 'string') {
-    if (photoOption.startsWith('http://') || photoOption.startsWith('https://') || photoOption.startsWith('data:')) {
-      return photoOption;
-    }
-    const mock = MOCK_PHOTOS.find(p => p.id === photoOption);
-    if (mock) return mock.url;
-    return '';
-  }
-  if (typeof photoOption === 'object') {
-    if (photoOption.url) return photoOption.url;
-    if (photoOption.id) {
-      const mock = MOCK_PHOTOS.find(p => p.id === photoOption.id);
-      if (mock) return mock.url;
-    }
-  }
-  return '';
-};
+const getPhotoThumbnail = (item) => getLabItemPhotoUrl(item);
 
 const CopyButton = ({ text }) => {
   const [copied, setCopied] = useState(false);
@@ -142,35 +119,30 @@ export default function LabOrdersTable({ title, fixedStatusFilter }) {
   };
 
   return (
-    <div style={{ padding: '24px 32px', backgroundColor: '#ffffff', minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" }}>
+    <div style={{ padding: '24px 32px', backgroundColor: '#F9F9F7', minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h1 style={{ fontFamily: "'EB Garamond', serif", fontSize: '26px', fontWeight: 'bold', color: '#0f172a', margin: 0, textTransform: 'uppercase' }}>
+        <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 26, fontWeight: 500, color: '#1A1A1A', margin: 0, letterSpacing: '-0.02em' }}>
           {title || 'Incoming Orders'}
         </h1>
       </div>
 
       {/* Mockup filter bar row */}
-      <div style={{ display: 'flex', gap: '12px', alignItems: 'center', backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 16px', marginBottom: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
+      <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '20px' }}>
         
         {/* Search input with search icon */}
-        <div style={{ position: 'relative', flex: 1 }}>
-          <span style={{ position: 'absolute', left: '12px', top: '9px', color: '#94a3b8', fontSize: '13px' }}>🔍</span>
-          <input
-            type="search"
-            placeholder="Search by Order ID, Customer, Email, Phone..."
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(0); }}
-            style={{ width: '100%', padding: '9px 12px 9px 36px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '13px', outline: 'none', backgroundColor: '#ffffff' }}
-          />
-        </div>
+        <LabSearchField
+          placeholder="Search by Order ID, Customer, Email, Phone..."
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setPage(0); }}
+        />
         
         {/* Status Dropdown */}
         {!fixedStatusFilter && (
           <select 
             value={statusFilter} 
             onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}
-            style={{ padding: '9px 32px 9px 14px', border: '1px solid #cbd5e1', borderRadius: '8px', backgroundColor: '#fff', fontSize: '13px', outline: 'none', cursor: 'pointer', appearance: 'none', backgroundImage: 'url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%2364748b\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3Cpolyline points=\'6 9 12 15 18 9\'/%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center', backgroundSize: '15px' }}
+            style={{ padding: '9px 32px 9px 14px', border: '1px solid #cbd5e1', borderRadius: 9999, backgroundColor: '#fff', fontSize: '13px', outline: 'none', cursor: 'pointer', appearance: 'none', backgroundImage: 'url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%2364748b\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3Cpolyline points=\'6 9 12 15 18 9\'/%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center', backgroundSize: '15px' }}
           >
             <option value="all">All Status</option>
             {Object.entries(STATUS_LABELS).map(([val, label]) => (
@@ -183,7 +155,7 @@ export default function LabOrdersTable({ title, fixedStatusFilter }) {
         <select 
           value={dateFilter} 
           onChange={(e) => { setDateFilter(e.target.value); setPage(0); }}
-          style={{ padding: '9px 32px 9px 14px', border: '1px solid #cbd5e1', borderRadius: '8px', backgroundColor: '#fff', fontSize: '13px', outline: 'none', cursor: 'pointer', appearance: 'none', backgroundImage: 'url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%2364748b\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3Cpolyline points=\'6 9 12 15 18 9\'/%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center', backgroundSize: '15px' }}
+          style={{ padding: '9px 32px 9px 14px', border: '1px solid #cbd5e1', borderRadius: 9999, backgroundColor: '#fff', fontSize: '13px', outline: 'none', cursor: 'pointer', appearance: 'none', backgroundImage: 'url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%2364748b\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3Cpolyline points=\'6 9 12 15 18 9\'/%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center', backgroundSize: '15px' }}
         >
           <option value="all">Date Range</option>
           <option value="today">Today</option>
@@ -194,7 +166,7 @@ export default function LabOrdersTable({ title, fixedStatusFilter }) {
         {/* Clear Filters Button */}
         <button 
           onClick={handleClearFilters}
-          style={{ padding: '9px 16px', border: '1px solid #cbd5e1', borderRadius: '8px', backgroundColor: '#ffffff', color: '#475569', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.15s' }}
+          style={{ padding: '9px 16px', border: '1px solid #ECEAE6', borderRadius: 9999, backgroundColor: '#ffffff', color: '#475569', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.15s' }}
           onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f1f5f9'; }}
           onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#ffffff'; }}
         >
@@ -203,11 +175,11 @@ export default function LabOrdersTable({ title, fixedStatusFilter }) {
       </div>
 
       {/* Main Table Container - Transparent Background */}
-      <div style={{ backgroundColor: 'transparent', border: '1px solid #e2e8f0', borderRadius: '10px', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: 'none' }}>
+      <div style={{ backgroundColor: 'transparent', border: '1px solid #ECEAE6', borderRadius: 16, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: 'none' }}>
         <div style={{ flex: 1, overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left', minWidth: '1200px' }}>
             <thead>
-              <tr style={{ backgroundColor: '#ffffff', borderBottom: '2px solid #e2e8f0', color: '#000000', fontWeight: 'bold', textTransform: 'uppercase' }}>
+              <tr style={{ backgroundColor: '#1A1A1A', borderBottom: 'none', color: '#ffffff', fontWeight: 600, textTransform: 'none' }}>
                 <th style={{ padding: '14px 16px', width: '40px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                   <input type="checkbox" style={{ cursor: 'pointer' }} />
                 </th>
@@ -249,22 +221,13 @@ export default function LabOrdersTable({ title, fixedStatusFilter }) {
                     <td style={{ padding: '10px 16px' }}>
                       <div style={{ display: 'flex', gap: '2px' }}>
                         {currentOrderItems.slice(0, 1).map((item) => (
-                          <div 
-                            key={item.id} 
-                            style={{ width: '36px', height: '36px', border: '1px solid #cbd5e1', overflow: 'hidden', backgroundColor: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '4px' }}
-                          >
-                            {getPhotoThumbnail(item) ? (
-                              <img src={getPhotoThumbnail(item)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            ) : (
-                              <div style={{ fontSize: '8px', color: '#94a3b8', fontWeight: 'bold' }}>IMG</div>
-                            )}
-                          </div>
+                          <LabFramedThumb key={item.id} item={item} size={36} />
                         ))}
                       </div>
                     </td>
 
                     {/* Order ID */}
-                    <td style={{ padding: '14px 16px', fontSize: '12.5px', fontWeight: 'bold', color: '#0f766e', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
+                    <td style={{ padding: '14px 16px', fontSize: '12.5px', fontWeight: 'bold', color: '#1A1A1A', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
                       <span>{orderNumber}</span>
                       <CopyButton text={orderNumber} />
                     </td>
@@ -331,7 +294,7 @@ export default function LabOrdersTable({ title, fixedStatusFilter }) {
                     <td style={{ padding: '14px 16px', color: '#475569', fontSize: '12.5px', whiteSpace: 'nowrap' }}>
                       {order.assigned_employee ? (
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
-                          <span>👤</span> {order.assigned_employee}
+                          {order.assigned_employee}
                         </span>
                       ) : (
                         <span style={{ color: '#cbd5e1', whiteSpace: 'nowrap' }}>—</span>
@@ -356,7 +319,7 @@ export default function LabOrdersTable({ title, fixedStatusFilter }) {
                             color: '#475569',
                             transition: 'all 0.15s'
                           }}
-                          onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#0f766e'; e.currentTarget.style.color = '#0f766e'; }}
+                          onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#1A1A1A'; e.currentTarget.style.color = '#1A1A1A'; }}
                           onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.color = '#475569'; }}
                           title="Inspect Order"
                         >
@@ -409,7 +372,7 @@ export default function LabOrdersTable({ title, fixedStatusFilter }) {
                       border: isActive ? 'none' : '1px solid #cbd5e1',
                       borderRadius: '4px',
                       cursor: 'pointer',
-                      backgroundColor: isActive ? '#0f766e' : '#fff',
+                      backgroundColor: isActive ? '#1A1A1A' : '#fff',
                       color: isActive ? '#fff' : '#475569',
                       fontWeight: 'bold'
                     }}

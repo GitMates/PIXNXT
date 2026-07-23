@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLabAuth } from './LabApp';
 import { supabase } from '../../lib/supabase/client';
-import { MOCK_PHOTOS } from '../data/mockStoreData';
 import { getShortId } from '../utils/idFormat';
 import {
   getLabStatusColor,
@@ -11,6 +10,7 @@ import {
 } from './labOrderStatus';
 import { transitionLabOrderStatus } from './labOrderStatusService';
 import LabPipelineRail from './LabPipelineRail';
+import { getLabItemPhotoUrl, filterLabPhysicalItems } from './labPhotoUrl';
 
 const FRAME_PRODUCT_TYPES = [
   'frames',
@@ -67,19 +67,7 @@ function parseSizeLabel(label) {
 }
 
 function getPhotoUrl(item) {
-  const opts = item?.options || {};
-  let photo = opts.photo;
-  if (!photo && opts.photos?.length) photo = opts.photos[0];
-  if (!photo) return '';
-  if (typeof photo === 'string') {
-    if (photo.startsWith('http') || photo.startsWith('data:')) return photo;
-    return MOCK_PHOTOS.find((p) => p.id === photo)?.url || '';
-  }
-  if (typeof photo === 'object') {
-    if (photo.url) return photo.url;
-    if (photo.id) return MOCK_PHOTOS.find((p) => p.id === photo.id)?.url || '';
-  }
-  return '';
+  return getLabItemPhotoUrl(item);
 }
 
 function ChecklistRow({ checked, label, onToggle, disabled }) {
@@ -95,9 +83,9 @@ function ChecklistRow({ checked, label, onToggle, disabled }) {
         width: '100%',
         textAlign: 'left',
         padding: '10px 12px',
-        border: `1px solid ${checked ? '#99f6e4' : '#e2e8f0'}`,
+        border: `1px solid ${checked ? '#ECEAE6' : '#e2e8f0'}`,
         borderRadius: 8,
-        background: checked ? '#f0fdfa' : '#fff',
+        background: checked ? '#F4F3F0' : '#fff',
         cursor: disabled ? 'default' : 'pointer',
         opacity: disabled ? 0.7 : 1,
       }}
@@ -107,8 +95,8 @@ function ChecklistRow({ checked, label, onToggle, disabled }) {
           width: 18,
           height: 18,
           borderRadius: 4,
-          border: `2px solid ${checked ? '#0f766e' : '#cbd5e1'}`,
-          background: checked ? '#0f766e' : '#fff',
+          border: `2px solid ${checked ? '#1A1A1A' : '#cbd5e1'}`,
+          background: checked ? '#1A1A1A' : '#fff',
           color: '#fff',
           fontSize: 11,
           fontWeight: 800,
@@ -151,8 +139,10 @@ export default function LabFrameWorkshop() {
         .select('*');
       if (itemsError) throw itemsError;
 
-      setOrders(ordersData || []);
-      setOrderItems(itemsData || []);
+      const physicalItems = filterLabPhysicalItems(itemsData || []);
+      const labOrderIds = new Set(physicalItems.map((item) => item.order_id));
+      setOrders((ordersData || []).filter((order) => labOrderIds.has(order.id)));
+      setOrderItems(physicalItems);
       setInitialLoaded(true);
     } catch (err) {
       console.error('Error fetching frame workshop data:', err);
@@ -393,10 +383,7 @@ export default function LabFrameWorkshop() {
               ← Back to queue
             </button>
             <div>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', color: '#64748b', textTransform: 'uppercase' }}>
-                Station 5 · Frame Workshop
-              </div>
-              <h1 style={{ margin: '2px 0 0', fontFamily: "'EB Garamond', serif", fontSize: 26, color: '#0f172a' }}>
+              <h1 style={{ margin: 0, fontFamily: "'Playfair Display', serif", fontSize: 26, color: '#0f172a' }}>
                 Job {getShortId(selected.order.id)}
               </h1>
             </div>
@@ -464,7 +451,7 @@ export default function LabFrameWorkshop() {
                         style={{
                           ...btnSecondary,
                           background: currentItem.id === item.id ? '#ecfdf5' : '#fff',
-                          borderColor: currentItem.id === item.id ? '#99f6e4' : '#e2e8f0',
+                          borderColor: currentItem.id === item.id ? '#ECEAE6' : '#e2e8f0',
                         }}
                       >
                         Item {idx + 1}
@@ -475,8 +462,8 @@ export default function LabFrameWorkshop() {
               )}
             </section>
 
-            <section style={{ ...card, borderColor: '#99f6e4', background: '#f0fdfa' }}>
-              <h3 style={{ ...sectionTitle, color: '#0f766e' }}>Cut sheet</h3>
+            <section style={{ ...card, borderColor: '#ECEAE6', background: '#F4F3F0' }}>
+              <h3 style={{ ...sectionTitle, color: '#1A1A1A' }}>Cut sheet</h3>
               <SpecRow label="Photo" value={`${dims.width} × ${dims.height} cm`} />
               <SpecRow label="Glass / acrylic" value={`${glassW} × ${glassH} cm`} />
               <SpecRow label="Backing board" value={`${glassW} × ${glassH} cm`} />
@@ -537,7 +524,7 @@ export default function LabFrameWorkshop() {
                     height: Math.max(80, dims.height * 5),
                     background: photoUrl
                       ? `center / cover no-repeat url(${photoUrl})`
-                      : 'linear-gradient(135deg, #eefaf9, #cbd5e1)',
+                      : 'linear-gradient(135deg, #F4F3F0, #cbd5e1)',
                     border: '1px solid rgba(0,0,0,0.08)',
                   }}
                 />
@@ -594,18 +581,12 @@ export default function LabFrameWorkshop() {
   ];
 
   return (
-    <div style={{ padding: 28, background: '#f8fafc', minHeight: '100%', boxSizing: 'border-box' }}>
+    <div style={{ padding: 28, background: '#F9F9F7', minHeight: '100%', boxSizing: 'border-box', fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 20, gap: 12, flexWrap: 'wrap' }}>
         <div>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', color: '#64748b', textTransform: 'uppercase' }}>
-            Station 5
-          </div>
-          <h1 style={{ margin: '4px 0 0', fontFamily: "'EB Garamond', serif", fontSize: 28, color: '#0f172a' }}>
+          <h1 style={{ margin: 0, fontFamily: "'Playfair Display', Georgia, serif", fontSize: 28, fontWeight: 500, color: '#1A1A1A', letterSpacing: '-0.02em' }}>
             Frame Workshop
           </h1>
-          <p style={{ margin: '6px 0 0', fontSize: 13, color: '#64748b', maxWidth: 520 }}>
-            Assemble matted and framed products after QC. Status moves on the lab status machine: printed → framing → packaging.
-          </p>
         </div>
         <button type="button" onClick={() => fetchFrameData(false)} style={btnPrimary}>
           Refresh
@@ -620,9 +601,9 @@ export default function LabFrameWorkshop() {
             onClick={() => setTab(t.id)}
             style={{
               ...btnSecondary,
-              background: tab === t.id ? '#0f766e' : '#fff',
-              color: tab === t.id ? '#fff' : '#334155',
-              borderColor: tab === t.id ? '#0f766e' : '#e2e8f0',
+              background: tab === t.id ? '#1A1A1A' : '#fff',
+              color: tab === t.id ? '#fff' : '#71717A',
+              borderColor: tab === t.id ? '#1A1A1A' : '#ECEAE6',
             }}
           >
             {t.label} ({t.count})
@@ -633,7 +614,7 @@ export default function LabFrameWorkshop() {
       <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
-            <tr style={{ background: '#0f172a', color: '#fff' }}>
+            <tr style={{ background: '#1A1A1A', color: '#fff' }}>
               <th style={th}>Order</th>
               <th style={th}>Customer</th>
               <th style={th}>Product</th>
@@ -717,7 +698,7 @@ function SpecRow({ label, value, emphasize }) {
       }}
     >
       <span style={{ color: '#64748b', fontWeight: 500 }}>{label}</span>
-      <span style={{ color: emphasize ? '#0f766e' : '#0f172a', fontWeight: emphasize ? 800 : 700, textAlign: 'right' }}>
+      <span style={{ color: emphasize ? '#1A1A1A' : '#0f172a', fontWeight: emphasize ? 800 : 700, textAlign: 'right' }}>
         {value}
       </span>
     </div>
@@ -726,37 +707,39 @@ function SpecRow({ label, value, emphasize }) {
 
 const card = {
   background: '#fff',
-  border: '1px solid #e2e8f0',
-  borderRadius: 10,
+  border: '1px solid #ECEAE6',
+  borderRadius: 16,
   padding: 16,
+  boxShadow: '-4px -4px 12px rgba(255,255,255,0.7), 4px 4px 14px rgba(0,0,0,0.04)',
 };
 
 const sectionTitle = {
   margin: '0 0 12px',
   fontSize: 12,
-  fontWeight: 800,
+  fontWeight: 700,
   letterSpacing: '0.06em',
   textTransform: 'uppercase',
-  color: '#334155',
+  color: '#71717A',
 };
 
 const btnPrimary = {
-  padding: '10px 14px',
-  background: '#0f766e',
+  padding: '10px 18px',
+  backgroundImage: 'linear-gradient(180deg, #4D4D4D, #333333)',
   color: '#fff',
   border: 'none',
-  borderRadius: 8,
+  borderRadius: 9999,
   fontSize: 13,
-  fontWeight: 700,
+  fontWeight: 500,
   cursor: 'pointer',
+  boxShadow: '0 1px 0 0 rgba(255,255,255,0.15) inset, 0 12px 24px -10px rgba(0,0,0,0.45)',
 };
 
 const btnSecondary = {
-  padding: '8px 12px',
+  padding: '8px 14px',
   background: '#fff',
-  color: '#334155',
-  border: '1px solid #e2e8f0',
-  borderRadius: 8,
+  color: '#1A1A1A',
+  border: '1px solid #ECEAE6',
+  borderRadius: 9999,
   fontSize: 12,
   fontWeight: 700,
   cursor: 'pointer',

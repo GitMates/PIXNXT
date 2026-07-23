@@ -3,7 +3,6 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, User, Mail, Calendar, MapPin, CheckSquare, Square, AlertTriangle, Upload, X, ShieldAlert, Image, RefreshCw, CheckCircle2, History, Camera, Video } from 'lucide-react';
 import { supabase } from '../../lib/supabase/client';
 import CartItemPreview from '../components/CartItemPreview';
-import { MOCK_PHOTOS } from '../data/mockStoreData';
 import { getShortId } from '../utils/idFormat';
 import {
   LAB_STATUS_COLORS as STATUS_COLORS,
@@ -11,34 +10,10 @@ import {
   getValidNextLabStatuses,
 } from './labOrderStatus';
 import { transitionLabOrderStatus } from './labOrderStatusService';
-import LabPipelineRail from './LabPipelineRail';
+import { getLabItemPhotoUrl, buildLabPreviewItem, filterLabPhysicalItems } from './labPhotoUrl';
+import LabFramedThumb from './LabFramedThumb';
 
-const getPhotoThumbnail = (item) => {
-  const opts = item?.options || {};
-  let photoOption = opts.photo;
-  
-  if (!photoOption && opts.photos && opts.photos.length > 0) {
-    photoOption = opts.photos[0];
-  }
-  
-  if (!photoOption) return '';
-  if (typeof photoOption === 'string') {
-    if (photoOption.startsWith('http://') || photoOption.startsWith('https://') || photoOption.startsWith('data:')) {
-      return photoOption;
-    }
-    const mock = MOCK_PHOTOS.find(p => p.id === photoOption);
-    if (mock) return mock.url;
-    return '';
-  }
-  if (typeof photoOption === 'object') {
-    if (photoOption.url) return photoOption.url;
-    if (photoOption.id) {
-      const mock = MOCK_PHOTOS.find(p => p.id === photoOption.id);
-      if (mock) return mock.url;
-    }
-  }
-  return '';
-};
+const getPhotoThumbnail = (item) => getLabItemPhotoUrl(item);
 
 
 const employees = [
@@ -257,7 +232,7 @@ export default function LabOrderDetail() {
       if (trackingError) throw trackingError;
 
       setOrder(orderData);
-      setOrderItems(itemsData || []);
+      setOrderItems(filterLabPhysicalItems(itemsData || []));
       setTrackingLogs(trackingData || []);
 
       // Pre-fill edit fields
@@ -322,23 +297,7 @@ export default function LabOrderDetail() {
     return parts.join(', ');
   };
 
-  const buildPreviewItem = (item) => {
-    const opts = item.options || {};
-    return {
-      productId: item.product_type || '',
-      productName: item.product_name || '',
-      photo: opts.photo || null,
-      photos: opts.photos || [],
-      size: opts.size || null,
-      frame: opts.frame || null,
-      paper: opts.paper || null,
-      border: opts.border || 'none',
-      layout: opts.layout || null,
-      rotation: opts.rotation || 0,
-      quantity: item.quantity,
-      unitPrice: parseFloat(item.unit_price || 0),
-    };
-  };
+  const buildPreviewItem = (item) => buildLabPreviewItem(item);
 
   if (loading) {
     return (
@@ -350,7 +309,7 @@ export default function LabOrderDetail() {
 
   if (!order) {
     return (
-      <div style={{ padding: '60px', backgroundColor: '#ffffff', minHeight: '100%' }}>
+      <div style={{ padding: '60px', backgroundColor: '#F9F9F7', minHeight: '100%' }}>
         <button onClick={() => navigate(backPath)} style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', background: 'none', cursor: 'pointer', fontWeight: 600 }}>
           <ArrowLeft size={16} /> {backLabel}
         </button>
@@ -367,7 +326,7 @@ export default function LabOrderDetail() {
 
   // Section heading helper
   const SectionHeading = ({ children }) => (
-    <h3 style={{ fontFamily: "'EB Garamond', serif", fontSize: '18px', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 16px 0', fontWeight: 600, color: '#005c5a' }}>
+    <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: '18px', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 16px 0', fontWeight: 600, color: '#1A1A1A' }}>
       {children}
     </h3>
   );
@@ -445,7 +404,7 @@ export default function LabOrderDetail() {
     : formattedDate;
 
   return (
-    <div style={{ padding: '32px 40px', backgroundColor: '#ffffff', minHeight: '100%', display: 'flex', flexDirection: 'column', fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif", color: '#1f2937', boxSizing: 'border-box' }}>
+    <div style={{ padding: '32px 40px', backgroundColor: '#F9F9F7', minHeight: '100%', display: 'flex', flexDirection: 'column', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", color: '#1f2937', boxSizing: 'border-box' }}>
       
       {/* Printable Invoice stylesheet injection */}
       <style>{`
@@ -535,342 +494,142 @@ export default function LabOrderDetail() {
         </div>
       </div>
 
-      {/* Breadcrumbs */}
-      <div style={{ display: 'flex', gap: '8px', fontSize: '12.5px', color: '#64748b', marginBottom: '12px', alignItems: 'center' }}>
-        <span style={{ cursor: 'pointer' }} onClick={() => navigate('/lab/dashboard')}>Orders</span>
-        <span>&gt;</span>
-        <span style={{ color: '#0f172a', fontWeight: 600 }}>Order Details</span>
-      </div>
-
-      {/* Page Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <h1 style={{ fontFamily: "'EB Garamond', serif", fontSize: '26px', fontWeight: 'bold', color: '#0f172a', margin: 0 }}>
-              Order {orderNumber}
-            </h1>
-            <span style={{
-              padding: '4px 12px',
-              borderRadius: '9999px',
-              fontSize: '11px',
-              fontWeight: 'bold',
-              backgroundColor: `${STATUS_COLORS[order.status]}15`,
-              color: STATUS_COLORS[order.status],
-              border: `1px solid ${STATUS_COLORS[order.status]}30`,
-              textTransform: 'uppercase',
-              letterSpacing: '0.04em'
-            }}>
-              {STATUS_LABELS[order.status]}
-            </span>
-          </div>
-          <div style={{ height: '4px' }} />
-        </div>
-
-        {/* Action Buttons */}
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button 
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px', gap: '16px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          <button
             onClick={() => navigate(backPath)}
-            style={{ padding: '8px 14px', backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '13px', fontWeight: 'bold', color: '#334155', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', border: 'none', background: 'none', cursor: 'pointer', color: '#5f6368', fontSize: '13px', padding: 0, fontFamily: 'inherit' }}
           >
-            ← Back to Orders
+            <ArrowLeft size={16} /> Back
           </button>
-          <button 
-            onClick={() => window.print()}
-            style={{ padding: '8px 14px', backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '13px', fontWeight: 'bold', color: '#334155', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-          >
-            <span style={{ fontSize: '14px' }}>🖨️</span> Print Invoice
-          </button>
-          <button 
-            onClick={() => window.print()}
-            style={{ padding: '8px 14px', backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '13px', fontWeight: 'bold', color: '#334155', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-          >
-            <span style={{ fontSize: '14px' }}>⬇️</span> Download Invoice
-          </button>
+          <h1 style={{ fontSize: '22px', fontWeight: 500, color: '#202124', margin: 0, letterSpacing: '-0.02em' }}>
+            {orderNumber}
+          </h1>
+          <span style={{
+            padding: '3px 10px',
+            borderRadius: '4px',
+            fontSize: '12px',
+            fontWeight: 500,
+            backgroundColor: `${STATUS_COLORS[order.status] || '#5f6368'}18`,
+            color: STATUS_COLORS[order.status] || '#5f6368',
+          }}>
+            {STATUS_LABELS[order.status] || order.status}
+          </span>
+        </div>
+        <button
+          onClick={() => window.print()}
+          style={{ padding: '8px 16px', backgroundColor: '#fff', border: '1px solid #dadce0', borderRadius: '24px', fontSize: '13px', fontWeight: 500, color: '#3c4043', cursor: 'pointer' }}
+        >
+          Print invoice
+        </button>
+      </div>
 
+      {/* Customer + order meta — single clean strip */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '28px', marginBottom: '32px', paddingBottom: '24px', borderBottom: '1px solid #e8eaed' }}>
+        <div>
+          <div style={{ fontSize: '12px', color: '#5f6368', marginBottom: '6px' }}>Customer</div>
+          <div style={{ fontSize: '15px', fontWeight: 500, color: '#202124' }}>{order.customer_name}</div>
+          <div style={{ fontSize: '13px', color: '#5f6368', marginTop: '4px', lineHeight: 1.5 }}>
+            {order.customer_email}
+            <br />
+            {order.shipping_address?.phone || '—'}
+          </div>
+        </div>
+        <div>
+          <div style={{ fontSize: '12px', color: '#5f6368', marginBottom: '6px' }}>Order</div>
+          <div style={{ fontSize: '13px', color: '#202124', lineHeight: 1.7 }}>
+            <div>{new Date(order.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ color: '#188038', fontWeight: 500, fontSize: '12px' }}>Paid</span>
+              <span style={{ color: '#5f6368' }}>{order.payment_provider || '—'}</span>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div style={{ fontSize: '12px', color: '#5f6368', marginBottom: '6px' }}>Total</div>
+          <div style={{ fontSize: '20px', fontWeight: 500, color: '#202124' }}>{formatPrice(order.total)}</div>
+          <div style={{ fontSize: '12px', color: '#5f6368', marginTop: '4px' }}>
+            Lab items {formatPrice(orderItems.reduce((s, i) => s + (Number(i.unit_price) || 0) * (Number(i.quantity) || 1), 0))}
+          </div>
         </div>
       </div>
 
-      <LabPipelineRail status={order.status} />
-
-      {/* KPI Cards Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
-        
-        {/* Customer Info Card */}
-        <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: '#ecfdf5', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '12px' }}>👤</div>
-            <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#4b5563', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Customer Information</span>
-          </div>
-          <div style={{ fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '8px', lineHeight: '1.4' }}>
-            <div style={{ fontWeight: 'bold', color: '#1f2937' }}>{order.customer_name}</div>
-            <div style={{ color: '#6b7280' }}>{order.customer_email}</div>
-            <div style={{ color: '#6b7280' }}>{order.shipping_address?.phone || 'No phone logged'}</div>
-          </div>
-          <button style={{ alignSelf: 'flex-start', background: 'none', border: '1px solid #e2e8f0', padding: '6px 12px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', color: '#4b5563', cursor: 'pointer', marginTop: '4px' }}>
-            View Customer Profile
-          </button>
+      {/* Lab production items only */}
+      <div style={{ marginBottom: '32px' }}>
+        <div style={{ fontSize: '14px', fontWeight: 500, color: '#202124', marginBottom: '12px' }}>
+          Lab items ({orderItems.length})
         </div>
-
-        {/* Order Info Card */}
-        <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: '#eff6ff', color: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '12px' }}>📄</div>
-            <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#4b5563', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Order Information</span>
+        {orderItems.length === 0 ? (
+          <div style={{ padding: '24px 0', color: '#5f6368', fontSize: '14px' }}>
+            No print or frame items on this order. Digital downloads are not sent to the lab.
           </div>
-          <div style={{ fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '8px', lineHeight: '1.4' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span>Order ID: <strong>{order.id.substring(0, 12)}...</strong></span>
-              <span onClick={() => handleCopyToClipboard(order.id, 'Order ID')} style={{ cursor: 'pointer', fontSize: '11px' }} title="Copy ID">📋</span>
-            </div>
-            <div>Order Date: <strong>{new Date(order.created_at).toLocaleDateString('en-IN')}</strong></div>
-            <div>Source: <strong>Print Store (Web)</strong></div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span>Payment:</span>
-              <span style={{ fontSize: '10px', fontWeight: 'bold', padding: '1px 6px', backgroundColor: '#ecfdf5', color: '#10b981', borderRadius: '3px' }}>PAID</span>
-            </div>
-            <div>Type: <strong>Lab Production</strong></div>
-          </div>
-        </div>
-
-        {/* Production Info Card */}
-        <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: '#fef3c7', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '12px' }}>⚙️</div>
-            <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#4b5563', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Production Information</span>
-          </div>
-          <div style={{ fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '8px', lineHeight: '1.4' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span>Priority:</span>
-              <span style={{
-                fontSize: '10px',
-                fontWeight: 'bold',
-                padding: '1px 6px',
-                borderRadius: '3px',
-                backgroundColor: order.priority === 'High' ? '#fee2e2' : order.priority === 'Medium' ? '#fef3c7' : '#f3f4f6',
-                color: order.priority === 'High' ? '#ef4444' : order.priority === 'Medium' ? '#d97706' : '#4b5563'
-              }}>{order.priority || 'Medium'}</span>
-            </div>
-            <div>Assigned To: <strong>👤 {order.assigned_employee || 'Unassigned'}</strong></div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span>Current Stage:</span>
-              <span style={{ fontSize: '10px', fontWeight: 'bold', padding: '1px 6px', backgroundColor: '#eff6ff', color: '#3b82f6', borderRadius: '3px' }}>{STATUS_LABELS[order.status]}</span>
-            </div>
-            <div>Due Date: <strong>{order.due_date ? new Date(order.due_date).toLocaleDateString('en-IN') : 'TBD'}</strong></div>
-            <div>Est. Time: <strong>{order.estimated_time || '2 Day(s)'}</strong></div>
-          </div>
-        </div>
-
-        {/* Order Summary Card */}
-        <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: '#f5f3ff', color: '#8b5cf6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '12px' }}>₹</div>
-            <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#4b5563', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Order Summary</span>
-          </div>
-          <div style={{ fontSize: '12.5px', display: 'flex', flexDirection: 'column', gap: '8px', lineHeight: '1.4' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#6b7280' }}><span>Items Total</span><span>{formatPrice(order.subtotal)}</span></div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#6b7280' }}><span>Shipping</span><span>{formatPrice(order.shipping_amount || 0)}</span></div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#6b7280' }}><span>Tax</span><span>{formatPrice(order.tax_amount || 0)}</span></div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#ef4444' }}><span>Discount</span><span>-{formatPrice(order.discount_amount || 0)}</span></div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', borderTop: '1px solid #f3f4f6', paddingTop: '6px', fontSize: '14px', color: '#111827', marginTop: '2px' }}>
-              <span>Grand Total</span><span>{formatPrice(order.total)}</span>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      {/* Main Two-Column Content Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 0.8fr', gap: '24px', alignItems: 'start' }}>
-        
-        {/* Left Column: Items, Address, Logs */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          
-          {/* Order Items Table Card */}
-          <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '20px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h2 style={{ fontSize: '14px', fontWeight: 'bold', color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.04em', margin: 0 }}>
-                Order Items ({orderItems.length} {orderItems.length === 1 ? 'Item' : 'Items'})
-              </h2>
-
-            </div>
-
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid #e5e7eb', textAlign: 'left', color: '#000000', fontWeight: 'bold', textTransform: 'uppercase' }}>
-                    <th style={{ padding: '10px 8px' }}>Item</th>
-                    <th style={{ padding: '10px 8px' }}>Product</th>
-                    <th style={{ padding: '10px 8px' }}>Size</th>
-                    <th style={{ padding: '10px 8px' }}>Paper</th>
-                    <th style={{ padding: '10px 8px' }}>Frame</th>
-                    <th style={{ padding: '10px 8px', textAlign: 'center' }}>Quantity</th>
-                    <th style={{ padding: '10px 8px', textAlign: 'right' }}>Unit Price</th>
-                    <th style={{ padding: '10px 8px', textAlign: 'right' }}>Total</th>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+            <thead>
+              <tr style={{ textAlign: 'left', color: '#5f6368', fontSize: '12px', fontWeight: 500, borderBottom: '1px solid #e8eaed' }}>
+                <th style={{ padding: '10px 8px 10px 0', fontWeight: 500 }}>Photo</th>
+                <th style={{ padding: '10px 8px', fontWeight: 500 }}>Product</th>
+                <th style={{ padding: '10px 8px', fontWeight: 500 }}>Size</th>
+                <th style={{ padding: '10px 8px', fontWeight: 500 }}>Paper</th>
+                <th style={{ padding: '10px 8px', fontWeight: 500 }}>Frame</th>
+                <th style={{ padding: '10px 8px', fontWeight: 500, textAlign: 'center' }}>Qty</th>
+                <th style={{ padding: '10px 0 10px 8px', fontWeight: 500, textAlign: 'right' }}>Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {orderItems.map((item) => {
+                const opts = item.options || {};
+                return (
+                  <tr key={item.id} style={{ borderBottom: '1px solid #f1f3f4' }}>
+                    <td style={{ padding: '14px 8px 14px 0', verticalAlign: 'middle' }}>
+                      <LabFramedThumb
+                        item={item}
+                        size={52}
+                        onClick={() => setPreviewItem(buildPreviewItem(item))}
+                      />
+                    </td>
+                    <td style={{ padding: '14px 8px', verticalAlign: 'middle', color: '#202124', fontWeight: 500 }}>
+                      {item.product_name}
+                    </td>
+                    <td style={{ padding: '14px 8px', verticalAlign: 'middle', color: '#5f6368' }}>{opts.size?.label || '—'}</td>
+                    <td style={{ padding: '14px 8px', verticalAlign: 'middle', color: '#5f6368' }}>{opts.paper?.label || '—'}</td>
+                    <td style={{ padding: '14px 8px', verticalAlign: 'middle', color: '#5f6368' }}>{opts.frame?.label || 'No frame'}</td>
+                    <td style={{ padding: '14px 8px', verticalAlign: 'middle', textAlign: 'center', color: '#202124' }}>{item.quantity}</td>
+                    <td style={{ padding: '14px 0 14px 8px', verticalAlign: 'middle', textAlign: 'right', color: '#202124' }}>
+                      {formatPrice((Number(item.unit_price) || 0) * (Number(item.quantity) || 1))}
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {orderItems.map((item) => {
-                    const opts = item.options || {};
-                    return (
-                      <tr key={item.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                        <td style={{ padding: '12px 8px' }}>
-                          <div onClick={() => setPreviewItem(buildPreviewItem(item))} style={{ width: '56px', height: '56px', border: '1px solid #cbd5e1', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', cursor: 'zoom-in' }}>
-                            <div style={{ transform: 'scale(0.18)', transformOrigin: 'center center', width: '307.25px', height: '307.25px', display: 'flex', alignItems: 'center', justify: 'center' }}>
-                              <CartItemPreview item={buildPreviewItem(item)} />
-                            </div>
-                          </div>
-                        </td>
-                        <td style={{ padding: '12px 8px' }}>
-                          <div style={{ fontWeight: 'bold', color: '#111827' }}>{item.product_name}</div>
-                          <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>PID: {item.product_type || 'PRD'}</div>
-                        </td>
-                        <td style={{ padding: '12px 8px', color: '#4b5563' }}>{opts.size?.label || 'Custom'}</td>
-                        <td style={{ padding: '12px 8px', color: '#4b5563' }}>{opts.paper?.label || 'Standard'}</td>
-                        <td style={{ padding: '12px 8px', color: '#4b5563' }}>{opts.frame?.label || 'No Frame'}</td>
-                        <td style={{ padding: '12px 8px', textAlign: 'center', fontWeight: 'bold' }}>{item.quantity}</td>
-                        <td style={{ padding: '12px 8px', textAlign: 'right' }}>{formatPrice(item.unit_price)}</td>
-                        <td style={{ padding: '12px 8px', textAlign: 'right', fontWeight: 'bold' }}>{formatPrice(item.unit_price * item.quantity)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
-              <button style={{ background: 'none', border: 'none', color: '#005c5a', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
-                View All Items
-              </button>
-            </div>
+      {/* Payment + shipping */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '40px', paddingTop: '8px', borderTop: '1px solid #e8eaed' }}>
+        <div>
+          <div style={{ fontSize: '14px', fontWeight: 500, color: '#202124', marginBottom: '10px' }}>Payment</div>
+          <div style={{ fontSize: '13px', color: '#5f6368', lineHeight: 1.7 }}>
+            <div><span style={{ color: '#188038', fontWeight: 500 }}>Paid</span> · {order.payment_provider || '—'}</div>
+            <div>{formattedDate}</div>
+            <div style={{ color: '#202124', fontWeight: 500, marginTop: '4px' }}>{formatPrice(order.total)}</div>
+            {order.payment_intent_id && (
+              <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: '12px', marginTop: '4px' }}>
+                {order.payment_intent_id}
+              </div>
+            )}
           </div>
-
-          {/* Payment, Shipping, and Notes Cards Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
-            
-            {/* Payment Details */}
-            <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ display: 'flex', justify: 'space-between', alignItems: 'center', borderBottom: '1px solid #f3f4f6', paddingBottom: '8px' }}>
-                <span style={{ fontSize: '12.5px', fontWeight: 'bold', color: '#374151', textTransform: 'uppercase' }}>💳 Payment Details</span>
-                <span style={{ fontSize: '10px', fontWeight: 'bold', padding: '1px 6px', backgroundColor: '#ecfdf5', color: '#10b981', borderRadius: '3px' }}>Paid</span>
-              </div>
-              <div style={{ fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <div style={{ display: 'flex', justify: 'space-between' }}><span style={{ color: '#6b7280' }}>Method:</span><strong>{order.payment_provider || 'Razorpay'}</strong></div>
-                <div style={{ display: 'flex', justify: 'space-between', alignItems: 'center' }}>
-                  <span style={{ color: '#6b7280' }}>Txn ID:</span>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                    <strong style={{ fontFamily: 'monospace' }}>{order.payment_intent_id ? order.payment_intent_id.substring(0, 10) + '...' : 'pay_Qwerty...'}</strong>
-                    <span onClick={() => handleCopyToClipboard(order.payment_intent_id || 'pay_Qwerty12345', 'Transaction ID')} style={{ cursor: 'pointer', fontSize: '10px' }}>📋</span>
-                  </span>
-                </div>
-                <div style={{ display: 'flex', justify: 'space-between' }}><span style={{ color: '#6b7280' }}>Date:</span><strong>{formattedDate}</strong></div>
-                <div style={{ display: 'flex', justify: 'space-between' }}><span style={{ color: '#6b7280' }}>Amount:</span><strong style={{ color: '#10b981' }}>{formatPrice(order.total)}</strong></div>
-              </div>
-              <button style={{ marginTop: 'auto', background: '#fff', border: '1px solid #e2e8f0', padding: '6px 0', width: '100%', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', color: '#4b5563', cursor: 'pointer' }}>
-                View Payment Receipt
-              </button>
-            </div>
-
-            {/* Shipping Address */}
-            <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ display: 'flex', justify: 'space-between', alignItems: 'center', borderBottom: '1px solid #f3f4f6', paddingBottom: '8px' }}>
-                <span style={{ fontSize: '12.5px', fontWeight: 'bold', color: '#374151', textTransform: 'uppercase' }}>📍 Shipping Address</span>
-
-              </div>
-              <div style={{ fontSize: '12.5px', color: '#4b5563', lineHeight: '1.4', flex: 1 }}>
-                <div style={{ fontWeight: 'bold', color: '#1f2937', marginBottom: '4px' }}>{order.customer_name}</div>
-                <div>{formatAddress(order.shipping_address)}</div>
-                <div style={{ marginTop: '6px' }}>Phone: {order.shipping_address?.phone || 'N/A'}</div>
-              </div>
-            </div>
-
-            {/* Additional Notes */}
-            <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid #f3f4f6', paddingBottom: '8px' }}>
-                <span style={{ fontSize: '12.5px', fontWeight: 'bold', color: '#374151', textTransform: 'uppercase' }}>📝 Additional Notes</span>
-              </div>
-              <div style={{ fontSize: '12.5px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <div>
-                  <span style={{ color: '#6b7280', fontSize: '11px', display: 'block', fontWeight: 'bold', textTransform: 'uppercase' }}>Customer Note</span>
-                  <span style={{ color: '#374151' }}>{order.customer_note || 'Please pack carefully. This is a gift.'}</span>
-                </div>
-                {order.lab_note && (
-                  <div style={{ backgroundColor: '#fffbeb', border: '1px solid #fde68a', padding: '8px 10px', borderRadius: '4px', color: '#78350f' }}>
-                    <span style={{ fontSize: '10px', display: 'block', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '2px' }}>Lab Note</span>
-                    <span style={{ fontSize: '12px' }}>{order.lab_note}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-          </div>
-
-
-
         </div>
-
-        {/* Right Column: Timeline & Tracking */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          
-          {/* Production Timeline checklist */}
-          <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '20px' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 'bold', color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 20px 0', borderBottom: '1px solid #f3f4f6', paddingBottom: '8px' }}>
-              Production Timeline
-            </h3>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', position: 'relative', borderLeft: '2px solid #f1f5f9', marginLeft: '12px', paddingLeft: '20px' }}>
-              {(() => {
-                const stages = [
-                  { key: 'placed', label: 'Order Placed', time: formattedDate, done: true },
-                  { key: 'paid', label: 'Payment Received', time: formattedDate, done: true },
-                  { key: 'assigned', label: 'Assigned to Production', time: order.assigned_employee ? formattedDate : 'Pending', done: !!order.assigned_employee, details: order.assigned_employee ? `Assigned to: ${order.assigned_employee}` : null },
-                  { key: 'printing', label: 'Printing Completed', time: order.status !== 'pending' && order.status !== 'printing' ? formattedUpdatedDate : 'Pending', done: order.status !== 'pending' && order.status !== 'printing' },
-                  { key: 'qc', label: 'Quality Check Passed', time: (order.status !== 'pending' && order.status !== 'printing' && order.status !== 'printed') ? formattedUpdatedDate : 'Pending', done: (order.status !== 'pending' && order.status !== 'printing' && order.status !== 'printed' && order.status !== 'reprint') },
-                  { key: 'packed', label: 'Packed', time: (order.status === 'ready_to_ship' || order.status === 'shipped' || order.status === 'completed') ? formattedUpdatedDate : 'Pending', active: order.status === 'packaging', done: (order.status === 'ready_to_ship' || order.status === 'shipped' || order.status === 'completed') },
-                  { key: 'shipped', label: 'Shipped', time: (order.status === 'shipped' || order.status === 'completed') ? formattedUpdatedDate : 'Pending', active: order.status === 'ready_to_ship', done: (order.status === 'shipped' || order.status === 'completed') },
-                  { key: 'delivered', label: 'Delivered', time: order.status === 'completed' ? formattedUpdatedDate : 'Pending', active: order.status === 'shipped', done: order.status === 'completed' }
-                ];
-
-                return stages.map((stg) => {
-                  const isDone = stg.done;
-                  const isActive = stg.active;
-
-                  return (
-                    <div key={stg.key} style={{ position: 'relative', fontSize: '13px' }}>
-                      {/* Timeline Dot Indicator */}
-                      <div style={{
-                        position: 'absolute',
-                        left: '-26px',
-                        top: '2px',
-                        width: '10px',
-                        height: '10px',
-                        borderRadius: '50%',
-                        backgroundColor: isDone ? '#10b981' : isActive ? '#3b82f6' : '#cbd5e1',
-                        border: '2px solid #fff',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}>
-                        {isDone && <span style={{ color: '#fff', fontSize: '6px' }}>✓</span>}
-                      </div>
-                      
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <span style={{ fontWeight: 'bold', color: isDone ? '#1f2937' : isActive ? '#3b82f6' : '#6b7280' }}>
-                          {stg.label}
-                        </span>
-                        {stg.details && <span style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>{stg.details}</span>}
-                        <span style={{ fontSize: '11px', color: '#9ca3af', marginTop: '1px' }}>{stg.time}</span>
-                      </div>
-                    </div>
-                  );
-                });
-              })()}
-            </div>
+        <div>
+          <div style={{ fontSize: '14px', fontWeight: 500, color: '#202124', marginBottom: '10px' }}>Ship to</div>
+          <div style={{ fontSize: '13px', color: '#5f6368', lineHeight: 1.6 }}>
+            <div style={{ color: '#202124', fontWeight: 500 }}>{order.customer_name}</div>
+            <div>{formatAddress(order.shipping_address)}</div>
+            <div style={{ marginTop: '4px' }}>{order.shipping_address?.phone || '—'}</div>
           </div>
-
-
-
         </div>
-
       </div>
 
       {/* Edit Order Modal */}
@@ -914,7 +673,7 @@ export default function LabOrderDetail() {
 
             <div style={{ display: 'flex', justify: 'flex-end', gap: '8px', marginTop: '10px' }}>
               <button onClick={() => setShowEditModal(false)} style={{ padding: '8px 14px', backgroundColor: '#f3f4f6', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>Cancel</button>
-              <button onClick={handleSaveOrderEdits} style={{ padding: '8px 14px', backgroundColor: '#005c5a', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>Save Changes</button>
+              <button onClick={handleSaveOrderEdits} style={{ padding: '8px 14px', backgroundColor: '#1A1A1A', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>Save Changes</button>
             </div>
           </div>
         </div>
@@ -956,7 +715,7 @@ export default function LabOrderDetail() {
 
             <div style={{ display: 'flex', justify: 'flex-end', gap: '8px', marginTop: '10px' }}>
               <button onClick={() => setShowAddressModal(false)} style={{ padding: '8px 14px', backgroundColor: '#f3f4f6', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>Cancel</button>
-              <button onClick={handleSaveAddress} style={{ padding: '8px 14px', backgroundColor: '#005c5a', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>Save Address</button>
+              <button onClick={handleSaveAddress} style={{ padding: '8px 14px', backgroundColor: '#1A1A1A', border: 'none', color: '#fff', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>Save Address</button>
             </div>
           </div>
         </div>
@@ -1316,23 +1075,7 @@ export function LabQualityControlWorkspace({ order, orderItems, backPath, backLa
     }
   };
 
-  const buildPreviewItem = (item) => {
-    const opts = item.options || {};
-    return {
-      productId: item.product_type || '',
-      productName: item.product_name || '',
-      photo: opts.photo || null,
-      photos: opts.photos || [],
-      size: opts.size || null,
-      frame: opts.frame || null,
-      paper: opts.paper || null,
-      border: opts.border || 'none',
-      layout: opts.layout || null,
-      rotation: opts.rotation || 0,
-      quantity: item.quantity,
-      unitPrice: parseFloat(item.unit_price || 0),
-    };
-  };
+  const buildPreviewItem = (item) => buildLabPreviewItem(item);
 
   const checklistItem = (checked, label, onClick) => (
     <div 
@@ -1344,15 +1087,15 @@ export function LabQualityControlWorkspace({ order, orderItems, backPath, backLa
         padding: '10px 14px',
         border: '1px solid #eaeaea',
         borderRadius: '3px',
-        backgroundColor: checked ? '#eefaf9' : '#fff',
+        backgroundColor: checked ? '#F4F3F0' : '#fff',
         cursor: 'pointer',
         fontSize: '13px',
         userSelect: 'none',
         transition: 'all 0.15s'
       }}
     >
-      {checked ? <CheckSquare size={16} color="#005c5a" /> : <Square size={16} color="#cbd5e1" />}
-      <span style={{ color: checked ? '#005c5a' : '#334155', fontWeight: checked ? 600 : 400 }}>{label}</span>
+      {checked ? <CheckSquare size={16} color="#1A1A1A" /> : <Square size={16} color="#cbd5e1" />}
+      <span style={{ color: checked ? '#1A1A1A' : '#334155', fontWeight: checked ? 600 : 400 }}>{label}</span>
     </div>
   );
 
@@ -1363,7 +1106,7 @@ export function LabQualityControlWorkspace({ order, orderItems, backPath, backLa
       minHeight: isInline ? 'auto' : '100%', 
       display: 'flex', 
       flexDirection: 'column', 
-      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif", 
+      fontFamily: "'Inter', system-ui, -apple-system, sans-serif", 
       color: '#1e293b', 
       boxSizing: 'border-box' 
     }}>
@@ -1454,7 +1197,7 @@ export function LabQualityControlWorkspace({ order, orderItems, backPath, backLa
         {/* Right Side: Action Buttons */}
         <div style={{ display: 'flex', gap: '8px' }}>
           <button style={{ padding: '8px 14px', backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '12.5px', fontWeight: 'bold', color: '#334155', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            👤 Assign Inspector
+             Assign Inspector
           </button>
           <button style={{ padding: '8px 14px', backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '12.5px', fontWeight: 'bold', color: '#334155', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
             ⏸️ Hold
@@ -1462,7 +1205,7 @@ export function LabQualityControlWorkspace({ order, orderItems, backPath, backLa
           <button 
             onClick={handleApprove}
             disabled={isSubmitting}
-            style={{ padding: '8px 16px', backgroundColor: '#0f766e', border: 'none', borderRadius: '6px', fontSize: '12.5px', fontWeight: 'bold', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+            style={{ padding: '8px 16px', backgroundColor: '#1A1A1A', border: 'none', borderRadius: '6px', fontSize: '12.5px', fontWeight: 'bold', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
           >
             ✔️ Approve
           </button>
@@ -1471,7 +1214,7 @@ export function LabQualityControlWorkspace({ order, orderItems, backPath, backLa
             disabled={isSubmitting}
             style={{ padding: '8px 16px', backgroundColor: '#dc2626', border: 'none', borderRadius: '6px', fontSize: '12.5px', fontWeight: 'bold', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
           >
-            ❌ Reject
+            Reject
           </button>
         </div>
       </div>
@@ -1480,7 +1223,7 @@ export function LabQualityControlWorkspace({ order, orderItems, backPath, backLa
       <div className="qc-details-grid">
         
         {/* Card 1: Order Information & Workflow */}
-        <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '18px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div style={{ backgroundColor: '#fff', border: '1px solid #ECEAE6', borderRadius: 14, padding: '18px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div>
             <h3 style={{ fontSize: '12.5px', fontWeight: 'bold', color: '#4b5563', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 14px 0', borderBottom: '1px solid #f1f5f9', paddingBottom: '6px' }}>
               Order Information
@@ -1505,7 +1248,7 @@ export function LabQualityControlWorkspace({ order, orderItems, backPath, backLa
               <div style={{ display: 'flex', justify: 'space-between', alignItems: 'center', marginTop: '4px' }}>
                 <span style={{ color: '#64748b' }}>Assigned Inspector</span>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                  <span>👤</span> <strong>{inspectorName}</strong>
+                  <strong>{inspectorName}</strong>
                 </span>
               </div>
             </div>
@@ -1546,33 +1289,26 @@ export function LabQualityControlWorkspace({ order, orderItems, backPath, backLa
         </div>
 
         {/* Card 2: Product Preview & Specs */}
-        <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '18px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <div style={{ backgroundColor: '#fff', border: '1px solid #ECEAE6', borderRadius: 14, padding: '18px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
           <h3 style={{ fontSize: '12.5px', fontWeight: 'bold', color: '#4b5563', textTransform: 'uppercase', letterSpacing: '0.04em', margin: 0 }}>
             Product Preview
           </h3>
           
           <div style={{ display: 'grid', gridTemplateColumns: '70px 1fr', gap: '12px', minHeight: '260px' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {orderItems.map((item, idx) => (
-                <div 
-                  key={item.id} 
+              {orderItems.map((item) => (
+                <LabFramedThumb
+                  key={item.id}
+                  item={item}
+                  size={60}
                   onClick={() => setPreviewItem(buildPreviewItem(item))}
-                  style={{ width: '60px', height: '60px', border: '1px solid #cbd5e1', borderRadius: '4px', overflow: 'hidden', cursor: 'pointer', backgroundColor: '#fff', display: 'flex', alignItems: 'center', justify: 'center' }}
-                >
-                  {getPhotoThumbnail(item) ? (
-                    <img src={getPhotoThumbnail(item)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  ) : (
-                    <div style={{ fontSize: '8px', color: '#94a3b8' }}>Item {idx + 1}</div>
-                  )}
-                </div>
+                />
               ))}
             </div>
 
-            <div style={{ border: '1px solid #e2e8f0', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8fafc', position: 'relative' }}>
+            <div style={{ borderRadius: 12, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent', position: 'relative', minHeight: 220 }}>
               {orderItems[0] ? (
-                <div style={{ transform: 'scale(1.2)', transformOrigin: 'center center', width: '100%', height: '220px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <CartItemPreview item={buildPreviewItem(orderItems[0])} />
-                </div>
+                <LabFramedThumb item={orderItems[0]} size={220} />
               ) : (
                 <span style={{ color: '#94a3b8', fontSize: '13px' }}>No preview available</span>
               )}
@@ -1586,12 +1322,12 @@ export function LabQualityControlWorkspace({ order, orderItems, backPath, backLa
                 <div>Product: <strong>{orderItems[0].product_name}</strong></div>
                 <div>Size: <strong>{orderItems[0].options?.size?.label || '13x18 cm'}</strong></div>
                 <div>Paper: <strong>{orderItems[0].options?.paper?.label || 'Glossy'}</strong></div>
-                <div>Frame: <strong>{orderItems[0].options?.frame?.label || 'Black Wood'}</strong></div>
+                <div>Frame: <strong>{orderItems[0].options?.frame?.label || '—'}</strong></div>
                 <div>Frame Glass: <strong>Acrylic Glass</strong></div>
                 <div>Quantity: <strong>{orderItems[0].quantity} pcs</strong></div>
               </div>
               <div style={{ marginTop: '12px', textAlign: 'right' }}>
-                <span onClick={() => navigate(`/lab/orders/${order.id}`)} style={{ color: '#0f766e', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}>
+                <span onClick={() => navigate(`/lab/orders/${order.id}`)} style={{ color: '#1A1A1A', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}>
                   View Full Order Details →
                 </span>
               </div>
@@ -1600,12 +1336,12 @@ export function LabQualityControlWorkspace({ order, orderItems, backPath, backLa
         </div>
 
         {/* Card 3: Inspection Checklist */}
-        <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '18px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <div style={{ backgroundColor: '#fff', border: '1px solid #ECEAE6', borderRadius: 14, padding: '18px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '6px' }}>
             <span style={{ fontSize: '12.5px', fontWeight: 'bold', color: '#4b5563', textTransform: 'uppercase' }}>Inspection Checklist</span>
             <button 
               onClick={handleSelectAll}
-              style={{ background: 'none', border: 'none', color: '#0f766e', fontSize: '11.5px', fontWeight: 'bold', cursor: 'pointer' }}
+              style={{ background: 'none', border: 'none', color: '#1A1A1A', fontSize: '11.5px', fontWeight: 'bold', cursor: 'pointer' }}
             >
               Pass All
             </button>
@@ -1640,7 +1376,7 @@ export function LabQualityControlWorkspace({ order, orderItems, backPath, backLa
         </div>
 
         {/* Card 4: Inspector Notes */}
-        <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '18px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <div style={{ backgroundColor: '#fff', border: '1px solid #ECEAE6', borderRadius: 14, padding: '18px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
           <h3 style={{ fontSize: '12.5px', fontWeight: 'bold', color: '#4b5563', textTransform: 'uppercase', letterSpacing: '0.04em', margin: 0, borderBottom: '1px solid #f1f5f9', paddingBottom: '6px' }}>
             Inspector Notes
           </h3>
@@ -1659,7 +1395,7 @@ export function LabQualityControlWorkspace({ order, orderItems, backPath, backLa
       <div className="qc-details-bottom-grid">
         
         {/* Bottom Card 1: Production Notes */}
-        <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '18px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div style={{ backgroundColor: '#fff', border: '1px solid #ECEAE6', borderRadius: 14, padding: '18px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <h3 style={{ fontSize: '12.5px', fontWeight: 'bold', color: '#4b5563', textTransform: 'uppercase', letterSpacing: '0.04em', margin: 0, borderBottom: '1px solid #f1f5f9', paddingBottom: '6px' }}>
             Production Notes
           </h3>
@@ -1670,13 +1406,13 @@ export function LabQualityControlWorkspace({ order, orderItems, backPath, backLa
         </div>
 
         {/* Bottom Card 2: Attachments */}
-        <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '18px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div style={{ backgroundColor: '#fff', border: '1px solid #ECEAE6', borderRadius: 14, padding: '18px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <h3 style={{ fontSize: '12.5px', fontWeight: 'bold', color: '#4b5563', textTransform: 'uppercase', letterSpacing: '0.04em', margin: 0, borderBottom: '1px solid #f1f5f9', paddingBottom: '6px' }}>
             Attachments (Optional)
           </h3>
           
           <div style={{ border: '2px dashed #cbd5e1', borderRadius: '6px', padding: '20px', textAlign: 'center', cursor: 'pointer', backgroundColor: '#f8fafc', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }} onClick={() => setShowWebcam(true)}>
-            <span style={{ fontSize: '24px', display: 'block', marginBottom: '4px' }}>📷</span>
+            <span style={{ fontSize: '24px', display: 'block', marginBottom: '4px' }}></span>
             <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 'bold' }}>Drag & drop files here</span>
             <span style={{ fontSize: '11px', color: '#94a3b8', display: 'block', marginTop: '2px' }}>or click to upload/take snapshot</span>
           </div>
@@ -1699,7 +1435,7 @@ export function LabQualityControlWorkspace({ order, orderItems, backPath, backLa
         </div>
 
         {/* Bottom Card 3: QC Guidelines */}
-        <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '18px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div style={{ backgroundColor: '#fff', border: '1px solid #ECEAE6', borderRadius: 14, padding: '18px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <h3 style={{ fontSize: '12.5px', fontWeight: 'bold', color: '#4b5563', textTransform: 'uppercase', letterSpacing: '0.04em', margin: 0, borderBottom: '1px solid #f1f5f9', paddingBottom: '6px' }}>
             QC Guidelines
           </h3>
@@ -1727,7 +1463,7 @@ export function LabQualityControlWorkspace({ order, orderItems, backPath, backLa
               ✕
             </button>
  
-            <h2 style={{ fontFamily: "'EB Garamond', serif", fontSize: '22px', color: '#b91c1c', margin: '0 0 24px 0', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: '22px', color: '#b91c1c', margin: '0 0 24px 0', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '10px' }}>
               <AlertTriangle size={22} /> Rework Defect Logging Workspace
             </h2>
 
@@ -2023,7 +1759,7 @@ export function LabQualityControlWorkspace({ order, orderItems, backPath, backLa
         <div style={{ position: 'fixed', top: 0, right: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.4)', zIndex: 1300, display: 'flex', justifyContent: 'flex-end' }} onClick={() => setShowHistoryDrawer(false)}>
           <div style={{ backgroundColor: '#ffffff', width: '100%', maxWidth: '460px', height: '100vh', boxShadow: '-4px 0 20px rgba(0,0,0,0.15)', padding: '36px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: '20px' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #eaeaea', paddingBottom: '16px' }}>
-              <h3 style={{ fontFamily: "'EB Garamond', serif", fontSize: '20px', fontWeight: 600, color: '#005c5a', margin: 0, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: '20px', fontWeight: 600, color: '#1A1A1A', margin: 0, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <History size={20} /> QC History Attempts
               </h3>
               <button 
@@ -2084,7 +1820,7 @@ export function LabQualityControlWorkspace({ order, orderItems, backPath, backLa
                       )}
                       
                       {isPass && parsedNotes.inspector_notes && (
-                        <div style={{ fontStyle: 'italic', color: '#475569', backgroundColor: '#e6f4f3', padding: '6px 10px', borderRadius: '3px', marginTop: '6px' }}>
+                        <div style={{ fontStyle: 'italic', color: '#475569', backgroundColor: '#F4F3F0', padding: '6px 10px', borderRadius: '3px', marginTop: '6px' }}>
                           "{parsedNotes.inspector_notes}"
                         </div>
                       )}
@@ -2127,7 +1863,7 @@ export function LabQualityControlWorkspace({ order, orderItems, backPath, backLa
               <button
                 type="button"
                 onClick={handleCapturePhoto}
-                style={{ padding: '8px 20px', border: 'none', backgroundColor: '#005c5a', color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}
+                style={{ padding: '8px 20px', border: 'none', backgroundColor: '#1A1A1A', color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}
               >
                 Capture Photo
               </button>

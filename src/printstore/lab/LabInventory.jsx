@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useLabAuth } from './LabApp';
 import { supabase } from '../../lib/supabase/client';
-import { History, ArrowLeft, Plus, CheckCircle, AlertTriangle, Trash2, Search, SlidersHorizontal } from 'lucide-react';
+import { History, ArrowLeft, Plus, CheckCircle, AlertTriangle, Trash2, SlidersHorizontal } from 'lucide-react';
+import LabSearchField from './LabSearchField';
 
 export default function LabInventory() {
   const { inventory, refreshInventory } = useLabAuth();
@@ -184,7 +185,7 @@ export default function LabInventory() {
   // Render Full Page Stock Ledger History
   if (showHistoryView) {
     return (
-      <div style={{ padding: '36px 40px', backgroundColor: '#ffffff', minHeight: '100%', boxSizing: 'border-box', fontFamily: "'europa', sans-serif" }}>
+      <div style={{ padding: '36px 40px', backgroundColor: '#F9F9F7', minHeight: '100%', boxSizing: 'border-box', fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
         
         {/* Full-Page History Header */}
         <div style={{ borderBottom: '1px solid #eaeaea', paddingBottom: '20px', marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -197,7 +198,7 @@ export default function LabInventory() {
                 gap: '6px',
                 background: 'none',
                 border: 'none',
-                color: '#005c5a',
+                color: '#1A1A1A',
                 fontSize: '13px',
                 fontWeight: 'bold',
                 cursor: 'pointer',
@@ -206,30 +207,24 @@ export default function LabInventory() {
             >
               <ArrowLeft size={14} /> Back to Catalog
             </button>
-            <h1 style={{ fontFamily: "'EB Garamond', serif", fontSize: '28px', color: '#005c5a', margin: 0, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 28, fontWeight: 500, color: '#1A1A1A', margin: 0, letterSpacing: '-0.02em' }}>
               Stock Ledger History
             </h1>
-            <p style={{ color: '#777777', fontSize: '13px', margin: '4px 0 0 0' }}>Comprehensive audit logs of all manufacturing material movements and manual restocks.</p>
           </div>
         </div>
 
         {/* History Search and Filter Controls */}
-        <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', flexWrap: 'wrap' }}>
-          <div style={{ position: 'relative', flex: 1, minWidth: '240px' }}>
-            <Search size={15} color="#94a3b8" style={{ position: 'absolute', left: '12px', top: '11px' }} />
-            <input
-              type="text"
-              placeholder="Search by SKU, action, or authorized clerk..."
-              value={historySearch}
-              onChange={(e) => setHistorySearch(e.target.value)}
-              style={{ width: '100%', padding: '10px 10px 10px 36px', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '13px', boxSizing: 'border-box', outline: 'none' }}
-            />
-          </div>
+        <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <LabSearchField
+            placeholder="Search by SKU, action, or authorized clerk..."
+            value={historySearch}
+            onChange={(e) => setHistorySearch(e.target.value)}
+            style={{ minWidth: 240 }}
+          />
 
           <select
             value={historyCategory}
             onChange={(e) => setHistoryCategory(e.target.value)}
-            style={{ padding: '10px 16px', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '13px', backgroundColor: '#fff', cursor: 'pointer', outline: 'none' }}
           >
             <option value="All">All Operations</option>
             <option value="Restocks">Restocks (+)</option>
@@ -246,7 +241,7 @@ export default function LabInventory() {
           <div style={{ border: '1px solid #cbd5e1', borderRadius: '4px', overflowX: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
               <thead>
-                <tr style={{ backgroundColor: '#005c5a', color: '#ffffff', borderBottom: '2px solid #cbd5e1' }}>
+                <tr style={{ backgroundColor: '#1A1A1A', color: '#ffffff', borderBottom: 'none' }}>
                   <th style={{ padding: '14px 16px' }}>Date & Time</th>
                   <th style={{ padding: '14px 16px' }}>Material SKU</th>
                   <th style={{ padding: '14px 16px' }}>Operation / Event</th>
@@ -282,15 +277,14 @@ export default function LabInventory() {
 
   // Standard Catalog List Page View
   return (
-    <div style={{ padding: '36px 40px', backgroundColor: '#ffffff', minHeight: '100%', boxSizing: 'border-box', fontFamily: "'europa', sans-serif" }}>
+    <div style={{ padding: '36px 40px', backgroundColor: '#F9F9F7', minHeight: '100%', boxSizing: 'border-box', fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
       
       {/* Header Area */}
       <div style={{ borderBottom: '1px solid #eaeaea', paddingBottom: '20px', marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <h1 style={{ fontFamily: "'EB Garamond', serif", fontSize: '28px', color: '#005c5a', margin: 0, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 28, fontWeight: 500, color: '#1A1A1A', margin: 0, letterSpacing: '-0.02em' }}>
             Inventory Management
           </h1>
-          <p style={{ color: '#777777', fontSize: '13px', margin: '4px 0 0 0' }}>Monitor materials catalog, thresholds, and suppliers</p>
         </div>
         
         {/* Top-Right Header Actions */}
@@ -304,8 +298,8 @@ export default function LabInventory() {
               alignItems: 'center',
               gap: '8px',
               backgroundColor: '#ffffff',
-              color: '#005c5a',
-              border: '1px solid #005c5a',
+              color: '#1A1A1A',
+              border: '1px solid #1A1A1A',
               padding: '10px 18px',
               fontSize: '13px',
               fontWeight: 'bold',
@@ -320,7 +314,7 @@ export default function LabInventory() {
           <button
             onClick={() => setShowAddForm(!showAddForm)}
             style={{
-              backgroundColor: '#005c5a',
+              backgroundColor: '#1A1A1A',
               color: '#fff',
               border: 'none',
               padding: '10px 18px',
@@ -406,7 +400,7 @@ export default function LabInventory() {
           </div>
           <button
             type="submit"
-            style={{ backgroundColor: '#005c5a', color: '#fff', border: 'none', padding: '10px 20px', fontWeight: 'bold', fontSize: '12.5px', cursor: 'pointer', borderRadius: '4px', marginTop: '16px' }}
+            style={{ backgroundColor: '#1A1A1A', color: '#fff', border: 'none', padding: '10px 20px', fontWeight: 'bold', fontSize: '12.5px', cursor: 'pointer', borderRadius: '4px', marginTop: '16px' }}
           >
             Create Record
           </button>
@@ -418,9 +412,9 @@ export default function LabInventory() {
         
         {/* Adjustment details overlay inline */}
         {editingItem && (
-          <div style={{ padding: '24px', border: '1px solid #005c5a', borderRadius: '4px', backgroundColor: '#eefaf9', width: '100%', boxSizing: 'border-box' }}>
+          <div style={{ padding: '24px', border: '1px solid #1A1A1A', borderRadius: '4px', backgroundColor: '#F4F3F0', width: '100%', boxSizing: 'border-box' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <h4 style={{ margin: 0, fontSize: '13px', color: '#005c5a', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 'bold' }}>Adjust Stock Levels</h4>
+              <h4 style={{ margin: 0, fontSize: '13px', color: '#1A1A1A', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 'bold' }}>Adjust Stock Levels</h4>
               <button onClick={() => setEditingItem(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontWeight: 'bold', color: '#64748b', fontSize: '16px' }}>✕</button>
             </div>
             <div style={{ fontSize: '13.5px', color: '#333', marginBottom: '16px' }}>
@@ -431,7 +425,7 @@ export default function LabInventory() {
                 <button
                   type="button"
                   onClick={() => setAdjustAction('add')}
-                  style={{ flex: 1, padding: '10px', border: 'none', borderRadius: '3px', backgroundColor: adjustAction === 'add' ? '#005c5a' : '#cbd5e1', color: '#fff', cursor: 'pointer', fontSize: '12.5px', fontWeight: 'bold' }}
+                  style={{ flex: 1, padding: '10px', border: 'none', borderRadius: '3px', backgroundColor: adjustAction === 'add' ? '#1A1A1A' : '#cbd5e1', color: '#fff', cursor: 'pointer', fontSize: '12.5px', fontWeight: 'bold' }}
                 >
                   Restock (+)
                 </button>
@@ -471,7 +465,7 @@ export default function LabInventory() {
         <div style={{ border: '1px solid #cbd5e1', borderRadius: '4px', overflowX: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
             <thead>
-              <tr style={{ backgroundColor: '#005c5a', color: '#ffffff', borderBottom: '2px solid #cbd5e1' }}>
+              <tr style={{ backgroundColor: '#1A1A1A', color: '#ffffff', borderBottom: 'none' }}>
                 <th style={{ padding: '14px 16px' }}>SKU</th>
                 <th style={{ padding: '14px 16px' }}>Item Name</th>
                 <th style={{ padding: '14px 16px' }}>Category</th>
