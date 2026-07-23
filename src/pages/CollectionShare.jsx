@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ChevronDown, Mail, Check, X, Calendar, Clock } from 'lucide-react';
+import { ChevronDown, Mail, Check, X, Calendar, Clock, History, Palette, ChevronRight } from 'lucide-react';
 import { supabase } from '../lib/supabase/client';
 import { galleryService } from '../services/gallery.service';
 import { clientGalleryEmailTemplatesService, resolveTemplateBody } from '../services/clientGalleryEmailTemplates.service';
 import RichTextEditor from '../components/RichTextEditor';
-import { getShareUrlForCollection } from '../lib/shareCollection';
+import { getShareUrlForCollection, getQrCodeImageUrl } from '../lib/shareCollection';
 import './CollectionShare.css';
 
 const CollectionShare = () => {
@@ -32,6 +32,27 @@ const CollectionShare = () => {
     const [showSendDropdown, setShowSendDropdown] = useState(false);
     const [showCustomScheduleModal, setShowCustomScheduleModal] = useState(false);
     const [sendCopy, setSendCopy] = useState(true);
+
+    // More options states
+    const [showMoreDropdown, setShowMoreDropdown] = useState(false);
+    const [showChooseThemeSubmenu, setShowChooseThemeSubmenu] = useState(false);
+    const [theme, setTheme] = useState('classic');
+    const [showHistoryModal, setShowHistoryModal] = useState(false);
+    const [emailHistory, setEmailHistory] = useState(() => {
+        const stored = localStorage.getItem(`email_history_${collectionId}`);
+        if (stored) {
+            try {
+                return JSON.parse(stored);
+            } catch {
+                // ignore
+            }
+        }
+        return [
+            { email: 'dsc@gmail.com', subject: 'Photos for wedding are ready', date: 'July 17, 2026', status: 'BOUNCED' },
+            { email: 'kavisproject@gmail.com', subject: 'Photos for wedding are ready', date: 'July 17, 2026', status: 'SENT' }
+        ];
+    });
+    const moreDropdownRef = useRef(null);
 
     // Temporary scheduling selections inside modal
     const [tempDateVal, setTempDateVal] = useState(() => {
@@ -190,7 +211,7 @@ const CollectionShare = () => {
         showToast(`Template "${tpl.name}" loaded`);
     };
 
-    // Handle outside clicks for template and send dropdowns
+    // Handle outside clicks for template, send, and more dropdowns
     useEffect(() => {
         const handleClickOutside = (e) => {
             if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -199,10 +220,40 @@ const CollectionShare = () => {
             if (sendDropdownRef.current && !sendDropdownRef.current.contains(e.target)) {
                 setShowSendDropdown(false);
             }
+            if (moreDropdownRef.current && !moreDropdownRef.current.contains(e.target)) {
+                setShowMoreDropdown(false);
+                setShowChooseThemeSubmenu(false);
+            }
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
+
+    const loadEmailHistory = useCallback(async () => {
+        if (!collectionId) return;
+        try {
+            const { data, error } = await supabase
+                .from('collection_share_emails')
+                .select('*')
+                .eq('collection_id', collectionId)
+                .order('created_at', { ascending: false });
+            if (!error && data && data.length > 0) {
+                const formatted = data.map(item => ({
+                    email: item.recipient_email,
+                    subject: item.subject,
+                    date: new Date(item.created_at || item.sent_at || Date.now()).toLocaleDateString('en-US', {
+                        month: 'long',
+                        day: 'numeric',
+                        year: 'numeric'
+                    }),
+                    status: (item.status || 'SENT').toUpperCase()
+                }));
+                setEmailHistory(formatted);
+            }
+        } catch (err) {
+            console.warn('Failed to load email history from DB:', err);
+        }
+    }, [collectionId]);
 
     const handleSend = async (e) => {
         if (e) e.preventDefault();
@@ -249,6 +300,7 @@ const CollectionShare = () => {
                 senderEmail: profile?.email || currentUser?.email,
                 personalMessage: convertHtmlToPlainText(finalMessage),
                 subject: subject,
+                theme: theme,
             };
 
             // If scheduled, add schedule date parameters to payload
@@ -282,6 +334,20 @@ const CollectionShare = () => {
             } catch (dbErr) {
                 console.error('Database insert exception:', dbErr);
             }
+
+            const newHistoryItem = {
+                email: recipientEmail.trim(),
+                subject: subject,
+                date: new Date().toLocaleDateString('en-US', {
+                    month: 'long',
+                    day: 'numeric',
+                    year: 'numeric'
+                }),
+                status: scheduledDate ? 'SCHEDULED' : 'SENT'
+            };
+            const updatedHistory = [newHistoryItem, ...emailHistory];
+            setEmailHistory(updatedHistory);
+            localStorage.setItem(`email_history_${collectionId}`, JSON.stringify(updatedHistory));
 
             showToast(scheduledDate ? `Email scheduled successfully!` : 'Email sent successfully!');
             setTimeout(() => {
@@ -318,11 +384,52 @@ const CollectionShare = () => {
                     <span className="cs-top-title">Share Collection</span>
                 </div>
                 <div className="cs-top-bar-right">
-                    <div className="cs-more-dropdown-wrapper">
-                        <button type="button" className="cs-top-link">
+                    <div className="cs-more-dropdown-wrapper" ref={moreDropdownRef}>
+                        <button
+                            type="button"
+                            className="cs-top-link"
+                            onClick={() => setShowMoreDropdown(!showMoreDropdown)}
+                        >
                             <span>More</span>
                             <ChevronDown size={14} />
                         </button>
+                        {showMoreDropdown && (
+                            <div className="cs-more-dropdown-menu">
+                                <button type="button" className="cs-more-dropdown-item" onClick={() => { setShowHistoryModal(true); setShowMoreDropdown(false); loadEmailHistory(); }}>
+                                    <History size={16} />
+                                    <span>View email history</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    className="cs-more-dropdown-item cs-more-dropdown-item--has-submenu"
+                                    onClick={() => setShowChooseThemeSubmenu(!showChooseThemeSubmenu)}
+                                >
+                                    <Palette size={16} />
+                                    <span>Choose theme</span>
+                                    <ChevronRight size={14} className="ml-auto" />
+                                </button>
+                                {showChooseThemeSubmenu && (
+                                    <div className="cs-theme-submenu">
+                                        <button type="button" className="cs-theme-submenu-item" onClick={() => { setTheme('classic'); setShowChooseThemeSubmenu(false); setShowMoreDropdown(false); }}>
+                                            <span>Classic</span>
+                                            {theme === 'classic' && <Check size={14} className="ml-auto text-teal-600" />}
+                                        </button>
+                                        <button type="button" className="cs-theme-submenu-item" onClick={() => { setTheme('night'); setShowChooseThemeSubmenu(false); setShowMoreDropdown(false); }}>
+                                            <span>Night</span>
+                                            {theme === 'night' && <Check size={14} className="ml-auto text-teal-600" />}
+                                        </button>
+                                        <button type="button" className="cs-theme-submenu-item" onClick={() => { setTheme('heart'); setShowChooseThemeSubmenu(false); setShowMoreDropdown(false); }}>
+                                            <span>Heart</span>
+                                            {theme === 'heart' && <Check size={14} className="ml-auto text-teal-600" />}
+                                        </button>
+                                        <button type="button" className="cs-theme-submenu-item" onClick={() => { setTheme('blossom'); setShowChooseThemeSubmenu(false); setShowMoreDropdown(false); }}>
+                                            <span>Blossom</span>
+                                            {theme === 'blossom' && <Check size={14} className="ml-auto text-teal-600" />}
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                     <button type="button" className="cs-top-link cs-direct-link" onClick={() => navigate(`/collections/manage?id=${collectionId}&action=link`)}>
                         Get direct link
@@ -447,18 +554,19 @@ const CollectionShare = () => {
                                         type="submit"
                                         className="cs-send-btn"
                                         disabled={sending}
+                                        style={{ borderRight: 'none' }}
                                     >
                                         {sending ? 'Sending...' : (scheduledDate ? 'Schedule' : 'Send')}
                                     </button>
-                                    <button
+                                    {/* <button
                                         type="button"
                                         className="cs-send-dropdown-arrow"
                                         onClick={() => setShowSendDropdown(!showSendDropdown)}
                                     >
                                         <ChevronDown size={14} />
-                                    </button>
+                                    </button> */}
                                 </div>
-                                {showSendDropdown && (
+                                {/* {showSendDropdown && (
                                     <div className="cs-send-dropdown-menu">
                                         <button type="button" className="cs-send-dropdown-item" onClick={handleSelectTomorrowSchedule}>
                                             <Clock size={16} />
@@ -469,16 +577,48 @@ const CollectionShare = () => {
                                             <span>Custom schedule</span>
                                         </button>
                                     </div>
-                                )}
+                                )} */}
                             </div>
                         </div>
                     </form>
                 </div>
 
                 {/* RIGHT COLUMN: Live Preview */}
-                <div className="cs-preview-pane">
+                <div className={`cs-preview-pane cs-theme-bg-${theme}`}>
                     <div className="cs-preview-email-frame">
-                        <div className="cs-email-card">
+                        {theme === 'blossom' && (
+                            <>
+                                <div className="cs-blossom-decor cs-blossom-left">
+                                    <svg viewBox="0 0 120 250" fill="none" stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M10,230 C20,200 45,150 75,50" />
+                                        <path d="M30,190 C15,185 10,170 12,160 C15,150 25,160 38,175 Z" />
+                                        <path d="M48,140 C33,135 28,120 30,110 C33,100 43,110 54,125 Z" />
+                                        <path d="M60,90 C45,85 40,70 42,60 C45,50 55,60 65,75 Z" />
+                                        <path d="M38,175 C50,170 60,165 62,155 C65,145 55,145 48,140 Z" />
+                                        <path d="M54,125 C68,120 78,115 80,105 C83,95 73,95 65,90 Z" />
+                                        <path d="M75,50 C80,30 90,20 95,22 C100,25 90,40 75,50 Z" />
+                                    </svg>
+                                </div>
+                                <div className="cs-blossom-decor cs-blossom-right">
+                                    <svg viewBox="0 0 120 250" fill="none" stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M10,230 C20,200 45,150 75,50" />
+                                        <path d="M30,190 C15,185 10,170 12,160 C15,150 25,160 38,175 Z" />
+                                        <path d="M48,140 C33,135 28,120 30,110 C33,100 43,110 54,125 Z" />
+                                        <path d="M60,90 C45,85 40,70 42,60 C45,50 55,60 65,75 Z" />
+                                        <path d="M38,175 C50,170 60,165 62,155 C65,145 55,145 48,140 Z" />
+                                        <path d="M54,125 C68,120 78,115 80,105 C83,95 73,95 65,90 Z" />
+                                        <path d="M75,50 C80,30 90,20 95,22 C100,25 90,40 75,50 Z" />
+                                    </svg>
+                                </div>
+                            </>
+                        )}
+                        {theme === 'heart' && (
+                            <>
+                                <div className="cs-heart-decor-1"></div>
+                                <div className="cs-heart-decor-2"></div>
+                            </>
+                        )}
+                        <div className={`cs-email-card cs-theme-${theme}`}>
                             {/* Brand Logo/Header */}
                             <div className="cs-email-brand-header">
                                 <span className="cs-email-brand-text">{profile?.business_name || profile?.display_name || 'KAVI'}</span>
@@ -623,6 +763,58 @@ const CollectionShare = () => {
                             </button>
                         </div>
                     </form>
+                </div>
+            )}
+
+
+
+            {/* EMAIL HISTORY MODAL */}
+            {showHistoryModal && (
+                <div className="cs-modal-overlay">
+                    <div className="cs-modal-card" style={{ maxWidth: '780px' }}>
+                        <div className="cs-modal-header">
+                            <span className="cs-modal-title">EMAIL HISTORY</span>
+                            <button type="button" className="cs-modal-close" onClick={() => setShowHistoryModal(false)}>
+                                <X size={18} />
+                            </button>
+                        </div>
+                        <div className="cs-modal-body">
+                            <p style={{ margin: 0, fontSize: '13px', color: '#71717a', lineHeight: 1.5 }}>
+                                Emails sent for this collection will be listed here. Note that email history might take up to a few minutes to show up.
+                            </p>
+                            <div className="cs-history-table-wrapper">
+                                <table className="cs-history-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Email</th>
+                                            <th>Subject</th>
+                                            <th>Date Sent</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {emailHistory.map((item, idx) => (
+                                            <tr key={idx}>
+                                                <td>{item.email}</td>
+                                                <td>{item.subject}</td>
+                                                <td>{item.date}</td>
+                                                <td>
+                                                    <span className={`cs-history-status-badge status-${item.status.toLowerCase()}`}>
+                                                        {item.status}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div className="cs-modal-footer cs-modal-footer--flat">
+                            <button type="button" className="cs-modal-confirm-teal" onClick={() => setShowHistoryModal(false)}>
+                                Close
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
