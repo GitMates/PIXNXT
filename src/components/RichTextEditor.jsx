@@ -32,12 +32,50 @@ const RichTextEditor = ({ value, onChange, placeholder }) => {
         }
     };
 
+    const handleUnlink = () => {
+        const selection = window.getSelection();
+        if (selection && selection.rangeCount > 0) {
+            const range = selection.getRangeAt(0);
+            let container = range.commonAncestorContainer;
+
+            // Find the closest anchor tag
+            let anchor = null;
+            if (container.nodeType === Node.TEXT_NODE) {
+                anchor = container.parentNode;
+            } else {
+                anchor = container;
+            }
+
+            // Walk up to find anchor tag inside editor
+            while (anchor && anchor !== editorRef.current && (!anchor.tagName || anchor.tagName.toUpperCase() !== 'A')) {
+                anchor = anchor.parentNode;
+            }
+
+            if (anchor && anchor.tagName && anchor.tagName.toUpperCase() === 'A' && editorRef.current.contains(anchor)) {
+                // Create a new range selecting the anchor tag
+                const newRange = document.createRange();
+                newRange.selectNode(anchor);
+                selection.removeAllRanges();
+                selection.addRange(newRange);
+            }
+        }
+
+        // Execute unlink command
+        document.execCommand('unlink', false, null);
+
+        if (editorRef.current) {
+            onChange(editorRef.current.innerHTML);
+        }
+        editorRef.current?.focus();
+    };
+
     return (
         <div className="set-rte-box cg-field-shell-textarea neu-inset">
             <div className="set-rte-toolbar">
                 <button
                     type="button"
                     className="rte-btn"
+                    onMouseDown={(e) => e.preventDefault()}
                     onClick={() => execCommand('bold')}
                     title="Bold"
                 >
@@ -46,6 +84,7 @@ const RichTextEditor = ({ value, onChange, placeholder }) => {
                 <button
                     type="button"
                     className="rte-btn italic"
+                    onMouseDown={(e) => e.preventDefault()}
                     onClick={() => execCommand('italic')}
                     title="Italic"
                 >
@@ -54,6 +93,7 @@ const RichTextEditor = ({ value, onChange, placeholder }) => {
                 <button
                     type="button"
                     className="rte-btn underline"
+                    onMouseDown={(e) => e.preventDefault()}
                     onClick={() => execCommand('underline')}
                     title="Underline"
                 >
@@ -63,6 +103,7 @@ const RichTextEditor = ({ value, onChange, placeholder }) => {
                 <button
                     type="button"
                     className="rte-btn"
+                    onMouseDown={(e) => e.preventDefault()}
                     onClick={handleLink}
                     title="Insert Link"
                 >
@@ -71,7 +112,8 @@ const RichTextEditor = ({ value, onChange, placeholder }) => {
                 <button
                     type="button"
                     className="rte-btn"
-                    onClick={() => execCommand('unlink')}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={handleUnlink}
                     title="Remove Link"
                 >
                     <Unlink size={16} />

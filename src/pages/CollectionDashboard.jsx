@@ -2572,7 +2572,7 @@ const CollectionDashboard = () => {
 
     // Auto-save general settings
     useEffect(() => {
-        if (!collection || loading) return;
+        if (!collection || loading || !settingsHydratedRef.current) return;
 
         const saveGeneralSettings = async () => {
             try {
@@ -2591,7 +2591,7 @@ const CollectionDashboard = () => {
 
     // Auto-save privacy / client exclusive access
     useEffect(() => {
-        if (!collection || loading) return;
+        if (!collection || loading || !settingsHydratedRef.current) return;
 
         const savePrivacySettings = async () => {
             try {
