@@ -21,6 +21,7 @@ import LabSettings from './LabSettings';
 import LabQualityControlDetailsPage from './LabQualityControlDetailsPage';
 import LabArtworkReviewList from './LabArtworkReviewList';
 import LabArtworkReviewDetails from './LabArtworkReviewDetails';
+import LabFrameWorkshop from './LabFrameWorkshop';
 
 // Create a Lab Auth Context
 export const LabAuthContext = createContext(null);
@@ -176,6 +177,7 @@ const LabApp = () => {
                     <Route path="ready-to-deliver" element={<LabReadyToDeliver />} />
                     <Route path="quality-control" element={<LabQualityControl />} />
                     <Route path="quality-control/:orderId" element={<LabQualityControlDetailsPage />} />
+                    <Route path="frame-workshop" element={<LabFrameWorkshop />} />
                     <Route path="packaging" element={<LabPackagingCenter />} />
                     <Route path="inventory" element={<LabInventory />} />
                     <Route path="employees" element={<LabEmployeeManagement />} />

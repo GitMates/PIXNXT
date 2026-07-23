@@ -1,14 +1,143 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useLabAuth } from './LabApp';
 import { supabase } from '../../lib/supabase/client';
+import { MOCK_PHOTOS } from '../data/mockStoreData';
+import { getShortId } from '../utils/idFormat';
+import {
+  getLabStatusColor,
+  getLabStatusLabel,
+  canTransitionLabStatus,
+} from './labOrderStatus';
+import { transitionLabOrderStatus } from './labOrderStatusService';
+import LabPipelineRail from './LabPipelineRail';
+
+const FRAME_PRODUCT_TYPES = [
+  'frames',
+  'matted_frame',
+  'matted_frames',
+  'float_frames',
+  'circular_frames',
+  'gallery_board',
+  'gallery_boards',
+  'matted_collages',
+];
+
+const FRAME_COLORS = {
+  Black: '#111111',
+  White: '#f7f7f7',
+  Barnwood: '#8a7f75',
+  'Dark Wood': '#3e2723',
+  'Light Wood': '#d2b48c',
+  Graphite: '#53565b',
+  'Classic Wood': '#8b5a2b',
+  'Charcoal Black': '#111111',
+  'Natural Oak': '#d7a15c',
+  'Polar White': '#ffffff',
+  Walnut: '#4b321a',
+  'Vintage Gold': '#d4af37',
+};
+
+const DEFAULT_CHECKLIST = {
+  moulding_cut: false,
+  mat_cut: false,
+  glass_cleaned: false,
+  print_mounted: false,
+  assembled: false,
+  hardware_fitted: false,
+  final_wipe: false,
+};
+
+function isFrameItem(item) {
+  const pType = (item.product_type || '').toLowerCase().replace(/\s+/g, '_');
+  if (FRAME_PRODUCT_TYPES.some((ft) => pType.includes(ft))) return true;
+  if (pType.includes('frame') || pType.includes('collage')) return true;
+  const frame = item.options?.frame;
+  if (frame && frame.id && frame.id !== 'frame_none' && frame.id !== 'none' && frame.id !== 'no_frame') {
+    return true;
+  }
+  return false;
+}
+
+function parseSizeLabel(label) {
+  if (!label) return { width: 25, height: 38 };
+  const match = String(label).match(/(\d+(?:\.\d+)?)\s*[xX×]\s*(\d+(?:\.\d+)?)/);
+  if (match) return { width: parseFloat(match[1]), height: parseFloat(match[2]) };
+  return { width: 25, height: 38 };
+}
+
+function getPhotoUrl(item) {
+  const opts = item?.options || {};
+  let photo = opts.photo;
+  if (!photo && opts.photos?.length) photo = opts.photos[0];
+  if (!photo) return '';
+  if (typeof photo === 'string') {
+    if (photo.startsWith('http') || photo.startsWith('data:')) return photo;
+    return MOCK_PHOTOS.find((p) => p.id === photo)?.url || '';
+  }
+  if (typeof photo === 'object') {
+    if (photo.url) return photo.url;
+    if (photo.id) return MOCK_PHOTOS.find((p) => p.id === photo.id)?.url || '';
+  }
+  return '';
+}
+
+function ChecklistRow({ checked, label, onToggle, disabled }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      disabled={disabled}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        width: '100%',
+        textAlign: 'left',
+        padding: '10px 12px',
+        border: `1px solid ${checked ? '#99f6e4' : '#e2e8f0'}`,
+        borderRadius: 8,
+        background: checked ? '#f0fdfa' : '#fff',
+        cursor: disabled ? 'default' : 'pointer',
+        opacity: disabled ? 0.7 : 1,
+      }}
+    >
+      <span
+        style={{
+          width: 18,
+          height: 18,
+          borderRadius: 4,
+          border: `2px solid ${checked ? '#0f766e' : '#cbd5e1'}`,
+          background: checked ? '#0f766e' : '#fff',
+          color: '#fff',
+          fontSize: 11,
+          fontWeight: 800,
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}
+      >
+        {checked ? '✓' : ''}
+      </span>
+      <span style={{ fontSize: 13, fontWeight: checked ? 600 : 500, color: '#0f172a' }}>{label}</span>
+    </button>
+  );
+}
 
 export default function LabFrameWorkshop() {
+  const navigate = useNavigate();
   const { orders, orderItems, setOrders, setOrderItems, initialLoaded, setInitialLoaded } = useLabAuth();
   const [loading, setLoading] = useState(!initialLoaded);
   const [selectedOrderId, setSelectedOrderId] = useState(null);
+  const [selectedItemId, setSelectedItemId] = useState(null);
+  const [tab, setTab] = useState('active'); // ready | active | done
+  const [busy, setBusy] = useState(false);
+  const [checklist, setChecklist] = useState({ ...DEFAULT_CHECKLIST });
+  const [operatorNote, setOperatorNote] = useState('');
+  const [jobMeta, setJobMeta] = useState(null);
 
-  // Fetch orders and order items from Supabase
-  const fetchFrameData = async (showLoading = !initialLoaded) => {
+  const fetchFrameData = useCallback(async (showLoading = !initialLoaded) => {
     try {
       if (showLoading) setLoading(true);
       const { data: ordersData, error: ordersError } = await supabase
@@ -30,343 +159,538 @@ export default function LabFrameWorkshop() {
     } finally {
       if (showLoading) setLoading(false);
     }
-  };
+  }, [initialLoaded, setOrders, setOrderItems, setInitialLoaded]);
 
   useEffect(() => {
     fetchFrameData();
     const interval = setInterval(() => fetchFrameData(false), 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchFrameData]);
 
-  // Filter only orders that contain frame-related products
   const frameOrders = useMemo(() => {
-    const frameProductTypes = ['frames', 'matted_frames', 'float_frames', 'circular_frames', 'gallery_boards'];
     const result = [];
-
-    orders.forEach(order => {
-      const items = orderItems.filter(item => item.order_id === order.id);
-      const frameItems = items.filter(item => {
-        const pType = (item.product_type || '').toLowerCase();
-        return frameProductTypes.some(ft => pType.includes(ft.replace('_', ''))) ||
-               pType.includes('frame') ||
-               pType.includes('gallery') ||
-               (item.options?.frame && item.options.frame.id !== 'frame_none');
-      });
-
-      if (frameItems.length > 0) {
-        result.push({ order, items: frameItems });
-      }
+    orders.forEach((order) => {
+      const items = orderItems.filter((item) => item.order_id === order.id && isFrameItem(item));
+      if (items.length > 0) result.push({ order, items });
     });
-
     return result;
   }, [orders, orderItems]);
 
-  // Selected order
-  const selectedFrameOrder = useMemo(() => {
+  const readyQueue = useMemo(
+    () => frameOrders.filter((fo) => fo.order.status === 'printed'),
+    [frameOrders]
+  );
+  const activeQueue = useMemo(
+    () => frameOrders.filter((fo) => fo.order.status === 'framing'),
+    [frameOrders]
+  );
+  const doneQueue = useMemo(
+    () =>
+      frameOrders.filter((fo) =>
+        ['packaging', 'ready_to_ship', 'shipped', 'completed'].includes(fo.order.status)
+      ),
+    [frameOrders]
+  );
+
+  const visibleQueue = tab === 'ready' ? readyQueue : tab === 'done' ? doneQueue : activeQueue;
+
+  const selected = useMemo(() => {
     if (!selectedOrderId) return null;
-    return frameOrders.find(fo => fo.order.id === selectedOrderId) || null;
+    return frameOrders.find((fo) => fo.order.id === selectedOrderId) || null;
   }, [selectedOrderId, frameOrders]);
 
-  // Parse dimensions from size label like "25x38cm"
-  const parseSizeLabel = (label) => {
-    if (!label) return { width: 25, height: 38 };
-    const match = label.match(/(\d+)\s*[xX×]\s*(\d+)/);
-    if (match) return { width: parseFloat(match[1]), height: parseFloat(match[2]) };
-    return { width: 25, height: 38 };
+  const currentItem = useMemo(() => {
+    if (!selected) return null;
+    if (selectedItemId) {
+      return selected.items.find((i) => i.id === selectedItemId) || selected.items[0];
+    }
+    return selected.items[0];
+  }, [selected, selectedItemId]);
+
+  const loadFrameJob = useCallback(async (orderId) => {
+    try {
+      const { data, error } = await supabase
+        .from('printstore_lab_frame_jobs')
+        .select('*')
+        .eq('order_id', orderId)
+        .maybeSingle();
+      if (error && error.code !== '42P01' && error.code !== 'PGRST205') {
+        console.warn('Frame job load:', error.message);
+      }
+      if (data) {
+        setJobMeta(data);
+        setChecklist({ ...DEFAULT_CHECKLIST, ...(data.checklist || {}) });
+        setOperatorNote(data.notes || '');
+      } else {
+        setJobMeta(null);
+        setChecklist({ ...DEFAULT_CHECKLIST });
+        setOperatorNote('');
+      }
+    } catch (e) {
+      setJobMeta(null);
+      setChecklist({ ...DEFAULT_CHECKLIST });
+      setOperatorNote('');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (selectedOrderId) loadFrameJob(selectedOrderId);
+  }, [selectedOrderId, loadFrameJob]);
+
+  const saveFrameJob = async (extra = {}) => {
+    if (!selectedOrderId) return;
+    const payload = {
+      order_id: selectedOrderId,
+      checklist,
+      notes: operatorNote,
+      updated_at: new Date().toISOString(),
+      ...extra,
+    };
+    const { error } = await supabase
+      .from('printstore_lab_frame_jobs')
+      .upsert(payload, { onConflict: 'order_id' });
+    if (error) {
+      if (error.code === '42P01' || /does not exist|schema cache/i.test(error.message || '')) {
+        throw new Error(
+          'Frame jobs table missing. Run src/printstore/lab/lab_frame_workshop.sql in Supabase.'
+        );
+      }
+      throw error;
+    }
   };
 
-  // Frame color mapping
-  const frameColorsMap = {
-    'Black': '#111111', 'White': '#f7f7f7', 'Barnwood': '#8a7f75',
-    'Dark Wood': '#3e2723', 'Light Wood': '#d2b48c', 'Graphite': '#53565b',
-    'Classic Wood': '#8b5a2b', 'Charcoal Black': '#111111', 'Natural Oak': '#d7a15c',
-    'Polar White': '#ffffff', 'Walnut': '#4b321a', 'Vintage Gold': '#d4af37'
+  const openOrder = (orderId) => {
+    setSelectedOrderId(orderId);
+    setSelectedItemId(null);
   };
 
-  const frameThickness = 2;
+  const handleStartFraming = async () => {
+    if (!selected) return;
+    if (!canTransitionLabStatus(selected.order.status, 'framing')) {
+      alert(`Cannot start framing from "${getLabStatusLabel(selected.order.status)}".`);
+      return;
+    }
+    setBusy(true);
+    try {
+      await transitionLabOrderStatus(selected.order.id, 'framing', {
+        fromStatus: selected.order.status,
+      });
+      await saveFrameJob({
+        started_at: new Date().toISOString(),
+        status: 'in_progress',
+      });
+      await fetchFrameData(false);
+      setTab('active');
+    } catch (err) {
+      alert(err.message || 'Failed to start framing');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleCompleteFraming = async () => {
+    if (!selected) return;
+    const allDone = Object.values(checklist).every(Boolean);
+    if (!allDone) {
+      alert('Complete all assembly checklist items before sending to packaging.');
+      return;
+    }
+    if (!canTransitionLabStatus(selected.order.status, 'packaging')) {
+      alert(`Cannot complete framing from "${getLabStatusLabel(selected.order.status)}".`);
+      return;
+    }
+    if (!window.confirm('Mark framing complete and send this order to Packaging?')) return;
+    setBusy(true);
+    try {
+      await saveFrameJob({
+        completed_at: new Date().toISOString(),
+        status: 'completed',
+      });
+      await transitionLabOrderStatus(selected.order.id, 'packaging', {
+        fromStatus: selected.order.status,
+      });
+      await fetchFrameData(false);
+      setSelectedOrderId(null);
+      setTab('done');
+    } catch (err) {
+      alert(err.message || 'Failed to complete framing');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleSendReprint = async () => {
+    if (!selected) return;
+    if (!window.confirm('Send this order to Reprint Required?')) return;
+    setBusy(true);
+    try {
+      await saveFrameJob({ status: 'failed' });
+      await transitionLabOrderStatus(selected.order.id, 'reprint', {
+        fromStatus: selected.order.status,
+      });
+      await fetchFrameData(false);
+      setSelectedOrderId(null);
+    } catch (err) {
+      alert(err.message || 'Failed to route to reprint');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleSaveProgress = async () => {
+    if (!selected) return;
+    setBusy(true);
+    try {
+      await saveFrameJob({ status: selected.order.status === 'framing' ? 'in_progress' : 'draft' });
+      alert('Workshop progress saved.');
+      await loadFrameJob(selected.order.id);
+    } catch (err) {
+      alert(err.message || 'Failed to save progress');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const toggleCheck = (key) => {
+    if (selected?.order.status !== 'framing' && selected?.order.status !== 'printed') return;
+    setChecklist((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '80vh', width: '100%' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '80vh' }}>
         <div className="lab-spinner" />
       </div>
     );
   }
 
-  // ===== DETAIL VIEW =====
-  if (selectedFrameOrder) {
-    const currentItem = selectedFrameOrder.items[0];
-    const currentSize = currentItem?.options?.size;
-    const currentFrame = currentItem?.options?.frame;
-    const currentPaper = currentItem?.options?.paper;
-    const dims = parseSizeLabel(currentSize?.label);
-    const photoWidth = dims.width;
-    const photoHeight = dims.height;
-
-    const glassWidth = photoWidth + (2 * frameThickness);
-    const glassHeight = photoHeight + (2 * frameThickness);
-    const backingWidth = glassWidth;
-    const backingHeight = glassHeight;
-    const woodLength = 2 * (glassWidth + glassHeight);
-
-    const activeFrameLabel = currentFrame?.label || 'No Frame';
-    const activeColor = frameColorsMap[activeFrameLabel] || currentFrame?.color || '#111111';
-    const productType = currentItem?.product_type?.replace(/_/g, ' ') || 'Frame';
+  // ===== DETAIL =====
+  if (selected && currentItem) {
+    const dims = parseSizeLabel(currentItem.options?.size?.label);
+    const frame = currentItem.options?.frame;
+    const paper = currentItem.options?.paper;
+    const frameLabel = frame?.label || 'No Frame';
+    const activeColor = FRAME_COLORS[frameLabel] || frame?.color || '#111111';
+    const thickness = 2;
+    const glassW = dims.width + 2 * thickness;
+    const glassH = dims.height + 2 * thickness;
+    const woodLength = 2 * (glassW + glassH);
+    const photoUrl = getPhotoUrl(currentItem);
+    const status = selected.order.status;
+    const canStart = status === 'printed';
+    const inWorkshop = status === 'framing';
+    const checklistComplete = Object.values(checklist).every(Boolean);
 
     return (
-      <div style={{ padding: '32px', backgroundColor: '#ffffff', minHeight: '100vh', boxSizing: 'border-box', fontFamily: "'europa', sans-serif" }}>
-
-        {/* Header */}
-        <div style={{ paddingBottom: '20px', marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+      <div style={{ padding: 28, background: '#f8fafc', minHeight: '100%', boxSizing: 'border-box' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <button
+              type="button"
               onClick={() => setSelectedOrderId(null)}
-              style={{ padding: '6px 14px', fontSize: '12px', backgroundColor: '#f1f5f9', color: '#334155', border: '1px solid #cbd5e1', cursor: 'pointer', borderRadius: '3px', fontWeight: 600 }}
+              style={btnSecondary}
             >
-              ← Back
+              ← Back to queue
             </button>
-            <h1 style={{ fontFamily: "'EB Garamond', serif", fontSize: '28px', color: '#005c5a', margin: 0, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Frame Workshop
-            </h1>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', color: '#64748b', textTransform: 'uppercase' }}>
+                Station 5 · Frame Workshop
+              </div>
+              <h1 style={{ margin: '2px 0 0', fontFamily: "'EB Garamond', serif", fontSize: 26, color: '#0f172a' }}>
+                Job {getShortId(selected.order.id)}
+              </h1>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={() => navigate(`/lab/orders/${selected.order.id}`, { state: { from: '/lab/frame-workshop' } })}
+              style={btnSecondary}
+            >
+              Full order
+            </button>
+            <button type="button" onClick={handleSaveProgress} disabled={busy} style={btnSecondary}>
+              Save progress
+            </button>
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', alignItems: 'start' }}>
+        <LabPipelineRail status={status} />
 
-          {/* Left: Order Frame Details */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            <div>
-              <h3 style={{ fontSize: '15px', color: '#111', fontWeight: 'bold', margin: '0 0 16px 0', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Order Frame Specifications
-              </h3>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #eaeaea', paddingBottom: '10px', fontSize: '13px' }}>
-                  <span style={{ fontWeight: '500', color: '#64748b' }}>Order ID</span>
-                  <span style={{ fontWeight: '700', color: '#0f172a', fontFamily: 'monospace' }}>#{selectedFrameOrder.order.id.substring(0, 8).toUpperCase()}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #eaeaea', paddingBottom: '10px', fontSize: '13px' }}>
-                  <span style={{ fontWeight: '500', color: '#64748b' }}>Customer</span>
-                  <span style={{ fontWeight: '700', color: '#0f172a' }}>{selectedFrameOrder.order.customer_name || selectedFrameOrder.order.customer_email || 'Guest'}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #eaeaea', paddingBottom: '10px', fontSize: '13px' }}>
-                  <span style={{ fontWeight: '500', color: '#64748b' }}>Product Type</span>
-                  <span style={{ fontWeight: '700', color: '#0f172a', textTransform: 'uppercase' }}>{productType}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #eaeaea', paddingBottom: '10px', fontSize: '13px' }}>
-                  <span style={{ fontWeight: '500', color: '#64748b' }}>Ordered Print Size</span>
-                  <span style={{ fontWeight: '700', color: '#0f172a' }}>{currentSize?.label || 'N/A'}</span>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #eaeaea', paddingBottom: '10px', fontSize: '13px' }}>
-                    <span style={{ fontWeight: '500', color: '#64748b' }}>Width</span>
-                    <span style={{ fontWeight: '700', color: '#005c5a' }}>{photoWidth} cm</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #eaeaea', paddingBottom: '10px', fontSize: '13px' }}>
-                    <span style={{ fontWeight: '500', color: '#64748b' }}>Height</span>
-                    <span style={{ fontWeight: '700', color: '#005c5a' }}>{photoHeight} cm</span>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #eaeaea', paddingBottom: '10px', fontSize: '13px', alignItems: 'center' }}>
-                  <span style={{ fontWeight: '500', color: '#64748b' }}>Frame Color</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ width: '14px', height: '14px', borderRadius: '50%', backgroundColor: activeColor, border: '1px solid #cbd5e1', display: 'inline-block' }} />
-                    <span style={{ fontWeight: '700', color: '#0f172a' }}>{activeFrameLabel}</span>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #eaeaea', paddingBottom: '10px', fontSize: '13px' }}>
-                  <span style={{ fontWeight: '500', color: '#64748b' }}>Paper Type</span>
-                  <span style={{ fontWeight: '700', color: '#0f172a' }}>{currentPaper?.label || 'Standard'}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #eaeaea', paddingBottom: '10px', fontSize: '13px' }}>
-                  <span style={{ fontWeight: '500', color: '#64748b' }}>Quantity</span>
-                  <span style={{ fontWeight: '700', color: '#0f172a' }}>{currentItem?.quantity || 1}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '10px', fontSize: '13px' }}>
-                  <span style={{ fontWeight: '500', color: '#64748b' }}>Order Status</span>
-                  <span style={{
-                    padding: '3px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase',
-                    backgroundColor: selectedFrameOrder.order.status === 'framing' ? '#dbeafe' : selectedFrameOrder.order.status === 'completed' ? '#d1fae5' : '#f1f5f9',
-                    color: selectedFrameOrder.order.status === 'framing' ? '#1e40af' : selectedFrameOrder.order.status === 'completed' ? '#065f46' : '#475569'
-                  }}>
-                    {selectedFrameOrder.order.status}
+        <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: 16, alignItems: 'start' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <section style={card}>
+              <h3 style={sectionTitle}>Frame specifications</h3>
+              <SpecRow label="Customer" value={selected.order.customer_name || selected.order.customer_email || 'Guest'} />
+              <SpecRow label="Product" value={(currentItem.product_type || 'frame').replace(/_/g, ' ')} />
+              <SpecRow label="Print size" value={currentItem.options?.size?.label || 'N/A'} />
+              <SpecRow
+                label="Frame"
+                value={
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ width: 12, height: 12, borderRadius: '50%', background: activeColor, border: '1px solid #cbd5e1' }} />
+                    {frameLabel}
                   </span>
+                }
+              />
+              <SpecRow label="Paper" value={paper?.label || 'Standard'} />
+              <SpecRow label="Qty" value={String(currentItem.quantity || 1)} />
+              <SpecRow
+                label="Status"
+                value={
+                  <span
+                    style={{
+                      padding: '3px 10px',
+                      borderRadius: 999,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      background: `${getLabStatusColor(status)}18`,
+                      color: getLabStatusColor(status),
+                    }}
+                  >
+                    {getLabStatusLabel(status)}
+                  </span>
+                }
+              />
+              {selected.items.length > 1 && (
+                <div style={{ marginTop: 12 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', marginBottom: 6 }}>LINE ITEMS</div>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {selected.items.map((item, idx) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => setSelectedItemId(item.id)}
+                        style={{
+                          ...btnSecondary,
+                          background: currentItem.id === item.id ? '#ecfdf5' : '#fff',
+                          borderColor: currentItem.id === item.id ? '#99f6e4' : '#e2e8f0',
+                        }}
+                      >
+                        Item {idx + 1}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            </div>
+              )}
+            </section>
 
-            {/* Automated Workshop Calculations */}
-            <div style={{ padding: '24px', border: '1px solid #005c5a', borderRadius: '4px', backgroundColor: '#eefaf9' }}>
-              <h3 style={{ fontSize: '15px', color: '#005c5a', fontWeight: 'bold', margin: '0 0 16px 0', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Automated Workshop Calculations
-              </h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(0,92,90,0.1)', paddingBottom: '8px', fontSize: '13.5px' }}>
-                  <span style={{ fontWeight: '500', color: '#333' }}>Base Photo size:</span>
-                  <span style={{ fontWeight: '700', color: '#111' }}>{photoWidth} x {photoHeight} cm</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(0,92,90,0.1)', paddingBottom: '8px', fontSize: '13.5px' }}>
-                  <span style={{ fontWeight: '500', color: '#333' }}>Frame thickness:</span>
-                  <span style={{ fontWeight: '700', color: '#111' }}>{frameThickness} cm</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(0,92,90,0.1)', paddingBottom: '8px', fontSize: '13.5px' }}>
-                  <span style={{ fontWeight: '500', color: '#333' }}>Glass cut dimension:</span>
-                  <span style={{ fontWeight: '700', color: '#005c5a' }}>{glassWidth} x {glassHeight} cm</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(0,92,90,0.1)', paddingBottom: '8px', fontSize: '13.5px' }}>
-                  <span style={{ fontWeight: '500', color: '#333' }}>Backing Board dimension:</span>
-                  <span style={{ fontWeight: '700', color: '#005c5a' }}>{backingWidth} x {backingHeight} cm</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(0,92,90,0.1)', paddingBottom: '8px', fontSize: '13.5px' }}>
-                  <span style={{ fontWeight: '500', color: '#333' }}>Overall Frame dimension:</span>
-                  <span style={{ fontWeight: '700', color: '#005c5a' }}>{glassWidth} x {glassHeight} cm</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '4px', fontSize: '14px' }}>
-                  <span style={{ fontWeight: 'bold', color: '#005c5a' }}>Wood Profile Lumber Cutting Length:</span>
-                  <span style={{ fontWeight: '800', color: '#005c5a', fontSize: '16px' }}>{woodLength} cm</span>
-                </div>
+            <section style={{ ...card, borderColor: '#99f6e4', background: '#f0fdfa' }}>
+              <h3 style={{ ...sectionTitle, color: '#0f766e' }}>Cut sheet</h3>
+              <SpecRow label="Photo" value={`${dims.width} × ${dims.height} cm`} />
+              <SpecRow label="Glass / acrylic" value={`${glassW} × ${glassH} cm`} />
+              <SpecRow label="Backing board" value={`${glassW} × ${glassH} cm`} />
+              <SpecRow label="Moulding length" value={`${woodLength} cm`} emphasize />
+            </section>
+
+            <section style={card}>
+              <h3 style={sectionTitle}>Assembly checklist</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <ChecklistRow label="Moulding cut to length" checked={checklist.moulding_cut} onToggle={() => toggleCheck('moulding_cut')} disabled={!inWorkshop && !canStart} />
+                <ChecklistRow label="Mat board cut / fitted" checked={checklist.mat_cut} onToggle={() => toggleCheck('mat_cut')} disabled={!inWorkshop && !canStart} />
+                <ChecklistRow label="Glass / acrylic cleaned" checked={checklist.glass_cleaned} onToggle={() => toggleCheck('glass_cleaned')} disabled={!inWorkshop && !canStart} />
+                <ChecklistRow label="Print mounted square" checked={checklist.print_mounted} onToggle={() => toggleCheck('print_mounted')} disabled={!inWorkshop && !canStart} />
+                <ChecklistRow label="Frame assembled" checked={checklist.assembled} onToggle={() => toggleCheck('assembled')} disabled={!inWorkshop && !canStart} />
+                <ChecklistRow label="Hanging hardware fitted" checked={checklist.hardware_fitted} onToggle={() => toggleCheck('hardware_fitted')} disabled={!inWorkshop && !canStart} />
+                <ChecklistRow label="Final wipe & inspect" checked={checklist.final_wipe} onToggle={() => toggleCheck('final_wipe')} disabled={!inWorkshop && !canStart} />
               </div>
-            </div>
+              <textarea
+                value={operatorNote}
+                onChange={(e) => setOperatorNote(e.target.value)}
+                placeholder="Operator notes (optional)"
+                rows={3}
+                style={{
+                  marginTop: 12,
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: 8,
+                  padding: 10,
+                  fontSize: 13,
+                  resize: 'vertical',
+                }}
+              />
+              {jobMeta?.started_at && (
+                <div style={{ marginTop: 8, fontSize: 11, color: '#64748b' }}>
+                  Started: {new Date(jobMeta.started_at).toLocaleString()}
+                </div>
+              )}
+            </section>
           </div>
 
-          {/* Right: Visual Frame Render */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', minHeight: '450px' }}>
-            <h4 style={{ margin: '0 0 24px 0', fontSize: '13px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Visual Frame Render</h4>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <section style={{ ...card, textAlign: 'center' }}>
+              <h3 style={sectionTitle}>Visual reference</h3>
+              <div
+                style={{
+                  display: 'inline-flex',
+                  padding: thickness * 8,
+                  background: activeColor,
+                  border: '1px solid rgba(0,0,0,0.12)',
+                  boxShadow: '0 12px 28px rgba(15,23,42,0.18)',
+                  borderRadius: 2,
+                }}
+              >
+                <div
+                  style={{
+                    width: Math.max(80, dims.width * 5),
+                    height: Math.max(80, dims.height * 5),
+                    background: photoUrl
+                      ? `center / cover no-repeat url(${photoUrl})`
+                      : 'linear-gradient(135deg, #eefaf9, #cbd5e1)',
+                    border: '1px solid rgba(0,0,0,0.08)',
+                  }}
+                />
+              </div>
+              <p style={{ margin: '16px 0 0', fontSize: 12, color: '#64748b' }}>
+                {frameLabel} · {paper?.label || 'Standard'} · {dims.width}×{dims.height} cm
+              </p>
+            </section>
 
-            <div style={{
-              padding: `${frameThickness * 8}px`,
-              backgroundColor: activeColor,
-              border: '1px solid rgba(0,0,0,0.15)',
-              boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.25)',
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              transition: 'all 0.2s', borderRadius: '2px'
-            }}>
-              <div style={{ backgroundColor: '#f8f4eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div style={{
-                  width: `${photoWidth * 6}px`, height: `${photoHeight * 6}px`,
-                  backgroundImage: 'linear-gradient(135deg, #eefaf9 0%, #cbd5e1 100%)',
-                  border: '1px solid rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box'
-                }}>
-                  <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569', opacity: 0.7 }}>
-                    {photoWidth} x {photoHeight} cm
-                  </span>
-                </div>
+            <section style={card}>
+              <h3 style={sectionTitle}>Station actions</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {canStart && (
+                  <button type="button" onClick={handleStartFraming} disabled={busy} style={btnPrimary}>
+                    {busy ? 'Working…' : 'Start framing (printed → framing)'}
+                  </button>
+                )}
+                {inWorkshop && (
+                  <button
+                    type="button"
+                    onClick={handleCompleteFraming}
+                    disabled={busy || !checklistComplete}
+                    style={{
+                      ...btnPrimary,
+                      opacity: !checklistComplete || busy ? 0.55 : 1,
+                    }}
+                  >
+                    {busy ? 'Working…' : 'Complete → Packaging'}
+                  </button>
+                )}
+                {(inWorkshop || canStart) && (
+                  <button type="button" onClick={handleSendReprint} disabled={busy} style={btnDanger}>
+                    Fail → Reprint
+                  </button>
+                )}
+                {!canStart && !inWorkshop && (
+                  <p style={{ margin: 0, fontSize: 13, color: '#64748b' }}>
+                    This job is in <strong>{getLabStatusLabel(status)}</strong>. Only Printed (QC) jobs can be started here; active framing jobs can be completed to Packaging.
+                  </p>
+                )}
               </div>
-            </div>
-
-            <div style={{ marginTop: '30px', textAlign: 'center', fontSize: '12px', color: '#64748b', maxWidth: '300px' }}>
-              Preview showing <strong>{activeFrameLabel}</strong> {productType} with {currentPaper?.label || 'Standard'} paper.
-            </div>
-
-            {/* Dimension Scale Legend */}
-            <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '11.5px', color: '#64748b', width: '100%', maxWidth: '280px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #eaeaea', paddingBottom: '4px' }}>
-                <span>Photo</span>
-                <span style={{ fontWeight: 700, color: '#0f172a' }}>{photoWidth} × {photoHeight} cm</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #eaeaea', paddingBottom: '4px' }}>
-                <span>Frame outer</span>
-                <span style={{ fontWeight: 700, color: '#0f172a' }}>{glassWidth} × {glassHeight} cm</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '4px' }}>
-                <span>Wood thickness</span>
-                <span style={{ fontWeight: 700, color: '#0f172a' }}>{frameThickness} cm</span>
-              </div>
-            </div>
+            </section>
           </div>
-
         </div>
       </div>
     );
   }
 
-  // ===== TABLE LIST VIEW =====
-  return (
-    <div style={{ padding: '32px', backgroundColor: '#ffffff', minHeight: '100vh', boxSizing: 'border-box', fontFamily: "'europa', sans-serif" }}>
+  // ===== QUEUE =====
+  const tabs = [
+    { id: 'ready', label: 'Ready from QC', count: readyQueue.length },
+    { id: 'active', label: 'In workshop', count: activeQueue.length },
+    { id: 'done', label: 'Sent onward', count: doneQueue.length },
+  ];
 
-      {/* Header */}
-      <div style={{ paddingBottom: '20px', marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 style={{ fontFamily: "'EB Garamond', serif", fontSize: '28px', color: '#005c5a', margin: 0, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-          Frame Workshop
-        </h1>
-        <button
-          onClick={() => fetchFrameData(false)}
-          style={{ padding: '8px 16px', fontSize: '12px', backgroundColor: '#005c5a', color: '#fff', border: 'none', cursor: 'pointer', borderRadius: '3px', fontWeight: 600 }}
-        >
+  return (
+    <div style={{ padding: 28, background: '#f8fafc', minHeight: '100%', boxSizing: 'border-box' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 20, gap: 12, flexWrap: 'wrap' }}>
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', color: '#64748b', textTransform: 'uppercase' }}>
+            Station 5
+          </div>
+          <h1 style={{ margin: '4px 0 0', fontFamily: "'EB Garamond', serif", fontSize: 28, color: '#0f172a' }}>
+            Frame Workshop
+          </h1>
+          <p style={{ margin: '6px 0 0', fontSize: 13, color: '#64748b', maxWidth: 520 }}>
+            Assemble matted and framed products after QC. Status moves on the lab status machine: printed → framing → packaging.
+          </p>
+        </div>
+        <button type="button" onClick={() => fetchFrameData(false)} style={btnPrimary}>
           Refresh
         </button>
       </div>
 
-      {/* Frame Orders Table */}
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left', ...(frameOrders.length > 0 ? { minWidth: '900px' } : {}) }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => setTab(t.id)}
+            style={{
+              ...btnSecondary,
+              background: tab === t.id ? '#0f766e' : '#fff',
+              color: tab === t.id ? '#fff' : '#334155',
+              borderColor: tab === t.id ? '#0f766e' : '#e2e8f0',
+            }}
+          >
+            {t.label} ({t.count})
+          </button>
+        ))}
+      </div>
+
+      <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
-            <tr style={{ backgroundColor: '#005c5a', color: '#ffffff' }}>
-              {frameOrders.length > 0 ? (
-                <>
-                  <th style={{ padding: '14px 16px' }}>Order ID</th>
-                  <th style={{ padding: '14px 16px' }}>Customer</th>
-                  <th style={{ padding: '14px 16px' }}>Product Type</th>
-                  <th style={{ padding: '14px 16px' }}>Print Size</th>
-                  <th style={{ padding: '14px 16px' }}>Frame Color</th>
-                  <th style={{ padding: '14px 16px' }}>Paper Type</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'center' }}>Qty</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'center' }}>Status</th>
-                </>
-              ) : (
-                <th style={{ padding: '14px 16px', textAlign: 'center' }}>Frame Orders</th>
-              )}
+            <tr style={{ background: '#0f172a', color: '#fff' }}>
+              <th style={th}>Order</th>
+              <th style={th}>Customer</th>
+              <th style={th}>Product</th>
+              <th style={th}>Size</th>
+              <th style={th}>Frame</th>
+              <th style={th}>Qty</th>
+              <th style={th}>Status</th>
             </tr>
           </thead>
           <tbody>
-            {frameOrders.length === 0 ? (
+            {visibleQueue.length === 0 ? (
               <tr>
-                <td colSpan="1" style={{ padding: '40px 20px', textAlign: 'center', color: '#64748b', fontSize: '13px' }}>
-                  No frame orders found. Orders containing frame products will appear here.
+                <td colSpan={7} style={{ padding: 36, textAlign: 'center', color: '#64748b' }}>
+                  No frame jobs in this tab.
                 </td>
               </tr>
             ) : (
-              frameOrders.map(fo => {
-                const firstItem = fo.items[0];
-                const sizeLabel = firstItem?.options?.size?.label || 'Custom';
-                const frameLabel = firstItem?.options?.frame?.label || 'No Frame';
-                const frameColor = frameColorsMap[frameLabel] || firstItem?.options?.frame?.color || '#111';
-                const paperLabel = firstItem?.options?.paper?.label || 'Standard';
-                const pType = firstItem?.product_type?.replace(/_/g, ' ').toUpperCase() || 'FRAME';
-                const status = fo.order.status || 'pending';
-
+              visibleQueue.map(({ order, items }) => {
+                const item = items[0];
+                const frameLabel = item?.options?.frame?.label || 'No Frame';
+                const frameColor = FRAME_COLORS[frameLabel] || item?.options?.frame?.color || '#111';
                 return (
                   <tr
-                    key={fo.order.id}
-                    onClick={() => setSelectedOrderId(fo.order.id)}
-                    style={{ borderBottom: '1px solid #eaeaea', cursor: 'pointer', transition: 'background-color 0.15s' }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f8fafc'}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    key={order.id}
+                    onClick={() => openOrder(order.id)}
+                    style={{ borderBottom: '1px solid #e2e8f0', cursor: 'pointer' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = '#f8fafc'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
                   >
-                    <td style={{ padding: '14px 16px', fontFamily: 'monospace', fontWeight: 'bold', color: '#0f172a' }}>
-                      #{fo.order.id.substring(0, 8).toUpperCase()}
+                    <td style={td}>
+                      <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>{getShortId(order.id)}</span>
                     </td>
-                    <td style={{ padding: '14px 16px', color: '#0f172a' }}>
-                      <div style={{ fontWeight: 600 }}>{fo.order.customer_name || 'Guest'}</div>
-                      <div style={{ fontSize: '11px', color: '#64748b' }}>{fo.order.customer_email || ''}</div>
+                    <td style={td}>
+                      <div style={{ fontWeight: 600 }}>{order.customer_name || 'Guest'}</div>
+                      <div style={{ fontSize: 11, color: '#64748b' }}>{order.customer_email || ''}</div>
                     </td>
-                    <td style={{ padding: '14px 16px', fontWeight: 600, color: '#0f172a', textTransform: 'uppercase' }}>{pType}</td>
-                    <td style={{ padding: '14px 16px', color: '#0f172a' }}>{sizeLabel}</td>
-                    <td style={{ padding: '14px 16px', color: '#0f172a' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: frameColor, border: '1px solid #cbd5e1', display: 'inline-block', flexShrink: 0 }} />
-                        <span>{frameLabel}</span>
-                      </div>
+                    <td style={{ ...td, textTransform: 'capitalize' }}>{(item.product_type || 'frame').replace(/_/g, ' ')}</td>
+                    <td style={td}>{item.options?.size?.label || '—'}</td>
+                    <td style={td}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ width: 12, height: 12, borderRadius: '50%', background: frameColor, border: '1px solid #cbd5e1' }} />
+                        {frameLabel}
+                      </span>
                     </td>
-                    <td style={{ padding: '14px 16px', color: '#0f172a' }}>{paperLabel}</td>
-                    <td style={{ padding: '14px 16px', textAlign: 'center', fontWeight: 'bold', color: '#0f172a' }}>{firstItem?.quantity || 1}</td>
-                    <td style={{ padding: '14px 16px', textAlign: 'center' }}>
-                      <span style={{
-                        padding: '4px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase',
-                        backgroundColor: status === 'framing' ? '#dbeafe' : status === 'completed' ? '#d1fae5' : status === 'printing' ? '#fef3c7' : '#f1f5f9',
-                        color: status === 'framing' ? '#1e40af' : status === 'completed' ? '#065f46' : status === 'printing' ? '#92400e' : '#475569'
-                      }}>
-                        {status}
+                    <td style={td}>{item.quantity || 1}</td>
+                    <td style={td}>
+                      <span
+                        style={{
+                          padding: '3px 8px',
+                          borderRadius: 999,
+                          fontSize: 11,
+                          fontWeight: 700,
+                          background: `${getLabStatusColor(order.status)}18`,
+                          color: getLabStatusColor(order.status),
+                        }}
+                      >
+                        {getLabStatusLabel(order.status)}
                       </span>
                     </td>
                   </tr>
@@ -379,3 +703,71 @@ export default function LabFrameWorkshop() {
     </div>
   );
 }
+
+function SpecRow({ label, value, emphasize }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        gap: 12,
+        padding: '8px 0',
+        borderBottom: '1px solid #f1f5f9',
+        fontSize: 13,
+      }}
+    >
+      <span style={{ color: '#64748b', fontWeight: 500 }}>{label}</span>
+      <span style={{ color: emphasize ? '#0f766e' : '#0f172a', fontWeight: emphasize ? 800 : 700, textAlign: 'right' }}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+const card = {
+  background: '#fff',
+  border: '1px solid #e2e8f0',
+  borderRadius: 10,
+  padding: 16,
+};
+
+const sectionTitle = {
+  margin: '0 0 12px',
+  fontSize: 12,
+  fontWeight: 800,
+  letterSpacing: '0.06em',
+  textTransform: 'uppercase',
+  color: '#334155',
+};
+
+const btnPrimary = {
+  padding: '10px 14px',
+  background: '#0f766e',
+  color: '#fff',
+  border: 'none',
+  borderRadius: 8,
+  fontSize: 13,
+  fontWeight: 700,
+  cursor: 'pointer',
+};
+
+const btnSecondary = {
+  padding: '8px 12px',
+  background: '#fff',
+  color: '#334155',
+  border: '1px solid #e2e8f0',
+  borderRadius: 8,
+  fontSize: 12,
+  fontWeight: 700,
+  cursor: 'pointer',
+};
+
+const btnDanger = {
+  ...btnSecondary,
+  color: '#b91c1c',
+  borderColor: '#fecaca',
+  background: '#fef2f2',
+};
+
+const th = { padding: '12px 14px', textAlign: 'left', fontWeight: 600 };
+const td = { padding: '12px 14px', color: '#0f172a' };

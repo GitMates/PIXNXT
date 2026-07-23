@@ -54,6 +54,7 @@ const getContextFromReferrer = (pathname) => {
   if (!pathname) return null;
   if (pathname.includes('/print-queue')) return 'print';
   if (pathname.includes('/quality-control')) return 'qc';
+  if (pathname.includes('/frame-workshop')) return 'full';
   if (pathname.includes('/reprints')) return 'reprint';
   if (pathname.includes('/packaging')) return 'packaging';
   if (pathname.includes('/ready-to-deliver')) return 'delivery';
@@ -1153,9 +1154,9 @@ export function LabQualityControlWorkspace({ order, orderItems, backPath, backLa
     }
     setIsSubmitting(true);
     try {
-      // 1. Update order status via lab status machine (DB)
-      // Frame products can later be routed pending → … → framing; QC pass enters packaging queue.
-      await transitionLabOrderStatus(order.id, 'packaging', { fromStatus: order.status });
+      // 1. Framed products → Frame Workshop; prints-only → Packaging
+      const nextStatus = isFramed ? 'framing' : 'packaging';
+      await transitionLabOrderStatus(order.id, nextStatus, { fromStatus: order.status });
 
       // 2. Log to quality checks table
       const qcLog = {
@@ -1165,7 +1166,8 @@ export function LabQualityControlWorkspace({ order, orderItems, backPath, backLa
         notes: JSON.stringify({
           inspector_notes: inspectionNotes,
           timestamp: new Date().toISOString(),
-          checklist: { printChecks, frameChecks }
+          checklist: { printChecks, frameChecks },
+          routed_to: nextStatus,
         })
       };
       const { error: logError } = await supabase
@@ -1173,9 +1175,13 @@ export function LabQualityControlWorkspace({ order, orderItems, backPath, backLa
         .insert(qcLog);
       if (logError) throw logError;
 
-      alert("✓ Product approved and transferred to Packaging Center!");
+      alert(
+        isFramed
+          ? '✓ QC passed — sent to Frame Workshop.'
+          : '✓ Product approved and transferred to Packaging Center!'
+      );
       onActionSuccess();
-      navigate('/lab/quality-control');
+      navigate(isFramed ? '/lab/frame-workshop' : '/lab/quality-control');
     } catch (err) {
       console.error("QC Approval error:", err);
       alert("Failed to approve product: " + err.message);
