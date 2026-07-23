@@ -8,7 +8,6 @@ const DatePicker = ({
   onChange, 
   placeholder = "Optional", 
   className,
-  inputId,
   disablePastDates = false,
   showQuickSearch = true,
 }) => {
@@ -188,19 +187,8 @@ const DatePicker = ({
   return (
     <div className={cn("custom-datepicker", className)} ref={containerRef}>
       <div 
-        id={inputId}
         className={cn("dp-input-field", isOpen && "focused")} 
         onClick={() => setIsOpen(!isOpen)}
-        role="button"
-        tabIndex={0}
-        aria-haspopup="dialog"
-        aria-expanded={isOpen}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            setIsOpen((open) => !open);
-          }
-        }}
       >
         <span className={cn("dp-value", !value && "placeholder")}>
           {value ? displayValue : placeholder}

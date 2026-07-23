@@ -306,32 +306,18 @@ const CollectionList = ({ slug }) => {
 
         {/* ── PROFILE HEADER ── */}
         <header style={{ textAlign: 'center', padding: '72px 40px 48px' }}>
-          {/* Name / Logo */}
-          {profile?.logo_url ? (
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px' }}>
-              <img
-                src={profile.logo_url}
-                alt={photographerName}
-                style={{
-                  maxHeight: '80px',
-                  maxWidth: '240px',
-                  objectFit: 'contain',
-                }}
-              />
-            </div>
-          ) : (
-            <h1 style={{
-              fontFamily: "'Cormorant Garamond', 'Georgia', serif",
-              fontSize: 'clamp(28px, 4vw, 42px)',
-              fontWeight: 300,
-              letterSpacing: '0.28em',
-              textTransform: 'uppercase',
-              color: '#111',
-              margin: '0 0 20px',
-            }}>
-              {photographerName}
-            </h1>
-          )}
+          {/* Name */}
+          <h1 style={{
+            fontFamily: "'Cormorant Garamond', 'Georgia', serif",
+            fontSize: 'clamp(28px, 4vw, 42px)',
+            fontWeight: 300,
+            letterSpacing: '0.28em',
+            textTransform: 'uppercase',
+            color: '#111',
+            margin: '0 0 20px',
+          }}>
+            {photographerName}
+          </h1>
 
           {/* Bio */}
           {bioText && (

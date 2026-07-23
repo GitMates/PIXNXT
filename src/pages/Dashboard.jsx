@@ -202,6 +202,16 @@ const products = [
       { label: 'Settings', path: '/mobile-gallery/settings' },
     ],
   },
+  {
+    name: 'Store',
+    color: 'red',
+    icon: <ShoppingBagIcon />,
+    route: '/store/orders',
+    links: [
+      { label: 'View Orders', path: '/store/orders' },
+      { label: 'Settings', path: '/store/orders?tab=settings' },
+    ],
+  },
 ];
 
 /* ===== Dashboard Component ===== */
@@ -404,7 +414,7 @@ const Dashboard = () => {
                 <img src={recentOrdersGif} alt="Recent Orders" /> RECENT ORDERS
               </div>
               <div className="dash-quick-card-body">
-                <h3>Setup your 24/7 Print Store</h3>
+                <h3>Setup your 24/7 Print Lab</h3>
                 <p>Launch your online store in 4 easy steps</p>
                 <button className="dash-get-started-btn">Get Started</button>
               </div>

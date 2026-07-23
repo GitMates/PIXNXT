@@ -14,7 +14,6 @@ import {
     Settings,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
-import SmartAlbumNotifications from './smart-albums/SmartAlbumNotifications';
 import { getUserDisplayLabel, getUserInitial } from '../lib/userInitials';
 import { cn } from '../lib/utils';
 import { galleryService } from '../services/gallery.service';
@@ -315,11 +314,10 @@ const SidebarLayout = ({ children }) => {
                             </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                            <SmartAlbumNotifications 
-                                userId={user?.id} 
-                                variant="sidebar" 
-                                className="neu-circle relative inline-flex size-8 items-center justify-center rounded-full text-[#71717A] hover:text-[#1A1A1A]" 
-                            />
+                            <button type="button" className="neu-circle relative inline-flex size-8 items-center justify-center rounded-full text-[#71717A] hover:text-[#1A1A1A]" aria-label="Notifications">
+                                <Bell className="size-4" />
+                                <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-[#1A1A1A]" />
+                            </button>
                             <AppSwitcherMenu />
                         </div>
                     </div>

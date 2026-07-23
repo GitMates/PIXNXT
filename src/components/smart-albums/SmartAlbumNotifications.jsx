@@ -29,7 +29,7 @@ function clampPanelPosition(triggerRect) {
     return { top, left };
 }
 
-export default function SmartAlbumNotifications({ userId, variant = 'default', className = '' }) {
+export default function SmartAlbumNotifications({ userId, variant = 'default' }) {
     const navigate = useNavigate();
     const [open, setOpen] = useState(false);
     const [items, setItems] = useState([]);
@@ -188,7 +188,7 @@ export default function SmartAlbumNotifications({ userId, variant = 'default', c
         <div className="sa-notifications" ref={rootRef}>
             <button
                 type="button"
-                className={className || `sa-notifications-trigger${isSidebar ? ' sa-notifications-trigger--sidebar' : ''}`}
+                className={`sa-notifications-trigger${isSidebar ? ' sa-notifications-trigger--sidebar' : ''}`}
                 onClick={handleToggle}
                 aria-label={unreadCount ? `${unreadCount} unread notifications` : 'Notifications'}
                 aria-expanded={open}
@@ -208,10 +208,10 @@ export default function SmartAlbumNotifications({ userId, variant = 'default', c
                 )}
                 {unreadCount > 0 && (
                     <span
-                        className={isSidebar && className ? "absolute right-2.5 top-2.5 size-1.5 rounded-full bg-[#1A1A1A]" : `sa-notifications-badge${isSidebar ? ' sa-notifications-badge--dot' : ''}`}
-                        style={(isSidebar && className) ? undefined : isSidebar ? undefined : { background: PURPLE }}
+                        className={`sa-notifications-badge${isSidebar ? ' sa-notifications-badge--dot' : ''}`}
+                        style={isSidebar ? undefined : { background: PURPLE }}
                     >
-                        {(isSidebar && className) ? '' : isSidebar ? '' : badgeLabel}
+                        {isSidebar ? '' : badgeLabel}
                     </span>
                 )}
             </button>

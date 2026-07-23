@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, CheckCircle2, Loader2, AlertCircle, HardDrive, Cloud } from 'lucide-react';
+import { X, CheckCircle2, Loader2, AlertCircle, HardDrive, Cloud, CreditCard, ShieldCheck } from 'lucide-react';
+import { supabase } from '@/lib/supabase/client';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { cn } from '@/lib/utils';
@@ -233,6 +234,124 @@ export const DownloadModal = ({
   const proceedToNextStep = () => {
     setError('');
     setStep('selection');
+  };
+
+  const [cardName, setCardName] = useState('');
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardExpiry, setCardExpiry] = useState('');
+  const [cardCvc, setCardCvc] = useState('');
+  const [isPaying, setIsPaying] = useState(false);
+  const [paymentEmail, setPaymentEmail] = useState('');
+
+  useEffect(() => {
+    if (email && !paymentEmail) {
+      setPaymentEmail(email);
+    }
+  }, [email]);
+
+  const handleStartDownloadClick = () => {
+    if (collection?.digital_download_enabled === true) {
+      // Check if already paid
+      const isSingle = selectedSet === 'single';
+      const paidAll = localStorage.getItem(`pixnxt_digital_paid_${collection.id}_all`) === 'true';
+      const paidSingle = isSingle && localStorage.getItem(`pixnxt_digital_paid_${collection.id}_single_${initialPhoto?.id}`) === 'true';
+      
+      if (!paidAll && !paidSingle) {
+        setError('');
+        setStep('payment');
+        return;
+      }
+    }
+    
+    startDownload();
+  };
+
+  const handlePaymentSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setIsPaying(true);
+    
+    try {
+      const targetEmail = paymentEmail || email;
+      if (!targetEmail) {
+        throw new Error('Please enter your email address for delivery confirmation.');
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      const isSingle = selectedSet === 'single';
+      const price = isSingle 
+        ? (collection.digital_download_price_single || 40)
+        : (collection.digital_download_price_all || 199);
+      
+      const { data: order, error: orderError } = await supabase
+        .from('printstore_orders')
+        .insert({
+          collection_id: collection.id,
+          photographer_id: collection.photographer_id || collection.user_id,
+          customer_name: cardName || 'Client Visitor',
+          customer_email: targetEmail,
+          shipping_address: null,
+          shipping_amount: 0,
+          tax_amount: 0,
+          discount_amount: 0,
+          subtotal: price,
+          total: price,
+          status: 'completed',
+          payment_provider: 'stripe',
+          payment_intent_id: 'mock_pi_digital_' + Math.random().toString(36).substr(2, 9)
+        })
+        .select()
+        .single();
+        
+      if (orderError) throw orderError;
+      
+      const { error: itemError } = await supabase
+        .from('printstore_order_items')
+        .insert({
+          order_id: order.id,
+          product_name: isSingle ? 'Digital Download - Single Photo' : 'Digital Download - All Photos',
+          product_type: isSingle ? 'digital_download' : 'digital_download_all',
+          quantity: 1,
+          unit_price: price,
+          subtotal: price,
+          options: {
+            photo: isSingle ? initialPhoto : null
+          }
+        });
+        
+      if (itemError) throw itemError;
+      
+      if (isSingle) {
+        localStorage.setItem(`pixnxt_digital_paid_${collection.id}_single_${initialPhoto?.id}`, 'true');
+      } else {
+        localStorage.setItem(`pixnxt_digital_paid_${collection.id}_all`, 'true');
+      }
+      
+      try {
+        await fetch(`${supabase.supabaseUrl}/functions/v1/send-order-placed-email`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabase.supabaseKey}`
+          },
+          body: JSON.stringify({
+            orderId: order.id,
+            recipientEmail: targetEmail,
+            siteOrigin: window.location.origin
+          })
+        });
+      } catch (emailErr) {
+        console.warn('Could not trigger order placing email:', emailErr);
+      }
+      
+      setIsPaying(false);
+      startDownload();
+    } catch (err) {
+      console.error('Mock payment error:', err);
+      setIsPaying(false);
+      setError(err.message || 'Payment failed. Please check your card details.');
+    }
   };
 
   const startDownload = async (options = {}) => {
@@ -779,7 +898,7 @@ export const DownloadModal = ({
                 )}
 
                 <button
-                  onClick={startDownload}
+                  onClick={handleStartDownloadClick}
                   disabled={isProcessing}
                   className="w-full bg-[#111] text-white py-4 text-[13px] font-bold uppercase tracking-[0.25em] hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                 >
@@ -790,6 +909,163 @@ export const DownloadModal = ({
                     </>
                   ) : 'Start Download'}
                 </button>
+              </motion.div>
+            )}
+
+            {/* ─── PAYMENT STEP (Stripe Overlay) ─── */}
+            {step === 'payment' && (
+              <motion.div
+                key="payment"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+                className="w-full text-left"
+              >
+                <div className="flex items-center gap-2 mb-4">
+                  <button
+                    type="button"
+                    onClick={() => setStep('selection')}
+                    className="text-zinc-500 hover:text-zinc-900 transition-colors text-[13px] flex items-center gap-1 font-semibold uppercase tracking-[0.1em]"
+                  >
+                    ← Back to Selection
+                  </button>
+                </div>
+
+                <h2 className="text-center text-[15px] font-bold uppercase tracking-[0.3em] text-zinc-900 mb-2">
+                  Secure Digital Payment
+                </h2>
+                <p className="text-center text-[13px] text-zinc-500 mb-6">
+                  Unlock high-resolution downloads instantly.
+                </p>
+
+                {/* Price block */}
+                <div style={{
+                  background: '#fcfbfa',
+                  border: '1px solid #f2ede4',
+                  borderRadius: '8px',
+                  padding: '16px',
+                  marginBottom: '20px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}>
+                  <div>
+                    <span style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b', fontWeight: 600 }}>Item to download</span>
+                    <strong style={{ color: '#111', fontSize: '14px' }}>
+                      {selectedSet === 'single' ? 'Single Photo Download' : 'Entire Gallery Download'}
+                    </strong>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <span style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b', fontWeight: 600 }}>Amount Due</span>
+                    <strong style={{ color: '#111', fontSize: '18px', fontWeight: 700 }}>
+                      ₹{(selectedSet === 'single' ? (collection.digital_download_price_single || 40) : (collection.digital_download_price_all || 199)).toFixed(2)}
+                    </strong>
+                  </div>
+                </div>
+
+                {/* Mock Card Form */}
+                <form onSubmit={handlePaymentSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-[0.1em] text-zinc-400 mb-1.5">Delivery Email</label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="name@example.com"
+                      className="w-full border border-zinc-200 rounded px-3 py-2.5 text-[14px] outline-none focus:border-zinc-900 transition-colors"
+                      value={paymentEmail}
+                      onChange={(e) => setPaymentEmail(e.target.value)}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-[0.1em] text-zinc-400 mb-1.5">Cardholder Name</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="John Doe"
+                      className="w-full border border-zinc-200 rounded px-3 py-2.5 text-[14px] outline-none focus:border-zinc-900 transition-colors"
+                      value={cardName}
+                      onChange={(e) => setCardName(e.target.value)}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-[0.1em] text-zinc-400 mb-1.5">Card Number</label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        required
+                        placeholder="4242 4242 4242 4242"
+                        className="w-full border border-zinc-200 rounded pl-10 pr-3 py-2.5 text-[14px] outline-none focus:border-zinc-900 transition-colors"
+                        value={cardNumber}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, '').slice(0, 16);
+                          const formatted = val.replace(/(.{4})/g, '$1 ').trim();
+                          setCardNumber(formatted);
+                        }}
+                      />
+                      <CreditCard size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase tracking-[0.1em] text-zinc-400 mb-1.5">Expiry Date</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="MM/YY"
+                        className="w-full border border-zinc-200 rounded px-3 py-2.5 text-[14px] outline-none focus:border-zinc-900 transition-colors"
+                        value={cardExpiry}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                          const formatted = val.length > 2 ? `${val.slice(0, 2)}/${val.slice(2)}` : val;
+                          setCardExpiry(formatted);
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase tracking-[0.1em] text-zinc-400 mb-1.5">CVC</label>
+                      <input
+                        type="password"
+                        required
+                        placeholder="***"
+                        maxLength={3}
+                        className="w-full border border-zinc-200 rounded px-3 py-2.5 text-[14px] outline-none focus:border-zinc-900 transition-colors"
+                        value={cardCvc}
+                        onChange={(e) => setCardCvc(e.target.value.replace(/\D/g, '').slice(0, 3))}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: '#64748b', background: '#f8fafc', padding: '10px 12px', borderRadius: '6px', border: '1px dashed #e2e8f0', marginTop: '16px' }}>
+                    <ShieldCheck size={16} className="text-[#10b981] flex-shrink-0" />
+                    <span>This is a secure simulated Stripe test payment. Any inputs will succeed.</span>
+                  </div>
+
+                  {error && (
+                    <div className="flex items-center gap-2 text-rose-500 text-[13px] justify-center mt-2">
+                      <AlertCircle size={14} />
+                      <span>{error}</span>
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={isPaying}
+                    className="w-full bg-[#111] text-white py-4 text-[13px] font-bold uppercase tracking-[0.25em] hover:bg-zinc-800 transition-colors mt-4 flex items-center justify-center gap-2 disabled:opacity-70"
+                  >
+                    {isPaying ? (
+                      <>
+                        <Loader2 size={14} className="animate-spin" />
+                        Processing payment...
+                      </>
+                    ) : (
+                      `Pay & Start Download`
+                    )}
+                  </button>
+                </form>
               </motion.div>
             )}
 
