@@ -25,7 +25,7 @@ import { renderMiniFrame } from '../../printstore/components/StoreHeader';
 import { GalleryBackToTop } from '../../components/features/Gallery/GalleryBackToTop/GalleryBackToTop';
 import { GalleryEmptyGrid } from '../../components/features/Gallery/GalleryEmptyGrid/GalleryEmptyGrid';
 import { smoothScrollToElement, smoothScrollToTop } from '../../lib/smoothGalleryScroll';
-import { getPhotoFullDisplayUrl } from '../../lib/photoDisplayUrl';
+import { getPhotoFullDisplayUrl, getWebResolutionUrl, resolveMediaUrl } from '../../lib/photoDisplayUrl';
 import {
   buildDigitalPackageCartItem,
   fetchStorePackages,
@@ -1908,7 +1908,15 @@ const GalleryView = () => {
         data-cover-text-scale={isMobileViewport ? 'compact' : 'large'}
       >
         {(() => {
-          const activePhotoUrl = collection.cover_url || (collection.photos?.[0]?.web_url);
+          let activePhotoUrl = collection.cover_url || '';
+          if (activePhotoUrl) {
+            activePhotoUrl = resolveMediaUrl(activePhotoUrl);
+            if (activePhotoUrl.includes('/original/')) {
+              activePhotoUrl = activePhotoUrl.replace('/original/', '/web/');
+            }
+          } else {
+            activePhotoUrl = collection.photos?.[0] ? getWebResolutionUrl(collection.photos[0]) : '';
+          }
           const { x: focalX, y: focalY } = getCollectionFocal(collection);
 
           const props = {
@@ -2188,7 +2196,7 @@ const GalleryView = () => {
               favoritedPhotoIds: favoritedPhotos,
               customRowHeight: galleryCustomRowHeight,
               customColumnCount: galleryCustomColumnCount,
-              showFilename: collection?.show_filenames === true,
+              showFilename: false,
               className: 'mt-2',
             };
 

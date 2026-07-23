@@ -4,7 +4,7 @@ import { Download, Heart, Share2, Play, ShoppingBag, ArrowDownToLine } from 'luc
 import { cn } from '../../../../lib/utils';
 import { SmoothMediaImage } from '../../../ui/SmoothMediaImage';
 import { isGalleryVideo } from '../../../../lib/galleryMediaType';
-import { getPhotoVideoPoster, getPhotoVideoSrc, resolveMediaUrl } from '../../../../lib/photoDisplayUrl';
+import { getPhotoVideoPoster, getPhotoVideoSrc, resolveMediaUrl, getWebResolutionUrl } from '../../../../lib/photoDisplayUrl';
 import { PhotoPrivateControls, PhotoPrivateBadge } from '../../ClientExclusiveAccess';
 import {
   BannerBouquetSvg,
@@ -85,7 +85,7 @@ export function MasonryGrid({
     displayPhotos.forEach(photo => {
       if (photo.isPromoBanner) return;
       if (!photo.width || !photo.height) {
-        const src = resolveMediaUrl(photo.watermarked_url || photo.full_url || photo.web_url || photo.thumbnail_url || '');
+        const src = getWebResolutionUrl(photo);
         // Skip dimension probing for video files — use 16:9 fallback
         if (isGalleryVideo(photo)) {
           setDynamicAspectRatios(prev => ({ ...prev, [photo.id]: 16 / 9 }));
@@ -612,7 +612,7 @@ export function MasonryGrid({
   const renderPhotoItem = (photo, index) => {
     const src = isGalleryVideo(photo)
       ? getPhotoVideoSrc(photo)
-      : resolveMediaUrl(photo.watermarked_url || photo.full_url || photo.web_url || photo.thumbnail_url || '');
+      : getWebResolutionUrl(photo);
     const aspectRatio = (photo.width && photo.height)
       ? (photo.width / photo.height)
       : (dynamicAspectRatios[photo.id] || 1.5);

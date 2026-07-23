@@ -31,11 +31,10 @@ export function SmoothMediaImage({
     const push = (url) => {
       if (url && !list.includes(url)) list.push(url);
     };
-    if (thumbSrc && thumbSrc !== src) push(thumbSrc);
     push(src);
     fallbacks.forEach(push);
     return list;
-  }, [src, thumbSrc, fallbackKey]);
+  }, [src, fallbackKey]);
 
   const activeSrc = candidates[srcIndex] || '';
   const shouldLoad = !deferUntilVisible || inView;

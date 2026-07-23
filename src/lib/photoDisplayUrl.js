@@ -272,3 +272,28 @@ export function isGifMedia(photo) {
     photo.filename || photo.full_url || photo.web_url || photo.thumbnail_url || ''
   );
 }
+
+export function getWebResolutionUrl(photo) {
+  if (!photo) return '';
+  if (photo.watermarked_url) {
+    return resolveMediaUrl(photo.watermarked_url);
+  }
+  if (photo.web_url) {
+    return resolveMediaUrl(photo.web_url);
+  }
+  if (photo.full_url) {
+    const resolvedFull = resolveMediaUrl(photo.full_url);
+    if (resolvedFull.includes('/original/')) {
+      return resolvedFull.replace('/original/', '/web/');
+    }
+    return resolvedFull;
+  }
+  if (photo.thumbnail_url) {
+    const resolvedThumb = resolveMediaUrl(photo.thumbnail_url);
+    if (resolvedThumb.includes('/thumb/')) {
+      return resolvedThumb.replace('/thumb/', '/web/');
+    }
+    return resolvedThumb;
+  }
+  return '';
+}
