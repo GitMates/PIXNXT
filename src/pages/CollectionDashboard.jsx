@@ -34,6 +34,7 @@ import '../styles/collectionDashboardTheme.css';
 import '../components/features/CollectionDashboard/Activity/DownloadActivity.css';
 import '../components/features/CollectionDashboard/Activity/FavoriteActivity.css';
 import '../components/features/CollectionDashboard/Activity/StoreOrdersActivity.css';
+import '../components/features/CollectionDashboard/Activity/EmailRegistrationActivity.css';
 import '../components/features/CollectionDashboard/Settings/Settings.css';
 import { ActivityView } from '../components/features/CollectionDashboard/Activity/ActivityView';
 import { DownloadSettings } from '../components/features/CollectionDashboard/Settings/DownloadSettings';
@@ -243,6 +244,7 @@ const CollectionDashboard = () => {
     const [favoriteListDesc, setFavoriteListDesc] = useState('');
     const [favoriteActivity, setFavoriteActivity] = useState([]);
     const [downloadActivity, setDownloadActivity] = useState([]);
+    const [emailRegistrationActivity, setEmailRegistrationActivity] = useState([]);
     const [loadingActivity, setLoadingActivity] = useState(false);
     
     // Store Orders State
@@ -746,6 +748,16 @@ const CollectionDashboard = () => {
         }
     };
 
+    const fetchEmailRegistrationActivity = async () => {
+        if (!collectionId) return;
+        try {
+            const activity = await galleryService.getEmailRegistrationActivity(collectionId);
+            setEmailRegistrationActivity(activity);
+        } catch (err) {
+            console.error('Failed to fetch email registration activity:', err);
+        }
+    };
+
     const fetchStoreOrders = async () => {
         if (!collectionId) return;
         try {
@@ -816,6 +828,7 @@ const CollectionDashboard = () => {
         if (collectionId) {
             fetchFavoriteActivity();
             fetchDownloadActivity();
+            fetchEmailRegistrationActivity();
             fetchStoreOrders();
             fetchReminders();
         }
@@ -1966,6 +1979,7 @@ const CollectionDashboard = () => {
             if (event.data?.type === 'ACTIVITY_UPDATED' && event.data?.collectionId === collectionId) {
                 console.log('Activity update received, refreshing logs...');
                 fetchDownloadActivity();
+                fetchEmailRegistrationActivity();
                 fetchFavoriteActivity();
             }
         };
@@ -3299,6 +3313,7 @@ const CollectionDashboard = () => {
                             storeOrders={storeOrders}
                             storeOrderItems={storeOrderItems}
                             storeOrdersLoading={storeOrdersLoading}
+                            emailRegistrationActivity={emailRegistrationActivity}
                             favoriteActivitySortMenuRef={favoriteActivitySortMenuRef}
                             favoriteActivityMenuRef={favoriteActivityMenuRef}
                             favoriteDetailToolbarMenuRef={favoriteDetailToolbarMenuRef}

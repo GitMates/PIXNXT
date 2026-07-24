@@ -1613,6 +1613,22 @@ export const galleryService = {
         }
         session = fetchSession;
         console.log('New session created and retrieved:', session);
+
+        // Log registration for Email Registration activity tab (best-effort)
+        try {
+          const { data: col } = await supabase
+            .from('collections')
+            .select('photographer_id, user_id')
+            .eq('id', collectionId)
+            .maybeSingle();
+          await this.logActivity(collectionId, 'email_register', {
+            email,
+            photographerId: col?.photographer_id || col?.user_id,
+            metadata: { source: 'Gallery Registration', type: 'email' },
+          });
+        } catch (logErr) {
+          console.warn('email_register activity log skipped:', logErr);
+        }
       }
 
       // Visitor flows: only create "My Favorites" when this session has no lists yet.
@@ -2424,6 +2440,55 @@ export const galleryService = {
     } catch (e) {
       console.error('Error getting PIN usage count:', e);
       return 0;
+    }
+  },
+
+  /**
+   * Registered visitor emails for a collection (Email Registration activity tab).
+   * Source: client_sessions, one row per unique email (earliest registration).
+   */
+  async getEmailRegistrationActivity(collectionId) {
+    if (!collectionId) return [];
+    try {
+      const { data, error } = await supabase
+        .from('client_sessions')
+        .select('id, visitor_email, created_at, access_level, download_count')
+        .eq('collection_id', collectionId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('getEmailRegistrationActivity error:', error);
+        throw error;
+      }
+
+      const byEmail = new Map();
+      for (const row of data || []) {
+        const email = String(row.visitor_email || '').trim().toLowerCase();
+        if (!email) continue;
+        const existing = byEmail.get(email);
+        if (!existing) {
+          byEmail.set(email, row);
+          continue;
+        }
+        // Keep the earliest registration time
+        if (new Date(row.created_at).getTime() < new Date(existing.created_at).getTime()) {
+          byEmail.set(email, row);
+        }
+      }
+
+      return [...byEmail.values()]
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .map((row) => ({
+          id: row.id,
+          email: row.visitor_email,
+          date: row.created_at,
+          accessLevel: row.access_level || 'guest',
+          downloadCount: Number(row.download_count) || 0,
+          source: 'Gallery Registration',
+        }));
+    } catch (err) {
+      console.error('Error in getEmailRegistrationActivity:', err);
+      return [];
     }
   },
 

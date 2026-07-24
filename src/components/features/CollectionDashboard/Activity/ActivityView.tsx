@@ -82,6 +82,7 @@ export interface ActivityViewProps {
   storeOrders?: any[];
   storeOrderItems?: any[];
   storeOrdersLoading?: boolean;
+  emailRegistrationActivity?: any[];
 }
 
 const getNumericPrice = (val: any): number => {
@@ -161,11 +162,13 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
   sortedFavoriteActivity,
   storeOrders = [],
   storeOrderItems = [],
-  storeOrdersLoading = false
+  storeOrdersLoading = false,
+  emailRegistrationActivity = [],
 }) => {
   const [downloadActivityMenuOpen, setDownloadActivityMenuOpen] = useState(false);
   const [expandedStoreOrderId, setExpandedStoreOrderId] = useState<string | null>(null);
   const [storeGlobalSearch, setStoreGlobalSearch] = useState<string>('');
+  const [emailRegSearch, setEmailRegSearch] = useState<string>('');
 
   const formatDate = (dateStr: string) => {
     if (!dateStr) return '—';
@@ -981,6 +984,80 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
                                                     document.body
                                                   )
                                                 : null}
+                                        </div>
+                                    ) : activeActivitySubTab === 'email' && (emailRegistrationActivity || []).length > 0 ? (
+                                        <div className="email-registration-layout">
+                                            <div className="email-registration-search">
+                                                <div className="email-registration-search-field">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+                                                    <input
+                                                        type="search"
+                                                        className="neu-inset"
+                                                        value={emailRegSearch}
+                                                        onChange={(e) => setEmailRegSearch(e.target.value)}
+                                                        placeholder="Search registered emails…"
+                                                    />
+                                                </div>
+                                            </div>
+                                            {(() => {
+                                                const filtered = (emailRegistrationActivity || []).filter((row: any) => {
+                                                    if (!emailRegSearch.trim()) return true;
+                                                    const q = emailRegSearch.toLowerCase();
+                                                    return String(row.email || '').toLowerCase().includes(q)
+                                                        || String(row.source || '').toLowerCase().includes(q)
+                                                        || String(row.accessLevel || '').toLowerCase().includes(q);
+                                                });
+
+                                                if (filtered.length === 0) {
+                                                    return (
+                                                        <div className="email-registration-empty-search">
+                                                            No registered emails match your search.
+                                                        </div>
+                                                    );
+                                                }
+
+                                                return (
+                                                    <div className="email-registration-table-scroll">
+                                                        <div className="activity-list-container email-registration-table-wrap">
+                                                            <div className="activity-table-header email-reg">
+                                                                <div className="activity-col-index">#</div>
+                                                                <div className="activity-col-email">Email</div>
+                                                                <div className="activity-col-access">Access</div>
+                                                                <div className="activity-col-source">Source</div>
+                                                                <div className="activity-col-date-registered">Date Registered</div>
+                                                            </div>
+                                                            <div className="activity-table-body">
+                                                                {filtered.map((row: any, index: number) => (
+                                                                    <div key={row.id} className="activity-row email-reg">
+                                                                        <div className="activity-col-index">{index + 1}</div>
+                                                                        <div className="activity-col-email" title={row.email}>
+                                                                            {row.email || '—'}
+                                                                        </div>
+                                                                        <div className="activity-col-access">
+                                                                            <span className="email-access-badge">
+                                                                                {row.accessLevel || 'guest'}
+                                                                            </span>
+                                                                        </div>
+                                                                        <div className="activity-col-source">
+                                                                            {row.source || 'Gallery Registration'}
+                                                                        </div>
+                                                                        <div className="activity-col-date-registered">
+                                                                            {new Date(row.date).toLocaleString('en-US', {
+                                                                                month: 'short',
+                                                                                day: 'numeric',
+                                                                                year: 'numeric',
+                                                                                hour: 'numeric',
+                                                                                minute: '2-digit',
+                                                                                hour12: true,
+                                                                            }).replace(',', ' -')}
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })()}
                                         </div>
                                     ) : (
                                         <div className="cd-empty-state-content">
