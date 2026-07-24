@@ -5,6 +5,7 @@ import {
   getPhotoDownloadUrlCandidates,
   isVideoMedia,
 } from './photoDisplayUrl';
+import { getStoreOriginalDownloadUrlCandidates } from './storePhotoQuality';
 import { getProxiedMediaFetchUrl } from './r2MediaProxy';
 
 const DEFAULT_FETCH_TIMEOUT_MS = 120_000;
@@ -123,9 +124,19 @@ function isLikelyImageUrl(url: string): boolean {
   return /\.(jpe?g|png|gif|webp|bmp|heic|heif)(\?|#|$)/i.test(url) || !/\./.test(url.split('/').pop() || '');
 }
 
+export interface FetchPhotoBlobOptions {
+  /** Prefer full/original CDN URL first (free gallery / social downloads). Default keeps existing candidate order. */
+  preferOriginal?: boolean;
+}
+
 /** Try each CDN URL until one succeeds (fetch, then canvas for images). */
-export async function fetchPhotoBlob(photo: BulkDownloadPhoto): Promise<Blob | null> {
-  const candidates = getPhotoDownloadUrlCandidates(photo);
+export async function fetchPhotoBlob(
+  photo: BulkDownloadPhoto,
+  options: FetchPhotoBlobOptions = {}
+): Promise<Blob | null> {
+  const candidates = options.preferOriginal
+    ? getStoreOriginalDownloadUrlCandidates(photo)
+    : getPhotoDownloadUrlCandidates(photo);
   const urls =
     candidates.length > 0
       ? candidates
@@ -158,15 +169,17 @@ export interface DownloadPhotosToZipOptions {
   concurrency?: number;
   onProgress?: ProgressCallback;
   isStale?: () => boolean;
+  preferOriginal?: boolean;
 }
 
 async function addPhotoToZip(
   zip: JSZip,
   photo: BulkDownloadPhoto,
   index: number,
-  usedNames: Set<string>
+  usedNames: Set<string>,
+  preferOriginal = false
 ): Promise<boolean> {
-  const blob = await fetchPhotoBlob(photo);
+  const blob = await fetchPhotoBlob(photo, { preferOriginal });
   if (!blob?.size) return false;
   const name = getPhotoDownloadFilename(photo, index, usedNames);
   zip.file(name, blob);
@@ -181,7 +194,7 @@ export async function downloadPhotosToZip(
   photos: BulkDownloadPhoto[],
   options: DownloadPhotosToZipOptions = {}
 ): Promise<DownloadZipResult> {
-  const { concurrency = DEFAULT_DOWNLOAD_CONCURRENCY, onProgress, isStale } = options;
+  const { concurrency = DEFAULT_DOWNLOAD_CONCURRENCY, onProgress, isStale, preferOriginal = false } = options;
 
   if (!photos.length) {
     return { fileCount: 0, requested: 0, failed: 0 };
@@ -201,7 +214,7 @@ export async function downloadPhotosToZip(
       chunk.map(async (photo, chunkIndex) => {
         const index = i + chunkIndex;
         try {
-          const ok = await addPhotoToZip(zip, photo, index, usedNames);
+          const ok = await addPhotoToZip(zip, photo, index, usedNames, preferOriginal);
           if (!ok) failedIndices.push(index);
         } catch (err) {
           console.warn(`Failed to download ${photo.filename || photo.id || index}:`, err);
@@ -220,7 +233,7 @@ export async function downloadPhotosToZip(
       if (isStale?.()) break;
       const photo = photos[index];
       try {
-        const ok = await addPhotoToZip(zip, photo, index, usedNames);
+        const ok = await addPhotoToZip(zip, photo, index, usedNames, preferOriginal);
         if (!ok) stillFailed.push(index);
       } catch (err) {
         console.warn(`Retry failed for ${photo.filename || photo.id || index}:`, err);
@@ -245,9 +258,13 @@ export async function downloadPhotosToZip(
 
 /**
  * Download one photo/video as a real file (image or video extension), not a zip.
+ * @param options.preferOriginal — use full/original first (free gallery download when paid digital is off)
  */
-export async function downloadSinglePhotoFile(photo: BulkDownloadPhoto): Promise<void> {
-  const blob = await fetchPhotoBlob(photo);
+export async function downloadSinglePhotoFile(
+  photo: BulkDownloadPhoto,
+  options: FetchPhotoBlobOptions = {}
+): Promise<void> {
+  const blob = await fetchPhotoBlob(photo, options);
   if (!blob) {
     throw new Error('Failed to download this file. Please try again.');
   }
@@ -300,14 +317,18 @@ export async function downloadPhotoFromR2(url: string, filename: string): Promis
 export async function downloadAllPhotosAsZip(
   photos: BulkDownloadPhoto[],
   zipName = 'photos',
-  onProgress?: ProgressCallback
+  onProgress?: ProgressCallback,
+  options: FetchPhotoBlobOptions = {}
 ): Promise<void> {
   if (!photos || photos.length === 0) return;
 
   const zip = new JSZip();
   const folder = zip.folder(zipName)!;
 
-  const result = await downloadPhotosToZip(folder, photos, { onProgress });
+  const result = await downloadPhotosToZip(folder, photos, {
+    onProgress,
+    preferOriginal: options.preferOriginal,
+  });
   if (result.fileCount === 0) {
     throw new Error('Could not download any photos. They may still be processing — try again in a moment.');
   }

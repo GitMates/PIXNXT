@@ -41,6 +41,7 @@ import { ShoppingBag, Heart, X, Check, Upload, Bookmark, ChevronLeft, ChevronRig
 import Lottie from 'lottie-react';
 import paymentSuccessAnimation from '../assets/animations/payment-success.json';
 import './PrintStore.css';
+import { getStoreViewPhotoUrl, toStoreCartPhoto } from '../lib/storePhotoQuality';
 
 export default function PrintStoreApp() {
   const [searchParams] = useSearchParams();
@@ -264,11 +265,7 @@ export default function PrintStoreApp() {
   const [selectedProductType, setSelectedProductType] = useState('');
   const [viewingPhoto, setViewingPhoto] = useState(null); // Photo currently open in lightbox
   const [gallerySelectedPhoto, setGallerySelectedPhoto] = useState(null); // Photo selected from gallery for shop use
-  const gallerySelectedPhotoUrl =
-    gallerySelectedPhoto?.url
-    || gallerySelectedPhoto?.web_url
-    || gallerySelectedPhoto?.thumbnail_url
-    || '';
+  const gallerySelectedPhotoUrl = getStoreViewPhotoUrl(gallerySelectedPhoto);
   const [collectionPhotos, setCollectionPhotos] = useState([]);
 
   const [loading, setLoading] = useState(true);
@@ -315,17 +312,17 @@ export default function PrintStoreApp() {
         if (!raw?.id) return item;
         const match = collectionPhotos.find((p) => p && String(p.id) === String(raw.id));
         if (!match) return item;
-        const hydrated = {
+        const hydrated = toStoreCartPhoto({
           ...raw,
-          url: match.url || match.web_url || match.thumbnail_url || raw.url || '',
+          url: match.web_url || match.url || raw.url || '',
           web_url: match.web_url || match.url || raw.web_url || '',
           thumbnail_url: match.thumbnail_url || match.web_url || match.url || raw.thumbnail_url || '',
-          full_url: match.full_url || match.web_url || match.url || raw.full_url || '',
-          display_url: match.display_url || match.web_url || match.url || raw.display_url || '',
-        };
+          full_url: match.full_url || raw.full_url || match.web_url || match.url || '',
+          display_url: match.web_url || match.display_url || match.url || raw.display_url || '',
+        });
         const before = raw.web_url || raw.thumbnail_url || raw.url || '';
         const after = hydrated.web_url || hydrated.thumbnail_url || hydrated.url || '';
-        if (before === after && (raw.web_url || raw.thumbnail_url)) return item;
+        if (before === after && (raw.web_url || raw.thumbnail_url) && raw.full_url) return item;
         changed = true;
         return {
           ...item,
@@ -416,15 +413,15 @@ export default function PrintStoreApp() {
             .eq('collection_id', collection.id);
 
           if (photosData && photosData.length > 0) {
-            const mappedPhotos = photosData.map(p => ({
+            const mappedPhotos = photosData.map(p => toStoreCartPhoto({
               id: p.id,
               name: p.filename || `Photo`,
               filename: p.filename || '',
-              url: p.full_url || p.web_url || p.thumbnail_url || '',
-              web_url: p.web_url || p.full_url || p.thumbnail_url || '',
-              thumbnail_url: p.thumbnail_url || p.web_url || p.full_url || '',
+              url: p.web_url || p.thumbnail_url || '',
+              web_url: p.web_url || p.thumbnail_url || '',
+              thumbnail_url: p.thumbnail_url || p.web_url || '',
               full_url: p.full_url || p.web_url || p.thumbnail_url || '',
-              display_url: p.web_url || p.full_url || p.thumbnail_url || '',
+              display_url: p.web_url || p.thumbnail_url || '',
               aspectRatio: p.width && p.height ? (p.width > p.height ? '3:2' : '2:3') : '2:3'
             }));
             setCollectionPhotos(mappedPhotos);
@@ -1506,13 +1503,14 @@ export default function PrintStoreApp() {
 
   // Updates the photo inside a digital_download cart item (single photo picker)
   const handleUpdateItemPhoto = (itemId, newPhoto) => {
+    const photo = toStoreCartPhoto(newPhoto) || newPhoto;
     setCartItems((prev) => {
       const updated = prev.map((item) => {
         if (item.id !== itemId) return item;
         return {
           ...item,
-          photo: newPhoto,
-          options: { ...(item.options || {}), photo: newPhoto },
+          photo,
+          options: { ...(item.options || {}), photo },
         };
       });
       try { localStorage.setItem('pixnxt_printstore_cart', JSON.stringify(updated)); } catch (_) {}

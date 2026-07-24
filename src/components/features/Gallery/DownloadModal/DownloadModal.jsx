@@ -477,7 +477,7 @@ export const DownloadModal = ({
         const photo = photosToDownload[0];
         setProgressMonotonic(50);
         setStatusText(preparingStatusText(0, 1));
-        await downloadSinglePhotoFile(photo);
+        await downloadSinglePhotoFile(photo, { preferOriginal: true });
         if (isStale()) return;
         setProgressMonotonic(100);
         setStatusText(preparingStatusText(1, 1, 'save'));
@@ -485,6 +485,7 @@ export const DownloadModal = ({
       } else {
         const zipResult = await downloadPhotosToZip(zip, photosToDownload, {
           concurrency: DEFAULT_DOWNLOAD_CONCURRENCY,
+          preferOriginal: true,
           isStale,
           onProgress: (done) => {
             completedCountRef.current = done;
