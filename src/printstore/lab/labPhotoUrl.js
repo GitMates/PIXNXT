@@ -30,12 +30,13 @@ export function resolveLabPhotoUrl(photoOption) {
   }
 
   if (typeof photoOption === 'object' && !Array.isArray(photoOption)) {
+    // Prefer edited / original for lab production & mail; web is for store viewing only
     const candidates = [
       photoOption.editedPhotoUrl,
-      photoOption.url,
-      photoOption.web_url,
-      photoOption.thumbnail_url,
       photoOption.full_url,
+      photoOption.web_url,
+      photoOption.url,
+      photoOption.thumbnail_url,
       photoOption.display_url,
       photoOption.src,
     ];
@@ -101,6 +102,7 @@ export function buildLabPreviewItem(item) {
       ...photo,
       url,
       editedPhotoUrl: resolveLabPhotoUrl(photo.editedPhotoUrl) || url,
+      full_url: resolveLabPhotoUrl(photo.full_url) || photo.full_url,
       web_url: resolveLabPhotoUrl(photo.web_url) || photo.web_url,
       thumbnail_url: resolveLabPhotoUrl(photo.thumbnail_url) || photo.thumbnail_url,
     };

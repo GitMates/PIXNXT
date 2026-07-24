@@ -237,7 +237,13 @@ export default function ProductCustomizer({
   const selectedPhotoIds = items.map(item => item.photo?.id).filter(Boolean);
 
   // Helper: prefer the user's cropped edit over the raw gallery URL
-  const getPhotoSrc = (item) => item?.editedPhotoUrl || item?.photo?.url || '';
+  const getPhotoSrc = (item) =>
+    item?.editedPhotoUrl
+    || item?.photo?.editedPhotoUrl
+    || item?.photo?.web_url
+    || item?.photo?.display_url
+    || item?.photo?.url
+    || '';
 
   // Crop Modal State
   const [cropState, setCropState] = useState({

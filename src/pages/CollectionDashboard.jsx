@@ -40,6 +40,8 @@ import '../styles/clientGalleryTheme.css';
 import '../styles/collectionDashboardTheme.css';
 import '../components/features/CollectionDashboard/Activity/DownloadActivity.css';
 import '../components/features/CollectionDashboard/Activity/FavoriteActivity.css';
+import '../components/features/CollectionDashboard/Activity/StoreOrdersActivity.css';
+import '../components/features/CollectionDashboard/Activity/EmailRegistrationActivity.css';
 import '../components/features/CollectionDashboard/Settings/Settings.css';
 import { ActivityView } from '../components/features/CollectionDashboard/Activity/ActivityView';
 import { DownloadSettings } from '../components/features/CollectionDashboard/Settings/DownloadSettings';
@@ -261,6 +263,7 @@ const CollectionDashboard = () => {
     const [favoriteListDesc, setFavoriteListDesc] = useState('');
     const [favoriteActivity, setFavoriteActivity] = useState([]);
     const [downloadActivity, setDownloadActivity] = useState([]);
+    const [emailRegistrationActivity, setEmailRegistrationActivity] = useState([]);
     const [loadingActivity, setLoadingActivity] = useState(false);
     
     // Store Orders State
@@ -400,7 +403,13 @@ const CollectionDashboard = () => {
     }, [selectedDownloadId, downloadActivity, photos, sets]);
 
     const filteredDownloadActivityForTab = useMemo(
-        () => downloadActivity.filter((a) => a.type === activeDownloadActivityTab),
+        () =>
+            downloadActivity.filter((a) => {
+                if (activeDownloadActivityTab === 'photo') {
+                    return a.type === 'photo' || a.type === 'single';
+                }
+                return a.type === activeDownloadActivityTab;
+            }),
         [downloadActivity, activeDownloadActivityTab]
     );
 
@@ -447,7 +456,11 @@ const CollectionDashboard = () => {
         if (!window.confirm(`Delete all ${items.length} download record(s) on this tab? This cannot be undone.`)) return;
 
         try {
-            await Promise.all(items.map((a) => galleryService.deleteActivity(a.id)));
+            await Promise.all(
+                items
+                    .filter((a) => !String(a.id).startsWith('store-'))
+                    .map((a) => galleryService.deleteActivity(a.id))
+            );
             const deletedIds = new Set(items.map((a) => a.id));
             setDownloadActivity((prev) => prev.filter((a) => !deletedIds.has(a.id)));
             if (selectedDownloadId && deletedIds.has(selectedDownloadId)) {
@@ -601,6 +614,13 @@ const CollectionDashboard = () => {
 
     const handleDeleteActivity = async (id) => {
         try {
+            // Store-derived rows are synthetic (id like "store-…") — remove locally only
+            if (String(id).startsWith('store-')) {
+                setDownloadActivity((prev) => prev.filter((a) => a.id !== id));
+                setActiveActivityMenu(null);
+                if (selectedDownloadId === id) setSelectedDownloadId(null);
+                return;
+            }
             await galleryService.deleteActivity(id);
             setDownloadActivity(prev => prev.filter(a => a.id !== id));
             setFavoriteActivity(prev => prev.filter(a => a.id !== id));
@@ -747,6 +767,16 @@ const CollectionDashboard = () => {
         }
     };
 
+    const fetchEmailRegistrationActivity = async () => {
+        if (!collectionId) return;
+        try {
+            const activity = await galleryService.getEmailRegistrationActivity(collectionId);
+            setEmailRegistrationActivity(activity);
+        } catch (err) {
+            console.error('Failed to fetch email registration activity:', err);
+        }
+    };
+
     const fetchStoreOrders = async () => {
         if (!collectionId) return;
         try {
@@ -817,6 +847,7 @@ const CollectionDashboard = () => {
         if (collectionId) {
             fetchFavoriteActivity();
             fetchDownloadActivity();
+            fetchEmailRegistrationActivity();
             fetchStoreOrders();
             fetchReminders();
         }
@@ -2183,6 +2214,7 @@ const CollectionDashboard = () => {
             if (event.data?.type === 'ACTIVITY_UPDATED' && event.data?.collectionId === collectionId) {
                 console.log('Activity update received, refreshing logs...');
                 fetchDownloadActivity();
+                fetchEmailRegistrationActivity();
                 fetchFavoriteActivity();
             }
         };
@@ -3549,6 +3581,7 @@ const CollectionDashboard = () => {
                             storeOrders={storeOrders}
                             storeOrderItems={storeOrderItems}
                             storeOrdersLoading={storeOrdersLoading}
+                            emailRegistrationActivity={emailRegistrationActivity}
                             favoriteActivitySortMenuRef={favoriteActivitySortMenuRef}
                             favoriteActivityMenuRef={favoriteActivityMenuRef}
                             favoriteDetailToolbarMenuRef={favoriteDetailToolbarMenuRef}

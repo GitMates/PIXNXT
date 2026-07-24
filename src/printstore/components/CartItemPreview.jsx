@@ -21,11 +21,11 @@ export default function CartItemPreview({ item, collectionPhotos = [], compact =
   const getPhotoSrc = () =>
     item.editedPhotoUrl
     || item.photo?.editedPhotoUrl
-    || item.photo?.url
     || item.photo?.web_url
-    || item.photo?.thumbnail_url
-    || item.photo?.full_url
     || item.photo?.display_url
+    || item.photo?.thumbnail_url
+    || item.photo?.url
+    || item.photo?.full_url
     || (typeof item.photo === 'string' ? item.photo : '');
 
   const resolvePackagePhotos = () => {
