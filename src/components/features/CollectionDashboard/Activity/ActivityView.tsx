@@ -588,244 +588,260 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
                                         </div>
                                      ) : activeActivitySubTab === 'store' ? (
                                         (storeOrders || []).length === 0 ? (
-                                            <div className="cd-empty-state-content" style={{ padding: '48px 24px', textAlign: 'center' }}>
-                                                <div className="cd-empty-state-illustration" style={{ marginBottom: '24px' }}>
+                                            <div className="cd-empty-state-content">
+                                                <div className="cd-empty-state-illustration">
                                                     <svg width="200" height="140" viewBox="0 0 200 140" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                                                         <rect x="40" y="40" width="120" height="80" rx="6" fill="#F8FAFB" stroke="#ddd" strokeWidth="1.5" />
-                                                        <circle cx="100" cy="75" r="18" fill="#fff" stroke="#00c0a3" strokeWidth="1.5" />
-                                                        <path d="M92 75h16M100 67v16" stroke="#00c0a3" strokeWidth="2" strokeLinecap="round" />
+                                                        <circle cx="100" cy="75" r="18" fill="#fff" stroke="#111" strokeWidth="1.5" />
+                                                        <path d="M92 75h16M100 67v16" stroke="#111" strokeWidth="2" strokeLinecap="round" />
                                                     </svg>
                                                 </div>
                                                 <h3 className="cd-empty-state-title">No store orders yet</h3>
                                                 <p className="cd-empty-state-text">When clients place orders from your store, they will appear here.</p>
                                             </div>
                                         ) : (
-                                            <div style={{ padding: '24px' }}>
-                                                {/* Global Search Bar */}
-                                                <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'flex-start' }}>
-                                                    <div style={{ position: 'relative', width: '100%', maxWidth: '480px' }}>
-                                                        <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#71717A', display: 'flex', alignItems: 'center' }}>
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                                                        </span>
+                                            <div className="store-orders-activity-layout">
+                                                <div className="store-orders-search">
+                                                    <div className="store-orders-search-field">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
                                                         <input
                                                             type="search"
                                                             value={storeGlobalSearch}
                                                             onChange={(e) => setStoreGlobalSearch(e.target.value)}
                                                             placeholder="Search for name, order id, time and etc.."
-                                                            className="neu-inset"
-                                                            style={{
-                                                                height: '40px',
-                                                                width: '100%',
-                                                                borderRadius: '9999px',
-                                                                border: 'none',
-                                                                paddingLeft: '42px',
-                                                                paddingRight: '16px',
-                                                                fontSize: '14px',
-                                                                color: '#1a1a1a',
-                                                                outline: 'none',
-                                                                backgroundColor: 'oklch(0.952 0.005 85)',
-                                                                boxSizing: 'border-box'
-                                                            }}
                                                         />
                                                     </div>
                                                 </div>
 
-                                                <div className="store-dashboard-table-container" style={{ overflowX: 'auto', backgroundColor: '#fff', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
-                                                    <table className="store-dashboard-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                                                        <thead>
-                                                            <tr style={{ borderBottom: '1px solid #f1f5f9', background: '#f8fafc' }}>
-                                                                <th style={{ padding: '14px 16px', fontWeight: '600', fontSize: '11px', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Order ID</th>
-                                                                <th style={{ padding: '14px 16px', fontWeight: '600', fontSize: '11px', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Status</th>
-                                                                <th style={{ padding: '14px 16px', fontWeight: '600', fontSize: '11px', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Customer</th>
-                                                                <th style={{ padding: '14px 16px', fontWeight: '600', fontSize: '11px', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Contact</th>
-                                                                <th style={{ padding: '14px 16px', fontWeight: '600', fontSize: '11px', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Date</th>
-                                                                <th style={{ padding: '14px 16px', fontWeight: '600', fontSize: '11px', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Time</th>
-                                                                <th style={{ padding: '14px 16px', fontWeight: '600', fontSize: '11px', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Items</th>
-                                                                <th style={{ padding: '14px 16px', fontWeight: '600', fontSize: '11px', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>Amount</th>
-                                                                <th style={{ padding: '14px 16px', fontWeight: '600', fontSize: '11px', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Action</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            {(() => {
-                                                                const filtered = (storeOrders || []).filter(order => {
-                                                                    if (!storeGlobalSearch.trim()) return true;
-                                                                    const q = storeGlobalSearch.toLowerCase();
-                                                                    const shortId = order.id ? `#${order.id.split('-')[0].toUpperCase()}` : '';
-                                                                    const fullId = order.id ? order.id.toLowerCase() : '';
-                                                                    const name = order.customer_name ? order.customer_name.toLowerCase() : '';
-                                                                    const email = order.customer_email ? order.customer_email.toLowerCase() : '';
-                                                                    const phone = order.customer_phone ? order.customer_phone.toLowerCase() : '';
-                                                                    return (
-                                                                        shortId.toLowerCase().includes(q) ||
-                                                                        fullId.includes(q) ||
-                                                                        name.includes(q) ||
-                                                                        email.includes(q) ||
-                                                                        phone.includes(q)
-                                                                    );
-                                                                });
+                                                {(() => {
+                                                    const filtered = (storeOrders || []).filter((order: any) => {
+                                                        if (!storeGlobalSearch.trim()) return true;
+                                                        const q = storeGlobalSearch.toLowerCase();
+                                                        const shortId = order.id ? `#${order.id.split('-')[0].toUpperCase()}` : '';
+                                                        const fullId = order.id ? order.id.toLowerCase() : '';
+                                                        const name = order.customer_name ? order.customer_name.toLowerCase() : '';
+                                                        const email = order.customer_email ? order.customer_email.toLowerCase() : '';
+                                                        const phone = order.customer_phone ? order.customer_phone.toLowerCase() : '';
+                                                        return (
+                                                            shortId.toLowerCase().includes(q) ||
+                                                            fullId.includes(q) ||
+                                                            name.includes(q) ||
+                                                            email.includes(q) ||
+                                                            phone.includes(q)
+                                                        );
+                                                    });
 
-                                                                if (filtered.length === 0) {
-                                                                    return (
-                                                                        <tr>
-                                                                            <td colSpan={9} style={{ padding: '24px', textAlign: 'center', color: '#64748b' }}>
-                                                                                No orders found matching search criteria.
-                                                                            </td>
-                                                                        </tr>
-                                                                    );
-                                                                }
+                                                    if (filtered.length === 0) {
+                                                        return (
+                                                            <div className="store-orders-empty-search">
+                                                                No orders found matching search criteria.
+                                                            </div>
+                                                        );
+                                                    }
 
-                                                                return filtered.map((order: any) => {
+                                                    return (
+                                                        <div className="store-orders-table-scroll">
+                                                        <div className="activity-list-container store-orders-table-wrap">
+                                                            <div className="activity-table-header store">
+                                                                <div className="activity-col-order-id">Order ID</div>
+                                                                <div className="activity-col-status">Status</div>
+                                                                <div className="activity-col-customer">Customer</div>
+                                                                <div className="activity-col-contact">Contact</div>
+                                                                <div className="activity-col-date">Date</div>
+                                                                <div className="activity-col-time">Time</div>
+                                                                <div className="activity-col-items">Items</div>
+                                                                <div className="activity-col-amount">Amount</div>
+                                                                <div className="activity-col-actions">Action</div>
+                                                            </div>
+                                                            <div className="activity-table-body">
+                                                                {filtered.map((order: any) => {
                                                                     const isExpanded = expandedStoreOrderId === order.id;
                                                                     const shortId = order.id ? `#${order.id.split('-')[0].toUpperCase()}` : '';
                                                                     const items = (storeOrderItems || []).filter((item: any) => item.order_id === order.id);
                                                                     const itemCount = items.reduce((sum: number, item: any) => sum + (item.quantity || 1), 0);
+                                                                    const statusClass = `status-${String(order.status || 'pending').toLowerCase()}`;
 
                                                                     return (
                                                                         <React.Fragment key={order.id}>
-                                                                            <tr 
-                                                                                style={{ borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }} 
-                                                                                onClick={() => setExpandedStoreOrderId(isExpanded ? null : order.id)}
-                                                                                className="order-main-row"
+                                                                            <div
+                                                                                className={`activity-row store${isExpanded ? ' store-row-selected' : ''}`}
+                                                                                onClick={(e) => {
+                                                                                    const next = isExpanded ? null : order.id;
+                                                                                    setExpandedStoreOrderId(next);
+                                                                                    if (next) {
+                                                                                        const scroller = (e.currentTarget as HTMLElement).closest('.store-orders-table-scroll') as HTMLElement | null;
+                                                                                        if (scroller) scroller.scrollLeft = 0;
+                                                                                    }
+                                                                                }}
                                                                             >
-                                                                                <td style={{ padding: '14px 16px', fontWeight: '600', color: '#0f172a' }}>{shortId}</td>
-                                                                                <td style={{ padding: '14px 16px' }}>
-                                                                                    <span className={`order-status-badge status-${order.status}`} style={{
-                                                                                        display: 'inline-block',
-                                                                                        padding: '4px 8px',
-                                                                                        borderRadius: '9999px',
-                                                                                        fontSize: '11px',
-                                                                                        fontWeight: '600',
-                                                                                        textTransform: 'uppercase',
-                                                                                        letterSpacing: '0.05em'
-                                                                                    }}>
-                                                                                        {order.status?.replace('_', ' ')}
+                                                                                <div className="activity-col-order-id">{shortId}</div>
+                                                                                <div className="activity-col-status">
+                                                                                    <span className={`store-order-status-badge ${statusClass}`}>
+                                                                                        {String(order.status || 'pending').replace(/_/g, ' ')}
                                                                                     </span>
-                                                                                </td>
-                                                                                <td style={{ padding: '14px 16px', color: '#334155' }}>{order.customer_name || '—'}</td>
-                                                                                <td style={{ padding: '14px 16px', color: '#64748b', fontSize: '13px' }}>
-                                                                                    {order.customer_email || '—'}
-                                                                                </td>
-                                                                                <td style={{ padding: '14px 16px', color: '#334155', whiteSpace: 'nowrap' }}>{formatDate(order.created_at)}</td>
-                                                                                <td style={{ padding: '14px 16px', color: '#64748b', whiteSpace: 'nowrap' }}>{formatTime(order.created_at)}</td>
-                                                                                <td style={{ padding: '14px 16px', textAlign: 'center', color: '#334155' }}>{itemCount}</td>
-                                                                                <td style={{ padding: '14px 16px', textAlign: 'right', fontWeight: '600', color: '#0f172a' }}>₹{safeFormatPrice(order.total)}</td>
-                                                                                <td style={{ padding: '14px 16px', textAlign: 'center' }}>
-                                                                                    <button 
-                                                                                        onClick={(e) => { e.stopPropagation(); setExpandedStoreOrderId(isExpanded ? null : order.id); }}
-                                                                                        style={{
-                                                                                            padding: '6px 12px',
-                                                                                            borderRadius: '9999px',
-                                                                                            border: '1px solid #e2e8f0',
-                                                                                            background: '#fff',
-                                                                                            fontSize: '12px',
-                                                                                            fontWeight: '500',
-                                                                                            color: '#475569',
-                                                                                            cursor: 'pointer'
+                                                                                </div>
+                                                                                <div className="activity-col-customer">{order.customer_name || '—'}</div>
+                                                                                <div className="activity-col-contact">{order.customer_email || '—'}</div>
+                                                                                <div className="activity-col-date">{formatDate(order.created_at)}</div>
+                                                                                <div className="activity-col-time">{formatTime(order.created_at)}</div>
+                                                                                <div className="activity-col-items">{itemCount}</div>
+                                                                                <div className="activity-col-amount">₹{safeFormatPrice(order.total)}</div>
+                                                                                <div className="activity-col-actions">
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        className="store-order-view-btn"
+                                                                                        onClick={(e) => {
+                                                                                            e.stopPropagation();
+                                                                                            const next = isExpanded ? null : order.id;
+                                                                                            setExpandedStoreOrderId(next);
+                                                                                            if (next) {
+                                                                                                const scroller = (e.currentTarget as HTMLElement).closest('.store-orders-table-scroll') as HTMLElement | null;
+                                                                                                if (scroller) scroller.scrollLeft = 0;
+                                                                                            }
                                                                                         }}
                                                                                     >
                                                                                         {isExpanded ? 'Hide' : 'View'}
                                                                                     </button>
-                                                                                </td>
-                                                                            </tr>
+                                                                                </div>
+                                                                            </div>
 
                                                                             {isExpanded && (
-                                                                                <tr style={{ backgroundColor: '#f8fafc' }}>
-                                                                                    <td colSpan={9} style={{ padding: '24px', borderBottom: '1px solid #f1f5f9' }}>
-                                                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                                                                            {/* Shipping Info Card */}
-                                                                                            <div style={{ background: '#fff', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                                                                                                <h4 style={{ margin: '0 0 12px 0', fontSize: '12px', fontWeight: '600', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Shipping Details</h4>
-                                                                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-                                                                                                    <div>
-                                                                                                        <span style={{ display: 'block', fontSize: '10px', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>Shipping Method</span>
-                                                                                                        <span style={{ fontSize: '13px', color: '#334155', fontWeight: '500' }}>{order.shipping_method || 'India Ground Shipping'}</span>
-                                                                                                    </div>
-                                                                                                    <div>
-                                                                                                        <span style={{ display: 'block', fontSize: '10px', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>Tracking Info</span>
-                                                                                                        <span style={{ fontSize: '13px', color: '#334155', fontFamily: 'monospace' }}>{order.payment_intent_id || '—'}</span>
-                                                                                                    </div>
-                                                                                                    <div>
-                                                                                                        <span style={{ display: 'block', fontSize: '10px', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>Delivery Address</span>
-                                                                                                        <span style={{ fontSize: '13px', color: '#334155', lineHeight: '1.4', display: 'block' }}>
-                                                                                                            {order.customer_name || '—'}<br />
-                                                                                                            {order.shipping_address?.address || '—'}, {order.shipping_address?.city || ''}<br />
-                                                                                                            {order.shipping_address?.zip || ''}, {order.shipping_address?.country || 'India'}
-                                                                                                        </span>
-                                                                                                    </div>
-                                                                                                </div>
+                                                                                <div
+                                                                                    className="store-order-detail"
+                                                                                    onClick={(e) => e.stopPropagation()}
+                                                                                >
+                                                                                    <div className="store-order-detail-inner">
+                                                                                    <div className="store-order-detail-card">
+                                                                                        <h4 className="store-order-detail-title">Shipping Details</h4>
+                                                                                        <div className="store-order-detail-grid">
+                                                                                            <div className="store-order-detail-field">
+                                                                                                <span className="store-order-detail-label">Shipping Method</span>
+                                                                                                <span className="store-order-detail-value">{order.shipping_method || 'India Ground Shipping'}</span>
                                                                                             </div>
-
-                                                                                            {/* Items detail list */}
-                                                                                            <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-                                                                                                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
-                                                                                                    <thead>
-                                                                                                        <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                                                                                                            <th style={{ padding: '10px 16px', color: '#64748b', fontWeight: '600' }}>Item</th>
-                                                                                                            <th style={{ padding: '10px 16px', color: '#64748b', fontWeight: '600' }}>Product</th>
-                                                                                                            <th style={{ padding: '10px 16px', color: '#64748b', fontWeight: '600', textAlign: 'center' }}>Qty</th>
-                                                                                                            <th style={{ padding: '10px 16px', color: '#64748b', fontWeight: '600', textAlign: 'right' }}>Price</th>
-                                                                                                        </tr>
-                                                                                                    </thead>
-                                                                                                    <tbody>
-                                                                                                        {items.map((item: any, idx: number) => {
-                                                                                                            const opt = item.options || {};
-                                                                                                            const photoUrl = opt.photo?.url || (opt.photos && opt.photos[0]?.url) || '';
-                                                                                                            return (
-                                                                                                                <tr key={item.id || idx} style={{ borderBottom: idx < items.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
-                                                                                                                    <td style={{ padding: '12px 16px' }}>
-                                                                                                                        {photoUrl ? (
-                                                                                                                            <img src={photoUrl} alt="Order item" style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #e2e8f0' }} />
-                                                                                                                        ) : (
-                                                                                                                            <div style={{ width: '50px', height: '50px', background: '#f1f5f9', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: '10px' }}>No photo</div>
-                                                                                                                        )}
-                                                                                                                    </td>
-                                                                                                                    <td style={{ padding: '12px 16px' }}>
-                                                                                                                        <div style={{ fontWeight: '600', color: '#334155' }}>{item.product_name}</div>
-                                                                                                                        {opt.size && <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>Size: {typeof opt.size === 'object' ? opt.size.label : opt.size}</div>}
-                                                                                                                        {opt.frame && <div style={{ fontSize: '11px', color: '#64748b' }}>Frame: {typeof opt.frame === 'object' ? (opt.frame.name || opt.frame.label || opt.frame.id) : opt.frame}</div>}
-                                                                                                                        {opt.paper && <div style={{ fontSize: '11px', color: '#64748b' }}>Paper: {typeof opt.paper === 'object' ? (opt.paper.name || opt.paper.label) : opt.paper}</div>}
-                                                                                                                    </td>
-                                                                                                                    <td style={{ padding: '12px 16px', textAlign: 'center', color: '#334155' }}>{item.quantity || 1}</td>
-                                                                                                                    <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: '600', color: '#334155' }}>₹{safeFormatPrice((getNumericPrice(item.unit_price) || getNumericPrice(item.price) || (getNumericPrice(item.subtotal) / (item.quantity || 1))) * (item.quantity || 1))}</td>
-                                                                                                                </tr>
-                                                                                                            );
-                                                                                                        })}
-                                                                                                    </tbody>
-                                                                                                </table>
+                                                                                            <div className="store-order-detail-field">
+                                                                                                <span className="store-order-detail-label">Tracking Info</span>
+                                                                                                <span className="store-order-detail-value store-order-detail-value--mono">
+                                                                                                    {order.payment_intent_id || '—'}
+                                                                                                </span>
+                                                                                            </div>
+                                                                                            <div className="store-order-detail-field">
+                                                                                                <span className="store-order-detail-label">Delivery Address</span>
+                                                                                                <span className="store-order-detail-value">
+                                                                                                    {order.customer_name || '—'}
+                                                                                                    <br />
+                                                                                                    {order.shipping_address?.address || '—'}
+                                                                                                    {order.shipping_address?.city ? `, ${order.shipping_address.city}` : ''}
+                                                                                                    <br />
+                                                                                                    {[order.shipping_address?.zip, order.shipping_address?.country || 'India'].filter(Boolean).join(', ')}
+                                                                                                </span>
                                                                                             </div>
                                                                                         </div>
-                                                                                    </td>
-                                                                                </tr>
+                                                                                    </div>
+
+                                                                                    <div className="store-order-detail-card store-order-detail-card--items">
+                                                                                        <div className="store-order-items-header">
+                                                                                            <div className="store-order-items-col store-order-items-col--thumb">Item</div>
+                                                                                            <div className="store-order-items-col store-order-items-col--product">Product</div>
+                                                                                            <div className="store-order-items-col store-order-items-col--qty">Qty</div>
+                                                                                            <div className="store-order-items-col store-order-items-col--price">Price</div>
+                                                                                        </div>
+                                                                                        <div className="store-order-items-body">
+                                                                                            {items.length === 0 ? (
+                                                                                                <div className="store-order-items-empty">No items on this order.</div>
+                                                                                            ) : items.map((item: any, idx: number) => {
+                                                                                                const opt = item.options || {};
+                                                                                                const photoUrl =
+                                                                                                    opt.photo?.web_url ||
+                                                                                                    opt.photo?.url ||
+                                                                                                    opt.photo?.thumbnail_url ||
+                                                                                                    (opt.photos && (opt.photos[0]?.web_url || opt.photos[0]?.url)) ||
+                                                                                                    '';
+                                                                                                return (
+                                                                                                    <div className="store-order-items-row" key={item.id || idx}>
+                                                                                                        <div className="store-order-items-col store-order-items-col--thumb">
+                                                                                                            {photoUrl ? (
+                                                                                                                <img src={photoUrl} alt="" className="store-order-item-thumb" />
+                                                                                                            ) : (
+                                                                                                                <div className="store-order-item-thumb-empty">No photo</div>
+                                                                                                            )}
+                                                                                                        </div>
+                                                                                                        <div className="store-order-items-col store-order-items-col--product">
+                                                                                                            <div className="store-order-item-name">{item.product_name}</div>
+                                                                                                            {opt.size && (
+                                                                                                                <div className="store-order-item-meta">
+                                                                                                                    Size: {typeof opt.size === 'object' ? opt.size.label : opt.size}
+                                                                                                                </div>
+                                                                                                            )}
+                                                                                                            {opt.frame && (
+                                                                                                                <div className="store-order-item-meta">
+                                                                                                                    Frame: {typeof opt.frame === 'object' ? (opt.frame.name || opt.frame.label || opt.frame.id) : opt.frame}
+                                                                                                                </div>
+                                                                                                            )}
+                                                                                                            {opt.paper && (
+                                                                                                                <div className="store-order-item-meta">
+                                                                                                                    Paper: {typeof opt.paper === 'object' ? (opt.paper.name || opt.paper.label) : opt.paper}
+                                                                                                                </div>
+                                                                                                            )}
+                                                                                                        </div>
+                                                                                                        <div className="store-order-items-col store-order-items-col--qty">
+                                                                                                            {item.quantity || 1}
+                                                                                                        </div>
+                                                                                                        <div className="store-order-items-col store-order-items-col--price">
+                                                                                                            ₹{safeFormatPrice((getNumericPrice(item.unit_price) || getNumericPrice(item.price) || (getNumericPrice(item.subtotal) / (item.quantity || 1))) * (item.quantity || 1))}
+                                                                                                        </div>
+                                                                                                    </div>
+                                                                                                );
+                                                                                            })}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    </div>
+                                                                                </div>
                                                                             )}
                                                                         </React.Fragment>
                                                                     );
-                                                                });
-                                                            })()}
-                                                        </tbody>
-                                                    </table>
-                                                </div>
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                        </div>
+                                                    );
+                                                })()}
                                             </div>
                                         )
                                     ) : activeActivitySubTab === 'download' && filteredDownloadActivityForTab.length > 0 ? (
                                         <div className="download-activity-layout">
-                                            <div className="activity-list-container download-activity-table-wrap">
-                                                <div className="activity-table-header download">
+                                            <div className={`activity-list-container download-activity-table-wrap${activeDownloadActivityTab !== 'gallery' ? ' download-activity-table-wrap--single' : ''}`}>
+                                                <div className={`activity-table-header download${activeDownloadActivityTab !== 'gallery' ? ' download--single' : ''}`}>
                                                     <div className="activity-col-email">Email</div>
-                                                    <div className="activity-col-set activity-col-set-header">
-                                                        <span className="download-activity-set-header-spacer" aria-hidden />
-                                                        <span>Photo Set</span>
-                                                    </div>
-                                                    <div className="activity-col-photos">Photos</div>
-                                                    <div className="activity-col-destination">Saved to</div>
-                                                    <div className="activity-col-pin">PIN</div>
-                                                    <div className="activity-col-date-downloaded">Date Downloaded</div>
+                                                    {activeDownloadActivityTab === 'gallery' ? (
+                                                        <>
+                                                            <div className="activity-col-set activity-col-set-header">
+                                                                <span className="download-activity-set-header-spacer" aria-hidden />
+                                                                <span>Photo Set</span>
+                                                            </div>
+                                                            <div className="activity-col-photos">Photos</div>
+                                                            <div className="activity-col-destination">Saved to</div>
+                                                            <div className="activity-col-pin">PIN</div>
+                                                            <div className="activity-col-date-downloaded">Date Downloaded</div>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <div className="activity-col-set activity-col-set-header">
+                                                                <span className="download-activity-set-header-spacer" aria-hidden />
+                                                                <span>{activeDownloadActivityTab === 'video' ? 'Video' : 'Photo'}</span>
+                                                            </div>
+                                                            <div className="activity-col-quality">Quality</div>
+                                                            <div className="activity-col-destination">Saved to</div>
+                                                            <div className="activity-col-source">Source</div>
+                                                            <div className="activity-col-date-downloaded">Date Downloaded</div>
+                                                        </>
+                                                    )}
                                                     <div className="activity-col-actions"></div>
                                                 </div>
                                                 <div className="activity-table-body">
                                                     {filteredDownloadActivityForTab.map((item, index, array) => (
                                                         <div 
                                                             key={item.id} 
-                                                            className={`activity-row download${selectedDownloadId === item.id ? ' download-row-selected' : ''}`}
+                                                            className={`activity-row download${activeDownloadActivityTab !== 'gallery' ? ' download--single' : ''}${selectedDownloadId === item.id ? ' download-row-selected' : ''}`}
                                                             onClick={() => {
                                                                 setSelectedDownloadId(item.id);
                                                                 setActiveActivityMenu(null);
@@ -841,7 +857,8 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
                                                                     {(() => {
                                                                         const ph = pickDownloadActivityThumbPhoto(item, photos, sets);
                                                                         const thumb = ph?.thumbnail_url || ph?.web_url || ph?.full_url;
-                                                                        const isVideo = /\.(mp4|webm|ogg|mov)$/i.test(ph?.filename || ph?.full_url || '');
+                                                                        const isVideo = activeDownloadActivityTab === 'video'
+                                                                            || /\.(mp4|webm|ogg|mov)$/i.test(ph?.filename || ph?.full_url || item.filename || '');
 
                                                                         if (thumb) {
                                                                             if (isVideo) {
@@ -863,23 +880,49 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
                                                                         );
                                                                     })()}
                                                                 </div>
-                                                                <span className="list-name-link">
-                                                                    {item.setName && item.setName !== 'Unknown Set' 
-                                                                        ? item.setName 
-                                                                        : (sets.find(s => s.id === item.photoSetId)?.name || 'Highlights')}
+                                                                <span className="list-name-link" title={
+                                                                    activeDownloadActivityTab === 'gallery'
+                                                                        ? (item.setName || '')
+                                                                        : (item.filename || '')
+                                                                }>
+                                                                    {activeDownloadActivityTab === 'gallery'
+                                                                        ? (item.setName && item.setName !== 'Unknown Set'
+                                                                            ? item.setName
+                                                                            : (sets.find(s => s.id === item.photoSetId)?.name || 'Highlights'))
+                                                                        : (item.filename
+                                                                            || pickDownloadActivityThumbPhoto(item, photos, sets)?.filename
+                                                                            || (activeDownloadActivityTab === 'video' ? 'Video' : 'Photo'))}
                                                                 </span>
                                                             </div>
-                                                            <div className="activity-col-photos">
-                                                                {countPhotosForDownloadActivity(item, photos, sets)}
-                                                            </div>
-                                                            <div className="activity-col-destination">
-                                                                <span className={`download-destination-badge download-destination-badge--${item.destination === 'google_drive' ? 'drive' : 'local'}`}>
-                                                                    {formatDownloadDestination(item.destination)}
-                                                                </span>
-                                                            </div>
-                                                            <div className="activity-col-pin">
-                                                                {item.pin !== '---' ? item.pin : (item.pinUsed ? 'Yes' : '---')}
-                                                            </div>
+                                                            {activeDownloadActivityTab === 'gallery' ? (
+                                                                <>
+                                                                    <div className="activity-col-photos">
+                                                                        {countPhotosForDownloadActivity(item, photos, sets)}
+                                                                    </div>
+                                                                    <div className="activity-col-destination">
+                                                                        <span className={`download-destination-badge download-destination-badge--${item.destination === 'google_drive' ? 'drive' : item.destination === 'email' ? 'email' : 'local'}`}>
+                                                                            {formatDownloadDestination(item.destination)}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="activity-col-pin">
+                                                                        {item.pin !== '---' ? item.pin : (item.pinUsed ? 'Yes' : '---')}
+                                                                    </div>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <div className="activity-col-quality">
+                                                                        <span className="download-quality-badge">{item.resolution || 'Original'}</span>
+                                                                    </div>
+                                                                    <div className="activity-col-destination">
+                                                                        <span className={`download-destination-badge download-destination-badge--${item.destination === 'google_drive' ? 'drive' : item.destination === 'email' ? 'email' : 'local'}`}>
+                                                                            {formatDownloadDestination(item.destination)}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="activity-col-source">
+                                                                        {item.source || 'Gallery'}
+                                                                    </div>
+                                                                </>
+                                                            )}
                                                             <div className="activity-col-date-downloaded">
                                                                 {new Date(item.date).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }).replace(',', ' -')}
                                                             </div>

@@ -407,12 +407,17 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
           const savedEmail = localStorage.getItem(`pixnxt_fav_email_${collectionId}`) || 'Visitor';
           await galleryService.logActivity(collectionId, 'download', {
             email: savedEmail,
-            photographerId: dashboardState?.collection?.user_id,
+            photographerId: dashboardState?.collection?.user_id || dashboardState?.collection?.photographer_id,
             photoId: photo.id,
+            resolution: 'original',
             metadata: {
               type: photo.media_type === 'video' ? 'video' : 'photo',
-              resolution: 'High Res',
-              source: 'Preview Direct'
+              resolution: 'Original',
+              quality: 'Original',
+              source: 'Social / Gallery',
+              destination: 'local',
+              photoCount: 1,
+              filename: photo.filename || null,
             }
           });
 

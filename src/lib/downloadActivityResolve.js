@@ -1,6 +1,7 @@
 /** Human label for download destination stored in activity_log.metadata.destination */
 export function formatDownloadDestination(destination) {
   if (destination === 'google_drive') return 'Google Drive';
+  if (destination === 'email') return 'Email';
   return 'Local';
 }
 

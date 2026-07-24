@@ -900,12 +900,17 @@ const GalleryView = () => {
         const savedEmail = localStorage.getItem(`pixnxt_fav_email_${collection.id}`) || 'Visitor';
         await galleryService.logActivity(collection.id, 'download', {
           email: savedEmail,
-          photographerId: collection.user_id,
+          photographerId: collection.user_id || collection.photographer_id,
           photoId: photo.id,
+          resolution: 'original',
           metadata: {
             type: photo.media_type === 'video' ? 'video' : 'photo',
-            resolution: 'High Res',
-            source: 'Gallery Direct'
+            resolution: 'Original',
+            quality: 'Original',
+            source: 'Social / Gallery',
+            destination: 'local',
+            photoCount: 1,
+            filename: photo.filename || null,
           }
         });
 

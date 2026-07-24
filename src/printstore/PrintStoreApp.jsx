@@ -42,6 +42,7 @@ import Lottie from 'lottie-react';
 import paymentSuccessAnimation from '../assets/animations/payment-success.json';
 import './PrintStore.css';
 import { getStoreViewPhotoUrl, toStoreCartPhoto } from '../lib/storePhotoQuality';
+import { galleryService } from '../services/gallery.service';
 
 export default function PrintStoreApp() {
   const [searchParams] = useSearchParams();
@@ -1594,6 +1595,44 @@ export default function PrintStoreApp() {
         .insert(orderItemsToInsert);
 
       if (itemsError) throw itemsError;
+
+      // Log digital downloads into collection Download Activity
+      try {
+        const digitalItems = cartItems.filter((i) => DIGITAL.includes(i.productId));
+        for (const item of digitalItems) {
+          const photo = item.photo || item.options?.photo || null;
+          const isAll = item.productId === 'digital_download_all';
+          const isPackage = item.productId === 'digital_package';
+          await galleryService.logActivity(collectionId, 'download', {
+            email: shippingDetails.email,
+            photographerId,
+            photoId: photo?.id || null,
+            resolution: 'original',
+            metadata: {
+              type: isAll || isPackage ? 'gallery' : 'photo',
+              resolution: 'Original',
+              quality: 'Original',
+              source: 'Digital Purchase',
+              destination: 'email',
+              photoCount: isPackage
+                ? Number(item.options?.photo_count || item.size?.label?.match(/\d+/)?.[0] || item.quantity || 1)
+                : isAll
+                  ? null
+                  : 1,
+              filename: photo?.filename || photo?.name || null,
+              setName: isAll ? 'All Photos' : isPackage ? 'Photo Package' : 'Digital Download',
+              orderId: order.id,
+            },
+          });
+        }
+        try {
+          const channel = new BroadcastChannel('pixnxt-gallery-update');
+          channel.postMessage({ type: 'ACTIVITY_UPDATED', collectionId });
+          channel.close();
+        } catch (_) { /* ignore */ }
+      } catch (logErr) {
+        console.warn('Failed to log digital download activity:', logErr);
+      }
 
       // Keep cartItems in React state until payment success UI finishes.
       // Clearing here (or deleting DB cart rows here) causes PaymentPage to

@@ -2127,48 +2127,185 @@ export const galleryService = {
   },
 
   /**
-   * Get download activity for a collection
+   * Get download activity for a collection.
+   * Combines free gallery downloads (activity_log) + paid digital purchase downloads (printstore).
    */
   async getDownloadActivity(collectionId) {
     try {
       console.log('Fetching download activity for collection:', collectionId);
+
+      // Keep select simple — nested photo joins often fail under RLS and return empty.
       const { data, error } = await supabase
         .from('activity_log')
-        .select(`
-          id,
-          event_type,
-          visitor_email,
-          created_at,
-          metadata,
-          resolution,
-          photo:photos!activity_log_photo_id_fkey (
-            id,
-            filename,
-            set_id
-          )
-        `)
+        .select('id, event_type, visitor_email, created_at, metadata, resolution, photo_id')
         .eq('collection_id', collectionId)
         .eq('event_type', 'download')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('activity_log download fetch error:', error);
+        throw error;
+      }
 
-      return data.map(item => ({
-        id: item.id,
-        email: item.visitor_email || 'Unknown visitor',
-        date: item.created_at,
-        type: item.metadata?.type || (item.photo_id ? 'single' : 'gallery'),
-        resolution: item.resolution || item.metadata?.resolution || 'Original',
-        filename: item.photo?.filename || null,
-        photoId: item.photo?.id || null,
-        photoSetId: item.photo?.set_id || null,
-        photoCount: item.metadata?.photoCount ?? null,
-        destination: item.metadata?.destination || 'local',
-        size: item.metadata?.size || null,
-        pinUsed: item.metadata?.pinUsed || false,
-        setName: item.metadata?.setName || null, // Let UI resolve if null
-        pin: item.metadata?.pin || '---',
-      }));
+      const photoIds = [...new Set((data || []).map((row) => row.photo_id).filter(Boolean))];
+      let photosById = {};
+      if (photoIds.length > 0) {
+        const { data: photosData, error: photosErr } = await supabase
+          .from('photos')
+          .select('id, filename, set_id, media_type, thumbnail_url, web_url, full_url')
+          .in('id', photoIds);
+        if (photosErr) {
+          console.warn('download activity photo hydrate failed:', photosErr);
+        } else {
+          photosById = Object.fromEntries((photosData || []).map((p) => [p.id, p]));
+        }
+      }
+
+      const normalizeType = (item, photo) => {
+        const metaType = String(item.metadata?.type || '').toLowerCase();
+        if (metaType === 'gallery' || metaType === 'all' || metaType === 'digital_download_all' || metaType === 'digital_package') {
+          return 'gallery';
+        }
+        if (metaType === 'video') return 'video';
+        if (metaType === 'photo' || metaType === 'single' || metaType === 'single_photo' || metaType === 'digital_download') {
+          return 'photo';
+        }
+
+        const mediaType = String(photo?.media_type || '').toLowerCase();
+        if (mediaType === 'video') return 'video';
+
+        const filename = photo?.filename || item.metadata?.filename || '';
+        if (/\.(mp4|webm|ogg|mov)$/i.test(filename)) return 'video';
+
+        if (item.photo_id || photo?.id || item.metadata?.photoCount === 1) return 'photo';
+        return 'gallery';
+      };
+
+      const formatResolution = (item) => {
+        const raw =
+          item.resolution ||
+          item.metadata?.resolution ||
+          item.metadata?.quality ||
+          'original';
+        const key = String(raw).toLowerCase().replace(/\s+/g, '_');
+        if (key === 'web' || key === 'web_res') return 'Web';
+        if (key === 'full' || key === 'full_res' || key === 'high_res' || key === 'high') return 'Full';
+        if (key === 'original' || key === 'orig' || key === 'hi_res') return 'Original';
+        if (String(raw).toLowerCase() === 'high res') return 'Original';
+        return String(raw);
+      };
+
+      const fromActivityLog = (data || []).map((item) => {
+        const photo = item.photo_id ? photosById[item.photo_id] : null;
+        return {
+          id: item.id,
+          email: item.visitor_email || 'Unknown visitor',
+          date: item.created_at,
+          type: normalizeType(item, photo),
+          resolution: formatResolution(item),
+          filename: photo?.filename || item.metadata?.filename || null,
+          photoId: photo?.id || item.photo_id || null,
+          photoSetId: photo?.set_id || null,
+          photoCount: item.metadata?.photoCount ?? (item.photo_id ? 1 : null),
+          destination: item.metadata?.destination || 'local',
+          size: item.metadata?.size || null,
+          pinUsed: item.metadata?.pinUsed || false,
+          setName: item.metadata?.setName || null,
+          pin: item.metadata?.pin || '---',
+          source: item.metadata?.source || (item.metadata?.destination === 'google_drive' ? 'Google Drive' : 'Gallery'),
+          _origin: 'activity_log',
+        };
+      });
+
+      // Paid digital downloads (store purchases) — also show under Download Activity
+      const fromStore = [];
+      try {
+        const { data: orders, error: ordersErr } = await supabase
+          .from('printstore_orders')
+          .select('id, customer_email, customer_name, created_at, status')
+          .eq('collection_id', collectionId)
+          .order('created_at', { ascending: false });
+
+        if (!ordersErr && orders?.length) {
+          const orderIds = orders.map((o) => o.id);
+          const ordersById = Object.fromEntries(orders.map((o) => [o.id, o]));
+          const { data: items, error: itemsErr } = await supabase
+            .from('printstore_order_items')
+            .select('id, order_id, product_type, product_name, options, quantity')
+            .in('order_id', orderIds)
+            .in('product_type', ['digital_download', 'digital_download_all', 'digital_package']);
+
+          if (!itemsErr && items?.length) {
+            const storePhotoIds = [
+              ...new Set(
+                items
+                  .map((it) => it.options?.photo?.id || it.options?.photo_id)
+                  .filter(Boolean)
+                  .map(String)
+              ),
+            ];
+            if (storePhotoIds.length) {
+              const missing = storePhotoIds.filter((id) => !photosById[id]);
+              if (missing.length) {
+                const { data: morePhotos } = await supabase
+                  .from('photos')
+                  .select('id, filename, set_id, media_type, thumbnail_url, web_url, full_url')
+                  .in('id', missing);
+                (morePhotos || []).forEach((p) => {
+                  photosById[p.id] = p;
+                });
+              }
+            }
+
+            for (const item of items) {
+              const order = ordersById[item.order_id];
+              if (!order) continue;
+              const photoOpt = item.options?.photo || null;
+              const photoId = photoOpt?.id || item.options?.photo_id || null;
+              const photo = photoId ? photosById[photoId] : null;
+              const isAll = item.product_type === 'digital_download_all';
+              const isPackage = item.product_type === 'digital_package';
+              const type = isAll || isPackage ? 'gallery' : 'photo';
+              const filename =
+                photo?.filename ||
+                photoOpt?.filename ||
+                photoOpt?.name ||
+                item.product_name ||
+                null;
+              fromStore.push({
+                id: `store-${item.id}`,
+                email: order.customer_email || order.customer_name || 'Customer',
+                date: order.created_at,
+                type,
+                resolution: 'Original',
+                filename,
+                photoId: photo?.id || photoId || null,
+                photoSetId: photo?.set_id || null,
+                photoCount:
+                  isAll
+                    ? null
+                    : isPackage
+                      ? Number(item.options?.photo_count || item.quantity || 1)
+                      : 1,
+                destination: 'email',
+                size: null,
+                pinUsed: false,
+                setName: isAll ? 'All Photos' : isPackage ? 'Photo Package' : 'Digital Download',
+                pin: '---',
+                source: 'Digital Purchase',
+                _origin: 'printstore',
+              });
+            }
+          }
+        }
+      } catch (storeErr) {
+        console.warn('store digital download activity merge failed:', storeErr);
+      }
+
+      const merged = [...fromActivityLog, ...fromStore].sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
+      return merged;
     } catch (error) {
       console.error('Error in getDownloadActivity:', error);
       return [];
@@ -2214,16 +2351,34 @@ export const galleryService = {
    */
   async logActivity(collectionId, eventType, data = {}) {
     try {
+      let photographerId = data.photographerId || null;
+      if (!photographerId && collectionId) {
+        const { data: col } = await supabase
+          .from('collections')
+          .select('photographer_id, user_id')
+          .eq('id', collectionId)
+          .maybeSingle();
+        photographerId = col?.photographer_id || col?.user_id || null;
+      }
+      if (!photographerId) {
+        console.warn('logActivity skipped: missing photographer_id', { collectionId, eventType });
+        return;
+      }
+
+      const row = {
+        collection_id: collectionId,
+        photographer_id: photographerId,
+        event_type: eventType,
+        visitor_email: data.email || null,
+        photo_id: data.photoId || null,
+        metadata: data.metadata || null,
+      };
+      if (data.resolution) {
+        row.resolution = data.resolution;
+      }
       const { error } = await supabase
         .from('activity_log')
-        .insert([{
-          collection_id: collectionId,
-          photographer_id: data.photographerId || null,
-          event_type: eventType,
-          visitor_email: data.email || null,
-          photo_id: data.photoId || null,
-          metadata: data.metadata || null
-        }]);
+        .insert([row]);
       if (error) throw error;
     } catch (e) {
       console.warn('Failed to log activity:', e);

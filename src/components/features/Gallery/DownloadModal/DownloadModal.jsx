@@ -543,8 +543,9 @@ export const DownloadModal = ({
       try {
         await galleryService.logActivity(collection.id, 'download', {
           email: email.trim(),
-          photographerId: collection.user_id,
+          photographerId: collection.user_id || collection.photographer_id,
           photoId: loggedPhoto?.id,
+          resolution: 'original',
           metadata: {
             type:
               total === 1
@@ -552,12 +553,20 @@ export const DownloadModal = ({
                   ? 'video'
                   : 'photo'
                 : 'gallery',
-            resolution: 'High Res',
+            resolution: 'Original',
+            quality: 'Original',
             destination: effectiveDestination,
+            source:
+              effectiveDestination === 'google_drive'
+                ? 'Google Drive'
+                : total === 1
+                  ? 'Social / Gallery'
+                  : 'Gallery Download',
             pinUsed: !!(collection?.download_pin && pin.length > 0),
             pin: pin.length > 0 ? pin : null,
             size: downloadSize,
             photoCount: photosToDownload.length,
+            filename: loggedPhoto?.filename || null,
             setName:
               selectedSet === 'all'
                 ? 'All Photos'
