@@ -28,6 +28,45 @@
     width: 100%;
 }
 
+/* Single photo / video download results table */
+.download-activity-table-wrap--single .activity-table-header.download--single,
+.download-activity-table-wrap--single .activity-row.download--single {
+    grid-template-columns:
+        minmax(150px, 200px)
+        minmax(220px, 1.4fr)
+        100px
+        130px
+        minmax(120px, 160px)
+        minmax(190px, 1fr)
+        48px !important;
+}
+
+.download-activity-table-wrap .activity-col-quality,
+.download-activity-table-wrap .activity-col-source {
+    font-size: 14px;
+    color: #333;
+}
+
+.download-quality-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    background: #f3f4f6;
+    color: #111;
+    white-space: nowrap;
+}
+
+.download-activity-table-wrap .list-name-link {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+}
+
 .download-activity-table-wrap .activity-table-header.download {
     min-height: 44px;
     font-size: 12px;
@@ -471,6 +510,11 @@
 .download-destination-badge--drive {
     color: #1d4ed8;
     background: #eff6ff;
+}
+
+.download-destination-badge--email {
+    color: #047857;
+    background: #ecfdf5;
 }
 
 .activity-row.download.download-row-selected {

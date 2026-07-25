@@ -1,0 +1,181 @@
+/* Email Registration activity — match Download / Store activity tables */
+
+.email-registration-layout {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.email-registration-search {
+    padding: 8px 28px 20px;
+    box-sizing: border-box;
+}
+
+.email-registration-search-field {
+    position: relative;
+    width: 100%;
+    max-width: 420px;
+}
+
+.email-registration-search-field svg {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #999;
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* Glassy / neumorphic inset search (same as Lab / CG neu-inset) */
+.email-registration-search-field input,
+.email-registration-search-field input.neu-inset {
+    height: 40px;
+    width: 100%;
+    border: none;
+    border-radius: 9999px;
+    padding: 0 16px 0 42px;
+    font-size: 14px;
+    color: #111;
+    outline: none;
+    background-color: oklch(0.952 0.005 85);
+    box-shadow:
+        inset 3px 3px 7px oklch(0.4 0.01 70 / 0.1),
+        inset -3px -3px 7px oklch(1 0.004 85 / 0.85);
+    box-sizing: border-box;
+    font-family: inherit;
+}
+
+.email-registration-search-field input:focus,
+.email-registration-search-field input.neu-inset:focus {
+    background-color: #ffffff;
+    box-shadow:
+        inset 2px 2px 5px oklch(0.4 0.01 70 / 0.08),
+        inset -2px -2px 5px oklch(1 0.004 85 / 0.9),
+        0 0 0 2px oklch(0.26 0.006 60 / 0.12);
+}
+
+.email-registration-search-field input::placeholder {
+    color: #999;
+}
+
+.email-registration-table-scroll {
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    box-sizing: border-box;
+}
+
+.email-registration-table-wrap.activity-list-container {
+    margin-top: 0;
+    width: max-content;
+    min-width: 100%;
+    box-sizing: border-box;
+}
+
+.email-registration-table-wrap .activity-table-header.email-reg,
+.email-registration-table-wrap .activity-row.email-reg {
+    --email-col-gap: 32px;
+    display: grid !important;
+    grid-template-columns:
+        48px
+        280px
+        120px
+        200px
+        220px !important;
+    column-gap: var(--email-col-gap);
+    padding: 14px 28px !important;
+    align-items: center;
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 980px;
+}
+
+.email-registration-table-wrap .activity-table-header.email-reg {
+    min-height: 44px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #999;
+    background: #fff;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.email-registration-table-wrap .activity-row.email-reg {
+    min-height: 56px;
+    font-size: 16px;
+    color: #111;
+    border-bottom: 1px solid #f2f2f2;
+    background: #fff;
+}
+
+.email-registration-table-wrap .activity-row.email-reg:hover {
+    background: #fafafa;
+}
+
+.email-registration-table-wrap .activity-table-body {
+    width: 100%;
+}
+
+.email-registration-table-wrap .activity-table-header.email-reg > [class*='activity-col'],
+.email-registration-table-wrap .activity-row.email-reg > [class*='activity-col'] {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    text-align: left;
+    min-width: 0;
+    width: 100%;
+    padding: 0;
+    box-sizing: border-box;
+    white-space: nowrap;
+}
+
+.email-registration-table-wrap .activity-col-index {
+    font-weight: 500;
+    color: #666;
+    font-size: 15px;
+    font-variant-numeric: tabular-nums;
+}
+
+.email-registration-table-wrap .activity-col-email {
+    font-weight: 400;
+    color: #111;
+    font-size: 16px;
+}
+
+.email-registration-table-wrap .activity-col-date-registered {
+    color: #666;
+    font-size: 15px;
+}
+
+.email-registration-table-wrap .activity-col-source {
+    color: #666;
+    font-size: 15px;
+}
+
+.email-registration-table-wrap .activity-col-access {
+    color: #111;
+    font-size: 15px;
+    text-transform: capitalize;
+}
+
+.email-access-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    background: #f3f4f6;
+    color: #374151;
+}
+
+.email-registration-empty-search {
+    padding: 40px 28px;
+    text-align: center;
+    color: #999;
+    font-size: 14px;
+}

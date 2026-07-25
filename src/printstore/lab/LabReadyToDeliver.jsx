@@ -6,6 +6,7 @@ import {
   User, Check, Eye, ChevronRight, Filter, ChevronLeft, RefreshCw
 } from 'lucide-react';
 import { getShortId } from '../utils/idFormat';
+import LabSearchField from './LabSearchField';
 export default function LabReadyToDeliver() {
   const { orders, refreshOrders } = useLabAuth();
   const navigate = useNavigate();
@@ -53,8 +54,8 @@ export default function LabReadyToDeliver() {
       
       // Pickup Date is either worksheet date or order updated_at + 1 day
       const pickupDateObj = ws?.updated_at ? new Date(ws.updated_at) : new Date(order.updated_at || order.created_at);
-      pickupDateObj.setDate(pickupDateObj.getDate() + 1); // Mock next day pickup
-      pickupDateObj.setHours(10, 0, 0, 0); // standard 10 AM
+      pickupDateObj.setDate(pickupDateObj.getDate() + 1);
+      pickupDateObj.setHours(10, 0, 0, 0);
 
       list.push({
         id: order.id,
@@ -62,9 +63,9 @@ export default function LabReadyToDeliver() {
         order,
         customerName: order.customer_name,
         customerEmail: order.customer_email,
-        courier: ws?.carrier || order.courier_partner || 'Delhivery',
+        courier: ws?.carrier || order.courier_partner || '—',
         pickupDate: pickupDateObj.toISOString(),
-        shelfLocation: order.shelf_location || 'Shelf A-12',
+        shelfLocation: order.shelf_location || '—',
         status: order.status === 'ready_to_ship' ? 'Ready' : 'Dispatched'
       });
     });
@@ -209,7 +210,7 @@ export default function LabReadyToDeliver() {
   const totalPages = Math.ceil(filteredReady.length / itemsPerPage) || 1;
 
   return (
-    <div style={{ padding: '24px 32px', backgroundColor: '#ffffff', minHeight: '100%', fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif", color: '#1e293b', boxSizing: 'border-box' }}>
+    <div style={{ padding: '24px 32px', backgroundColor: '#F9F9F7', minHeight: '100%', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", color: '#1e293b', boxSizing: 'border-box' }}>
       
       {/* Title Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
@@ -217,9 +218,6 @@ export default function LabReadyToDeliver() {
           <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: '0 0 4px 0', color: '#0f172a', textTransform: 'uppercase' }}>
             Ready to Deliver
           </h1>
-          <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
-            Orders packed and ready for pickup
-          </p>
         </div>
 
         <div style={{ display: 'flex', gap: '8px' }}>
@@ -231,11 +229,11 @@ export default function LabReadyToDeliver() {
             disabled={isSubmitting || selectedOrders.length === 0}
             style={{ 
               padding: '8px 16px', 
-              backgroundColor: selectedOrders.length === 0 ? '#cbd5e1' : '#0f766e', 
+              backgroundColor: selectedOrders.length === 0 ? '#cbd5e1' : '#1A1A1A', 
               border: 'none', 
-              borderRadius: '6px', 
-              fontSize: '12.5px', 
-              fontWeight: 'bold', 
+              borderRadius: '9999px',
+                fontSize: '12.5px',
+                fontWeight: '500', 
               color: '#fff', 
               cursor: selectedOrders.length === 0 ? 'not-allowed' : 'pointer', 
               display: 'flex', 
@@ -252,8 +250,8 @@ export default function LabReadyToDeliver() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
         
         {/* Card 1: Ready for Pickup */}
-        <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', display: 'flex', gap: '14px', alignItems: 'center' }}>
-          <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>📦</div>
+        <div style={{ backgroundColor: '#fff', border: '1px solid #ECEAE6', borderRadius: 14, padding: '16px', display: 'flex', gap: '14px', alignItems: 'center' }}>
+          <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}><span style={{ width: 8, height: 8, borderRadius: 9999, background: '#1A1A1A', display: 'block', opacity: 0.35 }} /></div>
           <div>
             <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase', display: 'block' }}>Ready for Pickup</span>
             <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#0f172a', display: 'block', margin: '2px 0' }}>{metrics.ready}</span>
@@ -262,8 +260,8 @@ export default function LabReadyToDeliver() {
         </div>
 
         {/* Card 2: Today's Pickup */}
-        <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', display: 'flex', gap: '14px', alignItems: 'center' }}>
-          <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#ecfdf5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>📅</div>
+        <div style={{ backgroundColor: '#fff', border: '1px solid #ECEAE6', borderRadius: 14, padding: '16px', display: 'flex', gap: '14px', alignItems: 'center' }}>
+          <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#ecfdf5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}><span style={{ width: 8, height: 8, borderRadius: 9999, background: '#1A1A1A', display: 'block', opacity: 0.35 }} /></div>
           <div>
             <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase', display: 'block' }}>Today's Pickup</span>
             <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#10b981', display: 'block', margin: '2px 0' }}>{metrics.today}</span>
@@ -272,8 +270,8 @@ export default function LabReadyToDeliver() {
         </div>
 
         {/* Card 3: Total Ready */}
-        <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', display: 'flex', gap: '14px', alignItems: 'center' }}>
-          <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>🏆</div>
+        <div style={{ backgroundColor: '#fff', border: '1px solid #ECEAE6', borderRadius: 14, padding: '16px', display: 'flex', gap: '14px', alignItems: 'center' }}>
+          <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}><span style={{ width: 8, height: 8, borderRadius: 9999, background: '#1A1A1A', display: 'block', opacity: 0.35 }} /></div>
           <div>
             <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase', display: 'block' }}>Total Ready</span>
             <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#16a34a', display: 'block', margin: '2px 0' }}>{metrics.total}</span>
@@ -282,8 +280,8 @@ export default function LabReadyToDeliver() {
         </div>
 
         {/* Card 4: Avg. Pickup Time */}
-        <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', display: 'flex', gap: '14px', alignItems: 'center' }}>
-          <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#f5f3ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>⚡</div>
+        <div style={{ backgroundColor: '#fff', border: '1px solid #ECEAE6', borderRadius: 14, padding: '16px', display: 'flex', gap: '14px', alignItems: 'center' }}>
+          <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#f5f3ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}><span style={{ width: 8, height: 8, borderRadius: 9999, background: '#1A1A1A', display: 'block', opacity: 0.35 }} /></div>
           <div>
             <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase', display: 'block' }}>Avg. Pickup Time</span>
             <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#7c3aed', display: 'block', margin: '2px 0' }}>{metrics.avgTime}</span>
@@ -294,19 +292,14 @@ export default function LabReadyToDeliver() {
       </div>
 
       {/* Search & Filters row */}
-      <div style={{ display: 'flex', gap: '12px', alignItems: 'center', backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 16px', marginBottom: '20px' }}>
+      <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '20px' }}>
         
         {/* Search */}
-        <div style={{ position: 'relative', flex: 1 }}>
-          <span style={{ position: 'absolute', left: '12px', top: '9px', color: '#94a3b8', fontSize: '13px' }}>🔍</span>
-          <input
-            type="search"
-            placeholder="Search by Order ID, Customer, Courier..."
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
-            style={{ width: '100%', padding: '9px 12px 9px 36px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '13px', outline: 'none' }}
-          />
-        </div>
+        <LabSearchField
+          placeholder="Search by Order ID, Customer, Courier..."
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+        />
 
         {/* Couriers */}
         <select 
@@ -344,7 +337,7 @@ export default function LabReadyToDeliver() {
       </div>
 
       {/* Table */}
-      <div style={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px', overflowX: 'auto', marginBottom: '16px' }}>
+      <div style={{ backgroundColor: '#ffffff', border: '1px solid #ECEAE6', borderRadius: 16, overflowX: 'auto', marginBottom: '16px' }}>
         <table style={{ width: '100%', minWidth: '1200px', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
           <thead>
             <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569', fontWeight: 600 }}>
@@ -392,7 +385,7 @@ export default function LabReadyToDeliver() {
                   </td>
 
                   {/* Order ID */}
-                  <td style={{ padding: '14px 16px', fontWeight: 'bold', color: '#0f766e', fontFamily: 'Courier New, Courier, monospace', whiteSpace: 'nowrap' }}>
+                  <td style={{ padding: '14px 16px', fontWeight: 'bold', color: '#1A1A1A', fontFamily: 'Courier New, Courier, monospace', whiteSpace: 'nowrap' }}>
                     {item.orderNumber}
                   </td>
 
@@ -522,7 +515,7 @@ export default function LabReadyToDeliver() {
                 padding: '6px 12px', 
                 border: '1px solid #cbd5e1', 
                 borderRadius: '6px', 
-                backgroundColor: currentPage === idx + 1 ? '#0f766e' : '#fff', 
+                backgroundColor: currentPage === idx + 1 ? '#1A1A1A' : '#fff', 
                 color: currentPage === idx + 1 ? '#fff' : '#475569', 
                 fontSize: '12px', 
                 fontWeight: 'bold',

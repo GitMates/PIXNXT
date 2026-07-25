@@ -26,6 +26,8 @@ import { GalleryBackToTop } from '../../components/features/Gallery/GalleryBackT
 import { GalleryEmptyGrid } from '../../components/features/Gallery/GalleryEmptyGrid/GalleryEmptyGrid';
 import { smoothScrollToElement, smoothScrollToTop } from '../../lib/smoothGalleryScroll';
 import { getPhotoFullDisplayUrl, getWebResolutionUrl, resolveMediaUrl } from '../../lib/photoDisplayUrl';
+import { getPhotoFullDisplayUrl } from '../../lib/photoDisplayUrl';
+import { getStoreViewPhotoUrl, toStoreCartPhoto } from '../../lib/storePhotoQuality';
 import {
   buildDigitalPackageCartItem,
   fetchStorePackages,
@@ -1003,17 +1005,23 @@ const GalleryView = () => {
         // Single photo: download immediately from Cloudflare R2 if no auth required
         const watermarkOptions = getWatermarkOptions();
         await downloadSinglePhotoFile(photo, watermarkOptions);
+        await downloadSinglePhotoFile(photo, { preferOriginal: true });
 
         // Log activity for direct download
         const savedEmail = localStorage.getItem(`pixnxt_fav_email_${collection.id}`) || 'Visitor';
         await galleryService.logActivity(collection.id, 'download', {
           email: savedEmail,
-          photographerId: collection.user_id,
+          photographerId: collection.user_id || collection.photographer_id,
           photoId: photo.id,
+          resolution: 'original',
           metadata: {
             type: photo.media_type === 'video' ? 'video' : 'photo',
-            resolution: 'High Res',
-            source: 'Gallery Direct'
+            resolution: 'Original',
+            quality: 'Original',
+            source: 'Social / Gallery',
+            destination: 'local',
+            photoCount: 1,
+            filename: photo.filename || null,
           }
         });
 
@@ -2626,7 +2634,7 @@ const GalleryView = () => {
           || collectionPhotos[0]
           || null;
         const selectedShopUrl = selectedShopPhoto
-          ? (getPhotoFullDisplayUrl(selectedShopPhoto) || selectedShopPhoto.url || selectedShopPhoto.web_url || selectedShopPhoto.display_url || '')
+          ? (getStoreViewPhotoUrl(selectedShopPhoto) || selectedShopPhoto.web_url || selectedShopPhoto.display_url || '')
           : '';
         return (
           <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, padding: '20px', boxSizing: 'border-box', backdropFilter: 'blur(6px)' }}>
@@ -3108,6 +3116,7 @@ const GalleryView = () => {
                           display_url: photo.display_url || photo.web_url || photo.url || '',
                         }
                         : null;
+                      const photoForCart = photo ? toStoreCartPhoto(photo) : null;
                       const size = { id: isAll ? 'all_photos' : 'hi_res', label: isAll ? 'All Photos' : 'High Resolution' };
 
                       const existingIdx = cart.findIndex((item) => {

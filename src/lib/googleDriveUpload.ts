@@ -359,7 +359,7 @@ async function uploadPhotosToDriveFolder(
       chunk.map(async (photo, chunkIndex) => {
         const index = i + chunkIndex;
         try {
-          const blob = await fetchPhotoBlob(photo);
+          const blob = await fetchPhotoBlob(photo, { preferOriginal: true });
           if (blob?.size) blobs.set(index, blob);
           else fetchFailed.push(index);
         } catch (err) {
@@ -379,7 +379,7 @@ async function uploadPhotosToDriveFolder(
       if (blobs.has(index)) continue;
       const photo = photos[index];
       try {
-        const blob = await fetchPhotoBlob(photo);
+        const blob = await fetchPhotoBlob(photo, { preferOriginal: true });
         if (blob?.size) {
           blobs.set(index, blob);
           const failIdx = fetchFailed.indexOf(index);
@@ -485,7 +485,7 @@ export async function uploadGalleryToGoogleDrive(
   if (total === 1) {
     const photo = photos[0];
     options.onUploadPhase?.('Uploading to Google Drive…');
-    const blob = await fetchPhotoBlob(photo);
+    const blob = await fetchPhotoBlob(photo, { preferOriginal: true });
     if (!blob) throw new Error('Failed to download this file. Please try again.');
     const filename = getPhotoDownloadFilename(photo, 0);
     const mimeType = blob.type || (photo.media_type === 'video' ? 'video/mp4' : 'image/jpeg');
