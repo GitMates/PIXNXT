@@ -478,8 +478,7 @@ export const DownloadModal = ({
         const photo = photosToDownload[0];
         setProgressMonotonic(50);
         setStatusText(preparingStatusText(0, 1));
-        await downloadSinglePhotoFile(photo, watermarkOptions);
-        await downloadSinglePhotoFile(photo, { preferOriginal: true });
+        await downloadSinglePhotoFile(photo, { preferOriginal: true, watermarkOptions });
         if (isStale()) return;
         setProgressMonotonic(100);
         setStatusText(preparingStatusText(1, 1, 'save'));

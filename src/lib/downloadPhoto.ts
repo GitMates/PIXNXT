@@ -166,12 +166,15 @@ export async function fetchPhotoBlob(
   return null;
 }
 
-export interface DownloadPhotosToZipOptions {
+export interface DownloadPhotosToZipOptions extends FetchPhotoBlobOptions {
   concurrency?: number;
   onProgress?: ProgressCallback;
   isStale?: () => boolean;
   watermarkOptions?: any;
-  preferOriginal?: boolean;
+}
+
+export interface DownloadSinglePhotoOptions extends FetchPhotoBlobOptions {
+  watermarkOptions?: any;
 }
 
 async function addPhotoToZip(
@@ -179,12 +182,10 @@ async function addPhotoToZip(
   photo: BulkDownloadPhoto,
   index: number,
   usedNames: Set<string>,
-  watermarkOptions?: any
+  options: DownloadPhotosToZipOptions = {}
 ): Promise<boolean> {
-  let blob = await fetchPhotoBlob(photo);
-  preferOriginal = false
-): Promise<boolean> {
-  const blob = await fetchPhotoBlob(photo, { preferOriginal });
+  const { preferOriginal = false, watermarkOptions } = options;
+  let blob = await fetchPhotoBlob(photo, { preferOriginal });
   if (!blob?.size) return false;
   if (watermarkOptions) {
     blob = await applyWatermarkToBlob(blob, watermarkOptions);
@@ -202,8 +203,13 @@ export async function downloadPhotosToZip(
   photos: BulkDownloadPhoto[],
   options: DownloadPhotosToZipOptions = {}
 ): Promise<DownloadZipResult> {
-  const { concurrency = DEFAULT_DOWNLOAD_CONCURRENCY, onProgress, isStale, watermarkOptions } = options;
-  const { concurrency = DEFAULT_DOWNLOAD_CONCURRENCY, onProgress, isStale, preferOriginal = false } = options;
+  const {
+    concurrency = DEFAULT_DOWNLOAD_CONCURRENCY,
+    onProgress,
+    isStale,
+    preferOriginal = false,
+    watermarkOptions,
+  } = options;
 
   if (!photos.length) {
     return { fileCount: 0, requested: 0, failed: 0 };
@@ -213,6 +219,7 @@ export async function downloadPhotosToZip(
   let completed = 0;
   const total = photos.length;
   const failedIndices: number[] = [];
+  const zipOpts = { preferOriginal, watermarkOptions };
 
   const report = () => onProgress?.(completed, total);
 
@@ -223,8 +230,7 @@ export async function downloadPhotosToZip(
       chunk.map(async (photo, chunkIndex) => {
         const index = i + chunkIndex;
         try {
-          const ok = await addPhotoToZip(zip, photo, index, usedNames, watermarkOptions);
-          const ok = await addPhotoToZip(zip, photo, index, usedNames, preferOriginal);
+          const ok = await addPhotoToZip(zip, photo, index, usedNames, zipOpts);
           if (!ok) failedIndices.push(index);
         } catch (err) {
           console.warn(`Failed to download ${photo.filename || photo.id || index}:`, err);
@@ -243,8 +249,7 @@ export async function downloadPhotosToZip(
       if (isStale?.()) break;
       const photo = photos[index];
       try {
-        const ok = await addPhotoToZip(zip, photo, index, usedNames, watermarkOptions);
-        const ok = await addPhotoToZip(zip, photo, index, usedNames, preferOriginal);
+        const ok = await addPhotoToZip(zip, photo, index, usedNames, zipOpts);
         if (!ok) stillFailed.push(index);
       } catch (err) {
         console.warn(`Retry failed for ${photo.filename || photo.id || index}:`, err);
@@ -270,14 +275,14 @@ export async function downloadPhotosToZip(
 /**
  * Download one photo/video as a real file (image or video extension), not a zip.
  * @param options.preferOriginal — use full/original first (free gallery download when paid digital is off)
+ * @param options.watermarkOptions — optional Smart Album watermark overlay
  */
-export async function downloadSinglePhotoFile(photo: BulkDownloadPhoto, watermarkOptions?: any): Promise<void> {
-  let blob = await fetchPhotoBlob(photo);
 export async function downloadSinglePhotoFile(
   photo: BulkDownloadPhoto,
-  options: FetchPhotoBlobOptions = {}
+  options: DownloadSinglePhotoOptions = {}
 ): Promise<void> {
-  const blob = await fetchPhotoBlob(photo, options);
+  const { preferOriginal = false, watermarkOptions } = options;
+  let blob = await fetchPhotoBlob(photo, { preferOriginal });
   if (!blob) {
     throw new Error('Failed to download this file. Please try again.');
   }

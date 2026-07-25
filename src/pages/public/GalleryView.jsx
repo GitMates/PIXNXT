@@ -26,7 +26,6 @@ import { GalleryBackToTop } from '../../components/features/Gallery/GalleryBackT
 import { GalleryEmptyGrid } from '../../components/features/Gallery/GalleryEmptyGrid/GalleryEmptyGrid';
 import { smoothScrollToElement, smoothScrollToTop } from '../../lib/smoothGalleryScroll';
 import { getPhotoFullDisplayUrl, getWebResolutionUrl, resolveMediaUrl } from '../../lib/photoDisplayUrl';
-import { getPhotoFullDisplayUrl } from '../../lib/photoDisplayUrl';
 import { getStoreViewPhotoUrl, toStoreCartPhoto } from '../../lib/storePhotoQuality';
 import {
   buildDigitalPackageCartItem,
@@ -1004,8 +1003,7 @@ const GalleryView = () => {
       if (!needsEmail && !needsPin && !hasDownloadLimit) {
         // Single photo: download immediately from Cloudflare R2 if no auth required
         const watermarkOptions = getWatermarkOptions();
-        await downloadSinglePhotoFile(photo, watermarkOptions);
-        await downloadSinglePhotoFile(photo, { preferOriginal: true });
+        await downloadSinglePhotoFile(photo, { preferOriginal: true, watermarkOptions });
 
         // Log activity for direct download
         const savedEmail = localStorage.getItem(`pixnxt_fav_email_${collection.id}`) || 'Visitor';
@@ -3105,17 +3103,7 @@ const GalleryView = () => {
                           : (digitalPricing?.single?.price || 0)
                       );
                       const photo = isAll ? null : digitalDownloadPhoto;
-                      const photoForCart = photo
-                        ? {
-                          id: photo.id,
-                          filename: photo.filename || photo.name || '',
-                          url: photo.url || photo.web_url || photo.thumbnail_url || photo.full_url || photo.display_url || '',
-                          web_url: photo.web_url || photo.url || photo.display_url || '',
-                          thumbnail_url: photo.thumbnail_url || photo.web_url || photo.url || '',
-                          full_url: photo.full_url || photo.web_url || photo.url || '',
-                          display_url: photo.display_url || photo.web_url || photo.url || '',
-                        }
-                        : null;
+                      // toStoreCartPhoto keeps web for viewing + full_url for delivery (supersedes inline map)
                       const photoForCart = photo ? toStoreCartPhoto(photo) : null;
                       const size = { id: isAll ? 'all_photos' : 'hi_res', label: isAll ? 'All Photos' : 'High Resolution' };
 
