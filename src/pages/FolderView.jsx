@@ -257,9 +257,8 @@ const FolderView = () => {
           void handleDeleteCollection(collection.id);
         }}
         onShareByEmail={() => {
-          const url = getShareUrlForCollection(collection);
           closeContextMenu();
-          openShareByEmail(url, collection.name || 'Photo Gallery');
+          navigate(`/collections/manage/share?id=${collection.id}`);
         }}
         onGetDirectLink={() => {
           setDirectLinkCollection(collection);

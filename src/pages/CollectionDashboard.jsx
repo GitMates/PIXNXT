@@ -85,6 +85,10 @@ import {
 } from '../lib/collectionFeatureFlags';
 import { MoveCollectionModal } from '../components/features/Collections/MoveCollectionModal';
 
+import { applyWatermarkToBlob } from '../lib/watermarkUtils';
+import { storageService } from '../services/storage.service';
+import { getProxiedMediaFetchUrl } from '../lib/r2MediaProxy';
+
 const CollectionDashboard = () => {
     const navigate = useNavigate();
     const location = useLocation();
@@ -97,6 +101,54 @@ const CollectionDashboard = () => {
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [collection, setCollection] = useState(null);
     const [photos, setPhotos] = useState([]);
+    const [profile, setProfile] = useState(null);
+
+    useEffect(() => {
+        if (!user?.id) {
+            setProfile(null);
+            return;
+        }
+        supabase
+            .from('photographers')
+            .select('*')
+            .eq('id', user.id)
+            .single()
+            .then(({ data }) => {
+                if (data) setProfile(data);
+            })
+            .catch((err) => console.error('Error loading photographer profile:', err));
+    }, [user?.id]);
+
+    useEffect(() => {
+        if (!user?.id) {
+            setPresets([]);
+            return;
+        }
+        supabase
+            .from('presets')
+            .select('*')
+            .eq('photographer_id', user.id)
+            .order('created_at', { ascending: false })
+            .then(({ data, error }) => {
+                if (error) {
+                    console.error('Error fetching presets:', error);
+                } else if (data) {
+                    setPresets(data);
+                }
+            });
+
+        supabase
+            .from('watermarks')
+            .select('*')
+            .eq('photographer_id', user.id)
+            .then(({ data, error }) => {
+                if (error) {
+                    console.error('Error fetching watermarks:', error);
+                } else if (data) {
+                    setWatermarks(data);
+                }
+            });
+    }, [user?.id]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [saving, setSaving] = useState(false);
@@ -109,7 +161,7 @@ const CollectionDashboard = () => {
     const [activePhotoMenu, setActivePhotoMenu] = useState(null);
     const [showGridSettings, setShowGridSettings] = useState(false);
     const [gridSize, setGridSize] = useState('small');
-    const [showFilename, setShowFilename] = useState(false);
+    const [showFilename, setShowFilename] = useState(() => localStorage.getItem('filename_display') === 'show');
     const [showMoreDropdown, setShowMoreDropdown] = useState(false);
     const [photoMenu, setPhotoMenu] = useState(null);
     const [showRenameModal, setShowRenameModal] = useState(false);
@@ -153,6 +205,12 @@ const CollectionDashboard = () => {
     const [showPresetsSubmenu, setShowPresetsSubmenu] = useState(false);
     const [showApplyPresetModal, setShowApplyPresetModal] = useState(false);
     const [showSavePresetModal, setShowSavePresetModal] = useState(false);
+    const [presets, setPresets] = useState([]);
+    const [selectedApplyPresetId, setSelectedApplyPresetId] = useState('');
+    const [savePresetName, setSavePresetName] = useState('');
+    const [watermarks, setWatermarks] = useState([]);
+    const [selectedWatermarkId, setSelectedWatermarkId] = useState('');
+    const [applyToAllPhotos, setApplyToAllPhotos] = useState(false);
     const [showMoveToModal, setShowMoveToModal] = useState(false);
     const [showDuplicateModal, setShowDuplicateModal] = useState(false);
     const [showDeleteCollectionModal, setShowDeleteCollectionModal] = useState(false);
@@ -1288,6 +1346,323 @@ const CollectionDashboard = () => {
         setShowExpiryReminderModal(true);
     };
 
+    const handleApplyPreset = async () => {
+        if (!selectedApplyPresetId) {
+            alert('Please select a preset to apply.');
+            return;
+        }
+        const selectedPreset = presets.find(p => p.id === selectedApplyPresetId);
+        if (!selectedPreset) return;
+
+        const s = selectedPreset.settings;
+        if (!s) return;
+
+        const updatedSettings = {
+            cover_layout: s.coverStyle || 'center',
+            cover_style: (s.coverStyle || 'center') === 'none' ? 'text_only' : 'photo',
+            font_family: s.typography || 'sans',
+            color_palette: s.colorTheme || 'light',
+            grid_style: s.gridStyle || 'vertical',
+            thumbnail_size: s.thumbnailSize || 'regular',
+            grid_spacing: s.gridSpacing || 'regular',
+            nav_style: s.navigationStyle === 'text' ? 'icons_labels' : 'icons',
+            
+            password_enabled: !!s.collectionPassword,
+            homepage_enabled: s.showOnHomepage !== false,
+            
+            downloads_enabled: !!s.photoDownload,
+            gallery_download_enabled: !!s.photoDownload,
+            single_photo_download_enabled: !!s.photoDownload,
+            web_downloads_enabled: !!s.webSizeDownload,
+            high_res_downloads_enabled: !!s.highResolutionDownload,
+            video_downloads_enabled: !!s.videoDownload,
+            require_pin_for_gallery_download: !!s.downloadPin,
+            require_pin_for_single_photo: !!s.downloadPin,
+            
+            favorites_enabled: !!s.favoritePhotos,
+            favorite_notes_enabled: !!s.favoriteNotes,
+            
+            store_status: s.storeStatus !== false,
+            
+            default_watermark: s.defaultWatermark || 'No watermark',
+            slideshow_enabled: s.slideshow !== false,
+            social_sharing_enabled: s.socialSharing !== false,
+        };
+
+        try {
+            setSaving(true);
+            
+            // Turn off autosavers temporarily to prevent overwrite cycles
+            designHydratedRef.current = false;
+            settingsHydratedRef.current = false;
+
+            await galleryService.updateCollection(collectionId, updatedSettings);
+            
+            // Also, if the collection has password or PIN, save those values in collection table
+            if (s.collectionPassword && s.collectionPasswordValue) {
+                await galleryService.updateCollection(collectionId, {
+                    guest_password_hash: s.collectionPasswordValue
+                });
+                setCollectionPassword(s.collectionPasswordValue);
+            }
+            if (s.downloadPin && s.downloadPinValue) {
+                await galleryService.updateCollection(collectionId, {
+                    download_pin: s.downloadPinValue
+                });
+                setPinValue(s.downloadPinValue);
+            }
+
+            setCollection(prev => ({ ...prev, ...updatedSettings }));
+
+            // Update local React UI states directly
+            setSelectedCoverStyle(s.coverStyle || 'center');
+            setSelectedFont(s.typography || 'sans');
+            setSelectedColorPalette(s.colorTheme || 'light');
+            setGridSettings({
+                style: s.gridStyle || 'vertical',
+                size: s.thumbnailSize || 'regular',
+                spacing: s.gridSpacing || 'regular',
+                navigation: s.navigationStyle === 'text' ? 'text' : 'icon'
+            });
+
+            setCollectionPassword(s.collectionPasswordValue || '');
+            setShowOnHomepage(s.showOnHomepage !== false);
+            setPhotoDownload(!!s.photoDownload);
+            setDownloadPin(!!s.downloadPin);
+            setFavoritePhotos(!!s.favoritePhotos);
+            setFavoriteNotes(!!s.favoriteNotes);
+            setSlideshow(s.slideshow !== false);
+            setSocialSharing(s.socialSharing !== false);
+            setDefaultWatermark(s.defaultWatermark || 'No watermark');
+
+            // Re-enable autosavers
+            designHydratedRef.current = true;
+            settingsHydratedRef.current = true;
+
+            setShowApplyPresetModal(false);
+            alert('Preset applied successfully!');
+        } catch (err) {
+            console.error('Failed to apply preset:', err);
+            alert('Failed to apply preset: ' + err.message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleSavePreset = async () => {
+        if (!savePresetName.trim()) {
+            alert('Please enter a name for your preset.');
+            return;
+        }
+
+        const newPresetSettings = {
+            coverStyle: selectedCoverStyle,
+            typography: selectedFont,
+            colorTheme: selectedColorPalette,
+            gridStyle: gridSettings.style,
+            thumbnailSize: gridSettings.size,
+            gridSpacing: gridSettings.spacing,
+            navigationStyle: gridSettings.navigation,
+            collectionPassword: !!collectionPassword,
+            collectionPasswordValue: collectionPassword || '',
+            showOnHomepage: showOnHomepage,
+            photoDownload: photoDownload,
+            highResolutionDownload: photoDownloadSizes.includes('high'),
+            webSizeDownload: photoDownloadSizes.includes('web'),
+            videoDownload: photoDownloadSizes.includes('video'),
+            downloadPin: downloadPin,
+            downloadPinValue: pinValue || '',
+            favoritePhotos: favoritePhotos,
+            favoriteNotes: favoriteNotes,
+            slideshow: slideshow,
+            socialSharing: socialSharing,
+            defaultWatermark: defaultWatermark,
+        };
+
+        try {
+            setSaving(true);
+            const { data, error } = await supabase
+                .from('presets')
+                .insert({
+                    photographer_id: user.id,
+                    name: savePresetName.trim(),
+                    settings: newPresetSettings,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                })
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            if (data) {
+                setPresets(prev => [data, ...prev]);
+            }
+            setShowSavePresetModal(false);
+            setSavePresetName('');
+            alert('Preset saved successfully!');
+        } catch (err) {
+            console.error('Failed to save preset:', err);
+            alert('Failed to save preset: ' + err.message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const applyWatermarkToPhoto = async (photo, wmOptions) => {
+        // 1. Fetch the original image blob
+        const targetUrl = getProxiedMediaFetchUrl(photo.full_url);
+        const res = await fetch(targetUrl);
+        if (!res.ok) throw new Error(`Failed to fetch photo file: ${photo.filename}`);
+        const blob = await res.blob();
+        if (!blob) throw new Error(`Failed to load photo blob: ${photo.filename}`);
+
+        // 2. Apply watermark
+        const watermarkedBlob = await applyWatermarkToBlob(blob, wmOptions);
+
+        // 3. Upload to R2 Storage
+        const photographerFolder = user.id;
+        const collectionFolder = collectionId;
+        const fileExt = photo.filename.split('.').pop() || 'jpg';
+        const fileName = `${photo.id || Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+        const setFolder = photo.set_id ? `set__${photo.set_id}` : 'highlights';
+        const watermarkedPath = `users/${photographerFolder}/clientgallery/${collectionFolder}/photoset/${setFolder}/watermarked/${fileName}`;
+
+        const uploadResult = await storageService.upload(watermarkedPath, watermarkedBlob);
+        const watermarkedUrl = uploadResult.url;
+
+        // 4. Update DB
+        const { data: updatedPhoto, error: updateError } = await supabase
+            .from('photos')
+            .update({
+                watermarked_url: watermarkedUrl,
+                watermarked_storage_path: watermarkedPath
+            })
+            .eq('id', photo.id)
+            .select()
+            .single();
+
+        if (updateError) throw updateError;
+
+        return { watermarkedUrl, watermarkedPath };
+    };
+
+    const removeWatermarkFromPhoto = async (photo) => {
+        // 1. Delete watermarked file from storage
+        if (photo.watermarked_storage_path) {
+            await storageService.delete([photo.watermarked_storage_path]).catch(err => {
+                console.warn('Failed to delete watermarked storage object:', err);
+            });
+        }
+
+        // 2. Clear columns in DB
+        const { error: updateError } = await supabase
+            .from('photos')
+            .update({
+                watermarked_url: null,
+                watermarked_storage_path: null
+            })
+            .eq('id', photo.id);
+
+        if (updateError) throw updateError;
+    };
+
+    const handleSaveWatermarkSettings = async () => {
+        if (!editingPhoto) return;
+        try {
+            setSaving(true);
+            
+            // 1. Resolve watermark options
+            let wmOptions = null;
+            if (selectedWatermarkId) {
+                let wm = watermarks.find(w => w.id === selectedWatermarkId || w.name === selectedWatermarkId);
+                if (wm) {
+                    wmOptions = {
+                        watermark_type: wm.type,
+                        watermark_url: wm.url,
+                        watermark_text: wm.text,
+                        watermark_font: wm.font,
+                        watermark_color: wm.color,
+                        watermark_scale: wm.scale,
+                        watermark_opacity: wm.opacity,
+                        watermark_position: wm.position || 'center',
+                    };
+                }
+            }
+            // Update collection settings in the database for default_watermark
+            const nextDefaultWatermarkValue = selectedWatermarkId || 'No watermark';
+            await galleryService.updateCollection(collectionId, {
+                default_watermark: nextDefaultWatermarkValue
+            });
+            setDefaultWatermark(nextDefaultWatermarkValue);
+            setCollection(prev => prev ? { ...prev, default_watermark: nextDefaultWatermarkValue } : prev);
+
+            if (applyToAllPhotos) {
+                setToastMessage(`Processing photos...`);
+                // Loop through all photos in collection
+                const total = photos.length;
+                let updatedPhotos = [...photos];
+
+                for (let i = 0; i < total; i++) {
+                    const photo = photos[i];
+                    setToastMessage(`Processing photo ${i + 1} of ${total}...`);
+                    try {
+                        if (wmOptions) {
+                            // Apply/Update watermark
+                            // First remove old watermark file if it exists
+                            if (photo.watermarked_storage_path) {
+                                await storageService.delete([photo.watermarked_storage_path]).catch(() => {});
+                            }
+                            const { watermarkedUrl, watermarkedPath } = await applyWatermarkToPhoto(photo, wmOptions);
+                            updatedPhotos = updatedPhotos.map(p => p.id === photo.id ? { ...p, watermarked_url: watermarkedUrl, watermarked_storage_path: watermarkedPath } : p);
+                        } else {
+                            // Remove watermark
+                            await removeWatermarkFromPhoto(photo);
+                            updatedPhotos = updatedPhotos.map(p => p.id === photo.id ? { ...p, watermarked_url: null, watermarked_storage_path: null } : p);
+                        }
+                    } catch (err) {
+                        console.warn(`Failed to process watermark for photo ${photo.id}:`, err);
+                    }
+                }
+
+                setPhotos(updatedPhotos);
+                setToastMessage('Watermark changes applied to all photos!');
+            } else {
+                setToastMessage(wmOptions ? 'Applying watermark...' : 'Removing watermark...');
+                if (wmOptions) {
+                    // Apply/Update watermark to single editingPhoto
+                    if (editingPhoto.watermarked_storage_path) {
+                        await storageService.delete([editingPhoto.watermarked_storage_path]).catch(() => {});
+                    }
+                    const { watermarkedUrl, watermarkedPath } = await applyWatermarkToPhoto(editingPhoto, wmOptions);
+                    setPhotos(prev => prev.map(p => p.id === editingPhoto.id ? { ...p, watermarked_url: watermarkedUrl, watermarked_storage_path: watermarkedPath } : p));
+                    setToastMessage('Watermark applied successfully!');
+                } else {
+                    // Remove watermark from single editingPhoto
+                    await removeWatermarkFromPhoto(editingPhoto);
+                    setPhotos(prev => prev.map(p => p.id === editingPhoto.id ? { ...p, watermarked_url: null, watermarked_storage_path: null } : p));
+                    setToastMessage('Watermark removed!');
+                }
+            }
+
+            setTimeout(() => setToastMessage(null), 3000);
+            setShowWatermarkModal(false);
+        } catch (err) {
+            console.error('Failed to save watermark settings:', err);
+            alert('Failed to save watermark settings: ' + err.message);
+        } finally {
+            setSaving(false);
+            setToastMessage(null);
+        }
+    };
+
+    useEffect(() => {
+        if (showWatermarkModal) {
+            setSelectedWatermarkId(defaultWatermark === 'No watermark' ? '' : defaultWatermark);
+            setApplyToAllPhotos(false);
+        }
+    }, [showWatermarkModal, defaultWatermark]);
+
     // Load real data from Supabase
     useEffect(() => {
         const fetchCollectionData = async () => {
@@ -1400,6 +1775,7 @@ const CollectionDashboard = () => {
                     if (cachedSlideshow !== null) setSlideshow(cachedSlideshow);
                 }
                 if (data.auto_expiry) setAutoExpiry(data.auto_expiry);
+                if (data.default_watermark) setDefaultWatermark(data.default_watermark);
 
                 designHydratedRef.current = true;
                 settingsHydratedRef.current = true;
@@ -1814,7 +2190,12 @@ const CollectionDashboard = () => {
         destinationLabel: uploadDestinationLabel,
         onPhotoUploaded: (photoData) => {
             if (!photoData?.id || photoData.collection_id !== collectionId) return;
-            setPhotos((prev) => [...prev, photoData]);
+            setPhotos((prev) => {
+                if (prev.some((p) => p.id === photoData.id)) {
+                    return prev.map((p) => p.id === photoData.id ? { ...p, ...photoData } : p);
+                }
+                return [...prev, photoData];
+            });
             if (isRawMedia(photoData) && !hasRawDisplayPreview(photoData)) {
                 void galleryService.repairRawPhotoPreview(photoData).then((updated) => {
                     if (updated?.id) {
@@ -2080,10 +2461,10 @@ const CollectionDashboard = () => {
     };
 
     const handleSelectionShareLink = () => {
-        const photo = requireSingleSelectedPhoto('share a link');
-        if (!photo) return;
+        const sel = getSelectedPhotoRecords();
+        if (sel.length === 0) return;
         closeSelectionChrome();
-        handleQuickShare(photo);
+        handleQuickShare(sel[0]);
     };
 
     const handleSelectionCopyFilenames = () => {
@@ -2223,7 +2604,7 @@ const CollectionDashboard = () => {
 
     // Auto-save general settings
     useEffect(() => {
-        if (!collection || loading) return;
+        if (!collection || loading || !settingsHydratedRef.current) return;
 
         const saveGeneralSettings = async () => {
             try {
@@ -2242,7 +2623,7 @@ const CollectionDashboard = () => {
 
     // Auto-save privacy / client exclusive access
     useEffect(() => {
-        if (!collection || loading) return;
+        if (!collection || loading || !settingsHydratedRef.current) return;
 
         const savePrivacySettings = async () => {
             try {
@@ -2532,9 +2913,20 @@ const CollectionDashboard = () => {
     }, [activeActivityMenu, favoriteDetailPhotoMenuPhotoId, favoriteActivitySortMenuOpen]);
 
     const processSelectedUploadFiles = (fileList, snapshot) => {
+        const rawSupportEnabled = localStorage.getItem('raw_photo_support') === 'true';
+        let filesToProcess = Array.from(fileList || []);
+        
+        if (!rawSupportEnabled) {
+            const initialLength = filesToProcess.length;
+            filesToProcess = filesToProcess.filter(f => !isRawImageFile(f));
+            if (filesToProcess.length < initialLength) {
+                alert('RAW photo support is currently disabled in your preferences. Those files have been skipped.');
+            }
+        }
+
         const target = snapshot ?? uploadSnapshotRef.current ?? getUploadTargetSnapshot();
         uploadSnapshotRef.current = null;
-        if (processFiles(fileList, target)) {
+        if (processFiles(filesToProcess, target)) {
             setShowUploadModal(false);
         }
     };
@@ -2767,9 +3159,7 @@ const CollectionDashboard = () => {
                                     className="cd-share-item"
                                     onClick={() => {
                                         setShowShareDropdown(false);
-                                        if (collectionUrl) {
-                                            openShareByEmail(getCollectionShareUrl(collectionUrl), collection?.name || 'Collection');
-                                        }
+                                        navigate(`/collections/manage/share?id=${collectionId}`);
                                     }}
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
@@ -4201,17 +4591,22 @@ const CollectionDashboard = () => {
                             <p style={{ fontSize: '14px', color: '#555', marginBottom: '20px' }}>Applying a preset will overwrite your current collection settings. This action cannot be undone.</p>
                             <label style={{ fontSize: '11px', fontWeight: '600', color: '#666', letterSpacing: '0.5px', display: 'block', marginBottom: '8px' }}>SELECT PRESET</label>
                             <div style={{ position: 'relative', marginBottom: '10px' }}>
-                                <select style={{ width: '100%', padding: '10px 12px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '14px', appearance: 'none', backgroundColor: '#fff', outline: 'none' }}>
-                                    <option>Select a preset...</option>
-                                    <option>Default Settings</option>
-                                    <option>Wedding Default</option>
+                                <select 
+                                    value={selectedApplyPresetId} 
+                                    onChange={(e) => setSelectedApplyPresetId(e.target.value)} 
+                                    style={{ width: '100%', padding: '12px 14px', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '14px', appearance: 'none', backgroundColor: '#fff', outline: 'none', transition: 'border-color 0.2s ease', color: '#1a1a1a', fontWeight: '500', cursor: 'pointer' }}
+                                >
+                                    <option value="">None</option>
+                                    {presets.map((p) => (
+                                        <option key={p.id} value={p.id}>{p.name}</option>
+                                    ))}
                                 </select>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'absolute', right: '12px', top: '12px', pointerEvents: 'none' }}><polyline points="6 9 12 15 18 9"></polyline></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}><polyline points="6 9 12 15 18 9"></polyline></svg>
                             </div>
                         </div>
-                        <div className="cd-modal-footer">
+                        <div className="cd-set-modal-footer">
                             <button className="cd-cancel-btn" onClick={() => setShowApplyPresetModal(false)}>Cancel</button>
-                            <button className="cd-save-btn" onClick={() => setShowApplyPresetModal(false)}>Apply</button>
+                            <button className="cd-save-btn" onClick={handleApplyPreset}>Apply</button>
                         </div>
                     </div>
                 </div>
@@ -4230,11 +4625,17 @@ const CollectionDashboard = () => {
                         <div className="cd-modal-body" style={{ padding: '24px' }}>
                             <p style={{ fontSize: '14px', color: '#555', marginBottom: '20px' }}>Save your current collection settings as a preset to easily apply them to other collections.</p>
                             <label style={{ fontSize: '11px', fontWeight: '600', color: '#666', letterSpacing: '0.5px', display: 'block', marginBottom: '8px' }}>PRESET NAME</label>
-                            <input type="text" placeholder="e.g. Standard Wedding" style={{ width: '100%', padding: '10px 12px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }} />
+                            <input 
+                                type="text" 
+                                value={savePresetName} 
+                                onChange={(e) => setSavePresetName(e.target.value)} 
+                                placeholder="e.g. Standard Wedding" 
+                                style={{ width: '100%', padding: '12px 14px', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '14px', outline: 'none', boxSizing: 'border-box', color: '#1a1a1a', fontWeight: '500' }} 
+                            />
                         </div>
-                        <div className="cd-modal-footer">
+                        <div className="cd-set-modal-footer">
                             <button className="cd-cancel-btn" onClick={() => setShowSavePresetModal(false)}>Cancel</button>
-                            <button className="cd-save-btn" onClick={() => setShowSavePresetModal(false)}>Save</button>
+                            <button className="cd-save-btn" onClick={handleSavePreset}>Save</button>
                         </div>
                     </div>
                 </div>
@@ -4564,7 +4965,10 @@ const CollectionDashboard = () => {
 
             {/* ───── QUICK SHARE MODAL ───── */}
             {showQuickShareModal && editingPhoto && (() => {
-                const shareUrl = `${window.location.origin}/gallery/${collection?.slug}?photo=${editingPhoto.id}`;
+                const isMultiple = selectedPhotos.length > 1;
+                const shareUrl = isMultiple
+                    ? `${window.location.origin}/gallery/${collection?.slug}?photos=${selectedPhotos.join(',')}`
+                    : `${window.location.origin}/gallery/${collection?.slug}?photo=${editingPhoto.id}`;
                 return (
                     <div className="cd-modal-overlay" onClick={() => setShowQuickShareModal(false)}>
                         <div className="cd-modal cd-modal-sm" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 460 }}>
@@ -4579,7 +4983,12 @@ const CollectionDashboard = () => {
                                 <div style={{ borderRadius: 6, overflow: 'hidden', marginBottom: 8, maxHeight: 200, display: 'flex', justifyContent: 'center', backgroundColor: '#f5f5f5' }}>
                                     <img src={editingPhoto.full_url} alt={editingPhoto.filename} style={{ maxHeight: 200, objectFit: 'contain' }} />
                                 </div>
-                                <p style={{ fontSize: 13, color: '#666', marginBottom: 12 }}>Share a direct link to this photo with your client.</p>
+                                <p style={{ fontSize: 13, color: '#666', marginBottom: 12 }}>
+                                    {isMultiple
+                                        ? `Share a direct link to these ${selectedPhotos.length} photos with your client.`
+                                        : 'Share a direct link to this photo with your client.'
+                                    }
+                                </p>
                                 <div style={{ display: 'flex', gap: 0, border: '1px solid #d9d9d9', borderRadius: 4, overflow: 'hidden' }}>
                                     <input type="text" readOnly value={shareUrl} style={{ flex: 1, padding: '10px 12px', fontSize: 13, border: 'none', outline: 'none', background: '#f9f9f9', color: '#555' }} />
                                     <button
@@ -4621,33 +5030,61 @@ const CollectionDashboard = () => {
             {/* ───── WATERMARK MODAL ───── */}
             {showWatermarkModal && editingPhoto && (
                 <div className="cd-modal-overlay" onClick={() => setShowWatermarkModal(false)}>
-                    <div className="cd-modal cd-modal-sm" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
-                        <div className="cd-modal-header">
-                            <h3 className="cd-modal-title">Watermark Photo</h3>
+                    <div className="cd-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '480px', borderRadius: '4px', padding: '24px' }}>
+                        <div className="cd-modal-header" style={{ borderBottom: 'none', padding: '0 0 16px 0' }}>
+                            <h3 className="cd-modal-title" style={{ fontSize: '13px', fontWeight: 'bold', letterSpacing: '1.5px', color: '#1a1a1a', textTransform: 'uppercase' }}>WATERMARK</h3>
                             <button className="cd-modal-close" onClick={() => setShowWatermarkModal(false)}>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                             </button>
                         </div>
-                        <div className="cd-set-modal-body">
-                            {/* Preview */}
-                            <div style={{ position: 'relative', borderRadius: 6, overflow: 'hidden', marginBottom: 16, backgroundColor: '#f5f5f5', display: 'flex', justifyContent: 'center', maxHeight: 200 }}>
-                                <img src={editingPhoto.full_url} alt={editingPhoto.filename} style={{ maxHeight: 200, objectFit: 'contain' }} />
-                                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-                                    <span style={{ color: 'rgba(255,255,255,0.55)', fontSize: 28, fontWeight: 700, letterSpacing: 6, textTransform: 'uppercase', textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>
-                                        {collection?.name || 'WATERMARK'}
-                                    </span>
+                        <div className="cd-modal-body" style={{ padding: 0 }}>
+                            {/* Important alert block */}
+                            <div style={{ backgroundColor: '#fdf6ed', border: '1px solid #f5dbbf', borderRadius: '4px', padding: '16px', display: 'flex', gap: '12px', marginBottom: '20px' }}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#e28743" strokeWidth="2" style={{ flexShrink: 0 }}><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                                <div>
+                                    <h4 style={{ margin: '0 0 4px 0', fontSize: '14px', fontWeight: '600', color: '#111' }}>Important</h4>
+                                    <p style={{ margin: 0, fontSize: '13px', color: '#555', lineHeight: '1.5' }}>
+                                        Watermark changes can take anywhere from a few minutes to several hours to process. These photos will be unavailable during this time.
+                                    </p>
                                 </div>
                             </div>
-                            <p style={{ fontSize: 13, color: '#666', marginBottom: 12 }}>
-                                Watermarks are applied using your collection name. To customize watermarks, go to <strong>Settings → Watermark</strong>.
-                            </p>
-                            <div style={{ backgroundColor: '#fef9e7', border: '1px solid #f9d055', borderRadius: 6, padding: '12px 16px', fontSize: 13, color: '#7a6000' }}>
-                                <strong>Note:</strong> This is a preview. Watermark functionality requires a Premium plan upgrade.
+
+                            {/* Dropdown wrapper */}
+                            <div style={{ position: 'relative', marginBottom: '20px' }}>
+                                <select 
+                                    value={selectedWatermarkId} 
+                                    onChange={(e) => setSelectedWatermarkId(e.target.value)} 
+                                    style={{ width: '100%', padding: '12px 14px', border: '1px solid #d2d6dc', borderRadius: '4px', fontSize: '14px', appearance: 'none', backgroundColor: '#fff', outline: 'none', transition: 'border-color 0.2s ease', color: '#374151', cursor: 'pointer', height: '45px' }}
+                                >
+                                    <option value="">No watermark</option>
+                                    {watermarks.map((wm) => (
+                                        <option key={wm.id} value={wm.id}>{wm.name}</option>
+                                    ))}
+                                </select>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}><polyline points="6 9 12 15 18 9"></polyline></svg>
                             </div>
+
+                            {/* Checkbox */}
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '14px', color: '#4b5563', marginBottom: '24px', userSelect: 'none' }}>
+                                <input 
+                                    type="checkbox" 
+                                    checked={applyToAllPhotos}
+                                    onChange={(e) => setApplyToAllPhotos(e.target.checked)}
+                                    style={{ width: '16px', height: '16px', border: '1px solid #d2d6dc', borderRadius: '3px', cursor: 'pointer' }}
+                                />
+                                Apply to all in this collection ({photos.length} photos)
+                            </label>
                         </div>
-                        <div className="cd-set-modal-footer">
-                            <button className="cd-cancel-btn" onClick={() => setShowWatermarkModal(false)}>Cancel</button>
-                            <button className="cd-save-btn" onClick={() => { alert('Watermark applied! (Premium feature)'); setShowWatermarkModal(false); }}>Apply Watermark</button>
+                        <div className="cd-set-modal-footer" style={{ borderTop: 'none', padding: '12px 0 0 0', display: 'flex', justifyContent: 'flex-end', gap: '16px', alignItems: 'center' }}>
+                            <button className="cd-cancel-btn" style={{ background: 'none', border: 'none', color: '#4b5563', cursor: 'pointer', fontSize: '14px', fontWeight: '500', padding: 0 }} onClick={() => setShowWatermarkModal(false)}>Cancel</button>
+                            <button 
+                                className="cd-save-btn" 
+                                style={{ backgroundColor: '#a2d9c5', color: '#fff', border: 'none', padding: '10px 24px', borderRadius: '4px', fontSize: '14px', fontWeight: '600', cursor: 'pointer', transition: 'background-color 0.2s', height: '40px', minWidth: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} 
+                                onClick={handleSaveWatermarkSettings} 
+                                disabled={saving}
+                            >
+                                {saving ? 'Saving...' : 'Save'}
+                            </button>
                         </div>
                     </div>
                 </div>

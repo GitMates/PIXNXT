@@ -55,6 +55,7 @@ export const DownloadModal = ({
   photos = [],
   sets = [],
   initialPhoto = null,
+  watermarkOptions = null,
   initialSetId = 'all'
 }) => {
   const [step, setStep] = useState('auth'); // auth -> selection -> preparing -> complete
@@ -477,6 +478,7 @@ export const DownloadModal = ({
         const photo = photosToDownload[0];
         setProgressMonotonic(50);
         setStatusText(preparingStatusText(0, 1));
+        await downloadSinglePhotoFile(photo, watermarkOptions);
         await downloadSinglePhotoFile(photo, { preferOriginal: true });
         if (isStale()) return;
         setProgressMonotonic(100);
@@ -487,6 +489,7 @@ export const DownloadModal = ({
           concurrency: DEFAULT_DOWNLOAD_CONCURRENCY,
           preferOriginal: true,
           isStale,
+          watermarkOptions,
           onProgress: (done) => {
             completedCountRef.current = done;
             reportDownloadProgress();

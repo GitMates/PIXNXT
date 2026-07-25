@@ -25,6 +25,7 @@ import { renderMiniFrame } from '../../printstore/components/StoreHeader';
 import { GalleryBackToTop } from '../../components/features/Gallery/GalleryBackToTop/GalleryBackToTop';
 import { GalleryEmptyGrid } from '../../components/features/Gallery/GalleryEmptyGrid/GalleryEmptyGrid';
 import { smoothScrollToElement, smoothScrollToTop } from '../../lib/smoothGalleryScroll';
+import { getPhotoFullDisplayUrl, getWebResolutionUrl, resolveMediaUrl } from '../../lib/photoDisplayUrl';
 import { getPhotoFullDisplayUrl } from '../../lib/photoDisplayUrl';
 import { getStoreViewPhotoUrl, toStoreCartPhoto } from '../../lib/storePhotoQuality';
 import {
@@ -98,6 +99,7 @@ const GalleryView = () => {
   const isMobileViewport = useIsMobileViewport();
   const [collection, setCollection] = useState(null);
   const [photographer, setPhotographer] = useState(null);
+  const [watermarks, setWatermarks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lightboxIndex, setLightboxIndex] = useState(-1);
@@ -107,7 +109,7 @@ const GalleryView = () => {
   const [showNoImageShopModal, setShowNoImageShopModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [email, setEmail] = useState('');
-  
+
   // Sales campaigns loaded from StoreDashboard localStorage for client site banner rendering
   const [campaigns, setCampaigns] = useState(() => {
     const stored = localStorage.getItem(SALES_CAMPAIGNS_STORAGE_KEY);
@@ -598,10 +600,10 @@ const GalleryView = () => {
       const session = await galleryService.createOrGetSession(collection.id, shopEmail);
       localStorage.setItem(`pixnxt_fav_email_${collection.id}`, shopEmail);
       localStorage.setItem('pixnxt_printstore_email', shopEmail);
-      
+
       setShowShopModal(false);
       setIsSubmittingShopEmail(false);
-      
+
       if (pendingDownloadPhoto || isPendingDownloadAll) {
         const photoToPass = isPendingDownloadAll ? null : pendingDownloadPhoto;
         setPendingDownloadPhoto(null);
@@ -640,8 +642,23 @@ const GalleryView = () => {
   const [privateToast, setPrivateToast] = useState(null);
   const [privateToastThumb, setPrivateToastThumb] = useState(null);
 
+  // Preference Settings from localStorage
+  const [showTosModal, setShowTosModal] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const tosText = localStorage.getItem('tos_text') || '';
+  const privacyText = localStorage.getItem('privacy_policy_text') || '';
+  const [showCookieBanner, setShowCookieBanner] = useState(() => {
+    return localStorage.getItem('cookie_banner_enabled') === 'true' && !sessionStorage.getItem('cookie_banner_acknowledged');
+  });
+
   const [searchParams] = useSearchParams();
   const listId = searchParams.get('list');
+  const photosParam = searchParams.get('photos');
+
+  const sharedPhotoIds = useMemo(() => {
+    if (!photosParam) return null;
+    return new Set(photosParam.split(',').map(id => id.trim()).filter(Boolean));
+  }, [photosParam]);
 
   const getPickListId = useCallback(() => {
     if (!collection?.id) return null;
@@ -683,6 +700,50 @@ const GalleryView = () => {
     },
     [listId, getPickListId]
   );
+
+  useEffect(() => {
+    const faviconUrl = photographer?.favicon_url || localStorage.getItem('custom_favicon_url');
+    if (!faviconUrl) return;
+
+    const link = document.querySelector("link[rel*='icon']");
+    const originalHref = link ? link.getAttribute('href') : '/logo.png';
+    const originalType = link ? link.getAttribute('type') : 'image/png';
+
+    if (link) {
+      link.href = faviconUrl;
+      if (faviconUrl.endsWith('.png')) {
+        link.type = 'image/png';
+      } else if (faviconUrl.endsWith('.gif')) {
+        link.type = 'image/gif';
+      } else if (faviconUrl.endsWith('.ico')) {
+        link.type = 'image/x-icon';
+      }
+    } else {
+      const newLink = document.createElement('link');
+      newLink.rel = 'icon';
+      newLink.href = faviconUrl;
+      if (faviconUrl.endsWith('.png')) {
+        newLink.type = 'image/png';
+      } else if (faviconUrl.endsWith('.gif')) {
+        newLink.type = 'image/gif';
+      } else if (faviconUrl.endsWith('.ico')) {
+        newLink.type = 'image/x-icon';
+      }
+      document.head.appendChild(newLink);
+    }
+
+    return () => {
+      const activeLink = document.querySelector("link[rel*='icon']");
+      if (activeLink) {
+        activeLink.href = originalHref;
+        if (originalType) {
+          activeLink.type = originalType;
+        } else {
+          activeLink.removeAttribute('type');
+        }
+      }
+    };
+  }, [photographer]);
 
   useEffect(() => {
     refreshSelectionList(sessionId, null);
@@ -860,6 +921,46 @@ const GalleryView = () => {
     }
   };
 
+  const getWatermarkOptions = () => {
+    if (!collection || !photographer) return null;
+
+    if (!photographer.watermark_web_downloads) return null;
+
+    const hasWatermark = collection.default_watermark && collection.default_watermark !== 'No watermark';
+    if (!hasWatermark) return null;
+
+    let wm = watermarks.find(w => w.id === collection.default_watermark);
+    if (!wm) {
+      wm = watermarks.find(w => w.name === collection.default_watermark);
+    }
+
+    if (!wm && (photographer.watermark_url || photographer.watermark_text)) {
+      wm = {
+        type: photographer.watermark_type,
+        url: photographer.watermark_url,
+        text: photographer.watermark_text,
+        font: photographer.watermark_font,
+        color: photographer.watermark_color,
+        scale: photographer.watermark_scale,
+        opacity: photographer.watermark_opacity,
+        position: photographer.watermark_position || 'center',
+      };
+    }
+
+    if (!wm) return null;
+
+    return {
+      watermark_type: wm.type,
+      watermark_url: wm.url,
+      watermark_text: wm.text,
+      watermark_font: wm.font,
+      watermark_color: wm.color,
+      watermark_scale: wm.scale,
+      watermark_opacity: wm.opacity,
+      watermark_position: wm.position || 'center',
+    };
+  };
+
   const handleDigitalDownloadClick = async (photoOrEvent = null) => {
     const photo = (photoOrEvent && photoOrEvent.id) ? photoOrEvent : null;
     const savedEmail = localStorage.getItem(`pixnxt_fav_email_${collection.id}`);
@@ -902,6 +1003,8 @@ const GalleryView = () => {
 
       if (!needsEmail && !needsPin && !hasDownloadLimit) {
         // Single photo: download immediately from Cloudflare R2 if no auth required
+        const watermarkOptions = getWatermarkOptions();
+        await downloadSinglePhotoFile(photo, watermarkOptions);
         await downloadSinglePhotoFile(photo, { preferOriginal: true });
 
         // Log activity for direct download
@@ -987,13 +1090,13 @@ const GalleryView = () => {
 
   const showGalleryDownload =
     (isCollectionFeatureEnabled(collection?.downloads_enabled) &&
-    isCollectionFeatureEnabled(collection?.gallery_download_enabled)) ||
+      isCollectionFeatureEnabled(collection?.gallery_download_enabled)) ||
     isPaidDigitalDownloadOn;
   const showGalleryShare = isCollectionFeatureEnabled(collection?.social_sharing_enabled);
   const showGallerySlideshow = isSlideshowEnabledForCollection(collection);
   const showSinglePhotoDownload =
     (isCollectionFeatureEnabled(collection?.downloads_enabled) &&
-    isCollectionFeatureEnabled(collection?.single_photo_download_enabled)) ||
+      isCollectionFeatureEnabled(collection?.single_photo_download_enabled)) ||
     isPaidDigitalDownloadOn;
 
   const shareUrl = typeof window !== 'undefined' ? window.location.origin + "/gallery/" + (slug || '') : '';
@@ -1034,6 +1137,12 @@ const GalleryView = () => {
         if (data.photographer_id) {
           const p = await galleryService.getPhotographerProfile(data.photographer_id);
           setPhotographer(p);
+          try {
+            const wms = await galleryService.getWatermarks(data.photographer_id);
+            setWatermarks(wms || []);
+          } catch (e) {
+            console.error('Failed to fetch watermarks', e);
+          }
           try {
             const pkgs = await fetchStorePackages(data.photographer_id, { activeOnly: true });
             setStorePackages(pkgs || []);
@@ -1212,6 +1321,9 @@ const GalleryView = () => {
 
   const filteredPhotosBase = useMemo(() => {
     let base = photosForActiveSet;
+    if (sharedPhotoIds) {
+      base = base.filter((p) => sharedPhotoIds.has(String(p.id)));
+    }
     if (!collection) return base;
     if (isClientExclusiveEnabled(collection)) {
       base = filterPhotosForViewer(
@@ -1224,7 +1336,7 @@ const GalleryView = () => {
     }
     const sortKey = normalizeGalleryPhotoSort(collection.gallery_photo_sort);
     return sortPhotosForGallery(base, sortKey);
-  }, [collection, photosForActiveSet, isClientViewer, activeSetId]);
+  }, [collection, photosForActiveSet, isClientViewer, activeSetId, sharedPhotoIds]);
 
   const mediaCounts = useMemo(() => countGalleryMedia(filteredPhotosBase), [filteredPhotosBase]);
 
@@ -1645,6 +1757,56 @@ const GalleryView = () => {
     );
   }, [activeCampaign, campaignTimeLeft, isMobileViewport]);
 
+  const hasAutoOpenedRef = useRef(false);
+  useEffect(() => {
+    if (!collection || hasAutoOpenedRef.current) return;
+    const photoId = searchParams.get('photo');
+    if (!photoId) return;
+
+    const targetPhoto = (collection.photos || []).find((p) => String(p.id) === String(photoId));
+    if (!targetPhoto) return;
+
+    // 1. If target photo is in a set, switch to that set first
+    const targetSetId = targetPhoto.set_id || null;
+    if (activeSetId !== targetSetId) {
+      setActiveSetId(targetSetId);
+      return;
+    }
+
+    // 2. Find photo index in the current filtered photos
+    const idx = filteredPhotos.findIndex((p) => String(p.id) === String(photoId));
+    if (idx >= 0) {
+      setLightboxIndex(idx);
+      hasAutoOpenedRef.current = true;
+    }
+  }, [collection, searchParams, activeSetId, filteredPhotos]);
+
+  useEffect(() => {
+    if (lightboxIndex >= 0 && filteredPhotos[lightboxIndex]) {
+      const currentPhotoId = filteredPhotos[lightboxIndex].id;
+      if (searchParams.get('photo') !== String(currentPhotoId)) {
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.set('photo', String(currentPhotoId));
+        navigate(`${window.location.pathname}?${nextParams.toString()}`, { replace: true });
+      }
+    }
+  }, [lightboxIndex, filteredPhotos, searchParams, navigate]);
+
+  const hasAutoSelectedSetRef = useRef(false);
+  useEffect(() => {
+    if (!collection || !sharedPhotoIds || hasAutoSelectedSetRef.current) return;
+    const hasSharedInActive = (collection.photos || []).some(
+      (p) => sharedPhotoIds.has(String(p.id)) && (p.set_id === activeSetId || (!p.set_id && !activeSetId))
+    );
+    if (!hasSharedInActive) {
+      const firstSetWithShared = (collection.photos || []).find((p) => sharedPhotoIds.has(String(p.id)));
+      if (firstSetWithShared) {
+        setActiveSetId(firstSetWithShared.set_id || null);
+      }
+    }
+    hasAutoSelectedSetRef.current = true;
+  }, [collection, sharedPhotoIds, activeSetId]);
+
   if (loading) return (
     <div className="flex h-screen items-center justify-center bg-white">
       <div className="text-sm font-bold tracking-[0.6em] uppercase text-zinc-200 animate-pulse">
@@ -1754,7 +1916,15 @@ const GalleryView = () => {
         data-cover-text-scale={isMobileViewport ? 'compact' : 'large'}
       >
         {(() => {
-          const activePhotoUrl = collection.cover_url || (collection.photos?.[0]?.web_url);
+          let activePhotoUrl = collection.cover_url || '';
+          if (activePhotoUrl) {
+            activePhotoUrl = resolveMediaUrl(activePhotoUrl);
+            if (activePhotoUrl.includes('/original/')) {
+              activePhotoUrl = activePhotoUrl.replace('/original/', '/web/');
+            }
+          } else {
+            activePhotoUrl = collection.photos?.[0] ? getWebResolutionUrl(collection.photos[0]) : '';
+          }
           const { x: focalX, y: focalY } = getCollectionFocal(collection);
 
           const props = {
@@ -1815,9 +1985,9 @@ const GalleryView = () => {
             </div>
           ) : null}
           {sessionId &&
-          !isFavoriteListMode &&
-          !favoritesLocked &&
-          activeFavoriteList?.description?.trim() ? (
+            !isFavoriteListMode &&
+            !favoritesLocked &&
+            activeFavoriteList?.description?.trim() ? (
             <div
               className="mb-6 mx-auto max-w-2xl whitespace-pre-wrap px-4 text-center text-sm leading-relaxed"
               style={{ color: 'var(--gallery-meta-text)' }}
@@ -1999,9 +2169,9 @@ const GalleryView = () => {
           ) : null}
 
           {filteredPhotos.length === 0 &&
-          showMediaFilter &&
-          !isFavoriteListMode &&
-          photosForActiveSet.length > 0 ? (
+            showMediaFilter &&
+            !isFavoriteListMode &&
+            photosForActiveSet.length > 0 ? (
             <p
               className="gallery-body-text py-16 text-center text-[7px] font-bold uppercase tracking-[0.35em] opacity-40"
               style={{ color: 'var(--gallery-text)' }}
@@ -2034,7 +2204,7 @@ const GalleryView = () => {
               favoritedPhotoIds: favoritedPhotos,
               customRowHeight: galleryCustomRowHeight,
               customColumnCount: galleryCustomColumnCount,
-              showFilename: collection?.show_filenames === true,
+              showFilename: false,
               className: 'mt-2',
             };
 
@@ -2065,17 +2235,68 @@ const GalleryView = () => {
         </Container>
       </main>
 
-      {/* Global Footer Branding */}
-      <footer
-        className={cn('mt-12 border-t py-8', isGalleryDark ? 'border-white/10' : '')}
-        style={{ borderTopColor: isGalleryDark ? undefined : 'rgba(0,0,0,0.05)', backgroundColor: 'var(--gallery-bg)' }}
-      >
-        <Container className="max-w-none px-4 md:px-8 lg:px-12">
-          <div className="text-center">
-            <Typography variant="label" style={{ color: 'var(--gallery-meta-text)', opacity: 0.5 }}>© {new Date().getFullYear()} PIXNXT. All Rights Reserved.</Typography>
+      {/* Global Footer Branding & Policies */}
+      {!(photographer?.hide_branding === true || localStorage.getItem('hide_branding') === 'true') && (
+        <footer
+          className={cn('mt-12 border-t py-8', isGalleryDark ? 'border-white/10' : '')}
+          style={{ borderTopColor: isGalleryDark ? undefined : 'rgba(0,0,0,0.05)', backgroundColor: 'var(--gallery-bg)' }}
+        >
+          <Container className="max-w-none px-4 md:px-8 lg:px-12">
+            <div className="text-center flex flex-col items-center gap-2">
+              <Typography variant="label" style={{ color: 'var(--gallery-meta-text)', opacity: 0.5 }}>© {new Date().getFullYear()} PIXNXT. All Rights Reserved.</Typography>
+              {(tosText || privacyText) && (
+                <div className="flex gap-4 text-xs mt-2" style={{ color: 'var(--gallery-meta-text)', opacity: 0.6 }}>
+                  {tosText && (
+                    <button type="button" onClick={() => setShowTosModal(true)} className="hover:underline">Terms of Service</button>
+                  )}
+                  {privacyText && (
+                    <button type="button" onClick={() => setShowPrivacyModal(true)} className="hover:underline">Privacy Policy</button>
+                  )}
+                </div>
+              )}
+            </div>
+          </Container>
+        </footer>
+      )}
+
+      {/* Policies Modals */}
+      {showTosModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowTosModal(false)}>
+          <div className="bg-white text-black p-6 rounded-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <h2 className="text-xl font-medium mb-4">Terms of Service</h2>
+            <div className="whitespace-pre-wrap text-sm text-gray-700">{tosText}</div>
+            <button className="mt-6 px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200" onClick={() => setShowTosModal(false)}>Close</button>
           </div>
-        </Container>
-      </footer>
+        </div>
+      )}
+      {showPrivacyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowPrivacyModal(false)}>
+          <div className="bg-white text-black p-6 rounded-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <h2 className="text-xl font-medium mb-4">Privacy Policy</h2>
+            <div className="whitespace-pre-wrap text-sm text-gray-700">{privacyText}</div>
+            <button className="mt-6 px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200" onClick={() => setShowPrivacyModal(false)}>Close</button>
+          </div>
+        </div>
+      )}
+
+      {/* Cookie Banner */}
+      {showCookieBanner && (
+        <div className="fixed bottom-0 left-0 right-0 z-[100] bg-white border-t border-gray-200 p-4 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4" style={{ backgroundColor: 'var(--gallery-bg)' }}>
+          <p className="text-sm m-0" style={{ color: 'var(--gallery-text)' }}>
+            This website uses cookies to ensure you get the best experience on our website.
+          </p>
+          <button 
+            className="px-6 py-2 bg-black text-white rounded whitespace-nowrap text-sm font-medium hover:bg-gray-800 transition-colors"
+            style={{ backgroundColor: 'var(--gallery-text)', color: 'var(--gallery-bg)' }}
+            onClick={() => {
+              sessionStorage.setItem('cookie_banner_acknowledged', 'true');
+              setShowCookieBanner(false);
+            }}
+          >
+            Got it!
+          </button>
+        </div>
+      )}
 
       {/* Lightbox */}
       <PhotoLightbox
@@ -2083,6 +2304,11 @@ const GalleryView = () => {
         onClose={() => {
           setLightboxIndex(-1);
           setIsSlideshowActive(false);
+          if (searchParams.has('photo')) {
+            const nextParams = new URLSearchParams(searchParams);
+            nextParams.delete('photo');
+            navigate(`${window.location.pathname}?${nextParams.toString()}`, { replace: true });
+          }
         }}
         images={photoUrls}
         photos={filteredPhotos}
@@ -2111,7 +2337,7 @@ const GalleryView = () => {
         onShare={() => setShowShareModal(true)}
         onShop={() => handleShopClick(filteredPhotos[lightboxIndex])}
         showDownload={showSinglePhotoDownload}
-            isPaidDownload={isPaidDigitalDownloadOn}
+        isPaidDownload={isPaidDigitalDownloadOn}
         showFavorite={collection?.favorites_enabled !== false}
         showShare={showGalleryShare}
         showShop={collection?.store_enabled !== false}
@@ -2333,6 +2559,7 @@ const GalleryView = () => {
         photos={downloadablePhotos}
         sets={downloadableSets}
         initialPhoto={selectedDownloadPhoto}
+        watermarkOptions={getWatermarkOptions()}
         initialSetId={activeSetId}
       />
 
@@ -2878,6 +3105,17 @@ const GalleryView = () => {
                           : (digitalPricing?.single?.price || 0)
                       );
                       const photo = isAll ? null : digitalDownloadPhoto;
+                      const photoForCart = photo
+                        ? {
+                          id: photo.id,
+                          filename: photo.filename || photo.name || '',
+                          url: photo.url || photo.web_url || photo.thumbnail_url || photo.full_url || photo.display_url || '',
+                          web_url: photo.web_url || photo.url || photo.display_url || '',
+                          thumbnail_url: photo.thumbnail_url || photo.web_url || photo.url || '',
+                          full_url: photo.full_url || photo.web_url || photo.url || '',
+                          display_url: photo.display_url || photo.web_url || photo.url || '',
+                        }
+                        : null;
                       const photoForCart = photo ? toStoreCartPhoto(photo) : null;
                       const size = { id: isAll ? 'all_photos' : 'hi_res', label: isAll ? 'All Photos' : 'High Resolution' };
 
@@ -3031,7 +3269,7 @@ const GalleryView = () => {
                       </p>
                     </div>
                   </div>
-                  
+
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginTop: '12px' }}>
                     <span style={{ fontSize: '16px', color: '#64748b', flexShrink: 0 }}>🛈</span>
                     <div>
@@ -3181,146 +3419,104 @@ const GalleryView = () => {
                     {vaultPlan?.desc_lifetime || 'Permanent lifetime storage access.'}
                   </div>
 
-                {/* Price Details */}
-                <div style={{
-                  background: isGalleryDark ? '#262626' : '#fcfbfa',
-                  border: isGalleryDark ? '1px solid #3f3f46' : '1px solid #f2ede4',
-                  borderRadius: '8px',
-                  padding: '16px',
-                  marginBottom: '20px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '12px'
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  {/* Price Details */}
+                  <div style={{
+                    background: isGalleryDark ? '#262626' : '#fcfbfa',
+                    border: isGalleryDark ? '1px solid #3f3f46' : '1px solid #f2ede4',
+                    borderRadius: '8px',
+                    padding: '16px',
+                    marginBottom: '20px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <span style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b', fontWeight: 600 }}>Plan Type</span>
+                        <strong style={{ color: isGalleryDark ? '#fff' : '#111', fontSize: '14px' }}>
+                          Lifetime Permanent Vault
+                        </strong>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <span style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b', fontWeight: 600 }}>Amount Due</span>
+                        <strong style={{ color: isGalleryDark ? '#fff' : '#111', fontSize: '18px', fontWeight: 700 }}>
+                          ₹{vaultPlan?.price_lifetime || '499'}
+                        </strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Payment Method Selector Tabs */}
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setVaultPaymentMethod('Credit Card')}
+                      style={{
+                        flex: 1,
+                        padding: '10px 16px',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em',
+                        border: vaultPaymentMethod === 'Credit Card' ? '2px solid var(--gallery-accent, #059669)' : (isGalleryDark ? '1px solid #3f3f46' : '1px solid #e2e8f0'),
+                        backgroundColor: vaultPaymentMethod === 'Credit Card' ? (isGalleryDark ? '#1f2937' : '#f0fdf4') : 'transparent',
+                        color: vaultPaymentMethod === 'Credit Card' ? (isGalleryDark ? '#34d399' : '#059669') : (isGalleryDark ? '#9ca3af' : '#4b5563'),
+                        cursor: 'pointer',
+                        borderRadius: '6px',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      💳 Credit Card
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setVaultPaymentMethod('UPI')}
+                      style={{
+                        flex: 1,
+                        padding: '10px 16px',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em',
+                        border: vaultPaymentMethod === 'UPI' ? '2px solid var(--gallery-accent, #059669)' : (isGalleryDark ? '1px solid #3f3f46' : '1px solid #e2e8f0'),
+                        backgroundColor: vaultPaymentMethod === 'UPI' ? (isGalleryDark ? '#1f2937' : '#f0fdf4') : 'transparent',
+                        color: vaultPaymentMethod === 'UPI' ? (isGalleryDark ? '#34d399' : '#059669') : (isGalleryDark ? '#9ca3af' : '#4b5563'),
+                        cursor: 'pointer',
+                        borderRadius: '6px',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      📱 UPI
+                    </button>
+                  </div>
+
+                  {/* Card / UPI Form */}
+                  <form onSubmit={handleVaultPaymentSubmit} className="space-y-4">
                     <div>
-                      <span style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b', fontWeight: 600 }}>Plan Type</span>
-                      <strong style={{ color: isGalleryDark ? '#fff' : '#111', fontSize: '14px' }}>
-                        Lifetime Permanent Vault
-                      </strong>
+                      <label className="block text-[11px] font-bold uppercase tracking-[0.1em] text-zinc-400 mb-1.5">Delivery Email</label>
+                      <input
+                        type="email"
+                        required
+                        placeholder="name@example.com"
+                        value={vaultEmail}
+                        onChange={(e) => setVaultEmail(e.target.value)}
+                        className={cn(
+                          'w-full border rounded px-3 py-2 text-[14px] outline-none transition-colors',
+                          isGalleryDark ? 'border-zinc-700 bg-zinc-800 text-white focus:border-white' : 'border-zinc-200 bg-white focus:border-black'
+                        )}
+                      />
                     </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <span style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b', fontWeight: 600 }}>Amount Due</span>
-                      <strong style={{ color: isGalleryDark ? '#fff' : '#111', fontSize: '18px', fontWeight: 700 }}>
-                        ₹{vaultPlan?.price_lifetime || '499'}
-                      </strong>
-                    </div>
-                  </div>
-                </div>
 
-                {/* Payment Method Selector Tabs */}
-                <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
-                  <button
-                    type="button"
-                    onClick={() => setVaultPaymentMethod('Credit Card')}
-                    style={{
-                      flex: 1,
-                      padding: '10px 16px',
-                      fontSize: '11px',
-                      fontWeight: 700,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em',
-                      border: vaultPaymentMethod === 'Credit Card' ? '2px solid var(--gallery-accent, #059669)' : (isGalleryDark ? '1px solid #3f3f46' : '1px solid #e2e8f0'),
-                      backgroundColor: vaultPaymentMethod === 'Credit Card' ? (isGalleryDark ? '#1f2937' : '#f0fdf4') : 'transparent',
-                      color: vaultPaymentMethod === 'Credit Card' ? (isGalleryDark ? '#34d399' : '#059669') : (isGalleryDark ? '#9ca3af' : '#4b5563'),
-                      cursor: 'pointer',
-                      borderRadius: '6px',
-                      transition: 'all 0.2s'
-                    }}
-                  >
-                    💳 Credit Card
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setVaultPaymentMethod('UPI')}
-                    style={{
-                      flex: 1,
-                      padding: '10px 16px',
-                      fontSize: '11px',
-                      fontWeight: 700,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em',
-                      border: vaultPaymentMethod === 'UPI' ? '2px solid var(--gallery-accent, #059669)' : (isGalleryDark ? '1px solid #3f3f46' : '1px solid #e2e8f0'),
-                      backgroundColor: vaultPaymentMethod === 'UPI' ? (isGalleryDark ? '#1f2937' : '#f0fdf4') : 'transparent',
-                      color: vaultPaymentMethod === 'UPI' ? (isGalleryDark ? '#34d399' : '#059669') : (isGalleryDark ? '#9ca3af' : '#4b5563'),
-                      cursor: 'pointer',
-                      borderRadius: '6px',
-                      transition: 'all 0.2s'
-                    }}
-                  >
-                    📱 UPI
-                  </button>
-                </div>
-
-                {/* Card / UPI Form */}
-                <form onSubmit={handleVaultPaymentSubmit} className="space-y-4">
-                  <div>
-                    <label className="block text-[11px] font-bold uppercase tracking-[0.1em] text-zinc-400 mb-1.5">Delivery Email</label>
-                    <input
-                      type="email"
-                      required
-                      placeholder="name@example.com"
-                      value={vaultEmail}
-                      onChange={(e) => setVaultEmail(e.target.value)}
-                      className={cn(
-                        'w-full border rounded px-3 py-2 text-[14px] outline-none transition-colors',
-                        isGalleryDark ? 'border-zinc-700 bg-zinc-800 text-white focus:border-white' : 'border-zinc-200 bg-white focus:border-black'
-                      )}
-                    />
-                  </div>
-
-                  {vaultPaymentMethod === 'Credit Card' ? (
-                    <>
-                      <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-[0.1em] text-zinc-400 mb-1.5">Cardholder Name</label>
-                        <input
-                          type="text"
-                          required={vaultPaymentMethod === 'Credit Card'}
-                          placeholder="John Doe"
-                          value={vaultCardName}
-                          onChange={(e) => setVaultCardName(e.target.value)}
-                          className={cn(
-                            'w-full border rounded px-3 py-2 text-[14px] outline-none transition-colors',
-                            isGalleryDark ? 'border-zinc-700 bg-zinc-800 text-white focus:border-white' : 'border-zinc-200 bg-white focus:border-black'
-                          )}
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-[0.1em] text-zinc-400 mb-1.5">Card Number</label>
-                        <div className="relative">
-                          <input
-                            type="text"
-                            required={vaultPaymentMethod === 'Credit Card'}
-                            placeholder="4242 4242 4242 4242"
-                            value={vaultCardNumber}
-                            onChange={(e) => {
-                              const val = e.target.value.replace(/\D/g, '').slice(0, 16);
-                              const formatted = val.replace(/(.{4})/g, '$1 ').trim();
-                              setVaultCardNumber(formatted);
-                            }}
-                            className={cn(
-                              'w-full border rounded pl-10 pr-3 py-2 text-[14px] outline-none transition-colors',
-                              isGalleryDark ? 'border-zinc-700 bg-zinc-800 text-white focus:border-white' : 'border-zinc-200 bg-white focus:border-black'
-                            )}
-                          />
-                          <CreditCard size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
+                    {vaultPaymentMethod === 'Credit Card' ? (
+                      <>
                         <div>
-                          <label className="block text-[11px] font-bold uppercase tracking-[0.1em] text-zinc-400 mb-1.5">Expiry Date</label>
+                          <label className="block text-[11px] font-bold uppercase tracking-[0.1em] text-zinc-400 mb-1.5">Cardholder Name</label>
                           <input
                             type="text"
                             required={vaultPaymentMethod === 'Credit Card'}
-                            placeholder="MM/YY"
-                            value={vaultCardExpiry}
-                            onChange={(e) => {
-                              const val = e.target.value.replace(/\D/g, '').slice(0, 4);
-                              const formatted = val.length > 2 ? `${val.slice(0, 2)}/${val.slice(2)}` : val;
-                              setVaultCardExpiry(formatted);
-                            }}
+                            placeholder="John Doe"
+                            value={vaultCardName}
+                            onChange={(e) => setVaultCardName(e.target.value)}
                             className={cn(
                               'w-full border rounded px-3 py-2 text-[14px] outline-none transition-colors',
                               isGalleryDark ? 'border-zinc-700 bg-zinc-800 text-white focus:border-white' : 'border-zinc-200 bg-white focus:border-black'
@@ -3329,107 +3525,149 @@ const GalleryView = () => {
                         </div>
 
                         <div>
-                          <label className="block text-[11px] font-bold uppercase tracking-[0.1em] text-zinc-400 mb-1.5">Security Code (CVC)</label>
-                          <input
-                            type="text"
-                            required={vaultPaymentMethod === 'Credit Card'}
-                            placeholder="123"
-                            value={vaultCardCvc}
-                            onChange={(e) => {
-                              const val = e.target.value.replace(/\D/g, '').slice(0, 3);
-                              setVaultCardCvc(val);
-                            }}
-                            className={cn(
-                              'w-full border rounded px-3 py-2 text-[14px] outline-none transition-colors',
-                              isGalleryDark ? 'border-zinc-700 bg-zinc-800 text-white focus:border-white' : 'border-zinc-200 bg-white focus:border-black'
-                            )}
-                          />
+                          <label className="block text-[11px] font-bold uppercase tracking-[0.1em] text-zinc-400 mb-1.5">Card Number</label>
+                          <div className="relative">
+                            <input
+                              type="text"
+                              required={vaultPaymentMethod === 'Credit Card'}
+                              placeholder="4242 4242 4242 4242"
+                              value={vaultCardNumber}
+                              onChange={(e) => {
+                                const val = e.target.value.replace(/\D/g, '').slice(0, 16);
+                                const formatted = val.replace(/(.{4})/g, '$1 ').trim();
+                                setVaultCardNumber(formatted);
+                              }}
+                              className={cn(
+                                'w-full border rounded pl-10 pr-3 py-2 text-[14px] outline-none transition-colors',
+                                isGalleryDark ? 'border-zinc-700 bg-zinc-800 text-white focus:border-white' : 'border-zinc-200 bg-white focus:border-black'
+                              )}
+                            />
+                            <CreditCard size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
+                          </div>
                         </div>
-                      </div>
-                    </>
-                  ) : (
-                    <div style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      padding: '20px',
-                      border: isGalleryDark ? '1px solid #3f3f46' : '1px solid #e2e8f0',
-                      borderRadius: '8px',
-                      backgroundColor: isGalleryDark ? '#262626' : '#fafafa'
-                    }}>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-[11px] font-bold uppercase tracking-[0.1em] text-zinc-400 mb-1.5">Expiry Date</label>
+                            <input
+                              type="text"
+                              required={vaultPaymentMethod === 'Credit Card'}
+                              placeholder="MM/YY"
+                              value={vaultCardExpiry}
+                              onChange={(e) => {
+                                const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                                const formatted = val.length > 2 ? `${val.slice(0, 2)}/${val.slice(2)}` : val;
+                                setVaultCardExpiry(formatted);
+                              }}
+                              className={cn(
+                                'w-full border rounded px-3 py-2 text-[14px] outline-none transition-colors',
+                                isGalleryDark ? 'border-zinc-700 bg-zinc-800 text-white focus:border-white' : 'border-zinc-200 bg-white focus:border-black'
+                              )}
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-bold uppercase tracking-[0.1em] text-zinc-400 mb-1.5">Security Code (CVC)</label>
+                            <input
+                              type="text"
+                              required={vaultPaymentMethod === 'Credit Card'}
+                              placeholder="123"
+                              value={vaultCardCvc}
+                              onChange={(e) => {
+                                const val = e.target.value.replace(/\D/g, '').slice(0, 3);
+                                setVaultCardCvc(val);
+                              }}
+                              className={cn(
+                                'w-full border rounded px-3 py-2 text-[14px] outline-none transition-colors',
+                                isGalleryDark ? 'border-zinc-700 bg-zinc-800 text-white focus:border-white' : 'border-zinc-200 bg-white focus:border-black'
+                              )}
+                            />
+                          </div>
+                        </div>
+                      </>
+                    ) : (
                       <div style={{
-                        padding: '16px',
-                        backgroundColor: '#fff',
-                        border: '1px solid #eaeaea',
-                        borderRadius: '8px',
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'center',
-                        gap: '8px',
-                        marginBottom: '12px'
+                        justifyContent: 'center',
+                        padding: '20px',
+                        border: isGalleryDark ? '1px solid #3f3f46' : '1px solid #e2e8f0',
+                        borderRadius: '8px',
+                        backgroundColor: isGalleryDark ? '#262626' : '#fafafa'
                       }}>
-                        {/* Visual mockup of a QR code using pure CSS */}
                         <div style={{
-                          width: '120px',
-                          height: '120px',
-                          display: 'grid',
-                          gridTemplateColumns: 'repeat(3, 1fr)',
-                          gridTemplateRows: 'repeat(3, 1fr)',
-                          gap: '6px',
-                          padding: '6px',
-                          background: '#fff'
+                          padding: '16px',
+                          backgroundColor: '#fff',
+                          border: '1px solid #eaeaea',
+                          borderRadius: '8px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: '8px',
+                          marginBottom: '12px'
                         }}>
-                          <div style={{ border: '5px solid #111', background: 'transparent' }} />
-                          <div style={{ background: '#111', opacity: 0.15 }} />
-                          <div style={{ border: '5px solid #111', background: 'transparent' }} />
-                          <div style={{ background: '#111', opacity: 0.2 }} />
-                          <div style={{ background: '#111' }} />
-                          <div style={{ background: '#111', opacity: 0.3 }} />
-                          <div style={{ border: '5px solid #111', background: 'transparent' }} />
-                          <div style={{ background: '#111', opacity: 0.25 }} />
-                          <div style={{ background: '#111' }} />
+                          {/* Visual mockup of a QR code using pure CSS */}
+                          <div style={{
+                            width: '120px',
+                            height: '120px',
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(3, 1fr)',
+                            gridTemplateRows: 'repeat(3, 1fr)',
+                            gap: '6px',
+                            padding: '6px',
+                            background: '#fff'
+                          }}>
+                            <div style={{ border: '5px solid #111', background: 'transparent' }} />
+                            <div style={{ background: '#111', opacity: 0.15 }} />
+                            <div style={{ border: '5px solid #111', background: 'transparent' }} />
+                            <div style={{ background: '#111', opacity: 0.2 }} />
+                            <div style={{ background: '#111' }} />
+                            <div style={{ background: '#111', opacity: 0.3 }} />
+                            <div style={{ border: '5px solid #111', background: 'transparent' }} />
+                            <div style={{ background: '#111', opacity: 0.25 }} />
+                            <div style={{ background: '#111' }} />
+                          </div>
+                          <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Scan with any UPI App</span>
                         </div>
-                        <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Scan with any UPI App</span>
+                        <p className="text-[12px] text-center text-zinc-500 max-w-[240px]">
+                          Scan the code to complete secure UPI transfer.
+                        </p>
                       </div>
-                      <p className="text-[12px] text-center text-zinc-500 max-w-[240px]">
-                        Scan the code to complete secure UPI transfer.
-                      </p>
-                    </div>
-                  )}
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: '#64748b', background: isGalleryDark ? '#262626' : '#f8fafc', padding: '10px 12px', borderRadius: '6px', border: isGalleryDark ? '1px dashed #3f3f46' : '1px dashed #e2e8f0', marginTop: '16px' }}>
-                    <ShieldCheck size={16} className="text-[#10b981] flex-shrink-0" />
-                    <span>This is a secure simulated Stripe test payment. Any inputs will succeed.</span>
-                  </div>
-
-                  {vaultError && (
-                    <div className="flex items-center gap-2 text-rose-500 text-[13px] justify-center mt-2">
-                      <AlertCircle size={14} />
-                      <span>{vaultError}</span>
-                    </div>
-                  )}
-
-                  <button
-                    type="submit"
-                    disabled={isVaultPaying}
-                    className="w-full bg-[#111] text-white py-4 text-[13px] font-bold uppercase tracking-[0.25em] hover:bg-zinc-800 transition-colors mt-4 flex items-center justify-center gap-2 disabled:opacity-70"
-                    style={{
-                      backgroundColor: isGalleryDark ? '#fff' : '#111',
-                      color: isGalleryDark ? '#111' : '#fff'
-                    }}
-                  >
-                    {isVaultPaying ? (
-                      <>
-                        <Loader2 size={14} className="animate-spin" />
-                        Processing payment...
-                      </>
-                    ) : (
-                      vaultPaymentMethod === 'UPI' ? 'Confirm UPI Payment' : 'Pay & Unlock Access'
                     )}
-                  </button>
-                </form>
-              </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: '#64748b', background: isGalleryDark ? '#262626' : '#f8fafc', padding: '10px 12px', borderRadius: '6px', border: isGalleryDark ? '1px dashed #3f3f46' : '1px dashed #e2e8f0', marginTop: '16px' }}>
+                      <ShieldCheck size={16} className="text-[#10b981] flex-shrink-0" />
+                      <span>This is a secure simulated Stripe test payment. Any inputs will succeed.</span>
+                    </div>
+
+                    {vaultError && (
+                      <div className="flex items-center gap-2 text-rose-500 text-[13px] justify-center mt-2">
+                        <AlertCircle size={14} />
+                        <span>{vaultError}</span>
+                      </div>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={isVaultPaying}
+                      className="w-full bg-[#111] text-white py-4 text-[13px] font-bold uppercase tracking-[0.25em] hover:bg-zinc-800 transition-colors mt-4 flex items-center justify-center gap-2 disabled:opacity-70"
+                      style={{
+                        backgroundColor: isGalleryDark ? '#fff' : '#111',
+                        color: isGalleryDark ? '#111' : '#fff'
+                      }}
+                    >
+                      {isVaultPaying ? (
+                        <>
+                          <Loader2 size={14} className="animate-spin" />
+                          Processing payment...
+                        </>
+                      ) : (
+                        vaultPaymentMethod === 'UPI' ? 'Confirm UPI Payment' : 'Pay & Unlock Access'
+                      )}
+                    </button>
+                  </form>
+                </div>
               )}
             </Motion.div>
           </div>

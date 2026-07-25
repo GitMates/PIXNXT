@@ -78,17 +78,29 @@ const NAV_ITEMS = [
 const STORAGE_LIMIT_BYTES = 100 * 1024 ** 3;
 
 const SmartAlbumsSidebarLayout = ({ children }) => {
+    const { user, logout } = useAuth();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [showProfileDropdown, setShowProfileDropdown] = useState(false);
     const [showEcosystemMenu, setShowEcosystemMenu] = useState(false);
-    const [profile, setProfile] = useState(null);
+    const [profile, setProfile] = useState(() => {
+        if (typeof window !== 'undefined' && user?.id) {
+            const cached = localStorage.getItem(`photographer_profile_${user.id}`);
+            if (cached) {
+                try {
+                    return JSON.parse(cached);
+                } catch (e) {
+                    return null;
+                }
+            }
+        }
+        return null;
+    });
     const [storageUsed, setStorageUsed] = useState(0);
     const navigate = useNavigate();
     const location = useLocation();
     const path = location.pathname;
     const ecosystemMenuRef = useRef(null);
     const profileDropdownRef = useRef(null);
-    const { user, logout } = useAuth();
 
     const displayName = getProfileDisplayName(profile, user);
     const { primary: brandPrimary, subtitle: brandSubtitle } = splitBrandLines(displayName);
@@ -101,11 +113,24 @@ const SmartAlbumsSidebarLayout = ({ children }) => {
             setProfile(null);
             return undefined;
         }
+
+        const cached = localStorage.getItem(`photographer_profile_${user.id}`);
+        if (cached) {
+            try {
+                setProfile(JSON.parse(cached));
+            } catch (e) {
+                console.warn('Failed to parse cached photographer profile:', e);
+            }
+        }
+
         let cancelled = false;
         galleryService
             .getPhotographerProfile(user.id)
             .then((data) => {
-                if (!cancelled) setProfile(data);
+                if (!cancelled && data) {
+                    setProfile(data);
+                    localStorage.setItem(`photographer_profile_${user.id}`, JSON.stringify(data));
+                }
             })
             .catch(() => {
                 if (!cancelled) setProfile(null);

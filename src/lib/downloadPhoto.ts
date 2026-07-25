@@ -7,6 +7,7 @@ import {
 } from './photoDisplayUrl';
 import { getStoreOriginalDownloadUrlCandidates } from './storePhotoQuality';
 import { getProxiedMediaFetchUrl } from './r2MediaProxy';
+import { applyWatermarkToBlob } from './watermarkUtils';
 
 const DEFAULT_FETCH_TIMEOUT_MS = 120_000;
 export const DEFAULT_DOWNLOAD_CONCURRENCY = 4;
@@ -169,6 +170,7 @@ export interface DownloadPhotosToZipOptions {
   concurrency?: number;
   onProgress?: ProgressCallback;
   isStale?: () => boolean;
+  watermarkOptions?: any;
   preferOriginal?: boolean;
 }
 
@@ -177,10 +179,16 @@ async function addPhotoToZip(
   photo: BulkDownloadPhoto,
   index: number,
   usedNames: Set<string>,
+  watermarkOptions?: any
+): Promise<boolean> {
+  let blob = await fetchPhotoBlob(photo);
   preferOriginal = false
 ): Promise<boolean> {
   const blob = await fetchPhotoBlob(photo, { preferOriginal });
   if (!blob?.size) return false;
+  if (watermarkOptions) {
+    blob = await applyWatermarkToBlob(blob, watermarkOptions);
+  }
   const name = getPhotoDownloadFilename(photo, index, usedNames);
   zip.file(name, blob);
   return true;
@@ -194,6 +202,7 @@ export async function downloadPhotosToZip(
   photos: BulkDownloadPhoto[],
   options: DownloadPhotosToZipOptions = {}
 ): Promise<DownloadZipResult> {
+  const { concurrency = DEFAULT_DOWNLOAD_CONCURRENCY, onProgress, isStale, watermarkOptions } = options;
   const { concurrency = DEFAULT_DOWNLOAD_CONCURRENCY, onProgress, isStale, preferOriginal = false } = options;
 
   if (!photos.length) {
@@ -214,6 +223,7 @@ export async function downloadPhotosToZip(
       chunk.map(async (photo, chunkIndex) => {
         const index = i + chunkIndex;
         try {
+          const ok = await addPhotoToZip(zip, photo, index, usedNames, watermarkOptions);
           const ok = await addPhotoToZip(zip, photo, index, usedNames, preferOriginal);
           if (!ok) failedIndices.push(index);
         } catch (err) {
@@ -233,6 +243,7 @@ export async function downloadPhotosToZip(
       if (isStale?.()) break;
       const photo = photos[index];
       try {
+        const ok = await addPhotoToZip(zip, photo, index, usedNames, watermarkOptions);
         const ok = await addPhotoToZip(zip, photo, index, usedNames, preferOriginal);
         if (!ok) stillFailed.push(index);
       } catch (err) {
@@ -260,6 +271,8 @@ export async function downloadPhotosToZip(
  * Download one photo/video as a real file (image or video extension), not a zip.
  * @param options.preferOriginal — use full/original first (free gallery download when paid digital is off)
  */
+export async function downloadSinglePhotoFile(photo: BulkDownloadPhoto, watermarkOptions?: any): Promise<void> {
+  let blob = await fetchPhotoBlob(photo);
 export async function downloadSinglePhotoFile(
   photo: BulkDownloadPhoto,
   options: FetchPhotoBlobOptions = {}
@@ -267,6 +280,10 @@ export async function downloadSinglePhotoFile(
   const blob = await fetchPhotoBlob(photo, options);
   if (!blob) {
     throw new Error('Failed to download this file. Please try again.');
+  }
+
+  if (watermarkOptions) {
+    blob = await applyWatermarkToBlob(blob, watermarkOptions);
   }
 
   const filename = getPhotoDownloadFilename(photo, 0);

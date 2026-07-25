@@ -109,6 +109,44 @@ export async function compressImageForUpload(file, options = {}) {
     ctx.drawImage(bitmap, 0, 0, outW, outH);
     bitmap.close();
 
+    const sharpeningLevel = localStorage.getItem('sharpening_level');
+    if (sharpeningLevel === 'high') {
+      try {
+        const imageData = ctx.getImageData(0, 0, outW, outH);
+        const data = imageData.data;
+        const w = outW;
+        const h = outH;
+        const out = new Uint8ClampedArray(data.length);
+        const amount = 0.4;
+        
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            const idx = (y * w + x) * 4;
+            if (y === 0 || y === h - 1 || x === 0 || x === w - 1) {
+              out[idx] = data[idx];
+              out[idx + 1] = data[idx + 1];
+              out[idx + 2] = data[idx + 2];
+              out[idx + 3] = data[idx + 3];
+              continue;
+            }
+            const up = idx - w * 4;
+            const down = idx + w * 4;
+            const left = idx - 4;
+            const right = idx + 4;
+            for (let c = 0; c < 3; c++) {
+              let sharpened = 5 * data[idx + c] - data[up + c] - data[down + c] - data[left + c] - data[right + c];
+              out[idx + c] = Math.min(255, Math.max(0, data[idx + c] * (1 - amount) + sharpened * amount));
+            }
+            out[idx + 3] = data[idx + 3];
+          }
+        }
+        imageData.data.set(out);
+        ctx.putImageData(imageData, 0, 0);
+      } catch (err) {
+        console.warn('Sharpening failed:', err);
+      }
+    }
+
     const quality = options.quality ?? jpegQualityForOutput(srcW, srcH, outW, outH, file.size);
     const blob = await new Promise((resolve) => {
       canvas.toBlob(resolve, 'image/jpeg', quality);

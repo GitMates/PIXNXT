@@ -392,10 +392,9 @@ const ClientGallery = () => {
 
     const handleShareByEmail = useCallback((collection) => {
         if (!collection) return;
-        const url = getShareUrlForCollection(collection);
         closeContextMenu();
-        openShareByEmail(url, collection.name || 'Photo Gallery');
-    }, [closeContextMenu]);
+        navigate(`/collections/manage/share?id=${collection.id}`);
+    }, [closeContextMenu, navigate]);
 
     const handleShareWhatsApp = useCallback((collection) => {
         if (!collection) return;
