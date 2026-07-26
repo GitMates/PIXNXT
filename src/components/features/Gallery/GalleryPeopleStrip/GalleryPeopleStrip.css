@@ -150,15 +150,62 @@
 }
 
 .gallery-people-strip--preview {
-  margin-bottom: 1rem;
+  margin: 0 0 1rem;
+}
+
+.gallery-people-strip--preview .gallery-people-strip__intro {
+  gap: 0.3rem;
+  margin-bottom: 0.5rem;
+}
+
+.gallery-people-strip--preview .gallery-people-strip__intro-icon {
+  width: 10px !important;
+  height: 10px !important;
 }
 
 .gallery-people-strip--preview .gallery-people-strip__intro-text {
-  font-size: 0.72rem;
+  font-size: 0.45rem;
+}
+
+.gallery-people-strip--preview .gallery-people-strip__filter-bar {
+  font-size: 0.4rem;
+  padding: 0.2rem 0.4rem;
+  margin-bottom: 0.4rem;
+  gap: 0.35rem;
+}
+
+.gallery-people-strip--preview .gallery-people-strip__row {
+  gap: 0.6rem;
+  padding: 0.1rem 0.15rem 0.3rem;
+}
+
+.gallery-people-strip--preview .gallery-people-strip__find,
+.gallery-people-strip--preview .gallery-people-strip__person {
+  min-width: 2.2rem;
+  max-width: 2.8rem;
+  gap: 0.2rem;
 }
 
 .gallery-people-strip--preview .gallery-people-strip__find-circle,
 .gallery-people-strip--preview .gallery-people-strip__avatar.cd-person-face-avatar {
-  width: 3.25rem;
-  height: 3.25rem;
+  width: 1.75rem !important;
+  height: 1.75rem !important;
+}
+
+.gallery-people-strip--preview .gallery-people-strip__find-circle svg {
+  width: 10px !important;
+  height: 10px !important;
+}
+
+.gallery-people-strip--preview .gallery-people-strip__find-label,
+.gallery-people-strip--preview .gallery-people-strip__person-name {
+  font-size: 0.42rem;
+}
+
+.gallery-people-strip--preview .gallery-people-strip__person-meta {
+  font-size: 0.38rem;
+}
+
+.gallery-people-strip--preview .gallery-people-strip__person.is-active .gallery-people-strip__avatar {
+  box-shadow: 0 0 0 1px var(--gallery-bg, #fff), 0 0 0 2px var(--gallery-text, #1a1a1a);
 }
