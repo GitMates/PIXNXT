@@ -1176,9 +1176,15 @@
 }
 
 .cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-chrome__tab,
+.cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-media-filter button {
+    font-size: 5px !important;
+    letter-spacing: 0.08em !important;
+    line-height: 1.2 !important;
+}
+
 .cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-chrome__action,
 .cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-media-filter-inline button {
-    font-size: 5px !important;
+    font-size: 4px !important;
     letter-spacing: 0.08em !important;
     line-height: 1.2 !important;
 }
@@ -1225,12 +1231,19 @@
     flex-wrap: nowrap !important;
 }
 
-.cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-media-filter-inline {
+.cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-media-filter-inline,
+.cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-media-filter {
     gap: 0.35rem !important;
 }
 
+.cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-media-filter {
+    padding-top: 2px !important;
+    padding-bottom: 2px !important;
+}
+
 .cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-chrome__tab .absolute,
-.cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-media-filter-inline .absolute {
+.cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-media-filter-inline .absolute,
+.cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-media-filter .absolute {
     height: 1px !important;
 }
 
@@ -1312,17 +1325,26 @@
 }
 
 .cd-design-preview-pane.mobile .cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-chrome__tab,
-.cd-design-preview-pane.mobile .cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-media-filter-inline button,
+.cd-design-preview-pane.mobile .cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-media-filter button,
 .cd-preview-gallery-body--mobile-frame .gallery-chrome__tab,
+.cd-preview-gallery-body--mobile-frame .gallery-media-filter button {
+    font-size: 4px !important;
+    letter-spacing: 0.07em !important;
+    line-height: 1.15 !important;
+}
+
+.cd-design-preview-pane.mobile .cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-chrome__action,
+.cd-design-preview-pane.mobile .cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-media-filter-inline button,
+.cd-preview-gallery-body--mobile-frame .gallery-chrome__action,
 .cd-preview-gallery-body--mobile-frame .gallery-media-filter-inline button {
-    font-size: 4.5px !important;
+    font-size: 3.5px !important;
     letter-spacing: 0.07em !important;
     line-height: 1.15 !important;
 }
 
 .cd-design-preview-pane.mobile .cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-sticky-nav--preview button span.text-xs,
 .cd-preview-gallery-body--mobile-frame .gallery-sticky-nav--preview button span.text-xs {
-    font-size: 4.5px !important;
+    font-size: 3.5px !important;
 }
 
 .cd-design-preview-pane.mobile .cd-preview-gallery-card .gallery-media-filter-inline,

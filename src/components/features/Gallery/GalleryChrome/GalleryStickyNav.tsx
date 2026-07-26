@@ -128,11 +128,11 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
       active ? 'opacity-100' : 'opacity-45 hover:opacity-100'
     );
 
-  const renderMediaFilter = () => {
+  const renderMediaFilter = (layoutMode: 'inline' | 'bar' = 'inline') => {
     if (mediaFilter == null || !onMediaFilterChange) return null;
     return (
       <GalleryMediaFilter
-        layout="inline"
+        layout={layoutMode}
         variant={variant}
         value={mediaFilter}
         onChange={onMediaFilterChange}
@@ -360,7 +360,7 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
             </div>
             <div className={mobileLayoutStyles.tabsBlockMobile}>
               {renderTabs()}
-              {renderMediaFilter()}
+              {renderMediaFilter('inline')}
             </div>
           </>
         ) : isCompact ? (
@@ -369,7 +369,6 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
               <div className={styles.brandBlock}>{renderBrand()}</div>
               <div className={styles.tabsBlock}>
                 {renderTabs()}
-                {renderMediaFilter()}
               </div>
             </div>
             <div className={styles.actionsBlock}>{renderActions()}</div>
@@ -380,7 +379,6 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
               <div className={styles.brandBlock}>{renderBrand()}</div>
               <div className={styles.tabsBlock}>
                 {renderTabs()}
-                {renderMediaFilter()}
               </div>
             </div>
             <div className={styles.navRailSpacer} aria-hidden />
@@ -388,6 +386,7 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
           </>
         )}
       </div>
+      {!useMobileNavLayout && renderMediaFilter('bar')}
     </div>
   );
 };

@@ -269,7 +269,11 @@
   letter-spacing: 0.3em !important;
 }
 
-.gallery-view-page[data-gallery-chrome='large'] .gallery-chrome__tab,
+.gallery-view-page[data-gallery-chrome='large'] .gallery-chrome__tab {
+  font-size: 12px !important;
+  letter-spacing: 0.15em !important;
+}
+
 .gallery-view-page[data-gallery-chrome='large'] .gallery-chrome__action {
   font-size: 7px !important;
   letter-spacing: 0.2em !important;
@@ -410,7 +414,7 @@
 
   .gallery-view-page[data-gallery-chrome='large'] .gallery-chrome__tab {
     flex-shrink: 0;
-    font-size: 5px !important;
+    font-size: 10px !important;
     white-space: nowrap;
   }
 

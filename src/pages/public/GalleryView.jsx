@@ -18,7 +18,6 @@ import { formatCoverDate } from '../../lib/formatCoverDate.js';
 import { getCollectionFocal } from '../../lib/focalPoint';
 import {
   GalleryStickyNav,
-  GallerySetHeading,
   GallerySetDescription,
 } from '../../components/features/Gallery/GalleryChrome';
 import { renderMiniFrame } from '../../printstore/components/StoreHeader';
@@ -2144,13 +2143,7 @@ const GalleryView = () => {
             </div>
           )}
 
-          {!setDescriptionText &&
-            !isFavoriteListMode &&
-            (() => {
-              const raw = (activeSetId ? collection.sets?.find((s) => s.id === activeSetId)?.name : 'Highlights') || 'Highlights';
-              if (String(raw).toLowerCase() === 'highlights') return null;
-              return <GallerySetHeading variant="galleryView" label={String(raw).toLowerCase()} />;
-            })()}
+
 
           {!isFavoriteListMode ? (
             <GalleryPeopleStrip

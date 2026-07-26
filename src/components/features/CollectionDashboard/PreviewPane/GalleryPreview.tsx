@@ -13,7 +13,6 @@ import { galleryService } from '../../../../services/gallery.service';
 import { sortPhotosForGallery, normalizeGalleryPhotoSort } from '../../../../lib/galleryPhotoSort';
 import {
   GalleryStickyNav,
-  GallerySetHeading,
   GallerySetDescription,
 } from '../../Gallery/GalleryChrome';
 import {
@@ -555,8 +554,6 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
 
         {setDescriptionText ? (
           <GallerySetDescription variant="preview" text={setDescriptionText} isDark={isPreviewDark} />
-        ) : activeSetLabel !== 'highlights' ? (
-          <GallerySetHeading variant="preview" label={activeSetLabel} />
         ) : null}
 
         <GalleryPeopleStrip
