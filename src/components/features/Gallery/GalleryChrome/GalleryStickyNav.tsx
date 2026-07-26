@@ -282,7 +282,7 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
           {isDownloadingAll ? (
             <Loader2 size={iconSize} className="animate-spin shrink-0" aria-hidden />
           ) : isPaidDownload ? (
-            <span className="relative shrink-0">
+            <span className="relative shrink-0" style={!isCompact ? { marginRight: '6px' } : undefined}>
               <ArrowDownToLine size={iconSize} aria-hidden />
               <span style={{ position: 'absolute', top: '-4px', right: '-6px', fontSize: '7px', fontWeight: 800, lineHeight: 1, background: 'var(--gallery-text)', color: 'var(--gallery-bg)', borderRadius: '3px', padding: '1px 2px' }}>₹</span>
             </span>

@@ -149,6 +149,31 @@
   }
 }
 
+.gallery-people-strip--gallery .gallery-people-strip__find,
+.gallery-people-strip--gallery .gallery-people-strip__person {
+  min-width: 5.5rem;
+  max-width: 6.5rem;
+}
+
+.gallery-people-strip--gallery .gallery-people-strip__find-circle,
+.gallery-people-strip--gallery .gallery-people-strip__avatar.cd-person-face-avatar {
+  width: 4.75rem !important;
+  height: 4.75rem !important;
+}
+
+.gallery-people-strip--gallery .gallery-people-strip__intro-text {
+  font-size: 0.98rem;
+}
+
+.gallery-people-strip--gallery .gallery-people-strip__find-label,
+.gallery-people-strip--gallery .gallery-people-strip__person-name {
+  font-size: 0.85rem;
+}
+
+.gallery-people-strip--gallery .gallery-people-strip__person-meta {
+  font-size: 0.74rem;
+}
+
 .gallery-people-strip--preview {
   margin: 0 0 1rem;
 }
