@@ -5,8 +5,9 @@ import { useNavigate } from 'react-router-dom';
 import { 
   Eye, ChevronRight, Filter, Plus, RefreshCw, ChevronLeft, AlertCircle, CheckCircle, RotateCw
 } from 'lucide-react';
-import { MOCK_PHOTOS } from '../data/mockStoreData';
 import { getShortId } from '../utils/idFormat';
+import LabSearchField from './LabSearchField';
+import { getLabItemPhotoUrl } from './labPhotoUrl';
 
 export default function LabReprintManager() {
   const { orders, orderItems, refreshOrders } = useLabAuth();
@@ -47,27 +48,7 @@ export default function LabReprintManager() {
 
   const getOrderItems = (orderId) => orderItems.filter(item => item.order_id === orderId);
 
-  const getPhotoThumbnail = (item) => {
-    if (!item) return '';
-    const opts = item.options || {};
-    let photoOption = opts.photo;
-    if (!photoOption && opts.photos && opts.photos.length > 0) {
-      photoOption = opts.photos[0];
-    }
-    if (!photoOption) return '';
-    if (typeof photoOption === 'string') {
-      if (photoOption.startsWith('http://') || photoOption.startsWith('https://') || photoOption.startsWith('data:')) {
-        return photoOption;
-      }
-      const mock = MOCK_PHOTOS.find(p => p.id === photoOption);
-      if (mock) return mock.url;
-      return '';
-    }
-    if (typeof photoOption === 'object' && photoOption.url) {
-      return photoOption.url;
-    }
-    return '';
-  };
+  const getPhotoThumbnail = (item) => getLabItemPhotoUrl(item);
 
   // Group quality checks to identify reprints dynamically
   const reprintData = useMemo(() => {
@@ -207,7 +188,7 @@ export default function LabReprintManager() {
   }
 
   return (
-    <div style={{ padding: '24px 32px', backgroundColor: '#ffffff', minHeight: '100%', fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif", color: '#1e293b', boxSizing: 'border-box' }}>
+    <div style={{ padding: '24px 32px', backgroundColor: '#F9F9F7', minHeight: '100%', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", color: '#1e293b', boxSizing: 'border-box' }}>
       
       {/* Title Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
@@ -215,24 +196,21 @@ export default function LabReprintManager() {
           <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: '0 0 4px 0', color: '#0f172a', textTransform: 'uppercase' }}>
             Reprints
           </h1>
-          <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
-            Manage failed items and reprints
-          </p>
         </div>
       </div>
 
       {/* KPI Cards Row (5 Cards) */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '16px', marginBottom: '24px' }}>
         {[
-          { label: 'Total Reprints', value: metrics.total, sub: 'This month', color: '#3b82f6', bg: '#eff6ff', icon: '📋' },
-          { label: 'Pending Reprints', value: metrics.pending, sub: 'Awaiting approval', color: '#f59e0b', bg: '#fffbeb', icon: '⏱️' },
-          { label: 'In Progress', value: metrics.inProgress, sub: 'Being reprinted', color: '#8b5cf6', bg: '#f5f3ff', icon: '🔄' },
-          { label: 'Completed', value: metrics.completed, sub: 'This month', color: '#10b981', bg: '#ecfdf5', icon: '✅' },
-          { label: 'Reprint Rate', value: `${metrics.rate}%`, sub: 'Of total orders', color: '#ef4444', bg: '#fee2e2', icon: '📊' }
+          { label: 'Total Reprints', value: metrics.total, sub: 'This month', color: '#1A1A1A', bg: '#F4F3F0', icon: '' },
+          { label: 'Pending Reprints', value: metrics.pending, sub: 'Awaiting approval', color: '#1A1A1A', bg: '#F4F3F0', icon: '' },
+          { label: 'In Progress', value: metrics.inProgress, sub: 'Being reprinted', color: '#1A1A1A', bg: '#F4F3F0', icon: '' },
+          { label: 'Completed', value: metrics.completed, sub: 'This month', color: '#1A1A1A', bg: '#F4F3F0', icon: '' },
+          { label: 'Reprint Rate', value: `${metrics.rate}%`, sub: 'Of total orders', color: '#1A1A1A', bg: '#F4F3F0', icon: '' }
         ].map((card, i) => (
-          <div key={i} style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', display: 'flex', gap: '14px', alignItems: 'center' }}>
+          <div key={i} style={{ backgroundColor: '#fff', border: '1px solid #ECEAE6', borderRadius: 14, padding: '16px', display: 'flex', gap: '14px', alignItems: 'center' }}>
             <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: card.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>
-              {card.icon}
+              <span style={{ width: 8, height: 8, borderRadius: 9999, background: '#1A1A1A', display: 'block', opacity: 0.35 }} />
             </div>
             <div>
               <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase', display: 'block' }}>{card.label}</span>
@@ -244,19 +222,14 @@ export default function LabReprintManager() {
       </div>
 
       {/* Search & Filters Row */}
-      <div style={{ display: 'flex', gap: '12px', alignItems: 'center', backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 16px', marginBottom: '20px' }}>
+      <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '20px' }}>
         
         {/* Search */}
-        <div style={{ position: 'relative', flex: 1 }}>
-          <span style={{ position: 'absolute', left: '12px', top: '9px', color: '#94a3b8', fontSize: '13px' }}>🔍</span>
-          <input
-            type="search"
-            placeholder="Search by Order ID, Customer, Product..."
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
-            style={{ width: '100%', padding: '9px 12px 9px 36px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '13px', outline: 'none' }}
-          />
-        </div>
+        <LabSearchField
+          placeholder="Search by Order ID, Customer, Product..."
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+        />
 
         {/* Reasons */}
         <select 
@@ -294,7 +267,7 @@ export default function LabReprintManager() {
       </div>
 
       {/* Table */}
-      <div style={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px', overflowX: 'auto', marginBottom: '16px' }}>
+      <div style={{ backgroundColor: '#ffffff', border: '1px solid #ECEAE6', borderRadius: 16, overflowX: 'auto', marginBottom: '16px' }}>
         <table style={{ width: '100%', minWidth: '1200px', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
           <thead>
             <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569', fontWeight: 600 }}>
@@ -331,7 +304,7 @@ export default function LabReprintManager() {
                   onClick={() => navigate(`/lab/orders/${reprint.id}`)}
                 >
                   {/* Order ID */}
-                  <td style={{ padding: '14px 16px', fontWeight: 'bold', color: '#0f766e', fontFamily: 'Courier New, Courier, monospace', whiteSpace: 'nowrap' }}>
+                  <td style={{ padding: '14px 16px', fontWeight: 'bold', color: '#1A1A1A', fontFamily: 'Courier New, Courier, monospace', whiteSpace: 'nowrap' }}>
                     {reprint.orderNumber}
                   </td>
 
@@ -471,7 +444,7 @@ export default function LabReprintManager() {
                 padding: '6px 12px', 
                 border: '1px solid #cbd5e1', 
                 borderRadius: '6px', 
-                backgroundColor: currentPage === idx + 1 ? '#0f766e' : '#fff', 
+                backgroundColor: currentPage === idx + 1 ? '#1A1A1A' : '#fff', 
                 color: currentPage === idx + 1 ? '#fff' : '#475569', 
                 fontSize: '12px', 
                 fontWeight: 'bold',

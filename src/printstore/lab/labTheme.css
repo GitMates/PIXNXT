@@ -1,0 +1,366 @@
+/* Lab portal — Client Gallery visual system (neumorphic mono) */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+.theme-mono.lab-shell {
+  --lab-bg: #f9f9f7;
+  --lab-surface: #fafaf8;
+  --lab-card: #ffffff;
+  --lab-foreground: #1a1a1a;
+  --lab-muted: #71717a;
+  --lab-border: #eceae6;
+  --lab-hover: #f4f3f0;
+  --lab-inset: #f2f1ed;
+  --lab-primary: #1a1a1a;
+
+  color: var(--lab-foreground);
+  background-color: var(--lab-bg);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+.theme-mono.lab-shell .lab-page {
+  min-height: 100%;
+  background: var(--lab-bg);
+  color: var(--lab-foreground);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  padding: 28px 32px;
+  box-sizing: border-box;
+}
+
+.theme-mono.lab-shell .lab-page-title,
+.theme-mono.lab-shell h1 {
+  font-family: 'Playfair Display', Georgia, 'Times New Roman', serif !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.02em !important;
+  color: var(--lab-foreground) !important;
+  text-transform: none !important;
+}
+
+.theme-mono.lab-shell .lab-page-subtitle {
+  font-size: 13px;
+  color: var(--lab-muted);
+  margin-top: 6px;
+}
+
+/* Primary button = Client Gallery neu-pill look */
+.theme-mono.lab-shell .lab-btn-primary,
+.theme-mono.lab-shell button.lab-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 20px;
+  border-radius: 9999px;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  background-image: linear-gradient(180deg, #4d4d4d, #333333);
+  color: #ffffff;
+  box-shadow:
+    0 1px 0 0 rgba(255, 255, 255, 0.15) inset,
+    0 12px 24px -10px rgba(0, 0, 0, 0.45);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.theme-mono.lab-shell .lab-btn-primary:hover {
+  transform: translateY(-1px);
+}
+
+.theme-mono.lab-shell .lab-btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.theme-mono.lab-shell .lab-btn-secondary,
+.theme-mono.lab-shell button.lab-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 9999px;
+  border: 1px solid var(--lab-border);
+  background: var(--lab-card);
+  color: var(--lab-foreground);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow:
+    -3px -3px 8px rgba(255, 255, 255, 0.75),
+    3px 3px 9px rgba(0, 0, 0, 0.06);
+}
+
+.theme-mono.lab-shell .lab-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--lab-muted);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.theme-mono.lab-shell .lab-btn-ghost:hover {
+  background: var(--lab-hover);
+  color: var(--lab-foreground);
+}
+
+/* Glassy / neumorphic search */
+.theme-mono.lab-shell .lab-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 200px;
+  max-width: none;
+  flex: 1;
+  width: 100%;
+}
+
+.theme-mono.lab-shell .lab-search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  color: var(--lab-muted);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.theme-mono.lab-shell .lab-search-input,
+.theme-mono.lab-shell input.lab-search-input {
+  width: 100%;
+  height: 40px;
+  border: 0 !important;
+  outline: none !important;
+  border-radius: 9999px !important;
+  padding: 0 14px 0 40px !important;
+  font-size: 14px !important;
+  color: var(--lab-foreground) !important;
+  background-color: oklch(0.952 0.005 85) !important;
+  box-shadow:
+    inset 3px 3px 7px oklch(0.4 0.01 70 / 0.1),
+    inset -3px -3px 7px oklch(1 0.004 85 / 0.85) !important;
+  font-family: inherit;
+}
+
+.theme-mono.lab-shell .lab-search-input:focus,
+.theme-mono.lab-shell input.lab-search-input:focus {
+  background-color: #ffffff !important;
+  box-shadow:
+    inset 2px 2px 5px oklch(0.4 0.01 70 / 0.08),
+    inset -2px -2px 5px oklch(1 0.004 85 / 0.9),
+    0 0 0 2px oklch(0.26 0.006 60 / 0.12) !important;
+}
+
+.theme-mono.lab-shell .lab-search-input::placeholder {
+  color: var(--lab-muted);
+}
+
+/* Force EVERY search input in lab to CG glass style (overrides leftover inline styles) */
+.theme-mono.lab-shell input[type='search'] {
+  height: 40px !important;
+  border: 0 !important;
+  outline: none !important;
+  border-radius: 9999px !important;
+  padding: 0 14px 0 40px !important;
+  font-size: 14px !important;
+  color: var(--lab-foreground) !important;
+  background-color: oklch(0.952 0.005 85) !important;
+  box-shadow:
+    inset 3px 3px 7px oklch(0.4 0.01 70 / 0.1),
+    inset -3px -3px 7px oklch(1 0.004 85 / 0.85) !important;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.theme-mono.lab-shell input[type='search']:focus {
+  background-color: #ffffff !important;
+  box-shadow:
+    inset 2px 2px 5px oklch(0.4 0.01 70 / 0.08),
+    inset -2px -2px 5px oklch(1 0.004 85 / 0.9),
+    0 0 0 2px oklch(0.26 0.006 60 / 0.12) !important;
+}
+
+.theme-mono.lab-shell input[type='search']::placeholder {
+  color: var(--lab-muted) !important;
+}
+
+/* Filter toolbar — no outer card/bar; controls sit on page cream */
+.theme-mono.lab-shell .lab-filter-bar,
+.theme-mono.lab-shell [data-lab-filter-bar] {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  margin-bottom: 20px;
+  box-shadow: none;
+}
+
+/* Pill selects inside lab */
+.theme-mono.lab-shell select {
+  height: 40px !important;
+  padding: 0 36px 0 14px !important;
+  border-radius: 9999px !important;
+  border: 1px solid var(--lab-border) !important;
+  background-color: #ffffff !important;
+  color: var(--lab-foreground) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  font-family: inherit !important;
+  outline: none !important;
+  cursor: pointer;
+  box-shadow:
+    -2px -2px 6px rgba(255, 255, 255, 0.75),
+    2px 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.theme-mono.lab-shell select:focus {
+  box-shadow: 0 0 0 2px oklch(0.26 0.006 60 / 0.15) !important;
+}
+
+/* Primary action buttons that still use flat black fills */
+.theme-mono.lab-shell button.lab-btn-primary,
+.theme-mono.lab-shell .neu-pill {
+  border-radius: 9999px !important;
+}
+
+.theme-mono.lab-shell .lab-card {
+  background: var(--lab-card);
+  border: 1px solid var(--lab-border);
+  border-radius: 16px;
+  box-shadow:
+    -4px -4px 12px rgba(255, 255, 255, 0.7),
+    4px 4px 14px rgba(0, 0, 0, 0.04);
+}
+
+.theme-mono.lab-shell .lab-table-wrap {
+  overflow: auto;
+  border-radius: 16px;
+  border: 1px solid var(--lab-border);
+  background: var(--lab-card);
+}
+
+.theme-mono.lab-shell table.lab-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.theme-mono.lab-shell table.lab-table thead tr {
+  background: #1a1a1a !important;
+  color: #fff !important;
+}
+
+.theme-mono.lab-shell table.lab-table th {
+  padding: 12px 14px;
+  text-align: left;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.theme-mono.lab-shell table.lab-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--lab-border);
+  color: var(--lab-foreground);
+}
+
+.theme-mono.lab-shell table.lab-table tbody tr:hover {
+  background: var(--lab-hover);
+}
+
+.theme-mono.lab-shell .lab-pill {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--lab-hover);
+  color: var(--lab-foreground);
+  border: 1px solid var(--lab-border);
+}
+
+.theme-mono.lab-shell .lab-tab {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 9999px;
+  border: 1px solid var(--lab-border);
+  background: var(--lab-card);
+  color: var(--lab-muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.theme-mono.lab-shell .lab-tab.is-active {
+  background: #1a1a1a;
+  border-color: #1a1a1a;
+  color: #fff;
+}
+
+.theme-mono.lab-shell .lab-spinner {
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--lab-border);
+  border-top-color: var(--lab-foreground);
+  border-radius: 50%;
+  animation: lab-spin 0.9s linear infinite;
+}
+
+@keyframes lab-spin {
+  to { transform: rotate(360deg); }
+}
+
+.theme-mono.lab-shell .lab-content-container {
+  background: var(--lab-bg) !important;
+}
+
+/* Soften common form controls that still use flat borders */
+.theme-mono.lab-shell button:not(.neu-pill):not(.lab-btn-ghost) {
+  font-family: inherit;
+}
+
+.theme-mono.lab-shell select {
+  border-radius: 9999px !important;
+  border-color: var(--lab-border) !important;
+  background-color: var(--lab-card) !important;
+  color: var(--lab-foreground);
+  font-family: inherit;
+}
+
+/* Soften form fields that still use flat slate borders */
+.theme-mono.lab-shell input[type='text']:not(.lab-search-input),
+.theme-mono.lab-shell input[type='number'],
+.theme-mono.lab-shell input[type='email'],
+.theme-mono.lab-shell input[type='password'],
+.theme-mono.lab-shell textarea {
+  border-radius: 12px !important;
+  border: 1px solid var(--lab-border) !important;
+  background-color: #ffffff !important;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+  color: var(--lab-foreground) !important;
+}
+
+.theme-mono.lab-shell input[type='text']:not(.lab-search-input):focus,
+.theme-mono.lab-shell input[type='number']:focus,
+.theme-mono.lab-shell textarea:focus {
+  outline: none !important;
+  box-shadow: 0 0 0 2px oklch(0.26 0.006 60 / 0.15) !important;
+}

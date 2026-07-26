@@ -45,7 +45,7 @@ export default function LabWorksheets() {
   const activeWorksheets = orders.filter(o => o.status !== 'completed' && o.status !== 'cancelled');
 
   return (
-    <div style={{ padding: '32px', backgroundColor: '#ffffff', minHeight: '100%', boxSizing: 'border-box', fontFamily: "'europa', sans-serif" }}>
+    <div style={{ padding: '32px', backgroundColor: '#F9F9F7', minHeight: '100%', boxSizing: 'border-box', fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
       
       {/* Hide layout on window print */}
       <style>{`
@@ -71,10 +71,9 @@ export default function LabWorksheets() {
       {/* Header Area */}
       <div className="no-print" style={{ borderBottom: '1px solid #eaeaea', paddingBottom: '20px', marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <h1 style={{ fontFamily: "'EB Garamond', serif", fontSize: '28px', color: '#005c5a', margin: 0, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 28, fontWeight: 500, color: '#1A1A1A', margin: 0, letterSpacing: '-0.02em' }}>
             Manufacturing Worksheets
           </h1>
-          <p style={{ color: '#777777', fontSize: '13px', margin: '4px 0 0 0' }}>Generate and print detailed specifications for lab mechanics</p>
         </div>
       </div>
 
@@ -99,8 +98,8 @@ export default function LabWorksheets() {
                     onClick={() => setSelectedOrder(order)}
                     style={{
                       padding: '16px',
-                      border: isSelected ? '1px solid #005c5a' : '1px solid #e2e8f0',
-                      backgroundColor: isSelected ? '#eefaf9' : '#ffffff',
+                      border: isSelected ? '1px solid #1A1A1A' : '1px solid #e2e8f0',
+                      backgroundColor: isSelected ? '#F4F3F0' : '#ffffff',
                       borderRadius: '4px',
                       cursor: 'pointer',
                       transition: 'all 0.15s'
@@ -108,7 +107,7 @@ export default function LabWorksheets() {
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', fontSize: '13px', color: '#111' }}>
                       <span>{orderNumber}</span>
-                      <span style={{ color: '#005c5a', textTransform: 'uppercase', fontSize: '11px' }}>{order.status}</span>
+                      <span style={{ color: '#1A1A1A', textTransform: 'uppercase', fontSize: '11px' }}>{order.status}</span>
                     </div>
                     <div style={{ fontSize: '12.5px', color: '#475569', marginTop: '6px' }}>{order.customer_name}</div>
                     <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '4px' }}>
@@ -143,7 +142,7 @@ export default function LabWorksheets() {
                     gap: '6px'
                   }}
                 >
-                  📄 Print Worksheet / PDF
+                  Print Worksheet / PDF
                 </button>
               </div>
 
@@ -152,7 +151,7 @@ export default function LabWorksheets() {
                 {/* Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #111111', paddingBottom: '16px', marginBottom: '24px' }}>
                   <div>
-                    <h2 style={{ margin: 0, fontSize: '24px', letterSpacing: '0.04em', fontFamily: "'EB Garamond', serif", color: '#111' }}>
+                    <h2 style={{ margin: 0, fontSize: '24px', letterSpacing: '0.04em', fontFamily: "'Playfair Display', serif", color: '#111' }}>
                       PIXNXT MANUFACTURING LAB WORKSHEET
                     </h2>
                     <div style={{ fontSize: '12px', color: '#555', marginTop: '4px' }}>
@@ -171,7 +170,7 @@ export default function LabWorksheets() {
 
                 {/* Section: Customer details */}
                 <div style={{ marginBottom: '24px' }}>
-                  <h4 style={{ textTransform: 'uppercase', fontSize: '12px', letterSpacing: '0.05em', color: '#005c5a', borderBottom: '1px solid #cbd5e1', paddingBottom: '6px', margin: '0 0 10px 0' }}>
+                  <h4 style={{ textTransform: 'uppercase', fontSize: '12px', letterSpacing: '0.05em', color: '#1A1A1A', borderBottom: '1px solid #cbd5e1', paddingBottom: '6px', margin: '0 0 10px 0' }}>
                     Customer & Shipping Details
                   </h4>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '12px', color: '#333' }}>
@@ -191,7 +190,7 @@ export default function LabWorksheets() {
 
                 {/* Section: Items Specs */}
                 <div>
-                  <h4 style={{ textTransform: 'uppercase', fontSize: '12px', letterSpacing: '0.05em', color: '#005c5a', borderBottom: '1px solid #cbd5e1', paddingBottom: '6px', margin: '0 0 16px 0' }}>
+                  <h4 style={{ textTransform: 'uppercase', fontSize: '12px', letterSpacing: '0.05em', color: '#1A1A1A', borderBottom: '1px solid #cbd5e1', paddingBottom: '6px', margin: '0 0 16px 0' }}>
                     Item Manufacturing & Cutting Specifications
                   </h4>
 
@@ -227,7 +226,7 @@ export default function LabWorksheets() {
                         </div>
 
                         {/* Special Instructions */}
-                        <div style={{ marginTop: '12px', fontSize: '11.5px', padding: '10px', backgroundColor: '#f8fafc', borderLeft: '3px solid #005c5a', color: '#475569' }}>
+                        <div style={{ marginTop: '12px', fontSize: '11.5px', padding: '10px', backgroundColor: '#f8fafc', borderLeft: '3px solid #1A1A1A', color: '#475569' }}>
                           <strong>Packaging & Assembly instructions:</strong> Ensure glass sheets are squeegee cleaned. Mount backing board firmly with frame staples. Wrap with corner guards and 3 layers of bubble wrap. Place in shipping box with invoice copy.
                         </div>
                       </div>
@@ -244,7 +243,7 @@ export default function LabWorksheets() {
             </div>
           ) : (
             <div style={{ textAlign: 'center', padding: '80px 0', color: '#64748b' }}>
-              <span style={{ fontSize: '32px' }}>📄</span>
+              <span style={{ fontSize: 13, color: '#71717A', fontWeight: 500 }}>No worksheet selected</span>
               <h3 style={{ margin: '16px 0 6px 0', fontSize: '16px', color: '#111' }}>No Worksheet Selected</h3>
               <p style={{ margin: 0, fontSize: '13px' }}>Choose an order from the list on the left to review and print specifications.</p>
             </div>

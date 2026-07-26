@@ -1165,7 +1165,7 @@
 }
 
 .cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-chrome__brand-title {
-    font-size: 11px !important;
+    font-size: 6px !important;
     line-height: 1.1 !important;
 }
 
@@ -1264,7 +1264,7 @@
 
 .cd-design-preview-pane.mobile .cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-chrome__brand-title,
 .cd-preview-gallery-body--mobile-frame .gallery-chrome__brand-title {
-    font-size: 10px !important;
+    font-size: 5px !important;
     line-height: 1.1 !important;
 }
 

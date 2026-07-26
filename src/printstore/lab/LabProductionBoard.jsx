@@ -3,31 +3,15 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useLabAuth } from './LabApp';
 import { supabase } from '../../lib/supabase/client';
 import CartItemPreview from '../components/CartItemPreview';
-import { MOCK_PHOTOS } from '../data/mockStoreData';
 import { getShortId } from '../utils/idFormat';
+import { resolveLabPhotoUrl } from './labPhotoUrl';
 
 const getPhotoThumbnail = (photoOption, photosOption) => {
   let photo = photoOption;
   if (!photo && photosOption && photosOption.length > 0) {
     photo = photosOption[0];
   }
-  if (!photo) return '';
-  if (typeof photo === 'string') {
-    if (photo.startsWith('http://') || photo.startsWith('https://') || photo.startsWith('data:')) {
-      return photo;
-    }
-    const mock = MOCK_PHOTOS.find(p => p.id === photo);
-    if (mock) return mock.url;
-    return '';
-  }
-  if (typeof photo === 'object') {
-    if (photo.url) return photo.url;
-    if (photo.id) {
-      const mock = MOCK_PHOTOS.find(p => p.id === photo.id);
-      if (mock) return mock.url;
-    }
-  }
-  return '';
+  return resolveLabPhotoUrl(photo);
 };
 
 
@@ -191,14 +175,13 @@ export default function LabProductionBoard() {
   };
 
   return (
-    <div style={{ padding: '32px', backgroundColor: '#ffffff', minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', fontFamily: "'europa', sans-serif" }}>
+    <div style={{ padding: '32px', backgroundColor: '#F9F9F7', minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
       
       {/* Header Area */}
       <div style={{ borderBottom: '1px solid #eaeaea', paddingBottom: '20px', marginBottom: '24px' }}>
-        <h1 style={{ fontFamily: "'EB Garamond', serif", fontSize: '28px', color: '#005c5a', margin: 0, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+        <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 28, fontWeight: 500, color: '#1A1A1A', margin: 0, letterSpacing: '-0.02em' }}>
           Kanban Production Board
         </h1>
-        <p style={{ color: '#777777', fontSize: '13px', margin: '4px 0 0 0' }}>Drag cards to update manufacturing workflow status in real-time</p>
       </div>
 
       {/* Columns Container */}
@@ -222,8 +205,8 @@ export default function LabProductionBoard() {
             >
               {/* Column Title */}
               <div style={{ padding: '16px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#ffffff', borderTopLeftRadius: '6px', borderTopRightRadius: '6px' }}>
-                <span style={{ fontWeight: '700', fontSize: '13.5px', color: '#005c5a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{col.label}</span>
-                <span style={{ backgroundColor: '#eefaf9', color: '#005c5a', fontSize: '11px', fontWeight: 'bold', padding: '2px 8px', borderRadius: '12px' }}>
+                <span style={{ fontWeight: '700', fontSize: '13.5px', color: '#1A1A1A', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{col.label}</span>
+                <span style={{ backgroundColor: '#F4F3F0', color: '#1A1A1A', fontSize: '11px', fontWeight: 'bold', padding: '2px 8px', borderRadius: '12px' }}>
                   {colOrders.length}
                 </span>
               </div>
@@ -298,7 +281,7 @@ export default function LabProductionBoard() {
                       <div style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '10px', marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         {/* Order ID & Customer */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontFamily: 'monospace', fontWeight: '700', fontSize: '11px', color: '#005c5a' }}>{orderNumber}</span>
+                          <span style={{ fontFamily: 'monospace', fontWeight: '700', fontSize: '11px', color: '#1A1A1A' }}>{orderNumber}</span>
                           <span style={{ fontSize: '11.5px', color: '#475569', fontWeight: '600' }}>{order.customer_name}</span>
                         </div>
 
