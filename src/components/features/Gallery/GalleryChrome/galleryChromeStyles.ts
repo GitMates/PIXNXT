@@ -47,7 +47,7 @@ export const galleryChromeStyles = {
     navRailSpacer: galleryChromeLayout.navRailSpacer,
     actionsBlock: `${galleryChromeLayout.actionsBlock} gap-5 sm:gap-6 lg:gap-8`,
     brandTitle:
-      'gallery-chrome__brand-title gallery-heading text-[1.75rem] uppercase leading-none md:text-3xl',
+      'gallery-chrome__brand-title gallery-heading text-[0.875rem] uppercase leading-none md:text-[0.9375rem]',
     brandSubtitle:
       'gallery-chrome__brand-subtitle gallery-body-text mt-1.5 text-[9px] font-bold uppercase tracking-[0.28em]',
     tab: 'gallery-chrome__tab gallery-body-text text-[10px] font-bold uppercase tracking-[0.2em]',

@@ -1,4 +1,4 @@
-﻿/* Slightly larger cover hero text â€” public GalleryView only */
+/* Slightly larger cover hero text â€” public GalleryView only */
 .gallery-view-hero[data-cover-text-scale='large'] .cover-text-grid__subtitle:not(.cover-stamp-layout__brand):not(.cover-journal-layout__brand):not(.cover-novel-layout__brand):not(.cover-vintage-layout__brand) {
   font-size: 7px !important;
   line-height: 1.25 !important;
@@ -243,13 +243,13 @@
 
 /* Gallery chrome (nav + set heading) â€” public gallery only */
 .gallery-view-page[data-gallery-chrome='large'] .gallery-chrome__brand-title {
-  font-size: 2rem !important;
+  font-size: 1rem !important;
   line-height: 1.1 !important;
 }
 
 @media (min-width: 768px) {
   .gallery-view-page[data-gallery-chrome='large'] .gallery-chrome__brand-title {
-    font-size: 2.25rem !important;
+    font-size: 1.125rem !important;
   }
 }
 
@@ -377,7 +377,7 @@
   }
 
   .gallery-view-page[data-gallery-chrome='large'] .gallery-chrome__brand-title {
-    font-size: 1.125rem !important;
+    font-size: 0.875rem !important;
     line-height: 1.15 !important;
     overflow: hidden;
     text-overflow: ellipsis;

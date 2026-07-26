@@ -2142,6 +2142,7 @@ const GalleryView = () => {
             !isFavoriteListMode &&
             (() => {
               const raw = (activeSetId ? collection.sets?.find((s) => s.id === activeSetId)?.name : 'Highlights') || 'Highlights';
+              if (String(raw).toLowerCase() === 'highlights') return null;
               return <GallerySetHeading variant="galleryView" label={String(raw).toLowerCase()} />;
             })()}
 
