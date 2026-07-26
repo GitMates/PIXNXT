@@ -1198,7 +1198,7 @@
     flex: 0 0 auto;
     flex-wrap: nowrap;
     margin-left: auto;
-    gap: 2px !important;
+    gap: 8px !important;
 }
 
 .cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-chrome__actions .gallery-chrome__action {
@@ -1340,7 +1340,7 @@
     flex-wrap: nowrap !important;
     align-items: center !important;
     justify-content: flex-end !important;
-    gap: 3px !important;
+    gap: 5px !important;
 }
 
 .cd-design-preview-pane.mobile .cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-chrome__actions svg,

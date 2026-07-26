@@ -1927,7 +1927,7 @@ const GalleryView = () => {
 
           const props = {
             title: collection.name,
-            subtitle: photographer?.display_name || '',
+            subtitle: photographer?.business_name || photographer?.display_name || '',
             date: formatCoverDate(collection.event_date || collection.created_at),
             photoUrl: activePhotoUrl,
             focalX,
@@ -2081,7 +2081,7 @@ const GalleryView = () => {
             isGalleryViewMobile={isMobileViewport}
             navigationStyle={navigationStyle}
             collectionTitle={collection.name}
-            photographerName={photographer?.display_name}
+            photographerName={photographer?.business_name || photographer?.display_name}
             sets={visibleSets.map((set) => ({ id: set.id, name: set.name }))}
             showHighlightsTab={canViewHighlights(collection, isClientViewer)}
             activeSetId={activeSetId}

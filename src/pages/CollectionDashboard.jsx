@@ -3785,7 +3785,7 @@ const CollectionDashboard = () => {
                                     gridPhotos={photos}
                                     previewMode={previewMode}
                                     onPreviewModeChange={setPreviewMode}
-                                    photographerName={user?.display_name || 'PHOTOGRAPHER'}
+                                    photographerName={profile?.business_name || user?.display_name || 'PHOTOGRAPHER'}
                                     dashboardState={{
                                         focalX: collectionFocal.x,
                                         focalY: collectionFocal.y,
