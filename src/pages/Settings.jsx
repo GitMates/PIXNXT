@@ -299,7 +299,7 @@ const BrandingTab = ({ profile, updateProfile }) => {
             <div className="set-section">
                 <h3 className="set-section-title">Domain</h3>
                 <div className="set-input-wrap neu-inset cg-field-shell">
-                    <input className="set-input" type="text" readOnly value={`${profile?.homepage_slug || profile?.display_name || 'gallery'}.pixnxt.com`} />
+                    <input className="set-input" type="text" readOnly value={`${profile?.homepage_slug || profile?.display_name || 'gallery'}.pixnxt.in`} />
                 </div>
                 <p className="set-help-text">Your client galleries and mobile gallery apps are always available with your default site address. To change your default domain, edit your username under <span className="text-teal">Account</span>.</p>
             </div>

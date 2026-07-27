@@ -476,7 +476,7 @@ export const galleryService = {
 
         if (!existingPhotographer) {
           const { data: { user } } = await supabase.auth.getUser();
-          const email = user?.email || 'photographer@pixnxt.com';
+          const email = user?.email || 'photographer@pixnxt.in';
           const name = user?.user_metadata?.display_name || user?.user_metadata?.full_name || email.split('@')[0] || 'Photographer';
           await supabase
             .from('photographers')

@@ -502,7 +502,7 @@ serve(async (req) => {
 
     const body = await req.json();
     const mode = body.mode || (body.test === true ? "test" : "scheduled");
-    const siteUrl = (body.siteOrigin || Deno.env.get("PUBLIC_SITE_URL") || "https://pixnxt.com").replace(/\/$/, "");
+    const siteUrl = (body.siteOrigin || Deno.env.get("PUBLIC_SITE_URL") || "https://pixnxt.in").replace(/\/$/, "");
 
     // ──────────────────────────────────────────────
     // APPLY / TEST — save design + send to real shop recipients
