@@ -54,7 +54,7 @@ export function MasonryGrid({
 
   const displayPhotos = useMemo(() => {
     const hasInlineBanner = !!(activeCampaign?.banners?.photo_banner?.enabled || activeCampaign?.banners?.store_rotator?.enabled);
-    if (!hasInlineBanner || photos.length === 0) {
+    if (!hasInlineBanner || photos.length === 0 || videosOnly) {
       return photos.map((p, idx) => ({ ...p, _originalIndex: idx }));
     }
 
@@ -644,9 +644,9 @@ export function MasonryGrid({
           aspectRatio: useFixedVideoTile ? String(VIDEO_TILE_ASPECT) : String(tileAspectRatio),
           maxWidth: useFixedVideoTile ? undefined : '100%',
           margin: 0
-        } : {
+        } : (centerVideosLayout ? {} : {
           width: '100%'
-        }}
+        })}
         onClick={() => onImageClick(photo._originalIndex)}
       >
         <div
@@ -870,13 +870,13 @@ export function MasonryGrid({
   };
 
   const columns = useMemo(() => {
-    if (isHorizontal) return [displayPhotos];
+    if (isHorizontal || centerVideosLayout) return [displayPhotos];
     const cols = Array.from({ length: colsCount }, () => []);
     displayPhotos.forEach((photo, idx) => {
       cols[idx % colsCount].push(photo);
     });
     return cols;
-  }, [displayPhotos, colsCount, isHorizontal]);
+  }, [displayPhotos, colsCount, isHorizontal, centerVideosLayout]);
 
   if (!isHorizontal) {
     return (
@@ -887,6 +887,7 @@ export function MasonryGrid({
         animate="show"
         className={cn(
           'w-full max-w-full min-w-0 masonry-grid-container flex items-start',
+          centerVideosLayout && 'masonry-grid-videos-only',
           (isPreviewMobile || isMobileViewport) && 'preview-mobile',
           className
         )}
@@ -895,7 +896,7 @@ export function MasonryGrid({
         {columns.map((columnItems, colIdx) => (
           <div
             key={colIdx}
-            className="flex-1 flex flex-col min-w-0"
+            className={cn('flex-1 flex flex-col min-w-0', centerVideosLayout && 'w-full')}
             style={{ gap: `${gap}px` }}
           >
             {columnItems.map((photo, idx) => {

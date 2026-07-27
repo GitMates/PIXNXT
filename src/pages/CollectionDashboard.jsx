@@ -32,6 +32,7 @@ import { openSpaPath } from '../lib/spaNavigation';
 import { openShareByEmail, openWhatsAppShare, getCollectionShareUrl, getQrCodeImageUrl } from '../lib/shareCollection';
 import { CollectionQrModal, CollectionDuplicateModal } from '../components/features/ClientGallery/CollectionShareModals';
 import { sortDashboardPhotos } from '../utils/sortDashboardPhotos';
+import { clientGalleryEmailTemplatesService } from '../services/clientGalleryEmailTemplates.service';
 import { COVER_IMAGE_ACCEPT, MEDIA_FILE_INPUT_ACCEPT, pickMediaFilesOrFallback } from '../lib/mediaFilePicker';
 import { setCoverPhotoDragData, endCoverPhotoDrag, isGalleryImagePhoto } from '../lib/coverPhotoDrag';
 import { DatePicker } from '../components/ui/DatePicker';
@@ -1331,12 +1332,28 @@ const CollectionDashboard = () => {
         setShowExpiryReminderModal(true);
     };
 
-    const openAddReminder = () => {
+    const openAddReminder = async () => {
         setEditingReminderId(null);
         setExpiryEmailTiming('1 day before auto expiry date');
         setExpiryEmailTo('');
-        setExpiryEmailSubject('The gallery {collection.name} is about to expire');
-        setExpiryEmailBody('Hi,\n\nThe gallery {collection.name} will expire in {days.prior} on {expiry.date}. You will no longer be able to access this gallery after the expiry date.\n\nIf you have any questions, please don\'t hesitate to get in touch!');
+        
+        let initialSubject = 'The gallery {collection.name} is about to expire';
+        let initialBody = 'Hi,\n\nThe gallery {collection.name} will expire in {days.prior} on {expiry.date}. You will no longer be able to access this gallery after the expiry date.\n\nIf you have any questions, please don\'t hesitate to get in touch!';
+        
+        if (user?.id) {
+            try {
+                const tpl = await clientGalleryEmailTemplatesService.getTemplateById(user.id, 'default-auto-expiry');
+                if (tpl) {
+                    initialSubject = tpl.subject || initialSubject;
+                    initialBody = tpl.body || initialBody;
+                }
+            } catch (err) {
+                console.error('Error fetching default-auto-expiry template:', err);
+            }
+        }
+        
+        setExpiryEmailSubject(initialSubject);
+        setExpiryEmailBody(initialBody);
         setExpiryEmailIncludePin(false);
         setExpiryEmailSendCopy(true);
         setExpiryEmailLists([]);
