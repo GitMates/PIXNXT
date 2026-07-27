@@ -5822,6 +5822,43 @@
     text-align: left;
 }
 
+/* Sidebar Set Drag & Drop Styling */
+.cd-set-item {
+    cursor: grab;
+    transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    user-select: none;
+    position: relative;
+}
+
+.cd-set-item:active {
+    cursor: grabbing;
+}
+
+.cd-set-item .cd-drag-handle {
+    cursor: grab;
+    opacity: 0.6;
+    transition: opacity 0.15s ease;
+    margin-right: 6px;
+    shrink: 0;
+}
+
+.cd-set-item:hover .cd-drag-handle {
+    opacity: 1;
+}
+
+.cd-set-item.is-dragging {
+    opacity: 0.55;
+    background-color: #f7f7f7 !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    transform: scale(0.98);
+    z-index: 20;
+}
+
+.cd-set-item.drag-over {
+    border-top: 2px solid #222 !important;
+    background-color: #fafafa;
+}
+
 
 
 

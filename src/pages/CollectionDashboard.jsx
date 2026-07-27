@@ -233,6 +233,89 @@ const CollectionDashboard = () => {
     const [toastVariant, setToastVariant] = useState('default');
     const toastTimerRef = useRef(null);
 
+    const [draggedSetIndex, setDraggedSetIndex] = useState(null);
+    const [dragOverSetIndex, setDragOverSetIndex] = useState(null);
+    const [orderedSetIds, setOrderedSetIds] = useState(null);
+
+    const sortedSidebarSets = React.useMemo(() => {
+        const rawList = [];
+        if (highlightsEnabled) {
+            rawList.push({
+                id: 'highlights',
+                name: highlightsName,
+                isHighlights: true,
+                photoCount: photos.filter(p => !p.set_id).length,
+            });
+        }
+        sets.forEach((s) => {
+            rawList.push({
+                ...s,
+                isHighlights: false,
+                photoCount: photos.filter(p => p.set_id === s.id).length,
+            });
+        });
+
+        if (!orderedSetIds || orderedSetIds.length === 0) return rawList;
+
+        const map = new Map(rawList.map((item) => [item.id, item]));
+        const sorted = [];
+        orderedSetIds.forEach((id) => {
+            if (map.has(id)) {
+                sorted.push(map.get(id));
+                map.delete(id);
+            }
+        });
+        map.forEach((item) => sorted.push(item));
+        return sorted;
+    }, [highlightsEnabled, highlightsName, sets, photos, orderedSetIds]);
+
+    const handleSetDragStart = (e, index) => {
+        setDraggedSetIndex(index);
+        e.dataTransfer.effectAllowed = 'move';
+    };
+
+    const handleSetDragOver = (e, index) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        if (dragOverSetIndex !== index) {
+            setDragOverSetIndex(index);
+        }
+    };
+
+    const handleSetDragEnd = () => {
+        setDraggedSetIndex(null);
+        setDragOverSetIndex(null);
+    };
+
+    const handleSetDrop = async (e, toIndex) => {
+        e.preventDefault();
+        if (draggedSetIndex === null || draggedSetIndex === toIndex) {
+            handleSetDragEnd();
+            return;
+        }
+
+        const newItems = [...sortedSidebarSets];
+        const [moved] = newItems.splice(draggedSetIndex, 1);
+        newItems.splice(toIndex, 0, moved);
+
+        const newOrderIds = newItems.map((item) => item.id);
+        setOrderedSetIds(newOrderIds);
+
+        const dbSets = newItems.filter((item) => !item.isHighlights);
+        setSets(dbSets);
+
+        handleSetDragEnd();
+
+        try {
+            const promises = dbSets.map((set, idx) =>
+                supabase.from('sets').update({ position: idx }).eq('id', set.id)
+            );
+            await Promise.all(promises);
+        } catch (err) {
+            console.error('Failed to update set positions:', err);
+        }
+    };
+
     // SORT STATE
     const [sortOption, setSortOption] = useState('custom');
 
@@ -3274,70 +3357,50 @@ const CollectionDashboard = () => {
                                         Add Set
                                     </button>
                                 </div>
-                                {/* Highlights (unassigned photos) — virtual set; hidden after Delete set */}
-                                {highlightsEnabled && (
-                                <div className={`cd-set-item ${!activeSetId ? 'active' : ''}`} onClick={() => setActiveSetId(null)}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="cd-drag-handle"><line x1="4" y1="9" x2="20" y2="9"></line><line x1="4" y1="15" x2="20" y2="15"></line></svg>
-                                    <span className="cd-set-name">{highlightsName} ({photos.filter(p => !p.set_id).length})</span>
-                                    <div className="cd-set-actions">
-                                        <div className="cd-set-more-container">
-                                            <div className="cd-set-menu-wrapper">
-                                                <button className="cd-set-menu-btn" onClick={(e) => { e.stopPropagation(); setShowSetMenu(showSetMenu === 'highlights' ? null : 'highlights'); }}>
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
-                                                </button>
-                                                {showSetMenu === 'highlights' && (
-                                                    <div className="cd-set-dropdown">
-                                                        <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); openCoverModal('highlights'); }}>
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                                                            <span>Change cover</span>
-                                                        </div>
-                                                        <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); openEditSetModal({ id: 'highlights', name: highlightsName, description: collection?.description || '' }); }}>
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
-                                                            <span>Edit set</span>
-                                                        </div>
-                                                        <div className="cd-ctx-item cd-ctx-delete" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); handleDeleteSet('highlights'); }}>
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                                                            <span>Delete set</span>
-                                                        </div>
+                                {/* Unified Reorderable Sets List (Highlights & Custom Sets) */}
+                                {sortedSidebarSets.map((set, index) => {
+                                    const isActive = set.isHighlights ? !activeSetId : activeSetId === set.id;
+                                    return (
+                                        <div
+                                            key={set.id}
+                                            className={`cd-set-item ${isActive ? 'active' : ''} ${draggedSetIndex === index ? 'is-dragging' : ''} ${dragOverSetIndex === index && draggedSetIndex !== index ? 'drag-over' : ''}`}
+                                            onClick={() => setActiveSetId(set.isHighlights ? null : set.id)}
+                                            draggable={true}
+                                            onDragStart={(e) => handleSetDragStart(e, index)}
+                                            onDragOver={(e) => handleSetDragOver(e, index)}
+                                            onDragEnd={handleSetDragEnd}
+                                            onDrop={(e) => handleSetDrop(e, index)}
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="cd-drag-handle"><line x1="4" y1="9" x2="20" y2="9"></line><line x1="4" y1="15" x2="20" y2="15"></line></svg>
+                                            <span className="cd-set-name">{set.name} ({set.photoCount})</span>
+                                            <div className="cd-set-actions">
+                                                <div className="cd-set-more-container">
+                                                    <div className="cd-set-menu-wrapper">
+                                                        <button className="cd-set-menu-btn" onClick={(e) => { e.stopPropagation(); setShowSetMenu(showSetMenu === set.id ? null : set.id); }}>
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
+                                                        </button>
+                                                        {showSetMenu === set.id && (
+                                                            <div className="cd-set-dropdown" role="menu">
+                                                                <button type="button" className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); openCoverModal(set.id); }}>
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                                                                    <span>Change cover</span>
+                                                                </button>
+                                                                <button type="button" className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); set.isHighlights ? openEditSetModal({ id: 'highlights', name: highlightsName, description: collection?.description || '' }) : openEditSetModal(set); }}>
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                                                                    <span>Edit set</span>
+                                                                </button>
+                                                                <button type="button" className="cd-ctx-item cd-ctx-delete" role="menuitem" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); handleDeleteSet(set.id); }}>
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                                                    <span>Delete set</span>
+                                                                </button>
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                )}
-                                {/* Dynamic Sets */}
-                                {sets.map(set => (
-                                    <div key={set.id} className={`cd-set-item ${activeSetId === set.id ? 'active' : ''}`} onClick={() => setActiveSetId(set.id)}>
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="cd-drag-handle"><line x1="4" y1="9" x2="20" y2="9"></line><line x1="4" y1="15" x2="20" y2="15"></line></svg>
-                                        <span className="cd-set-name">{set.name} ({photos.filter(p => p.set_id === set.id).length})</span>
-                                        <div className="cd-set-actions">
-                                            <div className="cd-set-more-container">
-                                                <div className="cd-set-menu-wrapper">
-                                                    <button className="cd-set-menu-btn" onClick={(e) => { e.stopPropagation(); setShowSetMenu(showSetMenu === set.id ? null : set.id); }}>
-                                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
-                                                    </button>
-                                                    {showSetMenu === set.id && (
-                                                        <div className="cd-set-dropdown" role="menu">
-                                                            <button type="button" className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); openCoverModal(set.id); }}>
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                                                                <span>Change cover</span>
-                                                            </button>
-                                                            <button type="button" className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); openEditSetModal(set); }}>
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
-                                                                <span>Edit set</span>
-                                                            </button>
-                                                            <button type="button" className="cd-ctx-item cd-ctx-delete" role="menuitem" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); handleDeleteSet(set.id); }}>
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                                                                <span>Delete set</span>
-                                                            </button>
-                                                        </div>
-                                                    )}
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         )}
 
