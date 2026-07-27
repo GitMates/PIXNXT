@@ -51,6 +51,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
   onSetActiveSet,
   photographerName = 'PHOTOGRAPHER',
   isPreviewMobile = false,
+  coverLogoUrl,
 }) => {
   const { coverStyle, fontFamily, colorPalette, grid } = settings;
   const navigationStyle = normalizeNavigationStyle(grid.navigation);
@@ -458,6 +459,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
     const props = {
       title: collectionTitle,
       subtitle: photographerName,
+      coverLogoUrl: coverLogoUrl,
       date: collectionDate,
       photoUrl: coverPhotoUrl,
       focalX: dashboardState?.focalX,

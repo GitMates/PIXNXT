@@ -12,11 +12,13 @@ import {
   getBrandLabel,
   useCoverTypography,
   ViewGalleryButton,
+  BrandDisplay,
 } from './coverLayoutHelpers';
 
 export const CenterCover: React.FC<CoverProps> = ({
   title,
   subtitle,
+  coverLogoUrl,
   date,
   photoUrl,
   focalX,
@@ -53,15 +55,18 @@ export const CenterCover: React.FC<CoverProps> = ({
       </div>
 
       {/* Centered Brand Name at the Bottom */}
-      {brand ? (
-        <p
-          className={cn(
-            'cover-center-layout__brand gallery-heading absolute bottom-0 left-0 right-0 z-10 pb-6 text-center uppercase tracking-[0.45em] text-white/90 font-medium',
-            s.subtitle
-          )}
-        >
-          {brand}
-        </p>
+      {coverLogoUrl || brand ? (
+        <div className="absolute bottom-0 left-0 right-0 z-10 pb-6 text-center">
+          <BrandDisplay
+            brand={brand}
+            coverLogoUrl={coverLogoUrl}
+            textClassName={cn(
+              'cover-center-layout__brand gallery-heading uppercase tracking-[0.45em] text-white/90 font-medium',
+              s.subtitle
+            )}
+            isPreview={isPreview}
+          />
+        </div>
       ) : null}
     </div>
   );
@@ -70,6 +75,7 @@ export const CenterCover: React.FC<CoverProps> = ({
 export const LeftCover: React.FC<CoverProps> = ({
   title,
   subtitle,
+  coverLogoUrl,
   date,
   photoUrl,
   focalX,
@@ -93,11 +99,15 @@ export const LeftCover: React.FC<CoverProps> = ({
       <CoverPhoto photoUrl={photoUrl} focalX={focalX} focalY={focalY} className="absolute inset-0" />
 
       {/* Brand in Top Left */}
-      {brand ? (
+      {coverLogoUrl || brand ? (
         <div className={cn('cover-left-layout__brand absolute left-0 top-0 z-20', pad)}>
-          <span className={cn('gallery-heading uppercase tracking-[0.35em] text-white/95 font-semibold', s.subtitle)}>
-            {brand}
-          </span>
+          <BrandDisplay
+            brand={brand}
+            coverLogoUrl={coverLogoUrl}
+            textClassName={cn('gallery-heading uppercase tracking-[0.35em] text-white/95 font-semibold', s.subtitle)}
+            isPreview={isPreview}
+            className="justify-start"
+          />
         </div>
       ) : null}
 
@@ -122,6 +132,7 @@ export const LeftCover: React.FC<CoverProps> = ({
 export const NovelCover: React.FC<CoverProps> = ({
   title,
   subtitle,
+  coverLogoUrl,
   date,
   photoUrl,
   focalX,
@@ -147,15 +158,15 @@ export const NovelCover: React.FC<CoverProps> = ({
           textPad
         )}
       >
-        {brand ? (
-          <p
-            className={cn(
-              'cover-novel-layout__brand cover-text-grid__subtitle font-normal',
-              s.subtitle
-            )}
-          >
-            {brand}
-          </p>
+        {coverLogoUrl || brand ? (
+          <div className="mb-2">
+            <BrandDisplay
+              brand={brand}
+              coverLogoUrl={coverLogoUrl}
+              textClassName={cn('cover-novel-layout__brand cover-text-grid__subtitle font-normal', s.subtitle)}
+              isPreview={isPreview}
+            />
+          </div>
         ) : null}
         <h1
           className={cn(
@@ -194,6 +205,7 @@ export const NovelCover: React.FC<CoverProps> = ({
 export const VintageCover: React.FC<CoverProps> = ({
   title,
   subtitle,
+  coverLogoUrl,
   date,
   photoUrl,
   focalX,
@@ -250,16 +262,15 @@ export const VintageCover: React.FC<CoverProps> = ({
             {title}
           </h1>
           <div className="cover-vintage-layout__footer">
-            <span
-              className={cn(
-                'cover-vintage-layout__brand cover-text-grid__subtitle uppercase font-normal',
-                s.subtitle,
-                !brand && 'invisible'
-              )}
-              aria-hidden={!brand}
-            >
-              {brand || '\u00A0'}
-            </span>
+            <div className={cn('cover-vintage-layout__brand cover-text-grid__subtitle uppercase font-normal', !coverLogoUrl && !brand && 'invisible')}>
+              <BrandDisplay
+                brand={brand}
+                coverLogoUrl={coverLogoUrl}
+                textClassName={cn(s.subtitle)}
+                isPreview={isPreview}
+                className="justify-start"
+              />
+            </div>
             <div className="cover-vintage-layout__cta">
               <ViewGalleryButton onClick={onViewGallery} isPreview={isPreview} isGalleryView={isGalleryView} variant="dark" />
             </div>
@@ -273,6 +284,7 @@ export const VintageCover: React.FC<CoverProps> = ({
 export const FrameCover: React.FC<CoverProps> = ({
   title,
   subtitle,
+  coverLogoUrl,
   date,
   photoUrl,
   focalX,
@@ -304,10 +316,15 @@ export const FrameCover: React.FC<CoverProps> = ({
 
       {/* Centered layout stacked from top to bottom inside the frame */}
       <div className={cn('cover-frame-layout__content absolute z-10 flex flex-col text-center text-white justify-between', frameInset)}>
-        {brand ? (
-          <p className={cn('cover-frame-layout__brand gallery-heading shrink-0 uppercase tracking-[0.4em] font-medium text-white/95', topPad, s.subtitle)}>
-            {brand}
-          </p>
+        {coverLogoUrl || brand ? (
+          <div className={cn('cover-frame-layout__brand shrink-0 text-white/95', topPad)}>
+            <BrandDisplay
+              brand={brand}
+              coverLogoUrl={coverLogoUrl}
+              textClassName={cn('gallery-heading uppercase tracking-[0.4em] font-medium', s.subtitle)}
+              isPreview={isPreview}
+            />
+          </div>
         ) : (
           <div className={topPad} aria-hidden />
         )}
@@ -334,6 +351,7 @@ export const FrameCover: React.FC<CoverProps> = ({
 export const StripeCover: React.FC<CoverProps> = ({
   title,
   subtitle,
+  coverLogoUrl,
   date,
   photoUrl,
   focalX,
@@ -378,10 +396,15 @@ export const StripeCover: React.FC<CoverProps> = ({
           {/* Bottom stripe line */}
           <div className="w-full max-w-[180px] md:max-w-[220px] h-px bg-white/70 mt-5" />
           
-          {brand ? (
-            <p className={cn('gallery-heading uppercase tracking-[0.4em] text-white/95 mt-4 font-medium', s.subtitle)}>
-              {brand}
-            </p>
+          {coverLogoUrl || brand ? (
+            <div className="mt-4 w-full">
+              <BrandDisplay
+                brand={brand}
+                coverLogoUrl={coverLogoUrl}
+                textClassName={cn('gallery-heading uppercase tracking-[0.4em] text-white/95 font-medium', s.subtitle)}
+                isPreview={isPreview}
+              />
+            </div>
           ) : null}
         </div>
       </div>
@@ -397,6 +420,7 @@ export const StripeCover: React.FC<CoverProps> = ({
 export const DividerCover: React.FC<CoverProps> = ({
   title,
   subtitle,
+  coverLogoUrl,
   date,
   photoUrl,
   focalX,
@@ -423,10 +447,15 @@ export const DividerCover: React.FC<CoverProps> = ({
 
       {/* Centered stack inside the left half */}
       <div className={cn('relative z-20 flex h-full w-1/2 flex-col items-center justify-center text-center text-white', pad)}>
-        {brand ? (
-          <p className={cn('gallery-heading uppercase tracking-[0.4em] text-white/95 mb-4 font-medium', s.subtitle)}>
-            {brand}
-          </p>
+        {coverLogoUrl || brand ? (
+          <div className="mb-4">
+            <BrandDisplay
+              brand={brand}
+              coverLogoUrl={coverLogoUrl}
+              textClassName={cn('gallery-heading uppercase tracking-[0.4em] text-white/95 font-medium', s.subtitle)}
+              isPreview={isPreview}
+            />
+          </div>
         ) : null}
         <h1 className={cn('gallery-heading uppercase leading-none font-bold text-white', s.title)}>
           {title}
@@ -450,6 +479,7 @@ export const DividerCover: React.FC<CoverProps> = ({
 export const JournalCover: React.FC<CoverProps> = ({
   title,
   subtitle,
+  coverLogoUrl,
   date,
   photoUrl,
   focalX,
@@ -475,15 +505,16 @@ export const JournalCover: React.FC<CoverProps> = ({
       </div>
 
       <div className="cover-journal-layout__panel flex w-1/2 min-w-0 h-full flex-col">
-        {brand ? (
-          <span
-            className={cn(
-              'cover-journal-layout__brand cover-text-grid__subtitle uppercase font-normal self-start',
-              s.subtitle
-            )}
-          >
-            {brand}
-          </span>
+        {coverLogoUrl || brand ? (
+          <div className="self-start">
+            <BrandDisplay
+              brand={brand}
+              coverLogoUrl={coverLogoUrl}
+              textClassName={cn('cover-journal-layout__brand cover-text-grid__subtitle uppercase font-normal', s.subtitle)}
+              isPreview={isPreview}
+              className="justify-start"
+            />
+          </div>
         ) : (
           <div className="mb-auto" aria-hidden="true" />
         )}
@@ -513,6 +544,7 @@ export const JournalCover: React.FC<CoverProps> = ({
 export const StampCover: React.FC<CoverProps> = ({
   title,
   subtitle,
+  coverLogoUrl,
   date,
   photoUrl,
   focalX,
@@ -531,15 +563,15 @@ export const StampCover: React.FC<CoverProps> = ({
         coverLayoutHeight(isPreview, isGalleryView)
       )}
     >
-      {brand ? (
-        <p
-          className={cn(
-            'cover-stamp-layout__brand cover-text-grid__subtitle gallery-body-text uppercase font-normal',
-            s.subtitle
-          )}
-        >
-          {brand}
-        </p>
+      {coverLogoUrl || brand ? (
+        <div className="mb-2">
+          <BrandDisplay
+            brand={brand}
+            coverLogoUrl={coverLogoUrl}
+            textClassName={cn('cover-stamp-layout__brand cover-text-grid__subtitle gallery-body-text uppercase font-normal', s.subtitle)}
+            isPreview={isPreview}
+          />
+        </div>
       ) : null}
 
       <div className="cover-stamp-layout__image-frame relative w-full overflow-hidden">

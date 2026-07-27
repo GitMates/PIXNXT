@@ -3809,6 +3809,7 @@ const CollectionDashboard = () => {
                                     previewMode={previewMode}
                                     onPreviewModeChange={setPreviewMode}
                                     photographerName={profile?.business_name || user?.display_name || 'PHOTOGRAPHER'}
+                                    coverLogoUrl={profile?.cover_logo_url || ''}
                                     dashboardState={{
                                         focalX: collectionFocal.x,
                                         focalY: collectionFocal.y,

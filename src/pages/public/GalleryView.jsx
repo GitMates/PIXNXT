@@ -1927,6 +1927,7 @@ const GalleryView = () => {
           const props = {
             title: collection.name,
             subtitle: photographer?.business_name || photographer?.display_name || '',
+            coverLogoUrl: photographer?.cover_logo_url || '',
             date: formatCoverDate(collection.event_date || collection.created_at),
             photoUrl: activePhotoUrl,
             focalX,
