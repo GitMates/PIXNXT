@@ -1,6 +1,7 @@
 "use client"
 
-import React, { useState, useMemo } from "react"
+import React, { useState, useMemo, useEffect } from "react"
+import { useLocation } from "react-router-dom"
 import "./portal.css"
 import {
   type ViewMode,
@@ -12,7 +13,7 @@ import {
   INITIAL_EVENTS,
   adaptCardToStage,
 } from "./portalData"
-import { PortalSidebar } from "./PortalSidebar"
+import { getPortalViewFromPath } from "../../lib/products"
 import { PortalPipelineView } from "./PortalPipelineView"
 import { PortalCalendarView } from "./PortalCalendarView"
 import { PortalSettingsPage } from "./PortalSettingsPage"
@@ -31,7 +32,8 @@ function formatEventDate(iso: string) {
 }
 
 export function PixnxtPortalSingle() {
-  const [activeView, setActiveView] = useState<ViewMode>("pipeline")
+  const location = useLocation()
+  const activeView = getPortalViewFromPath(location.pathname) as ViewMode
 
   const [stages, setStages] = useState<PipelineStage[]>(INITIAL_STAGES)
   const [searchQuery, setSearchQuery] = useState("")
@@ -51,6 +53,10 @@ export function PixnxtPortalSingle() {
     new Set(["shoot", "milestone", "deadline"]),
   )
   const [events] = useState(INITIAL_EVENTS)
+
+  useEffect(() => {
+    setWorkspaceProjectName(null)
+  }, [activeView])
 
   const filteredStages = useMemo(() => {
     return stages.map((stage) => ({
@@ -74,22 +80,17 @@ export function PixnxtPortalSingle() {
     setWorkspaceProjectName(null)
   }
 
-  const goToView = (view: ViewMode) => {
-    setActiveView(view)
-    handleCloseProject()
-  }
-
   const handleCreateProject = ({
     clientNames,
     eventDate,
-    location,
+    location: projectLocation,
   }: {
     clientNames: string
     eventDate: string
     location: string
     modules: Record<string, boolean>
   }) => {
-    const loc = location.trim() || "Mumbai, Maharashtra"
+    const loc = projectLocation.trim() || "Mumbai, Maharashtra"
     setStages((prev) =>
       prev.map((s) => {
         if (s.id === "inquiry") {
@@ -239,14 +240,7 @@ export function PixnxtPortalSingle() {
   }
 
   return (
-    <div className="theme-mono flex h-screen overflow-hidden bg-[#FAF9F6] text-foreground">
-      <PortalSidebar
-        activeView={activeView}
-        workspaceProjectName={workspaceProjectName}
-        goToView={goToView}
-        userInitial="N"
-      />
-
+    <div className="theme-mono flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-[#FAF9F6] text-foreground">
       <main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-background">
         {workspaceProjectName ? (
           <PortalWorkspaceView

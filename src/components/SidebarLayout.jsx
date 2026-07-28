@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase/client';
 import {
@@ -7,30 +7,32 @@ import {
     ChevronDown,
     Database,
     Plus,
-    Images,
-    LayoutGrid,
-    Star,
-    BookOpen,
-    Settings,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { getUserDisplayLabel, getUserInitial } from '../lib/userInitials';
 import { cn } from '../lib/utils';
-import { galleryService } from '../services/gallery.service';
+import {
+    products,
+    getProductById,
+    getProductNavItems,
+    isProductActive,
+} from '../lib/products';
 import brandPng from '../assets/icons/client gallery.png';
 import smartAlbumPng from '../assets/icons/smart album.png';
 import dashboardPng from '../assets/icons/dashboard.png';
 import '../styles/clientGalleryTheme.css';
 import '../pages/ClientGallery.css';
 
-const NAV_ITEMS = [
-    { label: 'Collections', href: '/client-gallery', match: (p) => p === '/client-gallery' || p.startsWith('/collections') || p.startsWith('/folders'), icon: Images },
-    { label: 'Starred', href: '/starred/collections', match: (p) => p.startsWith('/starred'), icon: Star },
-    { label: 'Homepage', href: '/homepage', match: (p) => p === '/homepage', icon: BookOpen },
-    { label: 'Settings', href: '/settings', match: (p) => p.startsWith('/settings'), icon: Settings },
-];
+const PRODUCT_IMAGES = {
+    'client-gallery': brandPng,
+    'smart-albums': smartAlbumPng,
+};
 
-const SidebarLayout = ({ children }) => {
+/**
+ * Shared product shell used by Client Gallery, Smart Albums, Mobile Gallery, etc.
+ * Pass `productId` to switch the active product label + in-product nav.
+ */
+const SidebarLayout = ({ children, productId = 'client-gallery', headerActions = null }) => {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [showAppDropdown, setShowAppDropdown] = useState(false);
     const [showContextDropdown, setShowContextDropdown] = useState(false);
@@ -55,6 +57,12 @@ const SidebarLayout = ({ children }) => {
         }
         return null;
     });
+
+    const activeProduct = useMemo(
+        () => getProductById(productId) || products[0],
+        [productId],
+    );
+    const navItems = useMemo(() => getProductNavItems(productId), [productId]);
 
     const getProfileDisplayName = () => {
         const fromProfile =
@@ -89,6 +97,7 @@ const SidebarLayout = ({ children }) => {
         ) : (
             <span className="w-10 h-10 rounded-[10px] bg-[#1A1A1A] text-white flex items-center justify-center font-bold text-sm shrink-0 uppercase">{userInitial}</span>
         );
+
     useEffect(() => {
         if (!user?.id) {
             setProfile(null);
@@ -125,7 +134,7 @@ const SidebarLayout = ({ children }) => {
         if (!bytes || bytes <= 0) return '0.00 MB';
         const tbLimit = 1024 * 1024 * 1024 * 1024;
         const gbLimit = 1024 * 1024 * 1024;
-        
+
         if (bytes >= tbLimit) {
             return `${(bytes / tbLimit).toFixed(2)} TB`;
         }
@@ -134,7 +143,7 @@ const SidebarLayout = ({ children }) => {
         }
         return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
     };
-    
+
     const getLimitBytes = () => {
         if (limitBytes) return limitBytes;
         const tier = String(profile?.plan || '').toLowerCase();
@@ -143,7 +152,7 @@ const SidebarLayout = ({ children }) => {
         if (tier === 'free') return 5 * 1024 * 1024 * 1024;
         return 10 * 1024 * 1024 * 1024;
     };
-    
+
     const maxBytes = getLimitBytes();
     const storagePct = Math.min(100, maxBytes > 0 ? (usedBytes / maxBytes) * 100 : 0);
 
@@ -176,6 +185,15 @@ const SidebarLayout = ({ children }) => {
             document.removeEventListener('keydown', handleEscape);
         };
     }, []);
+
+    const renderProductIcon = (product, active) => {
+        const img = PRODUCT_IMAGES[product.id];
+        if (img) {
+            return <img src={img} alt="" className="size-5 object-contain mix-blend-multiply" />;
+        }
+        const Icon = product.icon;
+        return <Icon className={cn('size-4', active ? 'text-white' : 'text-[#1A1A1A]')} />;
+    };
 
     const renderProfileDropdown = (positionClasses) => (
         <div className={`absolute ${positionClasses} w-[280px] rounded-2xl bg-white shadow-xl shadow-black/10 z-[500] py-1 animate-[cgFadeIn_0.15s_ease] border border-[#ECEAE6]`}>
@@ -253,56 +271,51 @@ const SidebarLayout = ({ children }) => {
                         aria-hidden
                     />
                     <div className="cg-app-switcher-dropdown" role="menu">
-                    <button
-                        type="button"
-                        onClick={() => { navigate('/dashboard'); setShowAppDropdown(false); setIsMobileMenuOpen(false); }}
-                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-[#1A1A1A] transition-colors hover:bg-[#F4F3F0]"
-                    >
-                        <span className="inline-flex size-9 items-center justify-center rounded-lg bg-[#F4F3F0]">
-                            <img src={dashboardPng} alt="" className="size-4 object-contain" />
-                        </span>
-                        Home
-                    </button>
-
-                    <p className="px-3 pb-1 pt-3 text-xs font-medium uppercase tracking-wider text-[#71717A]">
-                        Pixnxt Ecosystem
-                    </p>
-
-                    {[
-                        { name: 'Client Gallery', tagline: 'Better way to share, deliver, proof and sell', href: '/client-gallery', img: brandPng, active: true },
-                        { name: 'Smart Albums', tagline: 'Design and deliver beautiful photo albums', href: '/smart-albums', img: smartAlbumPng },
-                        { name: 'Mobile Gallery App', tagline: 'Simple, personalized mobile photo albums', href: '/mobile-gallery', isMobile: true },
-                    ].map((product) => (
                         <button
-                            key={product.href}
                             type="button"
-                            onClick={() => { navigate(product.href); setShowAppDropdown(false); setIsMobileMenuOpen(false); }}
-                            className={cn(
-                                'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors hover:bg-[#F4F3F0]',
-                                product.active && 'neu-glow-pill',
-                            )}
+                            onClick={() => { navigate('/dashboard'); setShowAppDropdown(false); setIsMobileMenuOpen(false); }}
+                            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-[#1A1A1A] transition-colors hover:bg-[#F4F3F0]"
                         >
-                            <span className={cn(
-                                'inline-flex size-9 shrink-0 items-center justify-center rounded-lg',
-                                product.active ? 'bg-[#1A1A1A] text-white' : 'bg-[#F4F3F0] text-[#1A1A1A]',
-                            )}>
-                                {product.isMobile ? (
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="5" y="2" width="14" height="20" rx="2" /><line x1="12" y1="18" x2="12.01" y2="18" /></svg>
-                                ) : (
-                                    <img src={product.img} alt="" className="size-5 object-contain mix-blend-multiply" />
-                                )}
+                            <span className="inline-flex size-9 items-center justify-center rounded-lg bg-[#F4F3F0]">
+                                <img src={dashboardPng} alt="" className="size-4 object-contain" />
                             </span>
-                            <span className="min-w-0 flex-1 text-left">
-                                <span className="flex items-center gap-2">
-                                    <span className="font-medium text-[#1A1A1A]">{product.name}</span>
-                                    {product.active && (
-                                        <span className="rounded-full bg-[#1A1A1A]/10 px-1.5 py-0.5 text-[0.65rem] font-medium text-[#1A1A1A]">Current</span>
-                                    )}
-                                </span>
-                                <span className="block truncate text-xs text-[#71717A]">{product.tagline}</span>
-                            </span>
+                            Home
                         </button>
-                    ))}
+
+                        <p className="px-3 pb-1 pt-3 text-xs font-medium uppercase tracking-wider text-[#71717A]">
+                            Pixnxt Ecosystem
+                        </p>
+
+                        {products.map((product) => {
+                            const active = isProductActive(product.href, path);
+                            return (
+                                <button
+                                    key={product.id}
+                                    type="button"
+                                    onClick={() => { navigate(product.href); setShowAppDropdown(false); setIsMobileMenuOpen(false); }}
+                                    className={cn(
+                                        'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors hover:bg-[#F4F3F0]',
+                                        active && 'neu-glow-pill',
+                                    )}
+                                >
+                                    <span className={cn(
+                                        'inline-flex size-9 shrink-0 items-center justify-center rounded-lg',
+                                        active ? 'bg-[#1A1A1A] text-white' : 'bg-[#F4F3F0] text-[#1A1A1A]',
+                                    )}>
+                                        {renderProductIcon(product, active)}
+                                    </span>
+                                    <span className="min-w-0 flex-1 text-left">
+                                        <span className="flex items-center gap-2">
+                                            <span className="font-medium text-[#1A1A1A]">{product.name}</span>
+                                            {active && (
+                                                <span className="rounded-full bg-[#1A1A1A]/10 px-1.5 py-0.5 text-[0.65rem] font-medium text-[#1A1A1A]">Current</span>
+                                            )}
+                                        </span>
+                                        <span className="block truncate text-xs text-[#71717A]">{product.tagline}</span>
+                                    </span>
+                                </button>
+                            );
+                        })}
                     </div>
                 </>
             )}
@@ -338,10 +351,11 @@ const SidebarLayout = ({ children }) => {
                             </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                            <button type="button" className="neu-circle relative inline-flex size-8 items-center justify-center rounded-full text-[#71717A] hover:text-[#1A1A1A]" aria-label="Notifications">
-                                <Bell className="size-4" />
-                                <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-[#1A1A1A]" />
-                            </button>
+                            {headerActions || (
+                                <button type="button" className="neu-circle relative inline-flex size-8 items-center justify-center rounded-full text-[#71717A] hover:text-[#1A1A1A]" aria-label="Notifications">
+                                    <Bell className="size-4" />
+                                </button>
+                            )}
                             <AppSwitcherMenu />
                         </div>
                     </div>
@@ -354,41 +368,42 @@ const SidebarLayout = ({ children }) => {
                                 className="group flex w-full items-center justify-between gap-2 rounded-md py-1 text-lg font-bold text-[#1A1A1A] transition-colors hover:text-[#1A1A1A]/80"
                                 aria-expanded={showContextDropdown}
                             >
-                                <span className="truncate">Client Gallery</span>
+                                <span className="truncate">{activeProduct.name}</span>
                                 <ChevronDown className={cn('size-4 shrink-0 transition-transform', showContextDropdown && 'rotate-180')} />
                             </button>
                             {showContextDropdown && (
                                 <div className="absolute left-3 right-3 top-full z-50 mt-1.5 overflow-hidden rounded-xl bg-white p-1.5 shadow-xl shadow-black/10 border border-[#ECEAE6]">
-                                    {[
-                                        { name: 'Client Gallery', href: '/client-gallery', icon: Images, active: true },
-                                        { name: 'Smart Albums', href: '/smart-albums', icon: BookOpen },
-                                    ].map((item) => (
-                                        <button
-                                            key={item.href}
-                                            type="button"
-                                            onClick={() => { navigate(item.href); setShowContextDropdown(false); }}
-                                            className={cn(
-                                                'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors hover:bg-[#F4F3F0]',
-                                                item.active && 'neu-inset',
-                                            )}
-                                        >
-                                            <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-md bg-[#F4F3F0]">
-                                                <item.icon className="size-3.5" />
-                                            </span>
-                                            <span className="min-w-0 flex-1 truncate font-medium">{item.name}</span>
-                                            {item.active && <span className="size-1.5 shrink-0 rounded-full bg-[#1A1A1A]" />}
-                                        </button>
-                                    ))}
+                                    {products.map((item) => {
+                                        const active = isProductActive(item.href, path);
+                                        const Icon = item.icon;
+                                        return (
+                                            <button
+                                                key={item.id}
+                                                type="button"
+                                                onClick={() => { navigate(item.href); setShowContextDropdown(false); setIsMobileMenuOpen(false); }}
+                                                className={cn(
+                                                    'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors hover:bg-[#F4F3F0]',
+                                                    active && 'neu-inset',
+                                                )}
+                                            >
+                                                <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-md bg-[#F4F3F0]">
+                                                    <Icon className="size-3.5" />
+                                                </span>
+                                                <span className="min-w-0 flex-1 truncate font-medium">{item.name}</span>
+                                                {active && <span className="size-1.5 shrink-0 rounded-full bg-[#1A1A1A]" />}
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>
 
-                        {NAV_ITEMS.map((item) => {
+                        {navItems.map((item) => {
                             const active = item.match(path);
                             const Icon = item.icon;
                             return (
                                 <button
-                                    key={item.label}
+                                    key={item.href}
                                     type="button"
                                     onClick={() => {
                                         navigate(item.href);
@@ -442,7 +457,7 @@ const SidebarLayout = ({ children }) => {
                 </div>
             </aside>
 
-            <div className="flex-1 flex flex-col min-h-screen md:h-screen w-full min-w-0 max-w-full overflow-x-hidden bg-[#F9F9F7] pt-14 md:pt-0">
+            <div className="flex-1 flex flex-col min-h-screen md:h-screen w-full min-w-0 max-w-full overflow-x-hidden overflow-y-auto md:overflow-hidden bg-[#F9F9F7] pt-14 md:pt-0">
                 {children}
             </div>
         </div>
