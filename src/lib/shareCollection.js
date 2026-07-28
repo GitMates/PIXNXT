@@ -4,8 +4,8 @@ import { getPublicGalleryUrl, getPublicSiteOrigin, getShareUrlWarning } from './
 
 export { getShareUrlWarning };
 
-export function getCollectionShareUrl(slug) {
-    return getPublicGalleryUrl(slug);
+export function getCollectionShareUrl(slug, photographerProfile) {
+    return getPublicGalleryUrl(slug, { photographerProfile });
 }
 
 /** @deprecated Use getPublicSiteOrigin — re-export for callers that need the origin only. */

@@ -43,6 +43,8 @@ import RekognitionTest from './pages/dev/RekognitionTest';
 import WatermarkEditor from './pages/WatermarkEditor';
 import { GlobalUploadShell } from './components/features/CollectionDashboard/Upload/GlobalUploadShell';
 import EmailTemplateEditor from './pages/EmailTemplateEditor';
+import { CustomDomainGalleryApp } from './components/CustomDomainGalleryApp';
+import { isPlatformHost, normalizeHost } from './lib/customDomain';
 
 function MobileGalleryViewRedirect() {
   const { slug } = useParams();
@@ -77,6 +79,8 @@ function App() {
   const prodSubdomain = isProductionSubdomain ? parts[0] : null;
 
   const activeSlug = prodSubdomain || devSubdomain;
+  const normalizedHost = normalizeHost(host);
+  const isCustomDomainHost = !isPlatformHost(normalizedHost);
 
   const navigate = useNavigate();
   const [themeTick, setThemeTick] = useState(0);
@@ -141,6 +145,17 @@ function App() {
         <UploadQueueRouteSync />
         <div className="app">
           <MobileGalleryPublicRoutes />
+        </div>
+      </UploadQueueProvider>
+    );
+  }
+
+  if (isCustomDomainHost && !activeSlug) {
+    return (
+      <UploadQueueProvider>
+        <UploadQueueRouteSync />
+        <div className="app">
+          <CustomDomainGalleryApp hostname={normalizedHost} />
         </div>
       </UploadQueueProvider>
     );

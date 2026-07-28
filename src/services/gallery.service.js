@@ -1883,6 +1883,30 @@ export const galleryService = {
   },
 
   /**
+   * Resolve a verified custom domain to a photographer profile (public galleries).
+   */
+  async getPhotographerProfileByCustomDomain(domain) {
+    const normalized = String(domain || '')
+      .trim()
+      .toLowerCase()
+      .replace(/^https?:\/\//, '')
+      .split('/')[0]
+      .replace(/\.$/, '');
+
+    if (!normalized) return null;
+
+    const { data, error } = await supabase
+      .from('photographers')
+      .select('*')
+      .ilike('custom_domain', normalized)
+      .eq('custom_domain_status', 'verified')
+      .maybeSingle();
+
+    if (error && error.code !== 'PGRST116') throw error;
+    return data || null;
+  },
+
+  /**
    * Update a photographer's profile (bio, contact info, homepage settings, etc.)
    */
   async updatePhotographerProfile(photographerId, updates) {
