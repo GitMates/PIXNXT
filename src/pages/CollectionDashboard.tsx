@@ -6,7 +6,7 @@ import { useCollectionDashboard } from '@/hooks/useCollectionDashboard';
 import { usePhotoOperations } from '@/hooks/usePhotoOperations';
 import { DashboardSidebar } from '@/components/features/CollectionDashboard/Sidebar';
 import { DashboardTopbar } from '@/components/features/CollectionDashboard/Topbar';
-import { MediaGridView, SelectionToolbar } from '@/components/features/CollectionDashboard/Media';
+import { MediaGridView, SelectionToolbar, DashboardMediaFilter } from '@/components/features/CollectionDashboard/Media';
 import {
   GeneralSettings,
   PrivacySettings,
@@ -26,6 +26,12 @@ import {
   sortDashboardPhotos,
 } from '@/utils/sortDashboardPhotos';
 import { formatCoverDate } from '@/lib/formatCoverDate';
+import {
+  countGalleryMedia,
+  filterGalleryMediaByType,
+  shouldShowGalleryMediaFilter,
+  type GalleryMediaFilterValue,
+} from '@/lib/galleryMediaType';
 import './CollectionDashboard.css';
 
 export default function CollectionDashboard() {
@@ -38,6 +44,7 @@ export default function CollectionDashboard() {
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [showGridSettings, setShowGridSettings] = useState(false);
   const [photoSort, setPhotoSort] = useState<DashboardPhotoSort>('upload-new-old');
+  const [mediaFilter, setMediaFilter] = useState<GalleryMediaFilterValue>('photos');
 
   const dashboardState = useCollectionDashboard(collectionId || '');
   const photoOps = usePhotoOperations({
@@ -96,7 +103,28 @@ export default function CollectionDashboard() {
     return sortDashboardPhotos(display, photoSort);
   }, [photos, activeSetId, photoSort]);
 
+  const activeSetMediaCounts = useMemo(
+    () => countGalleryMedia(sortedDisplayPhotos),
+    [sortedDisplayPhotos]
+  );
+
+  const showMediaFilter = shouldShowGalleryMediaFilter(activeSetMediaCounts);
+
+  useEffect(() => {
+    if (activeSetMediaCounts.photos > 0) setMediaFilter('photos');
+    else if (activeSetMediaCounts.videos > 0) setMediaFilter('videos');
+  }, [activeSetId, activeSetMediaCounts.photos, activeSetMediaCounts.videos]);
+
+  const mediaFilteredPhotos = useMemo(() => {
+    if (!showMediaFilter) return sortedDisplayPhotos;
+    return filterGalleryMediaByType(sortedDisplayPhotos, mediaFilter);
+  }, [sortedDisplayPhotos, showMediaFilter, mediaFilter]);
+
   const activeSetPhotoCount = sortedDisplayPhotos.length;
+
+  const activeSetDisplayCount = showMediaFilter
+    ? activeSetMediaCounts[mediaFilter === 'photos' ? 'photos' : 'videos']
+    : activeSetPhotoCount;
 
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
@@ -238,7 +266,17 @@ export default function CollectionDashboard() {
         <div className="cd-main-scroll">
           <div className="cd-content-padding">
             <div className="cd-main-header">
-              <h2 className="cd-main-title">{activeSetName} ({activeSetPhotoCount})</h2>
+              <div className="cd-main-header-left">
+                <h2 className="cd-main-title">{activeSetName} ({activeSetDisplayCount})</h2>
+                {showMediaFilter && (
+                  <DashboardMediaFilter
+                    value={mediaFilter}
+                    onChange={setMediaFilter}
+                    photoCount={activeSetMediaCounts.photos}
+                    videoCount={activeSetMediaCounts.videos}
+                  />
+                )}
+              </div>
               <div className="cd-main-actions">
                 <div className="cd-sort-wrapper" ref={sortRef}>
                   <button
@@ -342,7 +380,7 @@ export default function CollectionDashboard() {
               </div>
             </div>
             <MediaGridView
-              photos={sortedDisplayPhotos}
+              photos={mediaFilteredPhotos}
               gridSize={gridSize}
               showFilename={showFilename}
               selectedPhotos={photoOps.selectedPhotos}

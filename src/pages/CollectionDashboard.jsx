@@ -67,6 +67,7 @@ import {
     stripMediaUrlHash,
 } from '../lib/focalPoint';
 import { CollectionGridPhoto } from '../components/features/CollectionDashboard/Media/CollectionGridPhoto';
+import { DashboardMediaFilter } from '../components/features/CollectionDashboard/Media/DashboardMediaFilter';
 import { RawPhotoPlaceholder } from '../components/features/CollectionDashboard/Media/RawPhotoPlaceholder';
 import {
     getPhotoFullDisplayUrl,
@@ -75,6 +76,11 @@ import {
     isRawMedia,
 } from '../lib/photoDisplayUrl';
 import { formatCoverDate, formatCollectionHeaderDate } from '../lib/formatCoverDate.js';
+import {
+    countGalleryMedia,
+    filterGalleryMediaByType,
+    shouldShowGalleryMediaFilter,
+} from '../lib/galleryMediaType';
 import {
     normalizeCoverStyleId,
     normalizeFontId,
@@ -361,6 +367,7 @@ const CollectionDashboard = () => {
 
     // SORT STATE
     const [sortOption, setSortOption] = useState('custom');
+    const [mediaFilter, setMediaFilter] = useState('photos');
 
     // TAB STATES
     const [activeSidebarTab, setActiveSidebarTab] = useState('photos'); // photos, design, settings, activity
@@ -2118,6 +2125,23 @@ const CollectionDashboard = () => {
         return result;
     }, [sortedPhotos, photoAiMetadataMap, activePerson, selfieMatchPhotoIds]);
 
+    const activeSetMediaCounts = useMemo(
+        () => countGalleryMedia(sortedPhotos),
+        [sortedPhotos]
+    );
+
+    const showMediaFilter = shouldShowGalleryMediaFilter(activeSetMediaCounts);
+
+    useEffect(() => {
+        if (activeSetMediaCounts.photos > 0) setMediaFilter('photos');
+        else if (activeSetMediaCounts.videos > 0) setMediaFilter('videos');
+    }, [activeSetId, activeSetMediaCounts.photos, activeSetMediaCounts.videos]);
+
+    const mediaFilteredPhotos = useMemo(() => {
+        if (!showMediaFilter) return aiFilteredPhotos;
+        return filterGalleryMediaByType(aiFilteredPhotos, mediaFilter);
+    }, [aiFilteredPhotos, showMediaFilter, mediaFilter]);
+
     const isPhotoAiFilterActive = Boolean(
         activePersonId || selfieMatchPhotoIds.length
     );
@@ -2379,7 +2403,7 @@ const CollectionDashboard = () => {
 
     const gridPhotos = useMemo(() => {
         const viewSetId = highlightsEnabled ? activeSetId : (activeSetId ?? sets[0]?.id ?? null);
-        const completedNames = new Set(aiFilteredPhotos.map((p) => p.filename));
+        const completedNames = new Set(mediaFilteredPhotos.map((p) => p.filename));
         const pending = uploadState.files
             .filter(
                 (f) =>
@@ -2398,8 +2422,11 @@ const CollectionDashboard = () => {
                 _uploadPending: true,
                 _uploadProgress: f.progress,
             }));
-        return [...aiFilteredPhotos, ...pending];
-    }, [aiFilteredPhotos, uploadState.files, collectionId, highlightsEnabled, activeSetId, sets]);
+        const filteredPending = showMediaFilter
+            ? filterGalleryMediaByType(pending, mediaFilter)
+            : pending;
+        return [...mediaFilteredPhotos, ...filteredPending];
+    }, [mediaFilteredPhotos, uploadState.files, collectionId, highlightsEnabled, activeSetId, sets, showMediaFilter, mediaFilter]);
 
     useEffect(() => {
         if (!pendingUploadScrollRef.current || activeSidebarTab !== 'photos') return;
@@ -2412,6 +2439,26 @@ const CollectionDashboard = () => {
     const activeSetPhotoCount = activeSetId
         ? photos.filter(p => p.set_id === activeSetId).length
         : photos.filter(p => !p.set_id).length;
+
+    const activeSetDisplayCount = useMemo(() => {
+        if (isPhotoAiFilterActive) {
+            const typeTotal = showMediaFilter
+                ? activeSetMediaCounts[mediaFilter === 'photos' ? 'photos' : 'videos']
+                : activeSetPhotoCount;
+            return `${mediaFilteredPhotos.length} of ${typeTotal}`;
+        }
+        if (showMediaFilter) {
+            return activeSetMediaCounts[mediaFilter === 'photos' ? 'photos' : 'videos'];
+        }
+        return activeSetPhotoCount;
+    }, [
+        isPhotoAiFilterActive,
+        showMediaFilter,
+        mediaFilter,
+        mediaFilteredPhotos.length,
+        activeSetMediaCounts,
+        activeSetPhotoCount,
+    ]);
 
     const coverModalPhotos = useMemo(() => {
         if (coverModalScope === 'all') return photos;
@@ -3636,7 +3683,17 @@ const CollectionDashboard = () => {
                         {activeSidebarTab === 'photos' && (
                             <>
                                 <div className="cd-main-header">
-                                    <h2 className="cd-main-title">{activeSetName} ({isPhotoAiFilterActive ? `${aiFilteredPhotos.length} of ${activeSetPhotoCount}` : activeSetPhotoCount})</h2>
+                                    <div className="cd-main-header-left">
+                                        <h2 className="cd-main-title">{activeSetName} ({activeSetDisplayCount})</h2>
+                                        {showMediaFilter && (
+                                            <DashboardMediaFilter
+                                                value={mediaFilter}
+                                                onChange={setMediaFilter}
+                                                photoCount={activeSetMediaCounts.photos}
+                                                videoCount={activeSetMediaCounts.videos}
+                                            />
+                                        )}
+                                    </div>
                                     <div className={`cd-main-actions${showPeoplePanel ? ' cd-main-actions--ai-panel-open' : ''}`}>
                                         <CollectionPhotoAiToolbar
                                             showPeople={showPeoplePanel}
@@ -3858,6 +3915,10 @@ const CollectionDashboard = () => {
                                         );
                                         })}
                                     </div>
+                                ) : sortedPhotos.length > 0 ? (
+                                    <p className="cd-media-filter-empty">
+                                        {showMediaFilter ? `No ${mediaFilter} in this set` : 'No matching photos'}
+                                    </p>
                                 ) : (
                                     <div
                                         className={`cd-dropzone ${isDraggingDropzone ? 'dragging' : ''}`}
