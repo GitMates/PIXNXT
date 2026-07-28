@@ -13,6 +13,11 @@ import {
   padTimerPart,
   resolveBannerBackgroundImage,
 } from '../../../../lib/salesCampaignBanner';
+import {
+  distributePhotosToShortestColumns,
+  getGalleryMasonryColumnCount,
+} from '../../../../lib/masonryColumnDistribution';
+import { isRowMasonryGridStyle } from '../../../../lib/galleryGridStyle';
 import './MasonryGrid.css';
  
 export function MasonryGrid({
@@ -99,7 +104,9 @@ export function MasonryGrid({
       }
     });
   }, [displayPhotos]);
-  const isHorizontal = isHorizontalProp !== undefined ? isHorizontalProp : (gridSettings?.style?.toLowerCase() === 'horizontal');
+  const isHorizontal = isHorizontalProp !== undefined
+    ? isHorizontalProp
+    : isRowMasonryGridStyle(gridSettings?.style);
   const size = gridSettings?.size || 'regular';
   const spacing = gridSettings?.spacing || 'regular';
 
@@ -361,16 +368,7 @@ export function MasonryGrid({
       return;
     }
     const updateCols = () => {
-      const w = window.innerWidth;
-      if (w <= 480) {
-        setColsCount(1);
-      } else if (w <= 768) {
-        setColsCount(2);
-      } else if (w <= 1024) {
-        setColsCount(3);
-      } else {
-        setColsCount(3);
-      }
+      setColsCount(getGalleryMasonryColumnCount(window.innerWidth));
     };
     
     updateCols();
@@ -682,7 +680,7 @@ export function MasonryGrid({
           margin: 0
         } : (centerVideosLayout ? {} : {
           width: '100%',
-          aspectRatio: String(tileAspectRatio),
+          '--ar': String(tileAspectRatio),
         })}
         onClick={() => onImageClick(photo._originalIndex)}
       >
@@ -913,22 +911,13 @@ export function MasonryGrid({
   const columns = useMemo(() => {
     if (isHorizontal || centerVideosLayout) return [displayPhotos];
 
-    const cols = Array.from({ length: colsCount }, () => []);
-    const heights = new Array(colsCount).fill(0);
-    const gapWeight = gap / Math.max(estimatedColWidth, 1);
-
-    for (const photo of displayPhotos) {
-      const aspectRatio = getPhotoAspectRatio(photo);
-      const tileHeight = 1 / aspectRatio;
-      let shortestIdx = 0;
-      for (let i = 1; i < colsCount; i += 1) {
-        if (heights[i] < heights[shortestIdx]) shortestIdx = i;
-      }
-      cols[shortestIdx].push(photo);
-      heights[shortestIdx] += tileHeight + gapWeight;
-    }
-
-    return cols;
+    return distributePhotosToShortestColumns(
+      displayPhotos,
+      colsCount,
+      estimatedColWidth,
+      gap,
+      getPhotoAspectRatio,
+    );
   }, [
     displayPhotos,
     colsCount,

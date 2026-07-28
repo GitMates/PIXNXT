@@ -100,6 +100,7 @@ export function SmoothMediaImage({
   const blurSrc =
     thumbSrc && thumbSrc !== activeSrc && !error && shouldLoad ? thumbSrc : null;
 
+  const showBlurPlaceholder = Boolean(blurSrc && !loaded && !cached);
   const showShimmer = shouldLoad && !loaded && !cached;
 
   if (!activeSrc) {
@@ -122,12 +123,12 @@ export function SmoothMediaImage({
 
       {!shouldLoad && <span className="smooth-media-placeholder" aria-hidden />}
 
-      {shouldLoad && blurSrc && (
+      {showBlurPlaceholder && (
         <img
           src={blurSrc}
           alt=""
           aria-hidden
-          className={cn('smooth-media-blur', loaded && 'smooth-media-blur--hide')}
+          className="smooth-media-blur"
           style={{ objectFit }}
           decoding="async"
           loading="lazy"

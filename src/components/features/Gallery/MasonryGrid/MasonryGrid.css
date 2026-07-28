@@ -2,6 +2,7 @@
 .masonry-grid-tile {
   position: relative;
   overflow: hidden;
+  aspect-ratio: var(--ar);
 }
 
 .masonry-grid-tile-frame {

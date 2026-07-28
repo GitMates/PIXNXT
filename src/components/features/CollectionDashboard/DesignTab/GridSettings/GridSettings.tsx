@@ -1,5 +1,6 @@
 import React from 'react';
 import { GridSettingsProps } from './GridSettings.types';
+import { galleryGridStyleLabel } from '../../../../../lib/galleryGridStyle';
 import { cn } from '../../../../../lib/utils';
 
 export const GridSettings: React.FC<GridSettingsProps> = ({ settings, onChange }) => {
@@ -26,7 +27,7 @@ export const GridSettings: React.FC<GridSettingsProps> = ({ settings, onChange }
                 </svg>
               </div>
             </div>
-            <span className="card-label">Vertical</span>
+            <span className="card-label">{galleryGridStyleLabel('vertical')}</span>
           </div>
           <div className="grid-option-container">
             <div
@@ -41,7 +42,7 @@ export const GridSettings: React.FC<GridSettingsProps> = ({ settings, onChange }
                 </svg>
               </div>
             </div>
-            <span className="card-label">Horizontal</span>
+            <span className="card-label">{galleryGridStyleLabel('horizontal')}</span>
           </div>
         </div>
       </div>

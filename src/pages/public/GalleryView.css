@@ -469,6 +469,18 @@
   column-count: 2 !important;
 }
 
+@media (min-width: 1601px) {
+  .masonry-grid-vertical {
+    column-count: min(var(--desktop-columns, 4), 4) !important;
+  }
+}
+
+@media (max-width: 1600px) {
+  .masonry-grid-vertical {
+    column-count: min(var(--desktop-columns, 3), 3) !important;
+  }
+}
+
 @media (max-width: 1024px) {
   .masonry-grid-vertical {
     column-count: min(var(--desktop-columns, 3), 3) !important;
