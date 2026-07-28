@@ -1,4 +1,22 @@
 ﻿/* Mild, slow zoom on grid tile hover (public gallery + design preview) */
+.masonry-grid-tile {
+  position: relative;
+  overflow: hidden;
+}
+
+.masonry-grid-tile-frame {
+  position: absolute;
+  inset: 0;
+}
+
+.masonry-grid-tile .gallery-masonry-media {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+}
+
 .gallery-masonry-media {
   display: block;
   width: 100%;

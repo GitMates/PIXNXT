@@ -168,7 +168,12 @@ const products = [
     color: 'teal',
     icon: <img src={clientGalleryGif} alt="Client Gallery" className="dash-product-image-gif" loading="lazy" decoding="async" />,
     route: '/client-gallery',
-    links: ['Manage Collections', 'Create Collection', 'Search Photo Library', 'View Homepage', 'Settings'],
+    links: [
+      { label: 'Manage Collections', path: '/client-gallery' },
+      { label: 'Create Collection', path: '/collections/create' },
+      { label: 'View Homepage', path: '/homepage' },
+      { label: 'Settings', path: '/settings' },
+    ],
   },
   {
     name: 'Smart Albums',
@@ -366,6 +371,7 @@ const Dashboard = () => {
                           href="#"
                           onClick={(e) => {
                             e.preventDefault();
+                            e.stopPropagation();
                             if (path) navigate(path);
                           }}
                         >

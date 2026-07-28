@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from 'react';
 import { motion as Motion } from 'framer-motion';
 import { Download, Heart, Share2, Play, ShoppingBag, ArrowDownToLine } from 'lucide-react';
 import { cn } from '../../../../lib/utils';
@@ -139,6 +139,42 @@ export function MasonryGrid({
     () => photos.map((p) => p.id).join('|') || 'empty',
     [photos]
   );
+
+  const getPhotoAspectRatio = useCallback((photo) => {
+    if (photo.isPromoBanner) return 1;
+    if (photo.width && photo.height) return photo.width / photo.height;
+    return dynamicAspectRatios[photo.id] || 1.5;
+  }, [dynamicAspectRatios]);
+
+  const containerRef = useRef(null);
+  const [gridContainerWidth, setGridContainerWidth] = useState(0);
+
+  useLayoutEffect(() => {
+    if (isHorizontal || centerVideosLayout) return undefined;
+    const el = containerRef.current;
+    if (!el) return undefined;
+
+    const updateWidth = (width) => {
+      if (width > 0) setGridContainerWidth(width);
+    };
+
+    updateWidth(el.getBoundingClientRect().width);
+
+    const ro = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect?.width ?? 0;
+      updateWidth(width);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [isHorizontal, centerVideosLayout, photoListKey, colsCount, gap]);
+
+  const estimatedColWidth = useMemo(() => {
+    if (gridContainerWidth > 0) {
+      return (gridContainerWidth - (colsCount - 1) * gap) / colsCount;
+    }
+    const viewport = typeof window !== 'undefined' ? window.innerWidth : 1200;
+    return (viewport - (colsCount - 1) * gap) / colsCount;
+  }, [gridContainerWidth, colsCount, gap]);
 
   const samplePhotoUrl = useMemo(() => {
     if (!photos || photos.length === 0) return '';
@@ -613,11 +649,10 @@ export function MasonryGrid({
     const src = isGalleryVideo(photo)
       ? getPhotoVideoSrc(photo)
       : getWebResolutionUrl(photo);
-    const aspectRatio = (photo.width && photo.height)
-      ? (photo.width / photo.height)
-      : (dynamicAspectRatios[photo.id] || 1.5);
+    const aspectRatio = getPhotoAspectRatio(photo);
     const useFixedVideoTile = centerVideosLayout && isGalleryVideo(photo);
     const tileAspectRatio = useFixedVideoTile ? VIDEO_TILE_ASPECT : aspectRatio;
+    const useVerticalTileFrame = !isHorizontal && !centerVideosLayout;
 
     const isFav = favoritedPhotoIds?.some((fid) => String(fid) === String(photo.id));
     const isPrivate = Boolean(photo.is_private);
@@ -634,6 +669,7 @@ export function MasonryGrid({
         variants={item}
         className={cn(
           'relative overflow-hidden group cursor-pointer min-w-0 w-full max-w-full',
+          useVerticalTileFrame && 'masonry-grid-tile',
           centerVideosLayout && 'masonry-grid-video-item',
           isPackageSelected && 'ring-2 ring-black ring-offset-2'
         )}
@@ -645,17 +681,26 @@ export function MasonryGrid({
           maxWidth: useFixedVideoTile ? undefined : '100%',
           margin: 0
         } : (centerVideosLayout ? {} : {
-          width: '100%'
+          width: '100%',
+          aspectRatio: String(tileAspectRatio),
         })}
         onClick={() => onImageClick(photo._originalIndex)}
       >
         <div
           className={cn(
-            'relative h-full w-full min-w-0',
+            'min-w-0',
+            useVerticalTileFrame ? 'masonry-grid-tile-frame absolute inset-0' : 'relative h-full w-full',
             useFixedVideoTile && 'masonry-grid-video-frame'
           )}
-          style={{ backgroundColor: 'var(--gallery-secondary-bg)' }}
+          style={useVerticalTileFrame ? undefined : { backgroundColor: 'var(--gallery-secondary-bg)' }}
         >
+          {useVerticalTileFrame ? (
+            <span
+              className="absolute inset-0 block"
+              style={{ backgroundColor: 'var(--gallery-secondary-bg)' }}
+              aria-hidden
+            />
+          ) : null}
           {isGalleryVideo(photo) ? (
             <>
             <video
@@ -666,7 +711,7 @@ export function MasonryGrid({
                 useFixedVideoTile && 'gallery-masonry-media--video-fixed'
               )}
               style={
-                useFixedVideoTile
+                useFixedVideoTile || useVerticalTileFrame
                   ? { objectFit: 'cover', width: '100%', height: '100%' }
                   : { objectFit: 'cover', aspectRatio: String(tileAspectRatio) }
               }
@@ -684,11 +729,7 @@ export function MasonryGrid({
               thumbSrc={resolveMediaUrl(photo.watermarked_url || photo.thumbnail_url || photo.web_url || photo.full_url || '')}
               alt={photo.filename || `Gallery image ${index + 1}`}
               wrapClassName="gallery-masonry-media"
-              className="block w-full max-w-full"
               objectFit="cover"
-              style={{
-                aspectRatio: String(aspectRatio),
-              }}
               loading="lazy"
             />
           )}
@@ -871,17 +912,38 @@ export function MasonryGrid({
 
   const columns = useMemo(() => {
     if (isHorizontal || centerVideosLayout) return [displayPhotos];
+
     const cols = Array.from({ length: colsCount }, () => []);
-    displayPhotos.forEach((photo, idx) => {
-      cols[idx % colsCount].push(photo);
-    });
+    const heights = new Array(colsCount).fill(0);
+    const gapWeight = gap / Math.max(estimatedColWidth, 1);
+
+    for (const photo of displayPhotos) {
+      const aspectRatio = getPhotoAspectRatio(photo);
+      const tileHeight = 1 / aspectRatio;
+      let shortestIdx = 0;
+      for (let i = 1; i < colsCount; i += 1) {
+        if (heights[i] < heights[shortestIdx]) shortestIdx = i;
+      }
+      cols[shortestIdx].push(photo);
+      heights[shortestIdx] += tileHeight + gapWeight;
+    }
+
     return cols;
-  }, [displayPhotos, colsCount, isHorizontal, centerVideosLayout]);
+  }, [
+    displayPhotos,
+    colsCount,
+    isHorizontal,
+    centerVideosLayout,
+    getPhotoAspectRatio,
+    estimatedColWidth,
+    gap,
+  ]);
 
   if (!isHorizontal) {
     return (
       <Motion.div
         key={photoListKey}
+        ref={containerRef}
         variants={container}
         initial="hidden"
         animate="show"
