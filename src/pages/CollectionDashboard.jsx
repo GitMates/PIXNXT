@@ -51,6 +51,7 @@ import { GeneralSettings } from '../components/features/CollectionDashboard/Sett
 import { PrivacySettings } from '../components/features/CollectionDashboard/Settings/PrivacySettings';
 import { StoreSettings } from '../components/features/CollectionDashboard/Settings/StoreSettings';
 import { useUploadQueue } from '../components/features/CollectionDashboard/Upload/useUploadQueue';
+import { isIncompleteUploadPhoto } from '../components/features/CollectionDashboard/Upload/uploadUtils';
 import { UPLOAD_VIEW_COLLECTION_EVENT } from '../components/features/CollectionDashboard/Upload/GlobalUploadShell';
 import { getFileMime, isImageMime, getUploadMediaType, isUploadableMediaFile } from '../lib/fileMime';
 import { isRawImageFile } from '../lib/rawImageFormats';
@@ -2267,7 +2268,16 @@ const CollectionDashboard = () => {
     const uploadSnapshotRef = useRef(null);
 
     const existingUploadFilenames = useMemo(
-        () => photos.map((p) => p.filename).filter(Boolean),
+        () =>
+            photos
+                .filter((p) => p.filename && !isIncompleteUploadPhoto(p))
+                .map((p) => p.filename)
+                .filter(Boolean),
+        [photos]
+    );
+
+    const incompleteUploadPhotos = useMemo(
+        () => photos.filter((p) => isIncompleteUploadPhoto(p)),
         [photos]
     );
 
@@ -2287,6 +2297,7 @@ const CollectionDashboard = () => {
         activeSetId: highlightsEnabled ? activeSetId : (activeSetId ?? sets[0]?.id ?? null),
         photosLength: photos.length,
         existingFilenames: existingUploadFilenames,
+        incompletePhotos: incompleteUploadPhotos,
         destinationLabel: uploadDestinationLabel,
         onPhotoUploaded: (photoData) => {
             if (!photoData?.id || photoData.collection_id !== collectionId) return;
@@ -3692,12 +3703,6 @@ const CollectionDashboard = () => {
                                                             index={index}
                                                             containInCell
                                                         />
-                                                        {isPending && (
-                                                            <div
-                                                                className="cd-photo-upload-overlay"
-                                                                style={{ width: `${photo._uploadProgress || 0}%` }}
-                                                            />
-                                                        )}
                                                     </div>
                                                     {!isPending && (
                                                     <>

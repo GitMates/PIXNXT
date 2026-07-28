@@ -141,14 +141,7 @@
 }
 
 .cd-photo-upload-overlay {
-  position: absolute;
-  left: 0;
-  bottom: 0;
-  z-index: 8;
-  height: 3px;
-  background: #1a9b8a;
-  transition: width 0.25s ease;
-  pointer-events: none;
+  display: none !important;
 }
 
 .cd-photo-card--pending {

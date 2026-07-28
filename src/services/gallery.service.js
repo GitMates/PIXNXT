@@ -8,6 +8,10 @@ import { hasRawDisplayPreview, isRawMedia, resolveMediaUrl } from '../lib/photoD
 import { generateCollectionSlug } from '../lib/collectionSlug';
 import { storageService } from './storage.service';
 import {
+  isIncompleteUploadPhoto,
+  resolveOriginalStoragePath,
+} from '../components/features/CollectionDashboard/Upload/uploadUtils';
+import {
   appendFocalToCoverUrl,
   isMissingDbColumnError,
   isNumericOverflowError,
@@ -33,6 +37,8 @@ const DASHBOARD_PHOTO_FIELDS = `
   is_private,
   exif_taken_at,
   original_storage_path,
+  web_storage_path,
+  thumbnail_storage_path,
   size_bytes,
   photographer_id,
   created_at,
@@ -1057,8 +1063,10 @@ export const galleryService = {
     index = 0,
     setId = null,
     onProgress = null,
-    onInserted = null
+    onInserted = null,
+    options = {}
   ) {
+    const { signal } = options;
     if (!collectionId || !photographerId) {
       throw new Error('Collection or photographer is missing. Refresh the page and try again.');
     }
@@ -1133,7 +1141,7 @@ export const galleryService = {
       prepPromises.push(
         storageService.upload(webStoragePath, webFile, (p) => {
           onProgress?.(20 + Math.round((p / 100) * 40));
-        })
+        }, signal)
       );
     }
     if (thumbFile) {
@@ -1141,7 +1149,7 @@ export const galleryService = {
       prepPromises.push(
         storageService.upload(thumbnailStoragePath, thumbFile, (p) => {
           onProgress?.(60 + Math.round((p / 100) * 35));
-        })
+        }, signal)
       );
     }
 
@@ -1205,9 +1213,101 @@ export const galleryService = {
   },
 
   /**
+   * Look up existing photo rows by filename (live DB — not React state).
+   * Prefers the active set, then incomplete rows on filename collision.
+   */
+  async findPhotosByFilenames(collectionId, filenames, preferredSetId = null) {
+    if (!collectionId || !filenames?.length) return [];
+
+    const unique = [...new Set(filenames.filter(Boolean))];
+    const { data, error } = await supabase
+      .from('photos')
+      .select(DASHBOARD_PHOTO_FIELDS)
+      .eq('collection_id', collectionId)
+      .in('filename', unique);
+
+    if (error) throw error;
+
+    const byName = new Map();
+    for (const photo of data || []) {
+      if (!photo?.filename) continue;
+      const key = String(photo.filename).toLowerCase();
+      const existing = byName.get(key);
+      if (!existing) {
+        byName.set(key, photo);
+        continue;
+      }
+      if (
+        preferredSetId &&
+        photo.set_id === preferredSetId &&
+        existing.set_id !== preferredSetId
+      ) {
+        byName.set(key, photo);
+        continue;
+      }
+      if (isIncompleteUploadPhoto(photo) && !isIncompleteUploadPhoto(existing)) {
+        byName.set(key, photo);
+      }
+    }
+
+    return [...byName.values()];
+  },
+
+  /** True when the original object is absent from R2 (safe to resume original upload). */
+  async isOriginalMissingInR2(photo, fileExt = null) {
+    const path = resolveOriginalStoragePath(photo, fileExt);
+    if (!path) return true;
+    return !(await storageService.exists(path));
+  },
+
+  /**
+   * Build Phase-2 context for a photo that already has web/thumb but never got an original.
+   * Reuses the same storage stem as web/thumb when available.
+   */
+  buildResumeOriginalContext(photo, file) {
+    if (!photo?.id || !file) {
+      throw new Error('Cannot resume upload — photo or file is missing.');
+    }
+
+    const mime = getFileMime(file);
+    const isVideo = isVideoMime(mime);
+    const isRaw = isRawImageFile(file);
+    const fileExt = (file.name.split('.').pop() || 'jpg').toLowerCase();
+
+    const filePath = resolveOriginalStoragePath(photo, fileExt);
+    if (!filePath) {
+      throw new Error(
+        'Cannot resume upload — missing web/thumb storage path. Delete the incomplete photo and re-upload.'
+      );
+    }
+
+    const basePath = filePath.replace(/\/original\/[^/]+$/, '');
+    const stem = filePath
+      .split('/')
+      .pop()
+      ?.replace(/\.[^.]+$/, '');
+    const fileNameJpg = `${stem}.jpg`;
+
+    return {
+      collectionId: photo.collection_id,
+      photoId: photo.id,
+      file,
+      mime,
+      filePath,
+      basePath,
+      fileNameJpg,
+      isVideo,
+      isRaw,
+      thumbnailBlob: null,
+      resumed: true,
+    };
+  },
+
+  /**
    * Phase 2: upload original full-res file and finalize DB row.
    */
-  async uploadPhotoOriginal(uploadContext, onProgress = null) {
+  async uploadPhotoOriginal(uploadContext, onProgress = null, options = {}) {
+    const { signal } = options;
     const {
       collectionId,
       photoId,
@@ -1236,7 +1336,7 @@ export const galleryService = {
             lastModified: originalFile.lastModified,
           });
 
-    const uploadResult = await storageService.upload(filePath, uploadBody, onProgress);
+    const uploadResult = await storageService.upload(filePath, uploadBody, onProgress, signal);
 
     const { data: finalPhoto } = await supabase
       .from('photos')

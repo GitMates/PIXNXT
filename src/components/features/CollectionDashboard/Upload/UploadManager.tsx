@@ -125,7 +125,10 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
 
   const totalBytes = useMemo(() => getTotalUploadBytes(state.files), [state.files]);
   const doneBytes = useMemo(() => getTotalBytesDone(state.files), [state.files]);
-  const formattedSpeed = useMemo(() => (inProgressCount > 0 ? formatUploadSpeed(speed) : ''), [speed, inProgressCount]);
+  const formattedSpeed = useMemo(
+    () => (isPaused ? 'Paused' : inProgressCount > 0 ? formatUploadSpeed(speed) : ''),
+    [speed, inProgressCount, isPaused]
+  );
 
   const detailsTabsAndList = (
     <div className="upload-batch-details">
