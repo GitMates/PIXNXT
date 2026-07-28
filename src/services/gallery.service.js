@@ -1,7 +1,7 @@
 import { supabase } from '../lib/supabase/client';
 import { getImageDimensionsFast } from '../lib/imageDimensions';
 import { getFileMime, isVideoMime, getUploadMediaType } from '../lib/fileMime';
-import { compressImageForUpload } from '../lib/prepareUploadFile';
+import { compressImageForUpload, compressImageVariants } from '../lib/prepareUploadFile';
 import { isRawImageFile } from '../lib/rawImageFormats';
 import { extractRawPreviewBlob } from '../lib/rawImagePreview';
 import { hasRawDisplayPreview, isRawMedia, resolveMediaUrl } from '../lib/photoDisplayUrl';
@@ -977,56 +977,98 @@ export const galleryService = {
     return Promise.all(uploadPromises);
   },
 
+  async _assertStorageQuota(photographerId, fileSize) {
+    let profile = null;
+    try {
+      if (
+        globalThis.__pixnxtProfileCache &&
+        globalThis.__pixnxtProfileCache.id === photographerId &&
+        Date.now() - globalThis.__pixnxtProfileCache.time < 45000
+      ) {
+        profile = globalThis.__pixnxtProfileCache.data;
+      } else {
+        const { data } = await supabase
+          .from('photographers')
+          .select('storage_used_bytes, storage_limit_bytes, plan')
+          .eq('id', photographerId)
+          .single();
+        profile = data;
+        globalThis.__pixnxtProfileCache = { id: photographerId, data: profile, time: Date.now() };
+      }
+    } catch (_) {}
+
+    if (!profile) return;
+
+    const usedBytes = profile.storage_used_bytes || 0;
+    let limitBytes = profile.storage_limit_bytes;
+
+    if (!limitBytes) {
+      const tier = String(profile.plan || '').toLowerCase();
+      if (tier === 'pro') limitBytes = 100 * 1024 * 1024 * 1024;
+      else if (tier === 'premium') limitBytes = 500 * 1024 * 1024 * 1024;
+      else if (tier === 'free') limitBytes = 5 * 1024 * 1024 * 1024;
+      else limitBytes = 10 * 1024 * 1024 * 1024;
+    }
+
+    if (usedBytes + fileSize > limitBytes) {
+      const remainingBytes = Math.max(0, limitBytes - usedBytes);
+      const formatSize = (bytes) => {
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+        if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+        return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+      };
+      throw new Error(
+        `Storage limit exceeded. Remaining storage space: ${formatSize(remainingBytes)}. This file size is ${formatSize(fileSize)}.`
+      );
+    }
+  },
+
+  async _resolveUploadBasePath(photographerId, collectionId, setId) {
+    if (!globalThis.__pixnxtFolderCache) globalThis.__pixnxtFolderCache = new Map();
+    const pKey = `p_${photographerId}`;
+    const cKey = `c_${collectionId}`;
+
+    let photographerFolder = globalThis.__pixnxtFolderCache.get(pKey);
+    let collectionFolder = globalThis.__pixnxtFolderCache.get(cKey);
+
+    if (!photographerFolder || !collectionFolder) {
+      const [pF, cF] = await Promise.all([
+        photographerFolder || getPhotographerPathFolder(photographerId),
+        collectionFolder || getCollectionPathFolder(collectionId),
+      ]);
+      photographerFolder = pF;
+      collectionFolder = cF;
+      globalThis.__pixnxtFolderCache.set(pKey, pF);
+      globalThis.__pixnxtFolderCache.set(cKey, cF);
+    }
+
+    const setFolder = setId ? `set__${safePathSegment(setId, 'set')}` : 'highlights';
+    return `users/${photographerFolder}/clientgallery/${collectionFolder}/photoset/${setFolder}`;
+  },
+
   /**
-   * Upload a single photo to R2 and record in database.
-   * @param {(percent: number) => void} [onProgress] — 0–100 based on bytes sent to R2
+   * Phase 1: generate + upload web/thumb, insert DB row (grid can show immediately).
+   * Returns context needed for Phase 2 original upload.
    */
-  async uploadPhoto(collectionId, photographerId, file, index = 0, setId = null, onProgress = null, onInserted = null) {
+  async uploadPhotoDerivatives(
+    collectionId,
+    photographerId,
+    file,
+    index = 0,
+    setId = null,
+    onProgress = null,
+    onInserted = null
+  ) {
     if (!collectionId || !photographerId) {
       throw new Error('Collection or photographer is missing. Refresh the page and try again.');
     }
 
-    // Retrieve storage profile info to check limits
-    const { data: profile } = await supabase
-      .from('photographers')
-      .select('storage_used_bytes, storage_limit_bytes, plan')
-      .eq('id', photographerId)
-      .single();
-
-    if (profile) {
-      const usedBytes = profile.storage_used_bytes || 0;
-      let limitBytes = profile.storage_limit_bytes;
-
-      if (!limitBytes) {
-        const tier = String(profile.plan || '').toLowerCase();
-        if (tier === 'pro') limitBytes = 100 * 1024 * 1024 * 1024;
-        else if (tier === 'premium') limitBytes = 500 * 1024 * 1024 * 1024;
-        else if (tier === 'free') limitBytes = 5 * 1024 * 1024 * 1024;
-        else limitBytes = 10 * 1024 * 1024 * 1024;
-      }
-
-      if (usedBytes + file.size > limitBytes) {
-        const remainingBytes = Math.max(0, limitBytes - usedBytes);
-        const formatSize = (bytes) => {
-          if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-          if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-          return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-        };
-        throw new Error(
-          `Storage limit exceeded. Remaining storage space: ${formatSize(remainingBytes)}. This file size is ${formatSize(file.size)}.`
-        );
-      }
-    }
+    await this._assertStorageQuota(photographerId, file.size);
 
     const mime = getFileMime(file);
     const fileExt = (file.name.split('.').pop() || 'jpg').toLowerCase();
     const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
-    const [photographerFolder, collectionFolder] = await Promise.all([
-      getPhotographerPathFolder(photographerId),
-      getCollectionPathFolder(collectionId),
-    ]);
-    const setFolder = setId ? `set__${safePathSegment(setId, 'set')}` : 'highlights';
-    const basePath = `users/${photographerFolder}/clientgallery/${collectionFolder}/photoset/${setFolder}`;
+    const basePath = await this._resolveUploadBasePath(photographerId, collectionId, setId);
     const filePath = `${basePath}/original/${fileName}`;
 
     const isVideo = isVideoMime(mime);
@@ -1038,33 +1080,45 @@ export const galleryService = {
     let dimensions = { width: null, height: null };
     let thumbnailBlob = null;
 
+    onProgress?.(5);
+
     if (!isVideo && !isRaw) {
-      const [dim, compressedWeb, compressedThumb] = await Promise.all([
+      const [dim, variants] = await Promise.all([
         getImageDimensionsFast(file).catch(() => ({ width: null, height: null })),
-        compressImageForUpload(file, { maxEdge: 2048 }).catch(() => file),
-        compressImageForUpload(file, { maxEdge: 400, quality: 0.6 }).catch(() => file)
+        compressImageVariants(file, { webMaxEdge: 2048, thumbMaxEdge: 400, thumbQuality: 0.6 }).catch(
+          () => ({ webFile: file, thumbFile: file })
+        ),
       ]);
       dimensions = dim;
-      webFile = compressedWeb;
-      thumbFile = compressedThumb;
+      webFile = variants.webFile;
+      thumbFile = variants.thumbFile;
     } else if (isVideo) {
-      const meta = await this._captureVideoThumbnail(file).catch(() => ({ dimensions: { width: null, height: null }, thumbnailBlob: null }));
+      const meta = await this._captureVideoThumbnail(file).catch(() => ({
+        dimensions: { width: null, height: null },
+        thumbnailBlob: null,
+      }));
       dimensions = meta.dimensions;
       thumbnailBlob = meta.thumbnailBlob;
     } else if (isRaw) {
-      const meta = await this._captureRawPreview(file).catch(() => ({ dimensions: { width: null, height: null }, thumbnailBlob: null }));
+      const meta = await this._captureRawPreview(file).catch(() => ({
+        dimensions: { width: null, height: null },
+        thumbnailBlob: null,
+      }));
       dimensions = meta.dimensions;
       thumbnailBlob = meta.thumbnailBlob;
       if (thumbnailBlob) {
         const previewFile = new File([thumbnailBlob], 'preview.jpg', { type: 'image/jpeg' });
-        const [compressedWeb, compressedThumb] = await Promise.all([
-          compressImageForUpload(previewFile, { maxEdge: 2048 }).catch(() => previewFile),
-          compressImageForUpload(previewFile, { maxEdge: 400, quality: 0.6 }).catch(() => previewFile)
-        ]);
-        webFile = compressedWeb;
-        thumbFile = compressedThumb;
+        const variants = await compressImageVariants(previewFile, {
+          webMaxEdge: 2048,
+          thumbMaxEdge: 400,
+          thumbQuality: 0.6,
+        }).catch(() => ({ webFile: previewFile, thumbFile: previewFile }));
+        webFile = variants.webFile;
+        thumbFile = variants.thumbFile;
       }
     }
+
+    onProgress?.(20);
 
     const fileNameJpg = fileName.replace(/\.[^.]+$/, '.jpg');
     const webPath = `${basePath}/web/${fileNameJpg}`;
@@ -1073,61 +1127,100 @@ export const galleryService = {
     let webStoragePath = null;
     let thumbnailStoragePath = null;
 
-    // 1. Upload Web & Thumb versions FIRST (extremely fast, under 1s)
     const prepPromises = [];
     if (webFile) {
       webStoragePath = webPath;
-      prepPromises.push(storageService.upload(webStoragePath, webFile));
+      prepPromises.push(
+        storageService.upload(webStoragePath, webFile, (p) => {
+          onProgress?.(20 + Math.round((p / 100) * 40));
+        })
+      );
     }
     if (thumbFile) {
       thumbnailStoragePath = thumbnailPath;
-      prepPromises.push(storageService.upload(thumbnailStoragePath, thumbFile));
+      prepPromises.push(
+        storageService.upload(thumbnailStoragePath, thumbFile, (p) => {
+          onProgress?.(60 + Math.round((p / 100) * 35));
+        })
+      );
     }
 
     const prepResults = await Promise.all(prepPromises);
-    
+
     let webUrl = null;
     let thumbUrl = null;
-    if (isRaw) {
+    if (isRaw || !isVideo) {
       webUrl = webFile ? prepResults[0]?.url : null;
-      thumbUrl = thumbFile ? prepResults[1]?.url : null;
-    } else if (!isVideo) {
-      webUrl = webFile ? prepResults[0]?.url : null;
-      thumbUrl = thumbFile ? prepResults[1]?.url : null;
+      thumbUrl = thumbFile ? prepResults[webFile ? 1 : 0]?.url : null;
     }
 
-    // 2. Insert into DB immediately so it is available in UI grid as optimized web-version
     const { data: photoData, error: dbError } = await supabase
       .from('photos')
-      .insert([{
-        collection_id: collectionId,
-        photographer_id: photographerId,
-        set_id: setId,
-        filename: file.name,
-        full_url: null, // will update once original finishes
-        web_url: webUrl,
-        thumbnail_url: thumbUrl,
-        original_storage_path: null,
-        web_storage_path: webStoragePath,
-        thumbnail_storage_path: thumbnailStoragePath,
-        size_bytes: file.size,
-        width: dimensions.width,
-        height: dimensions.height,
-        media_type: mediaType,
-        position: index,
-        status: 'ready'
-      }])
+      .insert([
+        {
+          collection_id: collectionId,
+          photographer_id: photographerId,
+          set_id: setId,
+          filename: file.name,
+          full_url: null,
+          web_url: webUrl,
+          thumbnail_url: thumbUrl,
+          original_storage_path: null,
+          web_storage_path: webStoragePath,
+          thumbnail_storage_path: thumbnailStoragePath,
+          size_bytes: file.size,
+          width: dimensions.width,
+          height: dimensions.height,
+          media_type: mediaType,
+          position: index,
+          status: 'ready',
+        },
+      ])
       .select()
       .single();
 
     if (dbError) throw dbError;
 
-    // Trigger instant grid add / preview update
     if (onInserted) {
       onInserted(photoData);
     }
 
-    // 3. Upload large original file in background
+    onProgress?.(100);
+
+    return {
+      photoData,
+      uploadContext: {
+        collectionId,
+        photoId: photoData.id,
+        file,
+        mime,
+        filePath,
+        basePath,
+        fileNameJpg,
+        isVideo,
+        isRaw,
+        thumbnailBlob,
+      },
+    };
+  },
+
+  /**
+   * Phase 2: upload original full-res file and finalize DB row.
+   */
+  async uploadPhotoOriginal(uploadContext, onProgress = null) {
+    const {
+      collectionId,
+      photoId,
+      file,
+      mime,
+      filePath,
+      basePath,
+      fileNameJpg,
+      isVideo,
+      isRaw,
+      thumbnailBlob,
+    } = uploadContext;
+
     let originalFile = file;
     const uploadQuality = localStorage.getItem('upload_quality') || 'original';
     if (!isVideo && !isRaw && uploadQuality !== 'original') {
@@ -1138,35 +1231,74 @@ export const galleryService = {
     const uploadBody =
       originalFile.type === mime
         ? originalFile
-        : new File([originalFile], originalFile.name, { type: mime, lastModified: originalFile.lastModified });
+        : new File([originalFile], originalFile.name, {
+            type: mime,
+            lastModified: originalFile.lastModified,
+          });
 
     const uploadResult = await storageService.upload(filePath, uploadBody, onProgress);
 
-    // Update database row with full original path
     const { data: finalPhoto } = await supabase
       .from('photos')
       .update({
         full_url: uploadResult.url,
-        original_storage_path: filePath
+        original_storage_path: filePath,
       })
-      .eq('id', photoData.id)
+      .eq('id', photoId)
       .select()
       .single();
 
-    if (typeof window !== 'undefined' && photoData?.id) {
+    if (typeof window !== 'undefined' && photoId) {
       void import('./photoAiUploadPipeline.js').then(({ queuePhotoAiIndex }) =>
-        queuePhotoAiIndex(collectionId, photoData.id)
+        queuePhotoAiIndex(collectionId, photoId)
       );
     }
 
     if (isVideo && thumbnailBlob) {
       const thumbnailPathVideo = `${basePath}/thumb/${fileNameJpg}`;
-      void storageService.upload(thumbnailPathVideo, thumbnailBlob).then(({ url: thumbUrl }) =>
-        supabase.from('photos').update({ thumbnail_url: thumbUrl, thumbnail_storage_path: thumbnailPathVideo }).eq('id', photoData.id)
-      ).catch((err) => console.warn('Video thumbnail upload deferred failed:', err));
+      void storageService
+        .upload(thumbnailPathVideo, thumbnailBlob)
+        .then(({ url: thumbUrl }) =>
+          supabase
+            .from('photos')
+            .update({ thumbnail_url: thumbUrl, thumbnail_storage_path: thumbnailPathVideo })
+            .eq('id', photoId)
+        )
+        .catch((err) => console.warn('Video thumbnail upload deferred failed:', err));
     }
 
-    return finalPhoto || { ...photoData, full_url: uploadResult.url, original_storage_path: filePath };
+    return finalPhoto || { id: photoId, full_url: uploadResult.url, original_storage_path: filePath };
+  },
+
+  /**
+   * Upload a single photo to R2 and record in database.
+   * Prefer two-phase queue (derivatives then originals) for batch uploads.
+   * @param {(percent: number) => void} [onProgress] — 0–100 based on bytes sent to R2
+   */
+  async uploadPhoto(
+    collectionId,
+    photographerId,
+    file,
+    index = 0,
+    setId = null,
+    onProgress = null,
+    onInserted = null
+  ) {
+    const { photoData, uploadContext } = await this.uploadPhotoDerivatives(
+      collectionId,
+      photographerId,
+      file,
+      index,
+      setId,
+      (p) => onProgress?.(Math.round((p / 100) * 20)),
+      onInserted
+    );
+
+    const finalPhoto = await this.uploadPhotoOriginal(uploadContext, (p) =>
+      onProgress?.(20 + Math.round((p / 100) * 80))
+    );
+
+    return finalPhoto || photoData;
   },
 
   async _captureRawPreview(file) {
@@ -1317,14 +1449,15 @@ export const galleryService = {
     let thumbnailBlob = null;
 
     if (!isVideo && !isRaw) {
-      const [dim, compressedWeb, compressedThumb] = await Promise.all([
+      const [dim, variants] = await Promise.all([
         getImageDimensionsFast(file).catch(() => ({ width: null, height: null })),
-        compressImageForUpload(file, { maxEdge: 2048 }).catch(() => file),
-        compressImageForUpload(file, { maxEdge: 400, quality: 0.6 }).catch(() => file)
+        compressImageVariants(file, { webMaxEdge: 2048, thumbMaxEdge: 400, thumbQuality: 0.6 }).catch(
+          () => ({ webFile: file, thumbFile: file })
+        ),
       ]);
       dimensions = dim;
-      webFile = compressedWeb;
-      thumbFile = compressedThumb;
+      webFile = variants.webFile;
+      thumbFile = variants.thumbFile;
     } else if (isVideo) {
       const meta = await this._captureVideoThumbnail(file).catch(() => ({ dimensions: { width: null, height: null }, thumbnailBlob: null }));
       dimensions = meta.dimensions;
@@ -1335,12 +1468,13 @@ export const galleryService = {
       thumbnailBlob = meta.thumbnailBlob;
       if (thumbnailBlob) {
         const previewFile = new File([thumbnailBlob], 'preview.jpg', { type: 'image/jpeg' });
-        const [compressedWeb, compressedThumb] = await Promise.all([
-          compressImageForUpload(previewFile, { maxEdge: 2048 }).catch(() => previewFile),
-          compressImageForUpload(previewFile, { maxEdge: 400, quality: 0.6 }).catch(() => previewFile)
-        ]);
-        webFile = compressedWeb;
-        thumbFile = compressedThumb;
+        const variants = await compressImageVariants(previewFile, {
+          webMaxEdge: 2048,
+          thumbMaxEdge: 400,
+          thumbQuality: 0.6,
+        }).catch(() => ({ webFile: previewFile, thumbFile: previewFile }));
+        webFile = variants.webFile;
+        thumbFile = variants.thumbFile;
       }
     }
 

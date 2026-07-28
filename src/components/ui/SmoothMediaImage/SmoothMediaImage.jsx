@@ -105,15 +105,20 @@ export function SmoothMediaImage({
   if (!activeSrc) {
     return (
       <span className={cn('smooth-media-wrap', wrapClassName)} style={style} ref={wrapRef}>
-        <span className="smooth-media-shimmer" aria-hidden />
-        <span className="smooth-media-error">Loading...</span>
+        <span className="smooth-media-spinner-container" aria-hidden="true">
+          <span className="smooth-media-spinner" />
+        </span>
       </span>
     );
   }
 
   return (
     <span className={cn('smooth-media-wrap', wrapClassName)} style={style} ref={wrapRef}>
-      {showShimmer && <span className="smooth-media-shimmer" aria-hidden />}
+      {showShimmer && (
+        <span className="smooth-media-spinner-container" aria-hidden="true">
+          <span className="smooth-media-spinner" />
+        </span>
+      )}
 
       {!shouldLoad && <span className="smooth-media-placeholder" aria-hidden />}
 
@@ -150,10 +155,9 @@ export function SmoothMediaImage({
       )}
 
       {error && (
-        <>
-          <span className="smooth-media-shimmer" aria-hidden />
-          <span className="smooth-media-error">Loading...</span>
-        </>
+        <span className="smooth-media-spinner-container" aria-hidden="true">
+          <span className="smooth-media-spinner" />
+        </span>
       )}
     </span>
   );

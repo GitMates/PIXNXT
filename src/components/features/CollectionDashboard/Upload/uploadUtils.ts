@@ -60,7 +60,16 @@ export function uploadInProgressTitle(files: UploadQueueFile[], inProgressCount:
 export function formatUploadMb(bytes: number): string {
   const mb = bytes / (1024 * 1024);
   if (mb < 0.01 && bytes > 0) return '<0.01 MB';
-  return `${mb.toFixed(mb >= 10 ? 0 : 2)} MB`;
+  return `${mb.toFixed(mb >= 10 ? 1 : 2)} MB`;
+}
+
+export function formatUploadSpeed(bytesPerSec: number): string {
+  if (bytesPerSec <= 0) return '0.00 MB/s';
+  const mb = bytesPerSec / (1024 * 1024);
+  if (mb >= 1) return `${mb.toFixed(2)} MB/s`;
+  const kb = bytesPerSec / 1024;
+  if (kb >= 1) return `${kb.toFixed(1)} KB/s`;
+  return `${Math.round(bytesPerSec)} B/s`;
 }
 
 export function uploadTotalBytes(file: UploadQueueFile): number {
@@ -71,6 +80,14 @@ export function uploadBytesDone(file: UploadQueueFile): number {
   const total = uploadTotalBytes(file);
   if (file.status === 'completed') return total;
   return Math.round((total * file.progress) / 100);
+}
+
+export function getTotalUploadBytes(files: UploadQueueFile[]): number {
+  return files.reduce((sum, f) => sum + uploadTotalBytes(f), 0);
+}
+
+export function getTotalBytesDone(files: UploadQueueFile[]): number {
+  return files.reduce((sum, f) => sum + uploadBytesDone(f), 0);
 }
 
 export function filterFilesByTab(files: UploadQueueFile[], tab: UploadPanelTab): UploadQueueFile[] {
@@ -89,11 +106,15 @@ export function uploadTabCounts(files: UploadQueueFile[]) {
   };
 }
 
-/** Overall progress by completed file count (e.g. 100 / 200 → 50%). */
+/** Overall progress — average of per-file progress (reflects web/thumb phase too). */
 export function uploadOverallPercent(files: UploadQueueFile[]): number {
   if (files.length === 0) return 0;
-  const completed = files.filter((f) => f.status === 'completed').length;
-  return Math.min(100, Math.round((completed / files.length) * 100));
+  const sum = files.reduce((acc, f) => {
+    if (f.status === 'completed') return acc + 100;
+    if (f.status === 'error') return acc;
+    return acc + Math.max(0, Math.min(100, f.progress || 0));
+  }, 0);
+  return Math.min(100, Math.round(sum / files.length));
 }
 
 /** Skip files whose name already exists in the collection or the active upload queue. */

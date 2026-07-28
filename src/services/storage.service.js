@@ -3,10 +3,29 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { getFileMime } from '../lib/fileMime';
 import { r2Client, R2_BUCKET_NAME, R2_PUBLIC_URL } from '../lib/r2';
 
+const UPLOAD_MAX_ATTEMPTS = 3;
+const UPLOAD_RETRY_BASE_MS = 400;
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRetryableUploadError(error) {
+  const message = String(error?.message || '');
+  if (/Upload cancelled/i.test(message)) return false;
+  const rejected = message.match(/Upload rejected \((\d+)\)/);
+  if (rejected) {
+    const status = Number(rejected[1]);
+    // Retry rate limits / transient gateway errors only among 4xx
+    return status === 408 || status === 429;
+  }
+  return true;
+}
+
 /**
  * Upload via presigned PUT + XHR (reliable in browser; avoids SDK fetch/CORS/checksum issues).
  */
-function uploadWithPresignedPut(path, file, contentType, onProgress) {
+function uploadWithPresignedPutOnce(path, file, contentType, onProgress) {
   const command = new PutObjectCommand({
     Bucket: R2_BUCKET_NAME,
     Key: path,
@@ -52,6 +71,23 @@ function uploadWithPresignedPut(path, file, contentType, onProgress) {
         xhr.send(file);
       })
   );
+}
+
+async function uploadWithPresignedPut(path, file, contentType, onProgress) {
+  let lastError;
+  for (let attempt = 1; attempt <= UPLOAD_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      return await uploadWithPresignedPutOnce(path, file, contentType, onProgress);
+    } catch (error) {
+      lastError = error;
+      if (attempt >= UPLOAD_MAX_ATTEMPTS || !isRetryableUploadError(error)) {
+        throw error;
+      }
+      onProgress?.(0);
+      await sleep(UPLOAD_RETRY_BASE_MS * 2 ** (attempt - 1));
+    }
+  }
+  throw lastError;
 }
 
 export const storageService = {

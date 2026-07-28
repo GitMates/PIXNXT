@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import {
   CloudUpload,
   ChevronDown,
@@ -14,6 +14,9 @@ import type { UploadWidgetState } from './uploadTypes';
 import {
   filterFilesByTab,
   formatUploadMb,
+  formatUploadSpeed,
+  getTotalUploadBytes,
+  getTotalBytesDone,
   uploadActiveLabel,
   uploadBytesDone,
   uploadCompleteSummary,
@@ -57,6 +60,52 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
 }) => {
   if (!state.isOpen) return null;
 
+  const [speed, setSpeed] = useState(0);
+  const prevBytesRef = useRef(0);
+  const prevTimeRef = useRef(Date.now());
+  const lastValidSpeedRef = useRef(0);
+
+  useEffect(() => {
+    const isUploading = state.files.some(
+      (f) => f.status === 'uploading' || f.status === 'processing' || f.status === 'waiting'
+    );
+    if (!isUploading) {
+      setSpeed(0);
+      lastValidSpeedRef.current = 0;
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const currentDone = getTotalBytesDone(state.files);
+      const timeDiff = (now - prevTimeRef.current) / 1000;
+
+      if (timeDiff > 0) {
+        const bytesDiff = currentDone - prevBytesRef.current;
+        const instantSpeed = bytesDiff > 0 ? bytesDiff / timeDiff : 0;
+
+        if (instantSpeed > 0) {
+          const smoothed = lastValidSpeedRef.current > 0
+            ? lastValidSpeedRef.current * 0.4 + instantSpeed * 0.6
+            : instantSpeed;
+          lastValidSpeedRef.current = smoothed;
+          setSpeed(smoothed);
+        } else if (lastValidSpeedRef.current > 0) {
+          const decayed = lastValidSpeedRef.current * 0.85;
+          lastValidSpeedRef.current = decayed > 1024 ? decayed : 0;
+          setSpeed(lastValidSpeedRef.current);
+        } else {
+          setSpeed(0);
+        }
+      }
+
+      prevBytesRef.current = currentDone;
+      prevTimeRef.current = now;
+    }, 400);
+
+    return () => clearInterval(interval);
+  }, [state.files]);
+
   const counts = useMemo(() => uploadTabCounts(state.files), [state.files]);
   const completedCount = counts.complete;
   const totalCount = state.files.length;
@@ -73,6 +122,10 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
     () => uploadInProgressTitle(state.files, inProgressCount),
     [state.files, inProgressCount]
   );
+
+  const totalBytes = useMemo(() => getTotalUploadBytes(state.files), [state.files]);
+  const doneBytes = useMemo(() => getTotalBytesDone(state.files), [state.files]);
+  const formattedSpeed = useMemo(() => (inProgressCount > 0 ? formatUploadSpeed(speed) : ''), [speed, inProgressCount]);
 
   const detailsTabsAndList = (
     <div className="upload-batch-details">
@@ -128,6 +181,8 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
                 <span className="upload-panel-row-progress">
                   {file.status === 'error'
                     ? 'Failed'
+                    : file.status === 'uploading' && formattedSpeed
+                    ? `${formatUploadMb(uploadBytesDone(file))}/${formatUploadMb(uploadTotalBytes(file))} • ${formattedSpeed}`
                     : `${formatUploadMb(uploadBytesDone(file))}/${formatUploadMb(uploadTotalBytes(file))}`}
                 </span>
               </div>
@@ -167,11 +222,8 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
               </p>
               {inProgressCount > 0 && (
                 <p className="upload-widget-mini-sub">
-                  {formatUploadMb(
-                    state.files.reduce((acc, f) => acc + uploadBytesDone(f), 0)
-                  )}{' '}
-                  /{' '}
-                  {formatUploadMb(state.files.reduce((acc, f) => acc + uploadTotalBytes(f), 0))}
+                  {formatUploadMb(doneBytes)} / {formatUploadMb(totalBytes)}
+                  {formattedSpeed ? ` • ${formattedSpeed}` : ''}
                 </p>
               )}
             </div>
@@ -330,9 +382,6 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
                     </span>
                     <span className="upload-batch-success-text">{completeSummary}</span>
                   </div>
-                  <button type="button" className="upload-batch-details-link" onClick={onToggleDetails}>
-                    − Hide file list
-                  </button>
                 </div>
                 {detailsTabsAndList}
               </>
@@ -353,10 +402,13 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
               <div className="upload-batch-meta-left">
                 <span className="upload-batch-count">
                   {completedCount} / {totalCount}
+                  {totalBytes > 0 && (
+                    <span className="upload-batch-size-info" style={{ marginLeft: 6, fontWeight: 400, color: '#666' }}>
+                      • {formatUploadMb(doneBytes)} / {formatUploadMb(totalBytes)}
+                      {formattedSpeed ? ` • ${formattedSpeed}` : ''}
+                    </span>
+                  )}
                 </span>
-                <button type="button" className="upload-batch-details-link" onClick={onToggleDetails}>
-                  {state.showDetails ? '− Hide details' : '+ View details'}
-                </button>
               </div>
               <div className="upload-batch-meta-actions">
                 {inProgressCount > 0 && (
@@ -374,7 +426,7 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
               </div>
             </div>
 
-            {state.showDetails && detailsTabsAndList}
+            {detailsTabsAndList}
           </section>
         )}
       </div>
