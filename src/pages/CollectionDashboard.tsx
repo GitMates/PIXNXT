@@ -443,6 +443,7 @@ export default function CollectionDashboard() {
         onEditSet={handleEditSet}
         onDeleteSet={handleDeleteSet}
         onManageSets={() => { }}
+        onReorderSets={dashboardState.reorderSets}
       />
 
       <main className="cd-main">

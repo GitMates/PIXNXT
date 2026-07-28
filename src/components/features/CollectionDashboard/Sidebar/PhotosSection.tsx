@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { PhotoSet } from '@/types/collection.types';
 
 interface PhotosSectionProps {
@@ -28,10 +28,15 @@ export const PhotosSection: React.FC<PhotosSectionProps> = ({
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [orderedIds, setOrderedIds] = useState<string[] | null>(null);
 
+  useEffect(() => {
+    setOrderedIds(null);
+  }, [sets]);
+
   const setList = useMemo(() => {
+    const sortedSets = [...sets].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
     const raw = [
       { id: 'highlights', name: 'Highlights', isHighlights: true, photoCount: 0 },
-      ...sets.map(s => ({ ...s, isHighlights: false, photoCount: s.photo_count || 0 }))
+      ...sortedSets.map(s => ({ ...s, isHighlights: false, photoCount: s.photo_count || 0 }))
     ];
 
     if (!orderedIds) return raw;

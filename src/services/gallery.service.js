@@ -877,10 +877,10 @@ export const galleryService = {
     if (!data) return null;
 
     if (data.photos) {
-      data.photos.sort((a, b) => a.position - b.position);
+      data.photos.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
     }
     if (data.sets) {
-      data.sets.sort((a, b) => a.position - b.position);
+      data.sets.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
     }
 
     return data;
@@ -896,10 +896,11 @@ export const galleryService = {
       .from('sets')
       .select('id, name, description, position, photo_count, is_private, created_at')
       .eq('collection_id', collectionId)
-      .order('position', { ascending: true });
+      .order('position', { ascending: true })
+      .order('created_at', { ascending: true });
 
     if (error) throw error;
-    return data ?? [];
+    return (data ?? []).sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
   },
 
   /**

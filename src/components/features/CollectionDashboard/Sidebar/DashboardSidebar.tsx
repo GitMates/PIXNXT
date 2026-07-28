@@ -14,6 +14,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
   onAddSet,
   onEditSet,
   onDeleteSet,
+  onReorderSets,
 }) => {
   const [showSetMenuId, setShowSetMenuId] = useState<string | null>(null);
 
@@ -55,6 +56,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
             onDeleteSet={onDeleteSet}
             showSetMenu={showSetMenuId}
             setShowSetMenu={setShowSetMenuId}
+            onReorderSets={onReorderSets}
           />
         </SidebarSection>
 

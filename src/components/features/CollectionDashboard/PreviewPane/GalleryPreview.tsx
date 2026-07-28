@@ -522,6 +522,12 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
           activeSetId={dashboardState?.activeSetId ?? null}
           onSetChange={onSetActiveSet}
           showHighlightsTab={dashboardState?.collection?.highlights_enabled !== false}
+          highlightsName={dashboardState?.highlightsName || 'Highlights'}
+          sidebarSetOrder={
+            dashboardState?.sidebarSetOrder ||
+            dashboardState?.collection?.sidebar_set_order ||
+            null
+          }
           maxVisibleSets={isPreviewMobile ? 4 : 3}
           showFavorites={favFeatureOn}
           showDownload={

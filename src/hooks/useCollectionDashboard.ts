@@ -152,10 +152,14 @@ export function useCollectionDashboard(collectionId: string | null) {
         .from("sets")
         .select("*")
         .eq("collection_id", collectionId)
+        .order("position", { ascending: true })
         .order("created_at", { ascending: true });
 
       if (setsError) throw setsError;
-      setSets(setsData || []);
+      const sortedSets = (setsData || []).sort(
+        (a, b) => (a.position ?? 0) - (b.position ?? 0)
+      );
+      setSets(sortedSets);
 
       // 3. Fetch Photos (Highlights initially or based on activeSetId)
       await fetchPhotos(activeSetId);
@@ -258,6 +262,20 @@ export function useCollectionDashboard(collectionId: string | null) {
     collection,
   ]);
 
+  const reorderSets = useCallback(async (newSets: PhotoSet[]) => {
+    const updated = newSets.map((s, idx) => ({ ...s, position: idx }));
+    setSets(updated);
+
+    try {
+      const promises = updated.map((set) =>
+        supabase.from("sets").update({ position: set.position }).eq("id", set.id)
+      );
+      await Promise.all(promises);
+    } catch (err) {
+      console.error("Failed to update set positions in database:", err);
+    }
+  }, []);
+
   // Sync photos when activeSetId changes
   useEffect(() => {
     if (collectionId) {
@@ -354,6 +372,8 @@ export function useCollectionDashboard(collectionId: string | null) {
     previewMode,
     setPreviewMode,
     refreshData: fetchData,
+    reorderSets,
+    setSets,
     setPhotos,
     allPhotos,
     setAllPhotos,

@@ -238,27 +238,66 @@ const CollectionDashboard = () => {
     const [dragOverSetIndex, setDragOverSetIndex] = useState(null);
     const [orderedSetIds, setOrderedSetIds] = useState(null);
 
+    const sidebarOrderStorageKey = (id) => (id ? `pixnxt-sidebar-set-order:${id}` : null);
+
+    const readCachedSidebarOrder = (id) => {
+        const key = sidebarOrderStorageKey(id);
+        if (!key) return null;
+        try {
+            const raw = localStorage.getItem(key);
+            if (!raw) return null;
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed) && parsed.length > 0 ? parsed.map(String) : null;
+        } catch {
+            return null;
+        }
+    };
+
+    const persistSidebarOrder = async (id, orderIds) => {
+        if (!id || !Array.isArray(orderIds)) return;
+        const normalized = orderIds.map(String);
+        setOrderedSetIds(normalized);
+        const key = sidebarOrderStorageKey(id);
+        if (key) {
+            try {
+                localStorage.setItem(key, JSON.stringify(normalized));
+            } catch {
+                /* ignore quota / private mode */
+            }
+        }
+        try {
+            await galleryService.updateCollection(id, { sidebar_set_order: normalized });
+            setCollection((prev) => (prev ? { ...prev, sidebar_set_order: normalized } : prev));
+        } catch (err) {
+            // Column may not exist until migration is applied — localStorage still keeps order on refresh.
+            console.warn('Failed to persist sidebar_set_order:', err?.message || err);
+        }
+    };
+
     const sortedSidebarSets = React.useMemo(() => {
-        const rawList = [];
-        if (highlightsEnabled) {
-            rawList.push({
+        const setItems = sets.map((s) => ({
+            ...s,
+            isHighlights: false,
+            photoCount: photos.filter((p) => p.set_id === s.id).length,
+        }));
+        const highlightsItem = highlightsEnabled
+            ? {
                 id: 'highlights',
                 name: highlightsName,
                 isHighlights: true,
-                photoCount: photos.filter(p => !p.set_id).length,
-            });
+                photoCount: photos.filter((p) => !p.set_id).length,
+            }
+            : null;
+
+        // No saved custom order: default Highlights first (new collections only).
+        if (!orderedSetIds || orderedSetIds.length === 0) {
+            return highlightsItem ? [highlightsItem, ...setItems] : setItems;
         }
-        sets.forEach((s) => {
-            rawList.push({
-                ...s,
-                isHighlights: false,
-                photoCount: photos.filter(p => p.set_id === s.id).length,
-            });
-        });
 
-        if (!orderedSetIds || orderedSetIds.length === 0) return rawList;
+        const map = new Map();
+        setItems.forEach((item) => map.set(item.id, item));
+        if (highlightsItem) map.set('highlights', highlightsItem);
 
-        const map = new Map(rawList.map((item) => [item.id, item]));
         const sorted = [];
         orderedSetIds.forEach((id) => {
             if (map.has(id)) {
@@ -266,6 +305,7 @@ const CollectionDashboard = () => {
                 map.delete(id);
             }
         });
+        // New sets not in saved order append at the end (do not force Highlights first).
         map.forEach((item) => sorted.push(item));
         return sorted;
     }, [highlightsEnabled, highlightsName, sets, photos, orderedSetIds]);
@@ -300,18 +340,20 @@ const CollectionDashboard = () => {
         newItems.splice(toIndex, 0, moved);
 
         const newOrderIds = newItems.map((item) => item.id);
-        setOrderedSetIds(newOrderIds);
-
-        const dbSets = newItems.filter((item) => !item.isHighlights);
+        const dbSets = newItems
+            .filter((item) => !item.isHighlights)
+            .map((set, idx) => ({ ...set, position: idx }));
         setSets(dbSets);
 
         handleSetDragEnd();
 
         try {
-            const promises = dbSets.map((set, idx) =>
-                supabase.from('sets').update({ position: idx }).eq('id', set.id)
-            );
-            await Promise.all(promises);
+            await Promise.all([
+                persistSidebarOrder(collectionId, newOrderIds),
+                ...dbSets.map((set) =>
+                    supabase.from('sets').update({ position: set.position }).eq('id', set.id)
+                ),
+            ]);
         } catch (err) {
             console.error('Failed to update set positions:', err);
         }
@@ -1886,6 +1928,16 @@ const CollectionDashboard = () => {
                 const setsData = data.sets || [];
                 setSets(setsData);
 
+                const savedOrder =
+                    (Array.isArray(data.sidebar_set_order) && data.sidebar_set_order.length > 0
+                        ? data.sidebar_set_order.map(String)
+                        : null) || readCachedSidebarOrder(collectionId);
+                if (savedOrder) {
+                    setOrderedSetIds(savedOrder);
+                } else {
+                    setOrderedSetIds(null);
+                }
+
                 // Activity counts load in background — do not block grid render
                 galleryService
                     .getActivityCounts(collectionId)
@@ -2397,6 +2449,13 @@ const CollectionDashboard = () => {
                 position: sets.length
             });
             setSets(prev => [...prev, newSet]);
+            setOrderedSetIds((prev) => {
+                if (!prev || prev.length === 0) return prev;
+                if (prev.includes(newSet.id)) return prev;
+                const next = [...prev, newSet.id];
+                void persistSidebarOrder(collectionId, next);
+                return next;
+            });
             setSelectedDownloadSets((prev) => {
                 if (prev.length === 0) return prev;
                 if (prev.includes(newSet.name) || prev.includes(newSet.id)) return prev;
@@ -2475,6 +2534,12 @@ const CollectionDashboard = () => {
                 await galleryService.updateCollection(collectionId, { highlights_enabled: false });
                 setHighlightsEnabled(false);
                 setCollection((prev) => (prev ? { ...prev, highlights_enabled: false } : prev));
+                setOrderedSetIds((prev) => {
+                    if (!prev) return prev;
+                    const next = prev.filter((id) => id !== 'highlights');
+                    void persistSidebarOrder(collectionId, next);
+                    return next;
+                });
                 setActiveSetId(sets[0]?.id ?? null);
             } else {
                 const removedIds = new Set(
@@ -2483,6 +2548,12 @@ const CollectionDashboard = () => {
                 await galleryService.deleteSet(deleteSetId);
                 setPhotos((prev) => prev.filter((p) => !removedIds.has(p.id)));
                 setSets((prev) => prev.filter((s) => s.id !== deleteSetId));
+                setOrderedSetIds((prev) => {
+                    if (!prev) return prev;
+                    const next = prev.filter((id) => id !== deleteSetId);
+                    void persistSidebarOrder(collectionId, next);
+                    return next;
+                });
                 if (collection?.cover_photo_id && removedIds.has(collection.cover_photo_id)) {
                     setCollection((prev) => (prev ? { ...prev, cover_photo_id: null, cover_url: null } : prev));
                 }
@@ -3883,7 +3954,15 @@ const CollectionDashboard = () => {
                                         focalY: collectionFocal.y,
                                         activeSetId: activeSetId,
                                         sets: sets,
-                                        collection: { ...collection, highlights_enabled: highlightsEnabled, store_enabled: storeEnabled },
+                                        highlightsName,
+                                        sidebarSetOrder: orderedSetIds,
+                                        collection: {
+                                            ...collection,
+                                            highlights_enabled: highlightsEnabled,
+                                            store_enabled: storeEnabled,
+                                            sidebar_set_order:
+                                                orderedSetIds ?? collection?.sidebar_set_order ?? null,
+                                        },
                                         photoDownload: photoDownload,
                                         galleryDownload: galleryDownload,
                                         singlePhotoDownload: singlePhotoDownload,

@@ -5,6 +5,7 @@ import { galleryChromeStyles, GalleryChromeVariant, getGalleryChromeVariant } fr
 import { NavigationStyleSetting } from '../../../../lib/navStyle';
 import { GalleryMediaFilter } from './GalleryMediaFilter';
 import type { GalleryMediaFilterValue } from '../../../../lib/galleryMediaType';
+import { orderGallerySetTabs } from '../../../../lib/gallerySetOrder';
 
 export interface GallerySetTab {
   id: string;
@@ -47,6 +48,9 @@ export interface GalleryStickyNavProps {
   /** icon = icons only; text = icons + labels */
   navigationStyle?: NavigationStyleSetting;
   showHighlightsTab?: boolean;
+  highlightsName?: string;
+  /** Full sidebar order including virtual "highlights" id. */
+  sidebarSetOrder?: string[] | null;
   /** Photos / videos toggle (shown in nav when both types exist in the active set). */
   mediaFilter?: GalleryMediaFilterValue;
   onMediaFilterChange?: (value: GalleryMediaFilterValue) => void;
@@ -89,6 +93,8 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
   isGalleryViewMobile = false,
   navigationStyle = 'icon',
   showHighlightsTab = true,
+  highlightsName = 'Highlights',
+  sidebarSetOrder = null,
   mediaFilter,
   onMediaFilterChange,
   mediaPhotoCount = 0,
@@ -117,9 +123,25 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
       showActionLabels ? (isCompact ? 'inline' : 'hidden md:inline') : 'sr-only'
     );
 
-  const visibleSets = sets
-    .filter((s) => s.name?.toLowerCase() !== 'highlights')
-    .slice(0, maxVisibleSets ?? sets.length);
+  const orderedTabs = orderGallerySetTabs({
+    sets,
+    sidebarSetOrder,
+    showHighlights: showHighlightsTab,
+    highlightsName,
+  });
+
+  const visibleTabs =
+    maxVisibleSets == null
+      ? orderedTabs
+      : (() => {
+          let nonHighlightCount = 0;
+          return orderedTabs.filter((tab) => {
+            if (tab.isHighlights || tab.id == null) return true;
+            if (nonHighlightCount >= maxVisibleSets) return false;
+            nonHighlightCount += 1;
+            return true;
+          });
+        })();
 
   const tabButtonClass = (active: boolean) =>
     cn(
@@ -144,50 +166,34 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
 
   const renderTabs = () => (
     <>
-      {showHighlightsTab ? (
-        <button
-          type="button"
-          className={cn(
-            'group relative inline-flex shrink-0 items-center whitespace-nowrap',
-            isCompact ? 'py-0' : 'py-2'
-          )}
-          onClick={() => onSetChange?.(null)}
-        >
-          <span className={cn(tabButtonClass(!activeSetId), 'whitespace-nowrap')} style={{ color: 'var(--gallery-text)' }}>
-            Highlights
-          </span>
-          {!activeSetId && (
-            <div
-              className="absolute bottom-0 left-0 h-[1.5px] w-full origin-left scale-x-100"
-              style={{ backgroundColor: 'var(--gallery-text)' }}
-            />
-          )}
-        </button>
-      ) : null}
-      {visibleSets.map((set) => (
-        <button
-          key={set.id}
-          type="button"
-          className={cn(
-            'group relative inline-flex shrink-0 items-center whitespace-nowrap',
-            isCompact ? 'py-0' : 'py-2'
-          )}
-          onClick={() => onSetChange?.(set.id)}
-        >
-          <span
-            className={cn(tabButtonClass(activeSetId === set.id), 'whitespace-nowrap')}
-            style={{ color: 'var(--gallery-text)' }}
+      {visibleTabs.map((tab) => {
+        const isHighlights = tab.isHighlights || tab.id == null;
+        const isActive = isHighlights ? !activeSetId : activeSetId === tab.id;
+        return (
+          <button
+            key={isHighlights ? 'highlights' : tab.id}
+            type="button"
+            className={cn(
+              'group relative inline-flex shrink-0 items-center whitespace-nowrap',
+              isCompact ? 'py-0' : 'py-2'
+            )}
+            onClick={() => onSetChange?.(isHighlights ? null : tab.id)}
           >
-            {set.name}
-          </span>
-          {activeSetId === set.id && (
-            <div
-              className="absolute bottom-0 left-0 h-[1.5px] w-full origin-left scale-x-100"
-              style={{ backgroundColor: 'var(--gallery-text)' }}
-            />
-          )}
-        </button>
-      ))}
+            <span
+              className={cn(tabButtonClass(isActive), 'whitespace-nowrap')}
+              style={{ color: 'var(--gallery-text)' }}
+            >
+              {tab.name}
+            </span>
+            {isActive && (
+              <div
+                className="absolute bottom-0 left-0 h-[1.5px] w-full origin-left scale-x-100"
+                style={{ backgroundColor: 'var(--gallery-text)' }}
+              />
+            )}
+          </button>
+        );
+      })}
     </>
   );
 

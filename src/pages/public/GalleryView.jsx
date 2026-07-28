@@ -2084,6 +2084,7 @@ const GalleryView = () => {
             photographerName={photographer?.business_name || photographer?.display_name}
             sets={visibleSets.map((set) => ({ id: set.id, name: set.name }))}
             showHighlightsTab={canViewHighlights(collection, isClientViewer)}
+            sidebarSetOrder={collection?.sidebar_set_order || null}
             activeSetId={activeSetId}
             onSetChange={setActiveSetId}
             showFavorites={collection?.favorites_enabled !== false}
