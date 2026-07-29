@@ -32,7 +32,7 @@ import SpreadGridComments from './SpreadGridComments';
 import {
     COMMENTS_SEEN_CHANGED_EVENT,
 } from '../../services/smartAlbumComments.service';
-import AlbumFocusView from './AlbumFocusView';
+import { buildOverviewSpreadReorderPlan } from './albumSpreadReorder';
 import AlbumSwapPickerModal from './AlbumSwapPickerModal';
 import AlbumPinComposer from './AlbumPinComposer';
 import { closeAlbumPinPopovers } from './albumPinPopoverEvents';
@@ -71,6 +71,8 @@ import { SPINE_BOUNDS_CHANGED_EVENT } from './albumSpineSettings';
 import { getSpreadPhotoTransform } from './albumPageTransforms';
 import BookWrapSpineImage from './BookWrapSpineImage';
 import OverviewLeatherCover from './OverviewLeatherCover';
+import OverviewSortableGrid from './OverviewSortableGrid';
+import AlbumFocusView from './AlbumFocusView';
 
 export { getSpreadPages, getTotalSpreads, pageToSpreadIndex, spreadIndexToPage } from './albumSpreadUtils';
 
@@ -159,6 +161,31 @@ function getOverviewPageImage(album, pageNum, totalPages, showSamples) {
         spreadOpts: spreadCtx,
     });
     return slot.src || (showSamples ? getSampleImageForPage(pageNum) : null);
+}
+
+function resolveOverviewSpreadVisual(album, overviewSpreadIndex, totalPages, spreadOpts, showSamples) {
+    const { left, right } = getSpreadPages(overviewSpreadIndex, totalPages, spreadOpts);
+    const isCover = spreadOpts.hasCovers && overviewSpreadIndex === 0;
+    const isEndSpread = isEndHalfSpreadIndex(overviewSpreadIndex, totalPages, spreadOpts);
+    const spreadSrc = !isCover && !isEndSpread ? getSpreadPhotoOverride(album?.id, left) : null;
+    const bookWrapSrc =
+        isCover || isEndSpread
+            ? getSpreadPhotoOverride(album?.id, 0) || resolveCoverImageSrc(album, { showSamples })
+            : null;
+    const leftSrc = getOverviewPageImage(album, left, totalPages, showSamples);
+    const rightSrc =
+        right !== left ? getOverviewPageImage(album, right, totalPages, showSamples) : null;
+
+    return {
+        isCover,
+        isEndSpread,
+        isEndHalf: isEndSpread,
+        spreadSrc,
+        bookWrapSrc,
+        leftSrc,
+        rightSrc,
+        showSpreadFull: Boolean(spreadSrc),
+    };
 }
 
 const AlbumBook = ({
@@ -312,9 +339,8 @@ const AlbumBook = ({
 
     const [overviewOpen, setOverviewOpen] = useState(false);
     const [overviewTargetSpreadIndex, setOverviewTargetSpreadIndex] = useState(0);
-    const overviewDragFromRef = useRef(null);
+    const [overviewOptimisticContent, setOverviewOptimisticContent] = useState(null);
     const overviewDidDragRef = useRef(false);
-    const [overviewDragOverIndex, setOverviewDragOverIndex] = useState(null);
     const [focusOpen, setFocusOpen] = useState(false);
     const [focusStartPage, setFocusStartPage] = useState(0);
     const focusPageRef = useRef(0);
@@ -569,42 +595,55 @@ const AlbumBook = ({
         setOverviewOpen(true);
     }, [spreadIndex]);
 
-    const handleOverviewSpreadDragStart = useCallback(
-        (spreadIndex) => {
-            if (!canDragOverviewSpreads) return;
-            if (!isDraggableOverviewSpread(spreadIndex, totalPages, spreadOpts)) return;
-            overviewDragFromRef.current = spreadIndex;
-            overviewDidDragRef.current = false;
-        },
-        [canDragOverviewSpreads, totalPages, spreadOpts]
-    );
+    useEffect(() => {
+        if (!overviewOptimisticContent) return undefined;
+        const id = requestAnimationFrame(() => {
+            requestAnimationFrame(() => setOverviewOptimisticContent(null));
+        });
+        return () => cancelAnimationFrame(id);
+    }, [photoRevision, overviewOptimisticContent]);
 
-    const handleOverviewSpreadDragOver = useCallback(
-        (spreadIndex) => {
+    const handleOverviewReorder = useCallback(
+        (fromSpreadIndex, toSpreadIndex) => {
             if (!canDragOverviewSpreads) return;
-            if (!isDraggableOverviewSpread(spreadIndex, totalPages, spreadOpts)) return;
-            setOverviewDragOverIndex(spreadIndex);
-        },
-        [canDragOverviewSpreads, totalPages, spreadOpts]
-    );
-
-    const handleOverviewSpreadDrop = useCallback(
-        (toSpreadIndex) => {
-            const fromSpreadIndex = overviewDragFromRef.current;
-            overviewDragFromRef.current = null;
-            setOverviewDragOverIndex(null);
-            if (!canDragOverviewSpreads || fromSpreadIndex == null) return;
             if (fromSpreadIndex === toSpreadIndex) return;
             overviewDidDragRef.current = true;
+
+            const plan = buildOverviewSpreadReorderPlan(
+                fromSpreadIndex,
+                toSpreadIndex,
+                totalPages,
+                spreadOpts
+            );
+            if (plan) {
+                const snapshots = Array.from({ length: totalSpreads }, (_, index) =>
+                    resolveOverviewSpreadVisual(album, index, totalPages, spreadOpts, showSamples)
+                );
+                const optimistic = snapshots.slice();
+                plan.draggable.forEach((spreadIndex, position) => {
+                    optimistic[spreadIndex] = snapshots[plan.newOrder[position]];
+                });
+                setOverviewOptimisticContent(optimistic);
+            }
+
             onReorderOverviewSpread?.(fromSpreadIndex, toSpreadIndex);
         },
-        [canDragOverviewSpreads, onReorderOverviewSpread]
+        [
+            canDragOverviewSpreads,
+            onReorderOverviewSpread,
+            album,
+            totalPages,
+            spreadOpts,
+            showSamples,
+            totalSpreads,
+        ]
     );
 
-    const handleOverviewSpreadDragEnd = useCallback(() => {
-        overviewDragFromRef.current = null;
-        setOverviewDragOverIndex(null);
-    }, []);
+    const isOverviewSpreadDraggable = useCallback(
+        (overviewSpreadIndex) =>
+            isDraggableOverviewSpread(overviewSpreadIndex, totalPages, spreadOpts),
+        [totalPages, spreadOpts]
+    );
 
     const atStart = external3DCover ? false : spreadIndex <= 0;
     const atEnd = spreadIndex >= totalSpreads - 1;
@@ -1926,68 +1965,46 @@ const AlbumBook = ({
                             Drag middle spreads to reorder photos. Cover, first inner spread, spread before back, and back stay fixed.
                         </p>
                     ) : null}
-                    <div
+                    <OverviewSortableGrid
+                        itemCount={totalSpreads}
+                        isDraggable={isOverviewSpreadDraggable}
+                        onReorder={handleOverviewReorder}
+                        disabled={!canDragOverviewSpreads || pageCountBusy}
                         className={`ab-overview-grid${
                             pageCountBusy ? ' ab-overview-grid--transitioning' : ''
                         }`}
-                    >
-                        {Array.from({ length: totalSpreads }, (_, overviewSpreadIndex) => {
-                            const { left, right } = getSpreadPages(
-                                overviewSpreadIndex,
-                                totalPages,
-                                spreadOpts
-                            );
-                            const targetPage = spreadIndexToPage(overviewSpreadIndex, spreadCtx);
-                            const leftSrc = getOverviewPageImage(
-                                album,
-                                left,
-                                totalPages,
-                                showSamples
-                            );
-                            const rightSrc =
-                                right !== left
-                                    ? getOverviewPageImage(album, right, totalPages, showSamples)
-                                    : null;
-                            const isCover =
-                                spreadOpts.hasCovers && overviewSpreadIndex === 0;
-                            const isEndSpread = isEndHalfSpreadIndex(
-                                overviewSpreadIndex,
-                                totalPages,
-                                spreadOpts
-                            );
-                            const spreadSrc = !isCover && !isEndSpread
-                                ? getSpreadPhotoOverride(album?.id, left)
-                                : null;
-                            const bookWrapSrc =
-                                isCover || isEndSpread
-                                    ? getSpreadPhotoOverride(album?.id, 0) ||
-                                      resolveCoverImageSrc(album, { showSamples })
-                                    : null;
-                            const isEndHalf = isEndSpread;
-                            const showSpreadFull = Boolean(spreadSrc);
-                            const isSelected = overviewSpreadIndex === overviewTargetSpreadIndex;
-                            const spreadDraggable =
-                                canDragOverviewSpreads &&
-                                isDraggableOverviewSpread(
+                        renderItem={(overviewSpreadIndex, { draggable: spreadDraggable }) => {
+                            const visual =
+                                overviewOptimisticContent?.[overviewSpreadIndex] ??
+                                resolveOverviewSpreadVisual(
+                                    album,
                                     overviewSpreadIndex,
                                     totalPages,
-                                    spreadOpts
+                                    spreadOpts,
+                                    showSamples
                                 );
-                            const spreadDragOver =
-                                spreadDraggable && overviewDragOverIndex === overviewSpreadIndex;
+                            const {
+                                isCover,
+                                isEndSpread,
+                                isEndHalf,
+                                spreadSrc,
+                                bookWrapSrc,
+                                leftSrc,
+                                rightSrc,
+                                showSpreadFull,
+                            } = visual;
+                            const targetPage = spreadIndexToPage(overviewSpreadIndex, spreadCtx);
+                            const isSelected = overviewSpreadIndex === overviewTargetSpreadIndex;
                             return (
                                 <button
-                                    key={`spread-${overviewSpreadIndex}`}
                                     type="button"
                                     className={`ab-overview-item${
                                         isCover ? ' ab-overview-item--cover' : ''
                                     }${isEndSpread ? ' ab-overview-item--back' : ''}${
                                         isSelected ? ' ab-overview-item--active' : ''
                                     }${
-                                        spreadDraggable ? ' ab-overview-item--draggable' : ''}${
-                                        spreadDragOver ? ' ab-overview-item--drag-over' : ''
+                                        spreadDraggable ? ' ab-overview-item--draggable' : ''
                                     }`}
-                                    draggable={spreadDraggable}
                                     onClick={() => {
                                         if (overviewDidDragRef.current) {
                                             overviewDidDragRef.current = false;
@@ -1996,34 +2013,11 @@ const AlbumBook = ({
                                         setOverviewTargetSpreadIndex(overviewSpreadIndex);
                                         goToPage(targetPage);
                                     }}
-                                    onDragStart={(e) => {
-                                        if (!spreadDraggable) return;
-                                        e.stopPropagation();
-                                        e.dataTransfer.effectAllowed = 'move';
-                                        e.dataTransfer.setData(
-                                            'text/plain',
-                                            String(overviewSpreadIndex)
-                                        );
-                                        handleOverviewSpreadDragStart(overviewSpreadIndex);
-                                    }}
-                                    onDragOver={(e) => {
-                                        if (!spreadDraggable) return;
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        handleOverviewSpreadDragOver(overviewSpreadIndex);
-                                    }}
-                                    onDrop={(e) => {
-                                        if (!spreadDraggable) return;
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        handleOverviewSpreadDrop(overviewSpreadIndex);
-                                    }}
-                                    onDragEnd={handleOverviewSpreadDragEnd}
                                 >
                                     <span className="ab-overview-thumb ab-overview-thumb--spread">
                                         {showSpreadFull ? (
                                             <span className="ab-overview-page ab-overview-page--spread-full">
-                                                <img src={spreadSrc} alt="" loading="lazy" draggable={false} />
+                                                <img src={spreadSrc} alt="" draggable={false} />
                                             </span>
                                         ) : isCover && bookWrapSrc ? (
                                             <span className="ab-overview-page ab-overview-page--cover-single">
@@ -2063,7 +2057,7 @@ const AlbumBook = ({
                                             <>
                                                 <span className="ab-overview-page">
                                                     {leftSrc ? (
-                                                        <img src={leftSrc} alt="" loading="lazy" draggable={false} />
+                                                        <img src={leftSrc} alt="" draggable={false} />
                                                     ) : (
                                                         <span className="ab-overview-placeholder" />
                                                     )}
@@ -2074,7 +2068,6 @@ const AlbumBook = ({
                                                             <img
                                                                 src={rightSrc}
                                                                 alt=""
-                                                                loading="lazy"
                                                                 draggable={false}
                                                             />
                                                         ) : (
@@ -2094,8 +2087,8 @@ const AlbumBook = ({
                                     </span>
                                 </button>
                             );
-                        })}
-                    </div>
+                        }}
+                    />
                     {(canAddPages || canDeleteOverviewSpread) && (
                         <div className="ab-overview-actions">
                             {canAddPages && onAddPages && (

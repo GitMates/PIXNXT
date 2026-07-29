@@ -1605,14 +1605,14 @@ export default function AlbumEditor({
     );
 
     const handleReorderCollectionItem = useCallback(
-        (fromIndex, toIndex) => {
+        async (fromIndex, toIndex) => {
             if (!reorderCollectionItems(albumId, fromIndex, toIndex, { album })) return;
+            await syncCollectionOrderToSpreads();
             setCollectionRevision(getAlbumCollectionRevision(albumId));
-            void syncCollectionOrderToSpreads().then((placed) => {
-                if (placed > 0) scheduleWorkspaceRefresh();
-            });
+            setPhotoLayoutRev(getAlbumPhotoRevision(albumId) || 0);
+            setTransformRevision(getTransformRevision(albumId));
         },
-        [albumId, album, syncCollectionOrderToSpreads, scheduleWorkspaceRefresh]
+        [albumId, album, syncCollectionOrderToSpreads]
     );
 
     const handleReorderOverviewSpread = useCallback(
@@ -1629,10 +1629,10 @@ export default function AlbumEditor({
             setSwapMarks(getSwapMarks(albumId));
             setPhotoPins(getPhotoPins(albumId));
             syncCollectionOrderToPlacements(albumId);
-            scheduleWorkspaceRefresh();
+            bumpWorkspace();
             showToast('Spread order updated.', { variant: 'success', duration: 3000 });
         },
-        [albumId, totalPages, spreadOpts, scheduleWorkspaceRefresh, showToast]
+        [albumId, totalPages, spreadOpts, bumpWorkspace, showToast]
     );
 
     const canAddPages = totalPages + pagesPerSpread <= maxPages;

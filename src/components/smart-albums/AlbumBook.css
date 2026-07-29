@@ -1549,6 +1549,25 @@
   text-align: center;
 }
 
+.ab-overview-grid--dragging .ab-overview-sortable-wrap:not(.ab-overview-sortable-wrap--dragging) {
+  transition: transform 0.22s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.ab-overview-sortable-wrap {
+  width: var(--ab-overview-thumb-w);
+  touch-action: none;
+}
+
+.ab-overview-sortable-wrap--dragging {
+  z-index: 5;
+  transition: none;
+}
+
+.ab-overview-sortable-wrap--dragging .ab-overview-thumb {
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16);
+  border-color: #8e44ad;
+}
+
 .ab-overview-item--draggable {
   cursor: grab;
 }
@@ -1562,12 +1581,6 @@
   -webkit-user-drag: none;
   user-select: none;
   pointer-events: none;
-}
-
-.ab-overview-item--drag-over .ab-overview-thumb {
-  outline: 2px solid #8e44ad;
-  outline-offset: 2px;
-  box-shadow: 0 0 0 4px rgba(142, 68, 173, 0.18);
 }
 
 .ab-overview-grid {
