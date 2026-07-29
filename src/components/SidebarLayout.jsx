@@ -95,9 +95,9 @@ const SidebarLayout = ({ children, productId = 'client-gallery', headerActions =
 
     const renderBrandIcon = () =>
         profileIconUrl ? (
-            <img src={profileIconUrl} alt="" className="w-10 h-10 rounded-[10px] object-cover shrink-0" />
+            <img src={profileIconUrl} alt="Logo" className="max-h-9 max-w-[140px] w-auto h-auto object-contain shrink-0" />
         ) : (
-            <span className="w-10 h-10 rounded-[10px] bg-[#1A1A1A] text-white flex items-center justify-center font-bold text-sm shrink-0 uppercase">{userInitial}</span>
+            <span className="size-9 rounded-xl bg-[#1A1A1A] text-white flex items-center justify-center font-bold text-sm shrink-0 uppercase">{userInitial}</span>
         );
 
     const [realStorageBytes, setRealStorageBytes] = useState(() => {
@@ -214,54 +214,118 @@ const SidebarLayout = ({ children, productId = 'client-gallery', headerActions =
     };
 
     const renderProfileDropdown = (positionClasses) => (
-        <div className={`absolute ${positionClasses} w-[280px] rounded-2xl bg-white shadow-xl shadow-black/10 z-[500] py-1 animate-[cgFadeIn_0.15s_ease] border border-[#ECEAE6]`}>
-            <div className="px-5 py-4 border-b border-[#eeeeee] flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-medium bg-[#1A1A1A] text-white">
+        <div className={`absolute ${positionClasses} w-[265px] rounded-[24px] bg-[#FAF9F6] p-2.5 shadow-[0_16px_48px_rgba(0,0,0,0.12)] z-[500] border border-[#ECEAE6] font-sans text-left`}>
+            {/* Header User Info */}
+            <div className="flex items-center gap-3 px-2 pt-1.5 pb-3">
+                <div className="size-10 rounded-full bg-[#111111] text-white font-bold flex items-center justify-center text-sm shrink-0 uppercase">
                     {userInitial}
                 </div>
-                <div className="flex flex-col min-w-0">
-                    <div className="text-base font-medium text-[#1A1A1A] truncate">{userDisplayLabel}</div>
-                    <div className="text-sm text-[#71717A] truncate">{user?.email}</div>
+                <div className="flex flex-col min-w-0 flex-1">
+                    <span className="text-[14.5px] font-bold text-[#111827] truncate leading-tight font-sans">{userDisplayLabel}</span>
+                    <span className="text-[12.5px] text-[#6B7280] truncate font-normal leading-tight font-sans">{user?.email}</span>
                 </div>
             </div>
 
-            <div className="px-5 py-3 text-base text-[#444] cursor-pointer hover:bg-[#f9f9f9] flex items-center gap-3.5 font-medium border-b border-[#eeeeee]">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 12 20 22 4 22 4 12"></polyline><rect x="2" y="7" width="20" height="5"></rect><line x1="12" y1="22" x2="12" y2="7"></line><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"></path><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"></path></svg>
-                Invite Friends & Get $20
-            </div>
+            <div className="h-[1px] w-full bg-[#E5E7EB] my-1" />
 
-            {[
-                { label: 'Profile', path: '/account/profile', icon: <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /> },
-                { label: 'Billing', path: '/account/billing', icon: <><rect x="1" y="4" width="22" height="16" rx="2" ry="2" /><line x1="1" y1="10" x2="23" y2="10" /></> },
-                { label: 'Advanced Settings', path: '/account/advanced', icon: <><line x1="4" y1="21" x2="4" y2="14" /><line x1="4" y1="10" x2="4" y2="3" /><line x1="12" y1="21" x2="12" y2="12" /><line x1="12" y1="8" x2="12" y2="3" /><line x1="20" y1="21" x2="20" y2="16" /><line x1="20" y1="12" x2="20" y2="3" /><line x1="1" y1="14" x2="7" y2="14" /><line x1="9" y1="8" x2="15" y2="8" /><line x1="17" y1="16" x2="23" y2="16" /></> },
-                { label: 'Account', path: '/account/details', icon: <><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" /></> },
-            ].map((item) => (
-                <div
-                    key={item.path}
-                    className="px-5 py-3 text-base text-[#444] cursor-pointer hover:bg-[#f9f9f9] flex items-center gap-3.5"
-                    onClick={() => {
-                        navigate(item.path);
-                        setShowProfileDropdown(false);
-                    }}
+            {/* Menu Options */}
+            <div className="flex flex-col gap-0.5 pt-1">
+                {/* Invite Friends & Get $20 */}
+                <button
+                    type="button"
+                    onClick={() => { navigate('/account/refer'); setShowProfileDropdown(false); }}
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13.5px] font-medium text-[#374151] hover:bg-black/[0.04] transition-colors font-sans"
                 >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{item.icon}</svg>
-                    {item.label}
-                </div>
-            ))}
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#4B5563" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 12 20 22 4 22 4 12" />
+                        <rect x="2" y="7" width="20" height="5" />
+                        <line x1="12" y1="22" x2="12" y2="7" />
+                        <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" />
+                        <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" />
+                    </svg>
+                    <span>Invite Friends & Get $20</span>
+                </button>
 
-            <div
-                className="px-5 py-3 text-base text-[#444] cursor-pointer hover:bg-[#f9f9f9] flex items-center gap-3.5 mb-1 border-t border-[#eeeeee] mt-1"
-                onClick={async () => {
-                    try {
-                        await logout();
-                        navigate('/');
-                    } catch (err) {
-                        console.error('Logout failed', err);
-                    }
-                }}
-            >
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
-                Log Out
+                {/* Profile */}
+                <button
+                    type="button"
+                    onClick={() => { navigate('/account/profile'); setShowProfileDropdown(false); }}
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13.5px] font-medium text-[#374151] hover:bg-black/[0.04] transition-colors font-sans"
+                >
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#4B5563" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
+                    </svg>
+                    <span>Profile</span>
+                </button>
+
+                {/* Billing */}
+                <button
+                    type="button"
+                    onClick={() => { navigate('/account/billing'); setShowProfileDropdown(false); }}
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13.5px] font-medium text-[#374151] hover:bg-black/[0.04] transition-colors font-sans"
+                >
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#4B5563" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+                        <line x1="1" y1="10" x2="23" y2="10" />
+                    </svg>
+                    <span>Billing</span>
+                </button>
+
+                {/* Advanced Settings */}
+                <button
+                    type="button"
+                    onClick={() => { navigate('/account/advanced'); setShowProfileDropdown(false); }}
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13.5px] font-medium text-[#374151] hover:bg-black/[0.04] transition-colors font-sans"
+                >
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#4B5563" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="4" y1="21" x2="4" y2="14" />
+                        <line x1="4" y1="10" x2="4" y2="3" />
+                        <line x1="12" y1="21" x2="12" y2="12" />
+                        <line x1="12" y1="8" x2="12" y2="3" />
+                        <line x1="20" y1="21" x2="20" y2="16" />
+                        <line x1="20" y1="12" x2="20" y2="3" />
+                        <line x1="1" y1="14" x2="7" y2="14" />
+                        <line x1="9" y1="8" x2="15" y2="8" />
+                        <line x1="17" y1="16" x2="23" y2="16" />
+                    </svg>
+                    <span>Advanced Settings</span>
+                </button>
+
+                {/* Account */}
+                <button
+                    type="button"
+                    onClick={() => { navigate('/account/details'); setShowProfileDropdown(false); }}
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13.5px] font-medium text-[#374151] hover:bg-black/[0.04] transition-colors font-sans"
+                >
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#4B5563" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                        <circle cx="8.5" cy="7" r="4" />
+                        <polyline points="17 11 19 13 23 9" />
+                    </svg>
+                    <span>Account</span>
+                </button>
+
+                {/* Log Out */}
+                <button
+                    type="button"
+                    onClick={async () => {
+                        try {
+                            await logout();
+                            navigate('/');
+                        } catch (err) {
+                            console.error('Logout failed', err);
+                        }
+                    }}
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13.5px] font-medium text-[#DC2626] hover:bg-red-50 transition-colors font-sans"
+                >
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                        <polyline points="16 17 21 12 16 7" />
+                        <line x1="21" y1="12" x2="9" y2="12" />
+                    </svg>
+                    <span>Log Out</span>
+                </button>
             </div>
         </div>
     );
@@ -361,12 +425,8 @@ const SidebarLayout = ({ children, productId = 'client-gallery', headerActions =
             )}>
                 <div className="flex flex-1 flex-col min-h-0">
                     <div className="relative z-20 shrink-0 overflow-visible px-5 pt-5 pb-8 flex items-center justify-between">
-                        <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="flex items-center gap-2.5 shrink-0">
                             {renderBrandIcon()}
-                            <div className="flex flex-col leading-none min-w-0">
-                                <span className="text-[13px] font-extrabold text-[#1a1a1a] tracking-wider uppercase truncate max-w-[95px]" title={brandPrimary}>{brandPrimary}</span>
-                                <span className="text-[8px] font-extrabold text-[#71717A] tracking-widest uppercase mt-0.5 truncate max-w-[95px]" title={brandSubtitle}>{brandSubtitle}</span>
-                            </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                             {headerActions || (productId === 'client-gallery' ? (
@@ -465,12 +525,13 @@ const SidebarLayout = ({ children, productId = 'client-gallery', headerActions =
                         <button
                             type="button"
                             onClick={() => setShowProfileDropdown((v) => !v)}
-                            className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors hover:bg-[#1A1A1A]/5"
+                            className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left transition-colors hover:bg-black/[0.04] font-sans"
                         >
-                            <span className="inline-flex size-8 items-center justify-center rounded-full bg-[#1A1A1A] text-sm font-semibold text-white">
+                            <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-[#1A1A1A] text-sm font-semibold text-white uppercase">
                                 {userInitial}
                             </span>
-                            <span className="min-w-0 flex-1 truncate text-sm font-medium text-[#1A1A1A]">{userDisplayLabel}</span>
+                            <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-[#111827]">{userDisplayLabel}</span>
+                            <ChevronDown className={cn('size-4 shrink-0 text-[#6B7280] transition-transform', showProfileDropdown && 'rotate-180')} />
                         </button>
                         {showProfileDropdown && renderProfileDropdown('bottom-full left-0 mb-2')}
                     </div>
