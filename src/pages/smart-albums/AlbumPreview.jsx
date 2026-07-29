@@ -531,13 +531,14 @@ export default function AlbumPreview({
                     {profileIconUrl ? (
                         <img
                             src={profileIconUrl}
-                            alt=""
+                            alt="Profile Icon"
                             className="av-preview-header-brand-icon"
                         />
-                    ) : null}
-                    {businessName ? (
-                        <span className="av-preview-header-brand-name">{businessName}</span>
-                    ) : null}
+                    ) : (
+                        <span className="av-preview-header-brand-fallback">
+                            {(businessName || 'K')[0].toUpperCase()}
+                        </span>
+                    )}
                 </span>
                 <div className="av-preview-header-title-wrap">
                     <h1 className="av-preview-header-title">{album?.name || 'Album'}</h1>
