@@ -17,6 +17,8 @@ import {
     getProductNavItems,
     isProductActive,
 } from '../lib/products';
+import ClientGalleryNotifications from './features/ClientGallery/ClientGalleryNotifications';
+import { userStorageService } from '../services/userStorage.service';
 import brandPng from '../assets/icons/client gallery.png';
 import smartAlbumPng from '../assets/icons/smart album.png';
 import dashboardPng from '../assets/icons/dashboard.png';
@@ -98,6 +100,10 @@ const SidebarLayout = ({ children, productId = 'client-gallery', headerActions =
             <span className="w-10 h-10 rounded-[10px] bg-[#1A1A1A] text-white flex items-center justify-center font-bold text-sm shrink-0 uppercase">{userInitial}</span>
         );
 
+    const [realStorageBytes, setRealStorageBytes] = useState(() => {
+        return userStorageService.getCachedStorageBytes(user?.id);
+    });
+
     useEffect(() => {
         if (!user?.id) {
             setProfile(null);
@@ -127,7 +133,19 @@ const SidebarLayout = ({ children, productId = 'client-gallery', headerActions =
             .catch((err) => console.error('Error loading photographer profile:', err));
     }, [user?.id]);
 
-    const usedBytes = profile?.storage_used_bytes || 0;
+    useEffect(() => {
+        if (!user?.id) return;
+        userStorageService
+            .calculateUserStorageBytes(user, profile)
+            .then((bytes) => {
+                if (typeof bytes === 'number' && bytes >= 0) {
+                    setRealStorageBytes(bytes);
+                }
+            })
+            .catch((err) => console.error('Error calculating real storage:', err));
+    }, [user, profile?.display_name, profile?.email]);
+
+    const usedBytes = realStorageBytes || profile?.storage_used_bytes || 0;
     const limitBytes = profile?.storage_limit_bytes;
 
     const formatStorage = (bytes) => {
@@ -351,11 +369,13 @@ const SidebarLayout = ({ children, productId = 'client-gallery', headerActions =
                             </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                            {headerActions || (
+                            {headerActions || (productId === 'client-gallery' ? (
+                                <ClientGalleryNotifications userId={user?.id} variant="sidebar" />
+                            ) : (
                                 <button type="button" className="neu-circle relative inline-flex size-8 items-center justify-center rounded-full text-[#71717A] hover:text-[#1A1A1A]" aria-label="Notifications">
                                     <Bell className="size-4" />
                                 </button>
-                            )}
+                            ))}
                             <AppSwitcherMenu />
                         </div>
                     </div>

@@ -102,6 +102,8 @@ const CollectionDashboard = () => {
     const location = useLocation();
     const [searchParams] = useSearchParams();
     const collectionId = searchParams.get('id');
+    const activityTabParam = searchParams.get('tab');
+    const activitySubParam = searchParams.get('activity');
     const { user } = useAuth();
     const photosGridRef = useRef(null);
     const pendingUploadScrollRef = useRef(false);
@@ -371,6 +373,17 @@ const CollectionDashboard = () => {
 
     // TAB STATES
     const [activeSidebarTab, setActiveSidebarTab] = useState('photos'); // photos, design, settings, activity
+    const [activeActivitySubTab, setActiveActivitySubTab] = useState('download'); // download, favorite, store, email, share, private
+
+    useEffect(() => {
+        if (activityTabParam === 'activity') {
+            setActiveSidebarTab('activity');
+            const allowed = new Set(['download', 'favorite', 'store', 'email', 'share', 'private']);
+            if (activitySubParam && allowed.has(activitySubParam)) {
+                setActiveActivitySubTab(activitySubParam);
+            }
+        }
+    }, [activityTabParam, activitySubParam, collectionId]);
     const [activeDesignTab, setActiveDesignTab] = useState('cover'); // cover, typography, color, grid
     const [selectedCoverStyle, setSelectedCoverStyle] = useState('novel');
     const [selectedFont, setSelectedFont] = useState('sans');
@@ -549,7 +562,6 @@ const CollectionDashboard = () => {
     };
 
     // Activity State
-    const [activeActivitySubTab, setActiveActivitySubTab] = useState('download'); // download, favorite, store, email, share, private
     const [activeDownloadActivityTab, setActiveDownloadActivityTab] = useState('gallery'); // gallery, photo, video
     const [activeActivityMenu, setActiveActivityMenu] = useState(null); // id of activity item
     const [selectedDownloadId, setSelectedDownloadId] = useState(null);
