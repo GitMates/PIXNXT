@@ -36,6 +36,7 @@ import '../components/features/CollectionDashboard/GuestDeliveryQrModal.css';
 import { guestDeliveryService } from '../services/guestDelivery.service';
 import { guestDeliveryPublishService } from '../services/guestDeliveryPublish.service';
 import EventGuestsPanel from '../components/guest-delivery/EventGuestsPanel';
+import '../pages/guest-delivery/GuestDelivery.css';
 import { sortDashboardPhotos } from '../utils/sortDashboardPhotos';
 import { clientGalleryEmailTemplatesService } from '../services/clientGalleryEmailTemplates.service';
 import { COVER_IMAGE_ACCEPT, MEDIA_FILE_INPUT_ACCEPT, pickMediaFilesOrFallback } from '../lib/mediaFilePicker';
@@ -3773,12 +3774,6 @@ const CollectionDashboard = () => {
                         )}
                     </div>
 
-                        {activeSidebarTab === 'guests' && collection?.guest_delivery_enabled && gdEvent && (
-                            <div className="cd-sidebar-guests-section" style={{ padding: '16px 12px', overflowY: 'auto', flex: 1 }}>
-                                <EventGuestsPanel event={gdEvent} photographerId={user?.id} onGuestCountChange={setGdGuestCount} />
-                            </div>
-                        )}
-
                     {/* Bottom Collapse Toggle */}
                     <div className="cd-sidebar-bottom-action">
                         <button
@@ -4340,6 +4335,20 @@ const CollectionDashboard = () => {
                             setSelectedFavoriteListId={setSelectedFavoriteListId}
                             sortedFavoriteActivity={sortedFavoriteActivity}
                         />
+                        )}
+
+                        {activeSidebarTab === 'guests' && collection?.guest_delivery_enabled && (
+                            <div className="cd-guests-main">
+                                {gdEvent ? (
+                                    <EventGuestsPanel
+                                        event={gdEvent}
+                                        photographerId={user?.id}
+                                        onGuestCountChange={setGdGuestCount}
+                                    />
+                                ) : (
+                                    <p className="gd-muted">Loading guest delivery…</p>
+                                )}
+                            </div>
                         )}
                     </main>
 
