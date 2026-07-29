@@ -192,6 +192,13 @@
   font-family: system-ui, -apple-system, sans-serif;
 }
 
+.av-preview-header-brand-placeholder {
+  display: inline-block;
+  width: 120px;
+  height: 28px;
+  flex-shrink: 0;
+}
+
 .av-preview-header-btn {
   display: flex;
   align-items: center;

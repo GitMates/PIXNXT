@@ -1,12 +1,15 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import AlbumBook from '../AlbumBook';
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { pageToSpreadIndex } from '../albumSpreadUtils';
 import useAlbumBookLayoutDims from '../useAlbumBookLayoutDims';
 import BookCover3DView from './BookCover3DView';
 import './AlbumHybrid3DPreview.css';
 
+const AlbumBook = lazy(() => import('../AlbumBook'));
+
 const FLIP_TIME_MS = 900;
 const COVER_MOVE_MS = 480;
+/** Give the 3D cover first paint before mounting the heavy 2D flipbook. */
+const DEFER_BOOK_MS = 400;
 
 /** 3D front cover; inner spreads use the 2D flipbook without leaving preview mode. */
 export default function AlbumHybrid3DPreview({
@@ -50,6 +53,9 @@ export default function AlbumHybrid3DPreview({
     const onCover = spreadIndex <= 0;
     const openingRef = useRef(false);
     const closingRef = useRef(false);
+    const coverIntroDoneRef = useRef(!onCover);
+    const [coverIntroPending, setCoverIntroPending] = useState(onCover);
+    const [mountFlipbook, setMountFlipbook] = useState(!onCover);
     const [phase, setPhase] = useState(() => (onCover ? 'cover' : 'book'));
     const [coverAtSpread, setCoverAtSpread] = useState(false);
     const [coverHandoff, setCoverHandoff] = useState(false);
@@ -65,7 +71,14 @@ export default function AlbumHybrid3DPreview({
     useEffect(() => {
         if (openingRef.current || closingRef.current) return;
         setPhase(onCover ? 'cover' : 'book');
+        if (!onCover) setMountFlipbook(true);
     }, [onCover]);
+
+    useEffect(() => {
+        if (mountFlipbook || phase !== 'cover') return undefined;
+        const timer = window.setTimeout(() => setMountFlipbook(true), DEFER_BOOK_MS);
+        return () => window.clearTimeout(timer);
+    }, [mountFlipbook, phase]);
 
     useEffect(
         () => () => {
@@ -97,11 +110,17 @@ export default function AlbumHybrid3DPreview({
         closingAnimateRef.current = false;
     }, []);
 
+    const handleCoverIntroComplete = useCallback(() => {
+        coverIntroDoneRef.current = true;
+        setCoverIntroPending(false);
+    }, []);
+
     const openBook = useCallback(() => {
         if (openingRef.current || closingRef.current || phase !== 'cover') return;
         openingRef.current = true;
         closingAnimateRef.current = false;
         resetCoverMotion();
+        setMountFlipbook(true);
         setPhase('opening');
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
@@ -169,7 +188,7 @@ export default function AlbumHybrid3DPreview({
     }, [phase]);
 
     useEffect(() => {
-        if (phase !== 'cover') return undefined;
+        if (phase !== 'cover' || coverIntroPending) return undefined;
         const onKey = (e) => {
             if (e.key === 'ArrowRight' || e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
@@ -178,7 +197,7 @@ export default function AlbumHybrid3DPreview({
         };
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
-    }, [openBook, phase]);
+    }, [coverIntroPending, openBook, phase]);
 
     useEffect(() => {
         if (phase !== 'opening' && phase !== 'closing') return undefined;
@@ -212,6 +231,9 @@ export default function AlbumHybrid3DPreview({
         .filter(Boolean)
         .join(' ');
 
+    const playCoverIntro =
+        phase === 'cover' && coverIntroPending && !coverIntroDoneRef.current;
+
     const coverLayerStyle =
         coverShiftPx != null
             ? { '--ab-cover-shift-x': `${coverShiftPx}px` }
@@ -242,7 +264,9 @@ export default function AlbumHybrid3DPreview({
                     album={album}
                     totalPages={totalPages}
                     showSamples={showSamples}
-                    onCoverOpen={phase === 'cover' ? openBook : undefined}
+                    onCoverOpen={phase === 'cover' && !playCoverIntro ? openBook : undefined}
+                    playIntroAnimation={playCoverIntro}
+                    onCoverIntroComplete={handleCoverIntroComplete}
                 />
             </div>
 
@@ -253,21 +277,25 @@ export default function AlbumHybrid3DPreview({
                 }`}
                 aria-hidden={!bookVisible}
             >
-                <AlbumBook
-                    key={`${album?.id ?? 'album'}-hybrid-book-r${photoRevision}`}
-                    {...albumBookProps}
-                    album={album}
-                    totalPages={totalPages}
-                    initialPage={bookPage}
-                    onPageChange={onPageChange}
-                    external3DCover
-                    coverRevealFrom3D={phase === 'opening'}
-                    coverRevealDelayMs={COVER_MOVE_MS}
-                    coverHideTo3D={phase === 'closing'}
-                    onCoverRevealFrom3DComplete={handleCoverRevealFrom3DComplete}
-                    onCoverHideTo3DStart={handleCoverHideTo3DStart}
-                    onExternalCoverRequest={handleCoverHideFlipComplete}
-                />
+                {mountFlipbook ? (
+                    <Suspense fallback={null}>
+                        <AlbumBook
+                            key={`${album?.id ?? 'album'}-hybrid-book-r${photoRevision}`}
+                            {...albumBookProps}
+                            album={album}
+                            totalPages={totalPages}
+                            initialPage={bookPage}
+                            onPageChange={onPageChange}
+                            external3DCover
+                            coverRevealFrom3D={phase === 'opening'}
+                            coverRevealDelayMs={COVER_MOVE_MS}
+                            coverHideTo3D={phase === 'closing'}
+                            onCoverRevealFrom3DComplete={handleCoverRevealFrom3DComplete}
+                            onCoverHideTo3DStart={handleCoverHideTo3DStart}
+                            onExternalCoverRequest={handleCoverHideFlipComplete}
+                        />
+                    </Suspense>
+                ) : null}
             </div>
         </div>
     );

@@ -49,6 +49,11 @@
   transition: none !important;
 }
 
+.ab-hybrid-3d-cover-layer--boot {
+  opacity: 0;
+  pointer-events: none;
+}
+
 .ab-hybrid-3d-cover-layer--handoff {
   opacity: 0;
   pointer-events: none;

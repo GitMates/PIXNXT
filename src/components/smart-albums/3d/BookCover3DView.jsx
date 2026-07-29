@@ -1,7 +1,10 @@
 import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import BookScene from './BookScene';
 import useAlbumBookLayoutDims from '../useAlbumBookLayoutDims';
-import { pagePxToBook3dWorld } from '../albumBookDimensions';
+import {
+    getFallbackBookDimensions,
+    pagePxToBook3dWorld,
+} from '../albumBookDimensions';
 import '../AlbumBook.css';
 import './BookCover3DView.css';
 
@@ -11,6 +14,8 @@ export default function BookCover3DView({
     totalPages,
     showSamples = false,
     onCoverOpen,
+    playIntroAnimation = false,
+    onCoverIntroComplete,
 }) {
     const shellRef = useRef(null);
     const stageRef = useRef(null);
@@ -42,13 +47,19 @@ export default function BookCover3DView({
     }, []);
 
     const pageWorldDims = useMemo(() => {
-        if (!pageLayoutDims || !shellHeight) return null;
+        const layoutDims =
+            pageLayoutDims ?? getFallbackBookDimensions(shellRef.current, album?.grid_size);
+        const canvasHeight =
+            shellHeight ||
+            shellRef.current?.clientHeight ||
+            Math.max(360, window.innerHeight - 280);
+        if (!layoutDims || !canvasHeight) return null;
         return pagePxToBook3dWorld(
-            pageLayoutDims.width,
-            pageLayoutDims.height,
-            shellHeight
+            layoutDims.width,
+            layoutDims.height,
+            canvasHeight
         );
-    }, [pageLayoutDims, shellHeight]);
+    }, [album?.grid_size, pageLayoutDims, shellHeight]);
 
     useLayoutEffect(() => {
         if (pageWorldDims) {
@@ -76,6 +87,8 @@ export default function BookCover3DView({
                             showSamples={showSamples}
                             pageWorldDims={resolvedPageWorldDims}
                             onCoverOpen={onCoverOpen}
+                            playIntroAnimation={playIntroAnimation}
+                            onIntroComplete={onCoverIntroComplete}
                         />
                     </div>
                 </div>

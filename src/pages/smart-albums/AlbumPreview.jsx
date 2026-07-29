@@ -160,6 +160,13 @@ export default function AlbumPreview({
     const [profileIconUrl, setProfileIconUrl] = useState(
         () => album?.preview_data?.profile_icon_url?.trim() || ''
     );
+    const [profileBrandResolved, setProfileBrandResolved] = useState(
+        () =>
+            Boolean(
+                album?.preview_data?.profile_icon_url?.trim() ||
+                    album?.preview_data?.business_name?.trim()
+            )
+    );
 
     const hasUnsubmittedComments = useMemo(() => {
         if (!clientPreview || !albumId) return false;
@@ -246,10 +253,19 @@ export default function AlbumPreview({
         const fromSnapshotIcon = album?.preview_data?.profile_icon_url?.trim();
         if (fromSnapshotName) setBusinessName(fromSnapshotName);
         if (fromSnapshotIcon) setProfileIconUrl(fromSnapshotIcon);
-        if (fromSnapshotName && fromSnapshotIcon) return undefined;
+        if (fromSnapshotName && fromSnapshotIcon) {
+            setProfileBrandResolved(true);
+            return undefined;
+        }
+        if (fromSnapshotIcon) {
+            setProfileBrandResolved(true);
+        }
 
         const photographerId = album?.photographer_id;
-        if (!photographerId) return undefined;
+        if (!photographerId) {
+            setProfileBrandResolved(true);
+            return undefined;
+        }
 
         let cancelled = false;
         galleryService
@@ -267,7 +283,10 @@ export default function AlbumPreview({
                     setProfileIconUrl(profile.profile_icon_url.trim());
                 }
             })
-            .catch(() => {});
+            .catch(() => {})
+            .finally(() => {
+                if (!cancelled) setProfileBrandResolved(true);
+            });
 
         return () => {
             cancelled = true;
@@ -277,6 +296,13 @@ export default function AlbumPreview({
         album?.preview_data?.business_name,
         album?.preview_data?.profile_icon_url,
     ]);
+
+    useEffect(() => {
+        if (!profileIconUrl) return undefined;
+        const img = new Image();
+        img.src = profileIconUrl;
+        return undefined;
+    }, [profileIconUrl]);
 
     const loadSpreadComments = useCallback(async () => {
         if (!albumId || !commentsEnabled) return;
@@ -531,13 +557,15 @@ export default function AlbumPreview({
                     {profileIconUrl ? (
                         <img
                             src={profileIconUrl}
-                            alt="Profile Icon"
+                            alt={businessName || 'Studio logo'}
                             className="av-preview-header-brand-icon"
                         />
-                    ) : (
+                    ) : profileBrandResolved && businessName ? (
                         <span className="av-preview-header-brand-fallback">
-                            {(businessName || 'K')[0].toUpperCase()}
+                            {businessName[0].toUpperCase()}
                         </span>
+                    ) : (
+                        <span className="av-preview-header-brand-placeholder" aria-hidden />
                     )}
                 </span>
                 <div className="av-preview-header-title-wrap">
