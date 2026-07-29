@@ -52,30 +52,37 @@ export async function analyzeImageBytes(imageBytes, options = {}) {
 
   const client = getClient();
 
-  const labelsPromise = client.send(
-    new DetectLabelsCommand({
-      Image: { Bytes: imageBytes },
-      MaxLabels: 25,
-      MinConfidence: 70,
-    })
-  );
-
+  let labelsResult;
   let facesResult = null;
+
   if (indexFaces) {
     await ensureCollection(client, collectionId);
-    facesResult = await client.send(
-      new IndexFacesCommand({
+    const [labelsRes, facesRes] = await Promise.allSettled([
+      client.send(new DetectLabelsCommand({
+        Image: { Bytes: imageBytes },
+        MaxLabels: 25,
+        MinConfidence: 70,
+      })),
+      client.send(new IndexFacesCommand({
         CollectionId: collectionId,
         Image: { Bytes: imageBytes },
         ExternalImageId: String(externalImageId).slice(0, 255),
         DetectionAttributes: ['DEFAULT'],
         MaxFaces: 20,
         QualityFilter: 'AUTO',
-      })
-    );
+      })),
+    ]);
+    if (facesRes.status === 'rejected') throw facesRes.reason;
+    if (labelsRes.status === 'rejected') throw labelsRes.reason;
+    labelsResult = labelsRes.value;
+    facesResult = facesRes.value;
+  } else {
+    labelsResult = await client.send(new DetectLabelsCommand({
+      Image: { Bytes: imageBytes },
+      MaxLabels: 25,
+      MinConfidence: 70,
+    }));
   }
-
-  const labelsResult = await labelsPromise;
 
   return {
     collectionId: indexFaces ? collectionId : null,

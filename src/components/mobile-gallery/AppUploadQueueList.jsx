@@ -12,6 +12,7 @@ const AppUploadQueueList = ({
   onUploadMore,
   onManageApp,
   uploading,
+  manageLabel = 'Manage Gallery App',
 }) => {
   const allDone = items.length > 0 && items.every((i) => i.status === 'done' || i.status === 'error');
 
@@ -39,7 +40,7 @@ const AppUploadQueueList = ({
             Upload More
           </button>
           <button type="button" className="mg-btn-primary neu-pill" onClick={onManageApp}>
-            Manage Gallery App
+            {manageLabel}
           </button>
         </div>
       )}

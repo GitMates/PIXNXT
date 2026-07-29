@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard';
 import ClientGallery from './pages/ClientGallery';
 import SmartAlbums from './pages/smart-albums';
 import MobileGallery from './pages/mobile-gallery';
+import GuestDelivery from './pages/guest-delivery';
 import PixnxtPortal from './pages/portal';
 import CreateCollection from './pages/CreateCollection';
 import CreateFolder from './pages/CreateFolder';
@@ -27,6 +28,8 @@ import GalleryView from './pages/public/GalleryView';
 import GalleryFavoritesHub from './pages/public/GalleryFavoritesHub';
 import MobileGalleryInstall from './pages/public/MobileGalleryInstall';
 import MobileGalleryClient from './pages/public/MobileGalleryClient';
+import EventGuestRegister from './pages/public/EventGuestRegister';
+import EventGuestGallery from './pages/public/EventGuestGallery';
 import PublicAlbumPreview from './pages/smart-albums/PublicAlbumPreview';
 import AdminLayout from './components/admin/AdminLayout';
 import AdminLogin from './pages/admin/AdminLogin';
@@ -34,14 +37,14 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminUserManagement from './pages/admin/AdminUserManagement';
 import { AdminProtectedRoute } from './components/admin/AdminProtectedRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { UploadQueueProvider, UploadQueueRouteSync } from './contexts/UploadQueueContext';
+import { UploadQueueProvider, UploadQueueRouteSync } from './contexts/uploadQueue';
+import { GlobalUploadShell } from './components/features/CollectionDashboard/Upload/GlobalUploadShell';
 import PrintStoreApp from './printstore/PrintStoreApp';
 import LabApp from './printstore/lab/LabApp';
 import PhotographerApp from './printstore/photographer/PhotographerApp';
 import StoreDashboard from './pages/StoreDashboard';
 import RekognitionTest from './pages/dev/RekognitionTest';
 import WatermarkEditor from './pages/WatermarkEditor';
-import { GlobalUploadShell } from './components/features/CollectionDashboard/Upload/GlobalUploadShell';
 import EmailTemplateEditor from './pages/EmailTemplateEditor';
 import { CustomDomainGalleryApp } from './components/CustomDomainGalleryApp';
 import { isPlatformHost, normalizeHost } from './lib/customDomain';
@@ -57,6 +60,24 @@ function MobileGalleryPublicRoutes() {
       <Route path="/m/:slug/pwa" element={<MobileGalleryClient />} />
       <Route path="/m/:slug/view" element={<MobileGalleryViewRedirect />} />
       <Route path="/m/:slug" element={<MobileGalleryInstall />} />
+    </Routes>
+  );
+}
+
+function GuestDeliveryPublicRoutes() {
+  return (
+    <Routes>
+      <Route path="/e/:slug/register" element={<EventGuestRegister />} />
+      <Route path="/e/:slug/g/:token" element={<EventGuestGallery />} />
+      <Route
+        path="/e/*"
+        element={
+          <div style={{ padding: '48px 24px', textAlign: 'center', fontFamily: 'system-ui, sans-serif' }}>
+            <h1 style={{ fontSize: 20, marginBottom: 8 }}>Link not found</h1>
+            <p style={{ color: '#666' }}>This guest delivery link is invalid or incomplete.</p>
+          </div>
+        }
+      />
     </Routes>
   );
 }
@@ -100,7 +121,7 @@ function App() {
 
   useEffect(() => {
     const isDark = localStorage.getItem('themeMode') === 'dark';
-    if (location.pathname === '/') {
+    if (location.pathname === '/' || location.pathname.startsWith('/e/')) {
       document.body.classList.remove('dark-theme');
     } else if (isDark) {
       document.body.classList.add('dark-theme');
@@ -115,6 +136,7 @@ function App() {
     location.pathname === '/client-gallery' ||
     location.pathname.startsWith('/smart-albums') ||
     location.pathname.startsWith('/mobile-gallery') ||
+    location.pathname.startsWith('/guest-delivery') ||
     location.pathname.startsWith('/portal') ||
     location.pathname.startsWith('/folders/') ||
     location.pathname === '/collections/create' ||
@@ -130,6 +152,7 @@ function App() {
     location.pathname === '/collections' ||
     location.pathname.startsWith('/gallery/') ||
     location.pathname.startsWith('/m/') ||
+    location.pathname.startsWith('/e/') ||
     location.pathname.startsWith('/album-preview/') ||
     location.pathname.startsWith('/admin') ||
     location.pathname.startsWith('/printstore') ||
@@ -147,6 +170,14 @@ function App() {
           <MobileGalleryPublicRoutes />
         </div>
       </UploadQueueProvider>
+    );
+  }
+
+  if (location.pathname.startsWith('/e/')) {
+    return (
+      <div className="app app--guest-register">
+        <GuestDeliveryPublicRoutes />
+      </div>
     );
   }
 
@@ -197,6 +228,7 @@ function App() {
           <Route path="/client-gallery" element={<ClientGallery />} />
           <Route path="/smart-albums/*" element={<ProtectedRoute><SmartAlbums /></ProtectedRoute>} />
           <Route path="/mobile-gallery/*" element={<ProtectedRoute><MobileGallery /></ProtectedRoute>} />
+          <Route path="/guest-delivery/*" element={<ProtectedRoute><GuestDelivery /></ProtectedRoute>} />
           <Route path="/portal/*" element={<ProtectedRoute><PixnxtPortal /></ProtectedRoute>} />
           <Route path="/photos" element={<ProtectedRoute><PhotoLibrary /></ProtectedRoute>} />
           <Route path="/starred" element={<ProtectedRoute><Navigate to="/starred/collections" replace /></ProtectedRoute>} />

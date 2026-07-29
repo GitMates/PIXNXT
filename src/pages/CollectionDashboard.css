@@ -6071,6 +6071,20 @@
     background-color: #fafafa;
 }
 
+.cd-guests-main {
+    padding: 28px 40px 48px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.cd-guests-main .gd-panel {
+    max-width: 100%;
+}
+
+.cd-guests-main .gd-guest-table-wrap {
+    width: 100%;
+}
+
 
 
 

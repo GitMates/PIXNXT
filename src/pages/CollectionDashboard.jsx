@@ -31,6 +31,12 @@ import { exportFavoriteListExcel } from '../lib/favoriteListExport';
 import { openSpaPath } from '../lib/spaNavigation';
 import { openShareByEmail, openWhatsAppShare, getCollectionShareUrl, getQrCodeImageUrl } from '../lib/shareCollection';
 import { CollectionQrModal, CollectionDuplicateModal } from '../components/features/ClientGallery/CollectionShareModals';
+import { GuestDeliveryQrModal } from '../components/features/CollectionDashboard/GuestDeliveryQrModal';
+import '../components/features/CollectionDashboard/GuestDeliveryQrModal.css';
+import { guestDeliveryService } from '../services/guestDelivery.service';
+import { guestDeliveryPublishService } from '../services/guestDeliveryPublish.service';
+import EventGuestsPanel from '../components/guest-delivery/EventGuestsPanel';
+import '../pages/guest-delivery/GuestDelivery.css';
 import { sortDashboardPhotos } from '../utils/sortDashboardPhotos';
 import { normalizeGalleryPhotoSort } from '../lib/galleryPhotoSort';
 import { clientGalleryEmailTemplatesService } from '../services/clientGalleryEmailTemplates.service';
@@ -202,6 +208,10 @@ const CollectionDashboard = () => {
     const [selfieMessage, setSelfieMessage] = useState('');
   const [photoAiTableMissing, setPhotoAiTableMissing] = useState(false);
   const [photoAiIndexing, setPhotoAiIndexing] = useState(false);
+    const [showGdQrModal, setShowGdQrModal] = useState(false);
+    const [gdEvent, setGdEvent] = useState(null);
+    const [gdGuestCount, setGdGuestCount] = useState(0);
+    const [gdPublishing, setGdPublishing] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [photosToDelete, setPhotosToDelete] = useState([]);
     const [showSelectionMore, setShowSelectionMore] = useState(false);
@@ -1411,6 +1421,58 @@ const CollectionDashboard = () => {
         }
     };
 
+    const handlePublishGuestDelivery = async () => {
+        if (!gdEvent) return;
+        if (!window.confirm('This will run face matching on all collection photos and match them to registered guests, then send delivery emails. Continue?')) return;
+        try {
+            setGdPublishing(true);
+            const result = await guestDeliveryPublishService.publishEvent(gdEvent.id);
+            setGdEvent((prev) => prev ? { ...prev, ...result.event, status: 'published' } : prev);
+
+            const matchedGuests = (result.guests || []).filter((g) => g.ok && g.matched);
+            const emailErrors = [];
+
+            if (matchedGuests.length) {
+                for (const entry of matchedGuests) {
+                    try {
+                        await guestDeliveryPublishService.sendDeliveryEmail({
+                            eventId: gdEvent.id,
+                            guestId: entry.guestId,
+                        });
+                    } catch (err) {
+                        console.error(err);
+                        emailErrors.push(err?.message || 'Email failed');
+                    }
+                }
+            }
+
+            const { summary } = result;
+            let message = `Guest Delivery published!\n\n` +
+                `Photos indexed: ${summary.photosIndexed}\n` +
+                `Guests matched: ${summary.guestsMatched}\n` +
+                `No matches: ${summary.guestsNoMatch}\n` +
+                `Failed: ${summary.guestsFailed}`;
+
+            if (matchedGuests.length) {
+                message += emailErrors.length
+                    ? `\n\nEmails sent with ${emailErrors.length} error(s).`
+                    : '\n\nDelivery emails sent successfully.';
+            } else {
+                message += '\n\nNo delivery emails sent (no matches).';
+            }
+
+            if (emailErrors.length) {
+                message += `\n\nEmail error: ${emailErrors[0]}`;
+            }
+
+            alert(message);
+        } catch (err) {
+            alert(`Publish failed: ${err.message}`);
+        } finally {
+            setGdPublishing(false);
+        }
+    };
+
     const handleSaveExpiryEmail = async () => {
         try {
             setSaving(true);
@@ -1980,6 +2042,18 @@ const CollectionDashboard = () => {
     useEffect(() => {
         clearMediaUrlCache();
     }, [collectionId]);
+
+    useEffect(() => {
+        if (!collectionId || !collection?.guest_delivery_enabled) {
+            setGdEvent(null);
+            return;
+        }
+        let cancelled = false;
+        guestDeliveryService.getEventByCollectionId(collectionId).then((ev) => {
+            if (!cancelled) setGdEvent(ev);
+        }).catch(() => {});
+        return () => { cancelled = true; };
+    }, [collectionId, collection?.guest_delivery_enabled]);
 
     useEffect(() => {
         if (!collectionId) {
@@ -3431,6 +3505,15 @@ const CollectionDashboard = () => {
                             </div>
                         )}
                     </div>
+                    {collection?.guest_delivery_enabled && (
+                        <button
+                            className="cd-text-btn cd-gd-qr-btn"
+                            title="Guest Delivery QR"
+                            onClick={() => setShowGdQrModal(true)}
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="3" height="3"/><line x1="21" y1="14" x2="21" y2="14.01"/><line x1="21" y1="21" x2="21" y2="21.01"/><line x1="17" y1="21" x2="17" y2="21.01"/></svg>
+                        </button>
+                    )}
                     <button
                         className="cd-text-btn"
                         onClick={() => {
@@ -3501,6 +3584,15 @@ const CollectionDashboard = () => {
                             </div>
                         )}
                     </div>
+                    {collection?.guest_delivery_enabled && gdEvent && (
+                        <button
+                            className="cd-text-btn cd-gd-publish-btn"
+                            disabled={gdPublishing}
+                            onClick={handlePublishGuestDelivery}
+                        >
+                            {gdPublishing ? 'Publishing…' : 'Publish Guest Delivery'}
+                        </button>
+                    )}
                 </div>
             </header>
 
@@ -3547,6 +3639,15 @@ const CollectionDashboard = () => {
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 11a9 9 0 0 1 9 9"></path><path d="M4 4a16 16 0 0 1 16 16"></path><circle cx="5" cy="19" r="1"></circle></svg>
                             </button>
+                            {collection?.guest_delivery_enabled && (
+                                <button
+                                    className={`cd-icon-bar-btn ${activeSidebarTab === 'guests' ? 'active' : ''}`}
+                                    title="Guests"
+                                    onClick={() => setActiveSidebarTab('guests')}
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                                </button>
+                            )}
                         </div>
 
                         {activeSidebarTab === 'photos' && (
@@ -4293,6 +4394,20 @@ const CollectionDashboard = () => {
                             sortedFavoriteActivity={sortedFavoriteActivity}
                         />
                         )}
+
+                        {activeSidebarTab === 'guests' && collection?.guest_delivery_enabled && (
+                            <div className="cd-guests-main">
+                                {gdEvent ? (
+                                    <EventGuestsPanel
+                                        event={gdEvent}
+                                        photographerId={user?.id}
+                                        onGuestCountChange={setGdGuestCount}
+                                    />
+                                ) : (
+                                    <p className="gd-muted">Loading guest delivery…</p>
+                                )}
+                            </div>
+                        )}
                     </main>
 
                     {/* Multi-Selection Toolbar */}
@@ -4844,6 +4959,13 @@ const CollectionDashboard = () => {
                 isOpen={showQrCodeModal}
                 onClose={() => setShowQrCodeModal(false)}
             />
+
+            {showGdQrModal && collection?.guest_delivery_enabled && gdEvent && (
+                <GuestDeliveryQrModal
+                    slug={gdEvent.slug}
+                    onClose={() => setShowGdQrModal(false)}
+                />
+            )}
 
             {/* Email History Modal */}
             {showEmailHistoryModal && (

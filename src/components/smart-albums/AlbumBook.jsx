@@ -74,8 +74,6 @@ import OverviewLeatherCover from './OverviewLeatherCover';
 import OverviewSortableGrid from './OverviewSortableGrid';
 import AlbumFocusView from './AlbumFocusView';
 
-export { getSpreadPages, getTotalSpreads, pageToSpreadIndex, spreadIndexToPage } from './albumSpreadUtils';
-
 const FLIP_TIME_MS = 900;
 const FLIP_CORNER = 'bottom';
 const BOOK_PAGE_HEIGHT_MIN = 300;
