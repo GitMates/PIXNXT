@@ -221,6 +221,17 @@
   object-fit: cover;
 }
 
+.ab-book-wrap-segment-fill {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.ab-book-wrap-segment-img {
+  object-fit: fill !important;
+}
+
 .ab-cover-edit-hint {
   position: absolute;
   bottom: 10px;

@@ -6,6 +6,9 @@ const imageCache = new Map();
 const pending = new Map();
 const dataUrlCache = new Map();
 
+/** Cap decode size so huge print wraps (e.g. 12×44) don't stall the cover editor. */
+const MAX_DECODE_EDGE = 2400;
+
 function loadImage(src) {
     const url = getProxiedMediaFetchUrl(src);
     const cached = imageCache.get(url);
@@ -24,7 +27,10 @@ function loadImage(src) {
             pending.delete(url);
             resolve(img);
         };
-        img.onerror = reject;
+        img.onerror = (err) => {
+            pending.delete(url);
+            reject(err);
+        };
         img.src = url;
     });
     pending.set(url, promise);
@@ -89,6 +95,29 @@ export function drawWrapSegment(ctx, img, texW, texH, layout, side, transform) {
     ctx.restore();
 }
 
+/**
+ * Downscale huge wrap bitmaps before slicing so toDataURL stays snappy.
+ * Returns the original image when already within the decode budget.
+ */
+function maybeDownscaleImage(img) {
+    const w = img.naturalWidth || img.width;
+    const h = img.naturalHeight || img.height;
+    if (!(w > 0 && h > 0)) return img;
+    const edge = Math.max(w, h);
+    if (edge <= MAX_DECODE_EDGE) return img;
+
+    const scale = MAX_DECODE_EDGE / edge;
+    const outW = Math.max(1, Math.round(w * scale));
+    const outH = Math.max(1, Math.round(h * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = outW;
+    canvas.height = outH;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return img;
+    ctx.drawImage(img, 0, 0, outW, outH);
+    return canvas;
+}
+
 export async function renderWrapSegmentDataUrl(
     src,
     layout,
@@ -104,13 +133,15 @@ export async function renderWrapSegmentDataUrl(
     if (cached) return cached;
 
     try {
-        const img = await loadImage(src);
+        const raw = await loadImage(src);
+        const drawSrc = maybeDownscaleImage(raw);
         const canvas = document.createElement('canvas');
         canvas.width = Math.round(width);
         canvas.height = Math.round(height);
         const ctx = canvas.getContext('2d');
-        drawWrapSegment(ctx, img, canvas.width, canvas.height, layout, side, transform);
-        const url = canvas.toDataURL('image/png');
+        drawWrapSegment(ctx, drawSrc, canvas.width, canvas.height, layout, side, transform);
+        // JPEG is much faster than PNG for large cover panels.
+        const url = canvas.toDataURL('image/jpeg', 0.82);
         dataUrlCache.set(key, url);
         return url;
     } catch {
@@ -118,6 +149,26 @@ export async function renderWrapSegmentDataUrl(
     }
 }
 
-export function clearWrapSegmentCache() {
-    dataUrlCache.clear();
+export function clearWrapSegmentCache(srcPrefix = null) {
+    if (!srcPrefix) {
+        dataUrlCache.clear();
+        return;
+    }
+    for (const key of dataUrlCache.keys()) {
+        if (String(key).startsWith(String(srcPrefix))) {
+            dataUrlCache.delete(key);
+        }
+    }
+}
+
+/** Drop decoded bitmaps so a replaced cover is not served from stale cache. */
+export function clearWrapImageCache(src = null) {
+    if (!src) {
+        imageCache.clear();
+        pending.clear();
+        return;
+    }
+    const url = getProxiedMediaFetchUrl(src);
+    imageCache.delete(url);
+    pending.delete(url);
 }

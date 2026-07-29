@@ -15,7 +15,7 @@ import {
 } from './albumSpineSettings';
 import { parseGridSizeAspect } from './albumGridSize';
 import BookWrapSpineImage from './BookWrapSpineImage';
-import { COVER_TEXT_CHANGED_EVENT, resolveFrontCoverDisplayText } from './albumCoverText';
+import { COVER_TEXT_CHANGED_EVENT, getAlbumCoverText, resolveFrontCoverDisplayText } from './albumCoverText';
 import {
     COVER_COLOR_CHANGED_EVENT,
     getAlbumCoverColor,
@@ -182,8 +182,12 @@ export default function AlbumCoverEditView({
 
     const coverText = useMemo(() => {
         void coverTextTick;
+        // Never overlay album-title fallback while a cover photo is showing.
+        if (resolveBookWrapSpreadSrc(album, { showSamples: false })) {
+            return getAlbumCoverText(albumId) || '';
+        }
         return resolveFrontCoverDisplayText(album, albumId);
-    }, [album, albumId, coverTextTick]);
+    }, [album, albumId, coverTextTick, photoRevision]);
 
     const isBlankCoverAlbum = album?.blank_covers === true;
     const showLeatherCover = isBlankCoverAlbum && !src;
@@ -463,6 +467,7 @@ export default function AlbumCoverEditView({
                     >
                         {src ? (
                             <BookWrapSpineImage
+                                key={`wrap-back:${src}`}
                                 src={src}
                                 side="back"
                                 layout={spineLayout}
@@ -483,6 +488,7 @@ export default function AlbumCoverEditView({
                     >
                         {src ? (
                             <BookWrapSpineImage
+                                key={`wrap-gap-before:${src}`}
                                 src={src}
                                 side="spine-gap-before"
                                 layout={spineLayout}
@@ -506,6 +512,7 @@ export default function AlbumCoverEditView({
                         >
                             {src ? (
                                 <BookWrapSpineImage
+                                    key={`wrap-spine:${src}`}
                                     src={src}
                                     side="spine"
                                     layout={spineLayout}
@@ -532,6 +539,7 @@ export default function AlbumCoverEditView({
                     >
                         {src ? (
                             <BookWrapSpineImage
+                                key={`wrap-gap-after:${src}`}
                                 src={src}
                                 side="spine-gap-after"
                                 layout={spineLayout}
@@ -604,6 +612,7 @@ export default function AlbumCoverEditView({
                     >
                         {src ? (
                             <BookWrapSpineImage
+                                key={`wrap-front:${src}`}
                                 src={src}
                                 side="front"
                                 layout={spineLayout}

@@ -1,21 +1,46 @@
-import { useEffect, useState } from 'react';
+import { useLayoutEffect, useState } from 'react';
 import { loadImageAspectFromUrl } from './albumGridSize';
-import { resolveBookWrapSpreadSrc } from './albumPagePhotos';
+import {
+    getSpreadPlacementCollectionItemId,
+    resolveBookWrapSpreadSrc,
+} from './albumPagePhotos';
+import { getCollectionItem } from './albumCollection';
+
+function readLiveWrapAspect(album, albumId) {
+    if (!album?.has_covers || !albumId) return null;
+
+    const coverItemId = getSpreadPlacementCollectionItemId(albumId, 0);
+    const coverItem = coverItemId ? getCollectionItem(albumId, coverItemId) : null;
+    if (coverItem?.width > 0 && coverItem?.height > 0) {
+        return coverItem.width / coverItem.height;
+    }
+    return null;
+}
 
 /** Live wrap image aspect for spine layout (back | spine | front). */
 export function useAlbumWrapAspect(album, albumId, revision = 0) {
-    const [wrapAspect, setWrapAspect] = useState(null);
+    const [wrapAspect, setWrapAspect] = useState(() => readLiveWrapAspect(album, albumId));
 
-    useEffect(() => {
+    // useLayoutEffect so the first paint after upload uses the real wrap ratio
+    // (avoids blank/wrong crops that use the blank-cover default aspect).
+    useLayoutEffect(() => {
         if (!album?.has_covers || !albumId) {
             setWrapAspect(null);
             return undefined;
         }
+
+        const fromDims = readLiveWrapAspect(album, albumId);
+        if (fromDims > 0) {
+            setWrapAspect(fromDims);
+            return undefined;
+        }
+
         const src = resolveBookWrapSpreadSrc({ ...album, id: albumId }, { showSamples: false });
         if (!src) {
             setWrapAspect(null);
             return undefined;
         }
+
         let cancelled = false;
         loadImageAspectFromUrl(src).then((aspect) => {
             if (!cancelled && aspect > 0) setWrapAspect(aspect);

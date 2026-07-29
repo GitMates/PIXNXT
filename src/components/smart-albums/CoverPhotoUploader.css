@@ -1,0 +1,67 @@
+/* Cover wrap upload control — matches Edit cover neumorphic panel */
+
+.ae-cover-upload {
+  margin: 0 0 20px;
+}
+
+.ae-cover-upload__label {
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 108px;
+  padding: 18px 16px;
+  border-radius: 20px;
+  border: 1.5px dashed oklch(0.78 0.012 70);
+  background: oklch(0.948 0.005 85);
+  box-shadow:
+    inset 3px 3px 9px oklch(0.42 0.012 70 / 0.11),
+    inset -3px -3px 9px oklch(1 0.004 85 / 0.92);
+  color: oklch(0.23 0.004 60);
+  cursor: pointer;
+  text-align: center;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    transform 0.18s ease;
+}
+
+.ae-cover-upload__label:hover:not(:disabled):not(.ae-cover-upload__label--disabled) {
+  border-color: oklch(0.58 0.02 70);
+  background: oklch(0.96 0.006 85);
+  transform: translateY(-1px);
+}
+
+.ae-cover-upload__label:disabled,
+.ae-cover-upload__label--disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.ae-cover-upload__icon {
+  color: oklch(0.42 0.02 70);
+  margin-bottom: 2px;
+}
+
+.ae-cover-upload__title {
+  font-family: 'Outfit', system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: oklch(0.23 0.004 60);
+}
+
+.ae-cover-upload__hint {
+  font-family: 'Outfit', system-ui, sans-serif;
+  font-size: 11px;
+  line-height: 1.4;
+  color: oklch(0.62 0.01 70);
+  max-width: 220px;
+}
+
+.ae-cover-upload--busy .ae-cover-upload__title {
+  color: oklch(0.42 0.02 70);
+}

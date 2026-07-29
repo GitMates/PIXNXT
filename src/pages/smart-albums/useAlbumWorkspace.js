@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
     MAX_ALBUM_PAGES,
@@ -73,8 +73,10 @@ export function useAlbumWorkspace() {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
     const { user } = useAuth();
+    const userId = user?.id ?? null;
     const [album, setAlbum] = useState(null);
     const [loading, setLoading] = useState(true);
+    const loadedAlbumIdRef = useRef(null);
 
     const totalPages = album?.page_count || 21;
     const spreadOpts = getAlbumSpreadOptions(album);
@@ -99,13 +101,17 @@ export function useAlbumWorkspace() {
     }, [searchParams]);
 
     useEffect(() => {
-        if (!user || !albumId) return undefined;
+        // Depend on userId (not user object) — window focus after the file picker
+        // re-applies the auth session with a new user reference and must NOT remount
+        // the editor (that caused "Loading album…" and hid the just-uploaded cover).
+        if (!userId || !albumId) return undefined;
 
         let cancelled = false;
+        const alreadyShowing = loadedAlbumIdRef.current === albumId;
         (async () => {
             try {
-                setLoading(true);
-                const data = await smartAlbumsService.getAlbum(user.id, albumId);
+                if (!alreadyShowing) setLoading(true);
+                const data = await smartAlbumsService.getAlbum(userId, albumId);
                 if (!cancelled) {
                     if (data?.preview_data) {
                         hydrateAlbumPreviewData(albumId, data.preview_data);
@@ -131,11 +137,15 @@ export function useAlbumWorkspace() {
                         const { left: endLeft } = getEndSpreadPageIndices(pages);
                         migrateMiskeyedInnerSpreadTransforms(albumId, endLeft);
                     }
+                    loadedAlbumIdRef.current = albumId;
                     setAlbum(data);
                 }
             } catch (err) {
                 console.error(err);
-                if (!cancelled) setAlbum(null);
+                if (!cancelled) {
+                    loadedAlbumIdRef.current = null;
+                    setAlbum(null);
+                }
             } finally {
                 if (!cancelled) setLoading(false);
             }
@@ -144,7 +154,7 @@ export function useAlbumWorkspace() {
         return () => {
             cancelled = true;
         };
-    }, [user, albumId]);
+    }, [userId, albumId]);
 
     const handlePageChange = useCallback(
         (pageIdx) => {

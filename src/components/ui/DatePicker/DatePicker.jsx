@@ -204,14 +204,14 @@ const DatePicker = ({
                 {monthNames[safeViewDate.getMonth()]} {safeViewDate.getFullYear()}
               </div>
               <div className="nav-buttons">
-                <button onClick={handlePrevMonth}><ChevronLeft size={16} /></button>
-                <button onClick={handleNextMonth}><ChevronRight size={16} /></button>
+                <button type="button" onClick={handlePrevMonth}><ChevronLeft size={16} /></button>
+                <button type="button" onClick={handleNextMonth}><ChevronRight size={16} /></button>
               </div>
             </div>
             
             <div className="calendar-weekdays">
-              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(d => (
-                <div key={d} className="weekday">{d}</div>
+              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
+                <div key={`${d}-${i}`} className="weekday">{d}</div>
               ))}
             </div>
             
@@ -223,11 +223,11 @@ const DatePicker = ({
           {showQuickSearch && (
             <div className="dp-quick-search">
               <div className="quick-search-label">QUICK SEARCH</div>
-              <button onClick={() => handleQuickSearch('1w')}>1 week from now</button>
-              <button onClick={() => handleQuickSearch('2w')}>2 weeks from now</button>
-              <button onClick={() => handleQuickSearch('1m')}>1 month from now</button>
-              <button onClick={() => handleQuickSearch('6m')}>6 months from now</button>
-              <button onClick={() => handleQuickSearch('1y')}>1 year from now</button>
+              <button type="button" onClick={() => handleQuickSearch('1w')}>1 week from now</button>
+              <button type="button" onClick={() => handleQuickSearch('2w')}>2 weeks from now</button>
+              <button type="button" onClick={() => handleQuickSearch('1m')}>1 month from now</button>
+              <button type="button" onClick={() => handleQuickSearch('6m')}>6 months from now</button>
+              <button type="button" onClick={() => handleQuickSearch('1y')}>1 year from now</button>
             </div>
           )}
         </div>

@@ -54,59 +54,6 @@
   color: var(--ae-cover-label);
 }
 
-.ae-cover-panel__upload {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  width: 100%;
-  min-height: 132px;
-  margin: 0 0 24px;
-  padding: 22px 18px;
-  border: none;
-  border-radius: 20px;
-  background: var(--ae-cover-inset);
-  color: var(--ae-cover-text);
-  cursor: pointer;
-  text-align: center;
-  box-shadow:
-    inset 3px 3px 9px var(--ae-cover-neu-dark),
-    inset -3px -3px 9px var(--ae-cover-neu-light);
-  transition: opacity 0.15s ease;
-}
-
-.ae-cover-panel__upload:hover:not(:disabled) {
-  opacity: 0.96;
-}
-
-.ae-cover-panel__upload:disabled {
-  opacity: 0.6;
-  cursor: wait;
-}
-
-.ae-cover-panel__upload-icon {
-  color: var(--ae-cover-label);
-  margin-bottom: 4px;
-}
-
-.ae-cover-panel__upload-title {
-  font-family: 'Outfit', system-ui, sans-serif;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--ae-cover-text);
-  line-height: 1.35;
-}
-
-.ae-cover-panel__upload-hint {
-  font-family: 'Outfit', system-ui, sans-serif;
-  font-size: 11px;
-  font-weight: 400;
-  line-height: 1.4;
-  color: var(--ae-cover-muted);
-  max-width: 220px;
-}
-
 .ae-cover-panel__spine {
   display: flex;
   align-items: center;

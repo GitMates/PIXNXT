@@ -1,5 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { bookWrapCoverImageStyle, isSpineStretchWrapSide } from './bookWrapSpine';
+import {
+    bookWrapCoverBackgroundStyle,
+    bookWrapCoverImageStyle,
+    isSpineStretchWrapSide,
+} from './bookWrapSpine';
 import { renderWrapSegmentDataUrl } from './bookWrapSegment';
 
 /**
@@ -15,15 +19,20 @@ export default function BookWrapSpineImage({
 }) {
     const hostRef = useRef(null);
     const [segmentUrl, setSegmentUrl] = useState(null);
-    const useCanvasSlice = Boolean(layout?.hasSpine && side && src);
+    const useCanvasSlice = Boolean(
+        layout?.hasSpine &&
+            side &&
+            src &&
+            !String(src).startsWith('blob:') &&
+            !String(src).startsWith('data:')
+    );
 
     useEffect(() => {
+        // Drop stale canvas slices so the background/CSS crop shows while decoding.
+        setSegmentUrl(null);
+
         if (!useCanvasSlice) {
             return undefined;
-        }
-
-        if (isSpineStretchWrapSide(side)) {
-            setSegmentUrl(null);
         }
 
         const host =
@@ -82,54 +91,69 @@ export default function BookWrapSpineImage({
 
     if (!src) return null;
 
-    if (useCanvasSlice) {
-        const isStretchSide = isSpineStretchWrapSide(side);
-        const sideClass = isStretchSide
-            ? `ab-book-wrap-spine-img${
-                  side === 'spine-gap-before' || side === 'spine-gap-after'
-                      ? ' ab-book-wrap-spine-gap-img'
-                      : ''
-              }`
-            : `ab-book-wrap-cover-img ab-book-wrap-cover-img--${side}`;
+    const sideClass = isSpineStretchWrapSide(side)
+        ? `ab-book-wrap-spine-img${
+              side === 'spine-gap-before' || side === 'spine-gap-after'
+                  ? ' ab-book-wrap-spine-gap-img'
+                  : ''
+          }`
+        : `ab-book-wrap-cover-img ab-book-wrap-cover-img--${side}`;
 
-        if (isStretchSide && !segmentUrl) {
-            const style = bookWrapCoverImageStyle(layout, side, transform, { panoramic });
+    if (useCanvasSlice) {
+        // Canvas slice ready — use it for all sides (including spine).
+        if (segmentUrl) {
             return (
                 <img
                     ref={hostRef}
-                    src={src}
+                    src={segmentUrl}
                     alt=""
-                    className={`${sideClass} ab-book-wrap-segment-img${
-                        className ? ` ${className}` : ''
-                    }`}
+                    className={`${sideClass} ab-book-wrap-segment-img${className ? ` ${className}` : ''}`}
                     draggable={false}
-                    style={style}
+                    style={{
+                        display: 'block',
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'fill',
+                    }}
                 />
             );
         }
 
+        // Pre-canvas fallback: background-image strip crop (works for all sides).
+        const bg = bookWrapCoverBackgroundStyle(src, layout, side, transform);
+        if (bg) {
+            return (
+                <div
+                    ref={hostRef}
+                    className={`ab-book-wrap-segment-fill${className ? ` ${className}` : ''}`}
+                    style={{
+                        ...bg,
+                        display: 'block',
+                        width: '100%',
+                        height: '100%',
+                    }}
+                    aria-hidden
+                />
+            );
+        }
+
+        // Last resort: img with CSS crop.
+        const style = bookWrapCoverImageStyle(layout, side, transform, { panoramic });
         return (
             <img
                 ref={hostRef}
-                src={segmentUrl || undefined}
+                src={src}
                 alt=""
-                className={`${sideClass} ab-book-wrap-segment-img${className ? ` ${className}` : ''}`}
+                className={`${sideClass} ab-book-wrap-segment-img${
+                    className ? ` ${className}` : ''
+                }`}
                 draggable={false}
-                style={{
-                    display: 'block',
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'fill',
-                }}
+                style={style}
             />
         );
     }
 
     const style = bookWrapCoverImageStyle(layout, side, transform, { panoramic });
-    const sideClass =
-        side === 'spine'
-            ? 'ab-book-wrap-spine-img'
-            : `ab-book-wrap-cover-img ab-book-wrap-cover-img--${side}`;
     return (
         <img
             ref={hostRef}
