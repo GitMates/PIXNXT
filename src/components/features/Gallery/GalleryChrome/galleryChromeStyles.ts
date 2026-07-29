@@ -39,20 +39,20 @@ export const galleryChromeStyles = {
   galleryView: {
     nav: 'gallery-sticky-nav gallery-sticky-nav--gallery-view',
     navInner: `${galleryChromeLayout.navInner} justify-between gap-4 py-4 pl-0 pr-0 sm:flex-row md:py-5`,
-    navLeft: `${galleryChromeLayout.navLeft} shrink-0 flex-row items-center gap-3 md:gap-4 lg:gap-5`,
+    navLeft: `${galleryChromeLayout.navLeft} shrink-0 flex-row items-center gap-2 md:gap-2.5 lg:gap-3`,
     navRight: `${galleryChromeLayout.navRight} gap-2 md:gap-3 ml-auto`,
     brandBlock: `${galleryChromeLayout.brandBlock} shrink-0`,
-    tabsBlock: `${galleryChromeLayout.tabsBlock} shrink-0 gap-6 md:gap-10`,
+    tabsBlock: `${galleryChromeLayout.tabsBlock} shrink-0 gap-4 md:gap-6`,
     photographerCorner: `${galleryChromeLayout.photographerCorner} gallery-body-text text-[9px] font-bold uppercase tracking-[0.28em] leading-none`,
     navRailSpacer: galleryChromeLayout.navRailSpacer,
-    actionsBlock: `${galleryChromeLayout.actionsBlock} gap-5 sm:gap-6 lg:gap-8`,
+    actionsBlock: `${galleryChromeLayout.actionsBlock} gap-3 sm:gap-3.5 lg:gap-4.5`,
     brandTitle:
-      'gallery-chrome__brand-title gallery-heading text-[1.75rem] uppercase leading-none md:text-3xl',
+      'gallery-chrome__brand-title gallery-heading text-[0.875rem] uppercase leading-none md:text-[0.9375rem]',
     brandSubtitle:
-      'gallery-chrome__brand-subtitle gallery-body-text mt-1.5 text-[9px] font-bold uppercase tracking-[0.28em]',
+      'gallery-chrome__brand-subtitle gallery-body-text mt-0.5 text-[9px] font-bold uppercase tracking-[0.28em]',
     tab: 'gallery-chrome__tab gallery-body-text text-[10px] font-bold uppercase tracking-[0.2em]',
     action: 'gallery-chrome__action gallery-body-text text-[10px] font-bold uppercase tracking-[0.2em]',
-    actionIcon: 14,
+    actionIcon: 18,
     setHeading:
       'gallery-chrome__set-heading gallery-body-text py-10 text-center text-[11px] font-normal lowercase tracking-[0.35em] md:py-12 md:text-xs mb-0',
     setDescription:

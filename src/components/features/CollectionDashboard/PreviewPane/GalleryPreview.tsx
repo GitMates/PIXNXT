@@ -13,9 +13,7 @@ import { galleryService } from '../../../../services/gallery.service';
 import { sortPhotosForGallery, normalizeGalleryPhotoSort } from '../../../../lib/galleryPhotoSort';
 import {
   GalleryStickyNav,
-  GallerySetHeading,
   GallerySetDescription,
-  GalleryMediaFilter,
 } from '../../Gallery/GalleryChrome';
 import {
   isCollectionFeatureEnabled,
@@ -188,6 +186,16 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
   useEffect(() => {
     if (!favFeatureOn) setShowOnlyFavorites(false);
   }, [favFeatureOn]);
+
+  const [vaultEnabled, setVaultEnabled] = useState(false);
+
+  useEffect(() => {
+    if (collectionId) {
+      galleryService.fetchVaultPlan(collectionId).then(plan => {
+        setVaultEnabled(plan?.vault_enabled === true);
+      });
+    }
+  }, [collectionId]);
 
   useEffect(() => {
     if (!storageKey || !collectionId) return;
@@ -417,12 +425,17 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
           const savedEmail = localStorage.getItem(`pixnxt_fav_email_${collectionId}`) || 'Visitor';
           await galleryService.logActivity(collectionId, 'download', {
             email: savedEmail,
-            photographerId: dashboardState?.collection?.user_id,
+            photographerId: dashboardState?.collection?.user_id || dashboardState?.collection?.photographer_id,
             photoId: photo.id,
+            resolution: 'original',
             metadata: {
               type: photo.media_type === 'video' ? 'video' : 'photo',
-              resolution: 'High Res',
-              source: 'Preview Direct'
+              resolution: 'Original',
+              quality: 'Original',
+              source: 'Social / Gallery',
+              destination: 'local',
+              photoCount: 1,
+              filename: photo.filename || null,
             }
           });
 
@@ -446,13 +459,13 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
     const props = {
       title: collectionTitle,
       subtitle: photographerName,
+      coverLogoUrl: coverLogoUrl,
       date: collectionDate,
       photoUrl: coverPhotoUrl,
       focalX: dashboardState?.focalX,
       focalY: dashboardState?.focalY,
       isPreview: true, // dashboard pane layout only
       onViewGallery: coverStyle !== 'none' ? scrollToGallery : undefined,
-      coverLogoUrl,
     };
 
     switch (coverStyle) {
@@ -509,6 +522,12 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
           activeSetId={dashboardState?.activeSetId ?? null}
           onSetChange={onSetActiveSet}
           showHighlightsTab={dashboardState?.collection?.highlights_enabled !== false}
+          highlightsName={dashboardState?.highlightsName || 'Highlights'}
+          sidebarSetOrder={
+            dashboardState?.sidebarSetOrder ||
+            dashboardState?.collection?.sidebar_set_order ||
+            null
+          }
           maxVisibleSets={isPreviewMobile ? 4 : 3}
           showFavorites={favFeatureOn}
           showDownload={
@@ -522,34 +541,28 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
               dashboardState?.collection?.slideshow_enabled ?? dashboardState?.slideshow,
             slideshow: dashboardState?.collection?.slideshow,
           })}
+          showShop={dashboardState?.collection?.store_enabled !== false}
           favoritedCount={favoritedPhotos.length}
           isDownloadingAll={isDownloadingAll}
           onFavoriteClick={handleFavoriteHeaderClick}
           onDownloadClick={handleDownloadClick}
           onShareClick={() => setShowShareModal(true)}
           onSlideshowClick={handleStartSlideshow}
+          onShopClick={() => alert("This is a preview of the Cart navigation. In the live gallery, it opens the store or prompts to select an image.")}
+          showPrintLab={dashboardState?.collection?.store_enabled !== false}
+          onPrintLabClick={() => alert("This is a preview of Print Lab. In the live gallery, it shows an explore popup of all frame products.")}
+          showBuyGallery={vaultEnabled}
+          buyGalleryLabel="Buy Link"
+          onBuyGalleryClick={() => alert("This is a preview of the Buy Link button. In the live gallery, it pops open the extension subscriptions card popup.")}
           mediaFilter={mediaFilter}
           onMediaFilterChange={setMediaFilter}
           mediaPhotoCount={mediaCounts.photos}
           mediaVideoCount={mediaCounts.videos}
         />
 
-        {setDescriptionText && (
+        {setDescriptionText ? (
           <GallerySetDescription variant="preview" text={setDescriptionText} isDark={isPreviewDark} />
-        )}
-
-        {!setDescriptionText && showMediaFilter && (
-          <div className="flex w-full justify-center mb-8 border-b pb-4" style={{ borderColor: 'rgba(0,0,0,0.05)' }}>
-            <GalleryMediaFilter
-              value={mediaFilter}
-              onChange={setMediaFilter}
-              photoCount={mediaCounts.photos}
-              videoCount={mediaCounts.videos}
-              variant="preview"
-              layout="inline"
-            />
-          </div>
-        )}
+        ) : null}
 
         <GalleryPeopleStrip
           variant="preview"
@@ -645,6 +658,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
                 }
                 showFavorite={favFeatureOn}
                 showShare={isCollectionFeatureEnabled(dashboardState?.socialSharing)}
+                showShop={dashboardState?.collection?.store_enabled !== false}
                 favoritedPhotoIds={favoritedPhotos}
                 customRowHeight={previewCustomRowHeight}
                 customColumnCount={previewCustomColumnCount}
@@ -694,6 +708,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
         showDownload={dashboardState?.photoDownload !== false && dashboardState?.singlePhotoDownload !== false}
         showFavorite={favFeatureOn}
         showShare={isCollectionFeatureEnabled(dashboardState?.socialSharing)}
+        showShop={dashboardState?.collection?.store_enabled !== false}
         favoriteCount={favFeatureOn ? favoritedPhotos.length : undefined}
         isFavorited={(() => {
           const id = normalizeFavoritePhotoId(filteredPhotos[lightboxIndex]?.id);

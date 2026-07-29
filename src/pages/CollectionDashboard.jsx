@@ -3,7 +3,15 @@ import { createPortal } from 'react-dom';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { Heart, Play } from 'lucide-react';
 import { galleryService } from '../services/gallery.service';
+import { photoAiService } from '../services/photoAi.service';
+import {
+    filterPhotosByPerson,
+    filterPhotosByIds,
+} from '../lib/photoAiSearch';
+import { CollectionPhotoAiToolbar } from '../components/features/CollectionDashboard/Photos/CollectionPhotoAiToolbar';
+import '../components/features/CollectionDashboard/Photos/CollectionPhotoAiToolbar.css';
 import { useAuth } from '../hooks/useAuth';
+import { supabase } from '../lib/supabase/client';
 import { DesignTab } from '../components/features/CollectionDashboard/DesignTab';
 import { PreviewPane } from '../components/features/CollectionDashboard/PreviewPane';
 import { ChangeCoverModal } from '../components/features/CollectionDashboard/CoverSettings/ChangeCoverModal';
@@ -29,6 +37,7 @@ import { guestDeliveryService } from '../services/guestDelivery.service';
 import { guestDeliveryPublishService } from '../services/guestDeliveryPublish.service';
 import EventGuestsPanel from '../components/guest-delivery/EventGuestsPanel';
 import { sortDashboardPhotos } from '../utils/sortDashboardPhotos';
+import { clientGalleryEmailTemplatesService } from '../services/clientGalleryEmailTemplates.service';
 import { COVER_IMAGE_ACCEPT, MEDIA_FILE_INPUT_ACCEPT, pickMediaFilesOrFallback } from '../lib/mediaFilePicker';
 import { setCoverPhotoDragData, endCoverPhotoDrag, isGalleryImagePhoto } from '../lib/coverPhotoDrag';
 import { DatePicker } from '../components/ui/DatePicker';
@@ -37,13 +46,17 @@ import '../styles/clientGalleryTheme.css';
 import '../styles/collectionDashboardTheme.css';
 import '../components/features/CollectionDashboard/Activity/DownloadActivity.css';
 import '../components/features/CollectionDashboard/Activity/FavoriteActivity.css';
+import '../components/features/CollectionDashboard/Activity/StoreOrdersActivity.css';
+import '../components/features/CollectionDashboard/Activity/EmailRegistrationActivity.css';
 import '../components/features/CollectionDashboard/Settings/Settings.css';
 import { ActivityView } from '../components/features/CollectionDashboard/Activity/ActivityView';
 import { DownloadSettings } from '../components/features/CollectionDashboard/Settings/DownloadSettings';
 import { FavoriteSettings } from '../components/features/CollectionDashboard/Settings/FavoriteSettings';
 import { GeneralSettings } from '../components/features/CollectionDashboard/Settings/GeneralSettings';
 import { PrivacySettings } from '../components/features/CollectionDashboard/Settings/PrivacySettings';
+import { StoreSettings } from '../components/features/CollectionDashboard/Settings/StoreSettings';
 import { useUploadQueue } from '../components/features/CollectionDashboard/Upload/useUploadQueue';
+import { isIncompleteUploadPhoto } from '../components/features/CollectionDashboard/Upload/uploadUtils';
 import { UPLOAD_VIEW_COLLECTION_EVENT } from '../components/features/CollectionDashboard/Upload/GlobalUploadShell';
 import { getFileMime, isImageMime, getUploadMediaType, isUploadableMediaFile } from '../lib/fileMime';
 import { isRawImageFile } from '../lib/rawImageFormats';
@@ -51,13 +64,6 @@ import { prepareUploadFile } from '../lib/prepareUploadFile';
 import { clearMediaUrlCache } from '../lib/imageLoadCache';
 import { categoryTagsFromCollection, categoryTagsToDb } from '../lib/categoryTags';
 import { isMissingDbColumnError } from '../lib/focalPoint';
-import { photoAiService } from '../services/photoAi.service';
-import {
-    filterPhotosByPerson,
-    filterPhotosByIds,
-} from '../lib/photoAiSearch';
-import { CollectionPhotoAiToolbar } from '../components/features/CollectionDashboard/Photos/CollectionPhotoAiToolbar';
-import '../components/features/CollectionDashboard/Photos/CollectionPhotoAiToolbar.css';
 import {
     appendFocalToCoverUrl,
     focalPercentToElementStyle,
@@ -66,6 +72,7 @@ import {
     stripMediaUrlHash,
 } from '../lib/focalPoint';
 import { CollectionGridPhoto } from '../components/features/CollectionDashboard/Media/CollectionGridPhoto';
+import { DashboardMediaFilter } from '../components/features/CollectionDashboard/Media/DashboardMediaFilter';
 import { RawPhotoPlaceholder } from '../components/features/CollectionDashboard/Media/RawPhotoPlaceholder';
 import {
     getPhotoFullDisplayUrl,
@@ -74,6 +81,11 @@ import {
     isRawMedia,
 } from '../lib/photoDisplayUrl';
 import { formatCoverDate, formatCollectionHeaderDate } from '../lib/formatCoverDate.js';
+import {
+    countGalleryMedia,
+    filterGalleryMediaByType,
+    shouldShowGalleryMediaFilter,
+} from '../lib/galleryMediaType';
 import {
     normalizeCoverStyleId,
     normalizeFontId,
@@ -85,13 +97,18 @@ import {
     readCachedSlideshowEnabled,
 } from '../lib/collectionFeatureFlags';
 import { MoveCollectionModal } from '../components/features/Collections/MoveCollectionModal';
-import { supabase } from '../lib/supabase/client';
+
+import { applyWatermarkToBlob } from '../lib/watermarkUtils';
+import { storageService } from '../services/storage.service';
+import { getProxiedMediaFetchUrl } from '../lib/r2MediaProxy';
 
 const CollectionDashboard = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const [searchParams] = useSearchParams();
     const collectionId = searchParams.get('id');
+    const activityTabParam = searchParams.get('tab');
+    const activitySubParam = searchParams.get('activity');
     const { user } = useAuth();
     const photosGridRef = useRef(null);
     const pendingUploadScrollRef = useRef(false);
@@ -116,6 +133,37 @@ const CollectionDashboard = () => {
             })
             .catch((err) => console.error('Error loading photographer profile:', err));
     }, [user?.id]);
+
+    useEffect(() => {
+        if (!user?.id) {
+            setPresets([]);
+            return;
+        }
+        supabase
+            .from('presets')
+            .select('*')
+            .eq('photographer_id', user.id)
+            .order('created_at', { ascending: false })
+            .then(({ data, error }) => {
+                if (error) {
+                    console.error('Error fetching presets:', error);
+                } else if (data) {
+                    setPresets(data);
+                }
+            });
+
+        supabase
+            .from('watermarks')
+            .select('*')
+            .eq('photographer_id', user.id)
+            .then(({ data, error }) => {
+                if (error) {
+                    console.error('Error fetching watermarks:', error);
+                } else if (data) {
+                    setWatermarks(data);
+                }
+            });
+    }, [user?.id]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [saving, setSaving] = useState(false);
@@ -128,7 +176,7 @@ const CollectionDashboard = () => {
     const [activePhotoMenu, setActivePhotoMenu] = useState(null);
     const [showGridSettings, setShowGridSettings] = useState(false);
     const [gridSize, setGridSize] = useState('small');
-    const [showFilename, setShowFilename] = useState(false);
+    const [showFilename, setShowFilename] = useState(() => localStorage.getItem('filename_display') === 'show');
     const [showMoreDropdown, setShowMoreDropdown] = useState(false);
     const [photoMenu, setPhotoMenu] = useState(null);
     const [showRenameModal, setShowRenameModal] = useState(false);
@@ -144,6 +192,8 @@ const CollectionDashboard = () => {
     const [moveMode, setMoveMode] = useState('move'); // 'move' or 'copy'
     const [showSetMenu, setShowSetMenu] = useState(null); // set id or null
     const [showSortMenu, setShowSortMenu] = useState(false);
+    const [selectedPhotos, setSelectedPhotos] = useState([]);
+
     const [showPeoplePanel, setShowPeoplePanel] = useState(false);
     const [activePersonId, setActivePersonId] = useState(null);
     const [photoAiRows, setPhotoAiRows] = useState([]);
@@ -159,7 +209,6 @@ const CollectionDashboard = () => {
     const [gdEvent, setGdEvent] = useState(null);
     const [gdGuestCount, setGdGuestCount] = useState(0);
     const [gdPublishing, setGdPublishing] = useState(false);
-    const [selectedPhotos, setSelectedPhotos] = useState([]);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [photosToDelete, setPhotosToDelete] = useState([]);
     const [showSelectionMore, setShowSelectionMore] = useState(false);
@@ -175,6 +224,12 @@ const CollectionDashboard = () => {
     const [showPresetsSubmenu, setShowPresetsSubmenu] = useState(false);
     const [showApplyPresetModal, setShowApplyPresetModal] = useState(false);
     const [showSavePresetModal, setShowSavePresetModal] = useState(false);
+    const [presets, setPresets] = useState([]);
+    const [selectedApplyPresetId, setSelectedApplyPresetId] = useState('');
+    const [savePresetName, setSavePresetName] = useState('');
+    const [watermarks, setWatermarks] = useState([]);
+    const [selectedWatermarkId, setSelectedWatermarkId] = useState('');
+    const [applyToAllPhotos, setApplyToAllPhotos] = useState(false);
     const [showMoveToModal, setShowMoveToModal] = useState(false);
     const [showDuplicateModal, setShowDuplicateModal] = useState(false);
     const [showDeleteCollectionModal, setShowDeleteCollectionModal] = useState(false);
@@ -196,11 +251,148 @@ const CollectionDashboard = () => {
     const [toastVariant, setToastVariant] = useState('default');
     const toastTimerRef = useRef(null);
 
+    const [draggedSetIndex, setDraggedSetIndex] = useState(null);
+    const [dragOverSetIndex, setDragOverSetIndex] = useState(null);
+    const [orderedSetIds, setOrderedSetIds] = useState(null);
+
+    const sidebarOrderStorageKey = (id) => (id ? `pixnxt-sidebar-set-order:${id}` : null);
+
+    const readCachedSidebarOrder = (id) => {
+        const key = sidebarOrderStorageKey(id);
+        if (!key) return null;
+        try {
+            const raw = localStorage.getItem(key);
+            if (!raw) return null;
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed) && parsed.length > 0 ? parsed.map(String) : null;
+        } catch {
+            return null;
+        }
+    };
+
+    const persistSidebarOrder = async (id, orderIds) => {
+        if (!id || !Array.isArray(orderIds)) return;
+        const normalized = orderIds.map(String);
+        setOrderedSetIds(normalized);
+        const key = sidebarOrderStorageKey(id);
+        if (key) {
+            try {
+                localStorage.setItem(key, JSON.stringify(normalized));
+            } catch {
+                /* ignore quota / private mode */
+            }
+        }
+        try {
+            await galleryService.updateCollection(id, { sidebar_set_order: normalized });
+            setCollection((prev) => (prev ? { ...prev, sidebar_set_order: normalized } : prev));
+        } catch (err) {
+            // Column may not exist until migration is applied — localStorage still keeps order on refresh.
+            console.warn('Failed to persist sidebar_set_order:', err?.message || err);
+        }
+    };
+
+    const sortedSidebarSets = React.useMemo(() => {
+        const setItems = sets.map((s) => ({
+            ...s,
+            isHighlights: false,
+            photoCount: photos.filter((p) => p.set_id === s.id).length,
+        }));
+        const highlightsItem = highlightsEnabled
+            ? {
+                id: 'highlights',
+                name: highlightsName,
+                isHighlights: true,
+                photoCount: photos.filter((p) => !p.set_id).length,
+            }
+            : null;
+
+        // No saved custom order: default Highlights first (new collections only).
+        if (!orderedSetIds || orderedSetIds.length === 0) {
+            return highlightsItem ? [highlightsItem, ...setItems] : setItems;
+        }
+
+        const map = new Map();
+        setItems.forEach((item) => map.set(item.id, item));
+        if (highlightsItem) map.set('highlights', highlightsItem);
+
+        const sorted = [];
+        orderedSetIds.forEach((id) => {
+            if (map.has(id)) {
+                sorted.push(map.get(id));
+                map.delete(id);
+            }
+        });
+        // New sets not in saved order append at the end (do not force Highlights first).
+        map.forEach((item) => sorted.push(item));
+        return sorted;
+    }, [highlightsEnabled, highlightsName, sets, photos, orderedSetIds]);
+
+    const handleSetDragStart = (e, index) => {
+        setDraggedSetIndex(index);
+        e.dataTransfer.effectAllowed = 'move';
+    };
+
+    const handleSetDragOver = (e, index) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        if (dragOverSetIndex !== index) {
+            setDragOverSetIndex(index);
+        }
+    };
+
+    const handleSetDragEnd = () => {
+        setDraggedSetIndex(null);
+        setDragOverSetIndex(null);
+    };
+
+    const handleSetDrop = async (e, toIndex) => {
+        e.preventDefault();
+        if (draggedSetIndex === null || draggedSetIndex === toIndex) {
+            handleSetDragEnd();
+            return;
+        }
+
+        const newItems = [...sortedSidebarSets];
+        const [moved] = newItems.splice(draggedSetIndex, 1);
+        newItems.splice(toIndex, 0, moved);
+
+        const newOrderIds = newItems.map((item) => item.id);
+        const dbSets = newItems
+            .filter((item) => !item.isHighlights)
+            .map((set, idx) => ({ ...set, position: idx }));
+        setSets(dbSets);
+
+        handleSetDragEnd();
+
+        try {
+            await Promise.all([
+                persistSidebarOrder(collectionId, newOrderIds),
+                ...dbSets.map((set) =>
+                    supabase.from('sets').update({ position: set.position }).eq('id', set.id)
+                ),
+            ]);
+        } catch (err) {
+            console.error('Failed to update set positions:', err);
+        }
+    };
+
     // SORT STATE
     const [sortOption, setSortOption] = useState('custom');
+    const [mediaFilter, setMediaFilter] = useState('photos');
 
     // TAB STATES
     const [activeSidebarTab, setActiveSidebarTab] = useState('photos'); // photos, design, settings, activity
+    const [activeActivitySubTab, setActiveActivitySubTab] = useState('download'); // download, favorite, store, email, share, private
+
+    useEffect(() => {
+        if (activityTabParam === 'activity') {
+            setActiveSidebarTab('activity');
+            const allowed = new Set(['download', 'favorite', 'store', 'email', 'share', 'private']);
+            if (activitySubParam && allowed.has(activitySubParam)) {
+                setActiveActivitySubTab(activitySubParam);
+            }
+        }
+    }, [activityTabParam, activitySubParam, collectionId]);
     const [activeDesignTab, setActiveDesignTab] = useState('cover'); // cover, typography, color, grid
     const [selectedCoverStyle, setSelectedCoverStyle] = useState('novel');
     const [selectedFont, setSelectedFont] = useState('sans');
@@ -274,6 +466,9 @@ const CollectionDashboard = () => {
     const [favoritePhotos, setFavoritePhotos] = useState(true);
     const [favoriteNotes, setFavoriteNotes] = useState(true);
     
+    // Store/Shop State
+    const [storeEnabled, setStoreEnabled] = useState(true);
+    
     // Create Favorite List Modal State
     const [showCreateFavoriteListModal, setShowCreateFavoriteListModal] = useState(false);
     const [favoriteListEmail, setFavoriteListEmail] = useState('');
@@ -282,7 +477,13 @@ const CollectionDashboard = () => {
     const [favoriteListDesc, setFavoriteListDesc] = useState('');
     const [favoriteActivity, setFavoriteActivity] = useState([]);
     const [downloadActivity, setDownloadActivity] = useState([]);
+    const [emailRegistrationActivity, setEmailRegistrationActivity] = useState([]);
     const [loadingActivity, setLoadingActivity] = useState(false);
+    
+    // Store Orders State
+    const [storeOrders, setStoreOrders] = useState([]);
+    const [storeOrderItems, setStoreOrderItems] = useState([]);
+    const [storeOrdersLoading, setStoreOrdersLoading] = useState(false);
     const [editingFavoriteList, setEditingFavoriteList] = useState(null);
     const [selectedFavoriteListId, setSelectedFavoriteListId] = useState(null);
     const [favoriteDetailRows, setFavoriteDetailRows] = useState([]);
@@ -370,7 +571,6 @@ const CollectionDashboard = () => {
     };
 
     // Activity State
-    const [activeActivitySubTab, setActiveActivitySubTab] = useState('download'); // download, favorite, store, email, share, private
     const [activeDownloadActivityTab, setActiveDownloadActivityTab] = useState('gallery'); // gallery, photo, video
     const [activeActivityMenu, setActiveActivityMenu] = useState(null); // id of activity item
     const [selectedDownloadId, setSelectedDownloadId] = useState(null);
@@ -416,7 +616,13 @@ const CollectionDashboard = () => {
     }, [selectedDownloadId, downloadActivity, photos, sets]);
 
     const filteredDownloadActivityForTab = useMemo(
-        () => downloadActivity.filter((a) => a.type === activeDownloadActivityTab),
+        () =>
+            downloadActivity.filter((a) => {
+                if (activeDownloadActivityTab === 'photo') {
+                    return a.type === 'photo' || a.type === 'single';
+                }
+                return a.type === activeDownloadActivityTab;
+            }),
         [downloadActivity, activeDownloadActivityTab]
     );
 
@@ -463,7 +669,11 @@ const CollectionDashboard = () => {
         if (!window.confirm(`Delete all ${items.length} download record(s) on this tab? This cannot be undone.`)) return;
 
         try {
-            await Promise.all(items.map((a) => galleryService.deleteActivity(a.id)));
+            await Promise.all(
+                items
+                    .filter((a) => !String(a.id).startsWith('store-'))
+                    .map((a) => galleryService.deleteActivity(a.id))
+            );
             const deletedIds = new Set(items.map((a) => a.id));
             setDownloadActivity((prev) => prev.filter((a) => !deletedIds.has(a.id)));
             if (selectedDownloadId && deletedIds.has(selectedDownloadId)) {
@@ -617,6 +827,13 @@ const CollectionDashboard = () => {
 
     const handleDeleteActivity = async (id) => {
         try {
+            // Store-derived rows are synthetic (id like "store-…") — remove locally only
+            if (String(id).startsWith('store-')) {
+                setDownloadActivity((prev) => prev.filter((a) => a.id !== id));
+                setActiveActivityMenu(null);
+                if (selectedDownloadId === id) setSelectedDownloadId(null);
+                return;
+            }
             await galleryService.deleteActivity(id);
             setDownloadActivity(prev => prev.filter(a => a.id !== id));
             setFavoriteActivity(prev => prev.filter(a => a.id !== id));
@@ -763,6 +980,72 @@ const CollectionDashboard = () => {
         }
     };
 
+    const fetchEmailRegistrationActivity = async () => {
+        if (!collectionId) return;
+        try {
+            const activity = await galleryService.getEmailRegistrationActivity(collectionId);
+            setEmailRegistrationActivity(activity);
+        } catch (err) {
+            console.error('Failed to fetch email registration activity:', err);
+        }
+    };
+
+    const fetchStoreOrders = async () => {
+        if (!collectionId) return;
+        try {
+            setStoreOrdersLoading(true);
+            const { data: colPhotos, error: photosErr } = await supabase
+                .from('photos')
+                .select('id')
+                .eq('collection_id', collectionId);
+            
+            if (photosErr) throw photosErr;
+            
+            if (!colPhotos || colPhotos.length === 0) {
+                setStoreOrders([]);
+                setStoreOrderItems([]);
+                return;
+            }
+            
+            const colPhotoIds = new Set(colPhotos.map(p => p.id));
+            
+            const { data: ordersData, error: ordersErr } = await supabase
+                .from('printstore_orders')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (ordersErr) throw ordersErr;
+
+            const { data: itemsData, error: itemsErr } = await supabase
+                .from('printstore_order_items')
+                .select('*');
+
+            if (itemsErr) throw itemsErr;
+
+            if (!ordersData || !itemsData) {
+                setStoreOrders([]);
+                setStoreOrderItems([]);
+                return;
+            }
+
+            const filteredItems = itemsData.filter(item => {
+                const opt = item.options || {};
+                const photoId = opt.photo?.id || (opt.photos && opt.photos[0]?.id);
+                return photoId && colPhotoIds.has(photoId);
+            });
+
+            const filteredOrderIds = new Set(filteredItems.map(item => item.order_id));
+            const filteredOrders = ordersData.filter(order => filteredOrderIds.has(order.id));
+
+            setStoreOrders(filteredOrders);
+            setStoreOrderItems(itemsData);
+        } catch (err) {
+            console.error('Failed to fetch store orders for collection:', err);
+        } finally {
+            setStoreOrdersLoading(false);
+        }
+    };
+
     const fetchReminders = async () => {
         if (!collectionId) return;
         try {
@@ -777,6 +1060,8 @@ const CollectionDashboard = () => {
         if (collectionId) {
             fetchFavoriteActivity();
             fetchDownloadActivity();
+            fetchEmailRegistrationActivity();
+            fetchStoreOrders();
             fetchReminders();
         }
     }, [collectionId]);
@@ -1253,12 +1538,28 @@ const CollectionDashboard = () => {
         setShowExpiryReminderModal(true);
     };
 
-    const openAddReminder = () => {
+    const openAddReminder = async () => {
         setEditingReminderId(null);
         setExpiryEmailTiming('1 day before auto expiry date');
         setExpiryEmailTo('');
-        setExpiryEmailSubject('The gallery {collection.name} is about to expire');
-        setExpiryEmailBody('Hi,\n\nThe gallery {collection.name} will expire in {days.prior} on {expiry.date}. You will no longer be able to access this gallery after the expiry date.\n\nIf you have any questions, please don\'t hesitate to get in touch!');
+        
+        let initialSubject = 'The gallery {collection.name} is about to expire';
+        let initialBody = 'Hi,\n\nThe gallery {collection.name} will expire in {days.prior} on {expiry.date}. You will no longer be able to access this gallery after the expiry date.\n\nIf you have any questions, please don\'t hesitate to get in touch!';
+        
+        if (user?.id) {
+            try {
+                const tpl = await clientGalleryEmailTemplatesService.getTemplateById(user.id, 'default-auto-expiry');
+                if (tpl) {
+                    initialSubject = tpl.subject || initialSubject;
+                    initialBody = tpl.body || initialBody;
+                }
+            } catch (err) {
+                console.error('Error fetching default-auto-expiry template:', err);
+            }
+        }
+        
+        setExpiryEmailSubject(initialSubject);
+        setExpiryEmailBody(initialBody);
         setExpiryEmailIncludePin(false);
         setExpiryEmailSendCopy(true);
         setExpiryEmailLists([]);
@@ -1267,6 +1568,323 @@ const CollectionDashboard = () => {
         setToWhatsapp('');
         setShowExpiryReminderModal(true);
     };
+
+    const handleApplyPreset = async () => {
+        if (!selectedApplyPresetId) {
+            alert('Please select a preset to apply.');
+            return;
+        }
+        const selectedPreset = presets.find(p => p.id === selectedApplyPresetId);
+        if (!selectedPreset) return;
+
+        const s = selectedPreset.settings;
+        if (!s) return;
+
+        const updatedSettings = {
+            cover_layout: s.coverStyle || 'center',
+            cover_style: (s.coverStyle || 'center') === 'none' ? 'text_only' : 'photo',
+            font_family: s.typography || 'sans',
+            color_palette: s.colorTheme || 'light',
+            grid_style: s.gridStyle || 'vertical',
+            thumbnail_size: s.thumbnailSize || 'regular',
+            grid_spacing: s.gridSpacing || 'regular',
+            nav_style: s.navigationStyle === 'text' ? 'icons_labels' : 'icons',
+            
+            password_enabled: !!s.collectionPassword,
+            homepage_enabled: s.showOnHomepage !== false,
+            
+            downloads_enabled: !!s.photoDownload,
+            gallery_download_enabled: !!s.photoDownload,
+            single_photo_download_enabled: !!s.photoDownload,
+            web_downloads_enabled: !!s.webSizeDownload,
+            high_res_downloads_enabled: !!s.highResolutionDownload,
+            video_downloads_enabled: !!s.videoDownload,
+            require_pin_for_gallery_download: !!s.downloadPin,
+            require_pin_for_single_photo: !!s.downloadPin,
+            
+            favorites_enabled: !!s.favoritePhotos,
+            favorite_notes_enabled: !!s.favoriteNotes,
+            
+            store_status: s.storeStatus !== false,
+            
+            default_watermark: s.defaultWatermark || 'No watermark',
+            slideshow_enabled: s.slideshow !== false,
+            social_sharing_enabled: s.socialSharing !== false,
+        };
+
+        try {
+            setSaving(true);
+            
+            // Turn off autosavers temporarily to prevent overwrite cycles
+            designHydratedRef.current = false;
+            settingsHydratedRef.current = false;
+
+            await galleryService.updateCollection(collectionId, updatedSettings);
+            
+            // Also, if the collection has password or PIN, save those values in collection table
+            if (s.collectionPassword && s.collectionPasswordValue) {
+                await galleryService.updateCollection(collectionId, {
+                    guest_password_hash: s.collectionPasswordValue
+                });
+                setCollectionPassword(s.collectionPasswordValue);
+            }
+            if (s.downloadPin && s.downloadPinValue) {
+                await galleryService.updateCollection(collectionId, {
+                    download_pin: s.downloadPinValue
+                });
+                setPinValue(s.downloadPinValue);
+            }
+
+            setCollection(prev => ({ ...prev, ...updatedSettings }));
+
+            // Update local React UI states directly
+            setSelectedCoverStyle(s.coverStyle || 'center');
+            setSelectedFont(s.typography || 'sans');
+            setSelectedColorPalette(s.colorTheme || 'light');
+            setGridSettings({
+                style: s.gridStyle || 'vertical',
+                size: s.thumbnailSize || 'regular',
+                spacing: s.gridSpacing || 'regular',
+                navigation: s.navigationStyle === 'text' ? 'text' : 'icon'
+            });
+
+            setCollectionPassword(s.collectionPasswordValue || '');
+            setShowOnHomepage(s.showOnHomepage !== false);
+            setPhotoDownload(!!s.photoDownload);
+            setDownloadPin(!!s.downloadPin);
+            setFavoritePhotos(!!s.favoritePhotos);
+            setFavoriteNotes(!!s.favoriteNotes);
+            setSlideshow(s.slideshow !== false);
+            setSocialSharing(s.socialSharing !== false);
+            setDefaultWatermark(s.defaultWatermark || 'No watermark');
+
+            // Re-enable autosavers
+            designHydratedRef.current = true;
+            settingsHydratedRef.current = true;
+
+            setShowApplyPresetModal(false);
+            alert('Preset applied successfully!');
+        } catch (err) {
+            console.error('Failed to apply preset:', err);
+            alert('Failed to apply preset: ' + err.message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleSavePreset = async () => {
+        if (!savePresetName.trim()) {
+            alert('Please enter a name for your preset.');
+            return;
+        }
+
+        const newPresetSettings = {
+            coverStyle: selectedCoverStyle,
+            typography: selectedFont,
+            colorTheme: selectedColorPalette,
+            gridStyle: gridSettings.style,
+            thumbnailSize: gridSettings.size,
+            gridSpacing: gridSettings.spacing,
+            navigationStyle: gridSettings.navigation,
+            collectionPassword: !!collectionPassword,
+            collectionPasswordValue: collectionPassword || '',
+            showOnHomepage: showOnHomepage,
+            photoDownload: photoDownload,
+            highResolutionDownload: photoDownloadSizes.includes('high'),
+            webSizeDownload: photoDownloadSizes.includes('web'),
+            videoDownload: photoDownloadSizes.includes('video'),
+            downloadPin: downloadPin,
+            downloadPinValue: pinValue || '',
+            favoritePhotos: favoritePhotos,
+            favoriteNotes: favoriteNotes,
+            slideshow: slideshow,
+            socialSharing: socialSharing,
+            defaultWatermark: defaultWatermark,
+        };
+
+        try {
+            setSaving(true);
+            const { data, error } = await supabase
+                .from('presets')
+                .insert({
+                    photographer_id: user.id,
+                    name: savePresetName.trim(),
+                    settings: newPresetSettings,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                })
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            if (data) {
+                setPresets(prev => [data, ...prev]);
+            }
+            setShowSavePresetModal(false);
+            setSavePresetName('');
+            alert('Preset saved successfully!');
+        } catch (err) {
+            console.error('Failed to save preset:', err);
+            alert('Failed to save preset: ' + err.message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const applyWatermarkToPhoto = async (photo, wmOptions) => {
+        // 1. Fetch the original image blob
+        const targetUrl = getProxiedMediaFetchUrl(photo.full_url);
+        const res = await fetch(targetUrl);
+        if (!res.ok) throw new Error(`Failed to fetch photo file: ${photo.filename}`);
+        const blob = await res.blob();
+        if (!blob) throw new Error(`Failed to load photo blob: ${photo.filename}`);
+
+        // 2. Apply watermark
+        const watermarkedBlob = await applyWatermarkToBlob(blob, wmOptions);
+
+        // 3. Upload to R2 Storage
+        const photographerFolder = user.id;
+        const collectionFolder = collectionId;
+        const fileExt = photo.filename.split('.').pop() || 'jpg';
+        const fileName = `${photo.id || Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+        const setFolder = photo.set_id ? `set__${photo.set_id}` : 'highlights';
+        const watermarkedPath = `users/${photographerFolder}/clientgallery/${collectionFolder}/photoset/${setFolder}/watermarked/${fileName}`;
+
+        const uploadResult = await storageService.upload(watermarkedPath, watermarkedBlob);
+        const watermarkedUrl = uploadResult.url;
+
+        // 4. Update DB
+        const { data: updatedPhoto, error: updateError } = await supabase
+            .from('photos')
+            .update({
+                watermarked_url: watermarkedUrl,
+                watermarked_storage_path: watermarkedPath
+            })
+            .eq('id', photo.id)
+            .select()
+            .single();
+
+        if (updateError) throw updateError;
+
+        return { watermarkedUrl, watermarkedPath };
+    };
+
+    const removeWatermarkFromPhoto = async (photo) => {
+        // 1. Delete watermarked file from storage
+        if (photo.watermarked_storage_path) {
+            await storageService.delete([photo.watermarked_storage_path]).catch(err => {
+                console.warn('Failed to delete watermarked storage object:', err);
+            });
+        }
+
+        // 2. Clear columns in DB
+        const { error: updateError } = await supabase
+            .from('photos')
+            .update({
+                watermarked_url: null,
+                watermarked_storage_path: null
+            })
+            .eq('id', photo.id);
+
+        if (updateError) throw updateError;
+    };
+
+    const handleSaveWatermarkSettings = async () => {
+        if (!editingPhoto) return;
+        try {
+            setSaving(true);
+            
+            // 1. Resolve watermark options
+            let wmOptions = null;
+            if (selectedWatermarkId) {
+                let wm = watermarks.find(w => w.id === selectedWatermarkId || w.name === selectedWatermarkId);
+                if (wm) {
+                    wmOptions = {
+                        watermark_type: wm.type,
+                        watermark_url: wm.url,
+                        watermark_text: wm.text,
+                        watermark_font: wm.font,
+                        watermark_color: wm.color,
+                        watermark_scale: wm.scale,
+                        watermark_opacity: wm.opacity,
+                        watermark_position: wm.position || 'center',
+                    };
+                }
+            }
+            // Update collection settings in the database for default_watermark
+            const nextDefaultWatermarkValue = selectedWatermarkId || 'No watermark';
+            await galleryService.updateCollection(collectionId, {
+                default_watermark: nextDefaultWatermarkValue
+            });
+            setDefaultWatermark(nextDefaultWatermarkValue);
+            setCollection(prev => prev ? { ...prev, default_watermark: nextDefaultWatermarkValue } : prev);
+
+            if (applyToAllPhotos) {
+                setToastMessage(`Processing photos...`);
+                // Loop through all photos in collection
+                const total = photos.length;
+                let updatedPhotos = [...photos];
+
+                for (let i = 0; i < total; i++) {
+                    const photo = photos[i];
+                    setToastMessage(`Processing photo ${i + 1} of ${total}...`);
+                    try {
+                        if (wmOptions) {
+                            // Apply/Update watermark
+                            // First remove old watermark file if it exists
+                            if (photo.watermarked_storage_path) {
+                                await storageService.delete([photo.watermarked_storage_path]).catch(() => {});
+                            }
+                            const { watermarkedUrl, watermarkedPath } = await applyWatermarkToPhoto(photo, wmOptions);
+                            updatedPhotos = updatedPhotos.map(p => p.id === photo.id ? { ...p, watermarked_url: watermarkedUrl, watermarked_storage_path: watermarkedPath } : p);
+                        } else {
+                            // Remove watermark
+                            await removeWatermarkFromPhoto(photo);
+                            updatedPhotos = updatedPhotos.map(p => p.id === photo.id ? { ...p, watermarked_url: null, watermarked_storage_path: null } : p);
+                        }
+                    } catch (err) {
+                        console.warn(`Failed to process watermark for photo ${photo.id}:`, err);
+                    }
+                }
+
+                setPhotos(updatedPhotos);
+                setToastMessage('Watermark changes applied to all photos!');
+            } else {
+                setToastMessage(wmOptions ? 'Applying watermark...' : 'Removing watermark...');
+                if (wmOptions) {
+                    // Apply/Update watermark to single editingPhoto
+                    if (editingPhoto.watermarked_storage_path) {
+                        await storageService.delete([editingPhoto.watermarked_storage_path]).catch(() => {});
+                    }
+                    const { watermarkedUrl, watermarkedPath } = await applyWatermarkToPhoto(editingPhoto, wmOptions);
+                    setPhotos(prev => prev.map(p => p.id === editingPhoto.id ? { ...p, watermarked_url: watermarkedUrl, watermarked_storage_path: watermarkedPath } : p));
+                    setToastMessage('Watermark applied successfully!');
+                } else {
+                    // Remove watermark from single editingPhoto
+                    await removeWatermarkFromPhoto(editingPhoto);
+                    setPhotos(prev => prev.map(p => p.id === editingPhoto.id ? { ...p, watermarked_url: null, watermarked_storage_path: null } : p));
+                    setToastMessage('Watermark removed!');
+                }
+            }
+
+            setTimeout(() => setToastMessage(null), 3000);
+            setShowWatermarkModal(false);
+        } catch (err) {
+            console.error('Failed to save watermark settings:', err);
+            alert('Failed to save watermark settings: ' + err.message);
+        } finally {
+            setSaving(false);
+            setToastMessage(null);
+        }
+    };
+
+    useEffect(() => {
+        if (showWatermarkModal) {
+            setSelectedWatermarkId(defaultWatermark === 'No watermark' ? '' : defaultWatermark);
+            setApplyToAllPhotos(false);
+        }
+    }, [showWatermarkModal, defaultWatermark]);
 
     // Load real data from Supabase
     useEffect(() => {
@@ -1355,6 +1973,9 @@ const CollectionDashboard = () => {
                 if (data.favorites_enabled !== undefined) setFavoritePhotos(data.favorites_enabled);
                 if (data.favorites_allow_comments !== undefined) setFavoriteNotes(data.favorites_allow_comments);
 
+                // Initialize store/shop settings
+                if (data.store_enabled !== undefined) setStoreEnabled(data.store_enabled);
+
                 // Initialize expiry email settings
                 if (data.expiry_email_timing) setExpiryEmailTiming(data.expiry_email_timing);
                 if (data.expiry_email_to) setExpiryEmailTo(data.expiry_email_to);
@@ -1377,6 +1998,7 @@ const CollectionDashboard = () => {
                     if (cachedSlideshow !== null) setSlideshow(cachedSlideshow);
                 }
                 if (data.auto_expiry) setAutoExpiry(data.auto_expiry);
+                if (data.default_watermark) setDefaultWatermark(data.default_watermark);
 
                 designHydratedRef.current = true;
                 settingsHydratedRef.current = true;
@@ -1385,6 +2007,16 @@ const CollectionDashboard = () => {
                 setPhotos(photoData);
                 const setsData = data.sets || [];
                 setSets(setsData);
+
+                const savedOrder =
+                    (Array.isArray(data.sidebar_set_order) && data.sidebar_set_order.length > 0
+                        ? data.sidebar_set_order.map(String)
+                        : null) || readCachedSidebarOrder(collectionId);
+                if (savedOrder) {
+                    setOrderedSetIds(savedOrder);
+                } else {
+                    setOrderedSetIds(null);
+                }
 
                 // Activity counts load in background — do not block grid render
                 galleryService
@@ -1577,6 +2209,23 @@ const CollectionDashboard = () => {
         }
         return result;
     }, [sortedPhotos, photoAiMetadataMap, activePerson, selfieMatchPhotoIds]);
+
+    const activeSetMediaCounts = useMemo(
+        () => countGalleryMedia(sortedPhotos),
+        [sortedPhotos]
+    );
+
+    const showMediaFilter = shouldShowGalleryMediaFilter(activeSetMediaCounts);
+
+    useEffect(() => {
+        if (activeSetMediaCounts.photos > 0) setMediaFilter('photos');
+        else if (activeSetMediaCounts.videos > 0) setMediaFilter('videos');
+    }, [activeSetId, activeSetMediaCounts.photos, activeSetMediaCounts.videos]);
+
+    const mediaFilteredPhotos = useMemo(() => {
+        if (!showMediaFilter) return aiFilteredPhotos;
+        return filterGalleryMediaByType(aiFilteredPhotos, mediaFilter);
+    }, [aiFilteredPhotos, showMediaFilter, mediaFilter]);
 
     const isPhotoAiFilterActive = Boolean(
         activePersonId || selfieMatchPhotoIds.length
@@ -1780,7 +2429,16 @@ const CollectionDashboard = () => {
     const uploadSnapshotRef = useRef(null);
 
     const existingUploadFilenames = useMemo(
-        () => photos.map((p) => p.filename).filter(Boolean),
+        () =>
+            photos
+                .filter((p) => p.filename && !isIncompleteUploadPhoto(p))
+                .map((p) => p.filename)
+                .filter(Boolean),
+        [photos]
+    );
+
+    const incompleteUploadPhotos = useMemo(
+        () => photos.filter((p) => isIncompleteUploadPhoto(p)),
         [photos]
     );
 
@@ -1800,10 +2458,16 @@ const CollectionDashboard = () => {
         activeSetId: highlightsEnabled ? activeSetId : (activeSetId ?? sets[0]?.id ?? null),
         photosLength: photos.length,
         existingFilenames: existingUploadFilenames,
+        incompletePhotos: incompleteUploadPhotos,
         destinationLabel: uploadDestinationLabel,
         onPhotoUploaded: (photoData) => {
             if (!photoData?.id || photoData.collection_id !== collectionId) return;
-            setPhotos((prev) => [...prev, photoData]);
+            setPhotos((prev) => {
+                if (prev.some((p) => p.id === photoData.id)) {
+                    return prev.map((p) => p.id === photoData.id ? { ...p, ...photoData } : p);
+                }
+                return [...prev, photoData];
+            });
             if (isRawMedia(photoData) && !hasRawDisplayPreview(photoData)) {
                 void galleryService.repairRawPhotoPreview(photoData).then((updated) => {
                     if (updated?.id) {
@@ -1817,33 +2481,6 @@ const CollectionDashboard = () => {
     });
 
     useEffect(() => {
-        if (!collectionId) return;
-
-        const uploadsBusy = uploadState.files.some((f) =>
-            ['waiting', 'uploading', 'processing'].includes(f.status)
-        );
-        const wasBusy = uploadsWereBusyRef.current;
-        uploadsWereBusyRef.current = uploadsBusy;
-
-        if (!wasBusy || uploadsBusy) return;
-
-        const timer = window.setTimeout(() => {
-            void refreshPhotoAiMetadata().then(() => {
-                photoAiAutoSyncKeyRef.current = '';
-                if (showPeoplePanel) {
-                    void loadPhotoAiPeople({ silent: true });
-                }
-            });
-        }, 3500);
-
-        return () => window.clearTimeout(timer);
-    }, [uploadState.files, collectionId, showPeoplePanel, refreshPhotoAiMetadata, loadPhotoAiPeople]);
-
-    useEffect(() => {
-        photoAiAutoSyncKeyRef.current = '';
-    }, [collectionId]);
-
-    useEffect(() => {
         if (!highlightsEnabled && activeSetId == null && sets.length > 0) {
             setActiveSetId(sets[0].id);
         }
@@ -1851,7 +2488,7 @@ const CollectionDashboard = () => {
 
     const gridPhotos = useMemo(() => {
         const viewSetId = highlightsEnabled ? activeSetId : (activeSetId ?? sets[0]?.id ?? null);
-        const completedNames = new Set(aiFilteredPhotos.map((p) => p.filename));
+        const completedNames = new Set(mediaFilteredPhotos.map((p) => p.filename));
         const pending = uploadState.files
             .filter(
                 (f) =>
@@ -1870,8 +2507,11 @@ const CollectionDashboard = () => {
                 _uploadPending: true,
                 _uploadProgress: f.progress,
             }));
-        return [...aiFilteredPhotos, ...pending];
-    }, [aiFilteredPhotos, uploadState.files, collectionId, highlightsEnabled, activeSetId, sets]);
+        const filteredPending = showMediaFilter
+            ? filterGalleryMediaByType(pending, mediaFilter)
+            : pending;
+        return [...mediaFilteredPhotos, ...filteredPending];
+    }, [mediaFilteredPhotos, uploadState.files, collectionId, highlightsEnabled, activeSetId, sets, showMediaFilter, mediaFilter]);
 
     useEffect(() => {
         if (!pendingUploadScrollRef.current || activeSidebarTab !== 'photos') return;
@@ -1884,6 +2524,26 @@ const CollectionDashboard = () => {
     const activeSetPhotoCount = activeSetId
         ? photos.filter(p => p.set_id === activeSetId).length
         : photos.filter(p => !p.set_id).length;
+
+    const activeSetDisplayCount = useMemo(() => {
+        if (isPhotoAiFilterActive) {
+            const typeTotal = showMediaFilter
+                ? activeSetMediaCounts[mediaFilter === 'photos' ? 'photos' : 'videos']
+                : activeSetPhotoCount;
+            return `${mediaFilteredPhotos.length} of ${typeTotal}`;
+        }
+        if (showMediaFilter) {
+            return activeSetMediaCounts[mediaFilter === 'photos' ? 'photos' : 'videos'];
+        }
+        return activeSetPhotoCount;
+    }, [
+        isPhotoAiFilterActive,
+        showMediaFilter,
+        mediaFilter,
+        mediaFilteredPhotos.length,
+        activeSetMediaCounts,
+        activeSetPhotoCount,
+    ]);
 
     const coverModalPhotos = useMemo(() => {
         if (coverModalScope === 'all') return photos;
@@ -1921,6 +2581,13 @@ const CollectionDashboard = () => {
                 position: sets.length
             });
             setSets(prev => [...prev, newSet]);
+            setOrderedSetIds((prev) => {
+                if (!prev || prev.length === 0) return prev;
+                if (prev.includes(newSet.id)) return prev;
+                const next = [...prev, newSet.id];
+                void persistSidebarOrder(collectionId, next);
+                return next;
+            });
             setSelectedDownloadSets((prev) => {
                 if (prev.length === 0) return prev;
                 if (prev.includes(newSet.name) || prev.includes(newSet.id)) return prev;
@@ -1999,6 +2666,12 @@ const CollectionDashboard = () => {
                 await galleryService.updateCollection(collectionId, { highlights_enabled: false });
                 setHighlightsEnabled(false);
                 setCollection((prev) => (prev ? { ...prev, highlights_enabled: false } : prev));
+                setOrderedSetIds((prev) => {
+                    if (!prev) return prev;
+                    const next = prev.filter((id) => id !== 'highlights');
+                    void persistSidebarOrder(collectionId, next);
+                    return next;
+                });
                 setActiveSetId(sets[0]?.id ?? null);
             } else {
                 const removedIds = new Set(
@@ -2007,6 +2680,12 @@ const CollectionDashboard = () => {
                 await galleryService.deleteSet(deleteSetId);
                 setPhotos((prev) => prev.filter((p) => !removedIds.has(p.id)));
                 setSets((prev) => prev.filter((s) => s.id !== deleteSetId));
+                setOrderedSetIds((prev) => {
+                    if (!prev) return prev;
+                    const next = prev.filter((id) => id !== deleteSetId);
+                    void persistSidebarOrder(collectionId, next);
+                    return next;
+                });
                 if (collection?.cover_photo_id && removedIds.has(collection.cover_photo_id)) {
                     setCollection((prev) => (prev ? { ...prev, cover_photo_id: null, cover_url: null } : prev));
                 }
@@ -2096,10 +2775,10 @@ const CollectionDashboard = () => {
     };
 
     const handleSelectionShareLink = () => {
-        const photo = requireSingleSelectedPhoto('share a link');
-        if (!photo) return;
+        const sel = getSelectedPhotoRecords();
+        if (sel.length === 0) return;
         closeSelectionChrome();
-        handleQuickShare(photo);
+        handleQuickShare(sel[0]);
     };
 
     const handleSelectionCopyFilenames = () => {
@@ -2230,6 +2909,7 @@ const CollectionDashboard = () => {
             if (event.data?.type === 'ACTIVITY_UPDATED' && event.data?.collectionId === collectionId) {
                 console.log('Activity update received, refreshing logs...');
                 fetchDownloadActivity();
+                fetchEmailRegistrationActivity();
                 fetchFavoriteActivity();
             }
         };
@@ -2238,7 +2918,7 @@ const CollectionDashboard = () => {
 
     // Auto-save general settings
     useEffect(() => {
-        if (!collection || loading) return;
+        if (!collection || loading || !settingsHydratedRef.current) return;
 
         const saveGeneralSettings = async () => {
             try {
@@ -2257,7 +2937,7 @@ const CollectionDashboard = () => {
 
     // Auto-save privacy / client exclusive access
     useEffect(() => {
-        if (!collection || loading) return;
+        if (!collection || loading || !settingsHydratedRef.current) return;
 
         const savePrivacySettings = async () => {
             try {
@@ -2481,6 +3161,24 @@ const CollectionDashboard = () => {
         return () => clearTimeout(timeoutId);
     }, [favoritePhotos, favoriteNotes, collectionId, collection, loading]);
 
+    // Auto-save shop settings
+    useEffect(() => {
+        if (!collection || loading) return;
+
+        const saveShopSettings = async () => {
+            try {
+                await galleryService.updateCollection(collectionId, {
+                    store_enabled: storeEnabled
+                });
+            } catch (err) {
+                console.error('Error auto-saving shop settings:', err);
+            }
+        };
+
+        const timeoutId = setTimeout(saveShopSettings, 1000);
+        return () => clearTimeout(timeoutId);
+    }, [storeEnabled, collectionId, collection, loading]);
+
     // Derived values
     const collectionName = collection?.name || 'Loading...';
     const collectionDate = collection?.event_date
@@ -2529,9 +3227,20 @@ const CollectionDashboard = () => {
     }, [activeActivityMenu, favoriteDetailPhotoMenuPhotoId, favoriteActivitySortMenuOpen]);
 
     const processSelectedUploadFiles = (fileList, snapshot) => {
+        const rawSupportEnabled = localStorage.getItem('raw_photo_support') === 'true';
+        let filesToProcess = Array.from(fileList || []);
+        
+        if (!rawSupportEnabled) {
+            const initialLength = filesToProcess.length;
+            filesToProcess = filesToProcess.filter(f => !isRawImageFile(f));
+            if (filesToProcess.length < initialLength) {
+                alert('RAW photo support is currently disabled in your preferences. Those files have been skipped.');
+            }
+        }
+
         const target = snapshot ?? uploadSnapshotRef.current ?? getUploadTargetSnapshot();
         uploadSnapshotRef.current = null;
-        if (processFiles(fileList, target)) {
+        if (processFiles(filesToProcess, target)) {
             setShowUploadModal(false);
         }
     };
@@ -2773,9 +3482,7 @@ const CollectionDashboard = () => {
                                     className="cd-share-item"
                                     onClick={() => {
                                         setShowShareDropdown(false);
-                                        if (collectionUrl) {
-                                            openShareByEmail(getCollectionShareUrl(collectionUrl), collection?.name || 'Collection');
-                                        }
+                                        navigate(`/collections/manage/share?id=${collectionId}`);
                                     }}
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
@@ -2891,70 +3598,50 @@ const CollectionDashboard = () => {
                                         Add Set
                                     </button>
                                 </div>
-                                {/* Highlights (unassigned photos) — virtual set; hidden after Delete set */}
-                                {highlightsEnabled && (
-                                <div className={`cd-set-item ${!activeSetId ? 'active' : ''}`} onClick={() => setActiveSetId(null)}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="cd-drag-handle"><line x1="4" y1="9" x2="20" y2="9"></line><line x1="4" y1="15" x2="20" y2="15"></line></svg>
-                                    <span className="cd-set-name">{highlightsName} ({photos.filter(p => !p.set_id).length})</span>
-                                    <div className="cd-set-actions">
-                                        <div className="cd-set-more-container">
-                                            <div className="cd-set-menu-wrapper">
-                                                <button className="cd-set-menu-btn" onClick={(e) => { e.stopPropagation(); setShowSetMenu(showSetMenu === 'highlights' ? null : 'highlights'); }}>
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
-                                                </button>
-                                                {showSetMenu === 'highlights' && (
-                                                    <div className="cd-set-dropdown">
-                                                        <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); openCoverModal('highlights'); }}>
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                                                            <span>Change cover</span>
-                                                        </div>
-                                                        <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); openEditSetModal({ id: 'highlights', name: highlightsName, description: collection?.description || '' }); }}>
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
-                                                            <span>Edit set</span>
-                                                        </div>
-                                                        <div className="cd-ctx-item cd-ctx-delete" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); handleDeleteSet('highlights'); }}>
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                                                            <span>Delete set</span>
-                                                        </div>
+                                {/* Unified Reorderable Sets List (Highlights & Custom Sets) */}
+                                {sortedSidebarSets.map((set, index) => {
+                                    const isActive = set.isHighlights ? !activeSetId : activeSetId === set.id;
+                                    return (
+                                        <div
+                                            key={set.id}
+                                            className={`cd-set-item ${isActive ? 'active' : ''} ${draggedSetIndex === index ? 'is-dragging' : ''} ${dragOverSetIndex === index && draggedSetIndex !== index ? 'drag-over' : ''}`}
+                                            onClick={() => setActiveSetId(set.isHighlights ? null : set.id)}
+                                            draggable={true}
+                                            onDragStart={(e) => handleSetDragStart(e, index)}
+                                            onDragOver={(e) => handleSetDragOver(e, index)}
+                                            onDragEnd={handleSetDragEnd}
+                                            onDrop={(e) => handleSetDrop(e, index)}
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="cd-drag-handle"><line x1="4" y1="9" x2="20" y2="9"></line><line x1="4" y1="15" x2="20" y2="15"></line></svg>
+                                            <span className="cd-set-name">{set.name} ({set.photoCount})</span>
+                                            <div className="cd-set-actions">
+                                                <div className="cd-set-more-container">
+                                                    <div className="cd-set-menu-wrapper">
+                                                        <button className="cd-set-menu-btn" onClick={(e) => { e.stopPropagation(); setShowSetMenu(showSetMenu === set.id ? null : set.id); }}>
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
+                                                        </button>
+                                                        {showSetMenu === set.id && (
+                                                            <div className="cd-set-dropdown" role="menu">
+                                                                <button type="button" className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); openCoverModal(set.id); }}>
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                                                                    <span>Change cover</span>
+                                                                </button>
+                                                                <button type="button" className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); set.isHighlights ? openEditSetModal({ id: 'highlights', name: highlightsName, description: collection?.description || '' }) : openEditSetModal(set); }}>
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                                                                    <span>Edit set</span>
+                                                                </button>
+                                                                <button type="button" className="cd-ctx-item cd-ctx-delete" role="menuitem" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); handleDeleteSet(set.id); }}>
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                                                    <span>Delete set</span>
+                                                                </button>
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                )}
-                                {/* Dynamic Sets */}
-                                {sets.map(set => (
-                                    <div key={set.id} className={`cd-set-item ${activeSetId === set.id ? 'active' : ''}`} onClick={() => setActiveSetId(set.id)}>
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="cd-drag-handle"><line x1="4" y1="9" x2="20" y2="9"></line><line x1="4" y1="15" x2="20" y2="15"></line></svg>
-                                        <span className="cd-set-name">{set.name} ({photos.filter(p => p.set_id === set.id).length})</span>
-                                        <div className="cd-set-actions">
-                                            <div className="cd-set-more-container">
-                                                <div className="cd-set-menu-wrapper">
-                                                    <button className="cd-set-menu-btn" onClick={(e) => { e.stopPropagation(); setShowSetMenu(showSetMenu === set.id ? null : set.id); }}>
-                                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
-                                                    </button>
-                                                    {showSetMenu === set.id && (
-                                                        <div className="cd-set-dropdown" role="menu">
-                                                            <button type="button" className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); openCoverModal(set.id); }}>
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                                                                <span>Change cover</span>
-                                                            </button>
-                                                            <button type="button" className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); openEditSetModal(set); }}>
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
-                                                                <span>Edit set</span>
-                                                            </button>
-                                                            <button type="button" className="cd-ctx-item cd-ctx-delete" role="menuitem" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); handleDeleteSet(set.id); }}>
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                                                                <span>Delete set</span>
-                                                            </button>
-                                                        </div>
-                                                    )}
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         )}
 
@@ -3033,6 +3720,16 @@ const CollectionDashboard = () => {
                                         {favoritePhotos ? 'ON' : 'OFF'}
                                     </span>
                                 </div>
+                                <div
+                                    className={`cd-design-nav-item ${activeSettingsTab === 'shop' ? 'active' : ''}`}
+                                    onClick={() => setActiveSettingsTab('shop')}
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" /><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" /></svg>
+                                    <span>Print Lab</span>
+                                    <span className={`tab-badge${storeEnabled ? '' : ' off'}`}>
+                                        {storeEnabled ? 'ON' : 'OFF'}
+                                    </span>
+                                </div>
 
                             </div>
                         )}
@@ -3104,12 +3801,18 @@ const CollectionDashboard = () => {
                         {activeSidebarTab === 'photos' && (
                             <>
                                 <div className="cd-main-header">
-                                    <h2 className="cd-main-title">
-                                        {activeSetName} ({isPhotoAiFilterActive ? `${aiFilteredPhotos.length} of ${activeSetPhotoCount}` : activeSetPhotoCount})
-                                    </h2>
-                                    <div
-                                        className={`cd-main-actions${showPeoplePanel ? ' cd-main-actions--ai-panel-open' : ''}`}
-                                    >
+                                    <div className="cd-main-header-left">
+                                        <h2 className="cd-main-title">{activeSetName} ({activeSetDisplayCount})</h2>
+                                        {showMediaFilter && (
+                                            <DashboardMediaFilter
+                                                value={mediaFilter}
+                                                onChange={setMediaFilter}
+                                                photoCount={activeSetMediaCounts.photos}
+                                                videoCount={activeSetMediaCounts.videos}
+                                            />
+                                        )}
+                                    </div>
+                                    <div className={`cd-main-actions${showPeoplePanel ? ' cd-main-actions--ai-panel-open' : ''}`}>
                                         <CollectionPhotoAiToolbar
                                             showPeople={showPeoplePanel}
                                             onTogglePeople={() => {
@@ -3189,18 +3892,24 @@ const CollectionDashboard = () => {
                                                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
                                                         )}
                                                     </div>
-                                                    <div className="cd-grid-divider"></div>
-                                                    <div className="cd-grid-section-label">Show</div>
-                                                    <div className="cd-grid-toggle-row">
-                                                        <span>Filename</span>
-                                                        <label className="cd-toggle" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
-                                                            <input type="checkbox" checked={showFilename} onChange={() => setShowFilename(!showFilename)} />
-                                                            <span className="cd-toggle-slider"></span>
-                                                        </label>
-                                                        <span className="cd-toggle-label">{showFilename ? 'On' : 'Off'}</span>
-                                                    </div>
                                                 </div>
                                             )}
+                                        </div>
+
+                                        <div className="cd-toolbar-toggle-row">
+                                            <span>Filename</span>
+                                            <label className="cd-toggle" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={showFilename}
+                                                    onChange={() => {
+                                                        const nextValue = !showFilename;
+                                                        setShowFilename(nextValue);
+                                                        localStorage.setItem('filename_display', nextValue ? 'show' : 'hide');
+                                                    }}
+                                                />
+                                                <span className="cd-toggle-slider"></span>
+                                            </label>
                                         </div>
 
                                         <div className="cd-main-actions-divider"></div>
@@ -3240,12 +3949,6 @@ const CollectionDashboard = () => {
                                                             index={index}
                                                             containInCell
                                                         />
-                                                        {isPending && (
-                                                            <div
-                                                                className="cd-photo-upload-overlay"
-                                                                style={{ width: `${photo._uploadProgress || 0}%` }}
-                                                            />
-                                                        )}
                                                     </div>
                                                     {!isPending && (
                                                     <>
@@ -3323,13 +4026,17 @@ const CollectionDashboard = () => {
                                                         className="cd-photo-filename"
                                                         title={photo.filename || `photo-${index + 1}.jpg`}
                                                     >
-                                                        {photo.filename || `photo-${index + 1}.jpg`}
+                                                        <span className="cd-filename-text">{photo.filename || `photo-${index + 1}.jpg`}</span>
                                                     </div>
                                                 )}
                                             </div>
                                         );
                                         })}
                                     </div>
+                                ) : sortedPhotos.length > 0 ? (
+                                    <p className="cd-media-filter-empty">
+                                        {showMediaFilter ? `No ${mediaFilter} in this set` : 'No matching photos'}
+                                    </p>
                                 ) : (
                                     <div
                                         className={`cd-dropzone ${isDraggingDropzone ? 'dragging' : ''}`}
@@ -3419,20 +4126,22 @@ const CollectionDashboard = () => {
                                     gridPhotos={photos}
                                     previewMode={previewMode}
                                     onPreviewModeChange={setPreviewMode}
-                                    photographerName={
-                                        profile?.business_name?.trim() ||
-                                        profile?.display_name?.trim() ||
-                                        [profile?.first_name, profile?.last_name].filter(Boolean).join(' ').trim() ||
-                                        user?.display_name ||
-                                        'PHOTOGRAPHER'
-                                    }
-                                    coverLogoUrl={profile?.cover_logo_url || profile?.logo_url}
+                                    photographerName={profile?.business_name || user?.display_name || 'PHOTOGRAPHER'}
+                                    coverLogoUrl={profile?.cover_logo_url || ''}
                                     dashboardState={{
                                         focalX: collectionFocal.x,
                                         focalY: collectionFocal.y,
                                         activeSetId: activeSetId,
                                         sets: sets,
-                                        collection: { ...collection, highlights_enabled: highlightsEnabled },
+                                        highlightsName,
+                                        sidebarSetOrder: orderedSetIds,
+                                        collection: {
+                                            ...collection,
+                                            highlights_enabled: highlightsEnabled,
+                                            store_enabled: storeEnabled,
+                                            sidebar_set_order:
+                                                orderedSetIds ?? collection?.sidebar_set_order ?? null,
+                                        },
                                         photoDownload: photoDownload,
                                         galleryDownload: galleryDownload,
                                         singlePhotoDownload: singlePhotoDownload,
@@ -3557,6 +4266,15 @@ const CollectionDashboard = () => {
                             />
                         )}
 
+                        {activeSidebarTab === 'settings' && activeSettingsTab === 'shop' && (
+                            <StoreSettings
+                                storeEnabled={storeEnabled}
+                                setStoreEnabled={setStoreEnabled}
+                                setActiveSidebarTab={setActiveSidebarTab}
+                                setActiveActivitySubTab={setActiveActivitySubTab}
+                            />
+                        )}
+
                         {activeSidebarTab === 'activity' && (
                         <ActivityView
                             activeActivityMenu={activeActivityMenu}
@@ -3600,6 +4318,10 @@ const CollectionDashboard = () => {
                             handleExportDownloadActivityPdf={handleExportDownloadActivityPdf}
                             downloadDetailPhotos={downloadDetailPhotos}
                             loadingActivity={loadingActivity}
+                            storeOrders={storeOrders}
+                            storeOrderItems={storeOrderItems}
+                            storeOrdersLoading={storeOrdersLoading}
+                            emailRegistrationActivity={emailRegistrationActivity}
                             favoriteActivitySortMenuRef={favoriteActivitySortMenuRef}
                             favoriteActivityMenuRef={favoriteActivityMenuRef}
                             favoriteDetailToolbarMenuRef={favoriteDetailToolbarMenuRef}
@@ -4226,17 +4948,22 @@ const CollectionDashboard = () => {
                             <p style={{ fontSize: '14px', color: '#555', marginBottom: '20px' }}>Applying a preset will overwrite your current collection settings. This action cannot be undone.</p>
                             <label style={{ fontSize: '11px', fontWeight: '600', color: '#666', letterSpacing: '0.5px', display: 'block', marginBottom: '8px' }}>SELECT PRESET</label>
                             <div style={{ position: 'relative', marginBottom: '10px' }}>
-                                <select style={{ width: '100%', padding: '10px 12px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '14px', appearance: 'none', backgroundColor: '#fff', outline: 'none' }}>
-                                    <option>Select a preset...</option>
-                                    <option>Default Settings</option>
-                                    <option>Wedding Default</option>
+                                <select 
+                                    value={selectedApplyPresetId} 
+                                    onChange={(e) => setSelectedApplyPresetId(e.target.value)} 
+                                    style={{ width: '100%', padding: '12px 14px', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '14px', appearance: 'none', backgroundColor: '#fff', outline: 'none', transition: 'border-color 0.2s ease', color: '#1a1a1a', fontWeight: '500', cursor: 'pointer' }}
+                                >
+                                    <option value="">None</option>
+                                    {presets.map((p) => (
+                                        <option key={p.id} value={p.id}>{p.name}</option>
+                                    ))}
                                 </select>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'absolute', right: '12px', top: '12px', pointerEvents: 'none' }}><polyline points="6 9 12 15 18 9"></polyline></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}><polyline points="6 9 12 15 18 9"></polyline></svg>
                             </div>
                         </div>
-                        <div className="cd-modal-footer">
+                        <div className="cd-set-modal-footer">
                             <button className="cd-cancel-btn" onClick={() => setShowApplyPresetModal(false)}>Cancel</button>
-                            <button className="cd-save-btn" onClick={() => setShowApplyPresetModal(false)}>Apply</button>
+                            <button className="cd-save-btn" onClick={handleApplyPreset}>Apply</button>
                         </div>
                     </div>
                 </div>
@@ -4255,11 +4982,17 @@ const CollectionDashboard = () => {
                         <div className="cd-modal-body" style={{ padding: '24px' }}>
                             <p style={{ fontSize: '14px', color: '#555', marginBottom: '20px' }}>Save your current collection settings as a preset to easily apply them to other collections.</p>
                             <label style={{ fontSize: '11px', fontWeight: '600', color: '#666', letterSpacing: '0.5px', display: 'block', marginBottom: '8px' }}>PRESET NAME</label>
-                            <input type="text" placeholder="e.g. Standard Wedding" style={{ width: '100%', padding: '10px 12px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }} />
+                            <input 
+                                type="text" 
+                                value={savePresetName} 
+                                onChange={(e) => setSavePresetName(e.target.value)} 
+                                placeholder="e.g. Standard Wedding" 
+                                style={{ width: '100%', padding: '12px 14px', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '14px', outline: 'none', boxSizing: 'border-box', color: '#1a1a1a', fontWeight: '500' }} 
+                            />
                         </div>
-                        <div className="cd-modal-footer">
+                        <div className="cd-set-modal-footer">
                             <button className="cd-cancel-btn" onClick={() => setShowSavePresetModal(false)}>Cancel</button>
-                            <button className="cd-save-btn" onClick={() => setShowSavePresetModal(false)}>Save</button>
+                            <button className="cd-save-btn" onClick={handleSavePreset}>Save</button>
                         </div>
                     </div>
                 </div>
@@ -4589,7 +5322,10 @@ const CollectionDashboard = () => {
 
             {/* ───── QUICK SHARE MODAL ───── */}
             {showQuickShareModal && editingPhoto && (() => {
-                const shareUrl = `${window.location.origin}/gallery/${collection?.slug}?photo=${editingPhoto.id}`;
+                const isMultiple = selectedPhotos.length > 1;
+                const shareUrl = isMultiple
+                    ? `${window.location.origin}/gallery/${collection?.slug}?photos=${selectedPhotos.join(',')}`
+                    : `${window.location.origin}/gallery/${collection?.slug}?photo=${editingPhoto.id}`;
                 return (
                     <div className="cd-modal-overlay" onClick={() => setShowQuickShareModal(false)}>
                         <div className="cd-modal cd-modal-sm" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 460 }}>
@@ -4604,7 +5340,12 @@ const CollectionDashboard = () => {
                                 <div style={{ borderRadius: 6, overflow: 'hidden', marginBottom: 8, maxHeight: 200, display: 'flex', justifyContent: 'center', backgroundColor: '#f5f5f5' }}>
                                     <img src={editingPhoto.full_url} alt={editingPhoto.filename} style={{ maxHeight: 200, objectFit: 'contain' }} />
                                 </div>
-                                <p style={{ fontSize: 13, color: '#666', marginBottom: 12 }}>Share a direct link to this photo with your client.</p>
+                                <p style={{ fontSize: 13, color: '#666', marginBottom: 12 }}>
+                                    {isMultiple
+                                        ? `Share a direct link to these ${selectedPhotos.length} photos with your client.`
+                                        : 'Share a direct link to this photo with your client.'
+                                    }
+                                </p>
                                 <div style={{ display: 'flex', gap: 0, border: '1px solid #d9d9d9', borderRadius: 4, overflow: 'hidden' }}>
                                     <input type="text" readOnly value={shareUrl} style={{ flex: 1, padding: '10px 12px', fontSize: 13, border: 'none', outline: 'none', background: '#f9f9f9', color: '#555' }} />
                                     <button
@@ -4646,33 +5387,61 @@ const CollectionDashboard = () => {
             {/* ───── WATERMARK MODAL ───── */}
             {showWatermarkModal && editingPhoto && (
                 <div className="cd-modal-overlay" onClick={() => setShowWatermarkModal(false)}>
-                    <div className="cd-modal cd-modal-sm" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
-                        <div className="cd-modal-header">
-                            <h3 className="cd-modal-title">Watermark Photo</h3>
+                    <div className="cd-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '480px', borderRadius: '4px', padding: '24px' }}>
+                        <div className="cd-modal-header" style={{ borderBottom: 'none', padding: '0 0 16px 0' }}>
+                            <h3 className="cd-modal-title" style={{ fontSize: '13px', fontWeight: 'bold', letterSpacing: '1.5px', color: '#1a1a1a', textTransform: 'uppercase' }}>WATERMARK</h3>
                             <button className="cd-modal-close" onClick={() => setShowWatermarkModal(false)}>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                             </button>
                         </div>
-                        <div className="cd-set-modal-body">
-                            {/* Preview */}
-                            <div style={{ position: 'relative', borderRadius: 6, overflow: 'hidden', marginBottom: 16, backgroundColor: '#f5f5f5', display: 'flex', justifyContent: 'center', maxHeight: 200 }}>
-                                <img src={editingPhoto.full_url} alt={editingPhoto.filename} style={{ maxHeight: 200, objectFit: 'contain' }} />
-                                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-                                    <span style={{ color: 'rgba(255,255,255,0.55)', fontSize: 28, fontWeight: 700, letterSpacing: 6, textTransform: 'uppercase', textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>
-                                        {collection?.name || 'WATERMARK'}
-                                    </span>
+                        <div className="cd-modal-body" style={{ padding: 0 }}>
+                            {/* Important alert block */}
+                            <div style={{ backgroundColor: '#fdf6ed', border: '1px solid #f5dbbf', borderRadius: '4px', padding: '16px', display: 'flex', gap: '12px', marginBottom: '20px' }}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#e28743" strokeWidth="2" style={{ flexShrink: 0 }}><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                                <div>
+                                    <h4 style={{ margin: '0 0 4px 0', fontSize: '14px', fontWeight: '600', color: '#111' }}>Important</h4>
+                                    <p style={{ margin: 0, fontSize: '13px', color: '#555', lineHeight: '1.5' }}>
+                                        Watermark changes can take anywhere from a few minutes to several hours to process. These photos will be unavailable during this time.
+                                    </p>
                                 </div>
                             </div>
-                            <p style={{ fontSize: 13, color: '#666', marginBottom: 12 }}>
-                                Watermarks are applied using your collection name. To customize watermarks, go to <strong>Settings → Watermark</strong>.
-                            </p>
-                            <div style={{ backgroundColor: '#fef9e7', border: '1px solid #f9d055', borderRadius: 6, padding: '12px 16px', fontSize: 13, color: '#7a6000' }}>
-                                <strong>Note:</strong> This is a preview. Watermark functionality requires a Premium plan upgrade.
+
+                            {/* Dropdown wrapper */}
+                            <div style={{ position: 'relative', marginBottom: '20px' }}>
+                                <select 
+                                    value={selectedWatermarkId} 
+                                    onChange={(e) => setSelectedWatermarkId(e.target.value)} 
+                                    style={{ width: '100%', padding: '12px 14px', border: '1px solid #d2d6dc', borderRadius: '4px', fontSize: '14px', appearance: 'none', backgroundColor: '#fff', outline: 'none', transition: 'border-color 0.2s ease', color: '#374151', cursor: 'pointer', height: '45px' }}
+                                >
+                                    <option value="">No watermark</option>
+                                    {watermarks.map((wm) => (
+                                        <option key={wm.id} value={wm.id}>{wm.name}</option>
+                                    ))}
+                                </select>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}><polyline points="6 9 12 15 18 9"></polyline></svg>
                             </div>
+
+                            {/* Checkbox */}
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '14px', color: '#4b5563', marginBottom: '24px', userSelect: 'none' }}>
+                                <input 
+                                    type="checkbox" 
+                                    checked={applyToAllPhotos}
+                                    onChange={(e) => setApplyToAllPhotos(e.target.checked)}
+                                    style={{ width: '16px', height: '16px', border: '1px solid #d2d6dc', borderRadius: '3px', cursor: 'pointer' }}
+                                />
+                                Apply to all in this collection ({photos.length} photos)
+                            </label>
                         </div>
-                        <div className="cd-set-modal-footer">
-                            <button className="cd-cancel-btn" onClick={() => setShowWatermarkModal(false)}>Cancel</button>
-                            <button className="cd-save-btn" onClick={() => { alert('Watermark applied! (Premium feature)'); setShowWatermarkModal(false); }}>Apply Watermark</button>
+                        <div className="cd-set-modal-footer" style={{ borderTop: 'none', padding: '12px 0 0 0', display: 'flex', justifyContent: 'flex-end', gap: '16px', alignItems: 'center' }}>
+                            <button className="cd-cancel-btn" style={{ background: 'none', border: 'none', color: '#4b5563', cursor: 'pointer', fontSize: '14px', fontWeight: '500', padding: 0 }} onClick={() => setShowWatermarkModal(false)}>Cancel</button>
+                            <button 
+                                className="cd-save-btn" 
+                                style={{ backgroundColor: '#a2d9c5', color: '#fff', border: 'none', padding: '10px 24px', borderRadius: '4px', fontSize: '14px', fontWeight: '600', cursor: 'pointer', transition: 'background-color 0.2s', height: '40px', minWidth: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} 
+                                onClick={handleSaveWatermarkSettings} 
+                                disabled={saving}
+                            >
+                                {saving ? 'Saving...' : 'Save'}
+                            </button>
                         </div>
                     </div>
                 </div>

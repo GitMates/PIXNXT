@@ -68,10 +68,6 @@
     border-radius: 0.75rem;
 }
 
-.cc-form-group--datepicker {
-    position: relative;
-}
-
 .cc-error-message {
     color: #b45309;
     background-color: #fef3c7;

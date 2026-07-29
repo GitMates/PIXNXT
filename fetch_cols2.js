@@ -8,7 +8,7 @@ envFile.split('\n').forEach(line => {
   if (key) env[key.trim()] = val.join('=').trim();
 });
 
-const supabase = createClient(env.VITE_SUPABASE_URL, env.VITE_SUPABASE_ANON_KEY);
+const supabase = createClient(env.VITE_SUPABASE_URL, env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY);
 
 async function main() {
     const { data, error } = await supabase.from('photographers').select('*').limit(1);

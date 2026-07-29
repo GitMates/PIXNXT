@@ -49,6 +49,50 @@ const CollectionList = ({ slug }) => {
     fetchData();
   }, [slug]);
 
+  useEffect(() => {
+    const faviconUrl = profile?.favicon_url || localStorage.getItem('custom_favicon_url');
+    if (!faviconUrl) return;
+
+    const link = document.querySelector("link[rel*='icon']");
+    const originalHref = link ? link.getAttribute('href') : '/logo.png';
+    const originalType = link ? link.getAttribute('type') : 'image/png';
+
+    if (link) {
+      link.href = faviconUrl;
+      if (faviconUrl.endsWith('.png')) {
+        link.type = 'image/png';
+      } else if (faviconUrl.endsWith('.gif')) {
+        link.type = 'image/gif';
+      } else if (faviconUrl.endsWith('.ico')) {
+        link.type = 'image/x-icon';
+      }
+    } else {
+      const newLink = document.createElement('link');
+      newLink.rel = 'icon';
+      newLink.href = faviconUrl;
+      if (faviconUrl.endsWith('.png')) {
+        newLink.type = 'image/png';
+      } else if (faviconUrl.endsWith('.gif')) {
+        newLink.type = 'image/gif';
+      } else if (faviconUrl.endsWith('.ico')) {
+        newLink.type = 'image/x-icon';
+      }
+      document.head.appendChild(newLink);
+    }
+
+    return () => {
+      const activeLink = document.querySelector("link[rel*='icon']");
+      if (activeLink) {
+        activeLink.href = originalHref;
+        if (originalType) {
+          activeLink.type = originalType;
+        } else {
+          activeLink.removeAttribute('type');
+        }
+      }
+    };
+  }, [profile]);
+
   const handlePasswordSubmit = (e) => {
     e.preventDefault();
     if (passwordInput === profile.homepage_password) {
@@ -262,16 +306,16 @@ const CollectionList = ({ slug }) => {
 
         {/* ── PROFILE HEADER ── */}
         <header style={{ textAlign: 'center', padding: '72px 40px 48px' }}>
-          {/* Name / Logo */}
+          {/* Name or Logo */}
           {profile?.logo_url ? (
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
               <img
                 src={profile.logo_url}
                 alt={photographerName}
                 style={{
-                  maxHeight: '80px',
-                  maxWidth: '240px',
-                  objectFit: 'contain',
+                  maxHeight: 120,
+                  maxWidth: '100%',
+                  objectFit: 'contain'
                 }}
               />
             </div>
@@ -460,9 +504,11 @@ const CollectionList = ({ slug }) => {
           <p style={{ fontFamily:'sans-serif', fontSize:12, color:'#bbb', letterSpacing:'0.06em', margin:'0 0 8px' }}>
             © {photographerName.toUpperCase()}
           </p>
-          <p style={{ fontFamily:'sans-serif', fontSize:11, color:'#ccc', letterSpacing:'0.04em', margin:0 }}>
-            Powered by <span style={{ color:'#aaa' }}>Pixnxt</span>
-          </p>
+          {!(profile?.hide_branding === true || localStorage.getItem('hide_branding') === 'true') && (
+            <p style={{ fontFamily:'sans-serif', fontSize:11, color:'#ccc', letterSpacing:'0.04em', margin:0 }}>
+              Powered by <span style={{ color:'#aaa' }}>Pixnxt</span>
+            </p>
+          )}
         </footer>
       </main>
     </div>

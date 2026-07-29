@@ -1,0 +1,380 @@
+.preset-editor-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background-color: #f9fafb;
+}
+
+.preset-editor-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  background-color: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.topbar-close-btn {
+  background: none;
+  border: none;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.topbar-close-btn:hover {
+  color: #374151;
+}
+
+.topbar-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+}
+
+.topbar-save-btn {
+  background-color: #0d9488;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 24px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.topbar-save-btn:hover:not(:disabled) {
+  background-color: #0f766e;
+}
+
+.topbar-save-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.preset-editor-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.preset-sidebar {
+  width: 240px;
+  background-color: #ffffff;
+  border-right: 1px solid #e5e7eb;
+  padding: 24px 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-tab {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 24px;
+  background: none;
+  border: none;
+  border-left: 3px solid transparent;
+  color: #6b7280;
+  font-weight: 500;
+  font-size: 14px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s;
+}
+
+.sidebar-tab:hover {
+  background-color: #f3f4f6;
+  color: #374151;
+}
+
+.sidebar-tab.active {
+  border-left-color: #0d9488;
+  color: #111827;
+  background-color: #f0fdfa;
+}
+
+.sidebar-tab-icon {
+  opacity: 0.7;
+}
+.sidebar-tab.active .sidebar-tab-icon {
+  color: #0d9488;
+  opacity: 1;
+}
+
+.preset-content-area {
+  flex: 1;
+  padding: 32px 48px;
+  overflow-y: auto;
+  max-width: 800px;
+}
+
+.content-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #111827;
+  margin-top: 0;
+  margin-bottom: 32px;
+}
+
+.form-group {
+  margin-bottom: 24px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 8px;
+}
+
+.form-group input[type="text"],
+.form-group select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 14px;
+  color: #111827;
+  background-color: #ffffff;
+}
+
+.form-group input[type="text"]:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #0d9488;
+  box-shadow: 0 0 0 1px #0d9488;
+}
+
+.help-text {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 6px;
+}
+
+.help-text a {
+  color: #0d9488;
+  text-decoration: none;
+}
+
+.help-text a:hover {
+  text-decoration: underline;
+}
+
+.upsell-box {
+  background-color: #f0fdfa;
+  border: 1px solid #ccfbf1;
+  border-radius: 6px;
+  padding: 16px;
+  margin-top: 32px;
+}
+
+.upsell-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: #0f766e;
+  margin-bottom: 8px;
+}
+
+.upsell-content p {
+  font-size: 14px;
+  color: #374151;
+  margin: 0 0 12px 0;
+}
+
+.upgrade-btn {
+  background-color: #ffffff;
+  color: #0f766e;
+  border: 1px solid #0d9488;
+  border-radius: 4px;
+  padding: 6px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.upgrade-btn:hover {
+  background-color: #ccfbf1;
+}
+
+/* Visual Options (Design Tab) */
+.visual-options {
+  display: flex;
+  gap: 16px;
+}
+
+.visual-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.visual-box {
+  width: 160px;
+  height: 120px;
+  border: 2px solid #e5e7eb;
+  border-radius: 6px;
+  background-color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.visual-option:hover .visual-box {
+  border-color: #d1d5db;
+}
+
+.visual-option.selected .visual-box {
+  border-color: #0d9488;
+}
+
+.visual-option span {
+  font-size: 14px;
+  color: #374151;
+  font-weight: 500;
+}
+
+.visual-option.selected span {
+  color: #0d9488;
+}
+
+.grid-icon {
+  display: grid;
+  gap: 4px;
+}
+.grid-icon div {
+  background-color: #111827;
+  border-radius: 2px;
+}
+.grid-icon.regular {
+  grid-template-columns: 1fr 1fr;
+  width: 40px;
+  height: 40px;
+}
+.grid-icon.regular div { width: 18px; height: 18px; }
+
+.grid-icon.large {
+  grid-template-columns: 1fr 1fr;
+  width: 48px;
+  height: 48px;
+  gap: 8px;
+}
+.grid-icon.large div { width: 20px; height: 20px; }
+
+.nav-icon-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #9ca3af;
+  border-radius: 4px;
+  padding: 8px;
+}
+
+.nav-icon-preview .box {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #111827;
+  border-radius: 2px;
+}
+
+.nav-icon-preview .box-text {
+  font-weight: bold;
+  font-size: 18px;
+  font-family: serif;
+  color: #111827;
+  padding: 0 4px;
+}
+
+.preset-editor-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  font-size: 18px;
+  color: #6b7280;
+}
+
+/* Toggle Switch */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  background-color: #e5e7eb;
+  border-radius: 24px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  border: none;
+  padding: 0;
+}
+
+.toggle-switch.on {
+  background-color: #0d9488;
+}
+
+.toggle-handle {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  background-color: #ffffff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.toggle-switch.on .toggle-handle {
+  transform: translateX(20px);
+}
+
+.toggle-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.action-link {
+  color: #0d9488;
+  font-size: 14px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+.action-link:hover {
+  text-decoration: underline;
+}
+
+.form-group-spaced {
+  margin-top: 32px;
+  margin-bottom: 32px;
+}

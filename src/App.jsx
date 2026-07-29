@@ -13,6 +13,7 @@ import CreateCollection from './pages/CreateCollection';
 import CreateFolder from './pages/CreateFolder';
 import FolderView from './pages/FolderView';
 import CollectionDashboard from './pages/CollectionDashboard';
+import CollectionShare from './pages/CollectionShare';
 import PhotoLibrary from './pages/PhotoLibrary';
 import GetStarted from './pages/GetStarted';
 import Starred from './pages/Starred';
@@ -20,6 +21,7 @@ import Homepage from './pages/Homepage';
 import Settings from './pages/Settings';
 import AccountSettings from './pages/AccountSettings';
 import AuthPage from './pages/AuthPage';
+import PresetEditor from './pages/PresetEditor';
 import { ProtectedRoute } from './components/features/Auth';
 import CollectionList from './pages/public/CollectionList';
 import GalleryView from './pages/public/GalleryView';
@@ -37,7 +39,15 @@ import { AdminProtectedRoute } from './components/admin/AdminProtectedRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { UploadQueueProvider, UploadQueueRouteSync } from './contexts/uploadQueue';
 import { GlobalUploadShell } from './components/features/CollectionDashboard/Upload/GlobalUploadShell';
+import PrintStoreApp from './printstore/PrintStoreApp';
+import LabApp from './printstore/lab/LabApp';
+import PhotographerApp from './printstore/photographer/PhotographerApp';
+import StoreDashboard from './pages/StoreDashboard';
 import RekognitionTest from './pages/dev/RekognitionTest';
+import WatermarkEditor from './pages/WatermarkEditor';
+import EmailTemplateEditor from './pages/EmailTemplateEditor';
+import { CustomDomainGalleryApp } from './components/CustomDomainGalleryApp';
+import { isPlatformHost, normalizeHost } from './lib/customDomain';
 
 function MobileGalleryViewRedirect() {
   const { slug } = useParams();
@@ -90,6 +100,8 @@ function App() {
   const prodSubdomain = isProductionSubdomain ? parts[0] : null;
 
   const activeSlug = prodSubdomain || devSubdomain;
+  const normalizedHost = normalizeHost(host);
+  const isCustomDomainHost = !isPlatformHost(normalizedHost);
 
   const navigate = useNavigate();
   const [themeTick, setThemeTick] = useState(0);
@@ -130,6 +142,7 @@ function App() {
     location.pathname === '/collections/create' ||
     location.pathname === '/folders/create' ||
     location.pathname === '/collections/manage' ||
+    location.pathname === '/collections/manage/share' ||
     location.pathname === '/photos' ||
     location.pathname === '/collections/get-started' ||
     location.pathname.startsWith('/starred') ||
@@ -142,6 +155,10 @@ function App() {
     location.pathname.startsWith('/e/') ||
     location.pathname.startsWith('/album-preview/') ||
     location.pathname.startsWith('/admin') ||
+    location.pathname.startsWith('/printstore') ||
+    location.pathname.startsWith('/store') ||
+    location.pathname.startsWith('/lab') ||
+    location.pathname.startsWith('/photographer') ||
     location.pathname.startsWith('/dev/') ||
     /\/smart-albums\/preview\//.test(location.pathname);
 
@@ -161,6 +178,17 @@ function App() {
       <div className="app app--guest-register">
         <GuestDeliveryPublicRoutes />
       </div>
+    );
+  }
+
+  if (isCustomDomainHost && !activeSlug) {
+    return (
+      <UploadQueueProvider>
+        <UploadQueueRouteSync />
+        <div className="app">
+          <CustomDomainGalleryApp hostname={normalizedHost} />
+        </div>
+      </UploadQueueProvider>
     );
   }
 
@@ -208,6 +236,11 @@ function App() {
           <Route path="/homepage" element={<Homepage />} />
           <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
           <Route path="/settings/:tab" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+          <Route path="/settings/presets/:id" element={<ProtectedRoute><PresetEditor /></ProtectedRoute>} />
+          <Route path="/settings/watermark/create" element={<ProtectedRoute><WatermarkEditor /></ProtectedRoute>} />
+          <Route path="/settings/watermark/:id" element={<ProtectedRoute><WatermarkEditor /></ProtectedRoute>} />
+          <Route path="/settings/email-templates/create" element={<ProtectedRoute><EmailTemplateEditor /></ProtectedRoute>} />
+          <Route path="/settings/email-templates/:id/edit" element={<ProtectedRoute><EmailTemplateEditor /></ProtectedRoute>} />
           <Route path="/account" element={<ProtectedRoute><Navigate to="/account/profile" replace /></ProtectedRoute>} />
           <Route path="/account/:tab" element={<ProtectedRoute><AccountSettings /></ProtectedRoute>} />
           <Route path="/collections/get-started" element={<ProtectedRoute><GetStarted /></ProtectedRoute>} />
@@ -224,6 +257,16 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/collections/manage/share"
+            element={
+              <ProtectedRoute>
+                <ErrorBoundary>
+                  <CollectionShare />
+                </ErrorBoundary>
+              </ProtectedRoute>
+            }
+          />
           <Route path="/collections" element={<CollectionList />} />
           <Route path="/gallery/:slug/f" element={<GalleryFavoritesHub />} />
           <Route path="/gallery/:slug" element={<GalleryView />} />
@@ -232,7 +275,6 @@ function App() {
           <Route path="/m/:slug" element={<MobileGalleryInstall />} />
           <Route path="/album-preview/:albumId" element={<PublicAlbumPreview />} />
           <Route path="/ref/:code" element={<ReferralRedirect />} />
-          <Route path="/dev/rekognition" element={<ProtectedRoute><RekognitionTest /></ProtectedRoute>} />
           
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/admin" element={<AdminProtectedRoute><AdminLayout /></AdminProtectedRoute>}>
@@ -240,6 +282,11 @@ function App() {
             <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="users" element={<AdminUserManagement />} />
           </Route>
+          <Route path="/printstore" element={<ErrorBoundary><PrintStoreApp /></ErrorBoundary>} />
+          <Route path="/store/orders" element={<ProtectedRoute><StoreDashboard /></ProtectedRoute>} />
+          <Route path="/lab/*" element={<LabApp />} />
+          <Route path="/photographer" element={<PhotographerApp />} />
+          <Route path="/dev/rekognition" element={<ProtectedRoute><RekognitionTest /></ProtectedRoute>} />
         </Routes>
 
         {!hideLayout && <Footer />}

@@ -9,6 +9,6 @@
     { "source": "/m/:slug/icon-192.png", "destination": "/api/m/:slug/icon?size=192" },
     { "source": "/m/:slug/icon-512.png", "destination": "/api/m/:slug/icon?size=512" },
     { "source": "/m/:slug/apple-touch-icon.png", "destination": "/api/m/:slug/icon" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }

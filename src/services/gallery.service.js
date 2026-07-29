@@ -1,12 +1,16 @@
 import { supabase } from '../lib/supabase/client';
 import { getImageDimensionsFast } from '../lib/imageDimensions';
 import { getFileMime, isVideoMime, getUploadMediaType } from '../lib/fileMime';
-import { compressImageForUpload } from '../lib/prepareUploadFile';
+import { compressImageForUpload, compressImageVariants } from '../lib/prepareUploadFile';
 import { isRawImageFile } from '../lib/rawImageFormats';
 import { extractRawPreviewBlob } from '../lib/rawImagePreview';
 import { hasRawDisplayPreview, isRawMedia, resolveMediaUrl } from '../lib/photoDisplayUrl';
 import { generateCollectionSlug } from '../lib/collectionSlug';
 import { storageService } from './storage.service';
+import {
+  isIncompleteUploadPhoto,
+  resolveOriginalStoragePath,
+} from '../components/features/CollectionDashboard/Upload/uploadUtils';
 import {
   appendFocalToCoverUrl,
   isMissingDbColumnError,
@@ -33,9 +37,13 @@ const DASHBOARD_PHOTO_FIELDS = `
   is_private,
   exif_taken_at,
   original_storage_path,
+  web_storage_path,
+  thumbnail_storage_path,
   size_bytes,
   photographer_id,
-  created_at
+  created_at,
+  watermarked_url,
+  watermarked_storage_path
 `.replace(/\s+/g, '');
 
 const PHOTO_STORAGE_PATH_COLUMNS = [
@@ -116,31 +124,6 @@ async function deleteStoragePaths(paths) {
   for (let i = 0; i < unique.length; i += chunkSize) {
     await storageService.delete(unique.slice(i, i + chunkSize));
   }
-}
-
-const SUPABASE_PAGE_SIZE = 1000;
-
-/** Fetch every row from a paginated Supabase query (PostgREST default cap is 1000). */
-async function fetchAllSupabaseRows(runPage) {
-  const rows = [];
-  let from = 0;
-
-  while (true) {
-    const to = from + SUPABASE_PAGE_SIZE - 1;
-    const { data, error } = await runPage(from, to);
-    if (error) throw error;
-    const batch = data || [];
-    rows.push(...batch);
-    if (batch.length < SUPABASE_PAGE_SIZE) break;
-    from += SUPABASE_PAGE_SIZE;
-  }
-
-  return rows;
-}
-
-function mapLibraryPhotoRow(row) {
-  const collection = Array.isArray(row.collection) ? row.collection[0] : row.collection;
-  return { ...row, collection: collection || null };
 }
 
 /** Dashboard list row: storage totals + filenames for client-gallery search. */
@@ -231,37 +214,6 @@ export const galleryService = {
       const collection = Array.isArray(row.collection) ? row.collection[0] : row.collection;
       return { ...row, collection: collection || null };
     });
-  },
-
-  /** All photos across client gallery collections for the Photo Library page. */
-  async getLibraryPhotos(photographerId) {
-    if (!photographerId) return [];
-
-    const { data: collections, error: collectionsError } = await supabase
-      .from('collections')
-      .select('id')
-      .eq('photographer_id', photographerId);
-
-    if (collectionsError) throw collectionsError;
-
-    const collectionIds = (collections || []).map((c) => c.id);
-    if (collectionIds.length === 0) return [];
-
-    const select = `
-      ${DASHBOARD_PHOTO_FIELDS},
-      collection:collections!photos_collection_id_fkey(id, name, slug)
-    `;
-
-    const rows = await fetchAllSupabaseRows((from, to) =>
-      supabase
-        .from('photos')
-        .select(select)
-        .in('collection_id', collectionIds)
-        .order('created_at', { ascending: false })
-        .range(from, to)
-    );
-
-    return rows.map(mapLibraryPhotoRow);
   },
 
   /**
@@ -520,13 +472,108 @@ export const galleryService = {
    * Create a new collection
    */
   async createCollection(collectionData) {
+    if (collectionData.photographer_id) {
+      try {
+        const { data: existingPhotographer } = await supabase
+          .from('photographers')
+          .select('id')
+          .eq('id', collectionData.photographer_id)
+          .maybeSingle();
+
+        if (!existingPhotographer) {
+          const { data: { user } } = await supabase.auth.getUser();
+          const email = user?.email || 'photographer@pixnxt.in';
+          const name = user?.user_metadata?.display_name || user?.user_metadata?.full_name || email.split('@')[0] || 'Photographer';
+          await supabase
+            .from('photographers')
+            .insert([{
+              id: collectionData.photographer_id,
+              email: email,
+              display_name: name
+            }]);
+        }
+      } catch (err) {
+        console.error('Error ensuring photographer profile exists:', err);
+      }
+    }
+
+    let finalCollectionData = { ...collectionData };
+    if (typeof window !== 'undefined') {
+      const storedEnabled = localStorage.getItem('pixnxt_global_digital_enabled');
+      const storedSingle = localStorage.getItem('pixnxt_global_digital_price_single');
+      const storedAll = localStorage.getItem('pixnxt_global_digital_price_all');
+
+      if (storedEnabled !== null) {
+        finalCollectionData.digital_download_enabled = storedEnabled === 'true';
+      }
+      if (storedSingle !== null) {
+        finalCollectionData.digital_download_price_single = parseInt(storedSingle);
+      }
+      if (storedAll !== null) {
+        finalCollectionData.digital_download_price_all = parseInt(storedAll);
+      }
+
+      // Vault settings
+      const storedVaultEnabled = localStorage.getItem('pixnxt_global_vault_enabled');
+      const storedVault1Month = localStorage.getItem('pixnxt_global_vault_price_1month');
+      const storedVault1Year = localStorage.getItem('pixnxt_global_vault_price_1year');
+      const storedVaultLifetime = localStorage.getItem('pixnxt_global_vault_price_lifetime');
+      const storedVaultDesc1Month = localStorage.getItem('pixnxt_global_vault_desc_1month');
+      const storedVaultDesc1Year = localStorage.getItem('pixnxt_global_vault_desc_1year');
+      const storedVaultDescLifetime = localStorage.getItem('pixnxt_global_vault_desc_lifetime');
+
+      const vaultSettings = {};
+      if (storedVaultEnabled !== null) {
+        vaultSettings.vault_enabled = storedVaultEnabled === 'true';
+      }
+      if (storedVault1Month !== null) {
+        vaultSettings.price_1month = parseInt(storedVault1Month);
+      }
+      if (storedVault1Year !== null) {
+        vaultSettings.price_1year = parseInt(storedVault1Year);
+      }
+      if (storedVaultLifetime !== null) {
+        vaultSettings.price_lifetime = parseInt(storedVaultLifetime);
+      }
+      if (storedVaultDesc1Month) {
+        vaultSettings.desc_1month = storedVaultDesc1Month;
+      }
+      if (storedVaultDesc1Year) {
+        vaultSettings.desc_1year = storedVaultDesc1Year;
+      }
+      if (storedVaultDescLifetime) {
+        vaultSettings.desc_lifetime = storedVaultDescLifetime;
+      }
+
+      // Store in memory to insert post collection creation
+      finalCollectionData._vaultSettings = vaultSettings;
+    }
+
+    // Strip temp field before insert
+    const { _vaultSettings, ...insertPayload } = finalCollectionData;
+
     const { data, error } = await supabase
       .from('collections')
-      .insert([collectionData])
+      .insert([insertPayload])
       .select()
       .single();
 
     if (error) throw error;
+
+    // Create the vault extension plans record
+    if (data?.id && _vaultSettings) {
+      try {
+        await supabase
+          .from('vault_extension_plans')
+          .insert([{
+            collection_id: data.id,
+            ..._vaultSettings
+          }]);
+      } catch (err) {
+        console.error('Failed to auto-create vault settings record:', err);
+      }
+    }
+
     return data;
   },
 
@@ -799,7 +846,8 @@ export const galleryService = {
           created_at,
           exif_taken_at,
           media_type,
-          is_private
+          is_private,
+          watermarked_url
         ),
         sets!sets_collection_id_fkey (
           id,
@@ -829,10 +877,10 @@ export const galleryService = {
     if (!data) return null;
 
     if (data.photos) {
-      data.photos.sort((a, b) => a.position - b.position);
+      data.photos.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
     }
     if (data.sets) {
-      data.sets.sort((a, b) => a.position - b.position);
+      data.sets.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
     }
 
     return data;
@@ -848,10 +896,11 @@ export const galleryService = {
       .from('sets')
       .select('id, name, description, position, photo_count, is_private, created_at')
       .eq('collection_id', collectionId)
-      .order('position', { ascending: true });
+      .order('position', { ascending: true })
+      .order('created_at', { ascending: true });
 
     if (error) throw error;
-    return data ?? [];
+    return (data ?? []).sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
   },
 
   /**
@@ -935,165 +984,422 @@ export const galleryService = {
     return Promise.all(uploadPromises);
   },
 
+  async _assertStorageQuota(photographerId, fileSize) {
+    let profile = null;
+    try {
+      if (
+        globalThis.__pixnxtProfileCache &&
+        globalThis.__pixnxtProfileCache.id === photographerId &&
+        Date.now() - globalThis.__pixnxtProfileCache.time < 45000
+      ) {
+        profile = globalThis.__pixnxtProfileCache.data;
+      } else {
+        const { data } = await supabase
+          .from('photographers')
+          .select('storage_used_bytes, storage_limit_bytes, plan')
+          .eq('id', photographerId)
+          .single();
+        profile = data;
+        globalThis.__pixnxtProfileCache = { id: photographerId, data: profile, time: Date.now() };
+      }
+    } catch (_) {}
+
+    if (!profile) return;
+
+    const usedBytes = profile.storage_used_bytes || 0;
+    let limitBytes = profile.storage_limit_bytes;
+
+    if (!limitBytes) {
+      const tier = String(profile.plan || '').toLowerCase();
+      if (tier === 'pro') limitBytes = 100 * 1024 * 1024 * 1024;
+      else if (tier === 'premium') limitBytes = 500 * 1024 * 1024 * 1024;
+      else if (tier === 'free') limitBytes = 5 * 1024 * 1024 * 1024;
+      else limitBytes = 10 * 1024 * 1024 * 1024;
+    }
+
+    if (usedBytes + fileSize > limitBytes) {
+      const remainingBytes = Math.max(0, limitBytes - usedBytes);
+      const formatSize = (bytes) => {
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+        if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+        return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+      };
+      throw new Error(
+        `Storage limit exceeded. Remaining storage space: ${formatSize(remainingBytes)}. This file size is ${formatSize(fileSize)}.`
+      );
+    }
+  },
+
+  async _resolveUploadBasePath(photographerId, collectionId, setId) {
+    if (!globalThis.__pixnxtFolderCache) globalThis.__pixnxtFolderCache = new Map();
+    const pKey = `p_${photographerId}`;
+    const cKey = `c_${collectionId}`;
+
+    let photographerFolder = globalThis.__pixnxtFolderCache.get(pKey);
+    let collectionFolder = globalThis.__pixnxtFolderCache.get(cKey);
+
+    if (!photographerFolder || !collectionFolder) {
+      const [pF, cF] = await Promise.all([
+        photographerFolder || getPhotographerPathFolder(photographerId),
+        collectionFolder || getCollectionPathFolder(collectionId),
+      ]);
+      photographerFolder = pF;
+      collectionFolder = cF;
+      globalThis.__pixnxtFolderCache.set(pKey, pF);
+      globalThis.__pixnxtFolderCache.set(cKey, cF);
+    }
+
+    const setFolder = setId ? `set__${safePathSegment(setId, 'set')}` : 'highlights';
+    return `users/${photographerFolder}/clientgallery/${collectionFolder}/photoset/${setFolder}`;
+  },
+
   /**
-   * Upload a single photo to R2 and record in database.
-   * @param {(percent: number) => void} [onProgress] — 0–100 based on bytes sent to R2
+   * Phase 1: generate + upload web/thumb, insert DB row (grid can show immediately).
+   * Returns context needed for Phase 2 original upload.
    */
-  async uploadPhoto(collectionId, photographerId, file, index = 0, setId = null, onProgress = null) {
+  async uploadPhotoDerivatives(
+    collectionId,
+    photographerId,
+    file,
+    index = 0,
+    setId = null,
+    onProgress = null,
+    onInserted = null,
+    options = {}
+  ) {
+    const { signal } = options;
     if (!collectionId || !photographerId) {
       throw new Error('Collection or photographer is missing. Refresh the page and try again.');
     }
 
-    // Retrieve storage profile info to check limits
-    const { data: profile } = await supabase
-      .from('photographers')
-      .select('storage_used_bytes, storage_limit_bytes, plan')
-      .eq('id', photographerId)
-      .single();
-
-    if (profile) {
-      const usedBytes = profile.storage_used_bytes || 0;
-      let limitBytes = profile.storage_limit_bytes;
-
-      if (!limitBytes) {
-        const tier = String(profile.plan || '').toLowerCase();
-        if (tier === 'pro') limitBytes = 100 * 1024 * 1024 * 1024;
-        else if (tier === 'premium') limitBytes = 500 * 1024 * 1024 * 1024;
-        else if (tier === 'free') limitBytes = 5 * 1024 * 1024 * 1024;
-        else limitBytes = 10 * 1024 * 1024 * 1024;
-      }
-
-      if (usedBytes + file.size > limitBytes) {
-        const remainingBytes = Math.max(0, limitBytes - usedBytes);
-        const formatSize = (bytes) => {
-          if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-          if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-          return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-        };
-        throw new Error(
-          `Storage limit exceeded. Remaining storage space: ${formatSize(remainingBytes)}. This file size is ${formatSize(file.size)}.`
-        );
-      }
-    }
+    await this._assertStorageQuota(photographerId, file.size);
 
     const mime = getFileMime(file);
     const fileExt = (file.name.split('.').pop() || 'jpg').toLowerCase();
     const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
-    const [photographerFolder, collectionFolder] = await Promise.all([
-      getPhotographerPathFolder(photographerId),
-      getCollectionPathFolder(collectionId),
-    ]);
-    const setFolder = setId ? `set__${safePathSegment(setId, 'set')}` : 'highlights';
-    const basePath = `users/${photographerFolder}/clientgallery/${collectionFolder}/photoset/${setFolder}`;
+    const basePath = await this._resolveUploadBasePath(photographerId, collectionId, setId);
     const filePath = `${basePath}/original/${fileName}`;
 
     const isVideo = isVideoMime(mime);
     const isRaw = isRawImageFile(file);
     const mediaType = getUploadMediaType(file);
 
-    const uploadBody =
-      file.type === mime
-        ? file
-        : new File([file], file.name, { type: mime, lastModified: file.lastModified });
+    let webFile = null;
+    let thumbFile = null;
+    let dimensions = { width: null, height: null };
+    let thumbnailBlob = null;
 
-    const uploadPromise = storageService.upload(filePath, uploadBody, onProgress);
+    onProgress?.(5);
 
-    const [{ url: publicUrl }, meta] = await Promise.all([
-      uploadPromise,
-      isVideo
-        ? this._captureVideoThumbnail(file)
-        : isRaw
-          ? this._captureRawPreview(file)
-          : getImageDimensionsFast(file).then((dimensions) => ({ dimensions, thumbnailBlob: null })),
-    ]);
+    if (!isVideo && !isRaw) {
+      const [dim, variants] = await Promise.all([
+        getImageDimensionsFast(file).catch(() => ({ width: null, height: null })),
+        compressImageVariants(file, { webMaxEdge: 2048, thumbMaxEdge: 400, thumbQuality: 0.6 }).catch(
+          () => ({ webFile: file, thumbFile: file })
+        ),
+      ]);
+      dimensions = dim;
+      webFile = variants.webFile;
+      thumbFile = variants.thumbFile;
+    } else if (isVideo) {
+      const meta = await this._captureVideoThumbnail(file).catch(() => ({
+        dimensions: { width: null, height: null },
+        thumbnailBlob: null,
+      }));
+      dimensions = meta.dimensions;
+      thumbnailBlob = meta.thumbnailBlob;
+    } else if (isRaw) {
+      const meta = await this._captureRawPreview(file).catch(() => ({
+        dimensions: { width: null, height: null },
+        thumbnailBlob: null,
+      }));
+      dimensions = meta.dimensions;
+      thumbnailBlob = meta.thumbnailBlob;
+      if (thumbnailBlob) {
+        const previewFile = new File([thumbnailBlob], 'preview.jpg', { type: 'image/jpeg' });
+        const variants = await compressImageVariants(previewFile, {
+          webMaxEdge: 2048,
+          thumbMaxEdge: 400,
+          thumbQuality: 0.6,
+        }).catch(() => ({ webFile: previewFile, thumbFile: previewFile }));
+        webFile = variants.webFile;
+        thumbFile = variants.thumbFile;
+      }
+    }
 
-    const dimensions = meta.dimensions ?? { width: null, height: null };
-    const thumbnailBlob = meta.thumbnailBlob ?? null;
-
-    let webUrl = publicUrl;
-    let thumbUrl = publicUrl;
-    let webStoragePath = null;
-    let thumbnailStoragePath = null;
+    onProgress?.(20);
 
     const fileNameJpg = fileName.replace(/\.[^.]+$/, '.jpg');
     const webPath = `${basePath}/web/${fileNameJpg}`;
     const thumbnailPath = `${basePath}/thumb/${fileNameJpg}`;
 
-    if (isRaw) {
-      if (thumbnailBlob) {
-        const previewFile = new File([thumbnailBlob], 'preview.jpg', { type: 'image/jpeg' });
-        const webFile = await compressImageForUpload(previewFile, { maxEdge: 2048 }).catch(() => previewFile);
-        const thumbFile = await compressImageForUpload(previewFile, { maxEdge: 400, quality: 0.6 }).catch(() => previewFile);
+    let webStoragePath = null;
+    let thumbnailStoragePath = null;
 
-        webStoragePath = webPath;
-        thumbnailStoragePath = thumbnailPath;
-
-        const [webUpload, thumbUpload] = await Promise.all([
-          storageService.upload(webStoragePath, webFile),
-          storageService.upload(thumbnailStoragePath, thumbFile)
-        ]);
-
-        webUrl = webUpload.url;
-        thumbUrl = thumbUpload.url;
-      } else {
-        webUrl = null;
-        thumbUrl = null;
-      }
-    } else if (!isVideo) {
-      const webFile = await compressImageForUpload(file, { maxEdge: 2048 }).catch(() => file);
-      const thumbFile = await compressImageForUpload(file, { maxEdge: 400, quality: 0.6 }).catch(() => file);
-
+    const prepPromises = [];
+    if (webFile) {
       webStoragePath = webPath;
+      prepPromises.push(
+        storageService.upload(webStoragePath, webFile, (p) => {
+          onProgress?.(20 + Math.round((p / 100) * 40));
+        }, signal)
+      );
+    }
+    if (thumbFile) {
       thumbnailStoragePath = thumbnailPath;
+      prepPromises.push(
+        storageService.upload(thumbnailStoragePath, thumbFile, (p) => {
+          onProgress?.(60 + Math.round((p / 100) * 35));
+        }, signal)
+      );
+    }
 
-      const [webUpload, thumbUpload] = await Promise.all([
-        storageService.upload(webStoragePath, webFile),
-        storageService.upload(thumbnailStoragePath, thumbFile)
-      ]);
+    const prepResults = await Promise.all(prepPromises);
 
-      webUrl = webUpload.url;
-      thumbUrl = thumbUpload.url;
+    let webUrl = null;
+    let thumbUrl = null;
+    if (isRaw || !isVideo) {
+      webUrl = webFile ? prepResults[0]?.url : null;
+      thumbUrl = thumbFile ? prepResults[webFile ? 1 : 0]?.url : null;
     }
 
     const { data: photoData, error: dbError } = await supabase
       .from('photos')
-      .insert([{
-        collection_id: collectionId,
-        photographer_id: photographerId,
-        set_id: setId,
-        filename: file.name,
-        full_url: publicUrl,
-        web_url: webUrl,
-        thumbnail_url: thumbUrl,
-        original_storage_path: filePath,
-        web_storage_path: webStoragePath,
-        thumbnail_storage_path: thumbnailStoragePath,
-        size_bytes: file.size,
-        width: dimensions.width,
-        height: dimensions.height,
-        media_type: mediaType,
-        position: index,
-        status: 'ready'
-      }])
+      .insert([
+        {
+          collection_id: collectionId,
+          photographer_id: photographerId,
+          set_id: setId,
+          filename: file.name,
+          full_url: null,
+          web_url: webUrl,
+          thumbnail_url: thumbUrl,
+          original_storage_path: null,
+          web_storage_path: webStoragePath,
+          thumbnail_storage_path: thumbnailStoragePath,
+          size_bytes: file.size,
+          width: dimensions.width,
+          height: dimensions.height,
+          media_type: mediaType,
+          position: index,
+          status: 'ready',
+        },
+      ])
       .select()
       .single();
 
     if (dbError) throw dbError;
 
-    if (typeof window !== 'undefined' && photoData?.id) {
+    if (onInserted) {
+      onInserted(photoData);
+    }
+
+    onProgress?.(100);
+
+    return {
+      photoData,
+      uploadContext: {
+        collectionId,
+        photoId: photoData.id,
+        file,
+        mime,
+        filePath,
+        basePath,
+        fileNameJpg,
+        isVideo,
+        isRaw,
+        thumbnailBlob,
+      },
+    };
+  },
+
+  /**
+   * Look up existing photo rows by filename (live DB — not React state).
+   * Prefers the active set, then incomplete rows on filename collision.
+   */
+  async findPhotosByFilenames(collectionId, filenames, preferredSetId = null) {
+    if (!collectionId || !filenames?.length) return [];
+
+    const unique = [...new Set(filenames.filter(Boolean))];
+    const { data, error } = await supabase
+      .from('photos')
+      .select(DASHBOARD_PHOTO_FIELDS)
+      .eq('collection_id', collectionId)
+      .in('filename', unique);
+
+    if (error) throw error;
+
+    const byName = new Map();
+    for (const photo of data || []) {
+      if (!photo?.filename) continue;
+      const key = String(photo.filename).toLowerCase();
+      const existing = byName.get(key);
+      if (!existing) {
+        byName.set(key, photo);
+        continue;
+      }
+      if (
+        preferredSetId &&
+        photo.set_id === preferredSetId &&
+        existing.set_id !== preferredSetId
+      ) {
+        byName.set(key, photo);
+        continue;
+      }
+      if (isIncompleteUploadPhoto(photo) && !isIncompleteUploadPhoto(existing)) {
+        byName.set(key, photo);
+      }
+    }
+
+    return [...byName.values()];
+  },
+
+  /** True when the original object is absent from R2 (safe to resume original upload). */
+  async isOriginalMissingInR2(photo, fileExt = null) {
+    const path = resolveOriginalStoragePath(photo, fileExt);
+    if (!path) return true;
+    return !(await storageService.exists(path));
+  },
+
+  /**
+   * Build Phase-2 context for a photo that already has web/thumb but never got an original.
+   * Reuses the same storage stem as web/thumb when available.
+   */
+  buildResumeOriginalContext(photo, file) {
+    if (!photo?.id || !file) {
+      throw new Error('Cannot resume upload — photo or file is missing.');
+    }
+
+    const mime = getFileMime(file);
+    const isVideo = isVideoMime(mime);
+    const isRaw = isRawImageFile(file);
+    const fileExt = (file.name.split('.').pop() || 'jpg').toLowerCase();
+
+    const filePath = resolveOriginalStoragePath(photo, fileExt);
+    if (!filePath) {
+      throw new Error(
+        'Cannot resume upload — missing web/thumb storage path. Delete the incomplete photo and re-upload.'
+      );
+    }
+
+    const basePath = filePath.replace(/\/original\/[^/]+$/, '');
+    const stem = filePath
+      .split('/')
+      .pop()
+      ?.replace(/\.[^.]+$/, '');
+    const fileNameJpg = `${stem}.jpg`;
+
+    return {
+      collectionId: photo.collection_id,
+      photoId: photo.id,
+      file,
+      mime,
+      filePath,
+      basePath,
+      fileNameJpg,
+      isVideo,
+      isRaw,
+      thumbnailBlob: null,
+      resumed: true,
+    };
+  },
+
+  /**
+   * Phase 2: upload original full-res file and finalize DB row.
+   */
+  async uploadPhotoOriginal(uploadContext, onProgress = null, options = {}) {
+    const { signal } = options;
+    const {
+      collectionId,
+      photoId,
+      file,
+      mime,
+      filePath,
+      basePath,
+      fileNameJpg,
+      isVideo,
+      isRaw,
+      thumbnailBlob,
+    } = uploadContext;
+
+    let originalFile = file;
+    const uploadQuality = localStorage.getItem('upload_quality') || 'original';
+    if (!isVideo && !isRaw && uploadQuality !== 'original') {
+      const edge = uploadQuality === 'high' ? 3600 : 2048;
+      originalFile = await compressImageForUpload(file, { maxEdge: edge }).catch(() => file);
+    }
+
+    const uploadBody =
+      originalFile.type === mime
+        ? originalFile
+        : new File([originalFile], originalFile.name, {
+            type: mime,
+            lastModified: originalFile.lastModified,
+          });
+
+    const uploadResult = await storageService.upload(filePath, uploadBody, onProgress, signal);
+
+    const { data: finalPhoto } = await supabase
+      .from('photos')
+      .update({
+        full_url: uploadResult.url,
+        original_storage_path: filePath,
+      })
+      .eq('id', photoId)
+      .select()
+      .single();
+
+    if (typeof window !== 'undefined' && photoId) {
       void import('./photoAiUploadPipeline.js').then(({ queuePhotoAiIndex }) =>
-        queuePhotoAiIndex(collectionId, photoData.id)
+        queuePhotoAiIndex(collectionId, photoId)
       );
     }
 
     if (isVideo && thumbnailBlob) {
       const thumbnailPathVideo = `${basePath}/thumb/${fileNameJpg}`;
-      void storageService.upload(thumbnailPathVideo, thumbnailBlob).then(({ url: thumbUrl }) =>
-        supabase.from('photos').update({ thumbnail_url: thumbUrl, thumbnail_storage_path: thumbnailPathVideo }).eq('id', photoData.id)
-      ).catch((err) => console.warn('Video thumbnail upload deferred failed:', err));
+      void storageService
+        .upload(thumbnailPathVideo, thumbnailBlob)
+        .then(({ url: thumbUrl }) =>
+          supabase
+            .from('photos')
+            .update({ thumbnail_url: thumbUrl, thumbnail_storage_path: thumbnailPathVideo })
+            .eq('id', photoId)
+        )
+        .catch((err) => console.warn('Video thumbnail upload deferred failed:', err));
     }
 
-    return photoData;
+    return finalPhoto || { id: photoId, full_url: uploadResult.url, original_storage_path: filePath };
+  },
+
+  /**
+   * Upload a single photo to R2 and record in database.
+   * Prefer two-phase queue (derivatives then originals) for batch uploads.
+   * @param {(percent: number) => void} [onProgress] — 0–100 based on bytes sent to R2
+   */
+  async uploadPhoto(
+    collectionId,
+    photographerId,
+    file,
+    index = 0,
+    setId = null,
+    onProgress = null,
+    onInserted = null
+  ) {
+    const { photoData, uploadContext } = await this.uploadPhotoDerivatives(
+      collectionId,
+      photographerId,
+      file,
+      index,
+      setId,
+      (p) => onProgress?.(Math.round((p / 100) * 20)),
+      onInserted
+    );
+
+    const finalPhoto = await this.uploadPhotoOriginal(uploadContext, (p) =>
+      onProgress?.(20 + Math.round((p / 100) * 80))
+    );
+
+    return finalPhoto || photoData;
   },
 
   async _captureRawPreview(file) {
@@ -1238,66 +1544,84 @@ export const galleryService = {
     const isRaw = isRawImageFile(file);
     const mediaType = getUploadMediaType(file);
 
-    const uploadBody =
-      file.type === mime
-        ? file
-        : new File([file], file.name, { type: mime, lastModified: file.lastModified });
+    let webFile = null;
+    let thumbFile = null;
+    let dimensions = { width: null, height: null };
+    let thumbnailBlob = null;
 
-    const [{ url: publicUrl }, meta] = await Promise.all([
-      storageService.upload(filePath, uploadBody, onProgress),
-      isVideo
-        ? this._captureVideoThumbnail(file)
-        : isRaw
-          ? this._captureRawPreview(file)
-          : getImageDimensionsFast(file).then((dimensions) => ({ dimensions, thumbnailBlob: null })),
-    ]);
-
-    const dimensions = meta.dimensions ?? { width: null, height: null };
-    const thumbnailBlob = meta.thumbnailBlob ?? null;
-
-    let webUrl = publicUrl;
-    let thumbUrl = publicUrl;
-    let webStoragePath = null;
-    let thumbnailStoragePath = null;
+    if (!isVideo && !isRaw) {
+      const [dim, variants] = await Promise.all([
+        getImageDimensionsFast(file).catch(() => ({ width: null, height: null })),
+        compressImageVariants(file, { webMaxEdge: 2048, thumbMaxEdge: 400, thumbQuality: 0.6 }).catch(
+          () => ({ webFile: file, thumbFile: file })
+        ),
+      ]);
+      dimensions = dim;
+      webFile = variants.webFile;
+      thumbFile = variants.thumbFile;
+    } else if (isVideo) {
+      const meta = await this._captureVideoThumbnail(file).catch(() => ({ dimensions: { width: null, height: null }, thumbnailBlob: null }));
+      dimensions = meta.dimensions;
+      thumbnailBlob = meta.thumbnailBlob;
+    } else if (isRaw) {
+      const meta = await this._captureRawPreview(file).catch(() => ({ dimensions: { width: null, height: null }, thumbnailBlob: null }));
+      dimensions = meta.dimensions;
+      thumbnailBlob = meta.thumbnailBlob;
+      if (thumbnailBlob) {
+        const previewFile = new File([thumbnailBlob], 'preview.jpg', { type: 'image/jpeg' });
+        const variants = await compressImageVariants(previewFile, {
+          webMaxEdge: 2048,
+          thumbMaxEdge: 400,
+          thumbQuality: 0.6,
+        }).catch(() => ({ webFile: previewFile, thumbFile: previewFile }));
+        webFile = variants.webFile;
+        thumbFile = variants.thumbFile;
+      }
+    }
 
     const fileNameJpg = fileName.replace(/\.[^.]+$/, '.jpg');
     const webPath = `${basePath}/web/${fileNameJpg}`;
     const thumbnailPath = `${basePath}/thumb/${fileNameJpg}`;
 
-    if (isRaw) {
-      if (thumbnailBlob) {
-        const previewFile = new File([thumbnailBlob], 'preview.jpg', { type: 'image/jpeg' });
-        const webFile = await compressImageForUpload(previewFile, { maxEdge: 2048 }).catch(() => previewFile);
-        const thumbFile = await compressImageForUpload(previewFile, { maxEdge: 400, quality: 0.6 }).catch(() => previewFile);
+    let webStoragePath = null;
+    let thumbnailStoragePath = null;
 
-        webStoragePath = webPath;
-        thumbnailStoragePath = thumbnailPath;
+    let originalFile = file;
+    const uploadQuality = localStorage.getItem('upload_quality') || 'original';
+    if (!isVideo && !isRaw && uploadQuality !== 'original') {
+      const edge = uploadQuality === 'high' ? 3600 : 2048;
+      originalFile = await compressImageForUpload(file, { maxEdge: edge }).catch(() => file);
+    }
 
-        const [webUpload, thumbUpload] = await Promise.all([
-          storageService.upload(webStoragePath, webFile),
-          storageService.upload(thumbnailStoragePath, thumbFile)
-        ]);
+    const uploadBody =
+      originalFile.type === mime
+        ? originalFile
+        : new File([originalFile], originalFile.name, { type: mime, lastModified: originalFile.lastModified });
 
-        webUrl = webUpload.url;
-        thumbUrl = thumbUpload.url;
-      } else {
-        webUrl = null;
-        thumbUrl = null;
-      }
-    } else if (!isVideo) {
-      const webFile = await compressImageForUpload(file, { maxEdge: 2048 }).catch(() => file);
-      const thumbFile = await compressImageForUpload(file, { maxEdge: 400, quality: 0.6 }).catch(() => file);
+    const uploadPromises = [];
+    uploadPromises.push(storageService.upload(filePath, uploadBody, onProgress));
 
+    if (webFile) {
       webStoragePath = webPath;
+      uploadPromises.push(storageService.upload(webStoragePath, webFile));
+    }
+
+    if (thumbFile) {
       thumbnailStoragePath = thumbnailPath;
+      uploadPromises.push(storageService.upload(thumbnailStoragePath, thumbFile));
+    }
 
-      const [webUpload, thumbUpload] = await Promise.all([
-        storageService.upload(webStoragePath, webFile),
-        storageService.upload(thumbnailStoragePath, thumbFile)
-      ]);
+    const uploadResults = await Promise.all(uploadPromises);
+    const publicUrl = uploadResults[0].url;
+    let webUrl = publicUrl;
+    let thumbUrl = publicUrl;
 
-      webUrl = webUpload.url;
-      thumbUrl = thumbUpload.url;
+    if (isRaw) {
+      webUrl = webFile ? uploadResults[1]?.url : null;
+      thumbUrl = thumbFile ? uploadResults[2]?.url : null;
+    } else if (!isVideo) {
+      webUrl = webFile ? uploadResults[1]?.url : publicUrl;
+      thumbUrl = thumbFile ? uploadResults[2]?.url : publicUrl;
     }
 
     const { data: photoData, error: dbError } = await supabase
@@ -1438,6 +1762,78 @@ export const galleryService = {
   },
 
   /**
+   * Fetch all watermarks for a photographer
+   */
+  async getWatermarks(photographerId) {
+    const { data, error } = await supabase
+      .from('watermarks')
+      .select('*')
+      .eq('photographer_id', photographerId)
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Fetch a single watermark by ID
+   */
+  async getWatermark(id) {
+    const { data, error } = await supabase
+      .from('watermarks')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') return null;
+      throw error;
+    }
+    return data;
+  },
+
+  /**
+   * Create a new watermark
+   */
+  async createWatermark(watermarkData) {
+    const { data, error } = await supabase
+      .from('watermarks')
+      .insert([watermarkData])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Update an existing watermark
+   */
+  async updateWatermark(id, updates) {
+    const { data, error } = await supabase
+      .from('watermarks')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Delete a watermark
+   */
+  async deleteWatermark(id) {
+    const { error } = await supabase
+      .from('watermarks')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+  },
+
+  /**
    * Fetch a photographer's profile/branding by their homepage slug
    */
   async getPhotographerProfileBySlug(slug) {
@@ -1484,6 +1880,30 @@ export const galleryService = {
     }
 
     return data;
+  },
+
+  /**
+   * Resolve a verified custom domain to a photographer profile (public galleries).
+   */
+  async getPhotographerProfileByCustomDomain(domain) {
+    const normalized = String(domain || '')
+      .trim()
+      .toLowerCase()
+      .replace(/^https?:\/\//, '')
+      .split('/')[0]
+      .replace(/\.$/, '');
+
+    if (!normalized) return null;
+
+    const { data, error } = await supabase
+      .from('photographers')
+      .select('*')
+      .ilike('custom_domain', normalized)
+      .eq('custom_domain_status', 'verified')
+      .maybeSingle();
+
+    if (error && error.code !== 'PGRST116') throw error;
+    return data || null;
   },
 
   /**
@@ -1580,6 +2000,22 @@ export const galleryService = {
         }
         session = fetchSession;
         console.log('New session created and retrieved:', session);
+
+        // Log registration for Email Registration activity tab (best-effort)
+        try {
+          const { data: col } = await supabase
+            .from('collections')
+            .select('photographer_id, user_id')
+            .eq('id', collectionId)
+            .maybeSingle();
+          await this.logActivity(collectionId, 'email_register', {
+            email,
+            photographerId: col?.photographer_id || col?.user_id,
+            metadata: { source: 'Gallery Registration', type: 'email' },
+          });
+        } catch (logErr) {
+          console.warn('email_register activity log skipped:', logErr);
+        }
       }
 
       // Visitor flows: only create "My Favorites" when this session has no lists yet.
@@ -2094,48 +2530,185 @@ export const galleryService = {
   },
 
   /**
-   * Get download activity for a collection
+   * Get download activity for a collection.
+   * Combines free gallery downloads (activity_log) + paid digital purchase downloads (printstore).
    */
   async getDownloadActivity(collectionId) {
     try {
       console.log('Fetching download activity for collection:', collectionId);
+
+      // Keep select simple — nested photo joins often fail under RLS and return empty.
       const { data, error } = await supabase
         .from('activity_log')
-        .select(`
-          id,
-          event_type,
-          visitor_email,
-          created_at,
-          metadata,
-          resolution,
-          photo:photos!activity_log_photo_id_fkey (
-            id,
-            filename,
-            set_id
-          )
-        `)
+        .select('id, event_type, visitor_email, created_at, metadata, resolution, photo_id')
         .eq('collection_id', collectionId)
         .eq('event_type', 'download')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('activity_log download fetch error:', error);
+        throw error;
+      }
 
-      return data.map(item => ({
-        id: item.id,
-        email: item.visitor_email || 'Unknown visitor',
-        date: item.created_at,
-        type: item.metadata?.type || (item.photo_id ? 'single' : 'gallery'),
-        resolution: item.resolution || item.metadata?.resolution || 'Original',
-        filename: item.photo?.filename || null,
-        photoId: item.photo?.id || null,
-        photoSetId: item.photo?.set_id || null,
-        photoCount: item.metadata?.photoCount ?? null,
-        destination: item.metadata?.destination || 'local',
-        size: item.metadata?.size || null,
-        pinUsed: item.metadata?.pinUsed || false,
-        setName: item.metadata?.setName || null, // Let UI resolve if null
-        pin: item.metadata?.pin || '---',
-      }));
+      const photoIds = [...new Set((data || []).map((row) => row.photo_id).filter(Boolean))];
+      let photosById = {};
+      if (photoIds.length > 0) {
+        const { data: photosData, error: photosErr } = await supabase
+          .from('photos')
+          .select('id, filename, set_id, media_type, thumbnail_url, web_url, full_url')
+          .in('id', photoIds);
+        if (photosErr) {
+          console.warn('download activity photo hydrate failed:', photosErr);
+        } else {
+          photosById = Object.fromEntries((photosData || []).map((p) => [p.id, p]));
+        }
+      }
+
+      const normalizeType = (item, photo) => {
+        const metaType = String(item.metadata?.type || '').toLowerCase();
+        if (metaType === 'gallery' || metaType === 'all' || metaType === 'digital_download_all' || metaType === 'digital_package') {
+          return 'gallery';
+        }
+        if (metaType === 'video') return 'video';
+        if (metaType === 'photo' || metaType === 'single' || metaType === 'single_photo' || metaType === 'digital_download') {
+          return 'photo';
+        }
+
+        const mediaType = String(photo?.media_type || '').toLowerCase();
+        if (mediaType === 'video') return 'video';
+
+        const filename = photo?.filename || item.metadata?.filename || '';
+        if (/\.(mp4|webm|ogg|mov)$/i.test(filename)) return 'video';
+
+        if (item.photo_id || photo?.id || item.metadata?.photoCount === 1) return 'photo';
+        return 'gallery';
+      };
+
+      const formatResolution = (item) => {
+        const raw =
+          item.resolution ||
+          item.metadata?.resolution ||
+          item.metadata?.quality ||
+          'original';
+        const key = String(raw).toLowerCase().replace(/\s+/g, '_');
+        if (key === 'web' || key === 'web_res') return 'Web';
+        if (key === 'full' || key === 'full_res' || key === 'high_res' || key === 'high') return 'Full';
+        if (key === 'original' || key === 'orig' || key === 'hi_res') return 'Original';
+        if (String(raw).toLowerCase() === 'high res') return 'Original';
+        return String(raw);
+      };
+
+      const fromActivityLog = (data || []).map((item) => {
+        const photo = item.photo_id ? photosById[item.photo_id] : null;
+        return {
+          id: item.id,
+          email: item.visitor_email || 'Unknown visitor',
+          date: item.created_at,
+          type: normalizeType(item, photo),
+          resolution: formatResolution(item),
+          filename: photo?.filename || item.metadata?.filename || null,
+          photoId: photo?.id || item.photo_id || null,
+          photoSetId: photo?.set_id || null,
+          photoCount: item.metadata?.photoCount ?? (item.photo_id ? 1 : null),
+          destination: item.metadata?.destination || 'local',
+          size: item.metadata?.size || null,
+          pinUsed: item.metadata?.pinUsed || false,
+          setName: item.metadata?.setName || null,
+          pin: item.metadata?.pin || '---',
+          source: item.metadata?.source || (item.metadata?.destination === 'google_drive' ? 'Google Drive' : 'Gallery'),
+          _origin: 'activity_log',
+        };
+      });
+
+      // Paid digital downloads (store purchases) — also show under Download Activity
+      const fromStore = [];
+      try {
+        const { data: orders, error: ordersErr } = await supabase
+          .from('printstore_orders')
+          .select('id, customer_email, customer_name, created_at, status')
+          .eq('collection_id', collectionId)
+          .order('created_at', { ascending: false });
+
+        if (!ordersErr && orders?.length) {
+          const orderIds = orders.map((o) => o.id);
+          const ordersById = Object.fromEntries(orders.map((o) => [o.id, o]));
+          const { data: items, error: itemsErr } = await supabase
+            .from('printstore_order_items')
+            .select('id, order_id, product_type, product_name, options, quantity')
+            .in('order_id', orderIds)
+            .in('product_type', ['digital_download', 'digital_download_all', 'digital_package']);
+
+          if (!itemsErr && items?.length) {
+            const storePhotoIds = [
+              ...new Set(
+                items
+                  .map((it) => it.options?.photo?.id || it.options?.photo_id)
+                  .filter(Boolean)
+                  .map(String)
+              ),
+            ];
+            if (storePhotoIds.length) {
+              const missing = storePhotoIds.filter((id) => !photosById[id]);
+              if (missing.length) {
+                const { data: morePhotos } = await supabase
+                  .from('photos')
+                  .select('id, filename, set_id, media_type, thumbnail_url, web_url, full_url')
+                  .in('id', missing);
+                (morePhotos || []).forEach((p) => {
+                  photosById[p.id] = p;
+                });
+              }
+            }
+
+            for (const item of items) {
+              const order = ordersById[item.order_id];
+              if (!order) continue;
+              const photoOpt = item.options?.photo || null;
+              const photoId = photoOpt?.id || item.options?.photo_id || null;
+              const photo = photoId ? photosById[photoId] : null;
+              const isAll = item.product_type === 'digital_download_all';
+              const isPackage = item.product_type === 'digital_package';
+              const type = isAll || isPackage ? 'gallery' : 'photo';
+              const filename =
+                photo?.filename ||
+                photoOpt?.filename ||
+                photoOpt?.name ||
+                item.product_name ||
+                null;
+              fromStore.push({
+                id: `store-${item.id}`,
+                email: order.customer_email || order.customer_name || 'Customer',
+                date: order.created_at,
+                type,
+                resolution: 'Original',
+                filename,
+                photoId: photo?.id || photoId || null,
+                photoSetId: photo?.set_id || null,
+                photoCount:
+                  isAll
+                    ? null
+                    : isPackage
+                      ? Number(item.options?.photo_count || item.quantity || 1)
+                      : 1,
+                destination: 'email',
+                size: null,
+                pinUsed: false,
+                setName: isAll ? 'All Photos' : isPackage ? 'Photo Package' : 'Digital Download',
+                pin: '---',
+                source: 'Digital Purchase',
+                _origin: 'printstore',
+              });
+            }
+          }
+        }
+      } catch (storeErr) {
+        console.warn('store digital download activity merge failed:', storeErr);
+      }
+
+      const merged = [...fromActivityLog, ...fromStore].sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
+      return merged;
     } catch (error) {
       console.error('Error in getDownloadActivity:', error);
       return [];
@@ -2181,16 +2754,34 @@ export const galleryService = {
    */
   async logActivity(collectionId, eventType, data = {}) {
     try {
+      let photographerId = data.photographerId || null;
+      if (!photographerId && collectionId) {
+        const { data: col } = await supabase
+          .from('collections')
+          .select('photographer_id, user_id')
+          .eq('id', collectionId)
+          .maybeSingle();
+        photographerId = col?.photographer_id || col?.user_id || null;
+      }
+      if (!photographerId) {
+        console.warn('logActivity skipped: missing photographer_id', { collectionId, eventType });
+        return;
+      }
+
+      const row = {
+        collection_id: collectionId,
+        photographer_id: photographerId,
+        event_type: eventType,
+        visitor_email: data.email || null,
+        photo_id: data.photoId || null,
+        metadata: data.metadata || null,
+      };
+      if (data.resolution) {
+        row.resolution = data.resolution;
+      }
       const { error } = await supabase
         .from('activity_log')
-        .insert([{
-          collection_id: collectionId,
-          photographer_id: data.photographerId || null,
-          event_type: eventType,
-          visitor_email: data.email || null,
-          photo_id: data.photoId || null,
-          metadata: data.metadata || null
-        }]);
+        .insert([row]);
       if (error) throw error;
     } catch (e) {
       console.warn('Failed to log activity:', e);
@@ -2236,6 +2827,55 @@ export const galleryService = {
     } catch (e) {
       console.error('Error getting PIN usage count:', e);
       return 0;
+    }
+  },
+
+  /**
+   * Registered visitor emails for a collection (Email Registration activity tab).
+   * Source: client_sessions, one row per unique email (earliest registration).
+   */
+  async getEmailRegistrationActivity(collectionId) {
+    if (!collectionId) return [];
+    try {
+      const { data, error } = await supabase
+        .from('client_sessions')
+        .select('id, visitor_email, created_at, access_level, download_count')
+        .eq('collection_id', collectionId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('getEmailRegistrationActivity error:', error);
+        throw error;
+      }
+
+      const byEmail = new Map();
+      for (const row of data || []) {
+        const email = String(row.visitor_email || '').trim().toLowerCase();
+        if (!email) continue;
+        const existing = byEmail.get(email);
+        if (!existing) {
+          byEmail.set(email, row);
+          continue;
+        }
+        // Keep the earliest registration time
+        if (new Date(row.created_at).getTime() < new Date(existing.created_at).getTime()) {
+          byEmail.set(email, row);
+        }
+      }
+
+      return [...byEmail.values()]
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .map((row) => ({
+          id: row.id,
+          email: row.visitor_email,
+          date: row.created_at,
+          accessLevel: row.access_level || 'guest',
+          downloadCount: Number(row.download_count) || 0,
+          source: 'Gallery Registration',
+        }));
+    } catch (err) {
+      console.error('Error in getEmailRegistrationActivity:', err);
+      return [];
     }
   },
 
@@ -2401,4 +3041,165 @@ export const galleryService = {
     if (error) throw error;
     return data ?? [];
   },
+
+  // ─── Vault Extension Plans (dedicated table) ───────────────────────
+
+  /**
+   * Fetch vault extension plan settings for a single collection.
+   * Returns null if no row exists yet.
+   */
+  async fetchVaultPlan(collectionId) {
+    if (!collectionId) return null;
+    const { data, error } = await supabase
+      .from('vault_extension_plans')
+      .select('*')
+      .eq('collection_id', collectionId)
+      .maybeSingle();
+
+    if (error) {
+      console.error('fetchVaultPlan error:', error);
+      return null;
+    }
+    return data;
+  },
+
+  /**
+   * Upsert vault extension plan settings for a single collection.
+   * Creates a new row if none exists, updates if it does.
+   */
+  async upsertVaultPlan(collectionId, settings) {
+    if (!collectionId) throw new Error('collectionId is required');
+    const { data, error } = await supabase
+      .from('vault_extension_plans')
+      .upsert({
+        collection_id: collectionId,
+        ...settings,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'collection_id' })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Upsert vault extension plan settings for multiple collections at once.
+   */
+  async upsertVaultPlanBatch(collectionIds, settings) {
+    if (!collectionIds || collectionIds.length === 0) return;
+    const rows = collectionIds.map(id => ({
+      collection_id: id,
+      ...settings,
+      updated_at: new Date().toISOString()
+    }));
+    const { error } = await supabase
+      .from('vault_extension_plans')
+      .upsert(rows, { onConflict: 'collection_id' });
+
+    if (error) throw error;
+  },
+
+  /**
+   * Fetch all sales automations for the photographer.
+   * If table doesn't exist, falls back to localStorage.
+   */
+  async fetchSalesAutomations(photographerId) {
+    if (!photographerId) return [];
+    try {
+      const { data, error } = await supabase
+        .from('sales_automations')
+        .select('*')
+        .eq('photographer_id', photographerId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      console.warn('Supabase fetchSalesAutomations failed, falling back to local cache:', err);
+      try {
+        const local = localStorage.getItem(`pixnxt_sales_automations_${photographerId}`);
+        return local ? JSON.parse(local) : [];
+      } catch (localErr) {
+        return [];
+      }
+    }
+  },
+
+  /**
+   * Save (Insert/Update) a sales automation campaign.
+   */
+  async saveSalesAutomation(photographerId, automation) {
+    if (!photographerId) throw new Error('photographerId is required');
+    const now = new Date().toISOString();
+    const payload = {
+      ...automation,
+      photographer_id: photographerId,
+      last_activity: now,
+      updated_at: now
+    };
+
+    try {
+      const { data, error } = await supabase
+        .from('sales_automations')
+        .upsert(payload, { onConflict: 'id' })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (err) {
+      console.warn('Supabase saveSalesAutomation failed, writing to local cache:', err);
+      // Local fallback
+      try {
+        const localStr = localStorage.getItem(`pixnxt_sales_automations_${photographerId}`);
+        let automations = localStr ? JSON.parse(localStr) : [];
+        const targetId = automation.id || 'auto_' + Math.random().toString(36).substr(2, 9);
+        const existingIdx = automations.findIndex(a => a.id === targetId);
+
+        const newAutomation = {
+          ...payload,
+          id: targetId,
+          created_at: automation.created_at || now
+        };
+
+        if (existingIdx >= 0) {
+          automations[existingIdx] = newAutomation;
+        } else {
+          automations.push(newAutomation);
+        }
+
+        localStorage.setItem(`pixnxt_sales_automations_${photographerId}`, JSON.stringify(automations));
+        return newAutomation;
+      } catch (localErr) {
+        throw err;
+      }
+    }
+  },
+
+  /**
+   * Delete a sales automation.
+   */
+  async deleteSalesAutomation(photographerId, id) {
+    try {
+      const { error } = await supabase
+        .from('sales_automations')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+    } catch (err) {
+      console.warn('Supabase deleteSalesAutomation failed, removing from local cache:', err);
+      try {
+        const localStr = localStorage.getItem(`pixnxt_sales_automations_${photographerId}`);
+        if (localStr) {
+          let automations = JSON.parse(localStr);
+          automations = automations.filter(a => a.id !== id);
+          localStorage.setItem(`pixnxt_sales_automations_${photographerId}`, JSON.stringify(automations));
+        }
+      } catch (localErr) {
+        throw err;
+      }
+    }
+  }
 };

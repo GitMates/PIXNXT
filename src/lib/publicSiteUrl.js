@@ -4,6 +4,8 @@
  * Without it, links use window.location.origin (localhost or Vercel preview URLs).
  */
 
+import { getPhotographerPublicOrigin, isCustomDomainVerified } from './customDomain';
+
 const GALLERY_PATH = '/gallery';
 
 function trimTrailingSlash(url) {
@@ -25,7 +27,15 @@ export function getPublicSiteOrigin() {
 }
 
 /** Public gallery URL for a collection slug. */
-export function getPublicGalleryUrl(slug) {
+export function getPublicGalleryUrl(slug, options = {}) {
+    const { photographerProfile } = options;
+    if (isCustomDomainVerified(photographerProfile)) {
+        const origin = getPhotographerPublicOrigin(photographerProfile);
+        const safeSlug = String(slug || '').trim().replace(/^\/+|\/+$/g, '');
+        if (!safeSlug) return `${origin}${GALLERY_PATH}`;
+        return `${origin}${GALLERY_PATH}/${encodeURIComponent(safeSlug)}`;
+    }
+
     const origin = getPublicSiteOrigin();
     if (!slug) return `${origin}${GALLERY_PATH}`;
     const safeSlug = String(slug).trim().replace(/^\/+|\/+$/g, '');

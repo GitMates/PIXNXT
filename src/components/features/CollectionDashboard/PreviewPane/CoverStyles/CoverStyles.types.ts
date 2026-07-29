@@ -3,6 +3,7 @@ export interface CoverProps {
   date: string;
   description?: string;
   subtitle?: string;
+  coverLogoUrl?: string;
   photoUrl?: string;
   focalX?: number;
   focalY?: number;
@@ -12,5 +13,4 @@ export interface CoverProps {
   /** Slightly larger cover typography on the public /gallery page only */
   isGalleryView?: boolean;
   onViewGallery?: () => void;
-  coverLogoUrl?: string | null;
 }

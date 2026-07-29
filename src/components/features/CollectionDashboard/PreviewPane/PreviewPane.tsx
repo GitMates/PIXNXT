@@ -16,7 +16,7 @@ export const PreviewPane: React.FC<PreviewPaneProps> = ({
   dashboardState,
   onSetActiveSet,
   photographerName,
-  coverLogoUrl,
+  coverLogoUrl
 }) => {
   return (
     <div className={cn('cd-design-preview-pane', previewMode, `font-${settings.fontFamily}`)}>

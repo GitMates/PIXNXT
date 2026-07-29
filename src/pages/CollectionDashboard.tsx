@@ -1,3 +1,4 @@
+import { openSpaPath } from '@/lib/spaNavigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import { useSearchParams, useNavigate } from 'react-router-dom';
@@ -5,7 +6,7 @@ import { useCollectionDashboard } from '@/hooks/useCollectionDashboard';
 import { usePhotoOperations } from '@/hooks/usePhotoOperations';
 import { DashboardSidebar } from '@/components/features/CollectionDashboard/Sidebar';
 import { DashboardTopbar } from '@/components/features/CollectionDashboard/Topbar';
-import { MediaGridView, SelectionToolbar } from '@/components/features/CollectionDashboard/Media';
+import { MediaGridView, SelectionToolbar, DashboardMediaFilter } from '@/components/features/CollectionDashboard/Media';
 import {
   GeneralSettings,
   PrivacySettings,
@@ -25,6 +26,12 @@ import {
   sortDashboardPhotos,
 } from '@/utils/sortDashboardPhotos';
 import { formatCoverDate } from '@/lib/formatCoverDate';
+import {
+  countGalleryMedia,
+  filterGalleryMediaByType,
+  shouldShowGalleryMediaFilter,
+  type GalleryMediaFilterValue,
+} from '@/lib/galleryMediaType';
 import './CollectionDashboard.css';
 
 export default function CollectionDashboard() {
@@ -37,6 +44,7 @@ export default function CollectionDashboard() {
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [showGridSettings, setShowGridSettings] = useState(false);
   const [photoSort, setPhotoSort] = useState<DashboardPhotoSort>('upload-new-old');
+  const [mediaFilter, setMediaFilter] = useState<GalleryMediaFilterValue>('photos');
 
   const dashboardState = useCollectionDashboard(collectionId || '');
   const photoOps = usePhotoOperations({
@@ -95,7 +103,28 @@ export default function CollectionDashboard() {
     return sortDashboardPhotos(display, photoSort);
   }, [photos, activeSetId, photoSort]);
 
+  const activeSetMediaCounts = useMemo(
+    () => countGalleryMedia(sortedDisplayPhotos),
+    [sortedDisplayPhotos]
+  );
+
+  const showMediaFilter = shouldShowGalleryMediaFilter(activeSetMediaCounts);
+
+  useEffect(() => {
+    if (activeSetMediaCounts.photos > 0) setMediaFilter('photos');
+    else if (activeSetMediaCounts.videos > 0) setMediaFilter('videos');
+  }, [activeSetId, activeSetMediaCounts.photos, activeSetMediaCounts.videos]);
+
+  const mediaFilteredPhotos = useMemo(() => {
+    if (!showMediaFilter) return sortedDisplayPhotos;
+    return filterGalleryMediaByType(sortedDisplayPhotos, mediaFilter);
+  }, [sortedDisplayPhotos, showMediaFilter, mediaFilter]);
+
   const activeSetPhotoCount = sortedDisplayPhotos.length;
+
+  const activeSetDisplayCount = showMediaFilter
+    ? activeSetMediaCounts[mediaFilter === 'photos' ? 'photos' : 'videos']
+    : activeSetPhotoCount;
 
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
@@ -237,7 +266,17 @@ export default function CollectionDashboard() {
         <div className="cd-main-scroll">
           <div className="cd-content-padding">
             <div className="cd-main-header">
-              <h2 className="cd-main-title">{activeSetName} ({activeSetPhotoCount})</h2>
+              <div className="cd-main-header-left">
+                <h2 className="cd-main-title">{activeSetName} ({activeSetDisplayCount})</h2>
+                {showMediaFilter && (
+                  <DashboardMediaFilter
+                    value={mediaFilter}
+                    onChange={setMediaFilter}
+                    photoCount={activeSetMediaCounts.photos}
+                    videoCount={activeSetMediaCounts.videos}
+                  />
+                )}
+              </div>
               <div className="cd-main-actions">
                 <div className="cd-sort-wrapper" ref={sortRef}>
                   <button
@@ -313,19 +352,26 @@ export default function CollectionDashboard() {
                           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
                         )}
                       </div>
-                      <div className="cd-grid-divider" />
-                      <div className="cd-grid-section-label">Show</div>
-                      <div className="cd-grid-toggle-row">
-                        <span>Filename</span>
-                        <label className="cd-toggle" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
-                          <input type="checkbox" checked={showFilename} onChange={() => setShowFilename(!showFilename)} />
-                          <span className="cd-toggle-slider" />
-                        </label>
-                        <span className="cd-toggle-label">{showFilename ? 'On' : 'Off'}</span>
-                      </div>
                     </div>
                   )}
                 </div>
+
+                <div className="cd-toolbar-toggle-row">
+                  <span>Filename</span>
+                  <label className="cd-toggle" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={showFilename}
+                      onChange={() => {
+                        const nextValue = !showFilename;
+                        setShowFilename(nextValue);
+                        localStorage.setItem('filename_display', nextValue ? 'show' : 'hide');
+                      }}
+                    />
+                    <span className="cd-toggle-slider" />
+                  </label>
+                </div>
+
                 <div className="cd-main-actions-divider" />
                 <button type="button" className="cd-add-media-btn" onClick={() => setShowUploadModal(true)}>
                   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
@@ -334,7 +380,7 @@ export default function CollectionDashboard() {
               </div>
             </div>
             <MediaGridView
-              photos={sortedDisplayPhotos}
+              photos={mediaFilteredPhotos}
               gridSize={gridSize}
               showFilename={showFilename}
               selectedPhotos={photoOps.selectedPhotos}
@@ -421,10 +467,6 @@ export default function CollectionDashboard() {
     return null;
   };
 
-  function openSpaPath(arg0: string): void {
-    throw new Error('Function not implemented.');
-  }
-
   return (
     <div className="cd-layout">
       <DashboardSidebar
@@ -439,6 +481,7 @@ export default function CollectionDashboard() {
         onEditSet={handleEditSet}
         onDeleteSet={handleDeleteSet}
         onManageSets={() => { }}
+        onReorderSets={dashboardState.reorderSets}
       />
 
       <main className="cd-main">
@@ -446,7 +489,17 @@ export default function CollectionDashboard() {
           collectionName={collection?.name || ''}
           status={status}
           onStatusChange={(newStatus: 'DRAFT' | 'PUBLISHED') => setStatus(newStatus)}
-          onPreview={() => openSpaPath(`/gallery/${collection?.slug}`)}
+          onPreview={() => {
+            const params = new URLSearchParams({
+              coverStyle: dashboardState.designSettings.coverStyle,
+              font: dashboardState.designSettings.fontFamily,
+              color: dashboardState.designSettings.colorPalette,
+              grid: dashboardState.designSettings.grid.style,
+              slideshow: dashboardState.slideshow ? '1' : '0',
+              socialSharing: dashboardState.socialSharing ? '1' : '0',
+            });
+            openSpaPath(`/gallery/${collection?.slug}?${params.toString()}`);
+          }}
           onShare={() => { }}
           onBack={() => navigate('/dashboard')}
           moreMenu={{

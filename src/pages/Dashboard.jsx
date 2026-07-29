@@ -176,7 +176,12 @@ const products = [
     color: 'teal',
     icon: <img src={clientGalleryGif} alt="Client Gallery" className="dash-product-image-gif" loading="lazy" decoding="async" />,
     route: '/client-gallery',
-    links: ['Manage Collections', 'Create Collection', 'Search Photo Library', 'View Homepage', 'Settings'],
+    links: [
+      { label: 'Manage Collections', path: '/client-gallery' },
+      { label: 'Create Collection', path: '/collections/create' },
+      { label: 'View Homepage', path: '/homepage' },
+      { label: 'Settings', path: '/settings' },
+    ],
   },
   {
     name: 'Smart Albums',
@@ -218,6 +223,16 @@ const products = [
     links: [
       { label: 'Manage Events', path: '/guest-delivery' },
       { label: 'Create Event', path: '/guest-delivery?create=1' },
+    ],
+  },
+  {
+    name: 'Store',
+    color: 'red',
+    icon: <ShoppingBagIcon />,
+    route: '/store/orders',
+    links: [
+      { label: 'View Orders', path: '/store/orders' },
+      { label: 'Settings', path: '/store/orders?tab=settings' },
     ],
   },
 ];
@@ -374,6 +389,7 @@ const Dashboard = () => {
                           href="#"
                           onClick={(e) => {
                             e.preventDefault();
+                            e.stopPropagation();
                             if (path) navigate(path);
                           }}
                         >
@@ -422,7 +438,7 @@ const Dashboard = () => {
                 <img src={recentOrdersGif} alt="Recent Orders" /> RECENT ORDERS
               </div>
               <div className="dash-quick-card-body">
-                <h3>Setup your 24/7 Print Store</h3>
+                <h3>Setup your 24/7 Print Lab</h3>
                 <p>Launch your online store in 4 easy steps</p>
                 <button className="dash-get-started-btn">Get Started</button>
               </div>

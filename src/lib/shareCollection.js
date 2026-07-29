@@ -4,8 +4,8 @@ import { getPublicGalleryUrl, getPublicSiteOrigin, getShareUrlWarning } from './
 
 export { getShareUrlWarning };
 
-export function getCollectionShareUrl(slug) {
-    return getPublicGalleryUrl(slug);
+export function getCollectionShareUrl(slug, photographerProfile) {
+    return getPublicGalleryUrl(slug, { photographerProfile });
 }
 
 /** @deprecated Use getPublicSiteOrigin — re-export for callers that need the origin only. */
@@ -25,7 +25,7 @@ export function openShareByEmail(url, title = 'Photo Gallery') {
 }
 
 export function openWhatsAppShare(url, title = 'Gallery') {
-    const text = `Check out ${title}: ${url}`;
+    const text = `Hi,\n\nThanks again for sharing your special day with me! I had an incredible time photographing the two of you, and I am very excited to share the photos with you!\n\nClick on the link below to view your personalized gallery. Feel free to then share this gallery with your family and friends.\n\nI hope you enjoy the photos and please let me know if you have any questions. Have a great day!\n\nCheers,\nYour Name\n\nView Gallery: ${url}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
 }
 

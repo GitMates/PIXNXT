@@ -1,17 +1,22 @@
 import React from 'react';
 import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import SidebarLayout from '../../components/SidebarLayout';
 import MobileGalleryLayout from '../../components/mobile-gallery/MobileGalleryLayout';
 import AppsList from './AppsList';
 import ModuleSettings from './ModuleSettings';
 import AppDetail from './AppDetail';
 import AppPreview from './AppPreview';
 import AppShare from './AppShare';
+import '../../styles/mobileGalleryTheme.css';
+import './MobileGallery.css';
 
 function ModuleShell() {
   return (
-    <MobileGalleryLayout>
-      <Outlet />
-    </MobileGalleryLayout>
+    <SidebarLayout productId="mobile-gallery">
+      <div className="theme-mono mg-theme mg-main flex-1 min-h-0">
+        <Outlet />
+      </div>
+    </SidebarLayout>
   );
 }
 

@@ -1,20 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { DatePicker } from '../components/ui/DatePicker';
 import { ClientGallerySelect } from '../components/features/ClientGallery/ClientGallerySelect';
 import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
 import { guestDeliveryService } from '../services/guestDelivery.service';
+import { supabase } from '../lib/supabase/client';
 import '../styles/clientGalleryTheme.css';
 import '../styles/collectionDashboardTheme.css';
 import './CreateCollection.css';
-
-const PRESET_OPTIONS = [
-    { value: 'default', label: 'Default' },
-    { value: 'wedding', label: 'Wedding' },
-    { value: 'portrait', label: 'Portrait' },
-    { value: 'event', label: 'Event' },
-];
 
 const CreateCollection = () => {
     const navigate = useNavigate();
@@ -25,8 +19,33 @@ const CreateCollection = () => {
     const [date, setDate] = useState('');
     const [preset, setPreset] = useState('default');
     const [guestDeliveryEnabled, setGuestDeliveryEnabled] = useState(false);
+    const [presets, setPresets] = useState([]);
+    const [presetOptions, setPresetOptions] = useState([{ value: 'default', label: 'Default' }]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState(null);
+
+    useEffect(() => {
+        if (!user) return;
+        const fetchPresets = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('presets')
+                    .select('*')
+                    .eq('photographer_id', user.id);
+                if (!error && data) {
+                    setPresets(data);
+                    const options = [
+                        { value: 'default', label: 'Default' },
+                        ...data.map(p => ({ value: p.id, label: p.name }))
+                    ];
+                    setPresetOptions(options);
+                }
+            } catch (err) {
+                console.error("Failed to load presets", err);
+            }
+        };
+        fetchPresets();
+    }, [user]);
 
     const generateSlug = (text) => {
         return text
@@ -48,6 +67,25 @@ const CreateCollection = () => {
         
         try {
             const collectionSlug = `${generateSlug(name)}-${Date.now().toString(36)}`;
+            let presetSettings = {};
+            if (preset !== 'default') {
+                const selectedPreset = presets.find(p => p.id === preset);
+                if (selectedPreset && selectedPreset.settings) {
+                    const ps = selectedPreset.settings;
+                    presetSettings = {
+                        font_family: ps.typography || 'sans_1',
+                        color_palette: ps.colorTheme || 'light_1',
+                        grid_style: ps.gridStyle || 'vertical',
+                        thumbnail_size: ps.thumbnailSize || 'regular',
+                        grid_spacing: ps.gridSpacing || 'regular',
+                        nav_style: (ps.navigationStyle === 'text' || ps.navigationStyle === 'icon_text') ? 'icons_labels' : 'icons',
+                        privacy: ps.collectionPassword ? 'password' : 'public',
+                        cover_layout: ps.coverStyle || 'novel',
+                        cover_style: 'photo',
+                    };
+                }
+            }
+
             const collectionData = {
                 photographer_id: user.id,
                 name,
@@ -63,7 +101,11 @@ const CreateCollection = () => {
                 privacy: 'public',
                 cover_style: 'photo',
                 guest_delivery_enabled: guestDeliveryEnabled,
+                cover_layout: 'novel',
+                show_filenames: localStorage.getItem('filename_display') === 'show',
+                language: localStorage.getItem('default_language') || 'english',
                 ...(folderId ? { folder_id: folderId } : {}),
+                ...presetSettings,
             };
 
             const newCollection = await galleryService.createCollection(collectionData);
@@ -134,15 +176,13 @@ const CreateCollection = () => {
                             </div>
                         </div>
 
-                        <div className="cc-form-group cc-form-group--datepicker">
-                            <label className="cc-label" htmlFor="collection-event-date">Event Date</label>
-                            <div className="cc-input-shell neu-inset">
-                                <DatePicker
-                                    inputId="collection-event-date"
-                                    value={date}
-                                    onChange={setDate}
-                                    placeholder="Select event date"
-                                    className="cc-date-picker"
+                        <div className="cc-form-group">
+                            <label className="cc-label">Event Date</label>
+                            <div className="cc-input-shell neu-inset cc-input-shell--rounded">
+                                <DatePicker 
+                                    value={date} 
+                                    onChange={setDate} 
+                                    placeholder="Select event date" 
                                 />
                             </div>
                         </div>
@@ -153,7 +193,7 @@ const CreateCollection = () => {
                                 value={preset}
                                 onChange={setPreset}
                                 aria-label="Collection preset"
-                                options={PRESET_OPTIONS}
+                                options={presetOptions}
                             />
                         </div>
 

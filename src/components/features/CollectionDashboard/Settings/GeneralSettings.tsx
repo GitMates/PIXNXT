@@ -68,6 +68,44 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
     showGeneralAdditionalOptions,
     setShowGeneralAdditionalOptions,
 }) => {
+    const [pendingWatermark, setPendingWatermark] = React.useState<string | null>(null);
+    const [isSavingWatermark, setIsSavingWatermark] = React.useState(false);
+
+    const handleWatermarkChange = (val: string) => {
+        setPendingWatermark(val);
+    };
+
+    const confirmWatermarkChange = async () => {
+        if (pendingWatermark !== null) {
+            setIsSavingWatermark(true);
+            try {
+                setDefaultWatermark(pendingWatermark);
+                await galleryService.updateCollection(collectionId, { default_watermark: pendingWatermark });
+                setCollection(prev => ({ ...prev, default_watermark: pendingWatermark }));
+            } catch (err) {
+                console.error('Failed to save default watermark:', err);
+            } finally {
+                setIsSavingWatermark(false);
+                setPendingWatermark(null);
+            }
+        }
+    };
+
+    const [vaultEnabled, setVaultEnabled] = React.useState(false);
+    const [vaultPrice, setVaultPrice] = React.useState('499');
+
+    React.useEffect(() => {
+        if (collectionId) {
+            galleryService.fetchVaultPlan(collectionId).then(plan => {
+                if (plan) {
+                    setVaultEnabled(plan.vault_enabled === true);
+                    setVaultPrice(String(plan.price_lifetime || '499'));
+                }
+            });
+        }
+    }, [collectionId]);
+
+
     const broadcastGallerySettings = (settings: {
         slideshow_enabled?: boolean;
         social_sharing_enabled?: boolean;
@@ -105,6 +143,28 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
             }
         }
     };
+
+    const [watermarkOptions, setWatermarkOptions] = React.useState<{value: string, label: string}[]>([
+        { value: 'No watermark', label: 'No watermark' }
+    ]);
+
+    React.useEffect(() => {
+        const fetchWatermarks = async () => {
+            if (collection?.photographer_id) {
+                try {
+                    const wms = await galleryService.getWatermarks(collection.photographer_id);
+                    const opts = [
+                        { value: 'No watermark', label: 'No watermark' },
+                        ...wms.map((w: any) => ({ value: w.id, label: w.name || 'Unnamed Watermark' }))
+                    ];
+                    setWatermarkOptions(opts);
+                } catch (err) {
+                    console.error('Failed to fetch watermarks:', err);
+                }
+            }
+        };
+        fetchWatermarks();
+    }, [collection?.photographer_id]);
 
     return (
         <div className="cd-general-settings-view">
@@ -144,13 +204,9 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                     <label className="settings-label">Default Watermark</label>
                     <ClientGallerySelect
                         value={defaultWatermark}
-                        onChange={setDefaultWatermark}
+                        onChange={handleWatermarkChange}
                         aria-label="Default watermark"
-                        options={[
-                            { value: 'No watermark', label: 'No watermark' },
-                            { value: 'Center Watermark', label: 'Center Watermark' },
-                            { value: 'Bottom Right Watermark', label: 'Bottom Right Watermark' },
-                        ]}
+                        options={watermarkOptions}
                     />
                     <p className="settings-desc">Set the default watermark to apply to photos. Manage watermarks in <span className="settings-link">App settings</span>.</p>
                 </div>
@@ -175,6 +231,64 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                     </div>
                     <p className="settings-desc">Automatically set your collection to hidden on a specific date (at 11:59pm <span className="highlight-text">GMT+5:30</span>)</p>
                     
+                    {autoExpiry && (
+                        <div style={{
+                            marginTop: '16px',
+                            padding: '16px',
+                            background: '#fcfbfa',
+                            border: '1px solid #f2ede4',
+                            borderRadius: '8px',
+                            marginBottom: '20px'
+                        }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div style={{ flex: 1, paddingRight: '16px' }}>
+                                    <label className="settings-label" style={{ fontSize: '13px', fontWeight: 600, color: '#111', display: 'block', marginBottom: '2px' }}>Enable Permanent Vault Purchase</label>
+                                    <span className="settings-desc small" style={{ fontSize: '12px', color: '#64748b', display: 'block', lineHeight: 1.4 }}>
+                                        Allow gallery visitors to pay to extend this gallery online forever, overriding the auto expiry.
+                                    </span>
+                                </div>
+                                <div>
+                                    <label className="cd-toggle">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={vaultEnabled} 
+                                            onChange={async (e) => {
+                                                const checked = e.target.checked;
+                                                setVaultEnabled(checked);
+                                                try {
+                                                    await galleryService.upsertVaultPlan(collectionId, { vault_enabled: checked });
+                                                } catch (err) { console.error('Failed to update vault_enabled:', err); }
+                                            }} 
+                                        />
+                                        <span className="cd-toggle-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            {vaultEnabled && (
+                                <div style={{ marginTop: '16px', borderTop: '1px solid #f2ede4', paddingTop: '16px' }}>
+                                    <label className="settings-label" style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '6px', color: '#111' }}>Permanent Vault Price (INR)</label>
+                                    <div className="settings-input-wrapper" style={{ maxWidth: '140px' }}>
+                                        <input
+                                            type="number"
+                                            className="settings-input"
+                                            value={vaultPrice}
+                                            onChange={async (e) => {
+                                                const price = e.target.value;
+                                                setVaultPrice(price);
+                                                try {
+                                                    await galleryService.upsertVaultPlan(collectionId, { price_lifetime: parseInt(price) || 499 });
+                                                } catch (err) { console.error('Failed to update vault_price_lifetime:', err); }
+                                            }}
+                                            placeholder="499"
+                                            style={{ padding: '8px 12px' }}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     {expiryReminders.length > 0 && (
                         <div className="reminders-list">
                             {expiryReminders.map((reminder) => (
@@ -280,7 +394,7 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                             <span className="toggle-state-label">{socialSharing ? 'On' : 'Off'}</span>
                         </div>
                     </div>
-                    <p className="settings-desc small">Allow collection visitors to share your work to social media. <span className="settings-link">Learn more</span></p>
+                    <p className="settings-desc small">Allow collection visitors to share your work to social media.</p>
                 </div>
 
                 <div className="settings-section">
@@ -299,6 +413,57 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                     <p className="settings-desc">Choose the language to display this collection in.</p>
                 </div>
             </div>
+
+            {pendingWatermark !== null && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 9999
+                }}>
+                    <div style={{
+                        background: 'white',
+                        borderRadius: '4px',
+                        width: '440px',
+                        padding: '24px',
+                        boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+                        position: 'relative'
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                            <h3 style={{ margin: 0, fontSize: '13px', fontWeight: '600', letterSpacing: '1px', textTransform: 'uppercase', color: '#333' }}>
+                                Change Default Watermark
+                            </h3>
+                            <button onClick={() => setPendingWatermark(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#999', padding: 0 }}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                        </div>
+                        <p style={{ margin: '0 0 24px 0', fontSize: '14px', color: '#555', lineHeight: '1.5' }}>
+                            The watermark '{watermarkOptions.find(o => o.value === pendingWatermark)?.label || pendingWatermark}' will only be applied to new photo uploads moving forward.
+                        </p>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                            <button 
+                                onClick={() => setPendingWatermark(null)}
+                                style={{ background: 'none', border: 'none', padding: '8px 16px', fontSize: '14px', cursor: 'pointer', color: '#555', fontWeight: '500' }}
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={confirmWatermarkChange}
+                                disabled={isSavingWatermark}
+                                style={{ background: '#0d9488', color: 'white', border: 'none', borderRadius: '4px', padding: '8px 20px', fontSize: '14px', cursor: isSavingWatermark ? 'not-allowed' : 'pointer', fontWeight: '500', opacity: isSavingWatermark ? 0.7 : 1 }}
+                            >
+                                {isSavingWatermark ? 'Saving...' : 'Save'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

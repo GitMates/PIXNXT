@@ -1,10 +1,11 @@
 import React from 'react';
-import { Heart, Share2, Play, Download, Loader2 } from 'lucide-react';
+import { Heart, Share2, Play, Download, Loader2, ShoppingCart, Store, ArrowDownToLine } from 'lucide-react';
 import { cn } from '../../../../lib/utils';
 import { galleryChromeStyles, GalleryChromeVariant, getGalleryChromeVariant } from './galleryChromeStyles';
 import { NavigationStyleSetting } from '../../../../lib/navStyle';
 import { GalleryMediaFilter } from './GalleryMediaFilter';
 import type { GalleryMediaFilterValue } from '../../../../lib/galleryMediaType';
+import { orderGallerySetTabs } from '../../../../lib/gallerySetOrder';
 
 export interface GallerySetTab {
   id: string;
@@ -25,6 +26,7 @@ export interface GalleryStickyNavProps {
   showDownload?: boolean;
   showShare?: boolean;
   showSlideshow?: boolean;
+  showShop?: boolean;
   favoritedCount?: number;
   isDownloadingAll?: boolean;
   downloadLabel?: string;
@@ -32,6 +34,13 @@ export interface GalleryStickyNavProps {
   onDownloadClick?: () => void;
   onShareClick?: () => void;
   onSlideshowClick?: () => void;
+  onShopClick?: () => void;
+  showPrintLab?: boolean;
+  onPrintLabClick?: () => void;
+  showBuyGallery?: boolean;
+  buyGalleryLabel?: string;
+  onBuyGalleryClick?: () => void;
+  isPaidDownload?: boolean;
   isDark?: boolean;
   isPreviewMobile?: boolean;
   /** Public gallery on a real phone — same two-row nav as preview mobile. */
@@ -39,6 +48,9 @@ export interface GalleryStickyNavProps {
   /** icon = icons only; text = icons + labels */
   navigationStyle?: NavigationStyleSetting;
   showHighlightsTab?: boolean;
+  highlightsName?: string;
+  /** Full sidebar order including virtual "highlights" id. */
+  sidebarSetOrder?: string[] | null;
   /** Photos / videos toggle (shown in nav when both types exist in the active set). */
   mediaFilter?: GalleryMediaFilterValue;
   onMediaFilterChange?: (value: GalleryMediaFilterValue) => void;
@@ -61,6 +73,7 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
   showDownload = true,
   showShare = true,
   showSlideshow = true,
+  showShop = true,
   favoritedCount = 0,
   isDownloadingAll = false,
   downloadLabel = 'Download',
@@ -68,11 +81,20 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
   onDownloadClick,
   onShareClick,
   onSlideshowClick,
+  onShopClick,
+  showPrintLab = true,
+  onPrintLabClick,
+  showBuyGallery = false,
+  buyGalleryLabel = 'Buy Gallery',
+  onBuyGalleryClick,
+  isPaidDownload = false,
   isDark,
   isPreviewMobile = false,
   isGalleryViewMobile = false,
   navigationStyle = 'icon',
   showHighlightsTab = true,
+  highlightsName = 'Highlights',
+  sidebarSetOrder = null,
   mediaFilter,
   onMediaFilterChange,
   mediaPhotoCount = 0,
@@ -101,9 +123,25 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
       showActionLabels ? (isCompact ? 'inline' : 'hidden md:inline') : 'sr-only'
     );
 
-  const visibleSets = sets
-    .filter((s) => s.name?.toLowerCase() !== 'highlights')
-    .slice(0, maxVisibleSets ?? sets.length);
+  const orderedTabs = orderGallerySetTabs({
+    sets,
+    sidebarSetOrder,
+    showHighlights: showHighlightsTab,
+    highlightsName,
+  });
+
+  const visibleTabs =
+    maxVisibleSets == null
+      ? orderedTabs
+      : (() => {
+          let nonHighlightCount = 0;
+          return orderedTabs.filter((tab) => {
+            if (tab.isHighlights || tab.id == null) return true;
+            if (nonHighlightCount >= maxVisibleSets) return false;
+            nonHighlightCount += 1;
+            return true;
+          });
+        })();
 
   const tabButtonClass = (active: boolean) =>
     cn(
@@ -112,61 +150,100 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
       active ? 'opacity-100' : 'opacity-45 hover:opacity-100'
     );
 
-  const renderMediaFilter = () => {
-    return null;
+  const renderMediaFilter = (layoutMode: 'inline' | 'bar' = 'inline') => {
+    if (mediaFilter == null || !onMediaFilterChange) return null;
+    return (
+      <GalleryMediaFilter
+        layout={layoutMode}
+        variant={variant}
+        value={mediaFilter}
+        onChange={onMediaFilterChange}
+        photoCount={mediaPhotoCount}
+        videoCount={mediaVideoCount}
+      />
+    );
   };
 
   const renderTabs = () => (
     <>
-      {showHighlightsTab ? (
-        <button
-          type="button"
-          className={cn(
-            'group relative inline-flex shrink-0 items-center whitespace-nowrap',
-            isCompact ? 'py-0' : 'py-2'
-          )}
-          onClick={() => onSetChange?.(null)}
-        >
-          <span className={cn(tabButtonClass(!activeSetId), 'whitespace-nowrap')} style={{ color: 'var(--gallery-text)' }}>
-            Highlights
-          </span>
-          {!activeSetId && (
-            <div
-              className="absolute bottom-0 left-0 h-[1.5px] w-full origin-left scale-x-100"
-              style={{ backgroundColor: 'var(--gallery-text)' }}
-            />
-          )}
-        </button>
-      ) : null}
-      {visibleSets.map((set) => (
-        <button
-          key={set.id}
-          type="button"
-          className={cn(
-            'group relative inline-flex shrink-0 items-center whitespace-nowrap',
-            isCompact ? 'py-0' : 'py-2'
-          )}
-          onClick={() => onSetChange?.(set.id)}
-        >
-          <span
-            className={cn(tabButtonClass(activeSetId === set.id), 'whitespace-nowrap')}
-            style={{ color: 'var(--gallery-text)' }}
+      {visibleTabs.map((tab) => {
+        const isHighlights = tab.isHighlights || tab.id == null;
+        const isActive = isHighlights ? !activeSetId : activeSetId === tab.id;
+        return (
+          <button
+            key={isHighlights ? 'highlights' : tab.id}
+            type="button"
+            className={cn(
+              'group relative inline-flex shrink-0 items-center whitespace-nowrap',
+              isCompact ? 'py-0' : 'py-2'
+            )}
+            onClick={() => onSetChange?.(isHighlights ? null : tab.id)}
           >
-            {set.name}
-          </span>
-          {activeSetId === set.id && (
-            <div
-              className="absolute bottom-0 left-0 h-[1.5px] w-full origin-left scale-x-100"
-              style={{ backgroundColor: 'var(--gallery-text)' }}
-            />
-          )}
-        </button>
-      ))}
+            <span
+              className={cn(tabButtonClass(isActive), 'whitespace-nowrap')}
+              style={{ color: 'var(--gallery-text)' }}
+            >
+              {tab.name}
+            </span>
+            {isActive && (
+              <div
+                className="absolute bottom-0 left-0 h-[1.5px] w-full origin-left scale-x-100"
+                style={{ backgroundColor: 'var(--gallery-text)' }}
+              />
+            )}
+          </button>
+        );
+      })}
     </>
   );
 
   const renderActions = () => (
     <>
+      {showPrintLab && (
+        <button
+          type="button"
+          className={cn(
+            'flex shrink-0 items-center transition-opacity',
+            isCompact ? 'gap-0.5 opacity-60 hover:opacity-100' : 'gap-1 md:gap-2 hover:opacity-50',
+            !isCompact && 'relative'
+          )}
+          onClick={onPrintLabClick}
+          style={{ color: 'var(--gallery-text)' }}
+        >
+          <span className="text-xs md:text-sm font-medium uppercase tracking-wider underline underline-offset-4 decoration-1">Print Lab</span>
+        </button>
+      )}
+      {showBuyGallery && (
+        <button
+          type="button"
+          className={cn(
+            'flex shrink-0 items-center transition-opacity',
+            isCompact ? 'gap-0.5 opacity-60 hover:opacity-100' : 'gap-1 md:gap-2 hover:opacity-50',
+            !isCompact && 'relative'
+          )}
+          onClick={onBuyGalleryClick}
+          style={{ color: 'var(--gallery-text)' }}
+        >
+          <span className="text-xs md:text-sm font-medium uppercase tracking-wider underline underline-offset-4 decoration-1">
+            {buyGalleryLabel}
+          </span>
+        </button>
+      )}
+      {showShop && (
+        <button
+          type="button"
+          className={cn(
+            'flex shrink-0 items-center transition-opacity',
+            isCompact ? 'gap-0.5 opacity-60 hover:opacity-100' : 'gap-1 md:gap-2 hover:opacity-50',
+            !isCompact && 'relative'
+          )}
+          onClick={onShopClick}
+          style={{ color: 'var(--gallery-text)' }}
+        >
+          <ShoppingCart size={iconSize} />
+          <span className={actionLabelClass(styles.action)}>Cart</span>
+        </button>
+      )}
       {showFavorites && (
         <button
           type="button"
@@ -210,10 +287,15 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
         >
           {isDownloadingAll ? (
             <Loader2 size={iconSize} className="animate-spin shrink-0" aria-hidden />
+          ) : isPaidDownload ? (
+            <span className="relative shrink-0" style={!isCompact ? { marginRight: '6px' } : undefined}>
+              <ArrowDownToLine size={iconSize} aria-hidden />
+              <span style={{ position: 'absolute', top: '-4px', right: '-6px', fontSize: '7px', fontWeight: 800, lineHeight: 1, background: 'var(--gallery-text)', color: 'var(--gallery-bg)', borderRadius: '3px', padding: '1px 2px' }}>₹</span>
+            </span>
           ) : (
             <Download size={iconSize} className="shrink-0" aria-hidden />
           )}
-          <span className={actionLabelClass(styles.action)}>{downloadLabel}</span>
+          <span className={actionLabelClass(styles.action)}>{isPaidDownload ? 'Buy' : downloadLabel}</span>
         </button>
       )}
       {showShare && (
@@ -284,7 +366,7 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
             </div>
             <div className={mobileLayoutStyles.tabsBlockMobile}>
               {renderTabs()}
-              {renderMediaFilter()}
+              {renderMediaFilter('inline')}
             </div>
           </>
         ) : isCompact ? (
@@ -293,7 +375,6 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
               <div className={styles.brandBlock}>{renderBrand()}</div>
               <div className={styles.tabsBlock}>
                 {renderTabs()}
-                {renderMediaFilter()}
               </div>
             </div>
             <div className={styles.actionsBlock}>{renderActions()}</div>
@@ -304,7 +385,6 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
               <div className={styles.brandBlock}>{renderBrand()}</div>
               <div className={styles.tabsBlock}>
                 {renderTabs()}
-                {renderMediaFilter()}
               </div>
             </div>
             <div className={styles.navRailSpacer} aria-hidden />
@@ -312,6 +392,7 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
           </>
         )}
       </div>
+      {!useMobileNavLayout && renderMediaFilter('bar')}
     </div>
   );
 };

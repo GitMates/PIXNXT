@@ -79,9 +79,27 @@ export interface ActivityViewProps {
   setFavoriteListName: any;
   setSelectedFavoriteListId: any;
   sortedFavoriteActivity: any;
+  storeOrders?: any[];
+  storeOrderItems?: any[];
+  storeOrdersLoading?: boolean;
+  emailRegistrationActivity?: any[];
 }
 
+const getNumericPrice = (val: any): number => {
+  if (val === null || val === undefined) return 0;
+  if (typeof val === 'number') return isNaN(val) ? 0 : val;
+  const str = String(val).replace(/[^0-9.-]/g, '');
+  const num = parseFloat(str);
+  return isNaN(num) ? 0 : num;
+};
 
+const safeFormatPrice = (val: any): string => {
+  if (val === null || val === undefined) return '0.00';
+  if (typeof val === 'number') return isNaN(val) ? '0.00' : val.toFixed(2);
+  const str = String(val).replace(/[^0-9.-]/g, '');
+  const num = parseFloat(str);
+  return isNaN(num) ? '0.00' : num.toFixed(2);
+};
 
 export const ActivityView: React.FC<ActivityViewProps> = ({
   activeActivityMenu,
@@ -141,9 +159,37 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
   setFavoriteListMax,
   setFavoriteListName,
   setSelectedFavoriteListId,
-  sortedFavoriteActivity
+  sortedFavoriteActivity,
+  storeOrders = [],
+  storeOrderItems = [],
+  storeOrdersLoading = false,
+  emailRegistrationActivity = [],
 }) => {
   const [downloadActivityMenuOpen, setDownloadActivityMenuOpen] = useState(false);
+  const [expandedStoreOrderId, setExpandedStoreOrderId] = useState<string | null>(null);
+  const [storeGlobalSearch, setStoreGlobalSearch] = useState<string>('');
+  const [emailRegSearch, setEmailRegSearch] = useState<string>('');
+
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return '—';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
+  };
+
+  const formatTime = (dateStr: string) => {
+    if (!dateStr) return '—';
+    const date = new Date(dateStr);
+    return date.toLocaleTimeString('en-IN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
+
   const downloadActivityActionsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -543,38 +589,262 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
                                                   )
                                                 : null}
                                         </div>
-                                    ) : activeActivitySubTab === 'store' ? (
-                                        <div className="cd-empty-state-content" style={{ padding: '48px 24px', textAlign: 'center' }}>
-                                            <div className="cd-empty-state-illustration" style={{ marginBottom: '24px' }}>
-                                                <svg width="200" height="140" viewBox="0 0 200 140" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-                                                    <rect x="40" y="40" width="120" height="80" rx="6" fill="#F8FAFB" stroke="#ddd" strokeWidth="1.5" />
-                                                    <circle cx="100" cy="75" r="18" fill="#fff" stroke="#00c0a3" strokeWidth="1.5" />
-                                                    <path d="M92 75h16M100 67v16" stroke="#00c0a3" strokeWidth="2" strokeLinecap="round" />
-                                                </svg>
+                                     ) : activeActivitySubTab === 'store' ? (
+                                        (storeOrders || []).length === 0 ? (
+                                            <div className="cd-empty-state-content">
+                                                <div className="cd-empty-state-illustration">
+                                                    <svg width="200" height="140" viewBox="0 0 200 140" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                                        <rect x="40" y="40" width="120" height="80" rx="6" fill="#F8FAFB" stroke="#ddd" strokeWidth="1.5" />
+                                                        <circle cx="100" cy="75" r="18" fill="#fff" stroke="#111" strokeWidth="1.5" />
+                                                        <path d="M92 75h16M100 67v16" stroke="#111" strokeWidth="2" strokeLinecap="round" />
+                                                    </svg>
+                                                </div>
+                                                <h3 className="cd-empty-state-title">No store orders yet</h3>
+                                                <p className="cd-empty-state-text">When clients place orders from your store, they will appear here.</p>
                                             </div>
-                                            <h3 className="cd-empty-state-title">No store orders yet</h3>
-                                            <p className="cd-empty-state-text">When clients place orders from your store, they will appear here.</p>
-                                        </div>
+                                        ) : (
+                                            <div className="store-orders-activity-layout">
+                                                <div className="store-orders-search">
+                                                    <div className="store-orders-search-field">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+                                                        <input
+                                                            type="search"
+                                                            value={storeGlobalSearch}
+                                                            onChange={(e) => setStoreGlobalSearch(e.target.value)}
+                                                            placeholder="Search for name, order id, time and etc.."
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                {(() => {
+                                                    const filtered = (storeOrders || []).filter((order: any) => {
+                                                        if (!storeGlobalSearch.trim()) return true;
+                                                        const q = storeGlobalSearch.toLowerCase();
+                                                        const shortId = order.id ? `#${order.id.split('-')[0].toUpperCase()}` : '';
+                                                        const fullId = order.id ? order.id.toLowerCase() : '';
+                                                        const name = order.customer_name ? order.customer_name.toLowerCase() : '';
+                                                        const email = order.customer_email ? order.customer_email.toLowerCase() : '';
+                                                        const phone = order.customer_phone ? order.customer_phone.toLowerCase() : '';
+                                                        return (
+                                                            shortId.toLowerCase().includes(q) ||
+                                                            fullId.includes(q) ||
+                                                            name.includes(q) ||
+                                                            email.includes(q) ||
+                                                            phone.includes(q)
+                                                        );
+                                                    });
+
+                                                    if (filtered.length === 0) {
+                                                        return (
+                                                            <div className="store-orders-empty-search">
+                                                                No orders found matching search criteria.
+                                                            </div>
+                                                        );
+                                                    }
+
+                                                    return (
+                                                        <div className="store-orders-table-scroll">
+                                                        <div className="activity-list-container store-orders-table-wrap">
+                                                            <div className="activity-table-header store">
+                                                                <div className="activity-col-order-id">Order ID</div>
+                                                                <div className="activity-col-status">Status</div>
+                                                                <div className="activity-col-customer">Customer</div>
+                                                                <div className="activity-col-contact">Contact</div>
+                                                                <div className="activity-col-date">Date</div>
+                                                                <div className="activity-col-time">Time</div>
+                                                                <div className="activity-col-items">Items</div>
+                                                                <div className="activity-col-amount">Amount</div>
+                                                                <div className="activity-col-actions">Action</div>
+                                                            </div>
+                                                            <div className="activity-table-body">
+                                                                {filtered.map((order: any) => {
+                                                                    const isExpanded = expandedStoreOrderId === order.id;
+                                                                    const shortId = order.id ? `#${order.id.split('-')[0].toUpperCase()}` : '';
+                                                                    const items = (storeOrderItems || []).filter((item: any) => item.order_id === order.id);
+                                                                    const itemCount = items.reduce((sum: number, item: any) => sum + (item.quantity || 1), 0);
+                                                                    const statusClass = `status-${String(order.status || 'pending').toLowerCase()}`;
+
+                                                                    return (
+                                                                        <React.Fragment key={order.id}>
+                                                                            <div
+                                                                                className={`activity-row store${isExpanded ? ' store-row-selected' : ''}`}
+                                                                                onClick={(e) => {
+                                                                                    const next = isExpanded ? null : order.id;
+                                                                                    setExpandedStoreOrderId(next);
+                                                                                    if (next) {
+                                                                                        const scroller = (e.currentTarget as HTMLElement).closest('.store-orders-table-scroll') as HTMLElement | null;
+                                                                                        if (scroller) scroller.scrollLeft = 0;
+                                                                                    }
+                                                                                }}
+                                                                            >
+                                                                                <div className="activity-col-order-id">{shortId}</div>
+                                                                                <div className="activity-col-status">
+                                                                                    <span className={`store-order-status-badge ${statusClass}`}>
+                                                                                        {String(order.status || 'pending').replace(/_/g, ' ')}
+                                                                                    </span>
+                                                                                </div>
+                                                                                <div className="activity-col-customer">{order.customer_name || '—'}</div>
+                                                                                <div className="activity-col-contact">{order.customer_email || '—'}</div>
+                                                                                <div className="activity-col-date">{formatDate(order.created_at)}</div>
+                                                                                <div className="activity-col-time">{formatTime(order.created_at)}</div>
+                                                                                <div className="activity-col-items">{itemCount}</div>
+                                                                                <div className="activity-col-amount">₹{safeFormatPrice(order.total)}</div>
+                                                                                <div className="activity-col-actions">
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        className="store-order-view-btn"
+                                                                                        onClick={(e) => {
+                                                                                            e.stopPropagation();
+                                                                                            const next = isExpanded ? null : order.id;
+                                                                                            setExpandedStoreOrderId(next);
+                                                                                            if (next) {
+                                                                                                const scroller = (e.currentTarget as HTMLElement).closest('.store-orders-table-scroll') as HTMLElement | null;
+                                                                                                if (scroller) scroller.scrollLeft = 0;
+                                                                                            }
+                                                                                        }}
+                                                                                    >
+                                                                                        {isExpanded ? 'Hide' : 'View'}
+                                                                                    </button>
+                                                                                </div>
+                                                                            </div>
+
+                                                                            {isExpanded && (
+                                                                                <div
+                                                                                    className="store-order-detail"
+                                                                                    onClick={(e) => e.stopPropagation()}
+                                                                                >
+                                                                                    <div className="store-order-detail-inner">
+                                                                                    <div className="store-order-detail-card">
+                                                                                        <h4 className="store-order-detail-title">Shipping Details</h4>
+                                                                                        <div className="store-order-detail-grid">
+                                                                                            <div className="store-order-detail-field">
+                                                                                                <span className="store-order-detail-label">Shipping Method</span>
+                                                                                                <span className="store-order-detail-value">{order.shipping_method || 'India Ground Shipping'}</span>
+                                                                                            </div>
+                                                                                            <div className="store-order-detail-field">
+                                                                                                <span className="store-order-detail-label">Tracking Info</span>
+                                                                                                <span className="store-order-detail-value store-order-detail-value--mono">
+                                                                                                    {order.payment_intent_id || '—'}
+                                                                                                </span>
+                                                                                            </div>
+                                                                                            <div className="store-order-detail-field">
+                                                                                                <span className="store-order-detail-label">Delivery Address</span>
+                                                                                                <span className="store-order-detail-value">
+                                                                                                    {order.customer_name || '—'}
+                                                                                                    <br />
+                                                                                                    {order.shipping_address?.address || '—'}
+                                                                                                    {order.shipping_address?.city ? `, ${order.shipping_address.city}` : ''}
+                                                                                                    <br />
+                                                                                                    {[order.shipping_address?.zip, order.shipping_address?.country || 'India'].filter(Boolean).join(', ')}
+                                                                                                </span>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    </div>
+
+                                                                                    <div className="store-order-detail-card store-order-detail-card--items">
+                                                                                        <div className="store-order-items-header">
+                                                                                            <div className="store-order-items-col store-order-items-col--thumb">Item</div>
+                                                                                            <div className="store-order-items-col store-order-items-col--product">Product</div>
+                                                                                            <div className="store-order-items-col store-order-items-col--qty">Qty</div>
+                                                                                            <div className="store-order-items-col store-order-items-col--price">Price</div>
+                                                                                        </div>
+                                                                                        <div className="store-order-items-body">
+                                                                                            {items.length === 0 ? (
+                                                                                                <div className="store-order-items-empty">No items on this order.</div>
+                                                                                            ) : items.map((item: any, idx: number) => {
+                                                                                                const opt = item.options || {};
+                                                                                                const photoUrl =
+                                                                                                    opt.photo?.web_url ||
+                                                                                                    opt.photo?.url ||
+                                                                                                    opt.photo?.thumbnail_url ||
+                                                                                                    (opt.photos && (opt.photos[0]?.web_url || opt.photos[0]?.url)) ||
+                                                                                                    '';
+                                                                                                return (
+                                                                                                    <div className="store-order-items-row" key={item.id || idx}>
+                                                                                                        <div className="store-order-items-col store-order-items-col--thumb">
+                                                                                                            {photoUrl ? (
+                                                                                                                <img src={photoUrl} alt="" className="store-order-item-thumb" />
+                                                                                                            ) : (
+                                                                                                                <div className="store-order-item-thumb-empty">No photo</div>
+                                                                                                            )}
+                                                                                                        </div>
+                                                                                                        <div className="store-order-items-col store-order-items-col--product">
+                                                                                                            <div className="store-order-item-name">{item.product_name}</div>
+                                                                                                            {opt.size && (
+                                                                                                                <div className="store-order-item-meta">
+                                                                                                                    Size: {typeof opt.size === 'object' ? opt.size.label : opt.size}
+                                                                                                                </div>
+                                                                                                            )}
+                                                                                                            {opt.frame && (
+                                                                                                                <div className="store-order-item-meta">
+                                                                                                                    Frame: {typeof opt.frame === 'object' ? (opt.frame.name || opt.frame.label || opt.frame.id) : opt.frame}
+                                                                                                                </div>
+                                                                                                            )}
+                                                                                                            {opt.paper && (
+                                                                                                                <div className="store-order-item-meta">
+                                                                                                                    Paper: {typeof opt.paper === 'object' ? (opt.paper.name || opt.paper.label) : opt.paper}
+                                                                                                                </div>
+                                                                                                            )}
+                                                                                                        </div>
+                                                                                                        <div className="store-order-items-col store-order-items-col--qty">
+                                                                                                            {item.quantity || 1}
+                                                                                                        </div>
+                                                                                                        <div className="store-order-items-col store-order-items-col--price">
+                                                                                                            ₹{safeFormatPrice((getNumericPrice(item.unit_price) || getNumericPrice(item.price) || (getNumericPrice(item.subtotal) / (item.quantity || 1))) * (item.quantity || 1))}
+                                                                                                        </div>
+                                                                                                    </div>
+                                                                                                );
+                                                                                            })}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    </div>
+                                                                                </div>
+                                                                            )}
+                                                                        </React.Fragment>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                        </div>
+                                                    );
+                                                })()}
+                                            </div>
+                                        )
                                     ) : activeActivitySubTab === 'download' && filteredDownloadActivityForTab.length > 0 ? (
                                         <div className="download-activity-layout">
-                                            <div className="activity-list-container download-activity-table-wrap">
-                                                <div className="activity-table-header download">
+                                            <div className={`activity-list-container download-activity-table-wrap${activeDownloadActivityTab !== 'gallery' ? ' download-activity-table-wrap--single' : ''}`}>
+                                                <div className={`activity-table-header download${activeDownloadActivityTab !== 'gallery' ? ' download--single' : ''}`}>
                                                     <div className="activity-col-email">Email</div>
-                                                    <div className="activity-col-set activity-col-set-header">
-                                                        <span className="download-activity-set-header-spacer" aria-hidden />
-                                                        <span>Photo Set</span>
-                                                    </div>
-                                                    <div className="activity-col-photos">Photos</div>
-                                                    <div className="activity-col-destination">Saved to</div>
-                                                    <div className="activity-col-pin">PIN</div>
-                                                    <div className="activity-col-date-downloaded">Date Downloaded</div>
+                                                    {activeDownloadActivityTab === 'gallery' ? (
+                                                        <>
+                                                            <div className="activity-col-set activity-col-set-header">
+                                                                <span className="download-activity-set-header-spacer" aria-hidden />
+                                                                <span>Photo Set</span>
+                                                            </div>
+                                                            <div className="activity-col-photos">Photos</div>
+                                                            <div className="activity-col-destination">Saved to</div>
+                                                            <div className="activity-col-pin">PIN</div>
+                                                            <div className="activity-col-date-downloaded">Date Downloaded</div>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <div className="activity-col-set activity-col-set-header">
+                                                                <span className="download-activity-set-header-spacer" aria-hidden />
+                                                                <span>{activeDownloadActivityTab === 'video' ? 'Video' : 'Photo'}</span>
+                                                            </div>
+                                                            <div className="activity-col-quality">Quality</div>
+                                                            <div className="activity-col-destination">Saved to</div>
+                                                            <div className="activity-col-source">Source</div>
+                                                            <div className="activity-col-date-downloaded">Date Downloaded</div>
+                                                        </>
+                                                    )}
                                                     <div className="activity-col-actions"></div>
                                                 </div>
                                                 <div className="activity-table-body">
                                                     {filteredDownloadActivityForTab.map((item, index, array) => (
                                                         <div 
                                                             key={item.id} 
-                                                            className={`activity-row download${selectedDownloadId === item.id ? ' download-row-selected' : ''}`}
+                                                            className={`activity-row download${activeDownloadActivityTab !== 'gallery' ? ' download--single' : ''}${selectedDownloadId === item.id ? ' download-row-selected' : ''}`}
                                                             onClick={() => {
                                                                 setSelectedDownloadId(item.id);
                                                                 setActiveActivityMenu(null);
@@ -590,7 +860,8 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
                                                                     {(() => {
                                                                         const ph = pickDownloadActivityThumbPhoto(item, photos, sets);
                                                                         const thumb = ph?.thumbnail_url || ph?.web_url || ph?.full_url;
-                                                                        const isVideo = /\.(mp4|webm|ogg|mov)$/i.test(ph?.filename || ph?.full_url || '');
+                                                                        const isVideo = activeDownloadActivityTab === 'video'
+                                                                            || /\.(mp4|webm|ogg|mov)$/i.test(ph?.filename || ph?.full_url || item.filename || '');
 
                                                                         if (thumb) {
                                                                             if (isVideo) {
@@ -612,23 +883,49 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
                                                                         );
                                                                     })()}
                                                                 </div>
-                                                                <span className="list-name-link">
-                                                                    {item.setName && item.setName !== 'Unknown Set' 
-                                                                        ? item.setName 
-                                                                        : (sets.find(s => s.id === item.photoSetId)?.name || 'Highlights')}
+                                                                <span className="list-name-link" title={
+                                                                    activeDownloadActivityTab === 'gallery'
+                                                                        ? (item.setName || '')
+                                                                        : (item.filename || '')
+                                                                }>
+                                                                    {activeDownloadActivityTab === 'gallery'
+                                                                        ? (item.setName && item.setName !== 'Unknown Set'
+                                                                            ? item.setName
+                                                                            : (sets.find(s => s.id === item.photoSetId)?.name || 'Highlights'))
+                                                                        : (item.filename
+                                                                            || pickDownloadActivityThumbPhoto(item, photos, sets)?.filename
+                                                                            || (activeDownloadActivityTab === 'video' ? 'Video' : 'Photo'))}
                                                                 </span>
                                                             </div>
-                                                            <div className="activity-col-photos">
-                                                                {countPhotosForDownloadActivity(item, photos, sets)}
-                                                            </div>
-                                                            <div className="activity-col-destination">
-                                                                <span className={`download-destination-badge download-destination-badge--${item.destination === 'google_drive' ? 'drive' : 'local'}`}>
-                                                                    {formatDownloadDestination(item.destination)}
-                                                                </span>
-                                                            </div>
-                                                            <div className="activity-col-pin">
-                                                                {item.pin !== '---' ? item.pin : (item.pinUsed ? 'Yes' : '---')}
-                                                            </div>
+                                                            {activeDownloadActivityTab === 'gallery' ? (
+                                                                <>
+                                                                    <div className="activity-col-photos">
+                                                                        {countPhotosForDownloadActivity(item, photos, sets)}
+                                                                    </div>
+                                                                    <div className="activity-col-destination">
+                                                                        <span className={`download-destination-badge download-destination-badge--${item.destination === 'google_drive' ? 'drive' : item.destination === 'email' ? 'email' : 'local'}`}>
+                                                                            {formatDownloadDestination(item.destination)}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="activity-col-pin">
+                                                                        {item.pin !== '---' ? item.pin : (item.pinUsed ? 'Yes' : '---')}
+                                                                    </div>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <div className="activity-col-quality">
+                                                                        <span className="download-quality-badge">{item.resolution || 'Original'}</span>
+                                                                    </div>
+                                                                    <div className="activity-col-destination">
+                                                                        <span className={`download-destination-badge download-destination-badge--${item.destination === 'google_drive' ? 'drive' : item.destination === 'email' ? 'email' : 'local'}`}>
+                                                                            {formatDownloadDestination(item.destination)}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="activity-col-source">
+                                                                        {item.source || 'Gallery'}
+                                                                    </div>
+                                                                </>
+                                                            )}
                                                             <div className="activity-col-date-downloaded">
                                                                 {new Date(item.date).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }).replace(',', ' -')}
                                                             </div>
@@ -687,6 +984,80 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
                                                     document.body
                                                   )
                                                 : null}
+                                        </div>
+                                    ) : activeActivitySubTab === 'email' && (emailRegistrationActivity || []).length > 0 ? (
+                                        <div className="email-registration-layout">
+                                            <div className="email-registration-search">
+                                                <div className="email-registration-search-field">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+                                                    <input
+                                                        type="search"
+                                                        className="neu-inset"
+                                                        value={emailRegSearch}
+                                                        onChange={(e) => setEmailRegSearch(e.target.value)}
+                                                        placeholder="Search registered emails…"
+                                                    />
+                                                </div>
+                                            </div>
+                                            {(() => {
+                                                const filtered = (emailRegistrationActivity || []).filter((row: any) => {
+                                                    if (!emailRegSearch.trim()) return true;
+                                                    const q = emailRegSearch.toLowerCase();
+                                                    return String(row.email || '').toLowerCase().includes(q)
+                                                        || String(row.source || '').toLowerCase().includes(q)
+                                                        || String(row.accessLevel || '').toLowerCase().includes(q);
+                                                });
+
+                                                if (filtered.length === 0) {
+                                                    return (
+                                                        <div className="email-registration-empty-search">
+                                                            No registered emails match your search.
+                                                        </div>
+                                                    );
+                                                }
+
+                                                return (
+                                                    <div className="email-registration-table-scroll">
+                                                        <div className="activity-list-container email-registration-table-wrap">
+                                                            <div className="activity-table-header email-reg">
+                                                                <div className="activity-col-index">#</div>
+                                                                <div className="activity-col-email">Email</div>
+                                                                <div className="activity-col-access">Access</div>
+                                                                <div className="activity-col-source">Source</div>
+                                                                <div className="activity-col-date-registered">Date Registered</div>
+                                                            </div>
+                                                            <div className="activity-table-body">
+                                                                {filtered.map((row: any, index: number) => (
+                                                                    <div key={row.id} className="activity-row email-reg">
+                                                                        <div className="activity-col-index">{index + 1}</div>
+                                                                        <div className="activity-col-email" title={row.email}>
+                                                                            {row.email || '—'}
+                                                                        </div>
+                                                                        <div className="activity-col-access">
+                                                                            <span className="email-access-badge">
+                                                                                {row.accessLevel || 'guest'}
+                                                                            </span>
+                                                                        </div>
+                                                                        <div className="activity-col-source">
+                                                                            {row.source || 'Gallery Registration'}
+                                                                        </div>
+                                                                        <div className="activity-col-date-registered">
+                                                                            {new Date(row.date).toLocaleString('en-US', {
+                                                                                month: 'short',
+                                                                                day: 'numeric',
+                                                                                year: 'numeric',
+                                                                                hour: 'numeric',
+                                                                                minute: '2-digit',
+                                                                                hour12: true,
+                                                                            }).replace(',', ' -')}
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })()}
                                         </div>
                                     ) : (
                                         <div className="cd-empty-state-content">

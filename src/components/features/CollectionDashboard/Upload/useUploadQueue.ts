@@ -14,7 +14,20 @@ export function useUploadQueue(options: {
   photographerId: string | null | undefined;
   activeSetId: string | null;
   photosLength: number;
+  /** Filenames that already have a completed original upload. */
   existingFilenames?: string[];
+  /** Photos with web/thumb but missing original — re-upload resumes originals only. */
+  incompletePhotos?: Array<{
+    id: string;
+    filename: string;
+    collection_id?: string;
+    set_id?: string | null;
+    web_storage_path?: string | null;
+    thumbnail_storage_path?: string | null;
+    web_url?: string | null;
+    thumbnail_url?: string | null;
+    media_type?: string | null;
+  }>;
   destinationLabel?: string;
   viewPath?: string | null;
   uploadPhotoFn?: UploadPhotoFn;
@@ -43,7 +56,9 @@ export function useUploadQueue(options: {
       photographerId: options.photographerId,
       activeSetId: options.activeSetId,
       photosLength: options.photosLength,
-      existingFilenames: existingFilenamesRef.current ?? [],
+      existingFilenames: existingFilenamesRef.current ?? options.existingFilenames ?? [],
+      existingCompleteFilenames: options.existingFilenames ?? [],
+      incompletePhotos: options.incompletePhotos ?? [],
       destinationLabel: options.destinationLabel || 'Collection',
       viewPath: options.viewPath ?? null,
       uploadPhotoFn: uploadPhotoFnRef.current
@@ -56,6 +71,8 @@ export function useUploadQueue(options: {
       options.photographerId,
       options.activeSetId,
       options.photosLength,
+      options.existingFilenames,
+      options.incompletePhotos,
       options.destinationLabel,
       options.viewPath,
     ]

@@ -510,8 +510,22 @@ const Homepage = () => {
                                         </div>
                                     )}
 
-                                    {/* Photographer name */}
-                                    <h3 className="hp-mockup-title">{photographerName.toUpperCase()}</h3>
+                                    {/* Photographer name or logo */}
+                                    {profile?.logo_url ? (
+                                        <div className="hp-mockup-logo-container" style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+                                            <img
+                                                src={profile.logo_url}
+                                                alt={photographerName}
+                                                style={{
+                                                    maxHeight: '42px',
+                                                    maxWidth: '85%',
+                                                    objectFit: 'contain'
+                                                }}
+                                            />
+                                        </div>
+                                    ) : (
+                                        <h3 className="hp-mockup-title">{photographerName.toUpperCase()}</h3>
+                                    )}
 
                                     {/* Bio preview */}
                                     {showBio && bio && (
