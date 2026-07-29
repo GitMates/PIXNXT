@@ -1607,6 +1607,7 @@ export default function AlbumEditor({
     const handleReorderCollectionItem = useCallback(
         (fromIndex, toIndex) => {
             if (!reorderCollectionItems(albumId, fromIndex, toIndex, { album })) return;
+            setCollectionRevision(getAlbumCollectionRevision(albumId));
             void syncCollectionOrderToSpreads().then((placed) => {
                 if (placed > 0) scheduleWorkspaceRefresh();
             });
@@ -1995,37 +1996,6 @@ export default function AlbumEditor({
                         </svg>
                     </button>
                     <h1 className="ae-topbar-title">{album.name}</h1>
-                    <div
-                        className="ae-publish-toggle"
-                        role="group"
-                        aria-label="Album visibility"
-                        aria-busy={publishBusy}
-                    >
-                        <button
-                            type="button"
-                            className={`ae-publish-toggle-option${
-                                !published ? ' ae-publish-toggle-option--active' : ''
-                            }`}
-                            onClick={() => {
-                                if (published) handlePublishToggle();
-                            }}
-                            disabled={!user?.id || publishBusy}
-                        >
-                            Draft
-                        </button>
-                        <button
-                            type="button"
-                            className={`ae-publish-toggle-option${
-                                published ? ' ae-publish-toggle-option--active' : ''
-                            }`}
-                            onClick={() => {
-                                if (!published) handlePublishToggle();
-                            }}
-                            disabled={!user?.id || publishBusy}
-                        >
-                            Published
-                        </button>
-                    </div>
                 </div>
                 <div className="ae-topbar-right">
                     <AlbumEditorNotifications
@@ -2209,7 +2179,6 @@ export default function AlbumEditor({
                     album={album}
                     totalPages={totalPages}
                     collectionItems={collectionItems}
-                    collectionRevision={collectionRevision}
                     onUploadForCurrentSpread={handleUploadForCurrentSpread}
                     onOpenPicker={openPicker}
                     onClearAllPhotos={handleClearAllPhotos}

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 
 function HalfSpreadPage({ showPhoto, src, alt }) {
     return (
@@ -8,7 +8,6 @@ function HalfSpreadPage({ showPhoto, src, alt }) {
                     className="ae-collection-thumb-photo--half"
                     src={src}
                     alt={alt}
-                    loading="lazy"
                     draggable={false}
                 />
             ) : null}
@@ -16,7 +15,7 @@ function HalfSpreadPage({ showPhoto, src, alt }) {
     );
 }
 
-export default function CollectionSpreadThumb({ layout, alt = '' }) {
+function CollectionSpreadThumb({ layout, alt = '' }) {
     const { mode, src, side } = layout || {};
     if (!src) {
         return <span className="ae-collection-thumb-spread ae-collection-thumb-spread--empty" />;
@@ -30,7 +29,6 @@ export default function CollectionSpreadThumb({ layout, alt = '' }) {
                         className="ae-collection-thumb-photo--whole"
                         src={src}
                         alt={alt}
-                        loading="lazy"
                         draggable={false}
                     />
                 </span>
@@ -49,7 +47,18 @@ export default function CollectionSpreadThumb({ layout, alt = '' }) {
 
     return (
         <span className="ae-collection-thumb-spread ae-collection-thumb-spread--photo-only">
-            <img src={src} alt={alt} loading="lazy" draggable={false} />
+            <img src={src} alt={alt} draggable={false} />
         </span>
     );
 }
+
+export default memo(CollectionSpreadThumb, (prev, next) => {
+    const a = prev.layout || {};
+    const b = next.layout || {};
+    return (
+        prev.alt === next.alt &&
+        a.mode === b.mode &&
+        a.src === b.src &&
+        a.side === b.side
+    );
+});

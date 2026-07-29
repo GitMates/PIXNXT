@@ -27,7 +27,7 @@ export default function AlbumCommentSettings({
 }) {
     const commentsOn = album?.comments_enabled !== false;
     const swapsOn = album?.messages_enabled !== false;
-    const published = album?.status === 'published';
+    const published = true;
     const shareLinkOn = album?.share_link_enabled !== false;
     const [commentsBusy, setCommentsBusy] = useState(false);
     const [swapsBusy, setSwapsBusy] = useState(false);

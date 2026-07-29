@@ -11,7 +11,7 @@ import EditorSpreadMessageCompose from './EditorSpreadMessageCompose';
 import AlbumPreviewSpreadFeed from './AlbumPreviewSpreadFeed';
 import { buildSpreadFeedbackFeed } from './spreadFeedbackFeed';
 import { hasCommentAttachment } from './albumCommentAttachments';
-import CollectionSpreadThumb from './CollectionSpreadThumb';
+import CollectionSortableGrid from './CollectionSortableGrid';
 import CoverLeatherColorPicker from './CoverLeatherColorPicker';
 import {
     resolveCollectionSpreadLabel,
@@ -79,7 +79,6 @@ export default function AlbumEditorSidebar({
     album,
     totalPages,
     collectionItems = [],
-    collectionRevision = 0,
     onUploadForCurrentSpread,
     onOpenPicker,
     onClearAllPhotos,
@@ -113,8 +112,6 @@ export default function AlbumEditorSidebar({
     coverTextMessage = '',
     onSaveCoverText = null,
 }) {
-    const collectionDragFromRef = useRef(null);
-    const [collectionDragOverIndex, setCollectionDragOverIndex] = useState(null);
     const [imageReplacements, setImageReplacements] = useState([]);
     const [localCoverText, setLocalCoverText] = useState(coverTextMessage);
 
@@ -343,41 +340,6 @@ export default function AlbumEditorSidebar({
         );
     };
 
-    const handleCollectionDragStart = useCallback(
-        (index) => {
-            if (lockedCollectionIndices.has(index)) return;
-            collectionDragFromRef.current = index;
-        },
-        [lockedCollectionIndices]
-    );
-
-    const handleCollectionDragOver = useCallback(
-        (index) => {
-            if (lockedCollectionIndices.has(index)) return;
-            setCollectionDragOverIndex(index);
-        },
-        [lockedCollectionIndices]
-    );
-
-    const handleCollectionDrop = useCallback(
-        (toIndex) => {
-            const fromIndex = collectionDragFromRef.current;
-            collectionDragFromRef.current = null;
-            setCollectionDragOverIndex(null);
-            if (fromIndex == null || fromIndex === toIndex) return;
-            if (lockedCollectionIndices.has(fromIndex) || lockedCollectionIndices.has(toIndex)) {
-                return;
-            }
-            onReorderCollectionItem?.(fromIndex, toIndex);
-        },
-        [onReorderCollectionItem, lockedCollectionIndices]
-    );
-
-    const handleCollectionDragEnd = useCallback(() => {
-        collectionDragFromRef.current = null;
-        setCollectionDragOverIndex(null);
-    }, []);
-
     const albumSpreadMeta = `${totalPages} pages · ${pagesPerSpread}-page spreads`;
 
     return (
@@ -452,70 +414,14 @@ export default function AlbumEditorSidebar({
                             <span className="ae-panel-status-meta">{albumSpreadMeta}</span>
                         </div>
                         {collectionItems.length > 0 && (
-                            <>
-                                <div className="ae-collection-grid" role="list">
-                                    {collectionItems.map((item, index) => {
-                                        const isLocked = lockedCollectionIndices.has(index);
-                                        const spreadLabel = collectionSpreadLabels[index] || '';
-                                        const spreadTitle = spreadLabel
-                                            ? spreadLabel === 'Cover' || spreadLabel === 'Back'
-                                                ? spreadLabel
-                                                : `Spread ${spreadLabel}`
-                                            : `Photo ${index + 1}`;
-                                        return (
-                                        <div
-                                            key={item.id}
-                                            className={`ae-collection-thumb-wrap${collectionDragOverIndex === index
-                                                ? ' ae-collection-thumb-wrap--drag-over'
-                                                : ''
-                                                }`}
-                                            role="listitem"
-                                        >
-                                            <div
-                                                className={`ae-collection-thumb${isLocked ? ' ae-collection-thumb--locked' : ''}`}
-                                                style={{ aspectRatio: collectionThumbAspect }}
-                                                draggable={!isLocked}
-                                                onDragStart={(e) => {
-                                                    if (isLocked) {
-                                                        e.preventDefault();
-                                                        return;
-                                                    }
-                                                    e.stopPropagation();
-                                                    e.dataTransfer.effectAllowed = 'move';
-                                                    handleCollectionDragStart(index);
-                                                }}
-                                                onDragOver={(e) => {
-                                                    if (isLocked) return;
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                    handleCollectionDragOver(index);
-                                                }}
-                                                onDrop={(e) => {
-                                                    if (isLocked) return;
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                    handleCollectionDrop(index);
-                                                }}
-                                                onDragEnd={handleCollectionDragEnd}
-                                                title={`${spreadTitle}. ${item.name || 'Photo'}${isLocked ? ' — fixed position' : ''}`}
-                                            >
-                                                <span
-                                                    className={`ae-collection-order${spreadLabel.length > 2 ? ' ae-collection-order--wide' : ''}`}
-                                                    aria-hidden
-                                                >
-                                                    {spreadLabel || index + 1}
-                                                </span>
-                                                <CollectionSpreadThumb
-                                                    key={`${item.id}-r${collectionRevision}`}
-                                                    layout={collectionThumbLayouts[index]}
-                                                    alt=""
-                                                />
-                                            </div>
-                                        </div>
-                                        );
-                                    })}
-                                </div>
-                            </>
+                            <CollectionSortableGrid
+                                items={collectionItems}
+                                lockedIndices={lockedCollectionIndices}
+                                collectionThumbLayouts={collectionThumbLayouts}
+                                collectionSpreadLabels={collectionSpreadLabels}
+                                collectionThumbAspect={collectionThumbAspect}
+                                onReorder={onReorderCollectionItem}
+                            />
                         )}
                     </>
                 )}

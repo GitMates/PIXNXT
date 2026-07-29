@@ -1526,17 +1526,10 @@
 }
 
 .ab-overview--gallery-proof .ab-overview-close {
-  top: 52px;
-  left: 50%;
-  right: auto;
-  width: 56px;
-  height: 28px;
-  border-radius: 0 0 28px 28px;
-  transform: translateX(-50%);
-  align-items: flex-end;
-  padding-bottom: 3px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  top: 72px;
 }
+
+
 
 .ab-overview-body {
   display: flex;
