@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from 'react';
 import { motion as Motion } from 'framer-motion';
 import { Download, Heart, Share2, Play, ShoppingBag, ArrowDownToLine } from 'lucide-react';
 import { cn } from '../../../../lib/utils';
@@ -13,6 +13,11 @@ import {
   padTimerPart,
   resolveBannerBackgroundImage,
 } from '../../../../lib/salesCampaignBanner';
+import {
+  distributePhotosToShortestColumns,
+  getGalleryMasonryColumnCount,
+} from '../../../../lib/masonryColumnDistribution';
+import { isRowMasonryGridStyle } from '../../../../lib/galleryGridStyle';
 import './MasonryGrid.css';
  
 export function MasonryGrid({
@@ -54,7 +59,7 @@ export function MasonryGrid({
 
   const displayPhotos = useMemo(() => {
     const hasInlineBanner = !!(activeCampaign?.banners?.photo_banner?.enabled || activeCampaign?.banners?.store_rotator?.enabled);
-    if (!hasInlineBanner || photos.length === 0) {
+    if (!hasInlineBanner || photos.length === 0 || videosOnly) {
       return photos.map((p, idx) => ({ ...p, _originalIndex: idx }));
     }
 
@@ -99,7 +104,9 @@ export function MasonryGrid({
       }
     });
   }, [displayPhotos]);
-  const isHorizontal = isHorizontalProp !== undefined ? isHorizontalProp : (gridSettings?.style?.toLowerCase() === 'horizontal');
+  const isHorizontal = isHorizontalProp !== undefined
+    ? isHorizontalProp
+    : isRowMasonryGridStyle(gridSettings?.style);
   const size = gridSettings?.size || 'regular';
   const spacing = gridSettings?.spacing || 'regular';
 
@@ -139,6 +146,42 @@ export function MasonryGrid({
     () => photos.map((p) => p.id).join('|') || 'empty',
     [photos]
   );
+
+  const getPhotoAspectRatio = useCallback((photo) => {
+    if (photo.isPromoBanner) return 1;
+    if (photo.width && photo.height) return photo.width / photo.height;
+    return dynamicAspectRatios[photo.id] || 1.5;
+  }, [dynamicAspectRatios]);
+
+  const containerRef = useRef(null);
+  const [gridContainerWidth, setGridContainerWidth] = useState(0);
+
+  useLayoutEffect(() => {
+    if (isHorizontal || centerVideosLayout) return undefined;
+    const el = containerRef.current;
+    if (!el) return undefined;
+
+    const updateWidth = (width) => {
+      if (width > 0) setGridContainerWidth(width);
+    };
+
+    updateWidth(el.getBoundingClientRect().width);
+
+    const ro = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect?.width ?? 0;
+      updateWidth(width);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [isHorizontal, centerVideosLayout, photoListKey, colsCount, gap]);
+
+  const estimatedColWidth = useMemo(() => {
+    if (gridContainerWidth > 0) {
+      return (gridContainerWidth - (colsCount - 1) * gap) / colsCount;
+    }
+    const viewport = typeof window !== 'undefined' ? window.innerWidth : 1200;
+    return (viewport - (colsCount - 1) * gap) / colsCount;
+  }, [gridContainerWidth, colsCount, gap]);
 
   const samplePhotoUrl = useMemo(() => {
     if (!photos || photos.length === 0) return '';
@@ -325,16 +368,7 @@ export function MasonryGrid({
       return;
     }
     const updateCols = () => {
-      const w = window.innerWidth;
-      if (w <= 480) {
-        setColsCount(1);
-      } else if (w <= 768) {
-        setColsCount(2);
-      } else if (w <= 1024) {
-        setColsCount(3);
-      } else {
-        setColsCount(3);
-      }
+      setColsCount(getGalleryMasonryColumnCount(window.innerWidth));
     };
     
     updateCols();
@@ -613,11 +647,10 @@ export function MasonryGrid({
     const src = isGalleryVideo(photo)
       ? getPhotoVideoSrc(photo)
       : getWebResolutionUrl(photo);
-    const aspectRatio = (photo.width && photo.height)
-      ? (photo.width / photo.height)
-      : (dynamicAspectRatios[photo.id] || 1.5);
+    const aspectRatio = getPhotoAspectRatio(photo);
     const useFixedVideoTile = centerVideosLayout && isGalleryVideo(photo);
     const tileAspectRatio = useFixedVideoTile ? VIDEO_TILE_ASPECT : aspectRatio;
+    const useVerticalTileFrame = !isHorizontal && !centerVideosLayout;
 
     const isFav = favoritedPhotoIds?.some((fid) => String(fid) === String(photo.id));
     const isPrivate = Boolean(photo.is_private);
@@ -634,6 +667,7 @@ export function MasonryGrid({
         variants={item}
         className={cn(
           'relative overflow-hidden group cursor-pointer min-w-0 w-full max-w-full',
+          useVerticalTileFrame && 'masonry-grid-tile',
           centerVideosLayout && 'masonry-grid-video-item',
           isPackageSelected && 'ring-2 ring-black ring-offset-2'
         )}
@@ -644,18 +678,27 @@ export function MasonryGrid({
           aspectRatio: useFixedVideoTile ? String(VIDEO_TILE_ASPECT) : String(tileAspectRatio),
           maxWidth: useFixedVideoTile ? undefined : '100%',
           margin: 0
-        } : {
-          width: '100%'
-        }}
+        } : (centerVideosLayout ? {} : {
+          width: '100%',
+          '--ar': String(tileAspectRatio),
+        })}
         onClick={() => onImageClick(photo._originalIndex)}
       >
         <div
           className={cn(
-            'relative h-full w-full min-w-0',
+            'min-w-0',
+            useVerticalTileFrame ? 'masonry-grid-tile-frame absolute inset-0' : 'relative h-full w-full',
             useFixedVideoTile && 'masonry-grid-video-frame'
           )}
-          style={{ backgroundColor: 'var(--gallery-secondary-bg)' }}
+          style={useVerticalTileFrame ? undefined : { backgroundColor: 'var(--gallery-secondary-bg)' }}
         >
+          {useVerticalTileFrame ? (
+            <span
+              className="absolute inset-0 block"
+              style={{ backgroundColor: 'var(--gallery-secondary-bg)' }}
+              aria-hidden
+            />
+          ) : null}
           {isGalleryVideo(photo) ? (
             <>
             <video
@@ -666,7 +709,7 @@ export function MasonryGrid({
                 useFixedVideoTile && 'gallery-masonry-media--video-fixed'
               )}
               style={
-                useFixedVideoTile
+                useFixedVideoTile || useVerticalTileFrame
                   ? { objectFit: 'cover', width: '100%', height: '100%' }
                   : { objectFit: 'cover', aspectRatio: String(tileAspectRatio) }
               }
@@ -684,11 +727,7 @@ export function MasonryGrid({
               thumbSrc={resolveMediaUrl(photo.watermarked_url || photo.thumbnail_url || photo.web_url || photo.full_url || '')}
               alt={photo.filename || `Gallery image ${index + 1}`}
               wrapClassName="gallery-masonry-media"
-              className="block w-full max-w-full"
               objectFit="cover"
-              style={{
-                aspectRatio: String(aspectRatio),
-              }}
               loading="lazy"
             />
           )}
@@ -870,23 +909,36 @@ export function MasonryGrid({
   };
 
   const columns = useMemo(() => {
-    if (isHorizontal) return [displayPhotos];
-    const cols = Array.from({ length: colsCount }, () => []);
-    displayPhotos.forEach((photo, idx) => {
-      cols[idx % colsCount].push(photo);
-    });
-    return cols;
-  }, [displayPhotos, colsCount, isHorizontal]);
+    if (isHorizontal || centerVideosLayout) return [displayPhotos];
+
+    return distributePhotosToShortestColumns(
+      displayPhotos,
+      colsCount,
+      estimatedColWidth,
+      gap,
+      getPhotoAspectRatio,
+    );
+  }, [
+    displayPhotos,
+    colsCount,
+    isHorizontal,
+    centerVideosLayout,
+    getPhotoAspectRatio,
+    estimatedColWidth,
+    gap,
+  ]);
 
   if (!isHorizontal) {
     return (
       <Motion.div
         key={photoListKey}
+        ref={containerRef}
         variants={container}
         initial="hidden"
         animate="show"
         className={cn(
           'w-full max-w-full min-w-0 masonry-grid-container flex items-start',
+          centerVideosLayout && 'masonry-grid-videos-only',
           (isPreviewMobile || isMobileViewport) && 'preview-mobile',
           className
         )}
@@ -895,7 +947,7 @@ export function MasonryGrid({
         {columns.map((columnItems, colIdx) => (
           <div
             key={colIdx}
-            className="flex-1 flex flex-col min-w-0"
+            className={cn('flex-1 flex flex-col min-w-0', centerVideosLayout && 'w-full')}
             style={{ gap: `${gap}px` }}
           >
             {columnItems.map((photo, idx) => {

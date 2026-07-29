@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { clientGalleryEmailTemplatesService, resolveTemplateBody } from '../services/clientGalleryEmailTemplates.service';
+import { AppToast, useAppToast } from '../components/ui/AppToast';
 import './EmailTemplateEditor.css';
 
 const EmailTemplateEditor = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const location = useLocation();
     const { user } = useAuth();
     
     const [template, setTemplate] = useState(null);
@@ -23,6 +25,15 @@ const EmailTemplateEditor = () => {
     const [showHelp, setShowHelp] = useState(true);
     const [showDropdown, setShowDropdown] = useState(false);
     const dropdownRef = useRef(null);
+    const { toast, showToast, clearToast } = useAppToast(3000);
+
+    useEffect(() => {
+        if (location.state?.toastMessage) {
+            showToast(location.state.toastMessage);
+            // Clear the state so it doesn't show again on reload/navigation
+            navigate(location.pathname + location.search, { replace: true, state: {} });
+        }
+    }, [location.state?.toastMessage, showToast, navigate, location.pathname, location.search]);
 
     const isCreating = !id;
 
@@ -72,7 +83,10 @@ const EmailTemplateEditor = () => {
         try {
             if (isCreating) {
                 const newTpl = await clientGalleryEmailTemplatesService.createTemplate(user.id, { name, subject, body });
-                navigate(`/settings/email-templates/${newTpl.id}/edit`, { replace: true });
+                navigate(`/settings/email-templates/${newTpl.id}/edit`, { 
+                    replace: true,
+                    state: { toastMessage: 'Email template created successfully.' }
+                });
             } else {
                 await clientGalleryEmailTemplatesService.saveTemplate(user.id, {
                     ...template,
@@ -80,6 +94,7 @@ const EmailTemplateEditor = () => {
                     subject,
                     body
                 });
+                showToast('Email template saved successfully.');
             }
         } catch (err) {
             console.error('Error saving template:', err);
@@ -232,6 +247,7 @@ const EmailTemplateEditor = () => {
                     </div>
                 </div>
             </div>
+            <AppToast toast={toast} onDismiss={clearToast} />
         </div>
     );
 };

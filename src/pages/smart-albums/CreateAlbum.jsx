@@ -352,6 +352,10 @@ const CreateAlbum = () => {
         setDate(collectionEventDateValue(collection?.event_date));
         setNameSuggestOpen(false);
         setActiveSuggestionIndex(-1);
+        if (typeof document !== 'undefined') {
+            const el = document.getElementById('album-name');
+            if (el) el.blur();
+        }
     }, []);
 
     const handleNameKeyDown = useCallback(

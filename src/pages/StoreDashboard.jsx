@@ -5425,7 +5425,7 @@ export default function StoreDashboard() {
                                           .replace(/{discount-value}/g, discountVal)
                                           .replace(/{discount_value}/g, discountVal)
                                           .replace(/{code}/g, promoCode)
-                                          .replace(/{store_url}/g, 'pixnxt.com/sarah-wedding-store');
+                                          .replace(/{store_url}/g, 'pixnxt.in/sarah-wedding-store');
                                       })()}
                                     </div>
                                     <div style={{ display: 'flex', justifyContent: 'flex-end', fontSize: '8px', color: '#667781', marginTop: '2px', textAlign: 'right' }}>

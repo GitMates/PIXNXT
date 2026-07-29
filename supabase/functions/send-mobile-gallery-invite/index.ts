@@ -279,7 +279,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({
           error:
-            'Public site URL is not configured. Set PUBLIC_SITE_URL in Supabase Edge Function secrets (e.g. https://pixnxt.com), then redeploy.',
+            'Public site URL is not configured. Set PUBLIC_SITE_URL in Supabase Edge Function secrets (e.g. https://pixnxt.in), then redeploy.',
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );

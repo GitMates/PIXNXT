@@ -100,29 +100,35 @@ export function SmoothMediaImage({
   const blurSrc =
     thumbSrc && thumbSrc !== activeSrc && !error && shouldLoad ? thumbSrc : null;
 
+  const showBlurPlaceholder = Boolean(blurSrc && !loaded && !cached);
   const showShimmer = shouldLoad && !loaded && !cached;
 
   if (!activeSrc) {
     return (
       <span className={cn('smooth-media-wrap', wrapClassName)} style={style} ref={wrapRef}>
-        <span className="smooth-media-shimmer" aria-hidden />
-        <span className="smooth-media-error">Loading...</span>
+        <span className="smooth-media-spinner-container" aria-hidden="true">
+          <span className="smooth-media-spinner" />
+        </span>
       </span>
     );
   }
 
   return (
     <span className={cn('smooth-media-wrap', wrapClassName)} style={style} ref={wrapRef}>
-      {showShimmer && <span className="smooth-media-shimmer" aria-hidden />}
+      {showShimmer && (
+        <span className="smooth-media-spinner-container" aria-hidden="true">
+          <span className="smooth-media-spinner" />
+        </span>
+      )}
 
       {!shouldLoad && <span className="smooth-media-placeholder" aria-hidden />}
 
-      {shouldLoad && blurSrc && (
+      {showBlurPlaceholder && (
         <img
           src={blurSrc}
           alt=""
           aria-hidden
-          className={cn('smooth-media-blur', loaded && 'smooth-media-blur--hide')}
+          className="smooth-media-blur"
           style={{ objectFit }}
           decoding="async"
           loading="lazy"
@@ -150,10 +156,9 @@ export function SmoothMediaImage({
       )}
 
       {error && (
-        <>
-          <span className="smooth-media-shimmer" aria-hidden />
-          <span className="smooth-media-error">Loading...</span>
-        </>
+        <span className="smooth-media-spinner-container" aria-hidden="true">
+          <span className="smooth-media-spinner" />
+        </span>
       )}
     </span>
   );

@@ -13,7 +13,6 @@ import { galleryService } from '../../../../services/gallery.service';
 import { sortPhotosForGallery, normalizeGalleryPhotoSort } from '../../../../lib/galleryPhotoSort';
 import {
   GalleryStickyNav,
-  GallerySetHeading,
   GallerySetDescription,
 } from '../../Gallery/GalleryChrome';
 import {
@@ -52,6 +51,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
   onSetActiveSet,
   photographerName = 'PHOTOGRAPHER',
   isPreviewMobile = false,
+  coverLogoUrl,
 }) => {
   const { coverStyle, fontFamily, colorPalette, grid } = settings;
   const navigationStyle = normalizeNavigationStyle(grid.navigation);
@@ -459,6 +459,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
     const props = {
       title: collectionTitle,
       subtitle: photographerName,
+      coverLogoUrl: coverLogoUrl,
       date: collectionDate,
       photoUrl: coverPhotoUrl,
       focalX: dashboardState?.focalX,
@@ -521,6 +522,12 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
           activeSetId={dashboardState?.activeSetId ?? null}
           onSetChange={onSetActiveSet}
           showHighlightsTab={dashboardState?.collection?.highlights_enabled !== false}
+          highlightsName={dashboardState?.highlightsName || 'Highlights'}
+          sidebarSetOrder={
+            dashboardState?.sidebarSetOrder ||
+            dashboardState?.collection?.sidebar_set_order ||
+            null
+          }
           maxVisibleSets={isPreviewMobile ? 4 : 3}
           showFavorites={favFeatureOn}
           showDownload={
@@ -555,9 +562,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
 
         {setDescriptionText ? (
           <GallerySetDescription variant="preview" text={setDescriptionText} isDark={isPreviewDark} />
-        ) : (
-          <GallerySetHeading variant="preview" label={activeSetLabel} />
-        )}
+        ) : null}
 
         <GalleryPeopleStrip
           variant="preview"

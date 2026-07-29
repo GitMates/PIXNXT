@@ -15,7 +15,8 @@ export const PreviewPane: React.FC<PreviewPaneProps> = ({
   onPreviewModeChange,
   dashboardState,
   onSetActiveSet,
-  photographerName
+  photographerName,
+  coverLogoUrl
 }) => {
   return (
     <div className={cn('cd-design-preview-pane', previewMode, `font-${settings.fontFamily}`)}>
@@ -32,6 +33,7 @@ export const PreviewPane: React.FC<PreviewPaneProps> = ({
             onSetActiveSet={onSetActiveSet}
             isPreviewMobile={previewMode === 'mobile'}
             photographerName={photographerName}
+            coverLogoUrl={coverLogoUrl}
           />
         </div>
       </div>

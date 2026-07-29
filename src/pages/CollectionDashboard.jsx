@@ -32,6 +32,7 @@ import { openSpaPath } from '../lib/spaNavigation';
 import { openShareByEmail, openWhatsAppShare, getCollectionShareUrl, getQrCodeImageUrl } from '../lib/shareCollection';
 import { CollectionQrModal, CollectionDuplicateModal } from '../components/features/ClientGallery/CollectionShareModals';
 import { sortDashboardPhotos } from '../utils/sortDashboardPhotos';
+import { clientGalleryEmailTemplatesService } from '../services/clientGalleryEmailTemplates.service';
 import { COVER_IMAGE_ACCEPT, MEDIA_FILE_INPUT_ACCEPT, pickMediaFilesOrFallback } from '../lib/mediaFilePicker';
 import { setCoverPhotoDragData, endCoverPhotoDrag, isGalleryImagePhoto } from '../lib/coverPhotoDrag';
 import { DatePicker } from '../components/ui/DatePicker';
@@ -50,6 +51,7 @@ import { GeneralSettings } from '../components/features/CollectionDashboard/Sett
 import { PrivacySettings } from '../components/features/CollectionDashboard/Settings/PrivacySettings';
 import { StoreSettings } from '../components/features/CollectionDashboard/Settings/StoreSettings';
 import { useUploadQueue } from '../components/features/CollectionDashboard/Upload/useUploadQueue';
+import { isIncompleteUploadPhoto } from '../components/features/CollectionDashboard/Upload/uploadUtils';
 import { UPLOAD_VIEW_COLLECTION_EVENT } from '../components/features/CollectionDashboard/Upload/GlobalUploadShell';
 import { getFileMime, isImageMime, getUploadMediaType, isUploadableMediaFile } from '../lib/fileMime';
 import { isRawImageFile } from '../lib/rawImageFormats';
@@ -65,6 +67,7 @@ import {
     stripMediaUrlHash,
 } from '../lib/focalPoint';
 import { CollectionGridPhoto } from '../components/features/CollectionDashboard/Media/CollectionGridPhoto';
+import { DashboardMediaFilter } from '../components/features/CollectionDashboard/Media/DashboardMediaFilter';
 import { RawPhotoPlaceholder } from '../components/features/CollectionDashboard/Media/RawPhotoPlaceholder';
 import {
     getPhotoFullDisplayUrl,
@@ -73,6 +76,11 @@ import {
     isRawMedia,
 } from '../lib/photoDisplayUrl';
 import { formatCoverDate, formatCollectionHeaderDate } from '../lib/formatCoverDate.js';
+import {
+    countGalleryMedia,
+    filterGalleryMediaByType,
+    shouldShowGalleryMediaFilter,
+} from '../lib/galleryMediaType';
 import {
     normalizeCoverStyleId,
     normalizeFontId,
@@ -94,6 +102,8 @@ const CollectionDashboard = () => {
     const location = useLocation();
     const [searchParams] = useSearchParams();
     const collectionId = searchParams.get('id');
+    const activityTabParam = searchParams.get('tab');
+    const activitySubParam = searchParams.get('activity');
     const { user } = useAuth();
     const photosGridRef = useRef(null);
     const pendingUploadScrollRef = useRef(false);
@@ -232,11 +242,148 @@ const CollectionDashboard = () => {
     const [toastVariant, setToastVariant] = useState('default');
     const toastTimerRef = useRef(null);
 
+    const [draggedSetIndex, setDraggedSetIndex] = useState(null);
+    const [dragOverSetIndex, setDragOverSetIndex] = useState(null);
+    const [orderedSetIds, setOrderedSetIds] = useState(null);
+
+    const sidebarOrderStorageKey = (id) => (id ? `pixnxt-sidebar-set-order:${id}` : null);
+
+    const readCachedSidebarOrder = (id) => {
+        const key = sidebarOrderStorageKey(id);
+        if (!key) return null;
+        try {
+            const raw = localStorage.getItem(key);
+            if (!raw) return null;
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed) && parsed.length > 0 ? parsed.map(String) : null;
+        } catch {
+            return null;
+        }
+    };
+
+    const persistSidebarOrder = async (id, orderIds) => {
+        if (!id || !Array.isArray(orderIds)) return;
+        const normalized = orderIds.map(String);
+        setOrderedSetIds(normalized);
+        const key = sidebarOrderStorageKey(id);
+        if (key) {
+            try {
+                localStorage.setItem(key, JSON.stringify(normalized));
+            } catch {
+                /* ignore quota / private mode */
+            }
+        }
+        try {
+            await galleryService.updateCollection(id, { sidebar_set_order: normalized });
+            setCollection((prev) => (prev ? { ...prev, sidebar_set_order: normalized } : prev));
+        } catch (err) {
+            // Column may not exist until migration is applied — localStorage still keeps order on refresh.
+            console.warn('Failed to persist sidebar_set_order:', err?.message || err);
+        }
+    };
+
+    const sortedSidebarSets = React.useMemo(() => {
+        const setItems = sets.map((s) => ({
+            ...s,
+            isHighlights: false,
+            photoCount: photos.filter((p) => p.set_id === s.id).length,
+        }));
+        const highlightsItem = highlightsEnabled
+            ? {
+                id: 'highlights',
+                name: highlightsName,
+                isHighlights: true,
+                photoCount: photos.filter((p) => !p.set_id).length,
+            }
+            : null;
+
+        // No saved custom order: default Highlights first (new collections only).
+        if (!orderedSetIds || orderedSetIds.length === 0) {
+            return highlightsItem ? [highlightsItem, ...setItems] : setItems;
+        }
+
+        const map = new Map();
+        setItems.forEach((item) => map.set(item.id, item));
+        if (highlightsItem) map.set('highlights', highlightsItem);
+
+        const sorted = [];
+        orderedSetIds.forEach((id) => {
+            if (map.has(id)) {
+                sorted.push(map.get(id));
+                map.delete(id);
+            }
+        });
+        // New sets not in saved order append at the end (do not force Highlights first).
+        map.forEach((item) => sorted.push(item));
+        return sorted;
+    }, [highlightsEnabled, highlightsName, sets, photos, orderedSetIds]);
+
+    const handleSetDragStart = (e, index) => {
+        setDraggedSetIndex(index);
+        e.dataTransfer.effectAllowed = 'move';
+    };
+
+    const handleSetDragOver = (e, index) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        if (dragOverSetIndex !== index) {
+            setDragOverSetIndex(index);
+        }
+    };
+
+    const handleSetDragEnd = () => {
+        setDraggedSetIndex(null);
+        setDragOverSetIndex(null);
+    };
+
+    const handleSetDrop = async (e, toIndex) => {
+        e.preventDefault();
+        if (draggedSetIndex === null || draggedSetIndex === toIndex) {
+            handleSetDragEnd();
+            return;
+        }
+
+        const newItems = [...sortedSidebarSets];
+        const [moved] = newItems.splice(draggedSetIndex, 1);
+        newItems.splice(toIndex, 0, moved);
+
+        const newOrderIds = newItems.map((item) => item.id);
+        const dbSets = newItems
+            .filter((item) => !item.isHighlights)
+            .map((set, idx) => ({ ...set, position: idx }));
+        setSets(dbSets);
+
+        handleSetDragEnd();
+
+        try {
+            await Promise.all([
+                persistSidebarOrder(collectionId, newOrderIds),
+                ...dbSets.map((set) =>
+                    supabase.from('sets').update({ position: set.position }).eq('id', set.id)
+                ),
+            ]);
+        } catch (err) {
+            console.error('Failed to update set positions:', err);
+        }
+    };
+
     // SORT STATE
     const [sortOption, setSortOption] = useState('custom');
+    const [mediaFilter, setMediaFilter] = useState('photos');
 
     // TAB STATES
     const [activeSidebarTab, setActiveSidebarTab] = useState('photos'); // photos, design, settings, activity
+    const [activeActivitySubTab, setActiveActivitySubTab] = useState('download'); // download, favorite, store, email, share, private
+
+    useEffect(() => {
+        if (activityTabParam === 'activity') {
+            setActiveSidebarTab('activity');
+            const allowed = new Set(['download', 'favorite', 'store', 'email', 'share', 'private']);
+            if (activitySubParam && allowed.has(activitySubParam)) {
+                setActiveActivitySubTab(activitySubParam);
+            }
+        }
+    }, [activityTabParam, activitySubParam, collectionId]);
     const [activeDesignTab, setActiveDesignTab] = useState('cover'); // cover, typography, color, grid
     const [selectedCoverStyle, setSelectedCoverStyle] = useState('novel');
     const [selectedFont, setSelectedFont] = useState('sans');
@@ -415,7 +562,6 @@ const CollectionDashboard = () => {
     };
 
     // Activity State
-    const [activeActivitySubTab, setActiveActivitySubTab] = useState('download'); // download, favorite, store, email, share, private
     const [activeDownloadActivityTab, setActiveDownloadActivityTab] = useState('gallery'); // gallery, photo, video
     const [activeActivityMenu, setActiveActivityMenu] = useState(null); // id of activity item
     const [selectedDownloadId, setSelectedDownloadId] = useState(null);
@@ -1331,12 +1477,28 @@ const CollectionDashboard = () => {
         setShowExpiryReminderModal(true);
     };
 
-    const openAddReminder = () => {
+    const openAddReminder = async () => {
         setEditingReminderId(null);
         setExpiryEmailTiming('1 day before auto expiry date');
         setExpiryEmailTo('');
-        setExpiryEmailSubject('The gallery {collection.name} is about to expire');
-        setExpiryEmailBody('Hi,\n\nThe gallery {collection.name} will expire in {days.prior} on {expiry.date}. You will no longer be able to access this gallery after the expiry date.\n\nIf you have any questions, please don\'t hesitate to get in touch!');
+        
+        let initialSubject = 'The gallery {collection.name} is about to expire';
+        let initialBody = 'Hi,\n\nThe gallery {collection.name} will expire in {days.prior} on {expiry.date}. You will no longer be able to access this gallery after the expiry date.\n\nIf you have any questions, please don\'t hesitate to get in touch!';
+        
+        if (user?.id) {
+            try {
+                const tpl = await clientGalleryEmailTemplatesService.getTemplateById(user.id, 'default-auto-expiry');
+                if (tpl) {
+                    initialSubject = tpl.subject || initialSubject;
+                    initialBody = tpl.body || initialBody;
+                }
+            } catch (err) {
+                console.error('Error fetching default-auto-expiry template:', err);
+            }
+        }
+        
+        setExpiryEmailSubject(initialSubject);
+        setExpiryEmailBody(initialBody);
         setExpiryEmailIncludePin(false);
         setExpiryEmailSendCopy(true);
         setExpiryEmailLists([]);
@@ -1785,6 +1947,16 @@ const CollectionDashboard = () => {
                 const setsData = data.sets || [];
                 setSets(setsData);
 
+                const savedOrder =
+                    (Array.isArray(data.sidebar_set_order) && data.sidebar_set_order.length > 0
+                        ? data.sidebar_set_order.map(String)
+                        : null) || readCachedSidebarOrder(collectionId);
+                if (savedOrder) {
+                    setOrderedSetIds(savedOrder);
+                } else {
+                    setOrderedSetIds(null);
+                }
+
                 // Activity counts load in background — do not block grid render
                 galleryService
                     .getActivityCounts(collectionId)
@@ -1964,6 +2136,23 @@ const CollectionDashboard = () => {
         }
         return result;
     }, [sortedPhotos, photoAiMetadataMap, activePerson, selfieMatchPhotoIds]);
+
+    const activeSetMediaCounts = useMemo(
+        () => countGalleryMedia(sortedPhotos),
+        [sortedPhotos]
+    );
+
+    const showMediaFilter = shouldShowGalleryMediaFilter(activeSetMediaCounts);
+
+    useEffect(() => {
+        if (activeSetMediaCounts.photos > 0) setMediaFilter('photos');
+        else if (activeSetMediaCounts.videos > 0) setMediaFilter('videos');
+    }, [activeSetId, activeSetMediaCounts.photos, activeSetMediaCounts.videos]);
+
+    const mediaFilteredPhotos = useMemo(() => {
+        if (!showMediaFilter) return aiFilteredPhotos;
+        return filterGalleryMediaByType(aiFilteredPhotos, mediaFilter);
+    }, [aiFilteredPhotos, showMediaFilter, mediaFilter]);
 
     const isPhotoAiFilterActive = Boolean(
         activePersonId || selfieMatchPhotoIds.length
@@ -2167,7 +2356,16 @@ const CollectionDashboard = () => {
     const uploadSnapshotRef = useRef(null);
 
     const existingUploadFilenames = useMemo(
-        () => photos.map((p) => p.filename).filter(Boolean),
+        () =>
+            photos
+                .filter((p) => p.filename && !isIncompleteUploadPhoto(p))
+                .map((p) => p.filename)
+                .filter(Boolean),
+        [photos]
+    );
+
+    const incompleteUploadPhotos = useMemo(
+        () => photos.filter((p) => isIncompleteUploadPhoto(p)),
         [photos]
     );
 
@@ -2187,6 +2385,7 @@ const CollectionDashboard = () => {
         activeSetId: highlightsEnabled ? activeSetId : (activeSetId ?? sets[0]?.id ?? null),
         photosLength: photos.length,
         existingFilenames: existingUploadFilenames,
+        incompletePhotos: incompleteUploadPhotos,
         destinationLabel: uploadDestinationLabel,
         onPhotoUploaded: (photoData) => {
             if (!photoData?.id || photoData.collection_id !== collectionId) return;
@@ -2216,7 +2415,7 @@ const CollectionDashboard = () => {
 
     const gridPhotos = useMemo(() => {
         const viewSetId = highlightsEnabled ? activeSetId : (activeSetId ?? sets[0]?.id ?? null);
-        const completedNames = new Set(aiFilteredPhotos.map((p) => p.filename));
+        const completedNames = new Set(mediaFilteredPhotos.map((p) => p.filename));
         const pending = uploadState.files
             .filter(
                 (f) =>
@@ -2235,8 +2434,11 @@ const CollectionDashboard = () => {
                 _uploadPending: true,
                 _uploadProgress: f.progress,
             }));
-        return [...aiFilteredPhotos, ...pending];
-    }, [aiFilteredPhotos, uploadState.files, collectionId, highlightsEnabled, activeSetId, sets]);
+        const filteredPending = showMediaFilter
+            ? filterGalleryMediaByType(pending, mediaFilter)
+            : pending;
+        return [...mediaFilteredPhotos, ...filteredPending];
+    }, [mediaFilteredPhotos, uploadState.files, collectionId, highlightsEnabled, activeSetId, sets, showMediaFilter, mediaFilter]);
 
     useEffect(() => {
         if (!pendingUploadScrollRef.current || activeSidebarTab !== 'photos') return;
@@ -2249,6 +2451,26 @@ const CollectionDashboard = () => {
     const activeSetPhotoCount = activeSetId
         ? photos.filter(p => p.set_id === activeSetId).length
         : photos.filter(p => !p.set_id).length;
+
+    const activeSetDisplayCount = useMemo(() => {
+        if (isPhotoAiFilterActive) {
+            const typeTotal = showMediaFilter
+                ? activeSetMediaCounts[mediaFilter === 'photos' ? 'photos' : 'videos']
+                : activeSetPhotoCount;
+            return `${mediaFilteredPhotos.length} of ${typeTotal}`;
+        }
+        if (showMediaFilter) {
+            return activeSetMediaCounts[mediaFilter === 'photos' ? 'photos' : 'videos'];
+        }
+        return activeSetPhotoCount;
+    }, [
+        isPhotoAiFilterActive,
+        showMediaFilter,
+        mediaFilter,
+        mediaFilteredPhotos.length,
+        activeSetMediaCounts,
+        activeSetPhotoCount,
+    ]);
 
     const coverModalPhotos = useMemo(() => {
         if (coverModalScope === 'all') return photos;
@@ -2286,6 +2508,13 @@ const CollectionDashboard = () => {
                 position: sets.length
             });
             setSets(prev => [...prev, newSet]);
+            setOrderedSetIds((prev) => {
+                if (!prev || prev.length === 0) return prev;
+                if (prev.includes(newSet.id)) return prev;
+                const next = [...prev, newSet.id];
+                void persistSidebarOrder(collectionId, next);
+                return next;
+            });
             setSelectedDownloadSets((prev) => {
                 if (prev.length === 0) return prev;
                 if (prev.includes(newSet.name) || prev.includes(newSet.id)) return prev;
@@ -2364,6 +2593,12 @@ const CollectionDashboard = () => {
                 await galleryService.updateCollection(collectionId, { highlights_enabled: false });
                 setHighlightsEnabled(false);
                 setCollection((prev) => (prev ? { ...prev, highlights_enabled: false } : prev));
+                setOrderedSetIds((prev) => {
+                    if (!prev) return prev;
+                    const next = prev.filter((id) => id !== 'highlights');
+                    void persistSidebarOrder(collectionId, next);
+                    return next;
+                });
                 setActiveSetId(sets[0]?.id ?? null);
             } else {
                 const removedIds = new Set(
@@ -2372,6 +2607,12 @@ const CollectionDashboard = () => {
                 await galleryService.deleteSet(deleteSetId);
                 setPhotos((prev) => prev.filter((p) => !removedIds.has(p.id)));
                 setSets((prev) => prev.filter((s) => s.id !== deleteSetId));
+                setOrderedSetIds((prev) => {
+                    if (!prev) return prev;
+                    const next = prev.filter((id) => id !== deleteSetId);
+                    void persistSidebarOrder(collectionId, next);
+                    return next;
+                });
                 if (collection?.cover_photo_id && removedIds.has(collection.cover_photo_id)) {
                     setCollection((prev) => (prev ? { ...prev, cover_photo_id: null, cover_url: null } : prev));
                 }
@@ -3257,70 +3498,50 @@ const CollectionDashboard = () => {
                                         Add Set
                                     </button>
                                 </div>
-                                {/* Highlights (unassigned photos) — virtual set; hidden after Delete set */}
-                                {highlightsEnabled && (
-                                <div className={`cd-set-item ${!activeSetId ? 'active' : ''}`} onClick={() => setActiveSetId(null)}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="cd-drag-handle"><line x1="4" y1="9" x2="20" y2="9"></line><line x1="4" y1="15" x2="20" y2="15"></line></svg>
-                                    <span className="cd-set-name">{highlightsName} ({photos.filter(p => !p.set_id).length})</span>
-                                    <div className="cd-set-actions">
-                                        <div className="cd-set-more-container">
-                                            <div className="cd-set-menu-wrapper">
-                                                <button className="cd-set-menu-btn" onClick={(e) => { e.stopPropagation(); setShowSetMenu(showSetMenu === 'highlights' ? null : 'highlights'); }}>
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
-                                                </button>
-                                                {showSetMenu === 'highlights' && (
-                                                    <div className="cd-set-dropdown">
-                                                        <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); openCoverModal('highlights'); }}>
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                                                            <span>Change cover</span>
-                                                        </div>
-                                                        <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); openEditSetModal({ id: 'highlights', name: highlightsName, description: collection?.description || '' }); }}>
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
-                                                            <span>Edit set</span>
-                                                        </div>
-                                                        <div className="cd-ctx-item cd-ctx-delete" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); handleDeleteSet('highlights'); }}>
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                                                            <span>Delete set</span>
-                                                        </div>
+                                {/* Unified Reorderable Sets List (Highlights & Custom Sets) */}
+                                {sortedSidebarSets.map((set, index) => {
+                                    const isActive = set.isHighlights ? !activeSetId : activeSetId === set.id;
+                                    return (
+                                        <div
+                                            key={set.id}
+                                            className={`cd-set-item ${isActive ? 'active' : ''} ${draggedSetIndex === index ? 'is-dragging' : ''} ${dragOverSetIndex === index && draggedSetIndex !== index ? 'drag-over' : ''}`}
+                                            onClick={() => setActiveSetId(set.isHighlights ? null : set.id)}
+                                            draggable={true}
+                                            onDragStart={(e) => handleSetDragStart(e, index)}
+                                            onDragOver={(e) => handleSetDragOver(e, index)}
+                                            onDragEnd={handleSetDragEnd}
+                                            onDrop={(e) => handleSetDrop(e, index)}
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="cd-drag-handle"><line x1="4" y1="9" x2="20" y2="9"></line><line x1="4" y1="15" x2="20" y2="15"></line></svg>
+                                            <span className="cd-set-name">{set.name} ({set.photoCount})</span>
+                                            <div className="cd-set-actions">
+                                                <div className="cd-set-more-container">
+                                                    <div className="cd-set-menu-wrapper">
+                                                        <button className="cd-set-menu-btn" onClick={(e) => { e.stopPropagation(); setShowSetMenu(showSetMenu === set.id ? null : set.id); }}>
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
+                                                        </button>
+                                                        {showSetMenu === set.id && (
+                                                            <div className="cd-set-dropdown" role="menu">
+                                                                <button type="button" className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); openCoverModal(set.id); }}>
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                                                                    <span>Change cover</span>
+                                                                </button>
+                                                                <button type="button" className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); set.isHighlights ? openEditSetModal({ id: 'highlights', name: highlightsName, description: collection?.description || '' }) : openEditSetModal(set); }}>
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                                                                    <span>Edit set</span>
+                                                                </button>
+                                                                <button type="button" className="cd-ctx-item cd-ctx-delete" role="menuitem" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); handleDeleteSet(set.id); }}>
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                                                    <span>Delete set</span>
+                                                                </button>
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                )}
-                                {/* Dynamic Sets */}
-                                {sets.map(set => (
-                                    <div key={set.id} className={`cd-set-item ${activeSetId === set.id ? 'active' : ''}`} onClick={() => setActiveSetId(set.id)}>
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="cd-drag-handle"><line x1="4" y1="9" x2="20" y2="9"></line><line x1="4" y1="15" x2="20" y2="15"></line></svg>
-                                        <span className="cd-set-name">{set.name} ({photos.filter(p => p.set_id === set.id).length})</span>
-                                        <div className="cd-set-actions">
-                                            <div className="cd-set-more-container">
-                                                <div className="cd-set-menu-wrapper">
-                                                    <button className="cd-set-menu-btn" onClick={(e) => { e.stopPropagation(); setShowSetMenu(showSetMenu === set.id ? null : set.id); }}>
-                                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
-                                                    </button>
-                                                    {showSetMenu === set.id && (
-                                                        <div className="cd-set-dropdown" role="menu">
-                                                            <button type="button" className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); openCoverModal(set.id); }}>
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                                                                <span>Change cover</span>
-                                                            </button>
-                                                            <button type="button" className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); openEditSetModal(set); }}>
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
-                                                                <span>Edit set</span>
-                                                            </button>
-                                                            <button type="button" className="cd-ctx-item cd-ctx-delete" role="menuitem" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); handleDeleteSet(set.id); }}>
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                                                                <span>Delete set</span>
-                                                            </button>
-                                                        </div>
-                                                    )}
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         )}
 
@@ -3474,7 +3695,17 @@ const CollectionDashboard = () => {
                         {activeSidebarTab === 'photos' && (
                             <>
                                 <div className="cd-main-header">
-                                    <h2 className="cd-main-title">{activeSetName} ({isPhotoAiFilterActive ? `${aiFilteredPhotos.length} of ${activeSetPhotoCount}` : activeSetPhotoCount})</h2>
+                                    <div className="cd-main-header-left">
+                                        <h2 className="cd-main-title">{activeSetName} ({activeSetDisplayCount})</h2>
+                                        {showMediaFilter && (
+                                            <DashboardMediaFilter
+                                                value={mediaFilter}
+                                                onChange={setMediaFilter}
+                                                photoCount={activeSetMediaCounts.photos}
+                                                videoCount={activeSetMediaCounts.videos}
+                                            />
+                                        )}
+                                    </div>
                                     <div className={`cd-main-actions${showPeoplePanel ? ' cd-main-actions--ai-panel-open' : ''}`}>
                                         <CollectionPhotoAiToolbar
                                             showPeople={showPeoplePanel}
@@ -3555,18 +3786,24 @@ const CollectionDashboard = () => {
                                                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
                                                         )}
                                                     </div>
-                                                    <div className="cd-grid-divider"></div>
-                                                    <div className="cd-grid-section-label">Show</div>
-                                                    <div className="cd-grid-toggle-row">
-                                                        <span>Filename</span>
-                                                        <label className="cd-toggle" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
-                                                            <input type="checkbox" checked={showFilename} onChange={() => setShowFilename(!showFilename)} />
-                                                            <span className="cd-toggle-slider"></span>
-                                                        </label>
-                                                        <span className="cd-toggle-label">{showFilename ? 'On' : 'Off'}</span>
-                                                    </div>
                                                 </div>
                                             )}
+                                        </div>
+
+                                        <div className="cd-toolbar-toggle-row">
+                                            <span>Filename</span>
+                                            <label className="cd-toggle" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={showFilename}
+                                                    onChange={() => {
+                                                        const nextValue = !showFilename;
+                                                        setShowFilename(nextValue);
+                                                        localStorage.setItem('filename_display', nextValue ? 'show' : 'hide');
+                                                    }}
+                                                />
+                                                <span className="cd-toggle-slider"></span>
+                                            </label>
                                         </div>
 
                                         <div className="cd-main-actions-divider"></div>
@@ -3606,12 +3843,6 @@ const CollectionDashboard = () => {
                                                             index={index}
                                                             containInCell
                                                         />
-                                                        {isPending && (
-                                                            <div
-                                                                className="cd-photo-upload-overlay"
-                                                                style={{ width: `${photo._uploadProgress || 0}%` }}
-                                                            />
-                                                        )}
                                                     </div>
                                                     {!isPending && (
                                                     <>
@@ -3689,13 +3920,17 @@ const CollectionDashboard = () => {
                                                         className="cd-photo-filename"
                                                         title={photo.filename || `photo-${index + 1}.jpg`}
                                                     >
-                                                        {photo.filename || `photo-${index + 1}.jpg`}
+                                                        <span className="cd-filename-text">{photo.filename || `photo-${index + 1}.jpg`}</span>
                                                     </div>
                                                 )}
                                             </div>
                                         );
                                         })}
                                     </div>
+                                ) : sortedPhotos.length > 0 ? (
+                                    <p className="cd-media-filter-empty">
+                                        {showMediaFilter ? `No ${mediaFilter} in this set` : 'No matching photos'}
+                                    </p>
                                 ) : (
                                     <div
                                         className={`cd-dropzone ${isDraggingDropzone ? 'dragging' : ''}`}
@@ -3785,13 +4020,22 @@ const CollectionDashboard = () => {
                                     gridPhotos={photos}
                                     previewMode={previewMode}
                                     onPreviewModeChange={setPreviewMode}
-                                    photographerName={user?.display_name || 'PHOTOGRAPHER'}
+                                    photographerName={profile?.business_name || user?.display_name || 'PHOTOGRAPHER'}
+                                    coverLogoUrl={profile?.cover_logo_url || ''}
                                     dashboardState={{
                                         focalX: collectionFocal.x,
                                         focalY: collectionFocal.y,
                                         activeSetId: activeSetId,
                                         sets: sets,
-                                        collection: { ...collection, highlights_enabled: highlightsEnabled, store_enabled: storeEnabled },
+                                        highlightsName,
+                                        sidebarSetOrder: orderedSetIds,
+                                        collection: {
+                                            ...collection,
+                                            highlights_enabled: highlightsEnabled,
+                                            store_enabled: storeEnabled,
+                                            sidebar_set_order:
+                                                orderedSetIds ?? collection?.sidebar_set_order ?? null,
+                                        },
                                         photoDownload: photoDownload,
                                         galleryDownload: galleryDownload,
                                         singlePhotoDownload: singlePhotoDownload,

@@ -60,7 +60,16 @@ export function uploadInProgressTitle(files: UploadQueueFile[], inProgressCount:
 export function formatUploadMb(bytes: number): string {
   const mb = bytes / (1024 * 1024);
   if (mb < 0.01 && bytes > 0) return '<0.01 MB';
-  return `${mb.toFixed(mb >= 10 ? 0 : 2)} MB`;
+  return `${mb.toFixed(mb >= 10 ? 1 : 2)} MB`;
+}
+
+export function formatUploadSpeed(bytesPerSec: number): string {
+  if (bytesPerSec <= 0) return '0.00 MB/s';
+  const mb = bytesPerSec / (1024 * 1024);
+  if (mb >= 1) return `${mb.toFixed(2)} MB/s`;
+  const kb = bytesPerSec / 1024;
+  if (kb >= 1) return `${kb.toFixed(1)} KB/s`;
+  return `${Math.round(bytesPerSec)} B/s`;
 }
 
 export function uploadTotalBytes(file: UploadQueueFile): number {
@@ -71,6 +80,14 @@ export function uploadBytesDone(file: UploadQueueFile): number {
   const total = uploadTotalBytes(file);
   if (file.status === 'completed') return total;
   return Math.round((total * file.progress) / 100);
+}
+
+export function getTotalUploadBytes(files: UploadQueueFile[]): number {
+  return files.reduce((sum, f) => sum + uploadTotalBytes(f), 0);
+}
+
+export function getTotalBytesDone(files: UploadQueueFile[]): number {
+  return files.reduce((sum, f) => sum + uploadBytesDone(f), 0);
 }
 
 export function filterFilesByTab(files: UploadQueueFile[], tab: UploadPanelTab): UploadQueueFile[] {
@@ -89,37 +106,145 @@ export function uploadTabCounts(files: UploadQueueFile[]) {
   };
 }
 
-/** Overall progress by completed file count (e.g. 100 / 200 → 50%). */
+/** Overall progress — average of per-file progress (reflects web/thumb phase too). */
 export function uploadOverallPercent(files: UploadQueueFile[]): number {
   if (files.length === 0) return 0;
-  const completed = files.filter((f) => f.status === 'completed').length;
-  return Math.min(100, Math.round((completed / files.length) * 100));
+  const sum = files.reduce((acc, f) => {
+    if (f.status === 'completed') return acc + 100;
+    if (f.status === 'error') return acc;
+    return acc + Math.max(0, Math.min(100, f.progress || 0));
+  }, 0);
+  return Math.min(100, Math.round(sum / files.length));
 }
 
-/** Skip files whose name already exists in the collection or the active upload queue. */
+export type IncompleteUploadPhoto = {
+  id: string;
+  filename: string;
+  collection_id?: string;
+  set_id?: string | null;
+  full_url?: string | null;
+  original_storage_path?: string | null;
+  web_storage_path?: string | null;
+  thumbnail_storage_path?: string | null;
+  web_url?: string | null;
+  thumbnail_url?: string | null;
+  media_type?: string | null;
+};
+
+function pathFromPublicUrl(url?: string | null): string {
+  if (!url || typeof url !== 'string') return '';
+  try {
+    const pathname = new URL(url).pathname.replace(/^\/+/, '');
+    return decodeURIComponent(pathname);
+  } catch {
+    return '';
+  }
+}
+
+/** Derive the expected R2 original key from a photo row (web/thumb stem or stored path). */
+export function resolveOriginalStoragePath(
+  photo: {
+    filename?: string | null;
+    original_storage_path?: string | null;
+    web_storage_path?: string | null;
+    thumbnail_storage_path?: string | null;
+    web_url?: string | null;
+    thumbnail_url?: string | null;
+  },
+  fileExt?: string | null
+): string | null {
+  if (photo.original_storage_path) return photo.original_storage_path;
+
+  const derivativePath =
+    photo.web_storage_path ||
+    photo.thumbnail_storage_path ||
+    pathFromPublicUrl(photo.web_url) ||
+    pathFromPublicUrl(photo.thumbnail_url) ||
+    '';
+
+  if (!derivativePath) return null;
+
+  const match = derivativePath.match(/^(.*)\/(web|thumb)\/([^/]+)$/);
+  if (!match) return null;
+
+  const basePath = match[1];
+  const stem = match[3].replace(/\.[^.]+$/, '');
+  const ext =
+    (fileExt || photo.filename?.split('.').pop() || 'jpg').toLowerCase();
+  return `${basePath}/original/${stem}.${ext}`;
+}
+
+/** Photo row is in DB with web/thumb but original never finished (or full_url points at a derivative). */
+export function isIncompleteUploadPhoto(photo: {
+  filename?: string | null;
+  full_url?: string | null;
+  original_storage_path?: string | null;
+  web_url?: string | null;
+  thumbnail_url?: string | null;
+}): boolean {
+  if (!photo?.filename) return false;
+  if (!photo.full_url && !photo.original_storage_path) return true;
+
+  const fullUrl = String(photo.full_url || '');
+  if (fullUrl.includes('/web/') || fullUrl.includes('/thumb/')) return true;
+  if (photo.web_url && fullUrl === photo.web_url) return true;
+  if (photo.thumbnail_url && fullUrl === photo.thumbnail_url) return true;
+
+  return false;
+}
+
+/**
+ * Partition selected files:
+ * - `accepted` — brand new uploads
+ * - `resumable` — same filename as an incomplete photo (web/thumb done, original missing)
+ * - `skipped` — fully uploaded already (or already queued)
+ */
 export function partitionDuplicateUploadFiles(
   files: File[],
-  existingNamesLower: Iterable<string>,
-  queuedNamesLower: Iterable<string>
-): { accepted: File[]; skipped: string[] } {
-  const seen = new Set<string>();
-  for (const name of existingNamesLower) seen.add(name);
-  for (const name of queuedNamesLower) seen.add(name);
+  existingCompleteNamesLower: Iterable<string>,
+  queuedNamesLower: Iterable<string>,
+  incompleteByNameLower: Map<string, IncompleteUploadPhoto> = new Map()
+): {
+  accepted: File[];
+  resumable: { file: File; photo: IncompleteUploadPhoto }[];
+  skipped: string[];
+} {
+  const complete = new Set<string>();
+  for (const name of existingCompleteNamesLower) complete.add(name);
+
+  const queued = new Set<string>();
+  for (const name of queuedNamesLower) queued.add(name);
 
   const accepted: File[] = [];
+  const resumable: { file: File; photo: IncompleteUploadPhoto }[] = [];
   const skipped: string[] = [];
+  const batchSeen = new Set<string>();
 
   for (const file of files) {
     const key = file.name.toLowerCase();
-    if (seen.has(key)) {
+
+    if (batchSeen.has(key) || queued.has(key)) {
       skipped.push(file.name);
       continue;
     }
-    seen.add(key);
+
+    const incomplete = incompleteByNameLower.get(key);
+    if (incomplete) {
+      batchSeen.add(key);
+      resumable.push({ file, photo: incomplete });
+      continue;
+    }
+
+    if (complete.has(key)) {
+      skipped.push(file.name);
+      continue;
+    }
+
+    batchSeen.add(key);
     accepted.push(file);
   }
 
-  return { accepted, skipped };
+  return { accepted, resumable, skipped };
 }
 
 /** Smallest files first — faster previews and less memory pressure before large RAWs. */

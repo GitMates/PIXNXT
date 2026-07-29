@@ -40,7 +40,7 @@ export const PhotoCard: React.FC<PhotoCardProps> = ({
       
       {showFilename && (
         <div className="cd-photo-filename" title={photo.filename || undefined}>
-          {photo.filename}
+          <span className="cd-filename-text">{photo.filename || 'Untitled'}</span>
         </div>
       )}
 

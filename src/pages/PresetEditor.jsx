@@ -6,7 +6,7 @@ import { useAuth } from '../hooks/useAuth';
 import './PresetEditor.css';
 import './CollectionDashboard.css';
 import { galleryService } from '../services/gallery.service';
-import { COVER_STYLES, TYPOGRAPHY_OPTIONS, COLOR_PALETTES } from '../constants/designOptions';
+import { galleryGridStyleLabel } from '../lib/galleryGridStyle';
 
 const TABS = [
   { id: 'general', label: 'General', icon: Wrench },
@@ -424,7 +424,7 @@ export default function PresetEditor() {
                           </svg>
                         </div>
                       </div>
-                      <span className="card-label">Vertical</span>
+                      <span className="card-label">{galleryGridStyleLabel('vertical')}</span>
                     </div>
                     <div className="grid-option-container">
                       <div
@@ -439,7 +439,7 @@ export default function PresetEditor() {
                           </svg>
                         </div>
                       </div>
-                      <span className="card-label">Horizontal</span>
+                      <span className="card-label">{galleryGridStyleLabel('horizontal')}</span>
                     </div>
                   </div>
                 </div>

@@ -124,6 +124,7 @@ const Settings = () => {
 
 import { useRef } from 'react';
 import { storageService } from '../services/storage.service';
+import { CustomDomainPanel } from '../components/features/Settings/CustomDomainPanel';
 
 const BrandingTab = ({ profile, updateProfile }) => {
     const [pToggle, setPToggle] = useState(() => {
@@ -133,10 +134,8 @@ const BrandingTab = ({ profile, updateProfile }) => {
         const saved = localStorage.getItem('hide_branding');
         return saved !== 'true';
     });
-    const [customDomain, setCustomDomain] = useState(profile?.custom_domain || '');
     const [uploadingLogo, setUploadingLogo] = useState(false);
     const [uploadingCoverLogo, setUploadingCoverLogo] = useState(false);
-    const [generatingCoverLogo, setGeneratingCoverLogo] = useState(false);
     const [uploadingFavicon, setUploadingFavicon] = useState(false);
     const logoInputRef = useRef(null);
     const coverLogoInputRef = useRef(null);
@@ -213,57 +212,6 @@ const BrandingTab = ({ profile, updateProfile }) => {
         }
     };
 
-    const handleAutoGenerateCoverLogo = async () => {
-        if (!profile?.logo_url) {
-            alert('Please upload a Logo first before generating a cover logo.');
-            return;
-        }
-        try {
-            setGeneratingCoverLogo(true);
-            const img = new Image();
-            img.crossOrigin = 'anonymous';
-            await new Promise((resolve, reject) => {
-                img.onload = resolve;
-                img.onerror = () => reject(new Error('Failed to load original logo image.'));
-                img.src = profile.logo_url;
-            });
-
-            const canvas = document.createElement('canvas');
-            canvas.width = img.naturalWidth;
-            canvas.height = img.naturalHeight;
-            const ctx = canvas.getContext('2d');
-            if (!ctx) throw new Error('Could not get canvas context');
-            
-            ctx.drawImage(img, 0, 0);
-            
-            const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const data = imgData.data;
-            for (let i = 0; i < data.length; i += 4) {
-                if (data[i + 3] > 0) {
-                    data[i] = 255;
-                    data[i + 1] = 255;
-                    data[i + 2] = 255;
-                }
-            }
-            ctx.putImageData(imgData, 0, 0);
-
-            const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
-            if (!blob) throw new Error('Failed to convert canvas to blob');
-
-            const file = new File([blob], 'cover_logo_white.png', { type: 'image/png' });
-            const path = `photographers/${profile.id}/logos/cover_logo_generated_${Date.now()}.png`;
-            const result = await storageService.upload(path, file);
-
-            await updateProfile({ cover_logo_url: result.url });
-            alert('White cover logo auto-generated and saved successfully!');
-        } catch (err) {
-            console.error('Error auto-generating cover logo:', err);
-            alert(`Failed to auto-generate cover logo: ${err.message}`);
-        } finally {
-            setGeneratingCoverLogo(false);
-        }
-    };
-
     const handleFaviconUpload = async (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -296,38 +244,7 @@ const BrandingTab = ({ profile, updateProfile }) => {
 
     return (
         <div className="set-tab-content">
-            <div className="set-section">
-                <h3 className="set-section-title">Domain</h3>
-                <div className="set-input-wrap neu-inset cg-field-shell">
-                    <input className="set-input" type="text" readOnly value={`${profile?.homepage_slug || profile?.display_name || 'gallery'}.pixnxt.com`} />
-                </div>
-                <p className="set-help-text">Your client galleries and mobile gallery apps are always available with your default site address. To change your default domain, edit your username under <span className="text-teal">Account</span>.</p>
-            </div>
-
-            <div className="set-section border-sub">
-                <div className="set-section-header">
-                    <h3 className="set-section-title">Custom Domain</h3>
-                </div>
-                <div className="flex gap-2 items-center mb-2" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                    <div className="set-input-wrap neu-inset cg-field-shell flex-grow" style={{ flexGrow: 1 }}>
-                        <input
-                            className="set-input"
-                            type="text"
-                            placeholder="www.yourdomain.com"
-                            value={customDomain}
-                            onChange={(e) => setCustomDomain(e.target.value)}
-                        />
-                    </div>
-                    <button
-                        className="px-4 py-2 bg-teal-600 text-white rounded hover:bg-teal-700 transition"
-                        style={{ padding: '10px 20px', backgroundColor: '#0d9488', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                        onClick={() => updateProfile({ custom_domain: customDomain || null })}
-                    >
-                        Save
-                    </button>
-                </div>
-                <p className="set-help-text">Use your own custom domain for your client galleries.</p>
-            </div>
+            <CustomDomainPanel profile={profile} updateProfile={updateProfile} />
 
             <div className="set-upgrade-box no-bg-mobile">
                 <div className="set-box-header">
@@ -400,30 +317,7 @@ const BrandingTab = ({ profile, updateProfile }) => {
                         </div>
                     </div>
 
-                    {/* Auto-generate cover logo link */}
-                    <div style={{ marginTop: '5px' }}>
-                        <button
-                            onClick={handleAutoGenerateCoverLogo}
-                            disabled={generatingCoverLogo || !profile?.logo_url}
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '6px',
-                                color: profile?.logo_url ? '#0d9488' : '#aaa',
-                                background: 'none',
-                                border: 'none',
-                                cursor: profile?.logo_url ? 'pointer' : 'not-allowed',
-                                fontSize: '13px',
-                                fontWeight: '500',
-                                padding: '4px 0'
-                            }}
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m0-12.728l.707.707m11.32 11.32l.707-.707M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z" />
-                            </svg>
-                            {generatingCoverLogo ? 'Generating cover logo...' : 'Auto-generate cover logo'}
-                        </button>
-                    </div>
+
 
                     <p className="set-help-text-[16px]" style={{ marginTop: '10px' }}>
                         Your logo will be used in place of the text logo and profile icon. PNG file with transparent background is recommended. For cover logo, we recommend using a white/light color logo with transparent background for best display.

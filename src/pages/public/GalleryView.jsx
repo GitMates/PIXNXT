@@ -18,7 +18,6 @@ import { formatCoverDate } from '../../lib/formatCoverDate.js';
 import { getCollectionFocal } from '../../lib/focalPoint';
 import {
   GalleryStickyNav,
-  GallerySetHeading,
   GallerySetDescription,
 } from '../../components/features/Gallery/GalleryChrome';
 import { renderMiniFrame } from '../../printstore/components/StoreHeader';
@@ -1927,7 +1926,8 @@ const GalleryView = () => {
 
           const props = {
             title: collection.name,
-            subtitle: photographer?.display_name || '',
+            subtitle: photographer?.business_name || photographer?.display_name || '',
+            coverLogoUrl: photographer?.cover_logo_url || '',
             date: formatCoverDate(collection.event_date || collection.created_at),
             photoUrl: activePhotoUrl,
             focalX,
@@ -2081,9 +2081,10 @@ const GalleryView = () => {
             isGalleryViewMobile={isMobileViewport}
             navigationStyle={navigationStyle}
             collectionTitle={collection.name}
-            photographerName={photographer?.display_name}
+            photographerName={photographer?.business_name || photographer?.display_name}
             sets={visibleSets.map((set) => ({ id: set.id, name: set.name }))}
             showHighlightsTab={canViewHighlights(collection, isClientViewer)}
+            sidebarSetOrder={collection?.sidebar_set_order || null}
             activeSetId={activeSetId}
             onSetChange={setActiveSetId}
             showFavorites={collection?.favorites_enabled !== false}
@@ -2144,12 +2145,7 @@ const GalleryView = () => {
             </div>
           )}
 
-          {!setDescriptionText &&
-            !isFavoriteListMode &&
-            (() => {
-              const raw = (activeSetId ? collection.sets?.find((s) => s.id === activeSetId)?.name : 'Highlights') || 'Highlights';
-              return <GallerySetHeading variant="galleryView" label={String(raw).toLowerCase()} />;
-            })()}
+
 
           {!isFavoriteListMode ? (
             <GalleryPeopleStrip

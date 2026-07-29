@@ -15,8 +15,9 @@ export function RawPhotoPlaceholder({ variant = 'grid', label = 'Loading...' }) 
       role="status"
       aria-label={label}
     >
-      <span className="smooth-media-shimmer" aria-hidden />
-      <span className="smooth-media-error cd-raw-loading-label">{label}</span>
+      <span className="smooth-media-spinner-container" aria-hidden="true">
+        <span className="smooth-media-spinner" />
+      </span>
     </span>
   );
 }

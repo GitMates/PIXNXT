@@ -12,4 +12,5 @@ export interface DashboardSidebarProps {
   onEditSet: (set: PhotoSet) => void;
   onDeleteSet: (setId: string) => void;
   onManageSets: () => void;
+  onReorderSets?: (newSets: PhotoSet[]) => void;
 }

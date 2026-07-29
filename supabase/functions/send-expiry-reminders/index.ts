@@ -138,7 +138,7 @@ serve(async (req) => {
       phoneNumberId: Deno.env.get('WHATSAPP_PHONE_NUMBER_ID') || '',
     }
 
-    const siteUrl = (Deno.env.get('PUBLIC_SITE_URL') || 'https://pixnxt.com').replace(/\/$/, '')
+    const siteUrl = (Deno.env.get('PUBLIC_SITE_URL') || 'https://pixnxt.in').replace(/\/$/, '')
     const results = []
 
     for (const reminder of reminders || []) {

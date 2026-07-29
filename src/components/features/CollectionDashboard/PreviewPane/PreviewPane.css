@@ -1,4 +1,4 @@
-﻿/* PreviewPane â€“ dashboard shell only (workspace, canvas, toolbar) */
+/* PreviewPane â€“ dashboard shell only (workspace, canvas, toolbar) */
 
 .cd-design-preview-pane {
   flex: 1;
@@ -126,9 +126,9 @@
 
 /* Desktop / mobile canvas frame sizing */
 .cd-design-preview-pane:not(.mobile) .cd-preview-canvas {
-  max-width: 556px;
-  width: 556px;
-  min-height: 625px;
+  max-width: 660px;
+  width: 660px;
+  min-height: 700px;
   margin: 0 auto;
   border-radius: 4px;
 }

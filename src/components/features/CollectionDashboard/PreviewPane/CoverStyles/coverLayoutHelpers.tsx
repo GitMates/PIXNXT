@@ -85,3 +85,40 @@ export function ViewGalleryButton({
     </button>
   );
 }
+
+type BrandDisplayProps = {
+  brand?: string;
+  coverLogoUrl?: string;
+  className?: string;
+  textClassName?: string;
+  isPreview?: boolean;
+};
+
+export const BrandDisplay: React.FC<BrandDisplayProps> = ({
+  brand,
+  coverLogoUrl,
+  className,
+  textClassName,
+  isPreview,
+}) => {
+  if (coverLogoUrl) {
+    return (
+      <div className={cn('cover-brand-logo-container flex items-center justify-center', className)}>
+        <img
+          src={coverLogoUrl}
+          alt="Cover Logo"
+          className={cn(
+            'object-contain max-w-full',
+            isPreview ? 'max-h-[30px] my-1' : 'max-h-[60px] my-2'
+          )}
+        />
+      </div>
+    );
+  }
+
+  if (brand) {
+    return <span className={textClassName}>{brand}</span>;
+  }
+
+  return null;
+};
