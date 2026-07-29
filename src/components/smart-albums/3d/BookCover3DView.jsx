@@ -5,6 +5,15 @@ import {
     getFallbackBookDimensions,
     pagePxToBook3dWorld,
 } from '../albumBookDimensions';
+import { getAlbumCoverColor } from '../albumCoverColor';
+import { resolveFrontCoverDisplayText } from '../albumCoverText';
+import { parseGridSizeAspect } from '../albumGridSize';
+import { resolveBookWrapSpreadSrc } from '../albumPagePhotos';
+import {
+    createBlankCoverTitleTexture,
+    createBlankLeatherPanelTexture,
+} from './book3dPageCanvas';
+import { isBlankCoverAlbum } from './book3dTextures';
 import '../AlbumBook.css';
 import './BookCover3DView.css';
 
@@ -32,6 +41,19 @@ export default function BookCover3DView({
         album?.grid_size,
         layoutStructuralKey
     );
+
+    // Build leather/title textures before Canvas mounts so the first frame is not white.
+    useMemo(() => {
+        if (!album?.id) return null;
+        const coverSrc = resolveBookWrapSpreadSrc(album, { showSamples });
+        if (!isBlankCoverAlbum(album) || coverSrc) return null;
+        const aspect = parseGridSizeAspect(album?.grid_size);
+        const colorId = getAlbumCoverColor(album.id);
+        const title = resolveFrontCoverDisplayText(album, album.id);
+        createBlankCoverTitleTexture(title, aspect, colorId);
+        createBlankLeatherPanelTexture(aspect, colorId, { spine: false });
+        return null;
+    }, [album, showSamples]);
 
     const [shellHeight, setShellHeight] = useState(0);
     const latchedWorldDimsRef = useRef(null);

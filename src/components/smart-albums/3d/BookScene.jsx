@@ -12,7 +12,7 @@ import './BookScene.css';
 
 const ORBIT_RETURN_MS = 1100;
 /** Hold angled (1st image) pose before turning to flat front. */
-const INTRO_HOLD_MS = 1000;
+const INTRO_HOLD_MS = 500;
 const INTRO_ANIM_MS = 1400;
 /**
  * Product-shot opening pose: yaw the closed book so the fore-edge / page stack
