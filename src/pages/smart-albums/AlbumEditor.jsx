@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import AlbumBook from '../../components/smart-albums/AlbumBook';
 import AlbumCoverEditView from '../../components/smart-albums/AlbumCoverEditView';
-import AlbumCoverTextModal from '../../components/smart-albums/AlbumCoverTextModal';
 import AlbumEditorSidebar from '../../components/smart-albums/AlbumEditorSidebar';
 import AlbumEditorNotifications from '../../components/smart-albums/AlbumEditorNotifications';
 import {
@@ -2245,6 +2244,8 @@ export default function AlbumEditor({
                     proofSeenTick={proofSeenTick}
                     showCoverSpine={showCoverSpine}
                     onShowCoverSpineChange={setShowCoverSpine}
+                    coverTextMessage={coverTextMessage}
+                    onSaveCoverText={handleSaveCoverText}
                 />
             </div>
 
@@ -2281,18 +2282,9 @@ export default function AlbumEditor({
                 onAddSpreadBefore={handleAddSpreadBefore}
                 onAddSpreadAfter={handleAddSpreadAfter}
                 onDeleteSpread={handleDeleteSpreadAt}
-                onCoverText={isCoverEditorSlotMenu ? handleCoverTextFromMenu : undefined}
-                hasCoverText={Boolean(coverTextMessage)}
                 onRemovePhotos={handleRemoveSpreadPhotos}
                 onSwap={handleOpenSwapModal}
                 onClose={closeSlotMenu}
-            />
-
-            <AlbumCoverTextModal
-                open={coverTextModalOpen}
-                initialMessage={coverTextMessage}
-                onClose={() => setCoverTextModalOpen(false)}
-                onSave={handleSaveCoverText}
             />
 
             <AlbumSwapExecuteModal

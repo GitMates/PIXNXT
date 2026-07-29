@@ -742,7 +742,11 @@ const CreateAlbum = () => {
     }, []);
 
     const applyPhotoFiles = useCallback((files) => {
-        if (files?.length) setPhotoFiles(files);
+        if (!files?.length) return;
+        const sorted = [...files].sort((a, b) =>
+            a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+        );
+        setPhotoFiles(sorted);
     }, []);
 
     const handlePhotoChange = (e) => {

@@ -110,10 +110,18 @@ export default function AlbumEditorSidebar({
     proofSeenTick = 0,
     showCoverSpine = true,
     onShowCoverSpineChange = null,
+    coverTextMessage = '',
+    onSaveCoverText = null,
 }) {
     const collectionDragFromRef = useRef(null);
     const [collectionDragOverIndex, setCollectionDragOverIndex] = useState(null);
     const [imageReplacements, setImageReplacements] = useState([]);
+    const [localCoverText, setLocalCoverText] = useState(coverTextMessage);
+
+    useEffect(() => {
+        setLocalCoverText(coverTextMessage || '');
+    }, [coverTextMessage]);
+
     void proofSeenTick;
     const swapsEnabled = album?.messages_enabled !== false;
 
@@ -625,6 +633,42 @@ export default function AlbumEditorSidebar({
                                 />
                             </div>
                         ) : null}
+
+                        {onSaveCoverText && (
+                            <div className="ae-cover-panel__text-block">
+                                <p className="ae-cover-panel__text-title">Cover text message</p>
+                                <textarea
+                                    className="ae-cover-panel__text-textarea"
+                                    rows={3}
+                                    maxLength={280}
+                                    placeholder="e.g. Kellie & Fahim · June 2026"
+                                    value={localCoverText}
+                                    onChange={(e) => setLocalCoverText(e.target.value)}
+                                />
+                                <div className="ae-cover-panel__text-footer">
+                                    {coverTextMessage && (
+                                        <button
+                                            type="button"
+                                            className="ae-cover-panel__text-clear"
+                                            onClick={() => {
+                                                setLocalCoverText('');
+                                                onSaveCoverText('');
+                                            }}
+                                        >
+                                            Clear
+                                        </button>
+                                    )}
+                                    <button
+                                        type="button"
+                                        className="ae-cover-panel__text-save"
+                                        disabled={localCoverText.trim() === (coverTextMessage || '').trim()}
+                                        onClick={() => onSaveCoverText(localCoverText.trim())}
+                                    >
+                                        Save
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
 
