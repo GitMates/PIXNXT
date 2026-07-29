@@ -64,38 +64,53 @@ const AppPhotoGrid = ({
     <div className="mg-photos-grid">
       {photos.map((photo) => {
         const selected = selectedIds.has(photo.id);
+        const isPending = Boolean(photo._uploadPending);
         return (
           <div
             key={photo.id}
-            className={`mg-photo-thumb${selected ? ' mg-photo-thumb--selected' : ''}${overId === photo.id ? ' mg-photo-thumb--drag-over' : ''}`}
-            draggable={canDrag}
+            className={`mg-photo-thumb${selected ? ' mg-photo-thumb--selected' : ''}${overId === photo.id ? ' mg-photo-thumb--drag-over' : ''}${isPending ? ' mg-photo-thumb--pending' : ''}`}
+            draggable={canDrag && !isPending}
             onDragStart={(e) => handleDragStart(e, photo.id)}
             onDragOver={(e) => handleDragOver(e, photo.id)}
             onDrop={(e) => handleDrop(e, photo.id)}
             onDragEnd={handleDragEnd}
-            onClick={() => onToggleSelect(photo.id)}
+            onClick={() => !isPending && onToggleSelect(photo.id)}
             onKeyDown={(e) => {
+              if (isPending) return;
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
                 onToggleSelect(photo.id);
               }
             }}
             role="button"
-            tabIndex={0}
+            tabIndex={isPending ? -1 : 0}
             aria-pressed={selected}
             aria-label={photo.filename}
+            aria-busy={isPending || undefined}
           >
-            {canDrag && (
+            {canDrag && !isPending && (
               <span className="mg-photo-drag-handle" aria-hidden>
                 <MoveIcon />
               </span>
             )}
-            <img
-              src={photo.thumbnail_url || photo.full_url}
-              alt={photo.filename}
-              loading="lazy"
-              draggable={false}
-            />
+            <div className="mg-photo-thumb-shell">
+              {photo.thumbnail_url || photo.full_url ? (
+                <img
+                  src={photo.thumbnail_url || photo.full_url}
+                  alt={photo.filename}
+                  loading="lazy"
+                  draggable={false}
+                />
+              ) : (
+                <div className="mg-photo-thumb-placeholder" aria-hidden />
+              )}
+              {isPending && (
+                <>
+                  <div className="mg-photo-upload-overlay" style={{ width: `${photo._uploadProgress || 0}%` }} />
+                  <span className="mg-photo-upload-label">{photo._uploadProgress || 0}%</span>
+                </>
+              )}
+            </div>
           </div>
         );
       })}

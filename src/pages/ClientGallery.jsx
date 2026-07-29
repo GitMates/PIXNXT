@@ -846,6 +846,9 @@ const ClientGallery = () => {
                                                 title={item.collection.status || 'draft'}
                                                 aria-label={item.collection.status || 'draft'}
                                             />
+                                            {item.collection.guest_delivery_enabled && (
+                                                <span className="cg-gd-badge" title="Guest Delivery enabled">GD</span>
+                                            )}
                                         </div>
                                     </div>
                                 </div>

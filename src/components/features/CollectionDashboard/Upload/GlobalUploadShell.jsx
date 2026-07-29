@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { CloudUpload, Loader2, CheckCircle2 } from 'lucide-react';
-import { useUploadQueueContext } from '../../../../contexts/UploadQueueContext';
+import { useUploadQueueContext } from '../../../../contexts/uploadQueueContext';
 import { UploadManager } from './UploadManager';
 import { uploadCompleteSummary, uploadInProgressTitle, uploadTabCounts } from './uploadUtils';
 import './UploadManager.css';
@@ -48,10 +48,24 @@ export function GlobalUploadShell() {
     const target = getUploadTarget();
     const targetCollectionId = target?.collectionId ?? activeCollectionId;
     const targetSetId = target?.activeSetId ?? uploadTargetSetId ?? null;
+    const targetViewPath = target?.viewPath;
 
     if (!targetCollectionId) {
       if (isAllComplete) dismiss();
       else minimize();
+      return;
+    }
+
+    if (targetViewPath) {
+      const isOnTarget =
+        location.pathname === targetViewPath ||
+        location.pathname.startsWith(`${targetViewPath}/`);
+
+      if (!isOnTarget) {
+        navigate(targetViewPath);
+      }
+
+      openCompletedUploadDetails();
       return;
     }
 

@@ -1,5 +1,13 @@
-import { useEffect } from 'react';
-import { useUploadQueueContext } from '../../../../contexts/UploadQueueContext';
+import { useCallback, useEffect, useRef } from 'react';
+import { useUploadQueueContext } from '../../../../contexts/uploadQueueContext';
+
+type UploadPhotoFn = (args: {
+  file: File;
+  photographerId: string;
+  sortIndex: number;
+  setId?: string | null;
+  onProgress?: (percent: number) => void;
+}) => Promise<unknown>;
 
 export function useUploadQueue(options: {
   collectionId: string | null | undefined;
@@ -21,48 +29,75 @@ export function useUploadQueue(options: {
     media_type?: string | null;
   }>;
   destinationLabel?: string;
+  viewPath?: string | null;
+  uploadPhotoFn?: UploadPhotoFn;
   onPhotoUploaded: (photo: unknown) => void;
 }) {
   const ctx = useUploadQueueContext();
+  const onPhotoUploadedRef = useRef(options.onPhotoUploaded);
+  const existingFilenamesRef = useRef(options.existingFilenames);
+  const uploadPhotoFnRef = useRef(options.uploadPhotoFn);
 
   useEffect(() => {
-    if (!options.collectionId || !options.photographerId) return;
-    ctx.configureTarget({
+    onPhotoUploadedRef.current = options.onPhotoUploaded;
+  }, [options.onPhotoUploaded]);
+
+  useEffect(() => {
+    existingFilenamesRef.current = options.existingFilenames;
+  }, [options.existingFilenames]);
+
+  useEffect(() => {
+    uploadPhotoFnRef.current = options.uploadPhotoFn;
+  }, [options.uploadPhotoFn]);
+
+  const getUploadTargetSnapshot = useCallback(
+    () => ({
       collectionId: options.collectionId,
       photographerId: options.photographerId,
       activeSetId: options.activeSetId,
       photosLength: options.photosLength,
-      existingFilenames: options.existingFilenames ?? [],
+      existingFilenames: existingFilenamesRef.current ?? options.existingFilenames ?? [],
       existingCompleteFilenames: options.existingFilenames ?? [],
       incompletePhotos: options.incompletePhotos ?? [],
       destinationLabel: options.destinationLabel || 'Collection',
-      onPhotoUploaded: options.onPhotoUploaded,
-    });
-  }, [
-    options.collectionId,
-    options.photographerId,
-    options.activeSetId,
-    options.photosLength,
-    options.existingFilenames,
-    options.incompletePhotos,
-    options.destinationLabel,
-    options.onPhotoUploaded,
-    ctx.configureTarget,
-  ]);
+      viewPath: options.viewPath ?? null,
+      uploadPhotoFn: uploadPhotoFnRef.current
+        ? (args: Parameters<UploadPhotoFn>[0]) => uploadPhotoFnRef.current!(args)
+        : undefined,
+      onPhotoUploaded: (photo: unknown) => onPhotoUploadedRef.current?.(photo),
+    }),
+    [
+      options.collectionId,
+      options.photographerId,
+      options.activeSetId,
+      options.photosLength,
+      options.existingFilenames,
+      options.incompletePhotos,
+      options.destinationLabel,
+      options.viewPath,
+    ]
+  );
 
-  const processFiles = (
-    fileList: FileList | File[] | null | undefined,
-    uploadTargetOverride?: {
-      collectionId?: string;
-      photographerId?: string;
-      activeSetId?: string | null;
-      destinationLabel?: string;
-    }
-  ) => ctx.processFiles(fileList, uploadTargetOverride);
+  useEffect(() => {
+    if (!options.collectionId || !options.photographerId) return;
+    ctx.configureTarget(getUploadTargetSnapshot());
+  }, [options.collectionId, options.photographerId, options.photosLength, getUploadTargetSnapshot, ctx.configureTarget]);
+
+  const processFiles = useCallback(
+    (
+      fileList: FileList | File[] | null | undefined,
+      uploadTargetOverride?: ReturnType<typeof getUploadTargetSnapshot>
+    ) => {
+      const target = uploadTargetOverride ?? getUploadTargetSnapshot();
+      return ctx.processFiles(fileList, target);
+    },
+    [ctx.processFiles, getUploadTargetSnapshot]
+  );
 
   return {
     state: ctx.state,
     processFiles,
+    getUploadTargetSnapshot,
     pause: ctx.pause,
     resume: ctx.resume,
     cancel: ctx.cancel,
