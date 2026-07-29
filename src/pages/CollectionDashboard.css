@@ -1315,18 +1315,6 @@
     background: #e6f5f2 !important;
 }
 
-.cd-filename-icon {
-    width: 13px;
-    height: 13px;
-    flex-shrink: 0;
-    color: #94a3b8;
-    transition: color 0.15s ease;
-}
-
-.cd-photo-grid--manage.cd-photo-grid--filenames .cd-photo-card:hover .cd-filename-icon {
-    color: #475569;
-}
-
 .cd-filename-text {
     white-space: nowrap;
     overflow: hidden;
