@@ -615,6 +615,54 @@
     inset -3px -3px 7px oklch(1 0.004 85 / 0.85);
 }
 
+/* DatePicker dropdown is position:absolute — overflow:hidden on the shell clips it. */
+.theme-mono.cd-dashboard-shell .cc-input-shell:has(.custom-datepicker) {
+  overflow: visible;
+  position: relative;
+  z-index: 2;
+}
+
+.theme-mono.cd-dashboard-shell .cc-input-shell:has(.dp-input-field.focused) {
+  z-index: 40;
+}
+
+.theme-mono.cd-dashboard-shell .cc-input-shell .custom-datepicker {
+  width: 100%;
+  flex: 1;
+}
+
+.theme-mono.cd-dashboard-shell .cc-input-shell .dp-input-field {
+  width: 100%;
+  height: 2.5rem;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0 1rem;
+  border-radius: inherit;
+}
+
+.theme-mono.cd-dashboard-shell .cc-input-shell .dp-input-field.focused {
+  border: 0;
+  box-shadow: none;
+}
+
+.theme-mono.cd-dashboard-shell .cc-input-shell .dp-value {
+  font-size: 0.875rem;
+  color: var(--cd-foreground);
+}
+
+.theme-mono.cd-dashboard-shell .cc-input-shell .dp-value.placeholder {
+  color: oklch(0.62 0.01 70);
+}
+
+.theme-mono.cd-dashboard-shell .cc-input-shell .dp-icon {
+  color: oklch(0.55 0.01 70);
+}
+
+.theme-mono.cd-dashboard-shell .cc-input-shell .dp-dropdown {
+  z-index: 50;
+}
+
 .theme-mono.cd-dashboard-shell .cc-input {
   width: 100%;
   flex: 1;

@@ -38,6 +38,7 @@ import { guestDeliveryPublishService } from '../services/guestDeliveryPublish.se
 import EventGuestsPanel from '../components/guest-delivery/EventGuestsPanel';
 import '../pages/guest-delivery/GuestDelivery.css';
 import { sortDashboardPhotos } from '../utils/sortDashboardPhotos';
+import { normalizeGalleryPhotoSort } from '../lib/galleryPhotoSort';
 import { clientGalleryEmailTemplatesService } from '../services/clientGalleryEmailTemplates.service';
 import { COVER_IMAGE_ACCEPT, MEDIA_FILE_INPUT_ACCEPT, pickMediaFilesOrFallback } from '../lib/mediaFilePicker';
 import { setCoverPhotoDragData, endCoverPhotoDrag, isGalleryImagePhoto } from '../lib/coverPhotoDrag';
@@ -73,6 +74,7 @@ import {
     stripMediaUrlHash,
 } from '../lib/focalPoint';
 import { CollectionGridPhoto } from '../components/features/CollectionDashboard/Media/CollectionGridPhoto';
+import CollectionPhotoSortableGrid from '../components/features/CollectionDashboard/Media/CollectionPhotoSortableGrid';
 import { DashboardMediaFilter } from '../components/features/CollectionDashboard/Media/DashboardMediaFilter';
 import { RawPhotoPlaceholder } from '../components/features/CollectionDashboard/Media/RawPhotoPlaceholder';
 import {
@@ -1936,6 +1938,8 @@ const CollectionDashboard = () => {
                     navigation: data.nav_style === 'icons_labels' ? 'text' : 'icon'
                 });
 
+                setSortOption(normalizeGalleryPhotoSort(data.gallery_photo_sort));
+
                 // Initialize download settings
                 if (data.downloads_enabled !== undefined) setPhotoDownload(data.downloads_enabled);
                 if (data.download_resolutions) setPhotoDownloadSizes(data.download_resolutions);
@@ -2877,6 +2881,62 @@ const CollectionDashboard = () => {
             setSaving(false);
         }
     };
+
+    const handleGridPhotoReorder = useCallback(
+        async (_fromIndex, _toIndex, nextIds) => {
+            if (!nextIds?.length) return;
+
+            const draggablePhotos = gridPhotos.filter((p) => !p._uploadPending);
+            const byId = new Map(draggablePhotos.map((p) => [p.id, p]));
+            const reorderedVisible = nextIds.filter((id) => byId.has(id)).map((id) => byId.get(id));
+            if (reorderedVisible.length !== draggablePhotos.length) return;
+
+            let newPoolOrder;
+            if (showMediaFilter) {
+                const visibleIdSet = new Set(reorderedVisible.map((p) => p.id));
+                let visibleIndex = 0;
+                newPoolOrder = sortedPhotos.map((p) => {
+                    if (!visibleIdSet.has(p.id)) return p;
+                    return reorderedVisible[visibleIndex++];
+                });
+            } else {
+                newPoolOrder = [
+                    ...reorderedVisible,
+                    ...gridPhotos.filter((p) => p._uploadPending),
+                ];
+            }
+
+            const realPhotos = newPoolOrder.filter((p) => !p._uploadPending);
+            const posMap = new Map(realPhotos.map((p, index) => [p.id, index]));
+            setPhotos((prev) =>
+                prev.map((p) => (posMap.has(p.id) ? { ...p, position: posMap.get(p.id) } : p))
+            );
+            if (sortOption !== 'custom') setSortOption('custom');
+            setCollection((prev) =>
+                prev && prev.gallery_photo_sort !== 'custom'
+                    ? { ...prev, gallery_photo_sort: 'custom' }
+                    : prev
+            );
+
+            try {
+                await Promise.all(
+                    realPhotos.map((p, index) => galleryService.updatePhoto(p.id, { position: index }))
+                );
+                if (collection?.gallery_photo_sort !== 'custom') {
+                    await galleryService.updateCollection(collectionId, { gallery_photo_sort: 'custom' });
+                }
+            } catch (err) {
+                console.error('Grid reorder failed:', err);
+                alert('Failed to reorder photos.');
+            }
+        },
+        [collection?.gallery_photo_sort, collectionId, gridPhotos, showMediaFilter, sortOption, sortedPhotos]
+    );
+
+    const isGridPhotoDraggable = useCallback(
+        (_index, photo) => Boolean(photo && !photo._uploadPending && !isPhotoAiFilterActive),
+        [isPhotoAiFilterActive]
+    );
 
     // Auto-save design settings
     useEffect(() => {
@@ -3916,26 +3976,24 @@ const CollectionDashboard = () => {
                                 </div>
 
                                 {gridPhotos.length > 0 ? (
-                                    <div
-                                        ref={photosGridRef}
+                                    <CollectionPhotoSortableGrid
+                                        gridRef={photosGridRef}
+                                        photos={gridPhotos}
+                                        disabled={isPhotoAiFilterActive}
                                         className={`cd-photo-grid cd-photo-grid--manage ${gridSize === 'large' ? 'grid-large' : ''}${showFilename ? ' cd-photo-grid--filenames' : ''}`}
-                                    >
-                                        {gridPhotos.map((photo, index) => {
+                                        onReorder={handleGridPhotoReorder}
+                                        isDraggable={isGridPhotoDraggable}
+                                        renderPhoto={(photo, index, { isDragging, consumeClick }) => {
                                             const cols = gridSize === 'large' ? 4 : 6;
                                             const menuAlignLeft = index % cols >= Math.ceil(cols / 2);
                                             const isPending = Boolean(photo._uploadPending);
                                             return (
                                             <div
-                                                className={`cd-photo-card ${selectedPhotos.includes(photo.id) ? 'selected' : ''} ${isGalleryImagePhoto(photo) && !isPending ? 'cd-photo-card--cover-draggable' : ''} ${photoMenu === photo.id ? 'cd-photo-card--menu-open' : ''} ${isPending ? 'cd-photo-card--pending' : ''}`}
-                                                key={photo.id || index}
-                                                draggable={isGalleryImagePhoto(photo) && !isPending}
-                                                onDragStart={(e) => {
-                                                    if (!isGalleryImagePhoto(photo)) return;
-                                                    e.stopPropagation();
-                                                    setCoverPhotoDragData(e.dataTransfer, photo.id);
+                                                className={`cd-photo-card ${selectedPhotos.includes(photo.id) ? 'selected' : ''} ${photoMenu === photo.id ? 'cd-photo-card--menu-open' : ''} ${isPending ? 'cd-photo-card--pending' : ''}${isDragging ? ' cd-photo-card--sort-dragging' : ''}`}
+                                                onClick={() => {
+                                                    if (consumeClick?.()) return;
+                                                    togglePhotoSelection(photo.id);
                                                 }}
-                                                onDragEnd={() => endCoverPhotoDrag()}
-                                                onClick={() => togglePhotoSelection(photo.id)}
                                             >
                                                 <div className="cd-photo-card-inner cd-photo-card-inner--contain">
                                                     <div className="cd-photo-thumb-shell">
@@ -4025,9 +4083,9 @@ const CollectionDashboard = () => {
                                                     </div>
                                                 )}
                                             </div>
-                                        );
-                                        })}
-                                    </div>
+                                            );
+                                        }}
+                                    />
                                 ) : sortedPhotos.length > 0 ? (
                                     <p className="cd-media-filter-empty">
                                         {showMediaFilter ? `No ${mediaFilter} in this set` : 'No matching photos'}
@@ -4147,7 +4205,7 @@ const CollectionDashboard = () => {
                                         pinValue: pinValue,
                                         requirePinForSinglePhoto: requirePinForSinglePhoto,
                                         emailTracking: emailRegistration,
-                                        galleryPhotoSort: collection?.gallery_photo_sort,
+                                        galleryPhotoSort: sortOption,
                                         selectedDownloadSets,
                                     }}
                                     onSetActiveSet={setActiveSetId}

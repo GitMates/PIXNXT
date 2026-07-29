@@ -23,7 +23,7 @@ export function isClientShareLinkEnabled(album) {
 
 /** True when clients can open the public /album-preview link. */
 export function isClientShareLinkLive(album) {
-    return album?.status === 'published' && isClientShareLinkEnabled(album);
+    return isClientShareLinkEnabled(album);
 }
 
 /** In-app preview path (opens in a new tab via openSmartAlbumPreview). */

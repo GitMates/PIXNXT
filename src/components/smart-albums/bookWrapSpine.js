@@ -19,13 +19,12 @@ function resolveWrapAspect(album) {
         return album.__wrap_aspect;
     }
 
-    // Blank covers: wrap comes from the uploaded cover image, not spread_grid_size (inner spread).
+    // Blank covers: live wrap image aspect wins whenever measured.
     if (album?.blank_covers === true) {
-        const baseWrap = blankCoverWrapAspect(album?.grid_size);
         if (album?.__wrap_aspect > 0) {
-            return Math.max(baseWrap, album.__wrap_aspect);
+            return album.__wrap_aspect;
         }
-        return baseWrap;
+        return blankCoverWrapAspect(album?.grid_size);
     }
 
     const spreadKey =
@@ -369,10 +368,15 @@ export function getBookWrapSpinePanelWidth(pageHeight, layout) {
 
 export function bookWrapCoverImageStyle(layout, side, transform, { panoramic = null } = {}) {
     const base = photoTransformStyle(transform, { panoramic });
+    // object-fit:cover (from .ab-book-wrap-cover-img) breaks panoramic strip crops —
+    // force fill so width/marginLeft slice the wrap correctly.
+    const fit = { height: '100%', objectFit: 'fill', objectPosition: 'center center' };
+
     if (!layout?.hasSpine) {
         if (side === 'back') {
             return {
                 ...base,
+                ...fit,
                 width: '200%',
                 maxWidth: 'none',
                 objectPosition: 'left center',
@@ -381,40 +385,47 @@ export function bookWrapCoverImageStyle(layout, side, transform, { panoramic = n
         if (side === 'front') {
             return {
                 ...base,
+                ...fit,
                 width: '200%',
                 maxWidth: 'none',
                 marginLeft: '-100%',
                 objectPosition: 'right center',
             };
         }
-        return base;
+        return { ...base, ...fit };
     }
 
     const { start: cropStart, end: cropEnd } = resolveWrapSegmentBounds(layout, side);
 
-    if (side === 'back' && cropStart > 0) {
+    // Back segment is [0, coverStart] — cropStart is always 0; use cropEnd.
+    if (side === 'back' && cropEnd > 0 && cropEnd <= 1) {
         return {
             ...base,
-            width: `${100 / cropStart}%`,
+            ...fit,
+            width: `${100 / cropEnd}%`,
             maxWidth: 'none',
             objectPosition: 'left center',
         };
     }
     if (side === 'front' && cropEnd < 1) {
         const frontFrac = 1 - cropEnd;
-        return {
-            ...base,
-            width: `${100 / frontFrac}%`,
-            maxWidth: 'none',
-            marginLeft: `${(-100 * cropEnd) / frontFrac}%`,
-            objectPosition: 'right center',
-        };
+        if (frontFrac > 0) {
+            return {
+                ...base,
+                ...fit,
+                width: `${100 / frontFrac}%`,
+                maxWidth: 'none',
+                marginLeft: `${(-100 * cropEnd) / frontFrac}%`,
+                objectPosition: 'right center',
+            };
+        }
     }
     if (isSpineStretchWrapSide(side)) {
         const segW = cropEnd - cropStart;
         if (segW > 0) {
             return {
                 ...base,
+                ...fit,
                 width: `${100 / segW}%`,
                 maxWidth: 'none',
                 marginLeft: `${(-100 * cropStart) / segW}%`,
@@ -422,5 +433,26 @@ export function bookWrapCoverImageStyle(layout, side, transform, { panoramic = n
             };
         }
     }
-    return base;
+    return { ...base, ...fit };
+}
+
+/**
+ * Background-image strip crop — same math as spine panels.
+ * Prefer this for the pre-canvas fallback so object-fit:cover never blanks/duplicates covers.
+ */
+export function bookWrapCoverBackgroundStyle(src, layout, side, transform) {
+    if (!src || !layout || !side) return null;
+    const { start, end } = resolveWrapSegmentBounds(layout, side);
+    const segW = end - start;
+    if (!(segW > 0.0001)) return null;
+
+    const url = getProxiedMediaFetchUrl(src);
+    const base = photoTransformStyle(transform);
+    return {
+        ...base,
+        backgroundImage: `url(${JSON.stringify(url)})`,
+        backgroundSize: `${100 / segW}% 100%`,
+        backgroundPosition: `${(-start / segW) * 100}% center`,
+        backgroundRepeat: 'no-repeat',
+    };
 }

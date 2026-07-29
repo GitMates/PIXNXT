@@ -304,10 +304,7 @@ function buildAlbumRowFromLocal(local, photographerId) {
     page_count: pageCountOvr ?? local.page_count ?? 21,
     grid_size: local.grid_size ?? 'square',
     grid_layout: local.grid_layout ?? 'two-page',
-    status:
-      settingsOvr.status === 'published' || local.status === 'published'
-        ? 'published'
-        : 'draft',
+    status: 'published',
     cover_image_url: local.cover_image_url || null,
     is_starred:
       starredOvr !== undefined ? Boolean(starredOvr) : Boolean(local.is_starred),
@@ -958,7 +955,7 @@ export const smartAlbumsService = {
 
       grid_layout,
 
-      status: 'draft',
+      status: 'published',
 
     };
 
@@ -1431,7 +1428,7 @@ export const smartAlbumsService = {
       replies_enabled: source.replies_enabled,
       messages_enabled: source.messages_enabled,
       share_link_enabled: source.share_link_enabled,
-      status: source.status === 'published' ? 'published' : 'draft',
+      status: 'published',
     });
 
     await this.syncAlbumPreviewData(photographerId, copy.id);

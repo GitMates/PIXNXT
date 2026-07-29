@@ -47,9 +47,13 @@ export function getAlbumUploadPixelTarget(
         const wrapAspect = albumHasBlankCovers(album)
             ? blankCoverWrapAspect(pageGridSize)
             : parseGridSizeAspect(spreadGridSize || pageGridSize);
+        // Cap the long edge so huge print wraps (12×44 etc.) compress quickly in-browser.
+        const maxHeight = pageHeight;
+        const maxWidth = Math.round(pageHeight * wrapAspect);
         return {
-            maxWidth: Math.round(pageHeight * wrapAspect),
-            maxHeight: pageHeight,
+            maxWidth,
+            maxHeight,
+            maxEdge: 3200,
         };
     }
 

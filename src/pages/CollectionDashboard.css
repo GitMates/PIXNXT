@@ -1190,6 +1190,62 @@
     padding: 4px 24px 36px;
 }
 
+.cd-photo-grid--dragging .cd-photo-sortable-wrap:not(.cd-photo-sortable-wrap--dragging) {
+    transition: transform 0.18s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.cd-photo-grid--dragging .cd-photo-card:hover {
+    transform: none !important;
+    box-shadow: none;
+}
+
+.cd-photo-grid--dragging.cd-photo-grid--filenames .cd-photo-card:hover {
+    border-color: #d4ede9;
+    background: #f2faf8 !important;
+}
+
+.cd-photo-sortable-wrap {
+    width: 100%;
+    min-width: 0;
+    touch-action: none;
+    position: relative;
+}
+
+.cd-photo-sortable-wrap--draggable {
+    cursor: grab;
+}
+
+.cd-photo-sortable-wrap--draggable:active,
+.cd-photo-sortable-wrap--dragging {
+    cursor: grabbing;
+}
+
+.cd-photo-sortable-wrap--dragging {
+    z-index: 20;
+    transition: none;
+    pointer-events: none;
+}
+
+.cd-photo-grid--dragging .cd-photo-sortable-wrap:not(.cd-photo-sortable-wrap--dragging) .cd-photo-card {
+    transition: none !important;
+}
+
+.cd-photo-sortable-wrap--dragging .cd-photo-card {
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16);
+}
+
+.cd-photo-card--sort-dragging {
+    opacity: 1;
+}
+
+.cd-photo-sortable-wrap--draggable .cd-photo-card img,
+.cd-photo-sortable-wrap--draggable .cd-photo-card video,
+.cd-photo-sortable-wrap--draggable .cd-photo-card .smooth-media-wrap {
+    -webkit-user-drag: none;
+    user-select: none;
+    pointer-events: none;
+}
+
 @media screen and (max-width: 1400px) {
     .cd-photo-grid--manage:not(.grid-large) {
         grid-template-columns: repeat(5, minmax(0, 1fr));

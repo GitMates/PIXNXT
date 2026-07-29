@@ -193,9 +193,7 @@ export default function AlbumEditorSettingsPanel({
                 merged
             );
 
-            if (merged?.status === 'published') {
-                await smartAlbumsService.syncAlbumPreviewData(photographerId, albumId);
-            }
+            await smartAlbumsService.syncAlbumPreviewData(photographerId, albumId);
 
             onAlbumUpdated?.(merged);
         } catch (err) {

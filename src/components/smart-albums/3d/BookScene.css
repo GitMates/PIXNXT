@@ -23,3 +23,7 @@
 .ab-book-scene canvas {
   display: block;
 }
+
+.ab-book-scene--intro-boot canvas {
+  visibility: hidden;
+}

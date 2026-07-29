@@ -114,26 +114,6 @@ export default function AlbumSpreadSlotMenu({
                         </button>
                     ) : null}
 
-                    {onCoverText ? (
-                        <button
-                            type="button"
-                            className="ab-slot-menu-item"
-                            role="menuitem"
-                            onClick={onCoverText}
-                        >
-                            <span className="ab-slot-menu-icon" aria-hidden>
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                                    <path d="M4 7V4h16v3" />
-                                    <path d="M9 20h6" />
-                                    <path d="M12 4v16" />
-                                </svg>
-                            </span>
-                            <span className="ab-slot-menu-text">
-                                <strong>{hasCoverText ? 'Edit text message' : 'Add text message'}</strong>
-                                <small>Title or note on front cover</small>
-                            </span>
-                        </button>
-                    ) : null}
 
                     {canSwap && hasPhoto ? (
                         <button type="button" className="ab-slot-menu-item" role="menuitem" onClick={onSwap}>

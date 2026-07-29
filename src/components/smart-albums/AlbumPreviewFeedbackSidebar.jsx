@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Mic, Paperclip, Play, Send, X } from 'lucide-react';
 import AlbumPreviewSpreadFeed from './AlbumPreviewSpreadFeed';
 import {
@@ -13,8 +14,6 @@ import { useFeedbackVoiceRecorder } from './useFeedbackVoiceRecorder';
 import VoiceMessagePlayer from './VoiceMessagePlayer';
 import './AlbumPreviewFeedbackSidebar.css';
 
-const TUTORIAL_DISMISS_KEY = 'pixnxt_album_feedback_tutorial_dismissed';
-
 const QUICK_STEPS = [
     'Click on any area of the photo to place an annotation',
     'Leave a comment or describe what needs to be changed',
@@ -22,20 +21,73 @@ const QUICK_STEPS = [
     'Submit and photographer will see your feedback pinned to the exact location',
 ];
 
-function readTutorialDismissed() {
+function getTutorialDismissKey(albumId) {
+    return albumId
+        ? `pixnxt_album_feedback_tutorial_dismissed_${albumId}`
+        : 'pixnxt_album_feedback_tutorial_dismissed';
+}
+
+function readTutorialDismissed(albumId) {
     try {
-        return localStorage.getItem(TUTORIAL_DISMISS_KEY) === '1';
+        return localStorage.getItem(getTutorialDismissKey(albumId)) === '1';
     } catch {
         return false;
     }
 }
 
-function writeTutorialDismissed() {
+function writeTutorialDismissed(albumId) {
     try {
-        localStorage.setItem(TUTORIAL_DISMISS_KEY, '1');
+        localStorage.setItem(getTutorialDismissKey(albumId), '1');
     } catch {
         /* ignore */
     }
+}
+
+function VideoPopup({ onClose }) {
+    const videoRef = useRef(null);
+
+    // Auto-play on mount, pause on unmount
+    useEffect(() => {
+        videoRef.current?.play().catch(() => {});
+        return () => videoRef.current?.pause();
+    }, []);
+
+    // Close on Escape
+    useEffect(() => {
+        const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+        document.addEventListener('keydown', onKey);
+        return () => document.removeEventListener('keydown', onKey);
+    }, [onClose]);
+
+    return createPortal(
+        <div
+            className="avp-video-popup-overlay"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Tutorial video"
+            onClick={onClose}
+        >
+            <div className="avp-video-popup" onClick={(e) => e.stopPropagation()}>
+                <button
+                    type="button"
+                    className="avp-video-popup__close"
+                    onClick={onClose}
+                    aria-label="Close video"
+                >
+                    <X size={20} />
+                </button>
+                <video
+                    ref={videoRef}
+                    className="avp-video-popup__video"
+                    src="/albumguide.mp4"
+                    controls
+                    playsInline
+                    preload="auto"
+                />
+            </div>
+        </div>,
+        document.body
+    );
 }
 
 function FeedbackTutorial({ onDismiss, onVideoClick }) {
@@ -445,12 +497,16 @@ export default function AlbumPreviewFeedbackSidebar({
     onNotify,
     onCommentsChanged,
 }) {
-    const [tutorialDismissed, setTutorialDismissed] = useState(readTutorialDismissed);
+    const [tutorialDismissed, setTutorialDismissed] = useState(() => readTutorialDismissed(albumId));
+    const [videoOpen, setVideoOpen] = useState(false);
 
     const dismissTutorial = useCallback(() => {
-        writeTutorialDismissed();
+        writeTutorialDismissed(albumId);
         setTutorialDismissed(true);
-    }, []);
+    }, [albumId]);
+
+    const openVideo = useCallback(() => setVideoOpen(true), []);
+    const closeVideo = useCallback(() => setVideoOpen(false), []);
 
     const hasFeed = visibleSpreadFeed.length > 0;
 
@@ -461,10 +517,12 @@ export default function AlbumPreviewFeedbackSidebar({
             </header>
 
             <div className="av-feedback-sidebar__body">
+                {videoOpen && <VideoPopup onClose={closeVideo} />}
+
                 {!tutorialDismissed && !hasFeed ? (
                     <FeedbackTutorial
                         onDismiss={dismissTutorial}
-                        onVideoClick={() => onNotify?.('Tutorial video coming soon.')}
+                        onVideoClick={openVideo}
                     />
                 ) : null}
 

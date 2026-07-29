@@ -4,6 +4,18 @@ import { resolveAuthSession } from '../services/auth.service';
 
 const AuthContext = createContext();
 
+function sameAuthUser(a, b) {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return a.id === b.id && a.updated_at === b.updated_at;
+}
+
+function sameAuthSession(a, b) {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return a.access_token === b.access_token && a.expires_at === b.expires_at;
+}
+
 /**
  * Provider component for Authentication state.
  * @param {Object} props - Component props.
@@ -17,8 +29,8 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     // Initialize session and user state
     const applyAuthState = ({ user: nextUser, session: nextSession }) => {
-      setSession(nextSession);
-      setUser(nextUser);
+      setSession((prev) => (sameAuthSession(prev, nextSession) ? prev : nextSession));
+      setUser((prev) => (sameAuthUser(prev, nextUser) ? prev : nextUser));
     };
 
     const initializeAuth = async () => {
@@ -44,8 +56,10 @@ export const AuthProvider = ({ children }) => {
     // Subscribe to auth state changes (login, logout, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, nextSession) => {
-        setSession(nextSession);
-        setUser(nextSession?.user ?? null);
+        applyAuthState({
+          user: nextSession?.user ?? null,
+          session: nextSession,
+        });
         setLoading(false);
       }
     );

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { BookOpen, LayoutGrid, MessageSquare, Settings } from 'lucide-react';
 import { pickImageFiles } from '../../lib/pickImageFiles';
 import { PROOF_CELL_LABELS, PROOF_SLOT_COUNT, getSpreadLeftPageIndex } from './albumSpreadGrid';
@@ -11,8 +11,9 @@ import EditorSpreadMessageCompose from './EditorSpreadMessageCompose';
 import AlbumPreviewSpreadFeed from './AlbumPreviewSpreadFeed';
 import { buildSpreadFeedbackFeed } from './spreadFeedbackFeed';
 import { hasCommentAttachment } from './albumCommentAttachments';
-import CollectionSpreadThumb from './CollectionSpreadThumb';
+import CollectionSortableGrid from './CollectionSortableGrid';
 import CoverLeatherColorPicker from './CoverLeatherColorPicker';
+import CoverPhotoUploader from './CoverPhotoUploader';
 import {
     resolveCollectionSpreadLabel,
     resolveCollectionThumbLayout,
@@ -31,6 +32,7 @@ import {
     isWholeSpreadLayout,
     pageToSpreadIndex,
 } from './albumSpreadUtils';
+import { resolveCoverImageSrc } from './albumPagePhotos';
 import '../../pages/smart-albums/AlbumViewer.css';
 import './AlbumCoverPanel.css';
 
@@ -79,7 +81,6 @@ export default function AlbumEditorSidebar({
     album,
     totalPages,
     collectionItems = [],
-    collectionRevision = 0,
     onUploadForCurrentSpread,
     onOpenPicker,
     onClearAllPhotos,
@@ -110,10 +111,23 @@ export default function AlbumEditorSidebar({
     proofSeenTick = 0,
     showCoverSpine = true,
     onShowCoverSpineChange = null,
+    coverTextMessage = '',
+    onSaveCoverText = null,
+    onUploadCoverFile = null,
+    workspaceRevision = 0,
 }) {
-    const collectionDragFromRef = useRef(null);
-    const [collectionDragOverIndex, setCollectionDragOverIndex] = useState(null);
     const [imageReplacements, setImageReplacements] = useState([]);
+    const [localCoverText, setLocalCoverText] = useState(coverTextMessage);
+
+    const hasCoverPhoto = useMemo(() => {
+        void workspaceRevision;
+        return Boolean(resolveCoverImageSrc(album, { showSamples: false }));
+    }, [album, workspaceRevision]);
+
+    useEffect(() => {
+        setLocalCoverText(coverTextMessage || '');
+    }, [coverTextMessage]);
+
     void proofSeenTick;
     const swapsEnabled = album?.messages_enabled !== false;
 
@@ -335,41 +349,6 @@ export default function AlbumEditorSidebar({
         );
     };
 
-    const handleCollectionDragStart = useCallback(
-        (index) => {
-            if (lockedCollectionIndices.has(index)) return;
-            collectionDragFromRef.current = index;
-        },
-        [lockedCollectionIndices]
-    );
-
-    const handleCollectionDragOver = useCallback(
-        (index) => {
-            if (lockedCollectionIndices.has(index)) return;
-            setCollectionDragOverIndex(index);
-        },
-        [lockedCollectionIndices]
-    );
-
-    const handleCollectionDrop = useCallback(
-        (toIndex) => {
-            const fromIndex = collectionDragFromRef.current;
-            collectionDragFromRef.current = null;
-            setCollectionDragOverIndex(null);
-            if (fromIndex == null || fromIndex === toIndex) return;
-            if (lockedCollectionIndices.has(fromIndex) || lockedCollectionIndices.has(toIndex)) {
-                return;
-            }
-            onReorderCollectionItem?.(fromIndex, toIndex);
-        },
-        [onReorderCollectionItem, lockedCollectionIndices]
-    );
-
-    const handleCollectionDragEnd = useCallback(() => {
-        collectionDragFromRef.current = null;
-        setCollectionDragOverIndex(null);
-    }, []);
-
     const albumSpreadMeta = `${totalPages} pages · ${pagesPerSpread}-page spreads`;
 
     return (
@@ -444,70 +423,14 @@ export default function AlbumEditorSidebar({
                             <span className="ae-panel-status-meta">{albumSpreadMeta}</span>
                         </div>
                         {collectionItems.length > 0 && (
-                            <>
-                                <div className="ae-collection-grid" role="list">
-                                    {collectionItems.map((item, index) => {
-                                        const isLocked = lockedCollectionIndices.has(index);
-                                        const spreadLabel = collectionSpreadLabels[index] || '';
-                                        const spreadTitle = spreadLabel
-                                            ? spreadLabel === 'Cover' || spreadLabel === 'Back'
-                                                ? spreadLabel
-                                                : `Spread ${spreadLabel}`
-                                            : `Photo ${index + 1}`;
-                                        return (
-                                        <div
-                                            key={item.id}
-                                            className={`ae-collection-thumb-wrap${collectionDragOverIndex === index
-                                                ? ' ae-collection-thumb-wrap--drag-over'
-                                                : ''
-                                                }`}
-                                            role="listitem"
-                                        >
-                                            <div
-                                                className={`ae-collection-thumb${isLocked ? ' ae-collection-thumb--locked' : ''}`}
-                                                style={{ aspectRatio: collectionThumbAspect }}
-                                                draggable={!isLocked}
-                                                onDragStart={(e) => {
-                                                    if (isLocked) {
-                                                        e.preventDefault();
-                                                        return;
-                                                    }
-                                                    e.stopPropagation();
-                                                    e.dataTransfer.effectAllowed = 'move';
-                                                    handleCollectionDragStart(index);
-                                                }}
-                                                onDragOver={(e) => {
-                                                    if (isLocked) return;
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                    handleCollectionDragOver(index);
-                                                }}
-                                                onDrop={(e) => {
-                                                    if (isLocked) return;
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                    handleCollectionDrop(index);
-                                                }}
-                                                onDragEnd={handleCollectionDragEnd}
-                                                title={`${spreadTitle}. ${item.name || 'Photo'}${isLocked ? ' — fixed position' : ''}`}
-                                            >
-                                                <span
-                                                    className={`ae-collection-order${spreadLabel.length > 2 ? ' ae-collection-order--wide' : ''}`}
-                                                    aria-hidden
-                                                >
-                                                    {spreadLabel || index + 1}
-                                                </span>
-                                                <CollectionSpreadThumb
-                                                    key={`${item.id}-r${collectionRevision}`}
-                                                    layout={collectionThumbLayouts[index]}
-                                                    alt=""
-                                                />
-                                            </div>
-                                        </div>
-                                        );
-                                    })}
-                                </div>
-                            </>
+                            <CollectionSortableGrid
+                                items={collectionItems}
+                                lockedIndices={lockedCollectionIndices}
+                                collectionThumbLayouts={collectionThumbLayouts}
+                                collectionSpreadLabels={collectionSpreadLabels}
+                                collectionThumbAspect={collectionThumbAspect}
+                                onReorder={onReorderCollectionItem}
+                            />
                         )}
                     </>
                 )}
@@ -566,48 +489,14 @@ export default function AlbumEditorSidebar({
                 {activePanel === 'cover' && (
                     <div className="ae-cover-panel">
                         <h2 className="ae-cover-panel__title">Edit cover</h2>
-                        {albumHasBlankCovers(album) ? (
-                            <p className="ae-cover-panel__intro">
-                                Covers start blank. Choose a wide photo for back, spine, and
-                                front — or leave empty for a plain leather cover spread.
-                            </p>
-                        ) : (
-                            <p className="ae-cover-panel__intro">
-                                Book wrap (photo 1) is wider than inner spreads. The center strip
-                                is the spine; outer portions are back and front covers (not
-                                shown on spine in the flipbook).
-                            </p>
-                        )}
-                        <button
-                            type="button"
-                            className="ae-cover-panel__upload"
-                            disabled={uploading || !canSelectGrid}
-                            onClick={openSpreadUploadPicker}
-                        >
-                            <svg
-                                className="ae-cover-panel__upload-icon"
-                                width="22"
-                                height="22"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="1.5"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                aria-hidden
-                            >
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                <polyline points="17 8 12 3 7 8" />
-                                <line x1="12" y1="3" x2="12" y2="15" />
-                            </svg>
-                            <span className="ae-cover-panel__upload-title">
-                                {uploading ? 'Uploading…' : 'Upload new photo for this cover'}
-                            </span>
-                            <span className="ae-cover-panel__upload-hint">
-                                Replaces the photo on the cover you are viewing
-                            </span>
-                        </button>
-                        {albumHasBlankCovers(album) ? (
+                        {typeof onUploadCoverFile === 'function' ? (
+                            <CoverPhotoUploader
+                                busy={uploading}
+                                hasImage={hasCoverPhoto}
+                                onSelectFile={onUploadCoverFile}
+                            />
+                        ) : null}
+                        {albumHasBlankCovers(album) && !hasCoverPhoto ? (
                             <CoverLeatherColorPicker albumId={albumId} />
                         ) : null}
                         {onShowCoverSpineChange ? (
@@ -623,6 +512,42 @@ export default function AlbumEditorSidebar({
                                     onChange={() => onShowCoverSpineChange(!showCoverSpine)}
                                     label="Show spine in cover view"
                                 />
+                            </div>
+                        ) : null}
+
+                        {onSaveCoverText && !hasCoverPhoto ? (
+                            <div className="ae-cover-panel__text-block">
+                                <p className="ae-cover-panel__text-title">Cover text message</p>
+                                <textarea
+                                    className="ae-cover-panel__text-textarea"
+                                    rows={3}
+                                    maxLength={280}
+                                    placeholder="e.g. Kellie & Fahim · June 2026"
+                                    value={localCoverText}
+                                    onChange={(e) => setLocalCoverText(e.target.value)}
+                                />
+                                <div className="ae-cover-panel__text-footer">
+                                    {coverTextMessage && (
+                                        <button
+                                            type="button"
+                                            className="ae-cover-panel__text-clear"
+                                            onClick={() => {
+                                                setLocalCoverText('');
+                                                onSaveCoverText('');
+                                            }}
+                                        >
+                                            Clear
+                                        </button>
+                                    )}
+                                    <button
+                                        type="button"
+                                        className="ae-cover-panel__text-save"
+                                        disabled={localCoverText.trim() === (coverTextMessage || '').trim()}
+                                        onClick={() => onSaveCoverText(localCoverText.trim())}
+                                    >
+                                        Save
+                                    </button>
+                                </div>
                             </div>
                         ) : null}
                     </div>

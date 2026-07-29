@@ -171,14 +171,32 @@
 
 .av-preview-header-brand-icon {
   flex-shrink: 0;
-  width: 28px;
-  height: 28px;
-  border-radius: 4px;
-  object-fit: cover;
+  max-width: 140px;
+  max-height: 36px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
 }
 
-.av-preview-header-brand-name {
-  white-space: nowrap;
+.av-preview-header-brand-fallback {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #111827;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.av-preview-header-brand-placeholder {
+  display: inline-block;
+  width: 120px;
+  height: 28px;
+  flex-shrink: 0;
 }
 
 .av-preview-header-btn {

@@ -60,7 +60,7 @@ export function mergeAlbumProofTimestamps(album, summary = null) {
 export function isAlbumAwaitingFeedback(album) {
     if (!album || album.client_approved_at) return false;
     if (album.client_changes_submitted_at) return false;
-    return album.status === 'published' && album.share_link_enabled !== false;
+    return album.share_link_enabled !== false;
 }
 
 export function getAlbumProofStatus(album) {

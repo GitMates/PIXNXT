@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { getProxiedMediaFetchUrl } from '../../../lib/r2MediaProxy';
@@ -266,43 +266,23 @@ export function createBlankLeatherPanelTexture(panelAspect = 1, coverColorId = D
     return tex;
 }
 
-/** @deprecated legacy cache entries without color id */
+/** Leather front panel + optional centered album title — matches 2D blank cover edit view. */
 export function useBlankCoverTitleTexture(title, panelAspect, coverColorId = DEFAULT_COVER_COLOR_PRESET_ID) {
-    const invalidate = useThree((state) => state.invalidate);
-    const [texture, setTexture] = useState(() => blankTex());
-
-    useEffect(() => {
-        if (!(panelAspect > 0)) {
-            setTexture(blankTex());
-            return undefined;
-        }
-        const tex =
-            createBlankCoverTitleTexture(title, panelAspect, coverColorId) || blankTex();
-        setTexture(tex);
-        invalidate();
-        return undefined;
-    }, [title, panelAspect, coverColorId, invalidate]);
-
-    return texture;
+    return useMemo(() => {
+        const aspect = panelAspect > 0 ? panelAspect : 1;
+        return createBlankCoverTitleTexture(title, aspect, coverColorId) || blankTex();
+    }, [title, panelAspect, coverColorId]);
 }
 
-export function useBlankLeatherPanelTexture(panelAspect, coverColorId = DEFAULT_COVER_COLOR_PRESET_ID, { spine = false } = {}) {
-    const invalidate = useThree((state) => state.invalidate);
-    const [texture, setTexture] = useState(() => blankTex());
-
-    useEffect(() => {
-        if (!(panelAspect > 0)) {
-            setTexture(blankTex());
-            return undefined;
-        }
-        const tex =
-            createBlankLeatherPanelTexture(panelAspect, coverColorId, { spine }) || blankTex();
-        setTexture(tex);
-        invalidate();
-        return undefined;
-    }, [panelAspect, coverColorId, spine, invalidate]);
-
-    return texture;
+export function useBlankLeatherPanelTexture(
+    panelAspect,
+    coverColorId = DEFAULT_COVER_COLOR_PRESET_ID,
+    { spine = false } = {}
+) {
+    return useMemo(() => {
+        const aspect = panelAspect > 0 ? panelAspect : 1;
+        return createBlankLeatherPanelTexture(aspect, coverColorId, { spine }) || blankTex();
+    }, [panelAspect, coverColorId, spine]);
 }
 
 export function getPageCanvasTexture(slot, pageAspect, { mirror = false, transform = null } = {}) {

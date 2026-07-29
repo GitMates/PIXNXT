@@ -123,6 +123,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
     const [editAlbum, setEditAlbum] = useState(null);
     const [editSaving, setEditSaving] = useState(false);
     const [settingsAlbum, setSettingsAlbum] = useState(null);
+    const [settingsAnchor, setSettingsAnchor] = useState(null);
     const contextRef = useRef(null);
     const filtersRef = useRef(null);
     const pageTitle =
@@ -216,6 +217,8 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
         (e, album) => {
             e.stopPropagation();
             closeContextMenu();
+            const rect = e.currentTarget.getBoundingClientRect();
+            setSettingsAnchor({ top: rect.bottom + 6, left: rect.right });
             setSettingsAlbum(album);
         },
         [closeContextMenu]
@@ -591,8 +594,9 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
             />
             <AlbumSettingsSheet
                 isOpen={Boolean(settingsAlbum)}
-                onClose={() => setSettingsAlbum(null)}
+                onClose={() => { setSettingsAlbum(null); setSettingsAnchor(null); }}
                 album={settingsAlbum}
+                anchor={settingsAnchor}
                 photographerId={user?.id}
                 onSaved={(updated) => {
                     if (!updated?.id) return;

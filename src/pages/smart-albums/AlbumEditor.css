@@ -1665,14 +1665,25 @@
   align-items: start;
 }
 
+.ae-collection-grid--dragging .ae-collection-thumb-wrap:not(.ae-collection-thumb-wrap--dragging) {
+  transition: transform 0.22s cubic-bezier(0.2, 0, 0, 1);
+}
+
 .ae-collection-thumb-wrap {
   position: relative;
   width: 100%;
+  touch-action: none;
 }
 
-.ae-collection-thumb-wrap--drag-over .ae-collection-thumb {
+.ae-collection-thumb-wrap--dragging {
+  z-index: 5;
+  transition: none;
+}
+
+.ae-collection-thumb-wrap--dragging .ae-collection-thumb {
   border-color: #8e44ad;
-  box-shadow: 0 0 0 2px rgba(142, 68, 173, 0.25);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16);
+  cursor: grabbing;
 }
 
 .ae-collection-thumb {

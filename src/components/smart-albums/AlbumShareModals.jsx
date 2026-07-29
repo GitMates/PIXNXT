@@ -70,12 +70,9 @@ export function AlbumPreviewLinkModal({ album, isOpen, onClose }) {
                     Client share link is disabled in Settings. Turn it on before sharing this URL.
                 </p>
             ) : null}
-            {!shareLinkLive && album?.status !== 'published' ? (
-                <p className="cgm-warning">The album must be published first.</p>
-            ) : null}
             <p className="cgm-hint">
                 Share this link to open the album preview with per-spread comments (read-only
-                flipbook, no editor). The album must be published and the client share link must be
+                flipbook, no editor). The client share link must be
                 on.
             </p>
         </ModalShell>
@@ -102,11 +99,8 @@ export function AlbumPreviewQrModal({ album, isOpen, onClose }) {
                     Client share link is disabled in Settings. Turn it on before sharing this QR code.
                 </p>
             ) : null}
-            {!shareLinkLive && album?.status !== 'published' ? (
-                <p className="cgm-warning">The album must be published first.</p>
-            ) : null}
             <p className="cgm-hint">
-                Scan to open the album preview. The album must be published and the client share
+                Scan to open the album preview. The client share
                 link must be on.
             </p>
         </ModalShell>

@@ -1,4 +1,4 @@
-import React, { Suspense, useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { ArcballControls, ContactShadows } from '@react-three/drei';
@@ -11,6 +11,15 @@ import { getBook3dDimensions } from './book3dTextures';
 import './BookScene.css';
 
 const ORBIT_RETURN_MS = 1100;
+/** Hold angled (1st image) pose before turning to flat front. */
+const INTRO_HOLD_MS = 500;
+const INTRO_ANIM_MS = 1400;
+/**
+ * Product-shot opening pose: yaw the closed book so the fore-edge / page stack
+ * reads on the left (~45°), matching the preview reference still.
+ */
+const INTRO_BOOK_YAW = -Math.PI / 4;
+const INTRO_BOOK_PITCH = 0.045;
 const PATH_SAMPLE_EPSILON = 1e-5;
 const COVER_OPEN_DRAG_PX = 10;
 const COVER_OPEN_DRAG_PX_SQ = COVER_OPEN_DRAG_PX * COVER_OPEN_DRAG_PX;
@@ -97,6 +106,18 @@ function saveRestPose(controls) {
     controls.saveState();
     controls._cameraMatrixState.copy(controls.camera.matrix);
     controls._gizmoMatrixState.copy(controls._gizmos.matrix);
+}
+
+function resetCameraToFront(controls, camera, cameraDistance = BOOK_SCENE_CAMERA_DISTANCE) {
+    if (!controls?.camera || !camera) return;
+    camera.position.set(0, 0, cameraDistance);
+    camera.lookAt(0, 0, 0);
+    camera.updateMatrix();
+    camera.updateMatrixWorld(true);
+    controls._gizmos.position.set(0, 0, 0);
+    controls._gizmos.quaternion.set(0, 0, 0, 1);
+    controls._gizmos.scale.set(1, 1, 1);
+    controls._gizmos.updateMatrix();
 }
 
 function sampleReversePath(path, progress, outCameraMatrix, outGizmoMatrix) {
@@ -216,6 +237,111 @@ function CoverOpenPointerHandler({ onCoverOpen, orbitDragRef }) {
     return null;
 }
 
+function IntroBookPivot({
+    playIntroAnimation = false,
+    onIntroStart,
+    onIntroComplete,
+    onIntroActiveChange,
+    children,
+}) {
+    const groupRef = useRef(null);
+    const invalidate = useThree((state) => state.invalidate);
+    const turningRef = useRef(false);
+    const turnStartRef = useRef(0);
+    const holdTimerRef = useRef(null);
+    const activeRef = useRef(false);
+
+    // Apply the product-shot pose before first paint so it matches the reference still.
+    useLayoutEffect(() => {
+        const group = groupRef.current;
+        if (!group) return;
+        if (playIntroAnimation) {
+            group.rotation.set(INTRO_BOOK_PITCH, INTRO_BOOK_YAW, 0);
+            onIntroStart?.();
+        } else {
+            group.rotation.set(0, 0, 0);
+        }
+    }, [onIntroStart, playIntroAnimation]);
+
+    useEffect(() => {
+        let cancelled = false;
+        const group = groupRef.current;
+
+        const finishWithoutIntro = () => {
+            if (group) {
+                group.rotation.set(0, 0, 0);
+            }
+            onIntroActiveChange?.(false);
+            onIntroStart?.();
+            onIntroComplete?.();
+            invalidate();
+        };
+
+        const prefersReducedMotion = window.matchMedia(
+            '(prefers-reduced-motion: reduce)'
+        ).matches;
+
+        if (!playIntroAnimation || prefersReducedMotion) {
+            finishWithoutIntro();
+            return undefined;
+        }
+
+        if (group) {
+            group.rotation.set(INTRO_BOOK_PITCH, INTRO_BOOK_YAW, 0);
+        }
+        activeRef.current = true;
+        turningRef.current = false;
+        onIntroActiveChange?.(true);
+        invalidate();
+
+        holdTimerRef.current = window.setTimeout(() => {
+            if (cancelled) return;
+            turningRef.current = true;
+            turnStartRef.current = performance.now();
+            invalidate();
+        }, INTRO_HOLD_MS);
+
+        return () => {
+            cancelled = true;
+            if (holdTimerRef.current) {
+                clearTimeout(holdTimerRef.current);
+                holdTimerRef.current = null;
+            }
+        };
+    }, [
+        invalidate,
+        onIntroActiveChange,
+        onIntroComplete,
+        onIntroStart,
+        playIntroAnimation,
+    ]);
+
+    useFrame(() => {
+        if (!activeRef.current || !turningRef.current) return;
+        const group = groupRef.current;
+        if (!group) return;
+
+        const elapsed = performance.now() - turnStartRef.current;
+        const progress = Math.min(1, elapsed / INTRO_ANIM_MS);
+        const eased = easeInOutCubic(progress);
+
+        group.rotation.x = THREE.MathUtils.lerp(INTRO_BOOK_PITCH, 0, eased);
+        group.rotation.y = THREE.MathUtils.lerp(INTRO_BOOK_YAW, 0, eased);
+        group.rotation.z = 0;
+        invalidate();
+
+        if (progress >= 1) {
+            group.rotation.set(0, 0, 0);
+            activeRef.current = false;
+            turningRef.current = false;
+            onIntroActiveChange?.(false);
+            onIntroComplete?.();
+        }
+    });
+
+    return <group ref={groupRef}>{children}</group>;
+}
+
 function BookArcballControls({ orbitDragRef, enabled = true }) {
     const controlsRef = useRef(null);
     const invalidate = useThree((state) => state.invalidate);
@@ -231,17 +357,13 @@ function BookArcballControls({ orbitDragRef, enabled = true }) {
     }, [enabled]);
 
     useEffect(() => {
-        let frame2;
-        const frame1 = requestAnimationFrame(() => {
-            frame2 = requestAnimationFrame(() => {
-                const controls = controlsRef.current;
-                if (controls) saveRestPose(controls);
-            });
+        const frameId = requestAnimationFrame(() => {
+            const controls = controlsRef.current;
+            if (!controls) return;
+            resetCameraToFront(controls, controls.camera);
+            saveRestPose(controls);
         });
-        return () => {
-            cancelAnimationFrame(frame1);
-            if (frame2) cancelAnimationFrame(frame2);
-        };
+        return () => cancelAnimationFrame(frameId);
     }, []);
 
     const cancelReturn = useCallback(() => {
@@ -397,9 +519,13 @@ export default function BookScene({
     showSamples = false,
     pageWorldDims = null,
     onCoverOpen,
+    playIntroAnimation = false,
+    onIntroComplete,
 }) {
     const sceneWrapRef = useRef(null);
     const orbitDragRef = useRef(false);
+    const [showContactShadow, setShowContactShadow] = useState(true);
+    const [introActive, setIntroActive] = useState(playIntroAnimation);
     const fallbackDims = useMemo(() => getBook3dDimensions(album), [album]);
     const bookHeight = pageWorldDims?.height ?? fallbackDims.height;
     const shadowY = -(bookHeight / 2 + 0.2);
@@ -409,21 +535,28 @@ export default function BookScene({
         onCoverOpen();
     }, [onCoverOpen]);
 
+    const handleIntroStart = useCallback(() => {
+        requestAnimationFrame(() => setShowContactShadow(true));
+    }, []);
+
     return (
         <div
             className={`ab-book-scene ab-book-scene--orbit${
-                onCoverOpen ? ' ab-book-scene--openable' : ''
+                onCoverOpen && !introActive ? ' ab-book-scene--openable' : ''
             }`}
             ref={sceneWrapRef}
         >
             <Canvas
-                shadows={{ enabled: true, type: THREE.PCFShadowMap }}
-                dpr={[1, 2]}
+                shadows={false}
+                dpr={[1, 1.5]}
+                frameloop="always"
                 camera={{
                     position: [0, 0, BOOK_SCENE_CAMERA_DISTANCE],
                     fov: BOOK_SCENE_CAMERA_FOV,
                 }}
                 gl={{
+                    antialias: true,
+                    powerPreference: 'high-performance',
                     outputColorSpace: THREE.SRGBColorSpace,
                     toneMapping: THREE.NoToneMapping,
                     toneMappingExposure: 1,
@@ -431,42 +564,42 @@ export default function BookScene({
             >
                 <color attach="background" args={['#efefef']} />
 
-                <ambientLight intensity={0.65} />
-                <directionalLight
-                    castShadow
-                    position={[2, 4, 5]}
-                    intensity={0.35}
-                    shadow-mapSize={[1024, 1024]}
-                    shadow-camera-near={0.5}
-                    shadow-camera-far={18}
-                    shadow-camera-left={-6}
-                    shadow-camera-right={6}
-                    shadow-camera-top={6}
-                    shadow-camera-bottom={-6}
-                    shadow-bias={-0.0002}
-                />
+                <ambientLight intensity={0.72} />
+                <directionalLight position={[1.6, 4.2, 5]} intensity={0.4} />
 
-                <Suspense fallback={null}>
+                <IntroBookPivot
+                    playIntroAnimation={playIntroAnimation}
+                    onIntroStart={handleIntroStart}
+                    onIntroComplete={onIntroComplete}
+                    onIntroActiveChange={setIntroActive}
+                >
                     <BookCoverModel
                         album={album}
                         totalPages={totalPages}
                         showSamples={showSamples}
                         pageWorldDims={pageWorldDims}
-                        onCoverOpen={onCoverOpen ? handleCoverOpen : undefined}
+                        onCoverOpen={
+                            onCoverOpen && !introActive ? handleCoverOpen : undefined
+                        }
                     />
-                </Suspense>
+                </IntroBookPivot>
 
-                <ContactShadows
-                    position={[0, shadowY, 0]}
-                    opacity={0.35}
-                    scale={12}
-                    blur={2.8}
-                    far={3}
-                    color="#1a1a1a"
+                {showContactShadow ? (
+                    <ContactShadows
+                        position={[0, shadowY, 0]}
+                        opacity={0.32}
+                        scale={12}
+                        blur={2.4}
+                        far={3}
+                        color="#1a1a1a"
+                    />
+                ) : null}
+
+                <BookArcballControls
+                    orbitDragRef={orbitDragRef}
+                    enabled={!introActive}
                 />
-
-                <BookArcballControls orbitDragRef={orbitDragRef} />
-                {onCoverOpen ? (
+                {onCoverOpen && !introActive ? (
                     <CoverOpenPointerHandler
                         onCoverOpen={handleCoverOpen}
                         orbitDragRef={orbitDragRef}

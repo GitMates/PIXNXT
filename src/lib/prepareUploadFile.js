@@ -117,15 +117,15 @@ function computeOutputSize(srcW, srcH, fileSize, options = {}) {
     outW = fitted.width;
     outH = fitted.height;
     resized = fitted.resized;
-  } else {
-    const longEdge = Math.max(srcW, srcH);
-    const edgeLimit = maxEdge ?? fallbackMaxEdge(fileSize);
-    if (longEdge > edgeLimit) {
-      const scale = edgeLimit / longEdge;
-      outW = Math.max(1, Math.round(srcW * scale));
-      outH = Math.max(1, Math.round(srcH * scale));
-      resized = true;
-    }
+  }
+
+  const longEdge = Math.max(outW, outH);
+  const edgeLimit = maxEdge ?? (maxWidth > 0 && maxHeight > 0 ? null : fallbackMaxEdge(fileSize));
+  if (edgeLimit > 0 && longEdge > edgeLimit) {
+    const scale = edgeLimit / longEdge;
+    outW = Math.max(1, Math.round(outW * scale));
+    outH = Math.max(1, Math.round(outH * scale));
+    resized = true;
   }
 
   return { outW, outH, resized };

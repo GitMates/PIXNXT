@@ -1,5 +1,5 @@
 import { photoFillsWholeSpread } from './albumGridSize';
-import { getCollectionItemDisplayUrl, getAlbumCollectionRevision, isCoverWrapCollectionItem } from './albumCollection';
+import { getCollectionItemDisplayUrl, isCoverWrapCollectionItem } from './albumCollection';
 import { getCollectionItemPlacementInfo } from './albumPagePhotos';
 import {
     enumerateCollectionPlacementPages,
@@ -80,7 +80,13 @@ function getCollectionPlacementSlots(collectionItems, album, totalPages) {
  */
 export function resolveCollectionThumbLayout(index, collectionItems, album, totalPages) {
     const item = collectionItems[index];
-    const cacheBust = album?.id ? getAlbumCollectionRevision(album.id) : null;
+    // Stable per-item URL (do not use collection revision — reorder would reload every thumb).
+    const cacheBust =
+        item?.storagePath ||
+        item?.updatedAt ||
+        item?.replacedAt ||
+        item?.id ||
+        null;
     const src = getCollectionItemDisplayUrl(item, { cacheBust }) || null;
     if (!src) return { mode: 'photo', src: null };
 
