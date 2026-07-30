@@ -1,26 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Check, Copy, RefreshCw } from 'lucide-react';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
-import {
-    smartAlbumProoferSettingsService,
-    getAlbumShareCopyUrl,
-    getAlbumShareDisplayUrl,
-} from '../../services/smartAlbumProoferSettings.service';
+import { smartAlbumProoferSettingsService } from '../../services/smartAlbumProoferSettings.service';
 import './AlbumEditorSettings.css';
-import AeSettingsSelect from './AeSettingsSelect';
-
-const ACCESS_LEVEL_OPTIONS = [
-    {
-        value: 'public',
-        label: 'Public',
-        description: 'Anyone with the link can open the album',
-    },
-    {
-        value: 'password',
-        label: 'Password Protected',
-        description: 'Clients must enter a password before viewing',
-    },
-];
 
 function SettingsToggle({ on, onChange, label }) {
     return (
@@ -44,12 +26,9 @@ export default function AlbumEditorSettingsPanel({
 }) {
     const albumId = album?.id;
     const [loading, setLoading] = useState(true);
-    const [copied, setCopied] = useState(false);
     const [pinCopied, setPinCopied] = useState(false);
     const [notification, setNotification] = useState('');
 
-    const [accessLevel, setAccessLevel] = useState('password');
-    const [albumPassword, setAlbumPassword] = useState('');
     const [requireName, setRequireName] = useState(false);
     const [maxSwaps, setMaxSwaps] = useState(5);
     const [allowExternal, setAllowExternal] = useState(false);
@@ -57,11 +36,9 @@ export default function AlbumEditorSettingsPanel({
     const [requireVerification, setRequireVerification] = useState(false);
     const [approvalPin, setApprovalPin] = useState('');
     const [sendReminders, setSendReminders] = useState(false);
-    const [privateShareToken, setPrivateShareToken] = useState('');
 
     const [allowComments, setAllowComments] = useState(true);
     const [allowSwaps, setAllowSwaps] = useState(true);
-    const [shareLink, setShareLink] = useState(true);
 
     const saveTimerRef = useRef(null);
     const skipSaveRef = useRef(true);
@@ -88,22 +65,18 @@ export default function AlbumEditorSettingsPanel({
                 if (cancelled) return;
 
                 globalDefaultsRef.current = defaults;
-                setAccessLevel(proofer.accessLevel || 'password');
-                setAlbumPassword(proofer.albumPassword || '');
                 setRequireName(proofer.requireNameForComments);
                 setMaxSwaps(proofer.maxFreeSwaps);
                 setAllowExternal(proofer.allowExternalUploads);
                 setAllowVoice(proofer.allowVoiceRecordings !== false);
-                
+
                 const pin = proofer.approvalPin || '';
                 setApprovalPin(pin);
                 setRequireVerification(Boolean(pin) || defaults.requireApprovalPin);
-                
+
                 setSendReminders(proofer.sendReminderEmails);
-                setPrivateShareToken(proofer.privateShareToken || '');
                 setAllowComments(album?.comments_enabled !== false);
                 setAllowSwaps(album?.messages_enabled !== false);
-                setShareLink(album?.share_link_enabled !== false);
                 skipSaveRef.current = true;
             } catch (err) {
                 console.error(err);
@@ -121,13 +94,7 @@ export default function AlbumEditorSettingsPanel({
         if (loading || !album) return;
         setAllowComments(album.comments_enabled !== false);
         setAllowSwaps(album.messages_enabled !== false);
-        setShareLink(album.share_link_enabled !== false);
-    }, [
-        loading,
-        album?.comments_enabled,
-        album?.messages_enabled,
-        album?.share_link_enabled,
-    ]);
+    }, [loading, album?.comments_enabled, album?.messages_enabled]);
 
     const persist = useCallback(async () => {
         if (!photographerId || !albumId) return;
@@ -138,13 +105,6 @@ export default function AlbumEditorSettingsPanel({
                 : '';
 
             const prooferPatch = {
-                accessLevel,
-                albumPassword: accessLevel === 'password' ? albumPassword : '',
-                privateShareToken:
-                    accessLevel === 'private'
-                        ? privateShareToken ||
-                          smartAlbumProoferSettingsService.randomToken()
-                        : privateShareToken,
                 requireNameForComments: requireName,
                 maxFreeSwaps: maxSwaps,
                 allowExternalUploads: allowExternal,
@@ -153,9 +113,6 @@ export default function AlbumEditorSettingsPanel({
                 sendReminderEmails: sendReminders,
             };
 
-            if (accessLevel === 'private' && !privateShareToken) {
-                setPrivateShareToken(prooferPatch.privateShareToken);
-            }
             if (requireVerification && !approvalPin) {
                 setApprovalPin(nextPin);
             }
@@ -163,7 +120,6 @@ export default function AlbumEditorSettingsPanel({
             const clientPatch = {
                 comments_enabled: allowComments,
                 messages_enabled: allowSwaps,
-                share_link_enabled: shareLink,
             };
 
             await smartAlbumProoferSettingsService.saveAlbumSettings(
@@ -198,9 +154,6 @@ export default function AlbumEditorSettingsPanel({
         photographerId,
         albumId,
         album,
-        accessLevel,
-        albumPassword,
-        privateShareToken,
         requireName,
         maxSwaps,
         allowExternal,
@@ -210,7 +163,6 @@ export default function AlbumEditorSettingsPanel({
         sendReminders,
         allowComments,
         allowSwaps,
-        shareLink,
         onAlbumUpdated,
     ]);
 
@@ -230,8 +182,6 @@ export default function AlbumEditorSettingsPanel({
         };
     }, [
         loading,
-        accessLevel,
-        albumPassword,
         requireName,
         maxSwaps,
         allowExternal,
@@ -241,28 +191,10 @@ export default function AlbumEditorSettingsPanel({
         sendReminders,
         allowComments,
         allowSwaps,
-        shareLink,
         persist,
     ]);
 
-    const shareDisplayUrl = getAlbumShareDisplayUrl(album, {
-        accessLevel,
-        privateShareToken,
-    });
-
     const nudgeDays = globalDefaultsRef.current?.nudgeDays ?? 5;
-
-    const handleCopyLink = async () => {
-        try {
-            await navigator.clipboard.writeText(
-                getAlbumShareCopyUrl(album, { accessLevel, privateShareToken })
-            );
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-        } catch (err) {
-            console.error(err);
-        }
-    };
 
     const handleCopyPin = async () => {
         try {
@@ -301,167 +233,97 @@ export default function AlbumEditorSettingsPanel({
                 <h2 className="ae-settings-panel__heading">Settings</h2>
 
                 <section className="ae-settings-section">
-                    <p className="ae-settings-section__label">Album Link &amp; Security</p>
+                    <p className="ae-settings-section__label">Feedback</p>
 
-                    <div className="ae-settings-field">
-                        <label className="ae-settings-field__label" htmlFor="ae-live-share-link">
-                            Live Share Link
-                        </label>
-                        <div className="ae-settings-inset">
-                            <input
-                                id="ae-live-share-link"
-                                type="text"
-                                value={shareDisplayUrl}
-                                readOnly
-                            />
-                            <button
-                                type="button"
-                                className="ae-settings-copy-btn"
-                                onClick={handleCopyLink}
-                                aria-label="Copy link"
-                            >
-                                {copied ? <Check size={16} /> : <Copy size={16} />}
-                            </button>
+                    <div className="ae-settings-row">
+                        <div className="ae-settings-row__text">
+                            <p className="ae-settings-field__title">Allow comments</p>
+                            <p className="ae-settings-field__desc">
+                                Clients can leave feedback on each spread
+                            </p>
                         </div>
+                        <SettingsToggle
+                            on={allowComments}
+                            onChange={() => setAllowComments((v) => !v)}
+                            label="Allow comments"
+                        />
                     </div>
 
-                    <div className="ae-settings-field">
-                        <label className="ae-settings-field__label" htmlFor="ae-access-level">
-                            Access Level
-                        </label>
-                        <AeSettingsSelect
-                            id="ae-access-level"
-                            value={accessLevel}
-                            onChange={setAccessLevel}
-                            options={ACCESS_LEVEL_OPTIONS}
-                        />
-                        {accessLevel === 'password' && (
-                            <div className="ae-settings-field ae-settings-field--password">
-                                <input
-                                    type="password"
-                                    className="ae-settings-input"
-                                    value={albumPassword}
-                                    onChange={(e) => setAlbumPassword(e.target.value)}
-                                    placeholder="Set album password"
+                    {allowComments ? (
+                        <div className="ae-settings-nested">
+                            <div className="ae-settings-row">
+                                <div className="ae-settings-row__text">
+                                    <p className="ae-settings-field__title">Require name</p>
+                                    <p className="ae-settings-field__desc">
+                                        Identify who is leaving feedback
+                                    </p>
+                                </div>
+                                <SettingsToggle
+                                    on={requireName}
+                                    onChange={() => setRequireName((v) => !v)}
+                                    label="Require name"
                                 />
                             </div>
-                        )}
-                        {accessLevel === 'private' && (
-                            <p className="ae-settings-private-hint">
-                                Generates a unique, randomized token link that cannot be guessed.
-                                No password required, but this project stays hidden from public
-                                search engines and your global portfolio.
-                            </p>
-                        )}
-                    </div>
-                </section>
-
-                <section className="ae-settings-section">
-                    <p className="ae-settings-section__label">Proofing &amp; Collaboration</p>
+                            <div className="ae-settings-row">
+                                <div className="ae-settings-row__text">
+                                    <p className="ae-settings-field__title">Voice notes</p>
+                                    <p className="ae-settings-field__desc">
+                                        Clients can record voice messages
+                                    </p>
+                                </div>
+                                <SettingsToggle
+                                    on={allowVoice}
+                                    onChange={() => setAllowVoice((v) => !v)}
+                                    label="Voice notes"
+                                />
+                            </div>
+                            <div className="ae-settings-row">
+                                <div className="ae-settings-row__text">
+                                    <p className="ae-settings-field__title">Image attachments</p>
+                                    <p className="ae-settings-field__desc">
+                                        Clients can attach reference images
+                                    </p>
+                                </div>
+                                <SettingsToggle
+                                    on={allowExternal}
+                                    onChange={() => setAllowExternal((v) => !v)}
+                                    label="Image attachments"
+                                />
+                            </div>
+                        </div>
+                    ) : null}
 
                     <div className="ae-settings-row">
                         <div className="ae-settings-row__text">
-                            <p className="ae-settings-field__title">Require Name for Comments</p>
+                            <p className="ae-settings-field__title">Allow swaps</p>
                             <p className="ae-settings-field__desc">
-                                Identify who is leaving feedback
+                                Clients can place swap requests on photos
                             </p>
                         </div>
                         <SettingsToggle
-                            on={requireName}
-                            onChange={() => setRequireName((v) => !v)}
-                            label="Require name"
+                            on={allowSwaps}
+                            onChange={() => setAllowSwaps((v) => !v)}
+                            label="Allow swaps"
                         />
                     </div>
 
-                    <div className="ae-settings-field">
-                        <label className="ae-settings-field__label" htmlFor="ae-max-swaps">
-                            Max Allowed Free Swaps
-                        </label>
-                        <input
-                            id="ae-max-swaps"
-                            type="number"
-                            min="0"
-                            className="ae-settings-input ae-settings-input--compact"
-                            value={maxSwaps}
-                            onChange={(e) =>
-                                setMaxSwaps(Math.max(0, parseInt(e.target.value, 10) || 0))
-                            }
-                        />
-                    </div>
-
-                    <div className="ae-settings-row">
-                        <div className="ae-settings-row__text">
-                            <p className="ae-settings-field__title">Allow External Image Uploads</p>
-                            <p className="ae-settings-field__desc">
-                                Clients can attach images in comments and swap requests
-                            </p>
-                        </div>
-                        <SettingsToggle
-                            on={allowExternal}
-                            onChange={() => setAllowExternal((v) => !v)}
-                            label="External uploads"
-                        />
-                    </div>
-
-                    <div className="ae-settings-row">
-                        <div className="ae-settings-row__text">
-                            <p className="ae-settings-field__title">Allow Voice Recordings</p>
-                            <p className="ae-settings-field__desc">
-                                Clients can record and send voice messages in feedback
-                            </p>
-                        </div>
-                        <SettingsToggle
-                            on={allowVoice}
-                            onChange={() => setAllowVoice((v) => !v)}
-                            label="Voice recordings"
-                        />
-                    </div>
-
-                    <div className="ae-settings-subsection">
-                        <p className="ae-settings-subsection__label">Client preview</p>
-
-                        <div className="ae-settings-row">
-                            <div className="ae-settings-row__text">
-                                <p className="ae-settings-field__title">Allow comments</p>
-                                <p className="ae-settings-field__desc">
-                                    Clients can leave feedback on each spread
-                                </p>
+                    {allowSwaps ? (
+                        <div className="ae-settings-nested">
+                            <div className="ae-settings-nested__row">
+                                <span className="ae-settings-nested__label">Free swaps included</span>
+                                <input
+                                    id="ae-max-swaps"
+                                    type="number"
+                                    min="0"
+                                    className="ae-settings-swaps-input"
+                                    value={maxSwaps}
+                                    onChange={(e) =>
+                                        setMaxSwaps(Math.max(0, parseInt(e.target.value, 10) || 0))
+                                    }
+                                />
                             </div>
-                            <SettingsToggle
-                                on={allowComments}
-                                onChange={() => setAllowComments((v) => !v)}
-                                label="Allow comments"
-                            />
                         </div>
-
-                        <div className="ae-settings-row">
-                            <div className="ae-settings-row__text">
-                                <p className="ae-settings-field__title">Allow swaps</p>
-                                <p className="ae-settings-field__desc">
-                                    Clients can place swap requests on photos
-                                </p>
-                            </div>
-                            <SettingsToggle
-                                on={allowSwaps}
-                                onChange={() => setAllowSwaps((v) => !v)}
-                                label="Allow swaps"
-                            />
-                        </div>
-
-                        <div className="ae-settings-row">
-                            <div className="ae-settings-row__text">
-                                <p className="ae-settings-field__title">Client share link</p>
-                                <p className="ae-settings-field__desc">
-                                    Clients can open the album with your share link
-                                </p>
-                            </div>
-                            <SettingsToggle
-                                on={shareLink}
-                                onChange={() => setShareLink((v) => !v)}
-                                label="Client share link"
-                            />
-                        </div>
-                    </div>
+                    ) : null}
                 </section>
 
                 <section className="ae-settings-section">
@@ -471,7 +333,7 @@ export default function AlbumEditorSettingsPanel({
                         <div className="ae-settings-row__text">
                             <p className="ae-settings-field__title">Approval PIN</p>
                             <p className="ae-settings-field__desc">
-                                Require unique PIN for final album approval
+                                Client enters this to sign off the final album
                             </p>
                         </div>
                         <SettingsToggle
@@ -516,15 +378,17 @@ export default function AlbumEditorSettingsPanel({
                                 <RefreshCw size={14} />
                                 Regenerate
                             </button>
+                            <p className="ae-settings-field__desc ae-settings-pin-footnote">
+                                A signature, not a key. Separate from the access PIN in Share.
+                            </p>
                         </div>
                     )}
 
                     <div className="ae-settings-row">
                         <div className="ae-settings-row__text">
-                            <p className="ae-settings-field__title">Send Reminder Emails</p>
+                            <p className="ae-settings-field__title">Reminder emails</p>
                             <p className="ae-settings-field__desc">
-                                Inheriting global rule: Emails automatically send after {nudgeDays}{' '}
-                                days of inactivity.
+                                Inheriting global rule: sends after {nudgeDays} days of inactivity
                             </p>
                         </div>
                         <SettingsToggle

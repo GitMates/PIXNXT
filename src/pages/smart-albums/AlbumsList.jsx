@@ -329,6 +329,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                 anchorEl={contextMenuAnchor}
                 onPreview={() => {
                     closeContextMenu();
+                    if (album?.share_link_enabled === false) return;
                     openSmartAlbumPreview(album.id);
                 }}
                 onQuickEdit={() => handleQuickEdit(album)}
@@ -618,6 +619,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                 }}
                 onPreview={() => {
                     if (settingsAlbum) {
+                        if (settingsAlbum.share_link_enabled === false) return;
                         openSmartAlbumPreview(settingsAlbum.id);
                         setSettingsAlbum(null);
                     }

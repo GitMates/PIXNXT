@@ -30,7 +30,8 @@
     0 1px 0 var(--ae-neu-light),
     0 4px 18px oklch(0.4 0.01 70 / 0.06);
   flex-shrink: 0;
-  z-index: 50;
+  z-index: 400;
+  position: relative;
 }
 
 .ae-topbar-left {
@@ -38,6 +39,7 @@
   align-items: center;
   gap: 16px;
   min-width: 0;
+  flex: 1;
 }
 
 .ae-topbar-title {
@@ -419,6 +421,13 @@
     inset -3px -3px 7px var(--ae-neu-light, oklch(1 0.004 85 / 0.92));
 }
 
+.ae-btn-toolbar:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+  pointer-events: none;
+}
+
 .ae-btn-secondary {
   background: var(--ae-surface, oklch(0.995 0.004 85));
   color: var(--ae-text, oklch(0.23 0.004 60));
@@ -466,7 +475,7 @@
   border: none;
   border-radius: 18px;
   box-shadow: 0 14px 36px oklch(0.4 0.01 70 / 0.14);
-  z-index: 120;
+  z-index: 450;
   padding: 10px;
   display: flex;
   flex-direction: column;
