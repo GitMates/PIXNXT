@@ -114,6 +114,7 @@ export default function AlbumEditorSidebar({
     coverTextMessage = '',
     onSaveCoverText = null,
     onUploadCoverFile = null,
+    onRemoveCoverPhotos = null,
     workspaceRevision = 0,
 }) {
     const [imageReplacements, setImageReplacements] = useState([]);
@@ -495,6 +496,20 @@ export default function AlbumEditorSidebar({
                                 hasImage={hasCoverPhoto}
                                 onSelectFile={onUploadCoverFile}
                             />
+                        ) : null}
+                        {hasCoverPhoto && typeof onRemoveCoverPhotos === 'function' ? (
+                            <button
+                                type="button"
+                                className="ae-cover-panel__remove-btn"
+                                onClick={onRemoveCoverPhotos}
+                            >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                                    <line x1="9" y1="9" x2="15" y2="15" />
+                                    <line x1="15" y1="9" x2="9" y2="15" />
+                                </svg>
+                                Remove cover photos
+                            </button>
                         ) : null}
                         {albumHasBlankCovers(album) && !hasCoverPhoto ? (
                             <CoverLeatherColorPicker albumId={albumId} />

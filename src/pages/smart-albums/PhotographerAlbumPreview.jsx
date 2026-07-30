@@ -1,13 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { getAlbumPhotoRevision } from '../../components/smart-albums/albumPagePhotos';
 import { useAuth } from '../../hooks/useAuth';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
-import {
-    ALBUM_PROOFER_SETTINGS_CHANGED_EVENT,
-    smartAlbumProoferSettingsService,
-} from '../../services/smartAlbumProoferSettings.service';
-import AlbumPreviewAccessGate from '../../components/smart-albums/AlbumPreviewAccessGate';
+import { ALBUM_PROOFER_SETTINGS_CHANGED_EVENT } from '../../services/smartAlbumProoferSettings.service';
 import AlbumPreview from './AlbumPreview';
 import { getAlbumSpreadOptions } from '../../components/smart-albums/albumSpreadUtils';
 import { parseUrlPage } from './useAlbumWorkspace';
@@ -17,6 +13,7 @@ import './AlbumViewer.css';
 /**
  * Album preview in its own tab (like collection gallery preview).
  * Shows the client-facing view; photographer can proof comments when published.
+ * When client access is paused, preview stays closed — same as the share link.
  */
 export default function PhotographerAlbumPreview() {
     const { albumId } = useParams();
@@ -86,16 +83,7 @@ export default function PhotographerAlbumPreview() {
     const totalPages = album?.page_count || 21;
     const spreadOpts = getAlbumSpreadOptions(album);
     const initialPage = parseUrlPage(searchParams.get('page'), totalPages, spreadOpts);
-
-    const access = useMemo(() => {
-        if (!album?.id) return null;
-        return smartAlbumProoferSettingsService.getEffectiveAlbumAccess(
-            album.photographer_id,
-            albumId,
-            album,
-            album.preview_data
-        );
-    }, [album, albumId]);
+    const accessPaused = album?.share_link_enabled === false;
 
     const handlePageChange = (pageIdx) => {
         const next = new URLSearchParams(searchParams);
@@ -119,18 +107,31 @@ export default function PhotographerAlbumPreview() {
         );
     }
 
+    if (accessPaused) {
+        return (
+            <div className="av-page av-page--preview flex items-center justify-center min-h-screen bg-[#f5f5f5] p-6">
+                <div className="w-full max-w-md rounded-xl border border-[#e8eaed] bg-white p-8 shadow-sm space-y-3 text-center">
+                    <h1 className="text-lg font-semibold text-[#222]">
+                        This album is temporarily unavailable
+                    </h1>
+                    <p className="text-sm text-[#888]">
+                        Client access is paused. Resume access from Share to open preview again.
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
     return (
-        <AlbumPreviewAccessGate albumId={albumId} access={access}>
-            <AlbumPreview
-                album={normalizeAlbumForClientPreview(album)}
-                albumId={albumId}
-                totalPages={totalPages}
-                initialPage={initialPage}
-                photoRevision={photoRevision}
-                onPageChange={handlePageChange}
-                minimalChrome
-                clientPreview
-            />
-        </AlbumPreviewAccessGate>
+        <AlbumPreview
+            album={normalizeAlbumForClientPreview(album)}
+            albumId={albumId}
+            totalPages={totalPages}
+            initialPage={initialPage}
+            photoRevision={photoRevision}
+            onPageChange={handlePageChange}
+            minimalChrome
+            clientPreview
+        />
     );
 }

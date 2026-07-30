@@ -26,7 +26,7 @@
   --ae-set-line: oklch(0.91 0.007 82);
   --ae-set-neu-light: oklch(1 0.004 85 / 0.9);
   --ae-set-neu-dark: oklch(0.42 0.012 70 / 0.11);
-  --ae-set-toggle-on: #10b981;
+  --ae-set-toggle-on: #34c759;
 
   display: flex;
   flex-direction: column;
@@ -105,9 +105,9 @@
 
 .ae-settings-field__title {
   margin: 0;
-  font-family: 'Outfit', system-ui, sans-serif;
-  font-size: 13px;
-  font-weight: 600;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 14px;
+  font-weight: 500;
   color: var(--ae-set-text);
   line-height: 1.35;
 }
@@ -417,6 +417,45 @@
   color: var(--ae-set-section);
 }
 
+.ae-settings-nested {
+  margin: -6px 0 18px 10px;
+  padding-left: 14px;
+  border-left: 2px solid var(--ae-set-line);
+}
+
+.ae-settings-nested__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.ae-settings-nested__label {
+  font-family: 'Outfit', system-ui, sans-serif;
+  font-size: 12px;
+  color: var(--ae-set-muted);
+}
+
+.ae-settings-swaps-input {
+  width: 72px;
+  height: 32px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 999px;
+  background: var(--ae-set-inset);
+  text-align: center;
+  font-family: 'Outfit', system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ae-set-text);
+  outline: none;
+}
+
+.ae-settings-pin-footnote {
+  margin-top: 10px;
+}
+
 .ae-settings-pin-row {
   display: flex;
   align-items: center;
@@ -435,7 +474,7 @@
   width: 40px;
   height: 40px;
   border: none;
-  border-radius: 12px;
+  border-radius: 50%;
   background: var(--ae-set-inset);
   font-family: 'Outfit', system-ui, sans-serif;
   font-size: 15px;

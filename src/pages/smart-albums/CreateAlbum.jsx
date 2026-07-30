@@ -38,6 +38,31 @@ import {
     normalizeGallerySearchQuery,
 } from '../../utils/filterClientGallerySearch';
 import './CreateAlbum.css';
+import { AppToast, useAppToast } from '../../components/ui/AppToast';
+
+const FILMSTRIP_GAP_PX = 10;
+const FILMSTRIP_DRAG_THRESHOLD_PX = 4;
+
+function resolveFilmstripOverIndex(deltaX, itemWidth, fromIndex, length) {
+    if (!(itemWidth > 0) || length < 1) return fromIndex;
+    const displacement = Math.round(deltaX / itemWidth);
+    return Math.max(0, Math.min(length - 1, fromIndex + displacement));
+}
+
+function getFilmstripTileTransform(index, drag) {
+    if (!drag) return null;
+    const { fromIndex, overIndex, deltaX, itemWidth } = drag;
+    if (index === fromIndex) {
+        return `translate3d(${deltaX}px, 0, 0) scale(1.04)`;
+    }
+    if (fromIndex < overIndex && index > fromIndex && index <= overIndex) {
+        return `translate3d(${-itemWidth}px, 0, 0)`;
+    }
+    if (fromIndex > overIndex && index >= overIndex && index < fromIndex) {
+        return `translate3d(${itemWidth}px, 0, 0)`;
+    }
+    return null;
+}
 
 function collectionEventDateValue(eventDate) {
     if (!eventDate) return '';
@@ -261,6 +286,7 @@ const UploadPreviewCard = memo(function UploadPreviewCard({
 const CreateAlbum = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
+    const { toast, showToast, clearToast } = useAppToast(4500);
     const [name, setName] = useState('');
     const [date, setDate] = useState('');
     const [galleryCollections, setGalleryCollections] = useState([]);
@@ -279,6 +305,7 @@ const CreateAlbum = () => {
     const [dragOverIndex, setDragOverIndex] = useState(null);
     const [uploadDropActive, setUploadDropActive] = useState(false);
     const dragFromIndexRef = useRef(null);
+    const [filmstripDrag, setFilmstripDrag] = useState(null);
     const [expandedPhotoCount, setExpandedPhotoCount] = useState(0);
     const [photoCountBusy, setPhotoCountBusy] = useState(false);
     const [gridSizeBusy, setGridSizeBusy] = useState(false);
@@ -291,6 +318,7 @@ const CreateAlbum = () => {
     const coverInputRef = useRef(null);
     const photosInputRef = useRef(null);
     const filmstripRef = useRef(null);
+    const filmstripTileRefs = useRef([]);
     const filmstripAutoScrollRafRef = useRef(null);
     const filmstripAutoScrollVelocityRef = useRef(0);
 
@@ -724,16 +752,36 @@ const CreateAlbum = () => {
         return `${(n / (1024 * 1024)).toFixed(1)}MB`;
     }, []);
 
-    const handleContinueToUploads = useCallback((e) => {
+    const handleContinueToUploads = useCallback(async (e) => {
         e?.preventDefault?.();
         if (!name.trim()) {
             setError('Please enter an album name to continue.');
             return;
         }
+        setIsSubmitting(true);
         setError(null);
-        setWizardStep(2);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    }, [name]);
+        try {
+            if (user?.id) {
+                const existing = await smartAlbumsService.getAlbums(user.id);
+                const nameExists = existing.some(
+                    (a) => a.name.trim().toLowerCase() === name.trim().toLowerCase()
+                );
+                if (nameExists) {
+                    setError('An album with this name already exists.');
+                    setIsSubmitting(false);
+                    return;
+                }
+            }
+            setError(null);
+            setWizardStep(2);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setIsSubmitting(false);
+        }
+    }, [name, user?.id]);
+
 
     const handleBackToDetails = useCallback(() => {
         setWizardStep(1);
@@ -746,8 +794,27 @@ const CreateAlbum = () => {
         const sorted = [...files].sort((a, b) =>
             a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
         );
-        setPhotoFiles(sorted);
-    }, []);
+        setPhotoFiles((prev) => {
+            if (!prev.length) return sorted;
+            // Check for duplicate filenames
+            const existingNames = new Set(prev.map((f) => f.name.toLowerCase()));
+            const duplicates = sorted.filter((f) => existingNames.has(f.name.toLowerCase()));
+            if (duplicates.length) {
+                const names = duplicates.map((f) => f.name).join(', ');
+                setTimeout(() => {
+                    showToast(
+                        `Duplicate image(s) skipped: ${names}`,
+                        { variant: 'success', duration: 5000 }
+                    );
+                }, 0);
+                const newOnly = sorted.filter((f) => !existingNames.has(f.name.toLowerCase()));
+                return newOnly.length ? [...prev, ...newOnly] : prev;
+            }
+            return [...prev, ...sorted];
+        });
+    }, [showToast]);
+
+
 
     const handlePhotoChange = (e) => {
         applyPhotoFiles(filesFromInput(e.target.files));
@@ -766,13 +833,7 @@ const CreateAlbum = () => {
 
     const handlePreviewDragStart = useCallback((fromIndex) => {
         dragFromIndexRef.current = fromIndex;
-        filmstripDragActiveRef.current = true;
     }, []);
-
-    // ── filmstrip edge-scroll ─────────────────────────────────────────────────
-    // We attach a document-level `dragover` listener while a tile is being
-    // dragged so we get continuous clientX regardless of which element the
-    // cursor is over (including areas beyond the last visible tile).
 
     const stopFilmstripAutoScroll = useCallback(() => {
         if (filmstripAutoScrollRafRef.current != null) {
@@ -781,8 +842,6 @@ const CreateAlbum = () => {
         }
         filmstripAutoScrollVelocityRef.current = 0;
     }, []);
-
-    const filmstripDragActiveRef = useRef(false);
 
     const runFilmstripEdgeScroll = useCallback((clientX) => {
         const strip = filmstripRef.current;
@@ -811,13 +870,13 @@ const CreateAlbum = () => {
             return;
         }
 
-        if (filmstripAutoScrollRafRef.current != null) return; // already running
+        if (filmstripAutoScrollRafRef.current != null) return;
 
         const tick = () => {
             filmstripAutoScrollRafRef.current = null;
             const s = filmstripRef.current;
             const v = filmstripAutoScrollVelocityRef.current;
-            if (!s || !v || !filmstripDragActiveRef.current) return;
+            if (!s || !v) return;
 
             const max = Math.max(0, s.scrollWidth - s.clientWidth);
             const next = Math.min(max, Math.max(0, s.scrollLeft + v));
@@ -832,19 +891,6 @@ const CreateAlbum = () => {
         filmstripAutoScrollRafRef.current = requestAnimationFrame(tick);
     }, []);
 
-    // Attach a document dragover while dragging to get continuous mouse position
-    useEffect(() => {
-        const onDocDragOver = (e) => {
-            if (!filmstripDragActiveRef.current) return;
-            runFilmstripEdgeScroll(e.clientX);
-        };
-        document.addEventListener('dragover', onDocDragOver);
-        return () => document.removeEventListener('dragover', onDocDragOver);
-    }, [runFilmstripEdgeScroll]);
-
-    // Keep updateFilmstripAutoScroll for the container's own onDragOver (no-op now)
-    const updateFilmstripAutoScroll = useCallback(() => {}, []);
-
     const handlePreviewDragOver = useCallback((overIndex) => {
         setDragOverIndex(overIndex);
     }, []);
@@ -852,19 +898,116 @@ const CreateAlbum = () => {
     const handlePreviewDrop = useCallback((toIndex) => {
         const fromIndex = dragFromIndexRef.current;
         dragFromIndexRef.current = null;
-        filmstripDragActiveRef.current = false;
         setDragOverIndex(null);
-        stopFilmstripAutoScroll();
         if (fromIndex == null || fromIndex === toIndex) return;
         setPreviewSlots((prev) => moveItemInOrder(prev, fromIndex, toIndex));
-    }, [stopFilmstripAutoScroll]);
+    }, []);
 
     const handlePreviewDragEnd = useCallback(() => {
         dragFromIndexRef.current = null;
-        filmstripDragActiveRef.current = false;
         setDragOverIndex(null);
+    }, []);
+
+    const handleFilmstripPointerDown = useCallback((e, index) => {
+        if (e.button !== 0) return;
+        if (e.target?.closest?.('.sa-filmstrip-tile-remove')) return;
+        const tile = filmstripTileRefs.current[index];
+        if (!tile) return;
+
+        e.preventDefault();
+        const rect = tile.getBoundingClientRect();
+        setFilmstripDrag({
+            fromIndex: index,
+            overIndex: index,
+            startX: e.clientX,
+            deltaX: 0,
+            itemWidth: rect.width + FILMSTRIP_GAP_PX,
+            pointerId: e.pointerId,
+        });
+    }, []);
+
+    useEffect(() => {
+        if (!filmstripDrag) return undefined;
+
+        const { pointerId, fromIndex, startX, itemWidth } = filmstripDrag;
+
+        const onMove = (e) => {
+            if (e.pointerId !== pointerId) return;
+            e.preventDefault();
+
+            const deltaX = e.clientX - startX;
+            const overIndex = resolveFilmstripOverIndex(
+                deltaX,
+                itemWidth,
+                fromIndex,
+                previewSlots.length
+            );
+
+            setFilmstripDrag((prev) =>
+                prev && prev.pointerId === pointerId
+                    ? {
+                          ...prev,
+                          deltaX,
+                          overIndex,
+                      }
+                    : prev
+            );
+            runFilmstripEdgeScroll(e.clientX);
+        };
+
+        const finish = (e) => {
+            if (e.pointerId !== pointerId) return;
+
+            stopFilmstripAutoScroll();
+            document.body.style.userSelect = '';
+
+            const deltaX = e.clientX - startX;
+            const overIndex = resolveFilmstripOverIndex(
+                deltaX,
+                itemWidth,
+                fromIndex,
+                previewSlots.length
+            );
+
+            if (
+                Math.abs(deltaX) < FILMSTRIP_DRAG_THRESHOLD_PX &&
+                overIndex === fromIndex
+            ) {
+                setSelectedSpreadIndex(fromIndex);
+            } else if (fromIndex !== overIndex) {
+                setPreviewSlots((prev) => moveItemInOrder(prev, fromIndex, overIndex));
+                setSelectedSpreadIndex(overIndex);
+            }
+
+            setFilmstripDrag(null);
+        };
+
+        document.body.style.userSelect = 'none';
+        window.addEventListener('pointermove', onMove, { passive: false });
+        window.addEventListener('pointerup', finish);
+        window.addEventListener('pointercancel', finish);
+
+        return () => {
+            document.body.style.userSelect = '';
+            window.removeEventListener('pointermove', onMove);
+            window.removeEventListener('pointerup', finish);
+            window.removeEventListener('pointercancel', finish);
+        };
+    }, [
+        filmstripDrag?.pointerId,
+        filmstripDrag?.fromIndex,
+        filmstripDrag?.startX,
+        filmstripDrag?.itemWidth,
+        previewSlots.length,
+        runFilmstripEdgeScroll,
+        stopFilmstripAutoScroll,
+    ]);
+
+    useEffect(() => {
+        if (filmstripDrag) return undefined;
         stopFilmstripAutoScroll();
-    }, [stopFilmstripAutoScroll]);
+        return undefined;
+    }, [filmstripDrag, stopFilmstripAutoScroll]);
 
     useEffect(() => () => stopFilmstripAutoScroll(), [stopFilmstripAutoScroll]);
 
@@ -1118,6 +1261,7 @@ const CreateAlbum = () => {
     };
 
     return (
+        <>
         <div className="cc-page sa-create-page sa-create-wizard-page">
             <main className="cc-main sa-create-main sa-create-wizard-main">
                 <div className="sa-create-wizard">
@@ -1423,51 +1567,41 @@ const CreateAlbum = () => {
                                                 </p>
 
                                                 <div
-                                                    className={`sa-filmstrip${analyzingUploads ? ' sa-filmstrip--analyzing' : ''}`}
+                                                    className={`sa-filmstrip${analyzingUploads ? ' sa-filmstrip--analyzing' : ''}${
+                                                        filmstripDrag ? ' sa-filmstrip--dragging' : ''
+                                                    }`}
                                                     ref={filmstripRef}
-                                                    onDragOver={(e) => {
-                                                        e.preventDefault();
-                                                        updateFilmstripAutoScroll(e.clientX);
-                                                    }}
-                                                    onDragLeave={(e) => {
-                                                        if (!filmstripRef.current?.contains(e.relatedTarget)) {
-                                                            stopFilmstripAutoScroll();
-                                                        }
-                                                    }}
-                                                    onDrop={() => stopFilmstripAutoScroll()}
                                                 >
-                                                    {previewSlots.map((preview, index) => (
+                                                    {previewSlots.map((preview, index) => {
+                                                        const isDragging =
+                                                            filmstripDrag?.fromIndex === index;
+                                                        const transform = getFilmstripTileTransform(
+                                                            index,
+                                                            filmstripDrag
+                                                        );
+                                                        return (
                                                         <div
                                                             key={preview.id || index}
+                                                            ref={(el) => {
+                                                                filmstripTileRefs.current[index] = el;
+                                                            }}
                                                             role="button"
                                                             tabIndex={0}
                                                             className={`sa-filmstrip-tile${
                                                                 index === selectedSpreadIndex
                                                                     ? ' sa-filmstrip-tile--active'
                                                                     : ''
-                                                            }${dragOverIndex === index ? ' sa-filmstrip-tile--drag-over' : ''}`}
-                                                            onClick={() => setSelectedSpreadIndex(index)}
+                                                            }${isDragging ? ' sa-filmstrip-tile--dragging' : ''}`}
+                                                            style={transform ? { transform } : undefined}
+                                                            onPointerDown={(e) =>
+                                                                handleFilmstripPointerDown(e, index)
+                                                            }
                                                             onKeyDown={(e) => {
                                                                 if (e.key === 'Enter' || e.key === ' ') {
                                                                     e.preventDefault();
                                                                     setSelectedSpreadIndex(index);
                                                                 }
                                                             }}
-                                                            draggable
-                                                            onDragStart={(e) => {
-                                                                e.dataTransfer.effectAllowed = 'move';
-                                                                e.dataTransfer.setData('text/plain', String(index));
-                                                                handlePreviewDragStart(index);
-                                                            }}
-                                                            onDragOver={(e) => {
-                                                                e.preventDefault();
-                                                                handlePreviewDragOver(index);
-                                                            }}
-                                                            onDrop={(e) => {
-                                                                e.preventDefault();
-                                                                handlePreviewDrop(index);
-                                                            }}
-                                                            onDragEnd={handlePreviewDragEnd}
                                                         >
                                                             <span className="sa-filmstrip-num">
                                                                 {String(index + 1).padStart(2, '0')}
@@ -1480,6 +1614,7 @@ const CreateAlbum = () => {
                                                             <button
                                                                 type="button"
                                                                 className="sa-filmstrip-tile-remove"
+                                                                onPointerDown={(e) => e.stopPropagation()}
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
                                                                     e.preventDefault();
@@ -1494,7 +1629,8 @@ const CreateAlbum = () => {
                                                                 </svg>
                                                             </button>
                                                         </div>
-                                                    ))}
+                                                        );
+                                                    })}
                                                 </div>
 
                                                 <div className="sa-spreads-toolbar">
@@ -1582,6 +1718,8 @@ const CreateAlbum = () => {
                 </div>
             </main>
         </div>
+            <AppToast toast={toast} onDismiss={clearToast} />
+        </>
     );
 };
 

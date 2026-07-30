@@ -11,12 +11,10 @@ import {
 } from '../../components/smart-albums/albumCoverText';
 import CollectionPickerModal from '../../components/smart-albums/CollectionPickerModal';
 import { AlbumPreviewLinkModal } from '../../components/smart-albums/AlbumShareModals';
-import {
-    getSmartAlbumPreviewShareUrl,
-    openShareByEmail,
-    openSmartAlbumPreview,
-    openWhatsAppShare,
-} from '../../lib/shareSmartAlbum';
+import AlbumSharePublishMenu, {
+    AlbumPublishStatusBadge,
+} from '../../components/smart-albums/AlbumSharePublishMenu';
+import { openSmartAlbumPreview } from '../../lib/shareSmartAlbum';
 import {
     addFilesToAlbumCollection,
     deleteCollectionItemAsset,
@@ -744,13 +742,11 @@ export default function AlbumEditor({
 
     useEffect(() => {
         if (!showShareMenu) return undefined;
-        const onDocClick = (e) => {
-            if (shareRef.current && !shareRef.current.contains(e.target)) {
-                setShowShareMenu(false);
-            }
+        const onKey = (e) => {
+            if (e.key === 'Escape') setShowShareMenu(false);
         };
-        document.addEventListener('mousedown', onDocClick);
-        return () => document.removeEventListener('mousedown', onDocClick);
+        document.addEventListener('keydown', onKey);
+        return () => document.removeEventListener('keydown', onKey);
     }, [showShareMenu]);
 
     useEffect(() => {
@@ -1091,6 +1087,7 @@ export default function AlbumEditor({
             ) {
                 setGridEditSet('single');
                 setGridSelection(buildCoverSelection());
+                return; // Cover actions are in the sidebar — no popup needed
             } else if (
                 slot.whole ||
                 isManualWholeSpreadPlacement(spreadLeft, totalPages, album, spreadOpts)
@@ -1322,6 +1319,25 @@ export default function AlbumEditor({
         showToast,
         user?.id,
     ]);
+
+    const handleRemoveCoverPhotos = useCallback(async () => {
+        if (
+            clearSpreadPhotos(albumId, 0, totalPages, 'whole', {
+                gridLayout: album?.grid_layout,
+                spreadOpts,
+            })
+        ) {
+            scheduleWorkspaceRefresh();
+            if (user?.id) {
+                try {
+                    await smartAlbumsService.syncAlbumPreviewData(user.id, albumId);
+                } catch (err) {
+                    console.warn('Could not sync album preview after cover remove:', err);
+                }
+            }
+            showToast('Cover photos removed.', { duration: 3500 });
+        }
+    }, [albumId, album?.grid_layout, totalPages, spreadOpts, scheduleWorkspaceRefresh, showToast, user?.id]);
 
     const handleOpenSwapModal = useCallback(() => {
         if (slotMenu?.slot) setSwapExecuteOrigin(slotMenu.slot);
@@ -1963,6 +1979,12 @@ export default function AlbumEditor({
     }, [albumId, totalPages, bumpWorkspace, showToast]);
 
     const published = album?.status === 'published';
+    const shareMode =
+        album?.status !== 'published'
+            ? 'draft'
+            : album?.share_link_enabled === false
+              ? 'paused'
+              : 'live';
 
     const handlePublishToggle = useCallback(async () => {
         if (!user?.id || !albumId || publishBusy) return;
@@ -1972,6 +1994,7 @@ export default function AlbumEditor({
         try {
             const updated = await smartAlbumsService.updateAlbumClientSettings(user.id, albumId, {
                 status,
+                ...(next ? { share_link_enabled: true } : {}),
             });
             onAlbumUpdate?.(updated);
             showToast(
@@ -2108,6 +2131,11 @@ export default function AlbumEditor({
                         </svg>
                     </button>
                     <h1 className="ae-topbar-title">{album.name}</h1>
+                    <AlbumPublishStatusBadge
+                        album={album}
+                        onPublish={handlePublishToggle}
+                        publishBusy={publishBusy}
+                    />
                 </div>
                 <div className="ae-topbar-right">
                     <AlbumEditorNotifications
@@ -2120,20 +2148,38 @@ export default function AlbumEditor({
                     <button
                         type="button"
                         className="ae-btn-toolbar ae-btn-toolbar--inset"
-                        onClick={() => openSmartAlbumPreview(albumId, bookPage)}
+                        disabled={shareMode === 'paused'}
+                        title={
+                            shareMode === 'paused'
+                                ? 'Resume client access to open preview'
+                                : undefined
+                        }
+                        onClick={() => {
+                            if (shareMode === 'paused') {
+                                showToast('Client access is paused. Resume access to preview.', {
+                                    duration: 3500,
+                                });
+                                return;
+                            }
+                            openSmartAlbumPreview(albumId, bookPage);
+                        }}
                     >
                         Preview
                     </button>
                     <div className="ae-share-wrap" ref={shareRef}>
                         <button
                             type="button"
-                            className={`ae-btn-toolbar ae-btn-share${showShareMenu ? ' ae-btn-toolbar--open' : ''}`}
+                            className={`ae-btn-toolbar ae-btn-share${
+                                showShareMenu ? ' ae-btn-toolbar--open' : ''
+                            }${shareMode === 'live' ? ' ae-btn-share--primary' : ''}`}
                             onClick={() => setShowShareMenu((v) => !v)}
                             aria-expanded={showShareMenu}
                         >
                             Share
                             <svg
-                                className={`ae-btn-share-chevron${showShareMenu ? ' ae-btn-share-chevron--open' : ''}`}
+                                className={`ae-btn-share-chevron${
+                                    showShareMenu ? ' ae-btn-share-chevron--open' : ''
+                                }`}
                                 xmlns="http://www.w3.org/2000/svg"
                                 width="12"
                                 height="12"
@@ -2148,74 +2194,14 @@ export default function AlbumEditor({
                                 <polyline points="6 9 12 15 18 9" />
                             </svg>
                         </button>
-                        {showShareMenu && (
-                            <div className="ae-share-dropdown" role="menu">
-                                <button
-                                    type="button"
-                                    className="ae-share-dropdown-item"
-                                    role="menuitem"
-                                    onClick={() => {
-                                        setShowShareMenu(false);
-                                        openShareByEmail(
-                                            getSmartAlbumPreviewShareUrl(album),
-                                            album.name || 'Album preview'
-                                        );
-                                    }}
-                                >
-                                    <span className="ae-share-dropdown-icon" aria-hidden>
-                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                                            <rect x="3" y="5" width="18" height="14" rx="2" />
-                                            <path d="M3 7l9 6 9-6" />
-                                        </svg>
-                                    </span>
-                                    <span>Email</span>
-                                </button>
-                                <button
-                                    type="button"
-                                    className="ae-share-dropdown-item"
-                                    role="menuitem"
-                                    onClick={async () => {
-                                        setShowShareMenu(false);
-                                        try {
-                                            await navigator.clipboard.writeText(
-                                                getSmartAlbumPreviewShareUrl(album)
-                                            );
-                                            showToast('Link copied to clipboard');
-                                        } catch (err) {
-                                            console.error(err);
-                                            setShareLinkOpen(true);
-                                        }
-                                    }}
-                                >
-                                    <span className="ae-share-dropdown-icon" aria-hidden>
-                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                                            <path d="M10 13a5 5 0 0 0 7.54.54l2.92-2.92a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-                                            <path d="M14 11a5 5 0 0 0-7.54-.54L3.54 13.38a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-                                        </svg>
-                                    </span>
-                                    <span>Copy Link</span>
-                                </button>
-                                <button
-                                    type="button"
-                                    className="ae-share-dropdown-item"
-                                    role="menuitem"
-                                    onClick={() => {
-                                        setShowShareMenu(false);
-                                        openWhatsAppShare(
-                                            getSmartAlbumPreviewShareUrl(album),
-                                            album.name || 'Album preview'
-                                        );
-                                    }}
-                                >
-                                    <span className="ae-share-dropdown-icon" aria-hidden>
-                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                                            <path d="M7.5 5.75h9a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2h-5.2L7.5 18.75v-3.5a2 2 0 0 1-2-2V7.75a2 2 0 0 1 2-2z" />
-                                        </svg>
-                                    </span>
-                                    <span>WhatsApp</span>
-                                </button>
-                            </div>
-                        )}
+                        <AlbumSharePublishMenu
+                            open={showShareMenu}
+                            onOpenChange={setShowShareMenu}
+                            album={album}
+                            photographerId={user?.id}
+                            onAlbumUpdated={onAlbumUpdate}
+                            showToast={showToast}
+                        />
                     </div>
                 </div>
             </header>
@@ -2328,6 +2314,7 @@ export default function AlbumEditor({
                     coverTextMessage={coverTextMessage}
                     onSaveCoverText={handleSaveCoverText}
                     onUploadCoverFile={handleUploadCoverFile}
+                    onRemoveCoverPhotos={handleRemoveCoverPhotos}
                     workspaceRevision={layoutRevision}
                 />
             </div>

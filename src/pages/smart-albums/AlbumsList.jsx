@@ -301,6 +301,14 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
         if (!user?.id || !editAlbum) return;
         setEditSaving(true);
         try {
+            const nameExists = albums.some(
+                (a) => a.id !== editAlbum.id && a.name.trim().toLowerCase() === payload.name.trim().toLowerCase()
+            );
+            if (nameExists) {
+                alert('An album with this name already exists.');
+                setEditSaving(false);
+                return;
+            }
             const updated = await smartAlbumsService.updateAlbumDetails(user.id, editAlbum.id, payload);
             setAlbums((prev) => prev.map((a) => (a.id === updated.id ? { ...a, ...updated } : a)));
             setEditAlbum(null);
@@ -312,6 +320,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
         }
     };
 
+
     const renderContextMenu = (album) => {
         if (contextMenuId !== album.id) return null;
         return (
@@ -320,6 +329,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                 anchorEl={contextMenuAnchor}
                 onPreview={() => {
                     closeContextMenu();
+                    if (album?.share_link_enabled === false) return;
                     openSmartAlbumPreview(album.id);
                 }}
                 onQuickEdit={() => handleQuickEdit(album)}
@@ -609,6 +619,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                 }}
                 onPreview={() => {
                     if (settingsAlbum) {
+                        if (settingsAlbum.share_link_enabled === false) return;
                         openSmartAlbumPreview(settingsAlbum.id);
                         setSettingsAlbum(null);
                     }
