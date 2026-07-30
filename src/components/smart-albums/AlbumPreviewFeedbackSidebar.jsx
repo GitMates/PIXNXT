@@ -225,16 +225,6 @@ function FeedbackCompose({
         return 'Add a comment...';
     }, [canAttachImage, canRecordVoice]);
 
-    const handleComposeInteract = useCallback(
-        (event) => {
-            if (!ensureCanLeaveFeedback()) {
-                event.preventDefault();
-                event.currentTarget.blur();
-            }
-        },
-        [ensureCanLeaveFeedback]
-    );
-
     const handlePickAttachment = useCallback(() => {
         if (!commentsEnabled || saving || preparingAttachment || recording || preparingVoice) return;
         if (!canAttachImage) {
@@ -428,8 +418,6 @@ function FeedbackCompose({
                     value={draft}
                     disabled={disabled}
                     onChange={(e) => setDraft(e.target.value)}
-                    onFocus={handleComposeInteract}
-                    onPointerDown={handleComposeInteract}
                     onKeyDown={handleKeyDown}
                     aria-label="Add feedback for this spread"
                 />

@@ -2,17 +2,21 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Check, Copy, RefreshCw } from 'lucide-react';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
 import { smartAlbumProoferSettingsService } from '../../services/smartAlbumProoferSettings.service';
+import { isAlbumClientApproved } from '../../services/albumProof.service';
 import './AlbumEditorSettings.css';
 
-function SettingsToggle({ on, onChange, label }) {
+function SettingsToggle({ on, onChange, label, disabled = false }) {
     return (
         <button
             type="button"
             role="switch"
             aria-checked={on}
             aria-label={label}
+            disabled={disabled}
             onClick={onChange}
-            className={`ae-settings-toggle ${on ? 'ae-settings-toggle--on' : 'ae-settings-toggle--off'}`}
+            className={`ae-settings-toggle ${on ? 'ae-settings-toggle--on' : 'ae-settings-toggle--off'}${
+                disabled ? ' ae-settings-toggle--disabled' : ''
+            }`}
         >
             <span className="ae-settings-toggle__knob" />
         </button>
@@ -29,7 +33,6 @@ export default function AlbumEditorSettingsPanel({
     const [pinCopied, setPinCopied] = useState(false);
     const [notification, setNotification] = useState('');
 
-    const [requireName, setRequireName] = useState(false);
     const [maxSwaps, setMaxSwaps] = useState(5);
     const [allowExternal, setAllowExternal] = useState(false);
     const [allowVoice, setAllowVoice] = useState(true);
@@ -39,6 +42,7 @@ export default function AlbumEditorSettingsPanel({
 
     const [allowComments, setAllowComments] = useState(true);
     const [allowSwaps, setAllowSwaps] = useState(true);
+    const feedbackLocked = isAlbumClientApproved(album, albumId);
 
     const saveTimerRef = useRef(null);
     const skipSaveRef = useRef(true);
@@ -65,18 +69,18 @@ export default function AlbumEditorSettingsPanel({
                 if (cancelled) return;
 
                 globalDefaultsRef.current = defaults;
-                setRequireName(proofer.requireNameForComments);
+                const locked = isAlbumClientApproved(album, albumId);
                 setMaxSwaps(proofer.maxFreeSwaps);
-                setAllowExternal(proofer.allowExternalUploads);
-                setAllowVoice(proofer.allowVoiceRecordings !== false);
+                setAllowExternal(locked ? false : proofer.allowExternalUploads);
+                setAllowVoice(locked ? false : proofer.allowVoiceRecordings !== false);
 
                 const pin = proofer.approvalPin || '';
                 setApprovalPin(pin);
                 setRequireVerification(Boolean(pin) || defaults.requireApprovalPin);
 
                 setSendReminders(proofer.sendReminderEmails);
-                setAllowComments(album?.comments_enabled !== false);
-                setAllowSwaps(album?.messages_enabled !== false);
+                setAllowComments(locked ? false : album?.comments_enabled !== false);
+                setAllowSwaps(locked ? false : album?.messages_enabled !== false);
                 skipSaveRef.current = true;
             } catch (err) {
                 console.error(err);
@@ -88,16 +92,31 @@ export default function AlbumEditorSettingsPanel({
         return () => {
             cancelled = true;
         };
-    }, [photographerId, albumId, album?.id]);
+    }, [photographerId, albumId, album?.id, album?.client_approved_at]);
 
     useEffect(() => {
         if (loading || !album) return;
+        if (isAlbumClientApproved(album, albumId)) {
+            setAllowComments(false);
+            setAllowSwaps(false);
+            setAllowExternal(false);
+            setAllowVoice(false);
+            return;
+        }
         setAllowComments(album.comments_enabled !== false);
         setAllowSwaps(album.messages_enabled !== false);
-    }, [loading, album?.comments_enabled, album?.messages_enabled]);
+    }, [
+        loading,
+        album,
+        albumId,
+        album?.comments_enabled,
+        album?.messages_enabled,
+        album?.client_approved_at,
+    ]);
 
     const persist = useCallback(async () => {
         if (!photographerId || !albumId) return;
+        if (isAlbumClientApproved(album, albumId)) return;
 
         try {
             const nextPin = requireVerification
@@ -105,7 +124,7 @@ export default function AlbumEditorSettingsPanel({
                 : '';
 
             const prooferPatch = {
-                requireNameForComments: requireName,
+                requireNameForComments: true,
                 maxFreeSwaps: maxSwaps,
                 allowExternalUploads: allowExternal,
                 allowVoiceRecordings: allowVoice,
@@ -154,7 +173,6 @@ export default function AlbumEditorSettingsPanel({
         photographerId,
         albumId,
         album,
-        requireName,
         maxSwaps,
         allowExternal,
         allowVoice,
@@ -182,7 +200,6 @@ export default function AlbumEditorSettingsPanel({
         };
     }, [
         loading,
-        requireName,
         maxSwaps,
         allowExternal,
         allowVoice,
@@ -234,6 +251,12 @@ export default function AlbumEditorSettingsPanel({
 
                 <section className="ae-settings-section">
                     <p className="ae-settings-section__label">Feedback</p>
+                    {feedbackLocked ? (
+                        <p className="ae-settings-field__desc" style={{ marginBottom: 12 }}>
+                            Client approved this album — comments, swaps, voice notes, and image
+                            attachments are turned off.
+                        </p>
+                    ) : null}
 
                     <div className="ae-settings-row">
                         <div className="ae-settings-row__text">
@@ -244,6 +267,7 @@ export default function AlbumEditorSettingsPanel({
                         </div>
                         <SettingsToggle
                             on={allowComments}
+                            disabled={feedbackLocked}
                             onChange={() => setAllowComments((v) => !v)}
                             label="Allow comments"
                         />
@@ -253,19 +277,6 @@ export default function AlbumEditorSettingsPanel({
                         <div className="ae-settings-nested">
                             <div className="ae-settings-row">
                                 <div className="ae-settings-row__text">
-                                    <p className="ae-settings-field__title">Require name</p>
-                                    <p className="ae-settings-field__desc">
-                                        Identify who is leaving feedback
-                                    </p>
-                                </div>
-                                <SettingsToggle
-                                    on={requireName}
-                                    onChange={() => setRequireName((v) => !v)}
-                                    label="Require name"
-                                />
-                            </div>
-                            <div className="ae-settings-row">
-                                <div className="ae-settings-row__text">
                                     <p className="ae-settings-field__title">Voice notes</p>
                                     <p className="ae-settings-field__desc">
                                         Clients can record voice messages
@@ -273,6 +284,7 @@ export default function AlbumEditorSettingsPanel({
                                 </div>
                                 <SettingsToggle
                                     on={allowVoice}
+                                    disabled={feedbackLocked}
                                     onChange={() => setAllowVoice((v) => !v)}
                                     label="Voice notes"
                                 />
@@ -286,6 +298,7 @@ export default function AlbumEditorSettingsPanel({
                                 </div>
                                 <SettingsToggle
                                     on={allowExternal}
+                                    disabled={feedbackLocked}
                                     onChange={() => setAllowExternal((v) => !v)}
                                     label="Image attachments"
                                 />
@@ -302,6 +315,7 @@ export default function AlbumEditorSettingsPanel({
                         </div>
                         <SettingsToggle
                             on={allowSwaps}
+                            disabled={feedbackLocked}
                             onChange={() => setAllowSwaps((v) => !v)}
                             label="Allow swaps"
                         />

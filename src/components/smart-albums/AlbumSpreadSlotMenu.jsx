@@ -142,7 +142,7 @@ export default function AlbumSpreadSlotMenu({
                                 <strong>
                                     {uploadBusy
                                         ? 'Uploading…'
-                                        : 'Upload new photo for this spread'}
+                                        : 'Replace photo for this spread'}
                                 </strong>
                                 <small>Replaces the photo on the spread you are viewing</small>
                             </span>

@@ -194,7 +194,7 @@ function surfaceCacheKey(coverColorId, { spine = false, title = '', aspect = 1 }
 }
 
 export function getLeatherPanelDataUrl(
-    coverColorId = 'sky',
+    coverColorId = 'turquoise',
     { spine = false, title = '', aspect = 1, width = 1024, height = null } = {}
 ) {
     const texH = height || Math.max(320, Math.round(width / (aspect > 0 ? aspect : 1)));

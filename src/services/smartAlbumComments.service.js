@@ -961,15 +961,27 @@ export const smartAlbumCommentsService = {
         });
     },
 
-    async getAlbumPublic(albumId) {
-        const { data, error } = await supabase
+    async getAlbumPublic(albumIdOrSlug) {
+        const key = String(albumIdOrSlug || '').trim();
+        if (!key) return null;
+
+        const byId = await supabase
             .from('smart_albums')
             .select('*')
-            .eq('id', albumId)
+            .eq('id', key)
             .maybeSingle();
 
-        if (error) throw error;
-        return data;
+        if (byId.error) throw byId.error;
+        if (byId.data) return byId.data;
+
+        const bySlug = await supabase
+            .from('smart_albums')
+            .select('*')
+            .eq('slug', key)
+            .maybeSingle();
+
+        if (bySlug.error) throw bySlug.error;
+        return bySlug.data;
     },
 
     async notifyPhotographerAlbumComments({

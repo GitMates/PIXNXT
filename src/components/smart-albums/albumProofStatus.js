@@ -2,6 +2,7 @@ import {
     getAlbumApprovedAt,
     getAlbumChangesSubmittedAt,
     albumHasClientCommentingStartedNotified,
+    isAlbumClientApproved,
 } from '../../services/albumProof.service';
 import { countClientRootComments } from '../../services/smartAlbumComments.service';
 
@@ -13,6 +14,8 @@ export function notifyAlbumProofStatusChanged(albumId) {
         new CustomEvent(ALBUM_PROOF_STATUS_CHANGED_EVENT, { detail: { albumId } })
     );
 }
+
+export { isAlbumClientApproved };
 
 function pickLatestTimestamp(...values) {
     let latest = null;

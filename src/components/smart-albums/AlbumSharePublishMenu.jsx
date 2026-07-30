@@ -68,8 +68,12 @@ export default function AlbumSharePublishMenu({
     const rootRef = useRef(null);
     const saveTimerRef = useRef(null);
     const skipSaveRef = useRef(true);
+    const dirtyRef = useRef(false);
     const loadedAlbumIdRef = useRef(null);
     const messageTouchedRef = useRef(false);
+    const accessLevelRef = useRef('public');
+    const albumPasswordRef = useRef('');
+    const privateShareTokenRef = useRef('');
 
     const mode = getPublishMode(album);
 
@@ -83,6 +87,10 @@ export default function AlbumSharePublishMenu({
     const [accessLevel, setAccessLevel] = useState('public');
     const [albumPassword, setAlbumPassword] = useState('');
     const [privateShareToken, setPrivateShareToken] = useState('');
+
+    accessLevelRef.current = accessLevel;
+    albumPasswordRef.current = albumPassword;
+    privateShareTokenRef.current = privateShareToken;
 
     const shareDisplayUrl = useMemo(
         () => getAlbumShareDisplayUrl(album, { accessLevel, privateShareToken }),
@@ -113,10 +121,11 @@ export default function AlbumSharePublishMenu({
         let cancelled = false;
         (async () => {
             try {
+                // Always read from DB/cache — do not trust a possibly stale album prop.
                 const proofer = await smartAlbumProoferSettingsService.loadAlbumSettings(
                     photographerId,
                     albumId,
-                    album
+                    null
                 );
                 if (cancelled) return;
 
@@ -138,6 +147,7 @@ export default function AlbumSharePublishMenu({
                 }
 
                 loadedAlbumIdRef.current = albumId;
+                dirtyRef.current = false;
                 skipSaveRef.current = true;
             } catch (err) {
                 console.error(err);
@@ -157,18 +167,83 @@ export default function AlbumSharePublishMenu({
         setShareMessage(buildDefaultShareMessage(album, shareDisplayUrl));
     }, [open, album, shareDisplayUrl]);
 
+    const persistSettings = useCallback(async () => {
+        if (!photographerId || !albumId) return false;
+        const nextAccess = accessLevelRef.current;
+        const nextPassword = albumPasswordRef.current;
+        const nextToken = privateShareTokenRef.current;
+        try {
+            const prooferPatch = {
+                accessLevel: nextAccess,
+                albumPassword: nextAccess === 'password' ? nextPassword : '',
+                privateShareToken: nextToken,
+            };
+
+            await smartAlbumProoferSettingsService.saveAlbumSettings(
+                photographerId,
+                albumId,
+                prooferPatch,
+                { album: null }
+            );
+            const refreshed = await smartAlbumsService.getAlbum(photographerId, albumId);
+            const merged = refreshed || {
+                ...album,
+                proofer_settings: {
+                    ...(album?.proofer_settings || {}),
+                    access_level: nextAccess,
+                    album_password: nextAccess === 'password' ? nextPassword : '',
+                    private_share_token: nextToken,
+                },
+            };
+            await smartAlbumsService.syncAlbumPreviewProoferSettings(
+                photographerId,
+                albumId,
+                merged
+            );
+            dirtyRef.current = false;
+            onAlbumUpdated?.(merged);
+            return true;
+        } catch (err) {
+            console.error(err);
+            showToast?.('Could not save share settings.', { variant: 'error', duration: 3500 });
+            return false;
+        }
+    }, [photographerId, albumId, album, onAlbumUpdated, showToast]);
+
+    const flushPersist = useCallback(async () => {
+        if (saveTimerRef.current) {
+            clearTimeout(saveTimerRef.current);
+            saveTimerRef.current = null;
+        }
+        if (!dirtyRef.current) return true;
+        return persistSettings();
+    }, [persistSettings]);
+
+    const closePanel = useCallback(async () => {
+        await flushPersist();
+        onOpenChange(false);
+        setPauseConfirm(false);
+    }, [flushPersist, onOpenChange]);
+
+    // If the parent closes the menu without closePanel(), still flush pending edits.
+    useEffect(() => {
+        if (open) return undefined;
+        if (!dirtyRef.current) return undefined;
+        void flushPersist();
+        return undefined;
+    }, [open, flushPersist]);
+
     useEffect(() => {
         if (!open) return undefined;
         const onPointer = (e) => {
             if (e.target.closest?.('.ae-share-wrap')) return;
             if (e.target.closest?.('.ae-settings-select-options')) return;
-            onOpenChange(false);
-            setPauseConfirm(false);
+            void closePanel();
         };
         const onKey = (e) => {
             if (e.key === 'Escape') {
                 if (pauseConfirm) setPauseConfirm(false);
-                else onOpenChange(false);
+                else void closePanel();
             }
         };
         document.addEventListener('mousedown', onPointer);
@@ -177,59 +252,67 @@ export default function AlbumSharePublishMenu({
             document.removeEventListener('mousedown', onPointer);
             document.removeEventListener('keydown', onKey);
         };
-    }, [open, onOpenChange, pauseConfirm]);
-
-    const persistSettings = useCallback(async () => {
-        if (!photographerId || !albumId) return;
-        try {
-            const prooferPatch = {
-                accessLevel,
-                albumPassword: accessLevel === 'password' ? albumPassword : '',
-                privateShareToken,
-            };
-
-            await smartAlbumProoferSettingsService.saveAlbumSettings(
-                photographerId,
-                albumId,
-                prooferPatch,
-                { album }
-            );
-            const refreshed = await smartAlbumsService.getAlbum(photographerId, albumId);
-            const merged = refreshed || album;
-            await smartAlbumsService.syncAlbumPreviewProoferSettings(
-                photographerId,
-                albumId,
-                merged
-            );
-            onAlbumUpdated?.(merged);
-        } catch (err) {
-            console.error(err);
-            showToast?.('Could not save share settings.', { variant: 'error', duration: 3500 });
-        }
-    }, [
-        photographerId,
-        albumId,
-        album,
-        accessLevel,
-        albumPassword,
-        privateShareToken,
-        onAlbumUpdated,
-        showToast,
-    ]);
+    }, [open, closePanel, pauseConfirm]);
 
     useEffect(() => {
         if (!open || !ready || skipSaveRef.current) {
-            skipSaveRef.current = false;
+            if (skipSaveRef.current && ready) skipSaveRef.current = false;
             return undefined;
         }
+        // Only debounce-save when the user actually changed settings.
+        if (!dirtyRef.current) return undefined;
+
         if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
         saveTimerRef.current = window.setTimeout(() => {
+            saveTimerRef.current = null;
             void persistSettings();
-        }, 600);
+        }, 400);
         return () => {
-            if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+            if (saveTimerRef.current) {
+                clearTimeout(saveTimerRef.current);
+                saveTimerRef.current = null;
+            }
         };
     }, [open, ready, accessLevel, albumPassword, persistSettings]);
+
+    const handleAccessChange = (nextLevel) => {
+        dirtyRef.current = true;
+        skipSaveRef.current = false;
+        accessLevelRef.current = nextLevel;
+        setAccessLevel(nextLevel);
+        // Persist access mode immediately so "Password protected" sticks even before typing.
+        if (saveTimerRef.current) {
+            clearTimeout(saveTimerRef.current);
+            saveTimerRef.current = null;
+        }
+        void persistSettings();
+    };
+
+    const handlePasswordChange = (value) => {
+        dirtyRef.current = true;
+        skipSaveRef.current = false;
+        albumPasswordRef.current = value;
+        setAlbumPassword(value);
+    };
+
+    const handlePasswordKeyDown = (event) => {
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        event.stopPropagation();
+        const input = event.currentTarget;
+        void (async () => {
+            const ok = await flushPersist();
+            // Move focus out of the password field after save.
+            input?.blur();
+            if (ok) {
+                showToast?.('Share settings saved.', { variant: 'success', duration: 2500 });
+            }
+        })();
+    };
+
+    const handlePasswordBlur = () => {
+        if (dirtyRef.current) void flushPersist();
+    };
 
     const accessHint =
         ACCESS_OPTIONS.find((o) => o.value === accessLevel)?.description ||
@@ -243,6 +326,7 @@ export default function AlbumSharePublishMenu({
               : 'Copies the client link to your clipboard.';
 
     const handleCopyLink = async () => {
+        await flushPersist();
         try {
             await navigator.clipboard.writeText(shareCopyUrl);
             setCopied(true);
@@ -255,6 +339,7 @@ export default function AlbumSharePublishMenu({
     };
 
     const runShareChannel = (channelId) => {
+        void flushPersist();
         const text =
             (shareMessage || '').trim() || buildDefaultShareMessage(album, shareDisplayUrl);
         if (channelId === 'whatsapp') {
@@ -282,7 +367,8 @@ export default function AlbumSharePublishMenu({
         if (!photographerId || !albumId || busy) return;
         setBusy(true);
         try {
-            await persistSettings();
+            dirtyRef.current = true;
+            await flushPersist();
             const updated = await smartAlbumsService.updateAlbumClientSettings(
                 photographerId,
                 albumId,
@@ -366,7 +452,7 @@ export default function AlbumSharePublishMenu({
             <AeSettingsSelect
                 id="ae-share-access-live"
                 value={accessLevel}
-                onChange={setAccessLevel}
+                onChange={handleAccessChange}
                 options={ACCESS_OPTIONS}
             />
             <p className="ae-share-hint ae-share-hint--serif">{accessHint}</p>
@@ -375,8 +461,11 @@ export default function AlbumSharePublishMenu({
                     type="password"
                     className="ae-share-input"
                     value={albumPassword}
-                    onChange={(e) => setAlbumPassword(e.target.value)}
+                    onChange={(e) => handlePasswordChange(e.target.value)}
+                    onKeyDown={handlePasswordKeyDown}
+                    onBlur={handlePasswordBlur}
                     placeholder="Set album password"
+                    autoComplete="new-password"
                 />
             ) : null}
 
@@ -500,7 +589,7 @@ export default function AlbumSharePublishMenu({
                         <AeSettingsSelect
                             id="ae-share-access-draft"
                             value={accessLevel}
-                            onChange={setAccessLevel}
+                            onChange={handleAccessChange}
                             options={ACCESS_OPTIONS}
                         />
                         {accessLevel === 'password' ? (
@@ -508,8 +597,11 @@ export default function AlbumSharePublishMenu({
                                 type="password"
                                 className="ae-share-input"
                                 value={albumPassword}
-                                onChange={(e) => setAlbumPassword(e.target.value)}
+                                onChange={(e) => handlePasswordChange(e.target.value)}
+                                onKeyDown={handlePasswordKeyDown}
+                                onBlur={handlePasswordBlur}
                                 placeholder="Set album password"
+                                autoComplete="new-password"
                             />
                         ) : null}
 

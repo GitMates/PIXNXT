@@ -401,6 +401,11 @@
   transform: translateX(18px);
 }
 
+.ae-settings-toggle--disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .ae-settings-subsection {
   margin-top: 22px;
   padding-top: 18px;

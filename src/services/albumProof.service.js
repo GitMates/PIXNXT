@@ -27,6 +27,13 @@ export function getAlbumApprovedAt(albumId) {
     return readMap(APPROVED_KEY)[albumId] || null;
 }
 
+/** True when the client has signed off (server row or local approve mark). */
+export function isAlbumClientApproved(album, albumId = album?.id) {
+    if (album?.client_approved_at) return true;
+    if (albumId && getAlbumApprovedAt(albumId)) return true;
+    return false;
+}
+
 export function getAlbumChangesSubmittedAt(albumId) {
     if (!albumId) return null;
     return readMap(SUBMITTED_KEY)[albumId] || null;
