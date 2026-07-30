@@ -105,7 +105,7 @@ export function getAlbumIdsWithLocalAssets() {
 function resolvePageValue(albumId, stored) {
     if (!stored) return null;
     if (typeof stored === 'string') return stored;
-    if (stored.dataUrl) return stored.dataUrl;
+    // Prefer live collection item so cover/photo replace does not re-embed a stale URL.
     if (stored.collectionItemId) {
         const item = getAlbumCollection(albumId).find((i) => i.id === stored.collectionItemId);
         if (item?.dataUrl) {
@@ -113,6 +113,7 @@ function resolvePageValue(albumId, stored) {
         }
         return { collectionItemId: stored.collectionItemId };
     }
+    if (stored.dataUrl) return stored.dataUrl;
     return stored;
 }
 

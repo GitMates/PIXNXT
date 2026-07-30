@@ -38,6 +38,7 @@ import {
     clearCollectionItemPlacements,
     getAlbumPhotoRevision,
     getSlotPlacementCollectionItemId,
+    getSpreadPlacementCollectionItemId,
     getSpreadPhotoOverride,
     migrateBackCoverUsesBookWrap,
     migrateEndHalfSpreadToLeftPage,
@@ -1184,12 +1185,14 @@ export default function AlbumEditor({
             });
             const file = files[0];
             const compressionTarget = getSlotUploadPixelTarget(album, slot, { coverWrap });
+            // Cover wrap replace must delete the previous R2 object so old wraps cannot resurface.
+            const retainPreviousStorage = !coverWrap;
 
             if (previousItemId && file && !isPdfFile(file) && (isImageFile(file) || (await probeImageFile(file)))) {
                 const replaced = await replaceCollectionItemFile(albumId, previousItemId, file, {
                     photographerId,
                     compressionTarget,
-                    retainPreviousStorage: true,
+                    retainPreviousStorage,
                 });
                 if (replaced) return replaced;
             }
@@ -1204,7 +1207,9 @@ export default function AlbumEditor({
             const replacementItem = added[0] || added.duplicateItems?.[0];
             if (previousItemId && replacementItem?.id && previousItemId !== replacementItem.id) {
                 clearCollectionItemPlacements(albumId, previousItemId);
-                await deleteCollectionItemAsset(albumId, previousItemId, { retainStorage: true });
+                await deleteCollectionItemAsset(albumId, previousItemId, {
+                    retainStorage: retainPreviousStorage,
+                });
             }
             return replacementItem;
         },
@@ -1240,13 +1245,36 @@ export default function AlbumEditor({
                 if (placeCollectionItemOnSlot(slot, replacementItem.id, before)) {
                     scheduleWorkspaceRefresh();
                     if (isCoverSlot) {
+                        // Drop any orphaned cover-wrap items left behind by older upload paths.
+                        const keepId = replacementItem.id;
+                        const orphans = getAlbumCollection(albumId).filter(
+                            (item) => isCoverWrapCollectionItem(item) && item.id !== keepId
+                        );
+                        for (const orphan of orphans) {
+                            clearCollectionItemPlacements(albumId, orphan.id);
+                            try {
+                                await deleteCollectionItemAsset(albumId, orphan.id, {
+                                    retainStorage: false,
+                                });
+                            } catch (err) {
+                                console.warn('Could not delete orphaned cover wrap from R2:', err);
+                            }
+                        }
                         clearWrapSegmentCache();
                         clearWrapImageCache();
                         clearAlbumSpineBoundsOverride(albumId);
                         if (getAlbumCoverText(albumId)) {
                             setAlbumCoverText(albumId, '');
                         }
+                        setCollectionRevision(getAlbumCollectionRevision(albumId));
                         keepCoverEditorActive();
+                        if (user?.id) {
+                            try {
+                                await smartAlbumsService.syncAlbumPreviewData(user.id, albumId);
+                            } catch (err) {
+                                console.warn('Could not sync album preview after cover upload:', err);
+                            }
+                        }
                         showToast('Cover image updated.', { variant: 'success', duration: 3500 });
                     } else {
                         showToast('Photo updated.', { variant: 'success', duration: 3500 });
@@ -1321,12 +1349,34 @@ export default function AlbumEditor({
     ]);
 
     const handleRemoveCoverPhotos = useCallback(async () => {
-        if (
-            clearSpreadPhotos(albumId, 0, totalPages, 'whole', {
-                gridLayout: album?.grid_layout,
-                spreadOpts,
-            })
-        ) {
+        const placementId = getSpreadPlacementCollectionItemId(albumId, 0);
+        const coverWrapIds = new Set(
+            getAlbumCollection(albumId)
+                .filter((item) => isCoverWrapCollectionItem(item))
+                .map((item) => item.id)
+        );
+        if (placementId) coverWrapIds.add(placementId);
+
+        const cleared = clearSpreadPhotos(albumId, 0, totalPages, 'whole', {
+            gridLayout: album?.grid_layout,
+            spreadOpts,
+        });
+
+        for (const itemId of coverWrapIds) {
+            clearCollectionItemPlacements(albumId, itemId);
+            try {
+                await deleteCollectionItemAsset(albumId, itemId, { retainStorage: false });
+            } catch (err) {
+                console.warn('Could not delete cover wrap from R2:', err);
+            }
+        }
+
+        clearWrapSegmentCache();
+        clearWrapImageCache();
+        clearAlbumSpineBoundsOverride(albumId);
+        setCollectionRevision(getAlbumCollectionRevision(albumId));
+
+        if (cleared || coverWrapIds.size > 0) {
             scheduleWorkspaceRefresh();
             if (user?.id) {
                 try {
@@ -1337,7 +1387,15 @@ export default function AlbumEditor({
             }
             showToast('Cover photos removed.', { duration: 3500 });
         }
-    }, [albumId, album?.grid_layout, totalPages, spreadOpts, scheduleWorkspaceRefresh, showToast, user?.id]);
+    }, [
+        albumId,
+        album?.grid_layout,
+        totalPages,
+        spreadOpts,
+        scheduleWorkspaceRefresh,
+        showToast,
+        user?.id,
+    ]);
 
     const handleOpenSwapModal = useCallback(() => {
         if (slotMenu?.slot) setSwapExecuteOrigin(slotMenu.slot);
@@ -1627,10 +1685,20 @@ export default function AlbumEditor({
                     setCollectionRevision(getAlbumCollectionRevision(albumId));
                     scheduleWorkspaceRefresh();
                     if (isCoverSlot) {
+                        clearWrapSegmentCache();
+                        clearWrapImageCache();
+                        clearAlbumSpineBoundsOverride(albumId);
                         if (getAlbumCoverText(albumId)) {
                             setAlbumCoverText(albumId, '');
                         }
                         keepCoverEditorActive();
+                        if (user?.id) {
+                            try {
+                                await smartAlbumsService.syncAlbumPreviewData(user.id, albumId);
+                            } catch (err) {
+                                console.warn('Could not sync album preview after cover upload:', err);
+                            }
+                        }
                     }
                     showToast(
                         isCoverSlot

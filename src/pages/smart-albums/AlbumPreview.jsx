@@ -143,6 +143,7 @@ export default function AlbumPreview({
         (message, code) => {
             if (code === 'name-required') {
                 setGuestNamePromptOpen(true);
+                return;
             }
             showToast(message, { variant: 'warning', duration: 4500 });
         },

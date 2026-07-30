@@ -955,7 +955,7 @@ export const smartAlbumsService = {
 
       grid_layout,
 
-      status: 'published',
+      status: 'draft',
 
     };
 

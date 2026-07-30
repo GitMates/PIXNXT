@@ -30,21 +30,6 @@ const SHARE_CHANNELS = [
     { id: 'copy', label: 'Copy link' },
 ];
 
-function ShareToggle({ on, onChange, label }) {
-    return (
-        <button
-            type="button"
-            role="switch"
-            aria-checked={on}
-            aria-label={label}
-            onClick={onChange}
-            className={`ae-share-toggle ${on ? 'ae-share-toggle--on' : 'ae-share-toggle--off'}`}
-        >
-            <span className="ae-share-toggle__knob" />
-        </button>
-    );
-}
-
 function getPublishMode(album) {
     if (album?.status !== 'published') return 'draft';
     if (album?.share_link_enabled === false) return 'paused';
@@ -98,11 +83,6 @@ export default function AlbumSharePublishMenu({
     const [accessLevel, setAccessLevel] = useState('public');
     const [albumPassword, setAlbumPassword] = useState('');
     const [privateShareToken, setPrivateShareToken] = useState('');
-    const [requireName, setRequireName] = useState(true);
-    const [allowVoice, setAllowVoice] = useState(true);
-    const [allowExternal, setAllowExternal] = useState(false);
-    const [allowSwaps, setAllowSwaps] = useState(true);
-    const [maxSwaps, setMaxSwaps] = useState(1000);
 
     const shareDisplayUrl = useMemo(
         () => getAlbumShareDisplayUrl(album, { accessLevel, privateShareToken }),
@@ -148,11 +128,6 @@ export default function AlbumSharePublishMenu({
                 setAccessLevel(nextLevel);
                 setAlbumPassword(proofer.albumPassword || '');
                 setPrivateShareToken(proofer.privateShareToken || '');
-                setRequireName(proofer.requireNameForComments !== false);
-                setAllowVoice(proofer.allowVoiceRecordings !== false);
-                setAllowExternal(Boolean(proofer.allowExternalUploads));
-                setAllowSwaps(album?.messages_enabled !== false);
-                setMaxSwaps(proofer.maxFreeSwaps ?? 1000);
 
                 if (!messageTouchedRef.current) {
                     const url = getAlbumShareDisplayUrl(album, {
@@ -211,28 +186,16 @@ export default function AlbumSharePublishMenu({
                 accessLevel,
                 albumPassword: accessLevel === 'password' ? albumPassword : '',
                 privateShareToken,
-                requireNameForComments: requireName,
-                maxFreeSwaps: maxSwaps,
-                allowExternalUploads: allowExternal,
-                allowVoiceRecordings: allowVoice,
-            };
-            const clientPatch = {
-                messages_enabled: allowSwaps,
             };
 
             await smartAlbumProoferSettingsService.saveAlbumSettings(
                 photographerId,
                 albumId,
                 prooferPatch,
-                { album, clientPatch }
-            );
-            await smartAlbumsService.updateAlbumClientSettings(
-                photographerId,
-                albumId,
-                clientPatch
+                { album }
             );
             const refreshed = await smartAlbumsService.getAlbum(photographerId, albumId);
-            const merged = refreshed || { ...album, ...clientPatch };
+            const merged = refreshed || album;
             await smartAlbumsService.syncAlbumPreviewProoferSettings(
                 photographerId,
                 albumId,
@@ -250,11 +213,6 @@ export default function AlbumSharePublishMenu({
         accessLevel,
         albumPassword,
         privateShareToken,
-        requireName,
-        maxSwaps,
-        allowExternal,
-        allowVoice,
-        allowSwaps,
         onAlbumUpdated,
         showToast,
     ]);
@@ -271,18 +229,7 @@ export default function AlbumSharePublishMenu({
         return () => {
             if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
         };
-    }, [
-        open,
-        ready,
-        accessLevel,
-        albumPassword,
-        requireName,
-        allowVoice,
-        allowExternal,
-        allowSwaps,
-        maxSwaps,
-        persistSettings,
-    ]);
+    }, [open, ready, accessLevel, albumPassword, persistSettings]);
 
     const accessHint =
         ACCESS_OPTIONS.find((o) => o.value === accessLevel)?.description ||
@@ -331,7 +278,7 @@ export default function AlbumSharePublishMenu({
         void handleCopyLink();
     };
 
-    const handlePublishAndCopy = async () => {
+    const handlePublishAndShare = async () => {
         if (!photographerId || !albumId || busy) return;
         setBusy(true);
         try {
@@ -342,15 +289,11 @@ export default function AlbumSharePublishMenu({
                 { status: 'published', share_link_enabled: true }
             );
             onAlbumUpdated?.(updated);
-            await navigator.clipboard.writeText(
-                getAlbumShareCopyUrl(updated || album, { accessLevel, privateShareToken })
-            );
-            setCopied(true);
-            showToast?.('Album published — link copied.', {
+            showToast?.('Album published. Choose how to send the link.', {
                 variant: 'success',
                 duration: 3500,
             });
-            setTimeout(() => setCopied(false), 2000);
+            // Stay open — mode flips to live and shows the published Share panel.
         } catch (err) {
             console.error(err);
             showToast?.('Could not publish album.', { variant: 'error', duration: 4000 });
@@ -573,61 +516,15 @@ export default function AlbumSharePublishMenu({
                         <button
                             type="button"
                             className="ae-share-btn ae-share-btn--primary"
-                            onClick={() => void handlePublishAndCopy()}
+                            onClick={() => void handlePublishAndShare()}
                             disabled={busy}
                         >
-                            Publish &amp; copy link
+                            Publish &amp; share…
                         </button>
                         <p className="ae-share-footnote">
-                            Publishing creates the client link. Nothing is sent automatically.
+                            Publishing creates the client link. Nothing is sent until you choose a
+                            channel.
                         </p>
-
-                        <div className="ae-share-divider" />
-
-                        <ShareToggleRow
-                            title="Require name"
-                            desc="Identify who is leaving feedback"
-                            on={requireName}
-                            onChange={() => setRequireName((v) => !v)}
-                        />
-                        <ShareToggleRow
-                            title="Voice notes"
-                            desc="Clients can record voice messages"
-                            on={allowVoice}
-                            onChange={() => setAllowVoice((v) => !v)}
-                        />
-                        <ShareToggleRow
-                            title="Image attachments"
-                            desc="Clients can attach reference images"
-                            on={allowExternal}
-                            onChange={() => setAllowExternal((v) => !v)}
-                        />
-                        <ShareToggleRow
-                            title="Allow swaps"
-                            desc="Clients can place swap requests on photos"
-                            on={allowSwaps}
-                            onChange={() => setAllowSwaps((v) => !v)}
-                        />
-                        {allowSwaps ? (
-                            <div className="ae-share-nested">
-                                <div className="ae-share-nested__row">
-                                    <span className="ae-share-nested__label">
-                                        Free swaps included
-                                    </span>
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        className="ae-share-swaps-input"
-                                        value={maxSwaps}
-                                        onChange={(e) =>
-                                            setMaxSwaps(
-                                                Math.max(0, parseInt(e.target.value, 10) || 0)
-                                            )
-                                        }
-                                    />
-                                </div>
-                            </div>
-                        ) : null}
                     </>
                 ) : mode === 'paused' ? (
                     <>
@@ -659,18 +556,6 @@ export default function AlbumSharePublishMenu({
                     liveShareBody
                 )}
             </div>
-        </div>
-    );
-}
-
-function ShareToggleRow({ title, desc, on, onChange }) {
-    return (
-        <div className="ae-share-row">
-            <div className="ae-share-row__text">
-                <p className="ae-share-row__title">{title}</p>
-                <p className="ae-share-row__desc">{desc}</p>
-            </div>
-            <ShareToggle on={on} onChange={onChange} label={title} />
         </div>
     );
 }

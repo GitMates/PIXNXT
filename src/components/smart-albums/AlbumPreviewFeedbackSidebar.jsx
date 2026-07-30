@@ -189,6 +189,16 @@ function FeedbackCompose({
     const canAttachImage = canClientAttachImage(prooferAccess, { clientPreview });
     const canRecordVoice = canClientRecordVoice(prooferAccess, { clientPreview });
 
+    const ensureCanLeaveFeedback = useCallback(() => {
+        if (!clientPreview || !prooferAccess || !albumId) return true;
+        const guard = canClientLeaveFeedback(albumId, prooferAccess, 'comment');
+        if (!guard.ok) {
+            onBlocked?.(guard.message, guard.code);
+            return false;
+        }
+        return true;
+    }, [clientPreview, prooferAccess, albumId, onBlocked]);
+
     useEffect(() => {
         if (canAttachImage && canRecordVoice) return;
         if (!canAttachImage && pendingAttachment?.type === 'image') {
@@ -215,12 +225,23 @@ function FeedbackCompose({
         return 'Add a comment...';
     }, [canAttachImage, canRecordVoice]);
 
+    const handleComposeInteract = useCallback(
+        (event) => {
+            if (!ensureCanLeaveFeedback()) {
+                event.preventDefault();
+                event.currentTarget.blur();
+            }
+        },
+        [ensureCanLeaveFeedback]
+    );
+
     const handlePickAttachment = useCallback(() => {
         if (!commentsEnabled || saving || preparingAttachment || recording || preparingVoice) return;
         if (!canAttachImage) {
             onNotify?.('Image uploads are disabled for this album.');
             return;
         }
+        if (!ensureCanLeaveFeedback()) return;
         fileInputRef.current?.click();
     }, [
         commentsEnabled,
@@ -230,6 +251,7 @@ function FeedbackCompose({
         preparingVoice,
         canAttachImage,
         onNotify,
+        ensureCanLeaveFeedback,
     ]);
 
     const handleAttachmentSelected = useCallback(
@@ -237,6 +259,7 @@ function FeedbackCompose({
             const file = event.target.files?.[0];
             event.target.value = '';
             if (!file) return;
+            if (!ensureCanLeaveFeedback()) return;
 
             setPreparingAttachment(true);
             try {
@@ -249,7 +272,7 @@ function FeedbackCompose({
                 setPreparingAttachment(false);
             }
         },
-        [onNotify]
+        [onNotify, ensureCanLeaveFeedback]
     );
 
     const handleSend = useCallback(async () => {
@@ -266,21 +289,7 @@ function FeedbackCompose({
             return;
         }
 
-        if (clientPreview && prooferAccess) {
-            const guard = canClientLeaveFeedback(albumId, prooferAccess, 'comment');
-            if (!guard.ok) {
-                onBlocked?.(guard.message, guard.code);
-                return;
-            }
-        }
-
-        if (clientPreview && prooferAccess?.requireNameForComments) {
-            const profileName = getGuestProfile(albumId)?.name?.trim();
-            if (!profileName) {
-                onBlocked?.('Enter your name before leaving feedback.', 'name-required');
-                return;
-            }
-        }
+        if (!ensureCanLeaveFeedback()) return;
 
         const guest = resolveGuest();
         const hadFeedbackBefore = albumHadClientFeedbackBefore(albumId);
@@ -328,10 +337,8 @@ function FeedbackCompose({
         spreadIndex,
         saving,
         commentsEnabled,
-        clientPreview,
-        prooferAccess,
         resolveGuest,
-        onBlocked,
+        ensureCanLeaveFeedback,
         onSaved,
         onNotify,
         photographerId,
@@ -421,6 +428,8 @@ function FeedbackCompose({
                     value={draft}
                     disabled={disabled}
                     onChange={(e) => setDraft(e.target.value)}
+                    onFocus={handleComposeInteract}
+                    onPointerDown={handleComposeInteract}
                     onKeyDown={handleKeyDown}
                     aria-label="Add feedback for this spread"
                 />
@@ -450,6 +459,7 @@ function FeedbackCompose({
                                     onNotify?.('Voice recordings are disabled for this album.');
                                     return;
                                 }
+                                if (!recording && !ensureCanLeaveFeedback()) return;
                                 toggleRecording();
                             }}
                             aria-label={recording ? 'Stop recording' : 'Record voice message'}
