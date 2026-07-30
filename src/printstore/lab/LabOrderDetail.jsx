@@ -404,7 +404,7 @@ export default function LabOrderDetail() {
     : formattedDate;
 
   return (
-    <div style={{ padding: '32px 40px', backgroundColor: '#F9F9F7', minHeight: '100%', display: 'flex', flexDirection: 'column', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", color: '#1f2937', boxSizing: 'border-box' }}>
+    <div style={{ padding: '32px 40px', backgroundColor: '#F9F9F7', minHeight: '100%', display: 'flex', flexDirection: 'column', fontFamily: "var(--font-sans)", color: '#1f2937', boxSizing: 'border-box' }}>
       
       {/* Printable Invoice stylesheet injection */}
       <style>{`
@@ -1106,7 +1106,7 @@ export function LabQualityControlWorkspace({ order, orderItems, backPath, backLa
       minHeight: isInline ? 'auto' : '100%', 
       display: 'flex', 
       flexDirection: 'column', 
-      fontFamily: "'Inter', system-ui, -apple-system, sans-serif", 
+      fontFamily: "var(--font-sans)", 
       color: '#1e293b', 
       boxSizing: 'border-box' 
     }}>

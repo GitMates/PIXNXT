@@ -76,7 +76,7 @@ export function getAlbumProofStatus(album) {
         return { label: 'Revision requested', tone: 'revision' };
     }
     if (isAlbumAwaitingFeedback(merged)) {
-        return { label: 'Awaiting feedback', tone: 'awaiting' };
+        return { label: 'Not opened', tone: 'awaiting' };
     }
     return { label: 'Draft', tone: 'draft' };
 }
@@ -119,7 +119,7 @@ export function getAlbumProofFootnote(album, status) {
 
     if (status?.tone === 'revision' || merged.client_changes_submitted_at) {
         const spreads = clientSpreadCount || summary?.clientCommentCount || 1;
-        return `${spreads} spread${spreads === 1 ? '' : 's'} with client feedback`;
+        return `${spreads} spread${spreads === 1 ? '' : 's'} have new comments`;
     }
     if (merged.client_approved_at) {
         const by = merged.client_approved_by?.trim();

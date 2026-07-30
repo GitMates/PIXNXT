@@ -228,7 +228,7 @@ export default function LabArtworkReviewDetails() {
       position: 'absolute',
       background: 'transparent',
       fontSize: isMainWorkspace ? '10px' : '8px',
-      fontFamily: 'Inter, sans-serif',
+      fontFamily: 'Plus Jakarta Sans, system-ui, sans-serif',
       fontWeight: '600',
       letterSpacing: '0.5px',
       color: '#64748b',
@@ -1505,7 +1505,7 @@ export default function LabArtworkReviewDetails() {
   };
 
   return (
-    <div style={{ padding: '24px', backgroundColor: '#F9F9F7', minHeight: '100%', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", color: '#1e293b', boxSizing: 'border-box' }}>
+    <div style={{ padding: '24px', backgroundColor: '#F9F9F7', minHeight: '100%', fontFamily: "var(--font-sans)", color: '#1e293b', boxSizing: 'border-box' }}>
       
       {/* Back button and page title */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>

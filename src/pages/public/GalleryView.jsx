@@ -1673,7 +1673,7 @@ const GalleryView = () => {
               maxWidth: '520px',
               lineHeight: 1.5,
               margin: 0,
-              fontFamily: "'Inter', sans-serif",
+              fontFamily: "var(--font-sans)",
             }}
           >
             {subtitle}
@@ -1683,7 +1683,7 @@ const GalleryView = () => {
               fontSize: isMobileViewport ? '10px' : '11px',
               color: lb.subtitle_color || '#4a5a4b',
               fontWeight: 600,
-              fontFamily: "'Inter', sans-serif",
+              fontFamily: "var(--font-sans)",
             }}
           >
             {codeLine}
@@ -1695,7 +1695,7 @@ const GalleryView = () => {
                 fontSize: isMobileViewport ? '18px' : '22px',
                 fontWeight: 700,
                 color: timerColor,
-                fontFamily: "'Inter', sans-serif",
+                fontFamily: "var(--font-sans)",
                 letterSpacing: '0.06em',
               }}
             >
@@ -1853,7 +1853,7 @@ const GalleryView = () => {
             position: 'sticky',
             top: 0,
             zIndex: 1100,
-            fontFamily: "'Inter', sans-serif",
+            fontFamily: "var(--font-sans)",
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -2009,7 +2009,7 @@ const GalleryView = () => {
                   gap: '16px',
                   borderRadius: '8px',
                   boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-                  fontFamily: 'var(--font-heading, "Outfit", sans-serif)'
+                  fontFamily: 'var(--font-heading, var(--font-sans))'
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <span style={{ fontSize: '20px' }}>🔒</span>
@@ -2054,7 +2054,7 @@ const GalleryView = () => {
                   alignItems: 'center',
                   gap: '12px',
                   borderRadius: '8px',
-                  fontFamily: 'var(--font-heading, "Outfit", sans-serif)'
+                  fontFamily: 'var(--font-heading, var(--font-sans))'
                 }}>
                   <span style={{ fontSize: '20px' }}>✅</span>
                   <div>
@@ -2637,7 +2637,7 @@ const GalleryView = () => {
                 <X size={22} color="#666" />
               </button>
               <div style={{ textAlign: 'center', marginBottom: '28px' }}>
-                <h2 style={{ fontFamily: "'EB Garamond', serif", fontSize: '26px', fontWeight: 700, color: '#111', margin: '0 0 6px 0', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Print Lab</h2>
+                <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--t-display-md)', fontWeight: 400, color: 'var(--ink)', margin: '0 0 6px 0', letterSpacing: '-0.018em', textTransform: 'none' }}>Print Lab</h2>
                 <p style={{ fontSize: '14px', color: '#64748b', margin: 0 }}>Explore our premium collection of print products</p>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '24px', marginBottom: '28px' }}>

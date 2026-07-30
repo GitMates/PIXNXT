@@ -7,6 +7,8 @@ import {
   Settings,
   KanbanSquare,
   CalendarDays,
+  Clock3,
+  CheckCircle2,
   type LucideIcon,
 } from "lucide-react"
 
@@ -23,6 +25,8 @@ export interface ProductNavItem {
   href: string
   match: (pathname: string) => boolean
   icon: LucideIcon
+  section?: "work" | "studio"
+  countKey?: "albums" | "needsYou" | "approved"
 }
 
 export const products: Product[] = [
@@ -35,7 +39,7 @@ export const products: Product[] = [
   },
   {
     id: "smart-albums",
-    name: "Smart Albums",
+    name: "Album Proofer",
     tagline: "Album design & client proofing",
     href: "/smart-albums",
     icon: BookOpen,
@@ -91,18 +95,33 @@ export const productNavItems: Record<string, ProductNavItem[]> = {
     {
       label: "Albums",
       href: "/smart-albums",
-      match: (p) =>
-        p === "/smart-albums" ||
-        p === "/smart-albums/" ||
-        p.startsWith("/smart-albums/awaiting") ||
-        p.startsWith("/smart-albums/approved"),
+      match: (p) => p === "/smart-albums" || p === "/smart-albums/",
       icon: BookOpen,
+      section: "work",
+      countKey: "albums",
+    },
+    {
+      label: "Needs you",
+      href: "/smart-albums/awaiting",
+      match: (p) => p.startsWith("/smart-albums/awaiting"),
+      icon: Clock3,
+      section: "work",
+      countKey: "needsYou",
+    },
+    {
+      label: "Approved",
+      href: "/smart-albums/approved",
+      match: (p) => p.startsWith("/smart-albums/approved"),
+      icon: CheckCircle2,
+      section: "work",
+      countKey: "approved",
     },
     {
       label: "Settings",
       href: "/smart-albums/settings",
       match: (p) => p.startsWith("/smart-albums/settings"),
       icon: Settings,
+      section: "studio",
     },
   ],
   portal: [

@@ -180,7 +180,7 @@ export default function LabArtworkReviewList() {
   }
 
   return (
-    <div style={{ padding: '24px 32px', backgroundColor: '#F9F9F7', minHeight: '100%', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", color: '#1e293b', boxSizing: 'border-box' }}>
+    <div style={{ padding: '24px 32px', backgroundColor: '#F9F9F7', minHeight: '100%', fontFamily: "var(--font-sans)", color: '#1e293b', boxSizing: 'border-box' }}>
       
       {/* DB Setup Warning Alert */}
       {dbError && (

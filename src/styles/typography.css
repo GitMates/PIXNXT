@@ -1,0 +1,213 @@
+/**
+ * PIXNXT typography — one file, imported once.
+ * Do not redeclare families or sizes in feature CSS. Use role classes / tokens.
+ */
+
+/* ── Latin — always loaded ─────────────────────────────────────── */
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  src: url('/fonts/PlusJakartaSans-Var-latin.woff2') format('woff2-variations');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20B9, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Fraunces';
+  src: url('/fonts/Fraunces-Var-latin.woff2') format('woff2-variations');
+  font-weight: 400 500;
+  font-style: normal;
+  font-display: optional;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20B9, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* ── Indic — downloaded ONLY if a matching glyph appears ───────── */
+@font-face {
+  font-family: 'Noto Sans Devanagari';
+  src: url('/fonts/NotoSansDevanagari-Var.woff2') format('woff2-variations');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0900-097F, U+A8E0-A8FF, U+1CD0-1CF9;
+}
+
+@font-face {
+  font-family: 'Noto Sans Tamil';
+  src: url('/fonts/NotoSansTamil-Var.woff2') format('woff2-variations');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0B82-0BFA, U+200C-200D;
+}
+
+/* Fallback metrics — stops Jakarta swap from reflowing the page */
+@font-face {
+  font-family: 'Jakarta Fallback';
+  src: local('Segoe UI'), local('Roboto'), local('Helvetica Neue');
+  size-adjust: 104%;
+  ascent-override: 96%;
+  descent-override: 24%;
+  line-gap-override: 0%;
+}
+
+:root {
+  /* Families */
+  --font-display: 'Fraunces', 'Noto Serif Devanagari', Georgia, serif;
+  --font-sans: 'Plus Jakarta Sans', 'Jakarta Fallback', 'Noto Sans Devanagari',
+    'Noto Sans Tamil', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, monospace;
+
+  /* Type scale (rem @ 16px root) */
+  --t-display-lg: 2.125rem; /* 34px */
+  --t-display-md: 1.5rem; /* 24px */
+  --t-display-sm: 1.25rem; /* 20px */
+  --t-title: 1rem; /* 16px */
+  --t-body-lg: 0.9375rem; /* 15px */
+  --t-body: 0.875rem; /* 14px */
+  --t-body-sm: 0.8125rem; /* 13px */
+  --t-meta: 0.75rem; /* 12px */
+  --t-micro: 0.6875rem; /* 11px */
+  --t-label: 0.625rem; /* 10px */
+
+  /* Ink & surfaces — Album Proofer / product chrome */
+  --bg: #f7f6f3;
+  --surface: #ffffff;
+  --ink: #1c1917;
+  --ink-body: #3f3a36;
+  --ink-muted: #8a8580;
+  --border: #e5e2dc;
+  --accent: #9a6c67;
+  --status-revision: #c46a3a;
+  --status-awaiting: #b08968;
+  --status-approved: #5f8f6a;
+  --status-draft: #9a9590;
+}
+
+/* ── Role classes — choose a role, never a raw font-size in features ─ */
+
+.type-page-title {
+  font-family: var(--font-display);
+  font-size: var(--t-display-lg);
+  font-weight: 400;
+  line-height: 1.15;
+  letter-spacing: -0.018em;
+  color: var(--ink);
+  text-transform: none;
+  font-variation-settings: 'opsz' 34;
+}
+
+.type-section-title {
+  font-family: var(--font-display);
+  font-size: var(--t-display-md);
+  font-weight: 400;
+  line-height: 1.15;
+  letter-spacing: -0.018em;
+  color: var(--ink);
+  text-transform: none;
+  font-variation-settings: 'opsz' 24;
+}
+
+.type-object-name {
+  font-family: var(--font-sans);
+  font-size: var(--t-title);
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.005em;
+  color: var(--ink);
+  text-transform: none;
+}
+
+.type-card-title {
+  font-family: var(--font-sans);
+  font-size: var(--t-body-sm);
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-transform: none;
+}
+
+.type-lede {
+  font-family: var(--font-sans);
+  font-size: var(--t-body-lg);
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--ink-muted);
+  max-width: 68ch;
+}
+
+.type-body {
+  font-family: var(--font-sans);
+  font-size: var(--t-body);
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--ink-body);
+  max-width: 72ch;
+}
+
+.type-control {
+  font-family: var(--font-sans);
+  font-size: var(--t-body-sm);
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--ink-body);
+}
+
+.type-meta {
+  font-family: var(--font-sans);
+  font-size: var(--t-meta);
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.type-status {
+  font-family: var(--font-sans);
+  font-size: var(--t-micro);
+  font-weight: 600;
+  line-height: 1.45;
+  font-variant-numeric: tabular-nums;
+}
+
+.type-group-label {
+  font-family: var(--font-sans);
+  font-size: var(--t-label);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.type-code {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.type-pin {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Client-entered names, comments, messages — Indic + long paste safety */
+.user-text {
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}

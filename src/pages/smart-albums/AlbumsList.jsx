@@ -9,7 +9,6 @@ import {
     getAlbumProofActivityAt,
     getAlbumProofFootnote,
     getAlbumProofStatus,
-    isAlbumAwaitingFeedback,
     mergeAlbumProofTimestamps,
 } from '../../components/smart-albums/albumProofStatus';
 import { AlbumContextMenu } from '../../components/smart-albums/AlbumContextMenu';
@@ -92,14 +91,33 @@ function getAlbumClientLabel(album) {
     return '';
 }
 
-const PAGE_SUBTITLES = {
-    all: 'Upload your spreads, collect feedback, and get sign-off — all in one swipeable proof.',
-    awaiting: 'Albums shared with clients that are still waiting on feedback or approval.',
-    approved: 'Albums your clients have approved and are ready for production.',
-};
-
 function isApprovedAlbum(album) {
     return Boolean(album?.client_approved_at);
+}
+
+function isNeedsYouAlbum(album) {
+    return getAlbumProofStatus(album).tone === 'revision';
+}
+
+function formatStatusLabel(status) {
+    if (status?.tone === 'awaiting') return 'Not opened';
+    return status?.label || 'Draft';
+}
+
+function formatAlbumMetaLine(clientLabel, footnote, activityAt) {
+    const parts = [];
+    if (clientLabel) parts.push(clientLabel);
+    if (footnote) parts.push(footnote);
+    const rel = formatRelativeTime(activityAt);
+    if (rel) {
+        parts.push(
+            rel
+                .replace(/(\d+) hours? ago/, '$1h ago')
+                .replace(/(\d+) minutes? ago/, '$1m ago')
+                .replace(/(\d+) days? ago/, '$1d ago')
+        );
+    }
+    return parts.join(' · ');
 }
 
 const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
@@ -115,6 +133,8 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
     const [pendingStatusFilter, setPendingStatusFilter] = useState('all');
     const [showStatusFilter, setShowStatusFilter] = useState(false);
     const [sortOpen, setSortOpen] = useState(false);
+    const [viewMode, setViewMode] = useState('grid');
+    const [needsYouFirst, setNeedsYouFirst] = useState(true);
     const [contextMenuId, setContextMenuId] = useState(null);
     const [contextMenuAnchor, setContextMenuAnchor] = useState(null);
     const [shareLinkAlbum, setShareLinkAlbum] = useState(null);
@@ -128,7 +148,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
     const filtersRef = useRef(null);
     const pageTitle =
         proofFilter === 'awaiting'
-            ? 'Awaiting feedback'
+            ? 'Needs you'
             : proofFilter === 'approved'
               ? 'Approved'
               : starredOnly
@@ -358,10 +378,23 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
         [albums, proofSummaries]
     );
 
+    const proofCounts = useMemo(() => {
+        let needYou = 0;
+        let awaitingClient = 0;
+        let approved = 0;
+        for (const album of enrichedAlbums) {
+            const tone = getAlbumProofStatus(album).tone;
+            if (tone === 'revision') needYou += 1;
+            else if (tone === 'awaiting') awaitingClient += 1;
+            else if (tone === 'approved') approved += 1;
+        }
+        return { needYou, awaitingClient, approved, total: enrichedAlbums.length };
+    }, [enrichedAlbums]);
+
     const filteredAlbums = useMemo(() => {
         const q = searchQuery.trim().toLowerCase();
         const result = enrichedAlbums.filter((a) => {
-            if (proofFilter === 'awaiting' && !isAlbumAwaitingFeedback(a)) return false;
+            if (proofFilter === 'awaiting' && !isNeedsYouAlbum(a)) return false;
             if (proofFilter === 'approved' && !isApprovedAlbum(a)) return false;
             if (statusFilter !== 'all' && getAlbumProofStatus(a).tone !== statusFilter) {
                 return false;
@@ -379,11 +412,25 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
             return true;
         });
         return result.sort((a, b) => {
+            if (needsYouFirst && proofFilter === 'all') {
+                const aNeed = isNeedsYouAlbum(a) ? 0 : 1;
+                const bNeed = isNeedsYouAlbum(b) ? 0 : 1;
+                if (aNeed !== bNeed) return aNeed - bNeed;
+            }
             const aTime = new Date(a.created_at || 0).getTime() || 0;
             const bTime = new Date(b.created_at || 0).getTime() || 0;
             return createdFilter === 'oldest' ? aTime - bTime : bTime - aTime;
         });
-    }, [enrichedAlbums, searchQuery, starredOnly, proofFilter, statusFilter, starFilter, createdFilter]);
+    }, [
+        enrichedAlbums,
+        searchQuery,
+        starredOnly,
+        proofFilter,
+        statusFilter,
+        starFilter,
+        createdFilter,
+        needsYouFirst,
+    ]);
 
     const hasActiveFilters =
         (!starredOnly && starFilter !== 'all') ||
@@ -394,16 +441,16 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
 
     const pageSubtitle =
         proofFilter === 'awaiting'
-            ? PAGE_SUBTITLES.awaiting
+            ? 'Albums with client revisions waiting on you.'
             : proofFilter === 'approved'
-              ? PAGE_SUBTITLES.approved
-              : PAGE_SUBTITLES.all;
+              ? 'Albums your clients have approved and are ready for production.'
+              : `${proofCounts.needYou} need you · ${proofCounts.awaitingClient} awaiting client · ${proofCounts.approved} approved`;
 
     return (
         <main className="sa-proofer-albums">
             <header className="sa-proofer-albums__hero">
                 <div>
-                    <h1 className="sa-proofer-albums__title">{pageTitle}</h1>
+                    <h1 className="sa-proofer-albums__title type-page-title">{pageTitle}</h1>
                     <p className="sa-proofer-albums__subtitle">{pageSubtitle}</p>
                 </div>
                 {!starredOnly && proofFilter === 'all' && (
@@ -412,7 +459,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                         className="sa-proofer-albums__new-btn"
                         onClick={() => navigate('/smart-albums/create')}
                     >
-                        + New album
+                        New album
                     </button>
                 )}
             </header>
@@ -425,7 +472,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                     </svg>
                     <input
                         type="search"
-                        placeholder="Search albums by title or client…"
+                        placeholder="Search albums or clients..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         aria-label="Search albums"
@@ -435,7 +482,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                     <div className="sa-proofer-albums__filter-anchor">
                         <button
                             type="button"
-                            className={`sa-proofer-albums__icon-btn${showStatusFilter || statusFilter !== 'all' ? ' sa-proofer-albums__icon-btn--active' : ''}${statusFilter !== 'all' ? ' sa-proofer-albums__icon-btn--filtered' : ''}`}
+                            className={`sa-proofer-albums__chip-btn${showStatusFilter || statusFilter !== 'all' ? ' sa-proofer-albums__chip-btn--active' : ''}${statusFilter !== 'all' ? ' sa-proofer-albums__chip-btn--filtered' : ''}`}
                             onClick={() => {
                                 setSortOpen(false);
                                 setShowStatusFilter((open) => {
@@ -446,9 +493,10 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                             aria-label="Filter albums"
                             aria-expanded={showStatusFilter}
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                                 <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
                             </svg>
+                            Filter
                         </button>
                         <AlbumStatusFilterPopover
                             open={showStatusFilter}
@@ -466,33 +514,83 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                 <div className="sa-proofer-albums__sort">
                     <button
                         type="button"
-                        className="sa-proofer-albums__sort-btn"
-                        onClick={() => setSortOpen((open) => !open)}
+                        className={`sa-proofer-albums__chip-btn${needsYouFirst || sortOpen ? ' sa-proofer-albums__chip-btn--active' : ''}`}
+                        onClick={() => {
+                            setShowStatusFilter(false);
+                            setSortOpen((open) => !open);
+                        }}
                         aria-expanded={sortOpen}
                     >
-                        <span>{createdFilter === 'newest' ? 'Newest' : sortLabel}</span>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                            <polyline points="6 9 12 15 18 9" />
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <path d="M7 15l5 5 5-5" />
+                            <path d="M7 9l5-5 5 5" />
                         </svg>
+                        <span>{needsYouFirst && proofFilter === 'all' ? 'Needs you first' : createdFilter === 'newest' ? 'Newest' : sortLabel}</span>
                     </button>
                     {sortOpen && (
                         <div className="sa-proofer-albums__sort-menu">
+                            {proofFilter === 'all' && (
+                                <button
+                                    type="button"
+                                    className={`sa-proofer-albums__sort-option${needsYouFirst ? ' sa-proofer-albums__sort-option--selected' : ''}`}
+                                    onClick={() => {
+                                        setNeedsYouFirst(true);
+                                        setSortOpen(false);
+                                    }}
+                                >
+                                    <span>Needs you first</span>
+                                    {needsYouFirst && <span>✓</span>}
+                                </button>
+                            )}
                             {CREATED_FILTERS.map((option) => (
                                 <button
                                     key={option.value}
                                     type="button"
-                                    className={`sa-proofer-albums__sort-option${createdFilter === option.value ? ' sa-proofer-albums__sort-option--selected' : ''}`}
+                                    className={`sa-proofer-albums__sort-option${!needsYouFirst && createdFilter === option.value ? ' sa-proofer-albums__sort-option--selected' : ''}`}
                                     onClick={() => {
+                                        setNeedsYouFirst(false);
                                         setCreatedFilter(option.value);
                                         setSortOpen(false);
                                     }}
                                 >
                                     <span>{option.label}</span>
-                                    {createdFilter === option.value && <span>✓</span>}
+                                    {!needsYouFirst && createdFilter === option.value && <span>✓</span>}
                                 </button>
                             ))}
                         </div>
                     )}
+                </div>
+                <div className="sa-proofer-albums__view-toggle" role="group" aria-label="View mode">
+                    <button
+                        type="button"
+                        className={`sa-proofer-albums__view-btn${viewMode === 'grid' ? ' sa-proofer-albums__view-btn--active' : ''}`}
+                        onClick={() => setViewMode('grid')}
+                        aria-label="Grid view"
+                        aria-pressed={viewMode === 'grid'}
+                    >
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                            <rect x="3" y="3" width="7" height="7" rx="1" />
+                            <rect x="14" y="3" width="7" height="7" rx="1" />
+                            <rect x="3" y="14" width="7" height="7" rx="1" />
+                            <rect x="14" y="14" width="7" height="7" rx="1" />
+                        </svg>
+                    </button>
+                    <button
+                        type="button"
+                        className={`sa-proofer-albums__view-btn${viewMode === 'list' ? ' sa-proofer-albums__view-btn--active' : ''}`}
+                        onClick={() => setViewMode('list')}
+                        aria-label="List view"
+                        aria-pressed={viewMode === 'list'}
+                    >
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                            <line x1="8" y1="6" x2="21" y2="6" />
+                            <line x1="8" y1="12" x2="21" y2="12" />
+                            <line x1="8" y1="18" x2="21" y2="18" />
+                            <line x1="3" y1="6" x2="3.01" y2="6" />
+                            <line x1="3" y1="12" x2="3.01" y2="12" />
+                            <line x1="3" y1="18" x2="3.01" y2="18" />
+                        </svg>
+                    </button>
                 </div>
             </div>
 
@@ -513,7 +611,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                                 className="sa-proofer-albums__new-btn"
                                 onClick={() => navigate('/smart-albums/create')}
                             >
-                                + New album
+                                New album
                             </button>
                         </div>
                     )
@@ -522,12 +620,13 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                         <p>No matching albums. Try a different search or filter.</p>
                     </div>
                 ) : (
-                    <div className="sa-proofer-albums__grid">
+                    <div className={`sa-proofer-albums__grid${viewMode === 'list' ? ' sa-proofer-albums__grid--list' : ''}`}>
                         {filteredAlbums.map((album) => {
                             const status = getAlbumProofStatus(album);
                             const clientLabel = getAlbumClientLabel(album);
                             const footnote = getAlbumProofFootnote(album, status);
                             const activityAt = getAlbumProofActivityAt(album);
+                            const metaLine = formatAlbumMetaLine(clientLabel, footnote, activityAt);
                             return (
                                 <article
                                     key={album.id}
@@ -539,43 +638,28 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                                     role="button"
                                     tabIndex={0}
                                 >
-                                    <div className="sa-proofer-album-card__shell">
-                                        <div className="sa-proofer-album-card__media">
-                                            <AlbumListCoverThumb album={album} alt={album.name} />
-                                            <button
-                                                type="button"
-                                                className="sa-proofer-album-card__menu"
-                                                onClick={(e) => openAlbumSettings(e, album)}
-                                                aria-label="Open album settings"
-                                            >
-                                                ⋮
-                                            </button>
-                                        </div>
-                                        <div className="sa-proofer-album-card__body">
+                                    <div className="sa-proofer-album-card__media">
+                                        <AlbumListCoverThumb album={album} alt={album.name} />
+                                        <button
+                                            type="button"
+                                            className="sa-proofer-album-card__menu"
+                                            onClick={(e) => openAlbumSettings(e, album)}
+                                            aria-label="Open album settings"
+                                        >
+                                            ⋮
+                                        </button>
+                                    </div>
+                                    <div className="sa-proofer-album-card__body">
+                                        <div className="sa-proofer-album-card__top">
                                             <h3 className="sa-proofer-album-card__name">{album.name}</h3>
-                                            {clientLabel ? (
-                                                <p className="sa-proofer-album-card__client">{clientLabel}</p>
-                                            ) : null}
-                                            <div className="sa-proofer-album-card__divider" />
-                                            <div className="sa-proofer-album-card__meta">
-                                                <span
-                                                    className={`sa-proofer-album-badge sa-proofer-album-badge--${status.tone}`}
-                                                >
-                                                    {status.tone === 'revision' && (
-                                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                                                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                                                        </svg>
-                                                    )}
-                                                    {status.label}
-                                                </span>
-                                                <span className="sa-proofer-album-card__time">
-                                                    {formatRelativeTime(activityAt)}
-                                                </span>
-                                            </div>
-                                            {footnote ? (
-                                                <p className="sa-proofer-album-card__note">{footnote}</p>
-                                            ) : null}
+                                            <span className={`sa-proofer-album-status sa-proofer-album-status--${status.tone}`}>
+                                                <span className="sa-proofer-album-status__dot" aria-hidden />
+                                                {formatStatusLabel(status)}
+                                            </span>
                                         </div>
+                                        {metaLine ? (
+                                            <p className="sa-proofer-album-card__meta">{metaLine}</p>
+                                        ) : null}
                                     </div>
                                 </article>
                             );

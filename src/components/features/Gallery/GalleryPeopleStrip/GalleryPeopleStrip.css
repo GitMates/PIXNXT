@@ -18,7 +18,7 @@
 
 .gallery-people-strip__intro-text {
   margin: 0;
-  font-family: var(--body-font, 'Inter', system-ui, sans-serif);
+  font-family: var(--body-font, var(--font-sans));
   font-size: 0.9rem;
   line-height: 1.45;
   color: var(--gallery-meta-text, #71717a);
@@ -33,7 +33,7 @@
   padding: 0.55rem 0.85rem;
   border-radius: 9999px;
   background: color-mix(in srgb, var(--gallery-text, #1a1a1a) 6%, transparent);
-  font-family: var(--body-font, 'Inter', system-ui, sans-serif);
+  font-family: var(--body-font, var(--font-sans));
   font-size: 0.78rem;
   color: var(--gallery-text, #1a1a1a);
 }
@@ -103,7 +103,7 @@
 
 .gallery-people-strip__find-label,
 .gallery-people-strip__person-name {
-  font-family: var(--body-font, 'Inter', system-ui, sans-serif);
+  font-family: var(--body-font, var(--font-sans));
   font-size: 0.78rem;
   font-weight: 600;
   line-height: 1.2;
@@ -111,7 +111,7 @@
 }
 
 .gallery-people-strip__person-meta {
-  font-family: var(--body-font, 'Inter', system-ui, sans-serif);
+  font-family: var(--body-font, var(--font-sans));
   font-size: 0.68rem;
   line-height: 1.2;
   color: var(--gallery-meta-text, #71717a);

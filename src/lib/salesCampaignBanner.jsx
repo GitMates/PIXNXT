@@ -178,7 +178,7 @@ export function getBannerFontFamily(font) {
   if (font === 'Playfair Display') return "'Playfair Display', serif";
   if (font === 'Georgia') return "'Georgia', serif";
   if (font === 'Montserrat') return "'Montserrat', sans-serif";
-  return "'Inter', sans-serif";
+  return "var(--font-sans)";
 }
 
 export function formatBannerPlaceholders(text, campaign = {}) {
@@ -594,7 +594,7 @@ export function EmailOfferStripPreview({
             style={{
               fontSize: '11px',
               color: colors.subtitle,
-              fontFamily: "'Inter', sans-serif",
+              fontFamily: "var(--font-sans)",
               lineHeight: 1.4,
             }}
           >

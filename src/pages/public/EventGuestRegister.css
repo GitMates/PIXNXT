@@ -1,7 +1,7 @@
 body.egr-body-lock {
   margin: 0;
   background: #f0ebf8 !important;
-  font-family: 'Roboto', 'Inter', system-ui, sans-serif !important;
+  font-family: var(--font-sans) !important;
 }
 
 html.egr-root-lock {
@@ -17,7 +17,7 @@ html.egr-root-lock {
   min-height: 100vh;
   padding: 12px 12px 32px;
   background: #f0ebf8;
-  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
+  font-family: var(--font-sans);
   color: #202124;
 }
 

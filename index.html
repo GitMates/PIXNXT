@@ -102,6 +102,15 @@
     content="Beautiful client galleries, smart albums, proofing and print sales for photographers." />
   <meta name="twitter:image" content="https://www.pixnxt.in/logo.png" />
 
+  <!-- Product UI: preload Jakarta only (Fraunces is font-display: optional) -->
+  <link
+    rel="preload"
+    href="/fonts/PlusJakartaSans-Var-latin.woff2"
+    as="font"
+    type="font/woff2"
+    crossorigin
+  />
+
   <!-- Mobile gallery /m/* only — same-origin touch icon before React boots -->
   <script>
     (function () {

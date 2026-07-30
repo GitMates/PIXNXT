@@ -1349,7 +1349,7 @@
     box-sizing: border-box;
     margin: 0;
     padding: 7.5px 10px 8px;
-    font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+    font-family: var(--font-sans);
     font-size: 11.5px;
     font-weight: 500;
     color: #134e4a;
@@ -3168,7 +3168,7 @@
 
 /* Font Preview Specifics */
 .font-preview-sans .sample-text {
-    font-family: 'Inter', 'Helvetica Neue', sans-serif;
+    font-family: var(--font-sans);
     letter-spacing: 0.15em;
     text-transform: uppercase;
     font-weight: 400;
@@ -3193,13 +3193,13 @@
 }
 
 .font-preview-bold .sample-text {
-    font-family: 'Unbounded', 'Inter', sans-serif;
+    font-family: 'Unbounded', var(--font-sans);
     font-weight: 700;
     text-transform: uppercase;
 }
 
 .font-preview-subtle .sample-text {
-    font-family: 'Outfit', sans-serif;
+    font-family: var(--font-sans);
     font-weight: 200;
     letter-spacing: 0.25em;
     text-transform: uppercase;
@@ -3377,7 +3377,7 @@
 
 /* --- Font Preview Mappings (match index.css gallery presets) --- */
 .font-preview-sans {
-    font-family: 'Inter', sans-serif;
+    font-family: var(--font-sans);
 }
 
 .font-preview-serif {
@@ -3393,11 +3393,11 @@
 }
 
 .font-preview-bold {
-    font-family: 'Inter', sans-serif;
+    font-family: var(--font-sans);
 }
 
 .font-preview-subtle {
-    font-family: 'Outfit', sans-serif;
+    font-family: var(--font-sans);
 }
 
 /* --- DESIGN MODAL STYLES --- */
@@ -5933,7 +5933,7 @@
 .cd-photo-grid--manage.cd-photo-grid--filenames .cd-photo-filename {
     background: #f2faf8 !important;
     border-top: none !important;
-    font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif !important;
+    font-family: var(--font-sans) !important;
     font-size: 11.5px !important;
     font-weight: 500 !important;
     color: #134e4a !important;

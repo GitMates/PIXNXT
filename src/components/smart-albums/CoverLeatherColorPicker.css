@@ -12,7 +12,7 @@
 }
 
 .ae-cover-color-title {
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.16em;
@@ -22,7 +22,7 @@
 
 .ae-cover-color-hint {
   margin: 0 0 14px;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 11px;
   line-height: 1.45;
   color: oklch(0.62 0.01 70);

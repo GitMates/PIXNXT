@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import AlbumBook from '../../components/smart-albums/AlbumBook';
 import AlbumCoverEditView from '../../components/smart-albums/AlbumCoverEditView';
 import AlbumEditorSidebar from '../../components/smart-albums/AlbumEditorSidebar';
+import AlbumSpreadFilmstrip from '../../components/smart-albums/AlbumSpreadFilmstrip';
 import AlbumEditorNotifications from '../../components/smart-albums/AlbumEditorNotifications';
 import {
     COVER_TEXT_CHANGED_EVENT,
@@ -2271,6 +2272,24 @@ export default function AlbumEditor({
                             />
                         )}
                     </div>
+                    {!coverEditMode ? (
+                        <AlbumSpreadFilmstrip
+                            album={albumForBook}
+                            totalPages={totalPages}
+                            bookPage={bookPage}
+                            photoRevision={layoutRevision}
+                            spreadCommentsBySpread={spreadCommentsBySpread}
+                            onReorderSpread={handleReorderOverviewSpread}
+                            disabled={pageCountBusy || spreadEdit}
+                            onSelectSpread={(_spreadIndex, page) => {
+                                const clamped = Math.max(
+                                    0,
+                                    Math.min(page, Math.max(0, totalPages - 1))
+                                );
+                                handleBookPageChange(clamped);
+                            }}
+                        />
+                    ) : null}
                 </main>
 
                 <AlbumEditorSidebar

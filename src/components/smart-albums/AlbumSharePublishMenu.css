@@ -25,7 +25,7 @@
 .ae-share-loading {
   margin: 24px 0;
   text-align: center;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 13px;
   color: oklch(0.55 0.01 70);
 }
@@ -47,7 +47,7 @@
   border: 1px solid oklch(0.9 0.005 85);
   border-radius: 12px;
   background: #fff;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 600;
   color: oklch(0.42 0.01 70);
@@ -130,7 +130,7 @@
 
 .ae-share-draft-title {
   margin: 0;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 15px;
   font-weight: 500;
   color: oklch(0.23 0.004 60);
@@ -142,7 +142,7 @@
 
 .ae-share-draft-sub {
   margin: 4px 0 0;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 12px;
   color: oklch(0.58 0.01 70);
 }
@@ -155,7 +155,7 @@
 
 .ae-share-section-label {
   margin: 0 0 8px;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.12em;
@@ -169,7 +169,7 @@
 
 .ae-share-hint {
   margin: 8px 0 0;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 12px;
   line-height: 1.4;
   color: oklch(0.58 0.01 70);
@@ -177,7 +177,7 @@
 
 .ae-share-footnote {
   margin: 8px 0 0;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 11px;
   line-height: 1.4;
   color: oklch(0.6 0.01 70);
@@ -191,7 +191,7 @@
   border: none;
   border-radius: 10px;
   background: oklch(0.96 0.005 85);
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 13px;
   color: oklch(0.23 0.004 60);
   outline: none;
@@ -240,7 +240,7 @@
   padding: 0 16px;
   border-radius: 999px;
   border: none;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -304,7 +304,7 @@
   min-width: 0;
   border: none;
   background: transparent;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 12px;
   color: oklch(0.35 0.008 60);
   outline: none;
@@ -318,7 +318,7 @@
   border-radius: 999px;
   background: #fff;
   box-shadow: 0 1px 3px oklch(0.4 0.01 70 / 0.1);
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 600;
   color: oklch(0.23 0.004 60);
@@ -331,7 +331,7 @@
   border-radius: 12px;
   border: 1px solid oklch(0.86 0.04 70);
   background: oklch(0.97 0.02 85);
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 12px;
   line-height: 1.45;
   color: oklch(0.4 0.03 55);
@@ -364,7 +364,7 @@
 
 .ae-share-row__desc {
   margin: 3px 0 0;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 12px;
   line-height: 1.35;
   color: oklch(0.58 0.01 70);
@@ -421,7 +421,7 @@
 }
 
 .ae-share-nested__label {
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 12px;
   color: oklch(0.4 0.008 60);
 }
@@ -434,7 +434,7 @@
   border-radius: 999px;
   background: oklch(0.95 0.005 85);
   text-align: center;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 600;
   color: oklch(0.23 0.004 60);
@@ -468,7 +468,7 @@
   height: 38px;
   border-radius: 50%;
   background: oklch(0.95 0.005 85);
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 15px;
   font-weight: 600;
   color: oklch(0.23 0.004 60);
@@ -498,7 +498,7 @@
   border: none;
   border-radius: 999px;
   background: oklch(0.95 0.005 85);
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 500;
   color: oklch(0.28 0.004 60);
@@ -518,7 +518,7 @@
 
 .ae-share-pause-warn p {
   margin: 0;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 13px;
   line-height: 1.45;
   color: oklch(0.35 0.03 55);
@@ -526,7 +526,7 @@
 
 .ae-share-pause-keep {
   margin: 12px 0 16px;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 12px;
   line-height: 1.45;
   color: oklch(0.5 0.01 70);
@@ -571,7 +571,7 @@
   border: none;
   border-radius: 999px;
   background: transparent;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -587,7 +587,7 @@
 }
 
 .ae-publish-status__hint {
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 12px;
   color: oklch(0.58 0.01 70);
   white-space: nowrap;
@@ -600,7 +600,7 @@
   height: 28px;
   padding: 0 12px;
   border-radius: 999px;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.06em;

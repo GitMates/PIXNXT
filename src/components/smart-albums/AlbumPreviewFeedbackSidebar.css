@@ -21,7 +21,7 @@
 
 .av-feedback-sidebar__title {
   margin: 0;
-  font-family: 'EB Garamond', Georgia, 'Times New Roman', serif;
+  font-family: var(--font-display);
   font-size: 22px;
   font-weight: 600;
   line-height: 1.2;
@@ -66,7 +66,7 @@
 
 .av-feedback-tutorial__title {
   margin: 0;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 14px;
   font-weight: 600;
   line-height: 1.35;
@@ -75,7 +75,7 @@
 
 .av-feedback-tutorial__subtitle {
   margin: 4px 0 0;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 12px;
   line-height: 1.45;
   color: #9a9590;
@@ -137,7 +137,7 @@
   position: absolute;
   left: 14px;
   bottom: 12px;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 12px;
   color: #8a8580;
 }
@@ -148,7 +148,7 @@
 
 .av-feedback-tutorial__steps-label {
   margin: 0 0 10px;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -169,7 +169,7 @@
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 12px;
   line-height: 1.5;
   color: #4b5563;
@@ -197,7 +197,7 @@
   border-radius: 999px;
   background: #faf9f7;
   padding: 10px 14px;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 500;
   color: #4b5563;
@@ -217,7 +217,7 @@
 .av-feedback-sidebar__empty {
   margin: 0;
   padding: 8px 4px 4px;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 13px;
   line-height: 1.55;
   color: #9a9590;
@@ -239,7 +239,7 @@
 .av-feedback-sidebar .av-chat-feed-date span {
   padding: 5px 12px;
   border-radius: 999px;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 11px;
   font-weight: 500;
   color: #8a8580;
@@ -290,7 +290,7 @@
 }
 
 .av-feedback-sidebar .av-chat-bubble-text {
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 13px;
   line-height: 1.45;
   color: #1c1c1c;
@@ -331,14 +331,14 @@
 }
 
 .av-feedback-sidebar .av-chat-bubble--voice .av-chat-bubble-foot time {
-  font-family: 'Outfit', system-ui, sans-serif !important;
+  font-family: var(--font-sans) !important;
   font-size: 10px;
   font-weight: 500;
   color: rgba(47, 61, 54, 0.48);
 }
 
 .av-feedback-sidebar .av-chat-bubble--voice .av-chat-action {
-  font-family: 'Outfit', system-ui, sans-serif !important;
+  font-family: var(--font-sans) !important;
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0;
@@ -358,7 +358,7 @@
 }
 
 .av-feedback-sidebar .av-chat-bubble-foot time {
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 10px;
   color: rgba(28, 28, 28, 0.45);
 }
@@ -456,14 +456,14 @@
 }
 
 .av-feedback-compose__recording-label {
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 600;
   color: #b42318;
 }
 
 .av-feedback-compose__recording-hint {
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 11px;
   color: #9a9590;
 }
@@ -495,7 +495,7 @@
   border-radius: 0;
   background: transparent;
   padding: 14px 16px;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 13px;
   line-height: 1.5;
   color: #1c1c1c;

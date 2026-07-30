@@ -15,7 +15,7 @@
   min-height: 100vh;
   overflow-y: auto;
   color: var(--sa-text);
-  font-family: 'Outfit', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: var(--font-sans);
 }
 
 .sa-create-page .cc-header {
@@ -1002,9 +1002,9 @@
 /* ——— Create album 2-step wizard (mockup) ——— */
 .sa-create-wizard-page.sa-create-page {
   --sa-accent: #c45c26;
-  --sa-wizard-serif: 'EB Garamond', Georgia, serif;
+  --sa-wizard-serif: var(--font-display);
   background: #F5F3ED !important;
-  font-family: 'EB Garamond', Georgia, serif !important;
+  font-family: var(--font-display) !important;
 }
 
 .sa-create-wizard-main {
@@ -1039,7 +1039,7 @@
   border: 0;
   background: transparent;
   color: #8E8A80;
-  font-family: 'EB Garamond', Georgia, serif !important;
+  font-family: var(--font-display) !important;
   font-size: 13.5px !important;
   font-weight: 400 !important;
   letter-spacing: 0.01em;
@@ -1059,7 +1059,7 @@
 .sa-wizard-title {
   margin: 0 0 10px 0 !important;
   text-align: left !important;
-  font-family: 'EB Garamond', Georgia, serif !important;
+  font-family: var(--font-display) !important;
   font-size: 21px !important;
   font-weight: 700 !important;
   letter-spacing: 0.18em !important;
@@ -1097,7 +1097,7 @@
 
 .sa-wizard-progress-label {
   flex-shrink: 0 !important;
-  font-family: 'EB Garamond', Georgia, serif !important;
+  font-family: var(--font-display) !important;
   font-size: 11px !important;
   font-weight: 600 !important;
   letter-spacing: 0.14em !important;
@@ -1149,7 +1149,7 @@
 .sa-wizard-card-intro .sa-create-kicker {
   display: block !important;
   margin-bottom: 8px !important;
-  font-family: 'EB Garamond', Georgia, serif !important;
+  font-family: var(--font-display) !important;
   font-size: 11px !important;
   font-weight: 600 !important;
   letter-spacing: 0.14em !important;
@@ -1159,7 +1159,7 @@
 
 .sa-wizard-card-intro h2 {
   margin: 0 !important;
-  font-family: 'EB Garamond', Georgia, serif !important;
+  font-family: var(--font-display) !important;
   font-size: 21px !important;
   font-weight: 700 !important;
   text-transform: none !important;
@@ -1185,7 +1185,7 @@
 }
 
 .sa-wizard-section-head span {
-  font-family: 'EB Garamond', Georgia, serif !important;
+  font-family: var(--font-display) !important;
   font-size: 15px !important;
   font-weight: 700 !important;
   color: #181816 !important;
@@ -1193,7 +1193,7 @@
 }
 
 .sa-wizard-section-head small {
-  font-family: 'EB Garamond', Georgia, serif !important;
+  font-family: var(--font-display) !important;
   font-size: 13.5px !important;
   font-style: italic !important;
   color: #8E8A80 !important;
@@ -1201,7 +1201,7 @@
 }
 
 .sa-create-page .sa-wizard-card .cc-label {
-  font-family: 'EB Garamond', Georgia, serif !important;
+  font-family: var(--font-display) !important;
   font-size: 10.5px !important;
   font-weight: 600 !important;
   letter-spacing: 0.12em !important;
@@ -1219,7 +1219,7 @@
   border: none !important;
   border-radius: 16px !important;
   color: #181816 !important;
-  font-family: 'EB Garamond', Georgia, serif !important;
+  font-family: var(--font-display) !important;
   box-shadow: none !important;
 }
 
@@ -1227,7 +1227,7 @@
 .sa-create-page .sa-wizard-card .dp-input-field::placeholder,
 .sa-create-page .sa-wizard-card .dp-input-text.placeholder,
 .sa-create-page .sa-wizard-card .dp-value.placeholder {
-  font-family: 'EB Garamond', Georgia, serif !important;
+  font-family: var(--font-display) !important;
   font-style: italic !important;
   color: #8E8A80 !important;
   font-size: 14.5px !important;
@@ -1254,7 +1254,7 @@
   min-width: 124px !important;
   padding: 0 26px !important;
   font-size: 14.5px !important;
-  font-family: 'EB Garamond', Georgia, serif !important;
+  font-family: var(--font-display) !important;
   font-weight: 600 !important;
   box-shadow: none !important;
   cursor: pointer;
@@ -1267,7 +1267,7 @@
 .sa-create-page .sa-wizard-card .sa-wizard-actions .cc-cancel-btn {
   color: #5C584E !important;
   background: transparent !important;
-  font-family: 'EB Garamond', Georgia, serif !important;
+  font-family: var(--font-display) !important;
   font-size: 14.5px !important;
   font-weight: 500 !important;
   padding: 0 12px !important;
@@ -1346,7 +1346,7 @@
 }
 
 .sa-cover-row-meta strong {
-  font-family: 'EB Garamond', Georgia, serif;
+  font-family: var(--font-display);
   font-size: 14.5px;
   font-weight: 600;
   color: #181816;
@@ -1356,7 +1356,7 @@
 }
 
 .sa-cover-row-meta span {
-  font-family: 'EB Garamond', Georgia, serif;
+  font-family: var(--font-display);
   font-size: 12.5px;
   color: #8E8A80;
 }
@@ -1366,7 +1366,7 @@
   border: 0;
   background: transparent;
   color: #c45c26;
-  font-family: 'EB Garamond', Georgia, serif;
+  font-family: var(--font-display);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;

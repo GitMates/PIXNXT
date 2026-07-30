@@ -4,7 +4,7 @@ import './AlbumStatusFilterPopover.css';
 
 export const ALBUM_STATUS_FILTER_OPTIONS = [
     { value: 'draft', label: 'Draft', dotClass: 'sa-status-filter__dot--draft' },
-    { value: 'awaiting', label: 'Awaiting feedback', dotClass: 'sa-status-filter__dot--awaiting' },
+    { value: 'awaiting', label: 'Not opened', dotClass: 'sa-status-filter__dot--awaiting' },
     { value: 'revision', label: 'Revision requested', dotClass: 'sa-status-filter__dot--revision' },
     { value: 'approved', label: 'Approved', dotClass: 'sa-status-filter__dot--approved' },
 ];

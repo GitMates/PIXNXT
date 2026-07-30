@@ -5,7 +5,7 @@
   flex: 1;
   min-height: 100%;
   width: 100%;
-  background: oklch(0.968 0.006 85);
+  background: var(--bg);
   overflow: auto;
   display: flex;
   flex-direction: column;
@@ -16,9 +16,8 @@
   width: 100%;
   max-width: 720px;
   padding: 44px 40px 64px;
-  font-family: 'Outfit', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
-    sans-serif;
-  color: oklch(0.23 0.004 60);
+  font-family: var(--font-sans);
+  color: var(--ink);
 }
 
 @media (max-width: 768px) {
@@ -34,25 +33,26 @@
 
 .theme-mono .sa-proofer-settings__title {
   margin: 0;
-  font-family: 'EB Garamond', Georgia, 'Times New Roman', serif !important;
-  font-size: clamp(1.875rem, 3.5vw, 2.25rem) !important;
-  font-weight: 500 !important;
+  font-family: var(--font-display) !important;
+  font-size: var(--t-display-lg) !important;
+  font-weight: 400 !important;
   line-height: 1.15;
-  letter-spacing: -0.02em !important;
+  letter-spacing: -0.018em !important;
   text-transform: none !important;
-  color: oklch(0.23 0.004 60) !important;
+  color: var(--ink) !important;
+  font-variation-settings: 'opsz' 34;
 }
 
 .theme-mono .sa-proofer-settings__subtitle {
   margin: 10px 0 0;
   max-width: 36rem;
-  font-size: 14px;
-  line-height: 1.55;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-size: var(--t-body);
+  line-height: 1.5;
+  font-family: var(--font-sans);
   text-transform: none;
   letter-spacing: normal;
   font-weight: 400;
-  color: oklch(0.55 0.01 70);
+  color: var(--ink-muted);
 }
 
 /* Glass segmented tabs */
@@ -490,7 +490,7 @@
   max-width: 720px;
   padding: 48px 40px;
   font-size: 14px;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   color: oklch(0.55 0.01 70);
 }
 

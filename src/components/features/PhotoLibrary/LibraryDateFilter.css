@@ -9,7 +9,7 @@
     3px 3px 9px oklch(0.4 0.01 70 / 0.09);
   animation: plDateFadeIn 0.15s ease-out;
   overflow: hidden;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
   color: #1a1a1a;
 }
 
@@ -104,7 +104,7 @@
   justify-content: center;
   font-size: 0.8125rem;
   font-weight: 500;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
   border-radius: 9999px;
 }
 

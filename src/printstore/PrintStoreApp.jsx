@@ -1978,7 +1978,7 @@ export default function PrintStoreApp() {
             border: '1px solid #f2ede4',
             padding: '40px',
             boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
-            fontFamily: "'europa', 'Inter', sans-serif"
+            fontFamily: "'europa', var(--font-sans)"
           }}>
             {/* Photographer Branding logo/name in top left corner */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px', paddingBottom: '16px', borderBottom: '1px solid #f2ede4' }}>
@@ -2691,7 +2691,7 @@ export default function PrintStoreApp() {
             boxSizing: 'border-box',
             boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
             color: '#111',
-            fontFamily: "'europa', 'Inter', sans-serif",
+            fontFamily: "'europa', var(--font-sans)",
             position: 'relative'
           }}>
             <button

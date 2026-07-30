@@ -436,7 +436,10 @@
 
 .ab-html-flipbook {
   margin: 0 auto;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.14);
+  border-radius: 14px;
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.14),
+    0 6px 14px rgba(0, 0, 0, 0.07);
   overflow: visible !important;
 }
 
@@ -666,9 +669,10 @@
 
 .ab-cover-leather-canvas.ab-cover-leather--flat {
   box-shadow:
-    0 14px 32px rgba(0, 0, 0, 0.14),
-    0 4px 10px rgba(0, 0, 0, 0.07);
+    0 18px 40px rgba(0, 0, 0, 0.16),
+    0 6px 14px rgba(0, 0, 0, 0.08);
   transform: none;
+  border-radius: 14px;
 }
 
 .ab-cover-leather-canvas.ab-cover-leather--flat.ab-page-photo-wrap,
@@ -677,7 +681,7 @@
 }
 
 .ab-flipbook-wrap--front-cover-only .ab-cover-leather--flat {
-  border-radius: 1px;
+  border-radius: 14px;
 }
 
 .ab-cover-text-message--leather {

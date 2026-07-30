@@ -1205,7 +1205,7 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
       position: 'absolute',
       background: 'transparent',
       fontSize: '11px',
-      fontFamily: 'Inter, sans-serif',
+      fontFamily: 'Plus Jakarta Sans, system-ui, sans-serif',
       fontWeight: '600',
       letterSpacing: '0.5px',
       color: '#555',

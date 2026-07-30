@@ -54,7 +54,7 @@
 
 .ae-settings-panel__heading {
   margin: 0 0 2px;
-  font-family: 'EB Garamond', Georgia, 'Times New Roman', serif !important;
+  font-family: var(--font-display) !important;
   font-size: 26px !important;
   font-weight: 500 !important;
   letter-spacing: normal !important;
@@ -77,7 +77,7 @@
 
 .ae-settings-section__label {
   margin: 0 0 14px;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.16em;
@@ -96,7 +96,7 @@
 .ae-settings-field__label {
   display: block;
   margin-bottom: 7px;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 500;
   color: var(--ae-set-label);
@@ -114,7 +114,7 @@
 
 .ae-settings-field__desc {
   margin: 3px 0 0;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 11px;
   line-height: 1.45;
   color: var(--ae-set-muted);
@@ -140,7 +140,7 @@
   border: none;
   background: transparent;
   padding: 0;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 400;
   color: var(--ae-set-text);
@@ -162,7 +162,7 @@
   border-radius: 999px;
   background: var(--ae-set-inset);
   padding: 11px 15px;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 500;
   color: var(--ae-set-text);
@@ -268,7 +268,7 @@
 }
 
 .ae-settings-select-option__label {
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 600;
   color: var(--ae-set-text);
@@ -276,7 +276,7 @@
 }
 
 .ae-settings-select-option__desc {
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 11px;
   font-weight: 400;
   color: var(--ae-set-muted);
@@ -295,7 +295,7 @@
   border-radius: 999px;
   background: var(--ae-set-inset);
   padding: 11px 15px;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 400;
   color: var(--ae-set-text);
@@ -414,7 +414,7 @@
 
 .ae-settings-subsection__label {
   margin: 0 0 12px;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.14em;
@@ -437,7 +437,7 @@
 }
 
 .ae-settings-nested__label {
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 12px;
   color: var(--ae-set-muted);
 }
@@ -450,7 +450,7 @@
   border-radius: 999px;
   background: var(--ae-set-inset);
   text-align: center;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 600;
   color: var(--ae-set-text);
@@ -481,7 +481,7 @@
   border: none;
   border-radius: 50%;
   background: var(--ae-set-inset);
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 15px;
   font-weight: 600;
   color: var(--ae-set-text);
@@ -521,7 +521,7 @@
   border-radius: 999px;
   background: var(--ae-set-inset);
   padding: 10px 14px;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 500;
   color: var(--ae-set-label);
@@ -552,7 +552,7 @@
 
 .ae-settings-footer__hint {
   margin: 0;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 11px;
   font-style: italic;
   color: var(--ae-set-muted);
@@ -562,7 +562,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 11px;
   font-weight: 600;
   color: var(--ae-set-toggle-on);
@@ -579,7 +579,7 @@
   background: var(--ae-set-text);
   box-shadow: 0 4px 16px oklch(0.4 0.01 70 / 0.14);
   padding: 8px 16px;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 500;
   color: #fff;
@@ -589,14 +589,14 @@
 
 .ae-settings-loading {
   padding: 20px 20px;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 13px;
   color: oklch(0.62 0.01 70);
 }
 
 .ae-settings-private-hint {
   margin: 10px 0 0;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 11px;
   line-height: 1.5;
   color: var(--ae-set-muted);

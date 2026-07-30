@@ -1,5 +1,4 @@
 /* Lab portal — Client Gallery visual system (neumorphic mono) */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 .theme-mono.lab-shell {
   --lab-bg: #f9f9f7;
@@ -14,14 +13,14 @@
 
   color: var(--lab-foreground);
   background-color: var(--lab-bg);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
 }
 
 .theme-mono.lab-shell .lab-page {
   min-height: 100%;
   background: var(--lab-bg);
   color: var(--lab-foreground);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
   padding: 28px 32px;
   box-sizing: border-box;
 }
@@ -180,7 +179,7 @@
   box-shadow:
     inset 3px 3px 7px oklch(0.4 0.01 70 / 0.1),
     inset -3px -3px 7px oklch(1 0.004 85 / 0.85) !important;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+  font-family: var(--font-sans) !important;
   -webkit-appearance: none;
   appearance: none;
 }
@@ -354,7 +353,7 @@
   border-radius: 12px !important;
   border: 1px solid var(--lab-border) !important;
   background-color: #ffffff !important;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+  font-family: var(--font-sans) !important;
   color: var(--lab-foreground) !important;
 }
 

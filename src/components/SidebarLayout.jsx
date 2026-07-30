@@ -34,7 +34,14 @@ const PRODUCT_IMAGES = {
  * Shared product shell used by Client Gallery, Smart Albums, Mobile Gallery, etc.
  * Pass `productId` to switch the active product label + in-product nav.
  */
-const SidebarLayout = ({ children, productId = 'client-gallery', headerActions = null }) => {
+const SidebarLayout = ({
+    children,
+    productId = 'client-gallery',
+    headerActions = null,
+    shellClassName = '',
+    navCounts = null,
+    showBrandText = false,
+}) => {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [showAppDropdown, setShowAppDropdown] = useState(false);
     const [showContextDropdown, setShowContextDropdown] = useState(false);
@@ -404,8 +411,57 @@ const SidebarLayout = ({ children, productId = 'client-gallery', headerActions =
         </div>
     );
 
+    const isProoferShell = productId === 'smart-albums';
+
+    const workNavItems = isProoferShell
+        ? navItems.filter((item) => item.section === 'work' || !item.section)
+        : navItems;
+    const studioNavItems = isProoferShell
+        ? navItems.filter((item) => item.section === 'studio')
+        : [];
+
+    const renderNavButton = (item) => {
+        const active = item.match(path);
+        const Icon = item.icon;
+        const count =
+            item.countKey && navCounts && typeof navCounts[item.countKey] === 'number'
+                ? navCounts[item.countKey]
+                : null;
+        return (
+            <button
+                key={item.href}
+                type="button"
+                onClick={() => {
+                    navigate(item.href);
+                    setIsMobileMenuOpen(false);
+                }}
+                className={cn(
+                    isProoferShell
+                        ? 'sa-proofer-nav-item'
+                        : 'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all text-left w-full border-0 cursor-pointer',
+                    !isProoferShell &&
+                        (active
+                            ? 'neu-inset text-[#1A1A1A]'
+                            : 'text-[#71717A]/80 hover:text-[#1A1A1A] bg-transparent'),
+                    isProoferShell && active && 'sa-proofer-nav-item--active',
+                )}
+            >
+                <Icon className={cn('size-4 shrink-0', isProoferShell && 'sa-proofer-nav-item__icon')} />
+                <span className={isProoferShell ? 'sa-proofer-nav-item__label' : undefined}>
+                    {item.label}
+                </span>
+                {count != null && (
+                    <span className="sa-proofer-nav-item__count">{count}</span>
+                )}
+            </button>
+        );
+    };
+
     return (
-        <div className="theme-mono cg-shell flex flex-col md:flex-row min-h-screen md:h-screen w-full max-w-[100vw] overflow-x-hidden md:overflow-hidden">
+        <div className={cn(
+            'theme-mono cg-shell flex flex-col md:flex-row min-h-screen md:h-screen w-full max-w-[100vw] overflow-x-hidden md:overflow-hidden',
+            shellClassName,
+        )}>
             <button
                 type="button"
                 className="fixed top-4 right-4 z-[1100] neu-circle size-10 items-center justify-center text-[#1A1A1A] cursor-pointer flex md:hidden"
@@ -421,12 +477,22 @@ const SidebarLayout = ({ children, productId = 'client-gallery', headerActions =
 
             <aside className={cn(
                 'fixed md:static top-0 w-60 h-screen shrink-0 flex-col justify-between border-r border-[#ECEAE6] bg-[#F9F9F7] z-[1000] md:z-10 transition-[left] duration-300 overflow-visible',
+                isProoferShell && 'sa-proofer-aside',
                 isMobileMenuOpen ? 'left-0 flex shadow-2xl' : '-left-60 hidden md:flex md:shadow-[4px_0_16px_-8px_rgba(0,0,0,0.12)]',
             )}>
                 <div className="flex flex-1 flex-col min-h-0">
-                    <div className="relative z-20 shrink-0 overflow-visible px-5 pt-5 pb-8 flex items-center justify-between">
-                        <div className="flex items-center gap-2.5 shrink-0">
+                    <div className={cn(
+                        'relative z-20 shrink-0 overflow-visible px-5 pt-5 pb-8 flex items-center justify-between',
+                        isProoferShell && 'sa-proofer-aside__header',
+                    )}>
+                        <div className={cn('flex items-center gap-2.5 shrink-0 min-w-0', showBrandText && 'flex-1')}>
                             {renderBrandIcon()}
+                            {showBrandText && (
+                                <div className="sa-proofer-brand-text min-w-0">
+                                    <span className="sa-proofer-brand-text__name">{brandPrimary}</span>
+                                    <span className="sa-proofer-brand-text__sub">{brandSubtitle}</span>
+                                </div>
+                            )}
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                             {headerActions || (productId === 'client-gallery' ? (
@@ -436,16 +502,23 @@ const SidebarLayout = ({ children, productId = 'client-gallery', headerActions =
                                     <Bell className="size-4" />
                                 </button>
                             ))}
-                            <AppSwitcherMenu />
+                            {!isProoferShell && <AppSwitcherMenu />}
                         </div>
                     </div>
 
-                    <nav className="flex flex-1 flex-col gap-1 px-3 py-4 neu-scroll overflow-y-auto min-h-0">
-                        <div ref={contextDropdownRef} className="relative px-3 pb-3">
+                    <nav className={cn(
+                        'flex flex-1 flex-col gap-1 px-3 py-4 neu-scroll overflow-y-auto min-h-0',
+                        isProoferShell && 'sa-proofer-nav',
+                    )}>
+                        <div ref={contextDropdownRef} className={cn('relative px-3 pb-3', isProoferShell && 'sa-proofer-product-wrap')}>
                             <button
                                 type="button"
                                 onClick={() => setShowContextDropdown((v) => !v)}
-                                className="group flex w-full items-center justify-between gap-2 rounded-md py-1 text-lg font-bold text-[#1A1A1A] transition-colors hover:text-[#1A1A1A]/80"
+                                className={cn(
+                                    isProoferShell
+                                        ? 'sa-proofer-product-btn'
+                                        : 'group flex w-full items-center justify-between gap-2 rounded-md py-1 text-lg font-bold text-[#1A1A1A] transition-colors hover:text-[#1A1A1A]/80',
+                                )}
                                 aria-expanded={showContextDropdown}
                             >
                                 <span className="truncate">{activeProduct.name}</span>
@@ -478,38 +551,29 @@ const SidebarLayout = ({ children, productId = 'client-gallery', headerActions =
                             )}
                         </div>
 
-                        {navItems.map((item) => {
-                            const active = item.match(path);
-                            const Icon = item.icon;
-                            return (
-                                <button
-                                    key={item.href}
-                                    type="button"
-                                    onClick={() => {
-                                        navigate(item.href);
-                                        setIsMobileMenuOpen(false);
-                                    }}
-                                    className={cn(
-                                        'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all text-left w-full border-0 cursor-pointer',
-                                        active
-                                            ? 'neu-inset text-[#1A1A1A]'
-                                            : 'text-[#71717A]/80 hover:text-[#1A1A1A] bg-transparent',
-                                    )}
-                                >
-                                    <Icon className="size-4 shrink-0" />
-                                    {item.label}
-                                </button>
-                            );
-                        })}
+                        {isProoferShell ? (
+                            <>
+                                <p className="sa-proofer-nav-section">Work</p>
+                                {workNavItems.map(renderNavButton)}
+                                {studioNavItems.length > 0 && (
+                                    <>
+                                        <p className="sa-proofer-nav-section sa-proofer-nav-section--studio">Studio</p>
+                                        {studioNavItems.map(renderNavButton)}
+                                    </>
+                                )}
+                            </>
+                        ) : (
+                            navItems.map(renderNavButton)
+                        )}
                     </nav>
                 </div>
 
-                <div className="p-4">
-                    <div className="neu-inset rounded-2xl p-4">
+                <div className={cn('p-4', isProoferShell && 'sa-proofer-aside__footer')}>
+                    <div className={cn('neu-inset rounded-2xl p-4', isProoferShell && 'sa-proofer-storage')}>
                         <div className="flex items-center justify-between">
                             <span className="flex items-center gap-2 text-xs font-medium text-[#71717A]">
                                 <Database className="size-3.5 text-[#1A1A1A]" />
-                                Storage
+                                {isProoferShell ? 'STORAGE' : 'Storage'}
                             </span>
                             <button type="button" className="inline-flex size-5 items-center justify-center rounded-md text-[#1A1A1A] hover:bg-[#1A1A1A]/10" aria-label="Upgrade storage">
                                 <Plus className="size-3.5" />
@@ -518,19 +582,37 @@ const SidebarLayout = ({ children, productId = 'client-gallery', headerActions =
                         <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-[#ECEAE6]">
                             <div className="h-full rounded-full bg-[#1A1A1A] transition-all duration-300" style={{ width: `${storagePct}%` }} />
                         </div>
-                        <p className="mt-1.5 text-xs text-[#71717A]">{formatStorage(usedBytes)} of {formatStorage(maxBytes)} used</p>
+                        <p className="mt-1.5 text-xs text-[#71717A]">
+                            {isProoferShell
+                                ? `${formatStorage(usedBytes).replace(/\.00 /, ' ')} / ${formatStorage(maxBytes).replace(/\.00 /, ' ')}`
+                                : `${formatStorage(usedBytes)} of ${formatStorage(maxBytes)} used`}
+                        </p>
                     </div>
 
                     <div className="relative mt-3" ref={profileDropdownRef}>
                         <button
                             type="button"
                             onClick={() => setShowProfileDropdown((v) => !v)}
-                            className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left transition-colors hover:bg-black/[0.04] font-sans"
+                            className={cn(
+                                'flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left transition-colors hover:bg-black/[0.04] font-sans',
+                                isProoferShell && 'sa-proofer-profile-btn',
+                            )}
                         >
                             <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-[#1A1A1A] text-sm font-semibold text-white uppercase">
                                 {userInitial}
                             </span>
-                            <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-[#111827]">{userDisplayLabel}</span>
+                            {isProoferShell ? (
+                                <span className="min-w-0 flex-1">
+                                    <span className="block truncate text-[13px] font-semibold text-[#1c1917]">
+                                        {userDisplayLabel}
+                                    </span>
+                                    <span className="block truncate text-[11px] text-[#8a8580]">
+                                        Studio owner
+                                    </span>
+                                </span>
+                            ) : (
+                                <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-[#111827]">{userDisplayLabel}</span>
+                            )}
                             <ChevronDown className={cn('size-4 shrink-0 text-[#6B7280] transition-transform', showProfileDropdown && 'rotate-180')} />
                         </button>
                         {showProfileDropdown && renderProfileDropdown('bottom-full left-0 mb-2')}
@@ -538,7 +620,10 @@ const SidebarLayout = ({ children, productId = 'client-gallery', headerActions =
                 </div>
             </aside>
 
-            <div className="flex-1 flex flex-col min-h-screen md:h-screen w-full min-w-0 max-w-full overflow-x-hidden overflow-y-auto md:overflow-hidden bg-[#F9F9F7] pt-14 md:pt-0">
+            <div className={cn(
+                'flex-1 flex flex-col min-h-screen md:h-screen w-full min-w-0 max-w-full overflow-x-hidden overflow-y-auto md:overflow-hidden bg-[#F9F9F7] pt-14 md:pt-0',
+                isProoferShell && 'sa-proofer-main',
+            )}>
                 {children}
             </div>
         </div>
