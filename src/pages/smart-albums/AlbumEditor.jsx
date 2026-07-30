@@ -1091,6 +1091,7 @@ export default function AlbumEditor({
             ) {
                 setGridEditSet('single');
                 setGridSelection(buildCoverSelection());
+                return; // Cover actions are in the sidebar — no popup needed
             } else if (
                 slot.whole ||
                 isManualWholeSpreadPlacement(spreadLeft, totalPages, album, spreadOpts)
@@ -1322,6 +1323,25 @@ export default function AlbumEditor({
         showToast,
         user?.id,
     ]);
+
+    const handleRemoveCoverPhotos = useCallback(async () => {
+        if (
+            clearSpreadPhotos(albumId, 0, totalPages, 'whole', {
+                gridLayout: album?.grid_layout,
+                spreadOpts,
+            })
+        ) {
+            scheduleWorkspaceRefresh();
+            if (user?.id) {
+                try {
+                    await smartAlbumsService.syncAlbumPreviewData(user.id, albumId);
+                } catch (err) {
+                    console.warn('Could not sync album preview after cover remove:', err);
+                }
+            }
+            showToast('Cover photos removed.', { duration: 3500 });
+        }
+    }, [albumId, album?.grid_layout, totalPages, spreadOpts, scheduleWorkspaceRefresh, showToast, user?.id]);
 
     const handleOpenSwapModal = useCallback(() => {
         if (slotMenu?.slot) setSwapExecuteOrigin(slotMenu.slot);
@@ -2328,6 +2348,7 @@ export default function AlbumEditor({
                     coverTextMessage={coverTextMessage}
                     onSaveCoverText={handleSaveCoverText}
                     onUploadCoverFile={handleUploadCoverFile}
+                    onRemoveCoverPhotos={handleRemoveCoverPhotos}
                     workspaceRevision={layoutRevision}
                 />
             </div>
