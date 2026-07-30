@@ -1512,6 +1512,16 @@
   -webkit-overflow-scrolling: touch;
 }
 
+.sa-filmstrip--dragging {
+  cursor: grabbing;
+  scroll-snap-type: none;
+  user-select: none;
+}
+
+.sa-filmstrip--dragging .sa-filmstrip-tile:not(.sa-filmstrip-tile--dragging) {
+  transition: transform 0.22s cubic-bezier(0.2, 0, 0, 1);
+}
+
 .sa-filmstrip--analyzing {
   opacity: 0.72;
   pointer-events: none;
@@ -1535,6 +1545,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  touch-action: none;
+  will-change: transform;
 }
 
 .sa-filmstrip-tile img {
@@ -1603,9 +1615,13 @@
   box-shadow: 0 0 0 1px var(--sa-accent);
 }
 
-.sa-filmstrip-tile--drag-over {
-  outline: 2px dashed var(--sa-accent);
-  outline-offset: 2px;
+.sa-filmstrip-tile--dragging {
+  z-index: 5;
+  cursor: grabbing;
+  transition: none;
+  border-color: #8e44ad;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16);
+  opacity: 0.98;
 }
 
 .sa-spreads-toolbar {

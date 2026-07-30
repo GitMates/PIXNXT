@@ -7,7 +7,6 @@ import './AlbumProoferSettingsDrawer.css';
 const PRIVACY_OPTIONS = [
     { value: 'public', label: 'Public via link' },
     { value: 'password', label: 'Password Protected' },
-    { value: 'private', label: 'Restricted to Specific Client Emails' },
 ];
 
 const DEFAULT_VIEWERS = ['client@example.com', 'collaborator@example.com'];

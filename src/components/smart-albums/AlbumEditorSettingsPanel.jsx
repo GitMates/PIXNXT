@@ -20,11 +20,6 @@ const ACCESS_LEVEL_OPTIONS = [
         label: 'Password Protected',
         description: 'Clients must enter a password before viewing',
     },
-    {
-        value: 'private',
-        label: 'Private (Link Only)',
-        description: 'Hidden URL with a unique token — not publicly listed',
-    },
 ];
 
 function SettingsToggle({ on, onChange, label }) {

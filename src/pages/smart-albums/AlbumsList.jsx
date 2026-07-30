@@ -301,6 +301,14 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
         if (!user?.id || !editAlbum) return;
         setEditSaving(true);
         try {
+            const nameExists = albums.some(
+                (a) => a.id !== editAlbum.id && a.name.trim().toLowerCase() === payload.name.trim().toLowerCase()
+            );
+            if (nameExists) {
+                alert('An album with this name already exists.');
+                setEditSaving(false);
+                return;
+            }
             const updated = await smartAlbumsService.updateAlbumDetails(user.id, editAlbum.id, payload);
             setAlbums((prev) => prev.map((a) => (a.id === updated.id ? { ...a, ...updated } : a)));
             setEditAlbum(null);
@@ -311,6 +319,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
             setEditSaving(false);
         }
     };
+
 
     const renderContextMenu = (album) => {
         if (contextMenuId !== album.id) return null;
