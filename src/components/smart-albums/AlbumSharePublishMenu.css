@@ -197,6 +197,38 @@
   outline: none;
 }
 
+.ae-share-password-field {
+  position: relative;
+  margin-top: 10px;
+}
+
+.ae-share-password-field .ae-share-input {
+  margin-top: 0;
+  padding-right: 42px;
+}
+
+.ae-share-password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: oklch(0.55 0.01 70);
+  cursor: pointer;
+}
+
+.ae-share-password-toggle:hover {
+  color: oklch(0.28 0.01 60);
+  background: oklch(0.93 0.005 85);
+}
+
 .ae-share-btn {
   display: inline-flex;
   align-items: center;

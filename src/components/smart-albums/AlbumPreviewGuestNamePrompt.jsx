@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { Eye, EyeOff } from 'lucide-react';
 import { getGuestProfile, saveGuestProfile } from '../../services/smartAlbumComments.service';
 
 export default function AlbumPreviewGuestNamePrompt({
@@ -13,6 +14,7 @@ export default function AlbumPreviewGuestNamePrompt({
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
 
     useEffect(() => {
@@ -21,6 +23,7 @@ export default function AlbumPreviewGuestNamePrompt({
         setName(profile?.name || '');
         setEmail(profile?.email || '');
         setPassword('');
+        setShowPassword(false);
         setError('');
     }, [albumId, open]);
 
@@ -108,19 +111,34 @@ export default function AlbumPreviewGuestNamePrompt({
                         autoComplete="email"
                     />
                     {requirePassword ? (
-                        <input
-                            type="password"
-                            className="av-guest-name-modal__input"
-                            style={{ marginBottom: 0 }}
-                            value={password}
-                            onChange={(e) => {
-                                setPassword(e.target.value);
-                                if (error) setError('');
-                            }}
-                            placeholder="Enter password"
-                            required
-                            autoComplete="current-password"
-                        />
+                        <div className="av-guest-name-modal__password">
+                            <input
+                                type={showPassword ? 'text' : 'password'}
+                                className="av-guest-name-modal__input"
+                                style={{ marginBottom: 0, paddingRight: 44 }}
+                                value={password}
+                                onChange={(e) => {
+                                    setPassword(e.target.value);
+                                    if (error) setError('');
+                                }}
+                                placeholder="Enter password"
+                                required
+                                autoComplete="current-password"
+                            />
+                            <button
+                                type="button"
+                                className="av-guest-name-modal__password-toggle"
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={() => setShowPassword((prev) => !prev)}
+                                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                            >
+                                {showPassword ? (
+                                    <EyeOff size={16} strokeWidth={2} aria-hidden />
+                                ) : (
+                                    <Eye size={16} strokeWidth={2} aria-hidden />
+                                )}
+                            </button>
+                        </div>
                     ) : null}
                     {error ? (
                         <p className="text-sm text-red-600" style={{ margin: 0 }}>

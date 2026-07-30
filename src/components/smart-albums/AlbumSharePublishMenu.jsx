@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Ban, Copy, Mail } from 'lucide-react';
+import { Ban, Copy, Eye, EyeOff, Mail } from 'lucide-react';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
 import {
     smartAlbumProoferSettingsService,
@@ -86,6 +86,7 @@ export default function AlbumSharePublishMenu({
 
     const [accessLevel, setAccessLevel] = useState('public');
     const [albumPassword, setAlbumPassword] = useState('');
+    const [showAlbumPassword, setShowAlbumPassword] = useState(false);
     const [privateShareToken, setPrivateShareToken] = useState('');
 
     accessLevelRef.current = accessLevel;
@@ -457,16 +458,31 @@ export default function AlbumSharePublishMenu({
             />
             <p className="ae-share-hint ae-share-hint--serif">{accessHint}</p>
             {accessLevel === 'password' ? (
-                <input
-                    type="password"
-                    className="ae-share-input"
-                    value={albumPassword}
-                    onChange={(e) => handlePasswordChange(e.target.value)}
-                    onKeyDown={handlePasswordKeyDown}
-                    onBlur={handlePasswordBlur}
-                    placeholder="Set album password"
-                    autoComplete="new-password"
-                />
+                <div className="ae-share-password-field">
+                    <input
+                        type={showAlbumPassword ? 'text' : 'password'}
+                        className="ae-share-input"
+                        value={albumPassword}
+                        onChange={(e) => handlePasswordChange(e.target.value)}
+                        onKeyDown={handlePasswordKeyDown}
+                        onBlur={handlePasswordBlur}
+                        placeholder="Set album password"
+                        autoComplete="new-password"
+                    />
+                    <button
+                        type="button"
+                        className="ae-share-password-toggle"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => setShowAlbumPassword((prev) => !prev)}
+                        aria-label={showAlbumPassword ? 'Hide password' : 'Show password'}
+                    >
+                        {showAlbumPassword ? (
+                            <EyeOff size={16} strokeWidth={2} aria-hidden />
+                        ) : (
+                            <Eye size={16} strokeWidth={2} aria-hidden />
+                        )}
+                    </button>
+                </div>
             ) : null}
 
             <div className="ae-share-divider" />
@@ -593,16 +609,31 @@ export default function AlbumSharePublishMenu({
                             options={ACCESS_OPTIONS}
                         />
                         {accessLevel === 'password' ? (
-                            <input
-                                type="password"
-                                className="ae-share-input"
-                                value={albumPassword}
-                                onChange={(e) => handlePasswordChange(e.target.value)}
-                                onKeyDown={handlePasswordKeyDown}
-                                onBlur={handlePasswordBlur}
-                                placeholder="Set album password"
-                                autoComplete="new-password"
-                            />
+                            <div className="ae-share-password-field">
+                                <input
+                                    type={showAlbumPassword ? 'text' : 'password'}
+                                    className="ae-share-input"
+                                    value={albumPassword}
+                                    onChange={(e) => handlePasswordChange(e.target.value)}
+                                    onKeyDown={handlePasswordKeyDown}
+                                    onBlur={handlePasswordBlur}
+                                    placeholder="Set album password"
+                                    autoComplete="new-password"
+                                />
+                                <button
+                                    type="button"
+                                    className="ae-share-password-toggle"
+                                    onMouseDown={(e) => e.preventDefault()}
+                                    onClick={() => setShowAlbumPassword((prev) => !prev)}
+                                    aria-label={showAlbumPassword ? 'Hide password' : 'Show password'}
+                                >
+                                    {showAlbumPassword ? (
+                                        <EyeOff size={16} strokeWidth={2} aria-hidden />
+                                    ) : (
+                                        <Eye size={16} strokeWidth={2} aria-hidden />
+                                    )}
+                                </button>
+                            </div>
                         ) : null}
 
                         <button
