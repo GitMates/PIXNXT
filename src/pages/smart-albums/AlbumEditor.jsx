@@ -72,12 +72,8 @@ import {
     clearWrapSegmentCache,
 } from '../../components/smart-albums/bookWrapSegment';
 import { clearAlbumSpineBoundsOverride } from '../../components/smart-albums/albumSpineSettings';
-import {
-    clearSpreadPhotos,
-    swapPhotoSlots,
-} from '../../components/smart-albums/albumSlotActions';
+import { clearSpreadPhotos } from '../../components/smart-albums/albumSlotActions';
 import AlbumSpreadSlotMenu from '../../components/smart-albums/AlbumSpreadSlotMenu';
-import AlbumSwapExecuteModal from '../../components/smart-albums/AlbumSwapExecuteModal';
 import {
     clearAlbumTransforms,
     getTransformRevision,
@@ -125,7 +121,6 @@ import {
 import AlbumEditorSettingsPanel from '../../components/smart-albums/AlbumEditorSettingsPanel';
 import {
     getSwapMarks,
-    isWholeGridSwapSlot,
     markSwapMarksSeen,
     parseSlotKey,
     SWAP_MARKS_CHANGED_EVENT,
@@ -365,7 +360,6 @@ export default function AlbumEditor({
     const albumRef = useRef(album);
     albumRef.current = album;
     const [slotMenu, setSlotMenu] = useState(null);
-    const [swapExecuteOrigin, setSwapExecuteOrigin] = useState(null);
     const [coverTextModalOpen, setCoverTextModalOpen] = useState(false);
     const [coverTextRevision, setCoverTextRevision] = useState(0);
 
@@ -1397,31 +1391,6 @@ export default function AlbumEditor({
         user?.id,
     ]);
 
-    const handleOpenSwapModal = useCallback(() => {
-        if (slotMenu?.slot) setSwapExecuteOrigin(slotMenu.slot);
-        closeSlotMenu();
-    }, [slotMenu, closeSlotMenu]);
-
-    const handleExecuteSwap = useCallback(
-        (targetSlot) => {
-            if (!swapExecuteOrigin || !targetSlot) return;
-            const origin = swapExecuteOrigin;
-            setSwapExecuteOrigin(null);
-            requestAnimationFrame(() => {
-                if (swapPhotoSlots(albumId, origin, targetSlot, totalPages, spreadCtx)) {
-                    scheduleWorkspaceRefresh();
-                    showToast('Photos swapped.', { duration: 3500 });
-                } else {
-                    showToast('Could not swap — one or both slots may be empty.', {
-                        variant: 'error',
-                        duration: 4000,
-                    });
-                }
-            });
-        },
-        [swapExecuteOrigin, albumId, totalPages, spreadCtx, scheduleWorkspaceRefresh, showToast]
-    );
-
     const placementTargets = useMemo(() => {
         if (!gridSelection || gridSelection.mode === 'cover') return [];
         const left = gridSelection.leftPage;
@@ -1894,16 +1863,6 @@ export default function AlbumEditor({
         ]
     );
 
-    const slotMenuSwapHint = useMemo(() => {
-        if (!slotMenu?.slot) return 'Any left or right photo';
-        if (spreadOpts.hasCovers && slotMenu.slot.pageNum === 0) return 'Cover only';
-        const gridLayout = album?.grid_layout || 'two-page';
-        if (isWholeGridSwapSlot(albumId, slotMenu.slot, totalPages, gridLayout, album)) {
-            return 'Other whole spreads only';
-        }
-        return 'Any left or right photo';
-    }, [slotMenu, albumId, album?.grid_layout, totalPages]);
-
     const slotMenuCanAddSpreadBefore = useMemo(() => {
         const spreadLeft = slotMenu?.slot?.spreadLeft;
         if (spreadLeft == null || !canAddPages) return false;
@@ -2089,22 +2048,6 @@ export default function AlbumEditor({
 
     const spreadEdit = activePanel === 'edit';
     const coverEditMode = activePanel === 'cover' && albumHasCoverSpreads(album);
-
-    const isCoverEditorSlotMenu = useMemo(() => {
-        if (!coverEditMode || !slotMenu?.slot) return false;
-        const slot = slotMenu.slot;
-        return slot.pageNum === 0 || slot.label === 'Cover' || slot.label === 'Book wrap';
-    }, [coverEditMode, slotMenu]);
-
-    const slotMenuCanSwap = useMemo(() => {
-        if (isCoverEditorSlotMenu || !slotMenu?.slot?.hasPhoto) return false;
-        if (spreadOpts.hasCovers && slotMenu?.spreadIndex === 1) return false;
-        const spreadLeft = slotMenu?.slot?.spreadLeft;
-        if (spreadLeft != null && isPreBackHalfSpreadLeftPage(spreadLeft, totalPages, spreadOpts)) {
-            return false;
-        }
-        return true;
-    }, [isCoverEditorSlotMenu, slotMenu, spreadOpts.hasCovers, totalPages, spreadOpts]);
 
     const coverTextMessage = useMemo(() => {
         void coverTextRevision;
@@ -2410,8 +2353,8 @@ export default function AlbumEditor({
                 anchorRect={slotMenu?.anchorRect}
                 slotLabel={slotMenu?.label}
                 hasPhoto={slotMenuShowRemovePhotos}
-                canSwap={slotMenuCanSwap}
-                swapHint={slotMenuSwapHint}
+                canUpload={Boolean(slotMenu?.slot)}
+                uploadBusy={uploading}
                 canAddSpreadBefore={slotMenuCanAddSpreadBefore}
                 canAddSpreadAfter={slotMenuCanAddSpreadAfter}
                 canDeleteSpread={slotMenuCanDeleteSpread}
@@ -2421,18 +2364,8 @@ export default function AlbumEditor({
                 onAddSpreadAfter={handleAddSpreadAfter}
                 onDeleteSpread={handleDeleteSpreadAt}
                 onRemovePhotos={handleRemoveSpreadPhotos}
-                onSwap={handleOpenSwapModal}
+                onUpload={handleReplaceFromMenu}
                 onClose={closeSlotMenu}
-            />
-
-            <AlbumSwapExecuteModal
-                open={Boolean(swapExecuteOrigin)}
-                album={album}
-                albumId={albumId}
-                totalPages={totalPages}
-                originSlot={swapExecuteOrigin}
-                onSwap={handleExecuteSwap}
-                onClose={() => setSwapExecuteOrigin(null)}
             />
         </div>
     );
