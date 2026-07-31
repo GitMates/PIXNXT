@@ -247,6 +247,7 @@ const OPTIONAL_ALBUM_INSERT_COLUMNS = [
   'replies_enabled',
   'comments_enabled',
   'share_link_enabled',
+  'share_link_paused_at',
   'proofer_settings',
   'expiry_date',
   'category_tags',
@@ -272,6 +273,7 @@ const ALBUM_LIST_FIELDS = [
   'replies_enabled',
   'messages_enabled',
   'share_link_enabled',
+  'share_link_paused_at',
   'created_at',
   'updated_at',
   'client_approved_at',
@@ -1089,6 +1091,14 @@ export const smartAlbumsService = {
    */
   async updateAlbumClientSettings(photographerId, albumId, patch) {
     const payload = { ...patch, updated_at: new Date().toISOString() };
+    if (patch.share_link_enabled === false) {
+      if (!patch.share_link_paused_at) {
+        payload.share_link_paused_at = new Date().toISOString();
+      }
+    } else if (patch.share_link_enabled === true) {
+      payload.share_link_paused_at = null;
+    }
+
     const settingsPatch = {};
     if (patch.comments_enabled !== undefined) {
       settingsPatch.comments_enabled = patch.comments_enabled;

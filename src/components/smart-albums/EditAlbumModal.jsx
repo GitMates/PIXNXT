@@ -2,10 +2,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, ChevronDown, RefreshCw, Settings2, X } from 'lucide-react';
 import DatePicker from '../ui/DatePicker/DatePicker';
-import {
-    categoryTagsFromCollection,
-    normalizeCategoryTagsFromString,
-} from '../../lib/categoryTags';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
 import { smartAlbumProoferSettingsService } from '../../services/smartAlbumProoferSettings.service';
 import { isAlbumClientApproved } from '../../services/albumProof.service';
@@ -51,7 +47,6 @@ export default function EditAlbumModal({
     const albumId = album?.id;
     const [name, setName] = useState('');
     const [eventDate, setEventDate] = useState('');
-    const [categoryTags, setCategoryTags] = useState('');
     const [showAdvanced, setShowAdvanced] = useState(false);
     const [advancedLoading, setAdvancedLoading] = useState(false);
 
@@ -68,7 +63,6 @@ export default function EditAlbumModal({
         if (!album || !isOpen) return;
         setName(album.name || '');
         setEventDate(album.event_date ? album.event_date.slice(0, 10) : '');
-        setCategoryTags(categoryTagsFromCollection(album).join(', '));
         setShowAdvanced(false);
     }, [album, isOpen]);
 
@@ -178,7 +172,6 @@ export default function EditAlbumModal({
         const details = {
             name: name.trim(),
             event_date: eventDate || null,
-            category_tags: normalizeCategoryTagsFromString(categoryTags),
         };
 
         try {
@@ -243,20 +236,6 @@ export default function EditAlbumModal({
                                 value={eventDate}
                                 onChange={setEventDate}
                                 placeholder="MM/DD/YYYY"
-                            />
-                        </div>
-
-                        <div className="eam-field">
-                            <label className="eam-label" htmlFor="eam-tags">
-                                Category tags
-                            </label>
-                            <input
-                                id="eam-tags"
-                                type="text"
-                                className="eam-input"
-                                placeholder="Bride, Groom, Family…"
-                                value={categoryTags}
-                                onChange={(e) => setCategoryTags(e.target.value)}
                             />
                         </div>
                     </div>

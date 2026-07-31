@@ -57,6 +57,7 @@ export function mergeAlbumProofTimestamps(album, summary = null) {
         client_changes_submitted_at: clientChangesSubmittedAt || null,
         client_commenting_started_at: clientCommentingStartedAt || null,
         client_last_activity_at: clientLastActivityAt || null,
+        share_link_paused_at: album.share_link_paused_at || getAlbumSharePausedAt(album) || null,
         __proofSummary: summary || album.__proofSummary || null,
     };
 }
@@ -132,6 +133,7 @@ export function getAlbumProofActivityAt(album) {
     }
     if (status.tone === 'paused') {
         return (
+            merged.share_link_paused_at ||
             getAlbumSharePausedAt(merged) ||
             merged.updated_at ||
             merged.published_at ||
