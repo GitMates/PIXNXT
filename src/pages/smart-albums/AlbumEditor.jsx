@@ -109,10 +109,13 @@ import {
     isInsideCoverSpreadLeft,
     isManualWholeSpreadPlacement,
     isPreBackHalfSpreadLeftPage,
+    isDraggableOverviewSpread,
     isWholeSpreadLayout,
     pageToSpreadIndex,
     spreadIndexToPage,
 } from '../../components/smart-albums/albumSpreadUtils';
+import { resolveCollectionItemSpreadIndex } from '../../components/smart-albums/collectionThumbLayout';
+import { buildOverviewSpreadReorderPlan } from '../../components/smart-albums/albumSpreadReorder';
 import { AppToast, useAppToast } from '../../components/ui/AppToast';
 import {
     captureSlotImageBeforeReplace,
@@ -1768,35 +1771,108 @@ export default function AlbumEditor({
         ]
     );
 
-    const handleReorderCollectionItem = useCallback(
-        async (fromIndex, toIndex) => {
-            if (!reorderCollectionItems(albumId, fromIndex, toIndex, { album })) return;
-            await syncCollectionOrderToSpreads();
-            setCollectionRevision(getAlbumCollectionRevision(albumId));
-            setPhotoLayoutRev(getAlbumPhotoRevision(albumId) || 0);
-            setTransformRevision(getTransformRevision(albumId));
-        },
-        [albumId, album, syncCollectionOrderToSpreads]
-    );
-
-    const handleReorderOverviewSpread = useCallback(
+    const finishSpreadContentReorder = useCallback(
         (fromSpreadIndex, toSpreadIndex) => {
+            const plan = buildOverviewSpreadReorderPlan(
+                fromSpreadIndex,
+                toSpreadIndex,
+                totalPages,
+                spreadOpts
+            );
             if (
                 !reorderOverviewSpreads(albumId, fromSpreadIndex, toSpreadIndex, {
                     totalPages,
                     spreadOpts,
                 })
             ) {
-                return;
+                return false;
             }
+
+            // Keep comment/message badges on the moved spread content immediately.
+            if (plan) {
+                setSpreadCommentsBySpread((prev) => {
+                    const snapshots = Object.fromEntries(
+                        plan.draggable.map((spreadIndex) => [
+                            spreadIndex,
+                            prev[spreadIndex] || [],
+                        ])
+                    );
+                    const next = { ...prev };
+                    plan.draggable.forEach((spreadIndex) => {
+                        delete next[spreadIndex];
+                    });
+                    plan.draggable.forEach((targetSpread, i) => {
+                        const sourceSpread = plan.newOrder[i];
+                        const rows = (snapshots[sourceSpread] || []).map((row) => ({
+                            ...row,
+                            spread_index: targetSpread,
+                        }));
+                        if (rows.length) next[targetSpread] = rows;
+                    });
+                    return next;
+                });
+            }
+
             setTransformRevision(getTransformRevision(albumId));
             setSwapMarks(getSwapMarks(albumId));
             setPhotoPins(getPhotoPins(albumId));
             syncCollectionOrderToPlacements(albumId);
+            setCollectionRevision(getAlbumCollectionRevision(albumId));
+            setPhotoLayoutRev(getAlbumPhotoRevision(albumId) || 0);
             bumpWorkspace();
             showToast('Spread order updated.', { variant: 'success', duration: 3000 });
+            return true;
         },
         [albumId, totalPages, spreadOpts, bumpWorkspace, showToast]
+    );
+
+    const handleReorderCollectionItem = useCallback(
+        async (fromIndex, toIndex) => {
+            if (fromIndex === toIndex) return;
+
+            const items = getAlbumCollection(albumId);
+            const fromSpread = resolveCollectionItemSpreadIndex(
+                fromIndex,
+                items,
+                album,
+                totalPages
+            );
+            const toSpread = resolveCollectionItemSpreadIndex(toIndex, items, album, totalPages);
+            const canMoveWithFeedback =
+                fromSpread != null &&
+                toSpread != null &&
+                fromSpread !== toSpread &&
+                isDraggableOverviewSpread(fromSpread, totalPages, spreadOpts) &&
+                isDraggableOverviewSpread(toSpread, totalPages, spreadOpts);
+
+            // Prefer spread-content reorder so comments, swaps, pins, and messages travel with photos.
+            if (canMoveWithFeedback && finishSpreadContentReorder(fromSpread, toSpread)) {
+                return;
+            }
+
+            if (!reorderCollectionItems(albumId, fromIndex, toIndex, { album })) return;
+            await syncCollectionOrderToSpreads();
+            setCollectionRevision(getAlbumCollectionRevision(albumId));
+            setPhotoLayoutRev(getAlbumPhotoRevision(albumId) || 0);
+            setTransformRevision(getTransformRevision(albumId));
+            setSwapMarks(getSwapMarks(albumId));
+            setPhotoPins(getPhotoPins(albumId));
+        },
+        [
+            albumId,
+            album,
+            totalPages,
+            spreadOpts,
+            finishSpreadContentReorder,
+            syncCollectionOrderToSpreads,
+        ]
+    );
+
+    const handleReorderOverviewSpread = useCallback(
+        (fromSpreadIndex, toSpreadIndex) => {
+            finishSpreadContentReorder(fromSpreadIndex, toSpreadIndex);
+        },
+        [finishSpreadContentReorder]
     );
 
     const canAddPages = totalPages + pagesPerSpread <= maxPages;

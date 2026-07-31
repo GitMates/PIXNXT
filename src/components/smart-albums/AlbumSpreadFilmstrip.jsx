@@ -221,10 +221,18 @@ export default function AlbumSpreadFilmstrip({
 
     const tiles = useMemo(() => {
         if (!optimisticVisuals) return liveTiles;
-        return liveTiles.map((tile, index) => ({
-            ...tile,
-            visual: optimisticVisuals[index] || tile.visual,
-        }));
+        return liveTiles.map((tile, index) => {
+            const optimistic = optimisticVisuals[index];
+            if (!optimistic) return tile;
+            return {
+                ...tile,
+                visual: optimistic.visual || tile.visual,
+                commentCount:
+                    typeof optimistic.commentCount === 'number'
+                        ? optimistic.commentCount
+                        : tile.commentCount,
+            };
+        });
     }, [liveTiles, optimisticVisuals]);
 
     useEffect(() => {
@@ -315,7 +323,10 @@ export default function AlbumSpreadFilmstrip({
             );
             if (!plan) return;
 
-            const snapshots = liveTiles.map((tile) => tile.visual);
+            const snapshots = liveTiles.map((tile) => ({
+                visual: tile.visual,
+                commentCount: tile.commentCount,
+            }));
             const optimistic = snapshots.slice();
             plan.draggable.forEach((spreadIndex, position) => {
                 optimistic[spreadIndex] = snapshots[plan.newOrder[position]];

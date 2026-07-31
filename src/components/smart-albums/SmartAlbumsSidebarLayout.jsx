@@ -39,7 +39,9 @@ const SmartAlbumsSidebarLayout = ({ children }) => {
                 for (const album of data) {
                     const merged = mergeAlbumProofTimestamps(album, summaries[album.id] || null);
                     const tone = getAlbumProofStatus(merged).tone;
-                    if (tone === 'revision') needsYou += 1;
+                    if (tone === 'awaiting' || tone === 'feedback' || tone === 'revision') {
+                        needsYou += 1;
+                    }
                     if (tone === 'approved') approved += 1;
                 }
                 setNavCounts({ albums: data.length, needsYou, approved });

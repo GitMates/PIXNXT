@@ -16,8 +16,11 @@ export function notifyAlbumProoferSettingsChanged(albumId) {
 
 export const DEFAULT_PROOFER_SETTINGS = {
     accessControl: 'link',
-    allowDownloads: true,
-    requireApprovalPin: false,
+    allowDownloads: false,
+    downloadQuality: 'proof',
+    downloadsOnlyAfterApproval: true,
+    requireApprovalPin: true,
+    lockAlbumAfterApproval: true,
     multiUserCollaboration: true,
     capRevisions: false,
     revisionLimit: 3,
@@ -458,10 +461,16 @@ export const smartAlbumProoferSettingsService = {
             accessPassword: parsed.albumPassword || '',
             privateShareToken: parsed.privateShareToken || '',
             whitelistedEmails: [],
-            allowDownloads: defaults.allowDownloads,
+            allowDownloads:
+                parsed.allowDownloads !== undefined
+                    ? Boolean(parsed.allowDownloads)
+                    : Boolean(defaults.allowDownloads),
+            downloadQuality: defaults.downloadQuality || 'proof',
+            downloadsOnlyAfterApproval: defaults.downloadsOnlyAfterApproval !== false,
             allowMultiUserCollab: defaults.multiUserCollaboration,
             requireDigitalVerification:
                 Boolean(parsed.approvalPin) || defaults.requireApprovalPin,
+            lockAlbumAfterApproval: defaults.lockAlbumAfterApproval !== false,
             approvalPin: parsed.approvalPin || '',
             requireNameForComments: parsed.requireNameForComments !== false,
             maxFreeSwaps: parsed.maxFreeSwaps,
@@ -505,10 +514,13 @@ export const smartAlbumProoferSettingsService = {
 
         const patch = {
             accessLevel: mapped,
+            albumPassword:
+                mapped === 'password' ? randomPin() : '',
             approvalPin: defaults.requireApprovalPin ? randomPin() : '',
             privateShareToken: mapped === 'private' ? randomToken() : '',
             maxRevisionRounds: defaults.capRevisions ? defaults.revisionLimit : 3,
             sendReminderEmails: defaults.enableClientNudges,
+            allowDownloads: Boolean(defaults.allowDownloads),
         };
 
         cacheAlbumSettings(photographerId, albumId, mergeSettings(DEFAULT_ALBUM_PROOFER_SETTINGS, patch));
@@ -530,8 +542,11 @@ export const smartAlbumProoferSettingsService = {
             privateShareToken: effective.privateShareToken || '',
             whitelistedEmails: effective.whitelistedEmails || [],
             allowDownloads: effective.allowDownloads,
+            downloadQuality: effective.downloadQuality || 'proof',
+            downloadsOnlyAfterApproval: effective.downloadsOnlyAfterApproval !== false,
             allowMultiUserCollab: effective.allowMultiUserCollab,
             requireDigitalVerification: effective.requireDigitalVerification,
+            lockAlbumAfterApproval: effective.lockAlbumAfterApproval !== false,
             approvalPin: effective.approvalPin || '',
             requireNameForComments: effective.requireNameForComments !== false,
             maxFreeSwaps: effective.maxFreeSwaps,

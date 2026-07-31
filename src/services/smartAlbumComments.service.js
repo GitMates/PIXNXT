@@ -239,6 +239,9 @@ function mergeCommentRows(localRow, remoteRow) {
     if (!remoteRow) return localRow;
     return {
         ...remoteRow,
+        // Prefer local spread_index after drag-reorder until remote catches up.
+        spread_index:
+            localRow.spread_index != null ? localRow.spread_index : remoteRow.spread_index,
         attachment_url: localRow.attachment_url ?? remoteRow.attachment_url ?? null,
         attachment_name: localRow.attachment_name ?? remoteRow.attachment_name ?? null,
         attachment_type: localRow.attachment_type ?? remoteRow.attachment_type ?? null,
@@ -469,6 +472,15 @@ export async function purgeSpreadCommentsOnSpreadDelete(albumId, deletedSpreadIn
     notifyCommentsChanged(albumId);
 }
 
+/** Map a spread index through an overview drag-reorder plan. */
+function remapSpreadIndexForOverviewReorder(spreadIndex, draggable, newOrder) {
+    const idx = Number(spreadIndex);
+    if (!Number.isFinite(idx) || !draggable.includes(idx)) return spreadIndex;
+    const destPos = newOrder.indexOf(idx);
+    if (destPos < 0) return spreadIndex;
+    return draggable[destPos];
+}
+
 /** Reindex local spread comments when overview spreads are drag-reordered. */
 export function reorderLocalSpreadCommentsForOverview(albumId, draggable, newOrder) {
     if (!albumId || !draggable?.length || !newOrder?.length) return false;
@@ -500,6 +512,70 @@ export function reorderLocalSpreadCommentsForOverview(albumId, draggable, newOrd
     writeLocal(all);
     notifyCommentsChanged(albumId);
     return true;
+}
+
+/** Reindex remote spread comments (messages + client notes) after overview drag-reorder. */
+export async function reorderRemoteSpreadCommentsForOverview(albumId, draggable, newOrder) {
+    if (!albumId || !draggable?.length || !newOrder?.length) return false;
+
+    try {
+        const { data, error } = await supabase
+            .from('smart_album_comments')
+            .select('*')
+            .eq('album_id', albumId)
+            .in('spread_index', draggable);
+
+        if (error) {
+            if (!isMissingTableError(error)) {
+                console.warn('reorderRemoteSpreadCommentsForOverview:', error.message);
+            }
+            return false;
+        }
+        if (!data?.length) return false;
+
+        const updates = data
+            .map((row) => {
+                const nextIndex = remapSpreadIndexForOverviewReorder(
+                    row.spread_index,
+                    draggable,
+                    newOrder
+                );
+                if (nextIndex === row.spread_index) return null;
+                return { ...row, spread_index: nextIndex };
+            })
+            .filter(Boolean);
+
+        if (!updates.length) return false;
+
+        await Promise.all(
+            updates.map((row) =>
+                supabase
+                    .from('smart_album_comments')
+                    .update({ spread_index: row.spread_index })
+                    .eq('id', row.id)
+            )
+        );
+
+        // Mirror remapped remote rows into local so later merges keep the new indices.
+        const all = readLocal();
+        const bucket = { ...(all[albumId] || {}) };
+        updates.forEach((row) => {
+            const mapped = mapRow(row);
+            const spreadKey = mapped.spread_index;
+            Object.keys(bucket).forEach((key) => {
+                bucket[key] = (bucket[key] || []).filter((c) => c.id !== mapped.id);
+            });
+            bucket[spreadKey] = [...(bucket[spreadKey] || []), mapped];
+        });
+        all[albumId] = bucket;
+        writeLocal(all);
+
+        notifyCommentsChanged(albumId);
+        return true;
+    } catch (err) {
+        console.warn('reorderRemoteSpreadCommentsForOverview failed:', err);
+        return false;
+    }
 }
 
 export const smartAlbumCommentsService = {

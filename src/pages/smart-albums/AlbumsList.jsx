@@ -22,6 +22,20 @@ import '../../components/smart-albums/AlbumStatusFilterPopover.css';
 import './SmartAlbums.css';
 import './SmartAlbumsListProofer.css';
 
+/** Status pipeline order for "Needs you first" sorting. */
+const NEEDS_YOU_FIRST_STATUS_ORDER = {
+    draft: 0,
+    awaiting: 1,
+    feedback: 2,
+    revision: 3,
+    approved: 4,
+    paused: 5,
+};
+
+function getNeedsYouFirstRank(album) {
+    const tone = getAlbumProofStatus(album).tone;
+    return NEEDS_YOU_FIRST_STATUS_ORDER[tone] ?? 99;
+}
 function formatAlbumDate(dateStr) {
     if (!dateStr) return 'No date';
     try {
@@ -129,11 +143,12 @@ function getAlbumClientLabel(album) {
 }
 
 function isApprovedAlbum(album) {
-    return Boolean(album?.client_approved_at);
+    return getAlbumProofStatus(album).tone === 'approved';
 }
 
 function isNeedsYouAlbum(album) {
-    return getAlbumProofStatus(album).tone === 'revision';
+    const tone = getAlbumProofStatus(album).tone;
+    return tone === 'awaiting' || tone === 'feedback' || tone === 'revision';
 }
 
 function formatStatusLabel(status) {
@@ -448,10 +463,9 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
             return true;
         });
         return result.sort((a, b) => {
-            if (needsYouFirst && proofFilter === 'all') {
-                const aNeed = isNeedsYouAlbum(a) ? 0 : 1;
-                const bNeed = isNeedsYouAlbum(b) ? 0 : 1;
-                if (aNeed !== bNeed) return aNeed - bNeed;
+            if (needsYouFirst && (proofFilter === 'all' || proofFilter === 'awaiting')) {
+                const rankDiff = getNeedsYouFirstRank(a) - getNeedsYouFirstRank(b);
+                if (rankDiff !== 0) return rankDiff;
             }
             const aTime = new Date(a.created_at || 0).getTime() || 0;
             const bTime = new Date(b.created_at || 0).getTime() || 0;
@@ -487,10 +501,13 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
 
     const pageSubtitle =
         proofFilter === 'awaiting'
-            ? 'Albums with client revisions waiting on you.'
+            ? 'Not opened, awaiting feedback, and revision requested.'
             : proofFilter === 'approved'
               ? 'Albums your clients have approved and are ready for production.'
               : `${proofCounts.needYou} need you · ${proofCounts.awaitingClient} awaiting client · ${proofCounts.approved} approved`;
+
+    const showFilteredEmpty =
+        showEmpty && (proofFilter === 'awaiting' || proofFilter === 'approved');
 
     return (
         <main className={`sa-proofer-albums${hideListChrome ? ' sa-proofer-albums--first-proof' : ''}`}>
@@ -655,6 +672,10 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                     starredOnly ? (
                         <div className="sa-proofer-albums__empty">
                             <p>No starred albums yet. Star albums from the Albums page to see them here.</p>
+                        </div>
+                    ) : showFilteredEmpty ? (
+                        <div className="sa-proofer-albums__empty">
+                            <p>No album</p>
                         </div>
                     ) : (
                         <div className="sa-proofer-albums__first-proof">
