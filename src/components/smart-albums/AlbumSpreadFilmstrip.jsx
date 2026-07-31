@@ -176,7 +176,6 @@ export default function AlbumSpreadFilmstrip({
     onSelectSpread,
     onReorderSpread,
     photoRevision = 0,
-    spreadCommentsBySpread = null,
     disabled = false,
 }) {
     const stripRef = useRef(null);
@@ -214,10 +213,9 @@ export default function AlbumSpreadFilmstrip({
         return Array.from({ length: totalSpreads }, (_, spreadIndex) => {
             const visual = resolveFilmstripVisual(album, spreadIndex, totalPages, spreadCtx);
             const label = formatOverviewSpreadLabel(spreadIndex, totalPages, spreadCtx);
-            const commentCount = spreadCommentsBySpread?.[spreadIndex]?.length || 0;
-            return { spreadIndex, visual, label, commentCount };
+            return { spreadIndex, visual, label };
         });
-    }, [album, totalPages, spreadCtx, totalSpreads, photoRevision, spreadCommentsBySpread]);
+    }, [album, totalPages, spreadCtx, totalSpreads, photoRevision]);
 
     const tiles = useMemo(() => {
         if (!optimisticVisuals) return liveTiles;
@@ -227,10 +225,6 @@ export default function AlbumSpreadFilmstrip({
             return {
                 ...tile,
                 visual: optimistic.visual || tile.visual,
-                commentCount:
-                    typeof optimistic.commentCount === 'number'
-                        ? optimistic.commentCount
-                        : tile.commentCount,
             };
         });
     }, [liveTiles, optimisticVisuals]);
@@ -325,7 +319,6 @@ export default function AlbumSpreadFilmstrip({
 
             const snapshots = liveTiles.map((tile) => ({
                 visual: tile.visual,
-                commentCount: tile.commentCount,
             }));
             const optimistic = snapshots.slice();
             plan.draggable.forEach((spreadIndex, position) => {
@@ -458,7 +451,7 @@ export default function AlbumSpreadFilmstrip({
                 ref={stripRef}
                 role="list"
             >
-                {tiles.map(({ spreadIndex, visual, label, commentCount }) => {
+                {tiles.map(({ spreadIndex, visual, label }) => {
                     const active = spreadIndex === activeSpreadIndex;
                     const isLocked = lockedIndices.has(spreadIndex);
                     const isDragging = drag?.fromIndex === spreadIndex;
@@ -507,11 +500,6 @@ export default function AlbumSpreadFilmstrip({
                                     <FilmstripThumb visual={visual} album={album} />
                                 </span>
                                 <span className="ae-spread-filmstrip__num">{label}</span>
-                                {commentCount > 0 ? (
-                                    <span className="ae-spread-filmstrip__badge">
-                                        {commentCount}
-                                    </span>
-                                ) : null}
                             </button>
                         </div>
                     );

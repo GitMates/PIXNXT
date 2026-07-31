@@ -1,14 +1,14 @@
-/* Album Proofer Settings — Quiet mock (cream + terracotta) */
+/* Album Proofer Settings — Quiet mock (cream + terracotta), full-monitor spacing */
 
 .theme-mono.sa-proofer-settings-page,
 .theme-mono .sa-proofer-settings-page {
-  --sa-set-accent: #c27b4f;
-  --sa-set-accent-soft: #f7ebe3;
-  --sa-set-accent-border: #c9895c;
+  --sa-set-accent: #bf7b47;
+  --sa-set-accent-soft: #fdf6f0;
+  --sa-set-accent-border: #d4a07a;
   --sa-set-ink: #1d1916;
   --sa-set-body: #5c5651;
   --sa-set-muted: #8a847e;
-  --sa-set-line: #e8e4de;
+  --sa-set-line: #e6e1da;
   --sa-set-surface: #ffffff;
   --sa-set-page: #faf8f4;
   --sa-set-ok: #5a8a5e;
@@ -23,12 +23,28 @@
   align-items: stretch;
 }
 
+/* Left-aligned reading column — stays ~720px so a full monitor keeps open space on the right */
 .theme-mono .sa-proofer-settings {
+  box-sizing: border-box;
   width: 100%;
-  max-width: 640px;
-  padding: 44px 48px 80px;
+  max-width: 720px;
+  padding: 52px 56px 112px;
   font-family: var(--font-sans);
   color: var(--sa-set-ink);
+}
+
+@media (min-width: 1280px) {
+  .theme-mono .sa-proofer-settings {
+    max-width: 740px;
+    padding: 56px 64px 128px;
+  }
+}
+
+@media (min-width: 1600px) {
+  .theme-mono .sa-proofer-settings {
+    max-width: 760px;
+    padding: 64px 72px 140px;
+  }
 }
 
 @media (max-width: 768px) {
@@ -39,15 +55,15 @@
 }
 
 .theme-mono .sa-proofer-settings__header {
-  margin-bottom: 26px;
+  margin-bottom: 32px;
 }
 
 .theme-mono .sa-proofer-settings__title {
   margin: 0;
   font-family: var(--font-display) !important;
-  font-size: 2.4rem !important;
+  font-size: clamp(2.25rem, 2vw + 1.5rem, 2.75rem) !important;
   font-weight: 400 !important;
-  line-height: 1.1;
+  line-height: 1.08;
   letter-spacing: -0.02em !important;
   text-transform: none !important;
   color: var(--sa-set-ink) !important;
@@ -55,8 +71,8 @@
 }
 
 .theme-mono .sa-proofer-settings__subtitle {
-  margin: 10px 0 0;
-  max-width: 34rem;
+  margin: 12px 0 0;
+  max-width: 36rem;
   font-size: 14px;
   line-height: 1.5;
   font-family: var(--font-sans);
@@ -66,13 +82,13 @@
   color: var(--sa-set-muted);
 }
 
-/* Underline tabs */
+/* Underline tabs — full-width hairline, terracotta active mark */
 .theme-mono .sa-proofer-tabs {
   display: flex;
   align-items: stretch;
   flex-wrap: wrap;
   gap: 0;
-  margin-bottom: 40px;
+  margin-bottom: 48px;
   padding: 0;
   border: none;
   border-radius: 0;
@@ -87,9 +103,9 @@
   border: none;
   border-radius: 0;
   margin: 0;
-  padding: 12px 16px 14px;
+  padding: 14px 18px 16px;
   font-family: inherit;
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 500;
   line-height: 1.3;
   color: var(--sa-set-muted);
@@ -121,11 +137,11 @@
 .theme-mono .sa-proofer-tabs__btn--active::after {
   content: '';
   position: absolute;
-  left: 16px;
-  right: 16px;
+  left: 18px;
+  right: 18px;
   bottom: -1px;
   height: 2px;
-  background: var(--sa-set-ink);
+  background: var(--sa-set-accent);
   border-radius: 1px;
 }
 
@@ -136,20 +152,20 @@
 .theme-mono .sa-proofer-content {
   display: flex;
   flex-direction: column;
-  gap: 44px;
+  gap: 52px;
 }
 
 .theme-mono .sa-proofer-studio-block {
   display: flex;
   flex-direction: column;
-  gap: 44px;
+  gap: 52px;
   scroll-margin-top: 24px;
 }
 
 .theme-mono .sa-proofer-group {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
   scroll-margin-top: 24px;
 }
 
@@ -157,7 +173,7 @@
   margin: 0;
   font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.11em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--sa-set-muted);
 }
@@ -166,8 +182,8 @@
   border-radius: 14px;
   border: 1px solid var(--sa-set-line);
   background: var(--sa-set-surface);
-  padding: 20px 22px;
-  box-shadow: 0 1px 2px rgb(29 25 22 / 0.04);
+  padding: 22px 24px;
+  box-shadow: none;
 }
 
 .theme-mono .sa-proofer-section-stack {
@@ -183,17 +199,17 @@
 }
 
 .theme-mono .sa-proofer-subsection > .sa-proofer-field__desc {
-  margin-bottom: 14px;
+  margin: 6px 0 16px;
 }
 
 .theme-mono .sa-proofer-notifications {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 36px;
 }
 
 .theme-mono .sa-proofer-notifications .sa-proofer-group {
-  gap: 10px;
+  gap: 12px;
 }
 
 .theme-mono .sa-proofer-notifications .sa-proofer-field__label {
@@ -201,17 +217,17 @@
 }
 
 .theme-mono .sa-proofer-field__desc--flush {
-  margin: 0 0 10px;
+  margin: 0 0 12px;
 }
 
 .theme-mono .sa-proofer-nested {
-  margin-top: 18px;
-  padding-top: 18px;
+  margin-top: 20px;
+  padding-top: 20px;
   border-top: 1px solid var(--sa-set-line);
 }
 
 .theme-mono .sa-proofer-nested .sa-proofer-divider {
-  margin: 18px 0;
+  margin: 20px 0;
 }
 
 .theme-mono .sa-proofer-field__label {
@@ -225,18 +241,18 @@
 }
 
 .theme-mono .sa-proofer-field__desc {
-  margin: 5px 0 0;
+  margin: 6px 0 0;
   font-size: 13px;
-  line-height: 1.5;
+  line-height: 1.55;
   color: var(--sa-set-muted);
-  max-width: 34rem;
+  max-width: 38rem;
 }
 
-/* Radio selection cards — peach selected state */
+/* Radio selection cards — soft terracotta selected state */
 .theme-mono .sa-proofer-radio-group {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 
 .theme-mono .sa-proofer-radio-card {
@@ -244,8 +260,8 @@
   align-items: flex-start;
   gap: 14px;
   margin: 0;
-  padding: 15px 17px;
-  border-radius: 8px;
+  padding: 16px 18px;
+  border-radius: 10px;
   border: 1px solid var(--sa-set-line);
   background: var(--sa-set-surface);
   cursor: pointer;
@@ -255,7 +271,7 @@
 }
 
 .theme-mono .sa-proofer-radio-card:hover {
-  border-color: color-mix(in srgb, var(--sa-set-accent) 40%, var(--sa-set-line));
+  border-color: color-mix(in srgb, var(--sa-set-accent) 35%, var(--sa-set-line));
 }
 
 .theme-mono .sa-proofer-radio-card--selected {
@@ -312,7 +328,7 @@
 .theme-mono .sa-proofer-radio-card__body {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
   min-width: 0;
 }
 
@@ -327,7 +343,7 @@
   font-size: 13px;
   font-weight: 400;
   color: var(--sa-set-muted);
-  line-height: 1.45;
+  line-height: 1.5;
 }
 
 /* Toggle rows — terracotta on */
@@ -335,20 +351,21 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 28px;
+  gap: 32px;
 }
 
 .theme-mono .sa-proofer-toggle-row__text {
   flex: 1;
   min-width: 0;
+  padding-right: 8px;
 }
 
 .theme-mono .sa-proofer-toggle {
   position: relative;
   flex-shrink: 0;
-  width: 42px;
-  height: 24px;
-  margin-top: 2px;
+  width: 44px;
+  height: 26px;
+  margin-top: 1px;
   border: none;
   border-radius: 999px;
   padding: 0;
@@ -377,8 +394,8 @@
   position: absolute;
   top: 2px;
   left: 2px;
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   background: #fff;
   box-shadow: 0 1px 2px rgb(0 0 0 / 0.14);
@@ -392,7 +409,7 @@
 .theme-mono .sa-proofer-divider {
   height: 1px;
   background: var(--sa-set-line);
-  margin: 22px 0;
+  margin: 28px 0;
 }
 
 .theme-mono .sa-proofer-days-row {
@@ -733,8 +750,8 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 7px;
-  margin-top: 8px;
-  padding-top: 28px;
+  margin-top: 12px;
+  padding-top: 32px;
   border-top: 1px solid var(--sa-set-line);
   font-size: 13px;
   line-height: 1.4;
@@ -801,8 +818,8 @@
 
 .theme-mono .sa-proofer-loading {
   width: 100%;
-  max-width: 640px;
-  padding: 48px 40px;
+  max-width: 720px;
+  padding: 56px 56px;
   font-size: 14px;
   font-family: var(--font-sans);
   color: var(--sa-set-muted);

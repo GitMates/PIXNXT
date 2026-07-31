@@ -179,26 +179,6 @@
   pointer-events: none;
 }
 
-.ae-spread-filmstrip__badge {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  z-index: 1;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  border-radius: 999px;
-  background: var(--ink, #1c1917);
-  color: #fff;
-  font-family: var(--font-sans);
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 16px;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-  pointer-events: none;
-}
-
 @media (max-width: 768px) {
   .ae-spread-filmstrip {
     padding: 8px 12px 12px;
