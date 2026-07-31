@@ -43,9 +43,26 @@ function firstNameFromAlbum(album) {
     return first || 'there';
 }
 
-function buildDefaultShareMessage(album, displayUrl) {
+function buildDefaultShareMessage(album, displayUrl, { pin = '', maxFreeSwaps = 5 } = {}) {
     const name = firstNameFromAlbum(album);
-    return `Hi ${name} — your album proof is ready to review.\n${displayUrl}`;
+    const lines = [`Hi ${name} — your album proof is ready to review.`, '', String(displayUrl || '').trim()];
+
+    const pinText = String(pin || '').trim();
+    if (pinText) {
+        lines.push(`Access PIN: ${pinText}`);
+    }
+
+    lines.push('');
+    const swaps = Number(maxFreeSwaps);
+    if (Number.isFinite(swaps) && swaps > 0) {
+        lines.push(
+            `Tap any spread to comment or ask for a photo swap. Your package includes ${swaps} swaps.`
+        );
+    } else {
+        lines.push('Tap any spread to comment or ask for a photo swap.');
+    }
+
+    return lines.join('\n');
 }
 
 function WhatsAppIcon() {
@@ -83,6 +100,8 @@ export default function AlbumSharePublishMenu({
     const [pauseConfirm, setPauseConfirm] = useState(false);
     const [shareChannel, setShareChannel] = useState('whatsapp');
     const [shareMessage, setShareMessage] = useState('');
+    const [maxFreeSwaps, setMaxFreeSwaps] = useState(5);
+    const messageRef = useRef(null);
 
     const [accessLevel, setAccessLevel] = useState('public');
     const [albumPassword, setAlbumPassword] = useState('');
@@ -138,13 +157,25 @@ export default function AlbumSharePublishMenu({
                 setAccessLevel(nextLevel);
                 setAlbumPassword(proofer.albumPassword || '');
                 setPrivateShareToken(proofer.privateShareToken || '');
+                setMaxFreeSwaps(
+                    Number.isFinite(Number(proofer.maxFreeSwaps))
+                        ? Number(proofer.maxFreeSwaps)
+                        : 5
+                );
 
                 if (!messageTouchedRef.current) {
                     const url = getAlbumShareDisplayUrl(album, {
                         accessLevel: nextLevel,
                         privateShareToken: proofer.privateShareToken || '',
                     });
-                    setShareMessage(buildDefaultShareMessage(album, url));
+                    const pin =
+                        nextLevel === 'password' ? String(proofer.albumPassword || '').trim() : '';
+                    setShareMessage(
+                        buildDefaultShareMessage(album, url, {
+                            pin,
+                            maxFreeSwaps: proofer.maxFreeSwaps,
+                        })
+                    );
                 }
 
                 loadedAlbumIdRef.current = albumId;
@@ -165,8 +196,19 @@ export default function AlbumSharePublishMenu({
 
     useEffect(() => {
         if (!open || messageTouchedRef.current || !shareDisplayUrl) return;
-        setShareMessage(buildDefaultShareMessage(album, shareDisplayUrl));
-    }, [open, album, shareDisplayUrl]);
+        const pin = accessLevel === 'password' ? String(albumPassword || '').trim() : '';
+        setShareMessage(
+            buildDefaultShareMessage(album, shareDisplayUrl, { pin, maxFreeSwaps })
+        );
+    }, [open, album, shareDisplayUrl, accessLevel, albumPassword, maxFreeSwaps]);
+
+    useEffect(() => {
+        if (!open) return;
+        const el = messageRef.current;
+        if (!el) return;
+        // Reset to default height when the panel opens so the resize grip is available.
+        el.style.height = '';
+    }, [open, ready]);
 
     const persistSettings = useCallback(async () => {
         if (!photographerId || !albumId) return false;
@@ -320,11 +362,19 @@ export default function AlbumSharePublishMenu({
         'Anyone holding this URL can view and leave feedback.';
 
     const channelHint =
-        shareChannel === 'whatsapp'
-            ? 'Opens WhatsApp with this message ready to send. You send it — nothing goes out automatically.'
-            : shareChannel === 'email'
-              ? 'Opens your email with this message ready to send. You send it — nothing goes out automatically.'
-              : 'Copies the client link to your clipboard.';
+        shareChannel === 'whatsapp' ? (
+            <>
+                Opens WhatsApp with this ready to send.{' '}
+                <strong>You</strong> press send — nothing goes out automatically.
+            </>
+        ) : shareChannel === 'email' ? (
+            <>
+                Opens your email with this ready to send.{' '}
+                <strong>You</strong> press send — nothing goes out automatically.
+            </>
+        ) : (
+            'Copies the client link to your clipboard.'
+        );
 
     const handleCopyLink = async () => {
         await flushPersist();
@@ -341,8 +391,10 @@ export default function AlbumSharePublishMenu({
 
     const runShareChannel = (channelId) => {
         void flushPersist();
+        const pin = accessLevel === 'password' ? String(albumPassword || '').trim() : '';
         const text =
-            (shareMessage || '').trim() || buildDefaultShareMessage(album, shareDisplayUrl);
+            (shareMessage || '').trim() ||
+            buildDefaultShareMessage(album, shareDisplayUrl, { pin, maxFreeSwaps });
         if (channelId === 'whatsapp') {
             window.open(
                 `https://wa.me/?text=${encodeURIComponent(text)}`,
@@ -524,13 +576,14 @@ export default function AlbumSharePublishMenu({
             </div>
 
             <textarea
+                ref={messageRef}
                 className="ae-share-message"
                 value={shareMessage}
                 onChange={(e) => {
                     messageTouchedRef.current = true;
                     setShareMessage(e.target.value);
                 }}
-                rows={4}
+                rows={6}
                 aria-label="Share message"
             />
             <p className="ae-share-hint ae-share-hint--serif">{channelHint}</p>
