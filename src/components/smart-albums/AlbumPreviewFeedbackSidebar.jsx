@@ -316,7 +316,9 @@ function FeedbackCompose({
             onSaved?.();
         } catch (err) {
             console.error(err);
-            onNotify?.('Could not save comment. Please try again.');
+            onNotify?.(
+                err?.message || 'Could not save comment. Please try again.'
+            );
         } finally {
             setSaving(false);
         }
@@ -421,51 +423,51 @@ function FeedbackCompose({
                     onKeyDown={handleKeyDown}
                     aria-label="Add feedback for this spread"
                 />
-            </div>
-            <div className="av-feedback-compose__actions">
-                <div className="av-feedback-compose__actions-left">
-                    {canAttachImage ? (
-                        <button
-                            type="button"
-                            className="av-feedback-compose__icon-btn"
-                            disabled={disabled}
-                            onClick={handlePickAttachment}
-                            aria-label="Attach image from computer"
-                        >
-                            <Paperclip size={18} />
-                        </button>
-                    ) : null}
-                    {canRecordVoice ? (
-                        <button
-                            type="button"
-                            className={`av-feedback-compose__icon-btn${
-                                recording ? ' av-feedback-compose__icon-btn--recording' : ''
-                            }`}
-                            disabled={disabled && !recording}
-                            onClick={() => {
-                                if (!canRecordVoice) {
-                                    onNotify?.('Voice recordings are disabled for this album.');
-                                    return;
-                                }
-                                if (!recording && !ensureCanLeaveFeedback()) return;
-                                toggleRecording();
-                            }}
-                            aria-label={recording ? 'Stop recording' : 'Record voice message'}
-                            aria-pressed={recording}
-                        >
-                            <Mic size={18} />
-                        </button>
-                    ) : null}
+                <div className="av-feedback-compose__actions">
+                    <div className="av-feedback-compose__actions-left">
+                        {canAttachImage ? (
+                            <button
+                                type="button"
+                                className="av-feedback-compose__icon-btn"
+                                disabled={disabled}
+                                onClick={handlePickAttachment}
+                                aria-label="Attach image from computer"
+                            >
+                                <Paperclip size={18} />
+                            </button>
+                        ) : null}
+                        {canRecordVoice ? (
+                            <button
+                                type="button"
+                                className={`av-feedback-compose__icon-btn${
+                                    recording ? ' av-feedback-compose__icon-btn--recording' : ''
+                                }`}
+                                disabled={disabled && !recording}
+                                onClick={() => {
+                                    if (!canRecordVoice) {
+                                        onNotify?.('Voice recordings are disabled for this album.');
+                                        return;
+                                    }
+                                    if (!recording && !ensureCanLeaveFeedback()) return;
+                                    toggleRecording();
+                                }}
+                                aria-label={recording ? 'Stop recording' : 'Record voice message'}
+                                aria-pressed={recording}
+                            >
+                                <Mic size={18} />
+                            </button>
+                        ) : null}
+                    </div>
+                    <button
+                        type="button"
+                        className="av-feedback-compose__icon-btn av-feedback-compose__icon-btn--send"
+                        disabled={disabled || !canSend}
+                        onClick={() => void handleSend()}
+                        aria-label="Send feedback"
+                    >
+                        <Send size={18} />
+                    </button>
                 </div>
-                <button
-                    type="button"
-                    className="av-feedback-compose__icon-btn av-feedback-compose__icon-btn--send"
-                    disabled={disabled || !canSend}
-                    onClick={() => void handleSend()}
-                    aria-label="Send feedback"
-                >
-                    <Send size={18} />
-                </button>
             </div>
         </footer>
     );

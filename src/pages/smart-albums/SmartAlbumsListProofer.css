@@ -470,12 +470,12 @@
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
-  padding: 4px 10px 4px 8px;
-  border-radius: 999px;
+  padding: 0;
+  border-radius: 0;
   font-size: var(--t-micro);
   font-weight: 600;
-  color: var(--sa-proofer-muted);
-  background: var(--status-draft-bg);
+  color: var(--idle-fg);
+  background: transparent;
   white-space: nowrap;
 }
 
@@ -489,7 +489,7 @@
 
 .theme-mono .sa-proofer-album-status--revision {
   color: var(--warn-fg);
-  background: var(--status-revision-bg);
+  background: transparent;
 }
 
 .theme-mono .sa-proofer-album-status--revision .sa-proofer-album-status__dot {
@@ -499,7 +499,7 @@
 .theme-mono .sa-proofer-album-status--awaiting,
 .theme-mono .sa-proofer-album-status--feedback {
   color: var(--warn-fg);
-  background: var(--status-awaiting-bg);
+  background: transparent;
 }
 
 .theme-mono .sa-proofer-album-status--awaiting .sa-proofer-album-status__dot,
@@ -509,7 +509,7 @@
 
 .theme-mono .sa-proofer-album-status--approved {
   color: var(--ok-fg);
-  background: var(--status-approved-bg);
+  background: transparent;
 }
 
 .theme-mono .sa-proofer-album-status--approved .sa-proofer-album-status__dot {
@@ -519,7 +519,7 @@
 .theme-mono .sa-proofer-album-status--draft,
 .theme-mono .sa-proofer-album-status--paused {
   color: var(--idle-fg);
-  background: var(--status-draft-bg);
+  background: transparent;
 }
 
 .theme-mono .sa-proofer-album-status--draft .sa-proofer-album-status__dot,

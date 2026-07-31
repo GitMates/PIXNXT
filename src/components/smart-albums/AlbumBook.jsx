@@ -31,6 +31,7 @@ import { getSampleImageForPage } from './sampleAlbumImages';
 import SpreadGridComments from './SpreadGridComments';
 import {
     COMMENTS_SEEN_CHANGED_EVENT,
+    getClientReviewerIdentity,
 } from '../../services/smartAlbumComments.service';
 import { buildOverviewSpreadReorderPlan } from './albumSpreadReorder';
 import AlbumSwapPickerModal from './AlbumSwapPickerModal';
@@ -1284,7 +1285,12 @@ const AlbumBook = ({
                 cellId: secondSlot.cellId ?? 0,
             };
             const hadFeedback = albumHadClientFeedbackBefore(album.id);
-            addSwapMark(album.id, originSlot, secondSlot, { pointA, pointB });
+            const identity = getClientReviewerIdentity(album.id);
+            addSwapMark(album.id, originSlot, secondSlot, {
+                pointA,
+                pointB,
+                authorName: identity?.name || null,
+            });
             if (previewMode) {
                 notifyClientFeedbackEvent(album.id, {
                     photographerId: album.photographer_id,
@@ -1359,6 +1365,7 @@ const AlbumBook = ({
                         cellId: originSlot.cellId ?? 0,
                     },
                     pointB: placementPoint,
+                    authorName: getClientReviewerIdentity(album.id)?.name || null,
                 });
                 if (mark) {
                     if (previewMode) {
@@ -1381,6 +1388,7 @@ const AlbumBook = ({
                 const mark = addSwapMark(album.id, originSlot, placement, {
                     pointA: swapPinFlow.originPoint,
                     pointB: placementPoint,
+                    authorName: getClientReviewerIdentity(album.id)?.name || null,
                 });
                 if (mark) {
                     if (previewMode) {
@@ -1402,6 +1410,7 @@ const AlbumBook = ({
             const mark = addSwapMark(album.id, originSlot, placement, {
                 pointA: swapPinFlow.originPoint,
                 pointB: placementPoint,
+                authorName: getClientReviewerIdentity(album.id)?.name || null,
             });
             if (mark) {
                 if (previewMode) {
@@ -1461,7 +1470,12 @@ const AlbumBook = ({
             if (!album?.id || !pinComposer) return;
             if (!ensureClientFeedback('comment')) return;
             const hadFeedback = albumHadClientFeedbackBefore(album.id);
-            addPhotoPin(album.id, { ...pinComposer, message });
+            const identity = getClientReviewerIdentity(album.id);
+            addPhotoPin(album.id, {
+                ...pinComposer,
+                message,
+                authorName: identity?.name || null,
+            });
             if (previewMode) {
                 notifyClientFeedbackEvent(album.id, {
                     photographerId: album.photographer_id,
@@ -1481,7 +1495,11 @@ const AlbumBook = ({
             if (!album?.id || !placement?.message?.trim()) return;
             if (!ensureClientFeedback('comment')) return;
             const hadFeedback = albumHadClientFeedbackBefore(album.id);
-            addPhotoPin(album.id, placement);
+            const identity = getClientReviewerIdentity(album.id);
+            addPhotoPin(album.id, {
+                ...placement,
+                authorName: placement.authorName || identity?.name || null,
+            });
             if (previewMode) {
                 notifyClientFeedbackEvent(album.id, {
                     photographerId: album.photographer_id,

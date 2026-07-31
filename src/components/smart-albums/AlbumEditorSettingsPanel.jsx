@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Check, Copy, RefreshCw } from 'lucide-react';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
 import { smartAlbumProoferSettingsService } from '../../services/smartAlbumProoferSettings.service';
 import { isAlbumClientApproved } from '../../services/albumProof.service';
@@ -18,8 +17,20 @@ function SettingsToggle({ on, onChange, label, disabled = false }) {
                 disabled ? ' ae-settings-toggle--disabled' : ''
             }`}
         >
-            <span className="ae-settings-toggle__knob" />
+            <span className="ae-settings-toggle__knob" aria-hidden="true" />
         </button>
+    );
+}
+
+function SettingRow({ title, description, control }) {
+    return (
+        <div className="ae-settings-row">
+            <div className="ae-settings-row__text">
+                <p className="ae-settings-field__title">{title}</p>
+                {description ? <p className="ae-settings-field__desc">{description}</p> : null}
+            </div>
+            {control}
+        </div>
     );
 }
 
@@ -30,7 +41,6 @@ export default function AlbumEditorSettingsPanel({
 }) {
     const albumId = album?.id;
     const [loading, setLoading] = useState(true);
-    const [pinCopied, setPinCopied] = useState(false);
     const [notification, setNotification] = useState('');
 
     const [maxSwaps, setMaxSwaps] = useState(5);
@@ -213,23 +223,11 @@ export default function AlbumEditorSettingsPanel({
 
     const nudgeDays = globalDefaultsRef.current?.nudgeDays ?? 5;
 
-    const handleCopyPin = async () => {
-        try {
-            await navigator.clipboard.writeText(approvalPin);
-            setPinCopied(true);
-            setNotification('Approval PIN has been copied');
-            setTimeout(() => {
-                setPinCopied(false);
-                setNotification('');
-            }, 2000);
-        } catch (err) {
-            console.error(err);
-        }
-    };
-
     const handleRegeneratePin = () => {
         const pin = smartAlbumProoferSettingsService.randomPin();
         setApprovalPin(pin);
+        setNotification('Approval PIN regenerated');
+        window.setTimeout(() => setNotification(''), 2000);
     };
 
     if (loading) {
@@ -252,169 +250,132 @@ export default function AlbumEditorSettingsPanel({
                 <section className="ae-settings-section">
                     <p className="ae-settings-section__label">Feedback</p>
                     {feedbackLocked ? (
-                        <p className="ae-settings-field__desc" style={{ marginBottom: 12 }}>
+                        <p className="ae-settings-field__desc" style={{ marginBottom: 16 }}>
                             Client approved this album — comments, swaps, voice notes, and image
                             attachments are turned off.
                         </p>
                     ) : null}
 
-                    <div className="ae-settings-row">
-                        <div className="ae-settings-row__text">
-                            <p className="ae-settings-field__title">Allow comments</p>
-                            <p className="ae-settings-field__desc">
-                                Clients can leave feedback on each spread
-                            </p>
-                        </div>
-                        <SettingsToggle
-                            on={allowComments}
-                            disabled={feedbackLocked}
-                            onChange={() => setAllowComments((v) => !v)}
-                            label="Allow comments"
-                        />
-                    </div>
+                    <SettingRow
+                        title="Allow comments"
+                        description="Clients can leave feedback on each spread"
+                        control={
+                            <SettingsToggle
+                                on={allowComments}
+                                disabled={feedbackLocked}
+                                onChange={() => setAllowComments((v) => !v)}
+                                label="Allow comments"
+                            />
+                        }
+                    />
 
                     {allowComments ? (
                         <div className="ae-settings-nested">
-                            <div className="ae-settings-row">
-                                <div className="ae-settings-row__text">
-                                    <p className="ae-settings-field__title">Voice notes</p>
-                                    <p className="ae-settings-field__desc">
-                                        Clients can record voice messages
-                                    </p>
-                                </div>
-                                <SettingsToggle
-                                    on={allowVoice}
-                                    disabled={feedbackLocked}
-                                    onChange={() => setAllowVoice((v) => !v)}
-                                    label="Voice notes"
-                                />
-                            </div>
-                            <div className="ae-settings-row">
-                                <div className="ae-settings-row__text">
-                                    <p className="ae-settings-field__title">Image attachments</p>
-                                    <p className="ae-settings-field__desc">
-                                        Clients can attach reference images
-                                    </p>
-                                </div>
-                                <SettingsToggle
-                                    on={allowExternal}
-                                    disabled={feedbackLocked}
-                                    onChange={() => setAllowExternal((v) => !v)}
-                                    label="Image attachments"
-                                />
-                            </div>
+                            <SettingRow
+                                title="Image attachments"
+                                description="Applies to both comments and swap requests"
+                                control={
+                                    <SettingsToggle
+                                        on={allowExternal}
+                                        disabled={feedbackLocked}
+                                        onChange={() => setAllowExternal((v) => !v)}
+                                        label="Image attachments"
+                                    />
+                                }
+                            />
+                            <SettingRow
+                                title="Voice notes"
+                                description="Clients can record voice messages"
+                                control={
+                                    <SettingsToggle
+                                        on={allowVoice}
+                                        disabled={feedbackLocked}
+                                        onChange={() => setAllowVoice((v) => !v)}
+                                        label="Voice notes"
+                                    />
+                                }
+                            />
                         </div>
                     ) : null}
 
-                    <div className="ae-settings-row">
-                        <div className="ae-settings-row__text">
-                            <p className="ae-settings-field__title">Allow swaps</p>
-                            <p className="ae-settings-field__desc">
-                                Clients can place swap requests on photos
-                            </p>
-                        </div>
-                        <SettingsToggle
-                            on={allowSwaps}
-                            disabled={feedbackLocked}
-                            onChange={() => setAllowSwaps((v) => !v)}
-                            label="Allow swaps"
-                        />
-                    </div>
-
-                    {allowSwaps ? (
-                        <div className="ae-settings-nested">
-                            <div className="ae-settings-nested__row">
-                                <span className="ae-settings-nested__label">Free swaps included</span>
-                                <input
-                                    id="ae-max-swaps"
-                                    type="number"
-                                    min="0"
-                                    className="ae-settings-swaps-input"
-                                    value={maxSwaps}
-                                    onChange={(e) =>
-                                        setMaxSwaps(Math.max(0, parseInt(e.target.value, 10) || 0))
-                                    }
-                                />
-                            </div>
-                        </div>
-                    ) : null}
+                    <SettingRow
+                        title="Allow swap requests"
+                        description="Clients can ask for a photo to be replaced. Unlimited at launch."
+                        control={
+                            <SettingsToggle
+                                on={allowSwaps}
+                                disabled={feedbackLocked}
+                                onChange={() => setAllowSwaps((v) => !v)}
+                                label="Allow swap requests"
+                            />
+                        }
+                    />
                 </section>
 
                 <section className="ae-settings-section">
                     <p className="ae-settings-section__label">Sign-Off &amp; Automation</p>
 
-                    <div className="ae-settings-row">
-                        <div className="ae-settings-row__text">
-                            <p className="ae-settings-field__title">Approval PIN</p>
-                            <p className="ae-settings-field__desc">
-                                Client enters this to sign off the final album
-                            </p>
-                        </div>
-                        <SettingsToggle
-                            on={requireVerification}
-                            onChange={() => {
-                                setRequireVerification((v) => {
-                                    const nextV = !v;
-                                    if (nextV && !approvalPin) {
-                                        setApprovalPin(smartAlbumProoferSettingsService.randomPin());
-                                    }
-                                    return nextV;
-                                });
-                            }}
-                            label="Approval PIN"
-                        />
-                    </div>
+                    <SettingRow
+                        title="Approval PIN"
+                        description="Client enters this to sign off the final album"
+                        control={
+                            <SettingsToggle
+                                on={requireVerification}
+                                onChange={() => {
+                                    setRequireVerification((v) => {
+                                        const nextV = !v;
+                                        if (nextV && !approvalPin) {
+                                            setApprovalPin(
+                                                smartAlbumProoferSettingsService.randomPin()
+                                            );
+                                        }
+                                        return nextV;
+                                    });
+                                }}
+                                label="Approval PIN"
+                            />
+                        }
+                    />
 
-                    {requireVerification && (
-                        <div className="ae-settings-field">
-                            <div className="ae-settings-pin-row">
-                                <div className="ae-settings-pin-digits">
-                                    {(approvalPin || '----').split('').map((digit, i) => (
-                                        <div key={i} className="ae-settings-pin-digit">
-                                            {digit}
-                                        </div>
-                                    ))}
-                                </div>
-                                <button
-                                    type="button"
-                                    className="ae-settings-pin-copy"
-                                    onClick={handleCopyPin}
-                                    aria-label="Copy PIN"
-                                >
-                                    {pinCopied ? <Check size={16} /> : <Copy size={16} />}
-                                </button>
+                    {requireVerification ? (
+                        <div className="ae-settings-pin-block">
+                            <div className="ae-settings-pin-digits">
+                                {(approvalPin || '----').split('').map((digit, i) => (
+                                    <div key={i} className="ae-settings-pin-digit type-pin">
+                                        {digit}
+                                    </div>
+                                ))}
                             </div>
                             <button
                                 type="button"
                                 className="ae-settings-regenerate"
                                 onClick={handleRegeneratePin}
                             >
-                                <RefreshCw size={14} />
                                 Regenerate
                             </button>
                             <p className="ae-settings-field__desc ae-settings-pin-footnote">
-                                A signature, not a key. Separate from the access PIN in Share.
+                                A signature, not a key. This is <strong>not</strong> the access PIN
+                                in Share — if they are the same number, anyone the client forwards
+                                the door code to can also sign off the album.
                             </p>
                         </div>
-                    )}
+                    ) : null}
 
-                    <div className="ae-settings-row">
-                        <div className="ae-settings-row__text">
-                            <p className="ae-settings-field__title">Reminder emails</p>
-                            <p className="ae-settings-field__desc">
-                                Inheriting global rule: sends after {nudgeDays} days of inactivity
-                            </p>
-                        </div>
-                        <SettingsToggle
-                            on={sendReminders}
-                            onChange={() => setSendReminders((v) => !v)}
-                            label="Reminders"
-                        />
-                    </div>
+                    <SettingRow
+                        title="Reminder emails"
+                        description={`Studio default: sends after ${nudgeDays} days of no activity`}
+                        control={
+                            <SettingsToggle
+                                on={sendReminders}
+                                onChange={() => setSendReminders((v) => !v)}
+                                label="Reminder emails"
+                            />
+                        }
+                    />
                 </section>
             </div>
 
-            {notification && <div className="ae-settings-toast">{notification}</div>}
+            {notification ? <div className="ae-settings-toast">{notification}</div> : null}
         </div>
     );
 }

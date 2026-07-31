@@ -107,12 +107,6 @@
   --status-approved: var(--ok-fg);
   --status-draft: var(--idle-fg);
   --status-paused: var(--idle-fg);
-  --status-revision-bg: #faf3e0;
-  --status-awaiting-bg: #faf3e0;
-  --status-feedback-bg: #faf3e0;
-  --status-approved-bg: #eef4f0;
-  --status-draft-bg: var(--surface-sunk);
-  --status-paused-bg: var(--surface-sunk);
 }
 
 /* ── Role classes — choose a role, never a raw font-size in features ─ */
