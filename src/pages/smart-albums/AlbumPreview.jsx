@@ -673,6 +673,9 @@ export default function AlbumPreview({
 
                     <AlbumPreviewFeedbackSidebar
                         albumId={albumId}
+                        album={album}
+                        totalPages={totalPages}
+                        photoRevision={photoRevision}
                         photographerId={album?.photographer_id}
                         spreadIndex={spreadIndex}
                         spreadLabel={
@@ -702,6 +705,22 @@ export default function AlbumPreview({
                             setEditingPinMessage('');
                         }}
                         onJumpToSpread={jumpToSpread}
+                        onNavigateToPin={(pin) => {
+                            if (pin?.spreadIndex != null) jumpToSpread(pin.spreadIndex);
+                            else if (Number.isFinite(pin?.pageNum)) {
+                                jumpToSpread(
+                                    pageToSpreadIndex(pin.pageNum, { ...spreadOpts, totalPages })
+                                );
+                            }
+                        }}
+                        onNavigateToSlotKey={(slotKey) => {
+                            if (!slotKey) return;
+                            const [pageNum] = String(slotKey).split(':').map(Number);
+                            if (!Number.isFinite(pageNum)) return;
+                            jumpToSpread(
+                                pageToSpreadIndex(pageNum, { ...spreadOpts, totalPages })
+                            );
+                        }}
                         onRemoveSwap={(id) => removeSwapMark(albumId, id)}
                         onRemoveReplacement={handleRemoveImageReplacement}
                         onBlocked={clientPreview ? handleProoferBlocked : undefined}

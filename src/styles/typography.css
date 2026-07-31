@@ -109,6 +109,8 @@
   --status-paused: var(--idle-fg);
 }
 
+/* Dark tokens: body.dark-theme — see styles/appearanceDarkTheme.css */
+
 /* ── Role classes — choose a role, never a raw font-size in features ─ */
 
 .type-page-title {

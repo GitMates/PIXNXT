@@ -45,10 +45,10 @@ export default function AlbumPreviewAccessGate({
         }
 
         return (
-            <div className="av-page av-page--preview flex items-center justify-center min-h-screen bg-[#f5f5f5] p-6">
-                <div className="w-full max-w-md rounded-xl border border-[#e8eaed] bg-white p-8 shadow-sm space-y-4 text-center">
-                    <h1 className="text-lg font-semibold text-[#222]">Private album link</h1>
-                    <p className="text-sm text-[#888]">
+            <div className="av-page av-page--preview av-access-gate">
+                <div className="av-access-gate__card av-access-gate__card--center">
+                    <h1 className="av-access-gate__title">Private album link</h1>
+                    <p className="av-access-gate__text">
                         This album requires the private share link from your photographer. Open the
                         full URL you received — the token in the link is required.
                     </p>
@@ -80,14 +80,11 @@ export default function AlbumPreviewAccessGate({
         };
 
         return (
-            <div className="av-page av-page--preview flex items-center justify-center min-h-screen bg-[#f5f5f5] p-6">
-                <form
-                    onSubmit={handleEmailSubmit}
-                    className="w-full max-w-md rounded-xl border border-[#e8eaed] bg-white p-8 shadow-sm space-y-4"
-                >
+            <div className="av-page av-page--preview av-access-gate">
+                <form onSubmit={handleEmailSubmit} className="av-access-gate__card">
                     <div>
-                        <h1 className="text-lg font-semibold text-[#222]">Verify your email</h1>
-                        <p className="text-sm text-[#888] mt-1">
+                        <h1 className="av-access-gate__title">Verify your email</h1>
+                        <p className="av-access-gate__text">
                             This album is restricted. Enter the email address your photographer shared
                             with you.
                         </p>
@@ -97,14 +94,11 @@ export default function AlbumPreviewAccessGate({
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         placeholder="you@example.com"
-                        className="w-full rounded-lg border border-[#e0e0e0] bg-[#fafafa] px-3 py-2.5 text-sm outline-none focus:border-[#9b59b6]"
+                        className="av-access-gate__input"
                         autoFocus
                     />
-                    {error && <p className="text-sm text-red-600">{error}</p>}
-                    <button
-                        type="submit"
-                        className="w-full rounded-lg bg-[#222] py-2.5 text-sm font-semibold text-white hover:bg-[#333]"
-                    >
+                    {error ? <p className="av-access-gate__error">{error}</p> : null}
+                    <button type="submit" className="av-access-gate__submit">
                         Continue
                     </button>
                 </form>

@@ -16,7 +16,8 @@
   width: 100%;
   max-width: 460px;
   max-height: min(92vh, 720px);
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   border-radius: 18px;
   background: #faf8f4;
   box-shadow:
@@ -137,6 +138,60 @@
   background: #ffffff;
   font-size: 14px;
   color: #1d1916;
+}
+
+/* DatePicker (custom-datepicker) inside Edit album */
+.eam-field .custom-datepicker {
+  width: 100%;
+}
+
+.eam-field .dp-input-field {
+  min-height: 42px;
+  height: auto;
+  padding: 10px 14px;
+  border: 1px solid #e5e2dc;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.eam-field .dp-value {
+  font-size: 14px;
+}
+
+.eam-field .dp-dropdown {
+  min-width: 0;
+  width: 100%;
+  left: 0;
+  right: 0;
+  box-sizing: border-box;
+  flex-direction: column;
+  padding: 16px;
+  border: 1px solid #e5e2dc;
+  border-radius: 12px;
+  z-index: 20;
+}
+
+.eam-field .dp-calendar-section {
+  padding-right: 0;
+  border-right: none;
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #e5e2dc;
+}
+
+.eam-field .dp-quick-search {
+  width: 100%;
+  padding-left: 0;
+}
+
+.eam-field .calendar-header {
+  margin-bottom: 16px;
+  padding: 0;
+}
+
+.eam-field .month-year {
+  font-size: 15px;
+  min-width: 0;
 }
 
 .eam-advanced {

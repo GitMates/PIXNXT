@@ -14,6 +14,7 @@ import {
     createBlankLeatherPanelTexture,
 } from './book3dPageCanvas';
 import { isBlankCoverAlbum } from './book3dTextures';
+import { isWebGLAvailable } from './webglSupport';
 import '../AlbumBook.css';
 import './BookCover3DView.css';
 
@@ -28,6 +29,8 @@ export default function BookCover3DView({
 }) {
     const shellRef = useRef(null);
     const stageRef = useRef(null);
+    const [webglSupported, setWebglSupported] = useState(() => isWebGLAvailable());
+
     const layoutStructuralKey = useMemo(
         () =>
             `${album?.id ?? 'album'}-${album?.grid_size || 'square'}-${
@@ -90,6 +93,30 @@ export default function BookCover3DView({
     }, [pageWorldDims]);
 
     const resolvedPageWorldDims = pageWorldDims ?? latchedWorldDimsRef.current;
+
+    if (!webglSupported) {
+        return (
+            <div className="ab-book-cover-3d-shell" ref={shellRef} onClick={onCoverOpen}>
+                <div className="ab-book-cover-3d ab-root ab-root--preview">
+                    <div className="ab-book-stage">
+                        <div className="ab-book-cover-3d-stage ab-book-scene--openable" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {resolveBookWrapSpreadSrc(album, { showSamples }) ? (
+                                <img
+                                    src={resolveBookWrapSpreadSrc(album, { showSamples })}
+                                    alt="Album Cover"
+                                    style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain', borderRadius: '4px', boxShadow: '0 10px 30px rgba(0,0,0,0.15)' }}
+                                />
+                            ) : (
+                                <div style={{ padding: '2rem', background: '#333', color: '#fff', borderRadius: '8px' }}>
+                                    {resolveFrontCoverDisplayText(album, album?.id) || 'Click to Open Album'}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="ab-book-cover-3d-shell" ref={shellRef}>

@@ -151,8 +151,8 @@
   width: 26px;
   height: 26px;
   border-radius: 8px;
-  background: #f0efec;
-  color: #6b6560;
+  background: var(--surface-sunk, #f0efec);
+  color: var(--ink-muted, #6b6560);
   flex-shrink: 0;
 }
 
@@ -276,13 +276,13 @@
   width: 100%;
   overflow: hidden;
   border-radius: 999px;
-  background: #eceae6;
+  background: var(--surface-sunk, #eceae6);
 }
 
 .theme-mono.cg-shell .sb-storage__bar-fill {
   height: 100%;
   border-radius: 999px;
-  background: #1a1a1a;
+  background: var(--ink, #1a1a1a);
   transition: width 0.3s ease;
 }
 

@@ -129,12 +129,12 @@ export default function PhotographerAlbumPreview() {
 
     if (accessPaused) {
         return (
-            <div className="av-page av-page--preview flex items-center justify-center min-h-screen bg-[#f5f5f5] p-6">
-                <div className="w-full max-w-md rounded-xl border border-[#e8eaed] bg-white p-8 shadow-sm space-y-3 text-center">
-                    <h1 className="text-lg font-semibold text-[#222]">
+            <div className="av-page av-page--preview av-access-gate">
+                <div className="av-access-gate__card av-access-gate__card--center">
+                    <h1 className="av-access-gate__title">
                         This album is temporarily unavailable
                     </h1>
-                    <p className="text-sm text-[#888]">
+                    <p className="av-access-gate__text">
                         Client access is paused. Resume access from Share to open preview again.
                     </p>
                 </div>

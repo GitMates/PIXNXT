@@ -542,7 +542,7 @@ export default function AlbumSharePublishMenu({
             const updated = await smartAlbumsService.updateAlbumClientSettings(
                 photographerId,
                 albumId,
-                { share_link_enabled: false }
+                { share_link_enabled: false, share_link_paused_at: pausedAt }
             );
             writeSharePausedAt(albumId, pausedAt);
             onAlbumUpdated?.({ ...updated, share_link_paused_at: pausedAt });
@@ -563,10 +563,10 @@ export default function AlbumSharePublishMenu({
             const updated = await smartAlbumsService.updateAlbumClientSettings(
                 photographerId,
                 albumId,
-                { share_link_enabled: true, status: 'published' }
+                { share_link_enabled: true, status: 'published', share_link_paused_at: null }
             );
             writeSharePausedAt(albumId, null);
-            onAlbumUpdated?.(updated);
+            onAlbumUpdated?.({ ...updated, share_link_paused_at: null });
             showToast?.('Client access resumed.', { variant: 'success', duration: 3500 });
         } catch (err) {
             console.error(err);
@@ -581,7 +581,7 @@ export default function AlbumSharePublishMenu({
     const proofAlbum = mergeAlbumProofTimestamps(album);
     const pauseCopy = getPauseClientCopy(proofAlbum, clientIdentity);
     const pausedAtIso =
-        album?.share_link_paused_at || readSharePausedAt(albumId) || album?.updated_at || null;
+        album?.share_link_paused_at || readSharePausedAt(albumId) || null;
     const pausedRel = formatShareRelativeTime(pausedAtIso);
     const showLoading = !ready && loadedAlbumIdRef.current !== albumId;
 

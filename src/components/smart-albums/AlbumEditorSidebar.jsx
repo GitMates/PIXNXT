@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { BookOpen, LayoutGrid, MessageSquare, Settings } from 'lucide-react';
 import { pickImageFiles } from '../../lib/pickImageFiles';
 import { PROOF_CELL_LABELS, PROOF_SLOT_COUNT, getSpreadLeftPageIndex } from './albumSpreadGrid';
 import {
@@ -28,6 +27,7 @@ import {
 import {
     albumHasBlankCovers,
     albumUsesBookWrap,
+    formatSpreadDisplayLabel,
     getAlbumSpreadOptions,
     isWholeSpreadLayout,
     pageToSpreadIndex,
@@ -36,23 +36,11 @@ import { resolveCoverImageSrc } from './albumPagePhotos';
 import '../../pages/smart-albums/AlbumViewer.css';
 import './AlbumCoverPanel.css';
 
-const NAV_ICON_PROPS = {
-    size: 20,
-    strokeWidth: 1.65,
-    absoluteStrokeWidth: true,
-    'aria-hidden': true,
-};
-
-const IconCollection = () => <LayoutGrid {...NAV_ICON_PROPS} />;
-const IconComments = () => <MessageSquare {...NAV_ICON_PROPS} />;
-const IconSettings = () => <Settings {...NAV_ICON_PROPS} />;
-const IconEditCover = () => <BookOpen {...NAV_ICON_PROPS} />;
-
 const NAV_BASE = [
-    { id: 'collections', label: 'Collections', icon: IconCollection },
-    { id: 'cover', label: 'Edit cover', icon: IconEditCover, requiresCovers: true },
-    { id: 'pin', label: 'Comment', icon: IconComments },
-    { id: 'comments', label: 'Settings', icon: IconSettings },
+    { id: 'collections', label: 'Spreads' },
+    { id: 'pin', label: 'Comments' },
+    { id: 'cover', label: 'Cover', requiresCovers: true },
+    { id: 'comments', label: 'Settings' },
 ];
 
 const GRID_LAYOUT_LABELS = {
@@ -119,6 +107,7 @@ export default function AlbumEditorSidebar({
 }) {
     const [imageReplacements, setImageReplacements] = useState([]);
     const [localCoverText, setLocalCoverText] = useState(coverTextMessage);
+    const [showAllFeedback, setShowAllFeedback] = useState(false);
 
     const hasCoverPhoto = useMemo(() => {
         void workspaceRevision;
@@ -183,24 +172,30 @@ export default function AlbumEditorSidebar({
         return pageToSpreadIndex(left, { ...spreadOpts, totalPages });
     }, [gridSelection?.leftPage, bookPage, spreadOpts, totalPages]);
 
+    useEffect(() => {
+        setShowAllFeedback(false);
+    }, [currentSpreadIndex]);
+
     const visiblePhotoPins = useMemo(
         () =>
             photoPins
                 .filter(
                     (pin) =>
+                        showAllFeedback ||
                         pageToSpreadIndex(pin.pageNum, spreadOpts) === currentSpreadIndex
                 )
                 .map((pin) => ({
                     ...pin,
                     spreadIndex: pageToSpreadIndex(pin.pageNum, spreadOpts),
                 })),
-        [photoPins, currentSpreadIndex, spreadOpts]
+        [photoPins, currentSpreadIndex, spreadOpts, showAllFeedback]
     );
 
     const visibleSwapMarks = useMemo(
         () =>
             swapMarks
                 .filter((mark) => {
+                    if (showAllFeedback) return true;
                     const a = parseSlotKey(mark.a);
                     const b = parseSlotKey(mark.b);
                     const idxA = pageToSpreadIndex(a.pageNum, spreadOpts);
@@ -236,32 +231,48 @@ export default function AlbumEditorSidebar({
                         ),
                     };
                 }),
-        [swapMarks, currentSpreadIndex, spreadOpts, album, totalPages]
+        [swapMarks, currentSpreadIndex, spreadOpts, album, totalPages, showAllFeedback]
     );
 
     const visibleImageReplacements = useMemo(
         () =>
-            imageReplacements.filter(
-                (replacement) => replacement.spreadIndex === currentSpreadIndex
-            ),
-        [imageReplacements, currentSpreadIndex]
+            showAllFeedback
+                ? imageReplacements
+                : imageReplacements.filter(
+                      (replacement) => replacement.spreadIndex === currentSpreadIndex
+                  ),
+        [imageReplacements, currentSpreadIndex, showAllFeedback]
     );
 
     const visibleSentMessages = useMemo(() => {
+        if (showAllFeedback) {
+            return Object.values(spreadCommentsBySpread || {})
+                .flat()
+                .filter((c) => c.author_type === 'photographer' && String(c.body || '').trim());
+        }
         const rows = spreadCommentsBySpread?.[currentSpreadIndex] || [];
         return rows.filter(
             (c) => c.author_type === 'photographer' && String(c.body || '').trim()
         );
-    }, [spreadCommentsBySpread, currentSpreadIndex]);
+    }, [spreadCommentsBySpread, currentSpreadIndex, showAllFeedback]);
 
     const visibleClientMessages = useMemo(() => {
+        if (showAllFeedback) {
+            return Object.values(spreadCommentsBySpread || {})
+                .flat()
+                .filter(
+                    (c) =>
+                        c.author_type === 'client' &&
+                        (String(c.body || '').trim() || hasCommentAttachment(c))
+                );
+        }
         const rows = spreadCommentsBySpread?.[currentSpreadIndex] || [];
         return rows.filter(
             (c) =>
                 c.author_type === 'client' &&
                 (String(c.body || '').trim() || hasCommentAttachment(c))
         );
-    }, [spreadCommentsBySpread, currentSpreadIndex]);
+    }, [spreadCommentsBySpread, currentSpreadIndex, showAllFeedback]);
 
     const visibleSpreadFeed = useMemo(
         () =>
@@ -283,7 +294,66 @@ export default function AlbumEditorSidebar({
         ]
     );
 
-    const spreadPanelCount = visibleSpreadFeed.length;
+    const currentSpreadFeedCount = useMemo(() => {
+        const pins = (photoPins || []).filter(
+            (pin) => pageToSpreadIndex(pin.pageNum, spreadOpts) === currentSpreadIndex
+        ).length;
+        const swaps = swapsEnabled
+            ? (swapMarks || []).filter((mark) => {
+                  const a = parseSlotKey(mark.a);
+                  const b = parseSlotKey(mark.b);
+                  const idxA = pageToSpreadIndex(a.pageNum, spreadOpts);
+                  const idxB = pageToSpreadIndex(b.pageNum, spreadOpts);
+                  return idxA === currentSpreadIndex || idxB === currentSpreadIndex;
+              }).length
+            : 0;
+        const rows = spreadCommentsBySpread?.[currentSpreadIndex] || [];
+        const messages = rows.filter(
+            (c) =>
+                (c.author_type === 'photographer' && String(c.body || '').trim()) ||
+                (c.author_type === 'client' &&
+                    (String(c.body || '').trim() || hasCommentAttachment(c)))
+        ).length;
+        const replacements = imageReplacements.filter(
+            (replacement) => replacement.spreadIndex === currentSpreadIndex
+        ).length;
+        return pins + swaps + messages + replacements;
+    }, [
+        photoPins,
+        swapMarks,
+        swapsEnabled,
+        spreadCommentsBySpread,
+        imageReplacements,
+        currentSpreadIndex,
+        spreadOpts,
+    ]);
+
+    const spreadPanelCount = currentSpreadFeedCount;
+
+    const albumFeedbackCount = useMemo(() => {
+        const pinCount = (photoPins || []).length;
+        const swapCount = swapsEnabled ? (swapMarks || []).length : 0;
+        let clientCount = 0;
+        Object.values(spreadCommentsBySpread || {}).forEach((rows) => {
+            (rows || []).forEach((c) => {
+                if (
+                    c.author_type === 'client' &&
+                    (String(c.body || '').trim() || hasCommentAttachment(c))
+                ) {
+                    clientCount += 1;
+                }
+            });
+        });
+        return pinCount + swapCount + clientCount;
+    }, [photoPins, swapMarks, swapsEnabled, spreadCommentsBySpread]);
+
+    const currentSpreadLabel = useMemo(
+        () =>
+            formatSpreadDisplayLabel(currentSpreadIndex, {
+                hasCovers: Boolean(spreadOpts.hasCovers),
+            }),
+        [currentSpreadIndex, spreadOpts.hasCovers]
+    );
 
     const navItems = NAV_BASE.filter(
         (item) => !item.requiresCovers || album?.has_covers === true
@@ -333,7 +403,7 @@ export default function AlbumEditorSidebar({
                                 : 'Upload new photo for this spread'}
                         </span>
                         <span className="ae-upload-hint">
-                            Replaces the photo on the spread you are viewing
+                            Replaces the photo on the current spread
                         </span>
                     </button>
                 </div>
@@ -354,22 +424,28 @@ export default function AlbumEditorSidebar({
 
     return (
         <aside className="ae-sidebar">
-            <nav className="ae-nav-rail" aria-label="Editor tools">
-                {navItems.map(({ id, label, icon: Icon }) => (
-                    <button
-                        key={id}
-                        type="button"
-                        className={`ae-nav-rail-btn${activePanel === id ? ' ae-nav-rail-btn--active' : ''}`}
-                        onClick={() => onPanelChange(id)}
-                        aria-label={label}
-                        aria-current={activePanel === id ? 'true' : undefined}
-                        title={label}
-                    >
-                        <span className="ae-nav-rail-icon">
-                            <Icon />
-                        </span>
-                    </button>
-                ))}
+            <nav className="ae-nav-rail ae-nav-rail--tabs" aria-label="Editor tools">
+                {navItems.map(({ id, label }) => {
+                    const active = activePanel === id;
+                    const showBadge = id === 'pin' && spreadPanelCount > 0;
+                    return (
+                        <button
+                            key={id}
+                            type="button"
+                            className={`ae-nav-rail-btn${active ? ' ae-nav-rail-btn--active' : ''}`}
+                            onClick={() => onPanelChange(id)}
+                            aria-label={label}
+                            aria-current={active ? 'true' : undefined}
+                        >
+                            <span className="ae-nav-rail-label">{label}</span>
+                            {showBadge ? (
+                                <span className="ae-nav-rail-count" aria-label={`${spreadPanelCount} on this spread`}>
+                                    {spreadPanelCount > 99 ? '99+' : spreadPanelCount}
+                                </span>
+                            ) : null}
+                        </button>
+                    );
+                })}
             </nav>
 
             <div className={`ae-panel${activePanel === 'pin' ? ' ae-panel--pin' : ''}${activePanel === 'comments' ? ' ae-panel--settings' : ''}${activePanel === 'cover' ? ' ae-panel--cover' : ''}`}>
@@ -377,18 +453,38 @@ export default function AlbumEditorSidebar({
 
                 {activePanel === 'pin' && (
                     <div className="ae-panel-pin-layout">
+                        <div className="ae-panel-pin-subheader">
+                            <span className="ae-panel-pin-subheader__spread">
+                                {showAllFeedback ? 'All spreads' : currentSpreadLabel}
+                            </span>
+                            <button
+                                type="button"
+                                className={`ae-panel-pin-subheader__all${
+                                    showAllFeedback ? ' ae-panel-pin-subheader__all--active' : ''
+                                }`}
+                                onClick={() => setShowAllFeedback((v) => !v)}
+                                aria-pressed={showAllFeedback}
+                            >
+                                {showAllFeedback
+                                    ? `This spread (${currentSpreadFeedCount})`
+                                    : `All feedback (${albumFeedbackCount})`}
+                            </button>
+                        </div>
                         <div className="ae-panel-pin-body">
-                            <h3 className="ae-panel-title">Comment</h3>
-                            {spreadPanelCount === 0 ? (
+                            {visibleSpreadFeed.length === 0 ? (
                                 <p className="av-preview-sidebar-text ae-swap-marks-empty">
-                                    No comments, swap requests, or photo changes on this spread
-                                    yet.
+                                    {showAllFeedback
+                                        ? 'No comments, swap requests, or photo changes in this album yet.'
+                                        : 'No comments, swap requests, or photo changes on this spread yet.'}
                                 </p>
                             ) : (
                                 <div className="av-preview-sidebar-comments ae-panel-proof-feed">
                                     <AlbumPreviewSpreadFeed
                                         feed={visibleSpreadFeed}
                                         albumId={albumId}
+                                        album={album}
+                                        totalPages={totalPages}
+                                        photoRevision={workspaceRevision}
                                         businessName={photographerName}
                                         spreadOpts={spreadOpts}
                                         proofMode
@@ -419,7 +515,7 @@ export default function AlbumEditorSidebar({
 
                 {activePanel === 'collections' && (
                     <>
-                        <h3 className="ae-panel-title">Collections</h3>
+                        <h3 className="ae-panel-title">Spreads</h3>
                         <div className="ae-panel-status-row">
                             <span className="ae-panel-status-meta">{albumSpreadMeta}</span>
                         </div>

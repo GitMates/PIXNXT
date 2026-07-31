@@ -1,51 +1,70 @@
-/* Client preview feedback sidebar — reference cream UI */
+/* Client preview feedback sidebar — match quiet proof reference UI */
 
 .av-feedback-sidebar {
   display: flex;
   flex-direction: column;
-  flex: 0 0 340px;
-  width: 340px;
+  flex: 0 0 360px;
+  width: 360px;
   min-width: 0;
   min-height: 0;
   height: 100%;
-  background: #faf9f6;
-  border-left: 1px solid #ebe8e2;
+  background: #ffffff;
+  border-left: 1px solid #eeeeee;
   overflow: hidden;
+  font-family: var(--font-sans, 'DM Sans', 'Segoe UI', sans-serif);
+  color: #111111;
 }
 
 .av-feedback-sidebar__header {
   flex-shrink: 0;
-  padding: 20px 20px 14px;
-  border-bottom: 1px solid #ebe8e2;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid #eeeeee;
+  background: #ffffff;
+}
+
+.av-feedback-sidebar__header-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .av-feedback-sidebar__title {
   margin: 0;
-  font-family: var(--font-display);
-  font-size: 22px;
-  font-weight: 600;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
   line-height: 1.2;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: #1c1c1c;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  color: #111111;
+}
+
+.av-feedback-sidebar__spread {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 400;
+  color: #999999;
+  white-space: nowrap;
 }
 
 .av-feedback-sidebar__body {
   flex: 1 1 0;
   min-height: 0;
   overflow-y: auto;
-  padding: 16px 16px 12px;
+  padding: 4px 18px 12px;
+  background: #ffffff;
   scrollbar-width: thin;
-  scrollbar-color: #c8c4bc transparent;
+  scrollbar-color: #c4c4c4 transparent;
 }
 
 .av-feedback-sidebar__body::-webkit-scrollbar {
-  width: 6px;
+  width: 5px;
 }
 
 .av-feedback-sidebar__body::-webkit-scrollbar-thumb {
   border-radius: 999px;
-  background: #c8c4bc;
+  background: #c4c4c4;
 }
 
 .av-feedback-tutorial {
@@ -216,11 +235,11 @@
 
 .av-feedback-sidebar__empty {
   margin: 0;
-  padding: 8px 4px 4px;
-  font-family: var(--font-sans);
+  padding: 12px 4px 4px;
+  font-family: inherit;
   font-size: 13px;
   line-height: 1.55;
-  color: #9a9590;
+  color: #999999;
 }
 
 .av-feedback-sidebar__feed .av-preview-sidebar-feed {
@@ -367,9 +386,9 @@
 
 .av-feedback-compose {
   flex-shrink: 0;
-  padding: 12px 16px 16px;
-  border-top: 1px solid #ebe8e2;
-  background: transparent;
+  padding: 12px 18px 18px;
+  border-top: 1px solid #eeeeee;
+  background: #ffffff;
 }
 
 .av-feedback-compose__file-input {
@@ -381,14 +400,16 @@
   flex-direction: column;
   gap: 0;
   background: #ffffff;
-  border: 1px solid #e3dfd8;
-  border-radius: 14px;
+  border: 1px solid #e5e5e5;
+  border-radius: 18px;
   overflow: hidden;
   transition: border-color 0.15s;
+  box-shadow: none;
 }
 
 .av-feedback-compose__input-shell:focus-within {
-  border-color: #cfc9c0;
+  border-color: #d0d0d0;
+  background: #ffffff;
 }
 
 .av-feedback-compose__input-shell--recording {
@@ -511,10 +532,10 @@
   border-radius: 0;
   background: transparent;
   padding: 12px 14px 8px;
-  font-family: var(--font-sans);
+  font-family: inherit;
   font-size: 13px;
   line-height: 1.5;
-  color: #1c1c1c;
+  color: #111111;
   outline: none;
   box-sizing: border-box;
 }
@@ -525,7 +546,7 @@
 }
 
 .av-feedback-compose__input::placeholder {
-  color: #a8a29e;
+  color: #999999;
 }
 
 .av-feedback-compose__input:focus {
@@ -543,7 +564,7 @@
   justify-content: space-between;
   margin-top: 0;
   padding: 6px 8px 8px;
-  border-top: 1px solid #f0eee9;
+  border-top: 1px solid #f2f2f2;
 }
 
 .av-feedback-compose__actions-left {
@@ -558,18 +579,18 @@
   justify-content: center;
   width: 36px;
   height: 36px;
-  border: 1px solid #e3dfd8;
+  border: 1px solid #e5e5e5;
   border-radius: 50%;
   background: #fff;
-  color: #6b6560;
+  color: #777777;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 
 .av-feedback-compose__icon-btn:hover:not(:disabled) {
-  background: #f3f2ef;
-  border-color: #d4d0c8;
-  color: #1c1c1c;
+  background: #fafafa;
+  border-color: #d4d4d4;
+  color: #111111;
 }
 
 .av-feedback-compose__icon-btn:disabled {
@@ -578,13 +599,20 @@
 }
 
 .av-feedback-compose__icon-btn--send {
-  color: #4b5563;
+  background: #7dcea0;
+  color: #ffffff;
+  border-color: transparent;
+}
+
+.av-feedback-compose__icon-btn--send:hover:not(:disabled) {
+  background: #6fc292;
+  color: #ffffff;
 }
 
 @media (max-width: 960px) {
   .av-feedback-sidebar {
-    flex-basis: 300px;
-    width: 300px;
+    flex-basis: 320px;
+    width: 320px;
   }
 }
 

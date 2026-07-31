@@ -320,6 +320,88 @@
   cursor: default;
 }
 
+/* Access / paused gate screens */
+.av-access-gate {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 24px;
+  box-sizing: border-box;
+  background: #f5f5f5;
+}
+
+.av-access-gate__card {
+  width: 100%;
+  max-width: 28rem;
+  padding: 32px;
+  border-radius: 12px;
+  border: 1px solid #e8eaed;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.av-access-gate__card--center {
+  text-align: center;
+}
+
+.av-access-gate__title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #222222;
+  line-height: 1.35;
+}
+
+.av-access-gate__text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #888888;
+}
+
+.av-access-gate__input {
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+  background: #fafafa;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: #222222;
+  outline: none;
+}
+
+.av-access-gate__input:focus {
+  border-color: #9b59b6;
+}
+
+.av-access-gate__submit {
+  width: 100%;
+  border: none;
+  border-radius: 8px;
+  background: #222222;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.av-access-gate__submit:hover {
+  background: #333333;
+}
+
+.av-access-gate__error {
+  margin: 0;
+  font-size: 14px;
+  color: #dc2626;
+}
+
 .av-proof-modal-backdrop {
   position: fixed;
   inset: 0;
