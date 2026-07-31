@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase/client';
+import { formatRelativeTime } from '../lib/relativeTime';
 
 const SEEN_KEY = 'pixnxt_cg_notifications_seen';
 const DISMISSED_KEY = 'pixnxt_cg_notifications_dismissed';
@@ -102,20 +103,6 @@ export function buildClientGalleryNotificationUrl(item) {
   if (!item?.collectionId) return '/client-gallery';
   const activity = item.type || CG_NOTIFICATION_TYPES.DOWNLOAD;
   return `/collections/manage?id=${encodeURIComponent(item.collectionId)}&tab=activity&activity=${encodeURIComponent(activity)}`;
-}
-
-function formatRelativeTime(iso) {
-  if (!iso) return '';
-  const ms = Date.now() - new Date(iso).getTime();
-  if (Number.isNaN(ms) || ms < 0) return '';
-  const mins = Math.floor(ms / 60000);
-  if (mins < 1) return 'Just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  return new Date(iso).toLocaleDateString();
 }
 
 /**

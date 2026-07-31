@@ -199,6 +199,12 @@
   border-left: 1px solid var(--ae-border);
 }
 
+.ae-settings-pin-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .ae-settings-pin-digits {
   display: flex;
   align-items: center;
@@ -220,6 +226,39 @@
   letter-spacing: 0.08em;
   color: var(--ae-ink);
   font-variant-numeric: tabular-nums;
+}
+
+.ae-settings-pin-copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--ae-border);
+  border-radius: 10px;
+  background: #ffffff;
+  color: var(--ae-ink-body);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.ae-settings-pin-copy:hover:not(:disabled) {
+  background: #faf9f7;
+  color: var(--ae-ink);
+  border-color: #d9d5cf;
+}
+
+.ae-settings-pin-copy:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ae-settings-pin-copy--done {
+  color: var(--ae-accent, #bf7b47);
+  border-color: color-mix(in srgb, var(--ae-accent, #bf7b47) 35%, var(--ae-border));
 }
 
 .ae-settings-regenerate {

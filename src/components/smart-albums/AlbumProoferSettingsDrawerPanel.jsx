@@ -353,7 +353,15 @@ export default function AlbumProoferSettingsDrawerPanel({
                         <button type="button" className="sa-album-settings-drawer__action-btn" onClick={onPreview}>
                             <Eye size={16} /> Preview Album
                         </button>
-                        <button type="button" className="sa-album-settings-drawer__action-btn" onClick={onQuickEdit}>
+                        <button
+                            type="button"
+                            className="sa-album-settings-drawer__action-btn"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                onQuickEdit?.();
+                            }}
+                        >
                             <Edit2 size={16} /> Quick Edit Details
                         </button>
                         <button type="button" className="sa-album-settings-drawer__action-btn" onClick={onGetDirectLink}>

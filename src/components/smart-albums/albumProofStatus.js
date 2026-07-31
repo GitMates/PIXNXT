@@ -5,6 +5,7 @@ import {
     isAlbumClientApproved,
 } from '../../services/albumProof.service';
 import { countClientRootComments } from '../../services/smartAlbumComments.service';
+import { getAlbumSharePausedAt } from '../../lib/albumSharePause';
 
 export const ALBUM_PROOF_STATUS_CHANGED_EVENT = 'pixnxt-album-proof-status-changed';
 
@@ -104,25 +105,40 @@ export function getAlbumProofActivityAt(album) {
     const merged = mergeAlbumProofTimestamps(album);
     const status = getAlbumProofStatus(merged);
 
+    // Pick the timestamp that caused the current status — not generic updated_at
+    // (photographer edits would otherwise make "Sharing paused · 1m ago" look wrong).
     if (status.tone === 'approved') {
         return merged.client_approved_at || merged.updated_at || merged.created_at;
     }
     if (status.tone === 'revision') {
-        return merged.client_changes_submitted_at || merged.client_last_activity_at;
+        return (
+            merged.client_changes_submitted_at ||
+            merged.client_last_activity_at ||
+            merged.updated_at
+        );
     }
-    if (status.tone === 'feedback' || status.tone === 'awaiting') {
+    if (status.tone === 'feedback') {
         return (
             merged.client_last_activity_at ||
             merged.client_commenting_started_at ||
             merged.__proofSummary?.latestClientActivityAt ||
             merged.published_at ||
-            merged.updated_at ||
             merged.created_at
         );
     }
-    if (status.tone === 'paused') {
-        return merged.updated_at || merged.published_at || merged.created_at;
+    if (status.tone === 'awaiting') {
+        // Not opened yet: clock from when the client could open it.
+        return merged.published_at || merged.created_at;
     }
+    if (status.tone === 'paused') {
+        return (
+            getAlbumSharePausedAt(merged) ||
+            merged.updated_at ||
+            merged.published_at ||
+            merged.created_at
+        );
+    }
+    // Draft
     return merged.updated_at || merged.created_at;
 }
 

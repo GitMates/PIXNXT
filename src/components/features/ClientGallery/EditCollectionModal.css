@@ -297,3 +297,87 @@
     border-radius: 12px;
     background: #fff;
 }
+
+/* Centered modal variant (Edit Album / Edit Folder / bulk modals) */
+.ecm-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10050;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(0, 0, 0, 0.28);
+    backdrop-filter: blur(4px);
+}
+
+.ecm-modal {
+    width: 100%;
+    max-width: 440px;
+    max-height: min(90vh, 640px);
+    overflow: auto;
+    border-radius: 16px;
+    background: #faf9f6;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18);
+}
+
+.ecm-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 20px 24px 8px;
+}
+
+.ecm-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: #171717;
+}
+
+.ecm-body {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding: 8px 24px 24px;
+}
+
+.ecm-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding-top: 8px;
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.ecm-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: auto;
+}
+
+.ecm-footer .ecm-cancel,
+.ecm-footer .ecm-save {
+    flex: 0 0 auto;
+    min-width: 88px;
+}
+
+.ecm-body .date-picker-container {
+    width: 100%;
+}
+
+.ecm-body .date-picker-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 14px;
+    font-size: 14px;
+    color: #171717;
+    border: 1px solid #e5e5e5;
+    border-radius: 12px;
+    background: #fff;
+}
