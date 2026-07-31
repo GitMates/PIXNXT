@@ -438,6 +438,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
         statusFilter !== 'all' ||
         createdFilter !== 'newest';
     const showEmpty = !loading && filteredAlbums.length === 0 && !searchQuery && !hasActiveFilters;
+    const showFirstProofEmpty = showEmpty && !starredOnly;
 
     const pageSubtitle =
         proofFilter === 'awaiting'
@@ -447,7 +448,9 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
               : `${proofCounts.needYou} need you · ${proofCounts.awaitingClient} awaiting client · ${proofCounts.approved} approved`;
 
     return (
-        <main className="sa-proofer-albums">
+        <main className={`sa-proofer-albums${showFirstProofEmpty ? ' sa-proofer-albums--first-proof' : ''}`}>
+            {!showFirstProofEmpty && (
+                <>
             <header className="sa-proofer-albums__hero">
                 <div>
                     <h1 className="sa-proofer-albums__title type-page-title">{pageTitle}</h1>
@@ -593,6 +596,8 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                     </button>
                 </div>
             </div>
+                </>
+            )}
 
             <div className="sa-proofer-albums__content">
                 {loading ? (
@@ -603,16 +608,57 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                             <p>No starred albums yet. Star albums from the Albums page to see them here.</p>
                         </div>
                     ) : (
-                        <div className="sa-proofer-albums__empty-card">
-                            <h2>Create your first album</h2>
-                            <p>Design beautiful photo albums for your clients. Start from a template or build your own layout.</p>
-                            <button
-                                type="button"
-                                className="sa-proofer-albums__new-btn"
-                                onClick={() => navigate('/smart-albums/create')}
-                            >
-                                New album
-                            </button>
+                        <div className="sa-proofer-albums__first-proof">
+                            <div className="sa-proofer-albums__first-proof-icon" aria-hidden>
+                                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <rect x="3" y="4" width="8" height="16" rx="1.5" />
+                                    <rect x="13" y="4" width="8" height="16" rx="1.5" />
+                                </svg>
+                            </div>
+                            <h2 className="sa-proofer-albums__first-proof-title">Your first album proof</h2>
+                            <p className="sa-proofer-albums__first-proof-lede">
+                                Upload the spreads you&apos;ve already designed. Your client swipes through them,
+                                comments on the ones they want changed, and signs off — in one link, no email threads.
+                            </p>
+                            <div className="sa-proofer-albums__first-proof-actions">
+                                <button
+                                    type="button"
+                                    className="sa-proofer-albums__new-btn"
+                                    onClick={() => navigate('/smart-albums/create')}
+                                >
+                                    Upload spreads
+                                </button>
+                                <button
+                                    type="button"
+                                    className="sa-proofer-albums__ghost-btn"
+                                    onClick={() => window.open('/albumguide.mp4', '_blank', 'noopener,noreferrer')}
+                                >
+                                    See a sample album
+                                </button>
+                            </div>
+                            <ol className="sa-proofer-albums__first-proof-steps">
+                                <li>
+                                    <span className="sa-proofer-albums__first-proof-step-num" aria-hidden>1</span>
+                                    <div>
+                                        <strong>Upload your spreads</strong>
+                                        <span>JPG or PNG exports from InDesign, Photoshop or SmartAlbums. Drag the folder in.</span>
+                                    </div>
+                                </li>
+                                <li>
+                                    <span className="sa-proofer-albums__first-proof-step-num" aria-hidden>2</span>
+                                    <div>
+                                        <strong>Publish and send</strong>
+                                        <span>Choose who can open it, then send by WhatsApp or email. You press send, never us.</span>
+                                    </div>
+                                </li>
+                                <li>
+                                    <span className="sa-proofer-albums__first-proof-step-num" aria-hidden>3</span>
+                                    <div>
+                                        <strong>Collect feedback in one place</strong>
+                                        <span>Comments and swap requests land per-spread. No more &apos;the 4th photo on page 9&apos;.</span>
+                                    </div>
+                                </li>
+                            </ol>
                         </div>
                     )
                 ) : filteredAlbums.length === 0 ? (

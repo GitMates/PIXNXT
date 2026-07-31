@@ -98,7 +98,7 @@
   letter-spacing: -0.018em;
   color: var(--ink);
   text-transform: none;
-  font-variation-settings: 'opsz' 34;
+  font-variation-settings: 'SOFT' 0, 'WONK' 0, 'opsz' 34;
 }
 
 .type-section-title {
@@ -109,7 +109,7 @@
   letter-spacing: -0.018em;
   color: var(--ink);
   text-transform: none;
-  font-variation-settings: 'opsz' 24;
+  font-variation-settings: 'SOFT' 0, 'WONK' 0, 'opsz' 24;
 }
 
 .type-object-name {

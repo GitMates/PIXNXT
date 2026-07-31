@@ -60,9 +60,7 @@ const SmartAlbumsSidebarLayout = ({ children }) => {
             shellClassName="sa-proofer-shell"
             navCounts={navCounts}
             headerActions={
-                <div className="sa-sidebar-actions flex items-center">
-                    <SmartAlbumNotifications userId={user?.id} variant="sidebar" />
-                </div>
+                <SmartAlbumNotifications userId={user?.id} variant="sidebar" />
             }
         >
             {children}

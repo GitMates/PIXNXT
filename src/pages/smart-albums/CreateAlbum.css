@@ -376,7 +376,7 @@
 }
 
 .sa-upload-card--cover {
-  min-height: 120px;
+  min-height: 0;
 }
 
 .sa-cover-upload-preview {
@@ -396,10 +396,10 @@
   flex-direction: row !important;
   align-items: center !important;
   justify-content: flex-start !important;
-  gap: 16px !important;
-  padding: 14px 18px !important;
+  gap: 12px !important;
+  padding: 10px 14px !important;
   border: 1.5px dashed #cdb6df !important;
-  border-radius: 14px !important;
+  border-radius: 10px !important;
   background: linear-gradient(180deg, #fbf7ff 0%, #fff 100%) !important;
   color: #4f3d5c !important;
   text-align: left !important;
@@ -420,20 +420,20 @@
 }
 
 .sa-upload-icon {
-  width: 42px !important;
-  height: 42px !important;
+  width: 34px !important;
+  height: 34px !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
-  border-radius: 12px !important;
+  border-radius: 9px !important;
   background: #efe2f8 !important;
   color: #8e44ad !important;
   flex-shrink: 0 !important;
 }
 
 .sa-upload-icon svg {
-  width: 22px !important;
-  height: 22px !important;
+  width: 18px !important;
+  height: 18px !important;
 }
 
 .sa-upload-card-info {
@@ -446,13 +446,13 @@
 
 .sa-upload-card strong {
   color: #17111c !important;
-  font-size: 15px !important;
+  font-size: 13.5px !important;
   font-weight: 700 !important;
 }
 
 .sa-upload-card small {
   color: #817789 !important;
-  font-size: 12px !important;
+  font-size: 11.5px !important;
 }
 
 @keyframes sa-shimmer {
@@ -1008,10 +1008,10 @@
 }
 
 .sa-create-wizard-main {
-  max-width: 780px !important;
+  max-width: 680px !important;
   margin: 0 auto !important;
   width: 100% !important;
-  padding: 16px 20px 24px !important;
+  padding: 12px 16px 20px !important;
 }
 
 .sa-create-wizard {
@@ -1030,7 +1030,7 @@
   border-radius: 9999px;
   background: #ECE9E2;
   border: none;
-  margin-bottom: 36px;
+  margin-bottom: 20px;
   gap: 4px;
 }
 
@@ -1057,12 +1057,12 @@
 }
 
 .sa-wizard-title {
-  margin: 0 0 10px 0 !important;
+  margin: 0 0 6px 0 !important;
   text-align: left !important;
   font-family: var(--font-display) !important;
-  font-size: 21px !important;
+  font-size: 17px !important;
   font-weight: 700 !important;
-  letter-spacing: 0.18em !important;
+  letter-spacing: 0.16em !important;
   text-transform: uppercase !important;
   color: #181816 !important;
   line-height: 1.2 !important;
@@ -1136,21 +1136,21 @@
 
 .sa-wizard-card {
   background: #ffffff !important;
-  border-radius: 24px !important;
-  padding: 24px 28px 20px 28px !important;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.015) !important;
+  border-radius: 16px !important;
+  padding: 16px 18px 14px 18px !important;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.012) !important;
   border: 1px solid #E6E2D8 !important;
 }
 
 .sa-wizard-card-intro {
-  margin-bottom: 14px !important;
+  margin-bottom: 10px !important;
 }
 
 .sa-wizard-card-intro .sa-create-kicker {
   display: block !important;
-  margin-bottom: 8px !important;
+  margin-bottom: 4px !important;
   font-family: var(--font-display) !important;
-  font-size: 11px !important;
+  font-size: 10px !important;
   font-weight: 600 !important;
   letter-spacing: 0.14em !important;
   text-transform: uppercase !important;
@@ -1160,7 +1160,7 @@
 .sa-wizard-card-intro h2 {
   margin: 0 !important;
   font-family: var(--font-display) !important;
-  font-size: 21px !important;
+  font-size: 17px !important;
   font-weight: 700 !important;
   text-transform: none !important;
   letter-spacing: normal !important;
@@ -1170,23 +1170,23 @@
 
 .sa-wizard-fields {
   background: #ffffff !important;
-  border-radius: 18px !important;
+  border-radius: 12px !important;
   border: 1px solid #E6E2D8 !important;
-  padding: 22px 24px 24px 24px !important;
-  margin-bottom: 28px !important;
+  padding: 14px 16px 16px 16px !important;
+  margin-bottom: 16px !important;
 }
 
 .sa-wizard-section-head {
   display: flex !important;
   align-items: baseline !important;
   justify-content: space-between !important;
-  gap: 12px !important;
-  margin-bottom: 10px !important;
+  gap: 10px !important;
+  margin-bottom: 8px !important;
 }
 
 .sa-wizard-section-head span {
   font-family: var(--font-display) !important;
-  font-size: 15px !important;
+  font-size: 13px !important;
   font-weight: 700 !important;
   color: #181816 !important;
   text-transform: none !important;
@@ -1194,7 +1194,7 @@
 
 .sa-wizard-section-head small {
   font-family: var(--font-display) !important;
-  font-size: 13.5px !important;
+  font-size: 12px !important;
   font-style: italic !important;
   color: #8E8A80 !important;
   text-transform: none !important;
@@ -1212,12 +1212,12 @@
 
 .sa-create-page .sa-wizard-card .cc-input,
 .sa-create-page .sa-wizard-card .dp-input-field {
-  height: 48px !important;
-  font-size: 14.5px !important;
-  padding: 0 20px !important;
+  height: 40px !important;
+  font-size: 13.5px !important;
+  padding: 0 14px !important;
   background: #EFECE6 !important;
   border: none !important;
-  border-radius: 16px !important;
+  border-radius: 10px !important;
   color: #181816 !important;
   font-family: var(--font-display) !important;
   box-shadow: none !important;
@@ -1240,8 +1240,8 @@
 .sa-wizard-actions {
   display: flex !important;
   align-items: center !important;
-  gap: 16px !important;
-  margin-top: 10px !important;
+  gap: 12px !important;
+  margin-top: 8px !important;
   padding-top: 0 !important;
 }
 
@@ -1249,11 +1249,11 @@
   background: #181816 !important;
   border-color: #181816 !important;
   color: #ffffff !important;
-  border-radius: 16px !important;
-  height: 44px !important;
-  min-width: 124px !important;
-  padding: 0 26px !important;
-  font-size: 14.5px !important;
+  border-radius: 10px !important;
+  height: 38px !important;
+  min-width: 110px !important;
+  padding: 0 18px !important;
+  font-size: 13.5px !important;
   font-family: var(--font-display) !important;
   font-weight: 600 !important;
   box-shadow: none !important;
@@ -1277,13 +1277,13 @@
 .sa-wizard-step2-grid {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
 }
 
 .sa-wizard-card--split .sa-wizard-step2-grid {
   display: grid;
-  grid-template-columns: minmax(240px, 0.85fr) minmax(0, 1.35fr);
-  gap: 16px 20px;
+  grid-template-columns: minmax(200px, 0.85fr) minmax(0, 1.35fr);
+  gap: 12px 14px;
   align-items: start;
 }
 
@@ -1291,18 +1291,18 @@
 .sa-wizard-spreads-block {
   min-width: 0;
   background: #ffffff !important;
-  border-radius: 18px !important;
+  border-radius: 12px !important;
   border: 1px solid #E6E2D8 !important;
-  padding: 14px 18px 16px 18px !important;
-  margin-bottom: 14px !important;
+  padding: 10px 12px 12px 12px !important;
+  margin-bottom: 0 !important;
 }
 
 .sa-cover-row {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 12px 16px;
-  border-radius: 14px;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 10px;
   background: #EFECE6 !important;
   border: none !important;
 }
@@ -1381,21 +1381,22 @@
 .sa-spreads-review {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
 }
 
 .sa-spread-hero {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .sa-spread-hero-frame {
   flex: 1;
   min-width: 0;
-  border-radius: 12px;
-  overflow: visible;
+  max-height: 220px;
+  border-radius: 8px;
+  overflow: hidden;
   background: transparent !important;
   border: none;
   display: flex;
@@ -1412,7 +1413,9 @@
   box-shadow: none;
   background: transparent;
   cursor: default;
-  width: 100%;
+  width: auto;
+  max-width: 100%;
+  max-height: 220px;
   display: flex;
   justify-content: center;
   position: relative;
@@ -1426,22 +1429,25 @@
 
 .sa-spread-hero-frame .sa-preview-media,
 .sa-spread-hero-frame .sa-preview-media--spread {
-  border-radius: 8px;
+  border-radius: 6px;
   aspect-ratio: auto;
-  max-height: none;
-  width: 100%;
+  max-height: 220px;
+  width: auto;
+  max-width: 100%;
   height: auto;
   object-fit: contain;
   background: transparent;
 }
 
 .sa-spread-hero-frame .sa-preview-img {
-  width: 100%;
+  width: auto;
+  max-width: 100%;
   height: auto;
-  max-height: none;
+  max-height: 220px;
   object-fit: contain;
-  border-radius: 8px;
+  border-radius: 6px;
   display: block;
+  margin: 0 auto;
 }
 
 .sa-spread-hero-frame .sa-preview-remove {
@@ -1450,12 +1456,12 @@
 
 .sa-spread-nav {
   appearance: none;
-  width: 36px;
-  height: 36px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   border: 1px solid oklch(0.88 0.006 85);
   background: #fff;
-  box-shadow: 0 2px 8px oklch(0.4 0.02 70 / 0.12);
+  box-shadow: 0 1px 4px oklch(0.4 0.02 70 / 0.1);
   cursor: pointer;
   flex-shrink: 0;
   position: relative;
@@ -1488,7 +1494,7 @@
 .sa-spread-hero-caption {
   margin: 0;
   text-align: center;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.04em;
   color: var(--sa-muted);
@@ -1496,8 +1502,8 @@
 }
 
 .sa-filmstrip-hint {
-  margin: 6px 0 0;
-  font-size: 13px;
+  margin: 2px 0 0;
+  font-size: 11.5px;
   font-style: italic;
   color: var(--sa-muted);
   font-family: var(--sa-wizard-serif);
@@ -1505,9 +1511,9 @@
 
 .sa-filmstrip {
   display: flex;
-  gap: 10px;
+  gap: 6px;
   overflow-x: auto;
-  padding: 6px 2px 12px;
+  padding: 4px 2px 8px;
   scroll-snap-type: x proximity;
   -webkit-overflow-scrolling: touch;
 }
@@ -1531,12 +1537,12 @@
   appearance: none;
   border: 2px solid transparent;
   background: #EFECE6;
-  padding: 4px;
+  padding: 3px;
   width: auto;
-  min-width: 60px;
-  max-width: 140px;
-  height: 60px;
-  border-radius: 10px;
+  min-width: 48px;
+  max-width: 110px;
+  height: 48px;
+  border-radius: 8px;
   flex-shrink: 0;
   overflow: hidden;
   position: relative;
@@ -1628,8 +1634,8 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px 14px;
-  margin-top: 4px;
+  gap: 8px 12px;
+  margin-top: 2px;
 }
 
 .sa-spreads-toolbar .sa-upload-more,
@@ -1675,16 +1681,24 @@
   }
 
   .sa-wizard-card {
-    padding: 22px 18px 20px;
-    border-radius: 14px;
+    padding: 14px 14px 12px;
+    border-radius: 12px;
   }
 
   .sa-wizard-fields {
-    padding: 16px 14px 4px;
+    padding: 12px 12px 4px;
   }
 
   .sa-cover-row {
     flex-wrap: wrap;
+  }
+
+  .sa-spread-hero-frame,
+  .sa-spread-hero-frame .sa-preview-media,
+  .sa-spread-hero-frame .sa-preview-media--spread,
+  .sa-spread-hero-frame .sa-preview-img,
+  .sa-spread-hero-frame .sa-preview-card {
+    max-height: 180px;
   }
 
   .sa-spread-nav {

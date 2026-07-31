@@ -9,6 +9,7 @@ import {
   CalendarDays,
   Clock3,
   CheckCircle2,
+  PanelLeft,
   type LucideIcon,
 } from "lucide-react"
 
@@ -71,24 +72,28 @@ export const productNavItems: Record<string, ProductNavItem[]> = {
         p.startsWith("/collections") ||
         p.startsWith("/folders"),
       icon: Images,
+      section: "work",
     },
     {
       label: "Starred",
       href: "/starred/collections",
       match: (p) => p.startsWith("/starred"),
       icon: Star,
+      section: "work",
     },
     {
       label: "Homepage",
       href: "/homepage",
       match: (p) => p === "/homepage",
       icon: BookOpen,
+      section: "work",
     },
     {
       label: "Settings",
       href: "/settings",
       match: (p) => p.startsWith("/settings"),
       icon: Settings,
+      section: "studio",
     },
   ],
   "smart-albums": [
@@ -96,7 +101,7 @@ export const productNavItems: Record<string, ProductNavItem[]> = {
       label: "Albums",
       href: "/smart-albums",
       match: (p) => p === "/smart-albums" || p === "/smart-albums/",
-      icon: BookOpen,
+      icon: PanelLeft,
       section: "work",
       countKey: "albums",
     },
@@ -133,18 +138,21 @@ export const productNavItems: Record<string, ProductNavItem[]> = {
         p === "/portal/" ||
         p.startsWith("/portal/pipeline"),
       icon: KanbanSquare,
+      section: "work",
     },
     {
       label: "Studio Calendar",
       href: "/portal/calendar",
       match: (p) => p.startsWith("/portal/calendar"),
       icon: CalendarDays,
+      section: "work",
     },
     {
       label: "Settings",
       href: "/portal/settings",
       match: (p) => p.startsWith("/portal/settings"),
       icon: Settings,
+      section: "studio",
     },
   ],
   "mobile-gallery": [
@@ -156,12 +164,14 @@ export const productNavItems: Record<string, ProductNavItem[]> = {
         p === "/mobile-gallery/" ||
         p.startsWith("/mobile-gallery/app/"),
       icon: Smartphone,
+      section: "work",
     },
     {
       label: "Settings",
       href: "/mobile-gallery/settings",
       match: (p) => p.startsWith("/mobile-gallery/settings"),
       icon: Settings,
+      section: "studio",
     },
   ],
 }
