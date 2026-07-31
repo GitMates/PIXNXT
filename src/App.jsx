@@ -1,5 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Routes, Route, useLocation, useNavigate, Navigate, useParams } from 'react-router-dom';
+import {
+  applyAppearanceTheme,
+  getThemeMode,
+  THEME_CHANGE_EVENT,
+} from './lib/appearanceTheme';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import Home from './pages/Home';
@@ -115,20 +120,27 @@ function App() {
 
   useEffect(() => {
     const handleThemeChange = () => setThemeTick((t) => t + 1);
-    window.addEventListener('theme-change', handleThemeChange);
-    return () => window.removeEventListener('theme-change', handleThemeChange);
+    window.addEventListener(THEME_CHANGE_EVENT, handleThemeChange);
+    return () => window.removeEventListener(THEME_CHANGE_EVENT, handleThemeChange);
   }, []);
 
   useEffect(() => {
-    const isDark = localStorage.getItem('themeMode') === 'dark';
-    if (location.pathname === '/' || location.pathname.startsWith('/e/')) {
-      document.body.classList.remove('dark-theme');
-    } else if (isDark) {
-      document.body.classList.add('dark-theme');
-    } else {
-      document.body.classList.remove('dark-theme');
-    }
+    applyAppearanceTheme(getThemeMode(), location.pathname);
   }, [location.pathname, themeTick]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return undefined;
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const onChange = () => {
+      if (getThemeMode() === 'auto') setThemeTick((t) => t + 1);
+    };
+    if (mq.addEventListener) mq.addEventListener('change', onChange);
+    else mq.addListener(onChange);
+    return () => {
+      if (mq.removeEventListener) mq.removeEventListener('change', onChange);
+      else mq.removeListener(onChange);
+    };
+  }, []);
 
   const hideLayout =
     location.pathname === '/auth' ||

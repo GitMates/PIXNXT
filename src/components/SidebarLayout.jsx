@@ -17,6 +17,7 @@ import {
 } from '../lib/products';
 import ClientGalleryNotifications from './features/ClientGallery/ClientGalleryNotifications';
 import { userStorageService } from '../services/userStorage.service';
+import { getThemeMode, setThemeMode, THEME_CHANGE_EVENT } from '../lib/appearanceTheme';
 import brandPng from '../assets/icons/client gallery.png';
 import smartAlbumPng from '../assets/icons/smart album.png';
 import dashboardPng from '../assets/icons/dashboard.png';
@@ -51,6 +52,7 @@ const SidebarLayout = ({
     const profileDropdownRef = useRef(null);
     const { user, logout } = useAuth();
     const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+    const [themeMode, setThemeModeState] = useState(() => getThemeMode());
     const [profile, setProfile] = useState(() => {
         if (typeof window !== 'undefined' && user?.id) {
             const cached = localStorage.getItem(`photographer_profile_${user.id}`);
@@ -84,6 +86,16 @@ const SidebarLayout = ({
     const profileIconUrl = profile?.profile_icon_url?.trim() || '';
     const userInitial = getUserInitial(user);
     const userDisplayLabel = getUserDisplayLabel(user);
+
+    useEffect(() => {
+        const sync = () => setThemeModeState(getThemeMode());
+        window.addEventListener(THEME_CHANGE_EVENT, sync);
+        return () => window.removeEventListener(THEME_CHANGE_EVENT, sync);
+    }, []);
+
+    const handleThemeModeChange = (mode) => {
+        setThemeModeState(setThemeMode(mode));
+    };
 
     const renderBrandIcon = () =>
         profileIconUrl ? (
@@ -207,24 +219,43 @@ const SidebarLayout = ({
     };
 
     const renderProfileDropdown = (positionClasses) => (
-        <div className={`absolute ${positionClasses} w-[265px] rounded-[24px] bg-[#FAF9F6] p-2.5 shadow-[0_16px_48px_rgba(0,0,0,0.12)] z-[500] border border-[#ECEAE6] font-sans text-left`}>
+        <div className={`sb-profile-menu absolute ${positionClasses} w-[265px] rounded-[24px] bg-[#FAF9F6] p-2.5 shadow-[0_16px_48px_rgba(0,0,0,0.12)] z-[500] border border-[#ECEAE6] font-sans text-left`}>
             <div className="flex items-center gap-3 px-2 pt-1.5 pb-3">
                 <div className="size-10 rounded-full bg-[#111111] text-white font-bold flex items-center justify-center text-sm shrink-0 uppercase">
                     {userInitial}
                 </div>
                 <div className="flex flex-col min-w-0 flex-1">
-                    <span className="text-[14.5px] font-bold text-[#111827] truncate leading-tight font-sans">{userDisplayLabel}</span>
-                    <span className="text-[12.5px] text-[#6B7280] truncate font-normal leading-tight font-sans">{user?.email}</span>
+                    <span className="sb-profile-menu__name text-[14.5px] font-bold text-[#111827] truncate leading-tight font-sans">{userDisplayLabel}</span>
+                    <span className="sb-profile-menu__email text-[12.5px] text-[#6B7280] truncate font-normal leading-tight font-sans">{user?.email}</span>
                 </div>
             </div>
 
-            <div className="h-[1px] w-full bg-[#E5E7EB] my-1" />
+            <div className="sb-profile-menu__divider h-[1px] w-full bg-[#E5E7EB] my-1" />
+
+            <div className="sb-appearance" role="group" aria-label="Appearance">
+                <p className="sb-appearance__label">Appearance</p>
+                <div className="sb-appearance__options">
+                    {['auto', 'light', 'dark'].map((mode) => (
+                        <button
+                            key={mode}
+                            type="button"
+                            className={`sb-appearance__option${themeMode === mode ? ' is-active' : ''}`}
+                            aria-pressed={themeMode === mode}
+                            onClick={() => handleThemeModeChange(mode)}
+                        >
+                            {mode === 'auto' ? 'Auto' : mode === 'light' ? 'Light' : 'Dark'}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            <div className="sb-profile-menu__divider h-[1px] w-full bg-[#E5E7EB] my-1" />
 
             <div className="flex flex-col gap-0.5 pt-1">
                 <button
                     type="button"
                     onClick={() => { navigate('/account/refer'); setShowProfileDropdown(false); }}
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13.5px] font-medium text-[#374151] hover:bg-black/[0.04] transition-colors font-sans"
+                    className="sb-profile-menu__item flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13.5px] font-medium text-[#374151] hover:bg-black/[0.04] transition-colors font-sans"
                 >
                     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#4B5563" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                         <polyline points="20 12 20 22 4 22 4 12" />
@@ -239,7 +270,7 @@ const SidebarLayout = ({
                 <button
                     type="button"
                     onClick={() => { navigate('/account/profile'); setShowProfileDropdown(false); }}
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13.5px] font-medium text-[#374151] hover:bg-black/[0.04] transition-colors font-sans"
+                    className="sb-profile-menu__item flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13.5px] font-medium text-[#374151] hover:bg-black/[0.04] transition-colors font-sans"
                 >
                     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#4B5563" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
@@ -251,7 +282,7 @@ const SidebarLayout = ({
                 <button
                     type="button"
                     onClick={() => { navigate('/account/billing'); setShowProfileDropdown(false); }}
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13.5px] font-medium text-[#374151] hover:bg-black/[0.04] transition-colors font-sans"
+                    className="sb-profile-menu__item flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13.5px] font-medium text-[#374151] hover:bg-black/[0.04] transition-colors font-sans"
                 >
                     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#4B5563" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                         <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
@@ -263,7 +294,7 @@ const SidebarLayout = ({
                 <button
                     type="button"
                     onClick={() => { navigate('/account/advanced'); setShowProfileDropdown(false); }}
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13.5px] font-medium text-[#374151] hover:bg-black/[0.04] transition-colors font-sans"
+                    className="sb-profile-menu__item flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13.5px] font-medium text-[#374151] hover:bg-black/[0.04] transition-colors font-sans"
                 >
                     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#4B5563" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                         <line x1="4" y1="21" x2="4" y2="14" />
@@ -282,7 +313,7 @@ const SidebarLayout = ({
                 <button
                     type="button"
                     onClick={() => { navigate('/account/details'); setShowProfileDropdown(false); }}
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13.5px] font-medium text-[#374151] hover:bg-black/[0.04] transition-colors font-sans"
+                    className="sb-profile-menu__item flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13.5px] font-medium text-[#374151] hover:bg-black/[0.04] transition-colors font-sans"
                 >
                     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#4B5563" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
@@ -302,7 +333,7 @@ const SidebarLayout = ({
                             console.error('Logout failed', err);
                         }
                     }}
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13.5px] font-medium text-[#DC2626] hover:bg-red-50 transition-colors font-sans"
+                    className="sb-profile-menu__item sb-profile-menu__item--danger flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13.5px] font-medium text-[#DC2626] hover:bg-red-50 transition-colors font-sans"
                 >
                     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
@@ -338,15 +369,15 @@ const SidebarLayout = ({
                         <button
                             type="button"
                             onClick={() => { navigate('/dashboard'); setShowAppDropdown(false); setIsMobileMenuOpen(false); }}
-                            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-[#1A1A1A] transition-colors hover:bg-[#F4F3F0]"
+                            className="cg-app-switcher-item flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-[#1A1A1A] transition-colors hover:bg-[#F4F3F0]"
                         >
-                            <span className="inline-flex size-9 items-center justify-center rounded-lg bg-[#F4F3F0]">
+                            <span className="cg-app-switcher-item__icon inline-flex size-9 items-center justify-center rounded-lg bg-[#F4F3F0]">
                                 <img src={dashboardPng} alt="" className="size-4 object-contain" />
                             </span>
                             Home
                         </button>
 
-                        <p className="px-3 pb-1 pt-3 text-xs font-medium uppercase tracking-wider text-[#71717A]">
+                        <p className="cg-app-switcher-label px-3 pb-1 pt-3 text-xs font-medium uppercase tracking-wider text-[#71717A]">
                             Pixnxt Ecosystem
                         </p>
 
@@ -358,24 +389,24 @@ const SidebarLayout = ({
                                     type="button"
                                     onClick={() => { navigate(product.href); setShowAppDropdown(false); setIsMobileMenuOpen(false); }}
                                     className={cn(
-                                        'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors hover:bg-[#F4F3F0]',
-                                        active && 'neu-glow-pill',
+                                        'cg-app-switcher-item flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors hover:bg-[#F4F3F0]',
+                                        active && 'cg-app-switcher-item--active neu-glow-pill',
                                     )}
                                 >
                                     <span className={cn(
-                                        'inline-flex size-9 shrink-0 items-center justify-center rounded-lg',
-                                        active ? 'bg-[#1A1A1A] text-white' : 'bg-[#F4F3F0] text-[#1A1A1A]',
+                                        'cg-app-switcher-item__icon inline-flex size-9 shrink-0 items-center justify-center rounded-lg',
+                                        active ? 'cg-app-switcher-item__icon--on bg-[#1A1A1A] text-white' : 'bg-[#F4F3F0] text-[#1A1A1A]',
                                     )}>
                                         {renderProductIcon(product, active)}
                                     </span>
                                     <span className="min-w-0 flex-1 text-left">
                                         <span className="flex items-center gap-2">
-                                            <span className="font-medium text-[#1A1A1A]">{product.name}</span>
+                                            <span className="cg-app-switcher-item__name font-medium text-[#1A1A1A]">{product.name}</span>
                                             {active && (
-                                                <span className="rounded-full bg-[#1A1A1A]/10 px-1.5 py-0.5 text-[0.65rem] font-medium text-[#1A1A1A]">Current</span>
+                                                <span className="cg-app-switcher-item__badge rounded-full bg-[#1A1A1A]/10 px-1.5 py-0.5 text-[0.65rem] font-medium text-[#1A1A1A]">Current</span>
                                             )}
                                         </span>
-                                        <span className="block truncate text-xs text-[#71717A]">{product.tagline}</span>
+                                        <span className="cg-app-switcher-item__tagline block truncate text-xs text-[#71717A]">{product.tagline}</span>
                                     </span>
                                 </button>
                             );
@@ -468,7 +499,7 @@ const SidebarLayout = ({
                                 </span>
                             </button>
                             {showContextDropdown && (
-                                <div className="absolute left-0 right-0 top-full z-50 mt-1.5 overflow-hidden rounded-xl bg-white p-1.5 shadow-xl shadow-black/10 border border-[#ECEAE6]">
+                                <div className="sb-product-menu absolute left-0 right-0 top-full z-50 mt-1.5 overflow-hidden rounded-xl bg-white p-1.5 shadow-xl shadow-black/10 border border-[#ECEAE6]">
                                     {products.map((item) => {
                                         const active = isProductActive(item.href, path);
                                         const Icon = item.icon;
@@ -478,15 +509,15 @@ const SidebarLayout = ({
                                                 type="button"
                                                 onClick={() => { navigate(item.href); setShowContextDropdown(false); setIsMobileMenuOpen(false); }}
                                                 className={cn(
-                                                    'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors hover:bg-[#F4F3F0]',
-                                                    active && 'bg-[#F4F3F0]',
+                                                    'sb-product-menu__item flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors hover:bg-[#F4F3F0]',
+                                                    active && 'sb-product-menu__item--active bg-[#F4F3F0]',
                                                 )}
                                             >
-                                                <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-md bg-[#F4F3F0]">
+                                                <span className="sb-product-menu__icon inline-flex size-7 shrink-0 items-center justify-center rounded-md bg-[#F4F3F0]">
                                                     <Icon className="size-3.5" />
                                                 </span>
                                                 <span className="min-w-0 flex-1 truncate font-medium">{item.name}</span>
-                                                {active && <span className="size-1.5 shrink-0 rounded-full bg-[#1A1A1A]" />}
+                                                {active && <span className="sb-product-menu__dot size-1.5 shrink-0 rounded-full bg-[#1A1A1A]" />}
                                             </button>
                                         );
                                     })}
