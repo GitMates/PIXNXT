@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Check, Copy } from 'lucide-react';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
 import { smartAlbumProoferSettingsService } from '../../services/smartAlbumProoferSettings.service';
 import { isAlbumClientApproved } from '../../services/albumProof.service';
@@ -48,6 +49,7 @@ export default function AlbumEditorSettingsPanel({
     const [allowVoice, setAllowVoice] = useState(true);
     const [requireVerification, setRequireVerification] = useState(false);
     const [approvalPin, setApprovalPin] = useState('');
+    const [pinCopied, setPinCopied] = useState(false);
     const [sendReminders, setSendReminders] = useState(false);
 
     const [allowComments, setAllowComments] = useState(true);
@@ -223,9 +225,27 @@ export default function AlbumEditorSettingsPanel({
 
     const nudgeDays = globalDefaultsRef.current?.nudgeDays ?? 5;
 
+    const handleCopyPin = async () => {
+        if (!approvalPin) return;
+        try {
+            await navigator.clipboard.writeText(approvalPin);
+            setPinCopied(true);
+            setNotification('Approval PIN copied');
+            window.setTimeout(() => {
+                setPinCopied(false);
+                setNotification('');
+            }, 2000);
+        } catch (err) {
+            console.error(err);
+            setNotification('Could not copy PIN');
+            window.setTimeout(() => setNotification(''), 2000);
+        }
+    };
+
     const handleRegeneratePin = () => {
         const pin = smartAlbumProoferSettingsService.randomPin();
         setApprovalPin(pin);
+        setPinCopied(false);
         setNotification('Approval PIN regenerated');
         window.setTimeout(() => setNotification(''), 2000);
     };
@@ -339,12 +359,24 @@ export default function AlbumEditorSettingsPanel({
 
                     {requireVerification ? (
                         <div className="ae-settings-pin-block">
-                            <div className="ae-settings-pin-digits">
-                                {(approvalPin || '----').split('').map((digit, i) => (
-                                    <div key={i} className="ae-settings-pin-digit type-pin">
-                                        {digit}
-                                    </div>
-                                ))}
+                            <div className="ae-settings-pin-row">
+                                <div className="ae-settings-pin-digits" aria-label="Approval PIN">
+                                    {(approvalPin || '----').split('').map((digit, i) => (
+                                        <div key={i} className="ae-settings-pin-digit type-pin">
+                                            {digit}
+                                        </div>
+                                    ))}
+                                </div>
+                                <button
+                                    type="button"
+                                    className={`ae-settings-pin-copy${pinCopied ? ' ae-settings-pin-copy--done' : ''}`}
+                                    onClick={handleCopyPin}
+                                    disabled={!approvalPin}
+                                    aria-label={pinCopied ? 'PIN copied' : 'Copy approval PIN'}
+                                    title={pinCopied ? 'Copied' : 'Copy PIN'}
+                                >
+                                    {pinCopied ? <Check size={16} strokeWidth={2} /> : <Copy size={16} strokeWidth={2} />}
+                                </button>
                             </div>
                             <button
                                 type="button"

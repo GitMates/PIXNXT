@@ -9,6 +9,8 @@ import {
 import { countClientRootComments, getClientReviewerIdentity, smartAlbumCommentsService } from '../../services/smartAlbumComments.service';
 import { mergeAlbumProofTimestamps } from './albumProofStatus';
 import { buildGmailComposeUrl } from '../../lib/gmailComposeUrl';
+import { readSharePausedAt, writeSharePausedAt } from '../../lib/albumSharePause';
+import { formatRelativeTime } from '../../lib/relativeTime';
 import AeSettingsSelect from './AeSettingsSelect';
 import './AlbumEditorSettings.css';
 import './AlbumSharePublishMenu.css';
@@ -66,18 +68,7 @@ function clientDisplayFirstName(identity) {
 }
 
 function formatShareRelativeTime(dateStr) {
-    if (!dateStr) return '';
-    const date = new Date(dateStr);
-    if (Number.isNaN(date.getTime())) return '';
-    const diffMs = Date.now() - date.getTime();
-    const mins = Math.floor(diffMs / 60000);
-    if (mins < 1) return 'just now';
-    if (mins < 60) return `${mins} minute${mins === 1 ? '' : 's'} ago`;
-    const hours = Math.floor(mins / 60);
-    if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
-    const days = Math.floor(hours / 24);
-    if (days < 7) return `${days} day${days === 1 ? '' : 's'} ago`;
-    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    return formatRelativeTime(dateStr, { style: 'long' }).replace(/^Just now$/, 'just now');
 }
 
 function getPauseClientCopy(album, identity = null) {
@@ -133,32 +124,6 @@ function getPauseClientCopy(album, identity = null) {
         rest: ' Pausing locks them out immediately — the link will show “temporarily unavailable” with no explanation.',
         keep: 'Comments and swap requests are kept. The same link works again when you resume.',
     };
-}
-
-const SHARE_PAUSED_AT_KEY = 'pixnxt_album_share_paused_at';
-
-function readSharePausedAt(albumId) {
-    if (!albumId || typeof window === 'undefined') return null;
-    try {
-        const raw = localStorage.getItem(SHARE_PAUSED_AT_KEY);
-        const map = raw ? JSON.parse(raw) : {};
-        return map[albumId] || null;
-    } catch {
-        return null;
-    }
-}
-
-function writeSharePausedAt(albumId, iso) {
-    if (!albumId || typeof window === 'undefined') return;
-    try {
-        const raw = localStorage.getItem(SHARE_PAUSED_AT_KEY);
-        const map = raw ? JSON.parse(raw) : {};
-        if (iso) map[albumId] = iso;
-        else delete map[albumId];
-        localStorage.setItem(SHARE_PAUSED_AT_KEY, JSON.stringify(map));
-    } catch {
-        /* ignore */
-    }
 }
 
 function buildDefaultShareMessage(album, displayUrl, { pin = '', maxFreeSwaps = 5 } = {}) {

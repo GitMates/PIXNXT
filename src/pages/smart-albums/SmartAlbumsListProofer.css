@@ -535,6 +535,12 @@
   font-variant-numeric: tabular-nums;
 }
 
+.theme-mono .sa-proofer-album-card__time--grid {
+  color: var(--ink-muted, var(--sa-proofer-muted));
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .theme-mono .sa-proofer-albums__empty,
 .theme-mono .sa-proofer-albums__loading {
   padding: 48px 24px;

@@ -2354,7 +2354,6 @@ export default function AlbumEditor({
                             totalPages={totalPages}
                             bookPage={bookPage}
                             photoRevision={layoutRevision}
-                            spreadCommentsBySpread={spreadCommentsBySpread}
                             onReorderSpread={handleReorderOverviewSpread}
                             disabled={pageCountBusy || spreadEdit}
                             onSelectSpread={(_spreadIndex, page) => {

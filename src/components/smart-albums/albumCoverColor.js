@@ -53,7 +53,7 @@ export const COVER_LEATHER_PRESETS = [
     },
 ];
 
-export const DEFAULT_COVER_COLOR_PRESET_ID = 'cream';
+export const DEFAULT_COVER_COLOR_PRESET_ID = 'sky';
 
 const DEFAULT_PRESET_ID = DEFAULT_COVER_COLOR_PRESET_ID;
 

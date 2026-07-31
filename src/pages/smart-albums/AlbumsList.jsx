@@ -11,6 +11,7 @@ import {
     getAlbumProofStatus,
     mergeAlbumProofTimestamps,
 } from '../../components/smart-albums/albumProofStatus';
+import { formatAlbumCardTime, formatAbsoluteDateTime } from '../../lib/relativeTime';
 import { AlbumContextMenu } from '../../components/smart-albums/AlbumContextMenu';
 import AlbumListCoverThumb from '../../components/smart-albums/AlbumListCoverThumb';
 import { AlbumPreviewLinkModal, AlbumPreviewQrModal } from '../../components/smart-albums/AlbumShareModals';
@@ -36,17 +37,6 @@ function getNeedsYouFirstRank(album) {
     const tone = getAlbumProofStatus(album).tone;
     return NEEDS_YOU_FIRST_STATUS_ORDER[tone] ?? 99;
 }
-function formatAlbumDate(dateStr) {
-    if (!dateStr) return 'No date';
-    try {
-        const date = new Date(dateStr);
-        if (Number.isNaN(date.getTime())) return 'No date';
-        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    } catch {
-        return 'No date';
-    }
-}
-
 function getAlbumCategories(album) {
     return Array.isArray(album.category_tags) ? album.category_tags.filter(Boolean) : [];
 }
@@ -72,41 +62,6 @@ const CREATED_FILTERS = [
     { value: 'this-month', label: 'This month' },
     { value: 'this-year', label: 'This year' },
 ];
-
-function formatRelativeTime(dateStr) {
-    if (!dateStr) return '';
-    const date = new Date(dateStr);
-    if (Number.isNaN(date.getTime())) return '';
-    const diffMs = Date.now() - date.getTime();
-    const mins = Math.floor(diffMs / 60000);
-    if (mins < 1) return 'Just now';
-    if (mins < 60) return `${mins} minute${mins === 1 ? '' : 's'} ago`;
-    const hours = Math.floor(mins / 60);
-    if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
-    const days = Math.floor(hours / 24);
-    if (days < 7) return `${days} day${days === 1 ? '' : 's'} ago`;
-    return formatAlbumDate(dateStr);
-}
-
-function formatListRelativeTime(dateStr) {
-    if (!dateStr) return '';
-    const date = new Date(dateStr);
-    if (Number.isNaN(date.getTime())) return '';
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
-    const startOfYesterday = new Date(startOfToday);
-    startOfYesterday.setDate(startOfYesterday.getDate() - 1);
-    if (date >= startOfToday) {
-        const mins = Math.floor((Date.now() - date.getTime()) / 60000);
-        if (mins < 1) return 'Just now';
-        if (mins < 60) return `${mins}m ago`;
-        return `${Math.floor(mins / 60)}h ago`;
-    }
-    if (date >= startOfYesterday) return 'Yesterday';
-    const days = Math.floor((Date.now() - date.getTime()) / 86400000);
-    if (days < 7) return `${days}d ago`;
-    return formatAlbumDate(dateStr);
-}
 
 function getAlbumListSubtitle(album, clientLabel) {
     const parts = [];
@@ -146,28 +101,22 @@ function isApprovedAlbum(album) {
     return getAlbumProofStatus(album).tone === 'approved';
 }
 
-function isNeedsYouAlbum(album) {
-    const tone = getAlbumProofStatus(album).tone;
+export function isNeedsYouStatusTone(tone) {
     return tone === 'awaiting' || tone === 'feedback' || tone === 'revision';
+}
+
+function isNeedsYouAlbum(album) {
+    return isNeedsYouStatusTone(getAlbumProofStatus(album).tone);
 }
 
 function formatStatusLabel(status) {
     return status?.label || 'Draft';
 }
 
-function formatAlbumMetaLine(clientLabel, footnote, activityAt) {
+function formatAlbumMetaParts(clientLabel, footnote) {
     const parts = [];
     if (clientLabel) parts.push(clientLabel);
     if (footnote) parts.push(footnote);
-    const rel = formatRelativeTime(activityAt);
-    if (rel) {
-        parts.push(
-            rel
-                .replace(/(\d+) hours? ago/, '$1h ago')
-                .replace(/(\d+) minutes? ago/, '$1m ago')
-                .replace(/(\d+) days? ago/, '$1d ago')
-        );
-    }
     return parts.join(' · ');
 }
 
@@ -195,6 +144,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
     const [editSaving, setEditSaving] = useState(false);
     const [settingsAlbum, setSettingsAlbum] = useState(null);
     const [settingsAnchor, setSettingsAnchor] = useState(null);
+    const [relativeNow, setRelativeNow] = useState(() => Date.now());
     const contextRef = useRef(null);
     const filtersRef = useRef(null);
     const pageTitle =
@@ -283,6 +233,22 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
     useEffect(() => {
         if (starredOnly) setStarFilter('starred');
     }, [starredOnly]);
+
+    // Keep "Just now" / "Xm ago" labels honest while the list stays open.
+    useEffect(() => {
+        const tick = () => setRelativeNow(Date.now());
+        const id = window.setInterval(tick, 15_000);
+        const onVisible = () => {
+            if (document.visibilityState === 'visible') tick();
+        };
+        document.addEventListener('visibilitychange', onVisible);
+        window.addEventListener('focus', tick);
+        return () => {
+            window.clearInterval(id);
+            document.removeEventListener('visibilitychange', onVisible);
+            window.removeEventListener('focus', tick);
+        };
+    }, []);
 
     const openAlbumSettings = useCallback(
         (e, album) => {
@@ -373,19 +339,29 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
         setEditSaving(true);
         try {
             const nameExists = albums.some(
-                (a) => a.id !== editAlbum.id && a.name.trim().toLowerCase() === payload.name.trim().toLowerCase()
+                (a) =>
+                    a.id !== editAlbum.id &&
+                    a.name.trim().toLowerCase() === payload.name.trim().toLowerCase()
             );
             if (nameExists) {
                 alert('An album with this name already exists.');
-                setEditSaving(false);
-                return;
+                throw new Error('duplicate-name');
             }
-            const updated = await smartAlbumsService.updateAlbumDetails(user.id, editAlbum.id, payload);
-            setAlbums((prev) => prev.map((a) => (a.id === updated.id ? { ...a, ...updated } : a)));
-            setEditAlbum(null);
+            const updated = await smartAlbumsService.updateAlbumDetails(
+                user.id,
+                editAlbum.id,
+                payload
+            );
+            setAlbums((prev) =>
+                prev.map((a) => (a.id === updated.id ? { ...a, ...updated } : a))
+            );
+            return updated;
         } catch (err) {
             console.error(err);
-            alert(err?.message || 'Failed to save changes. Please try again.');
+            if (err?.message !== 'duplicate-name') {
+                alert(err?.message || 'Failed to save changes. Please try again.');
+            }
+            throw err;
         } finally {
             setEditSaving(false);
         }
@@ -466,6 +442,9 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
             if (needsYouFirst && (proofFilter === 'all' || proofFilter === 'awaiting')) {
                 const rankDiff = getNeedsYouFirstRank(a) - getNeedsYouFirstRank(b);
                 if (rankDiff !== 0) return rankDiff;
+                const aAct = new Date(getAlbumProofActivityAt(a) || 0).getTime() || 0;
+                const bAct = new Date(getAlbumProofActivityAt(b) || 0).getTime() || 0;
+                if (aAct !== bAct) return bAct - aAct;
             }
             const aTime = new Date(a.created_at || 0).getTime() || 0;
             const bTime = new Date(b.created_at || 0).getTime() || 0;
@@ -742,10 +721,11 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                             const clientLabel = getAlbumClientLabel(album);
                             const footnote = getAlbumProofFootnote(album, status);
                             const activityAt = getAlbumProofActivityAt(album);
-                            const metaLine = formatAlbumMetaLine(clientLabel, footnote, activityAt);
+                            const metaText = formatAlbumMetaParts(clientLabel, footnote);
                             const listSubtitle = getAlbumListSubtitle(album, clientLabel);
                             const listAction = getAlbumListAction(status);
-                            const listTime = formatListRelativeTime(activityAt);
+                            const cardTime = formatAlbumCardTime(activityAt, { now: relativeNow });
+                            const cardTimeTitle = formatAbsoluteDateTime(activityAt);
                             const openAlbum = () => navigate(`/smart-albums/album/${album.id}`);
                             return (
                                 <article
@@ -790,8 +770,11 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                                                     <span className="sa-proofer-album-status__dot" aria-hidden />
                                                     {formatStatusLabel(status)}
                                                 </span>
-                                                <span className="sa-proofer-album-card__time">
-                                                    {listTime || '—'}
+                                                <span
+                                                    className="sa-proofer-album-card__time"
+                                                    title={cardTimeTitle || undefined}
+                                                >
+                                                    {cardTime || '—'}
                                                 </span>
                                                 <button
                                                     type="button"
@@ -818,8 +801,24 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                                                     {formatStatusLabel(status)}
                                                 </span>
                                             </div>
-                                            {metaLine ? (
-                                                <p className="sa-proofer-album-card__meta">{metaLine}</p>
+                                            {metaText || cardTime ? (
+                                                <p className="sa-proofer-album-card__meta">
+                                                    {metaText ? <span>{metaText}</span> : null}
+                                                    {metaText && cardTime ? (
+                                                        <span className="sa-proofer-album-card__meta-sep" aria-hidden>
+                                                            {' · '}
+                                                        </span>
+                                                    ) : null}
+                                                    {cardTime ? (
+                                                        <time
+                                                            className="sa-proofer-album-card__time sa-proofer-album-card__time--grid"
+                                                            dateTime={activityAt || undefined}
+                                                            title={cardTimeTitle || undefined}
+                                                        >
+                                                            {cardTime}
+                                                        </time>
+                                                    ) : null}
+                                                </p>
                                             ) : null}
                                         </div>
                                     )}
@@ -845,7 +844,13 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                 isOpen={Boolean(editAlbum)}
                 onClose={() => setEditAlbum(null)}
                 onSave={handleEditSave}
-                onAdvanced={(album) => navigate(`/smart-albums/album/${album.id}`)}
+                photographerId={user?.id}
+                onAlbumUpdated={(updated) => {
+                    if (!updated?.id) return;
+                    setAlbums((prev) =>
+                        prev.map((a) => (a.id === updated.id ? { ...a, ...updated } : a))
+                    );
+                }}
                 saving={editSaving}
             />
             <AlbumSettingsSheet
@@ -871,10 +876,14 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                     }
                 }}
                 onQuickEdit={() => {
-                    if (settingsAlbum) {
-                        handleQuickEdit(settingsAlbum);
-                        setSettingsAlbum(null);
-                    }
+                    const album = settingsAlbum;
+                    if (!album) return;
+                    setSettingsAlbum(null);
+                    setSettingsAnchor(null);
+                    // Open after settings unmounts so the edit popup is on top.
+                    window.setTimeout(() => {
+                        setEditAlbum(album);
+                    }, 0);
                 }}
                 onDuplicate={() => {
                     if (settingsAlbum) {
