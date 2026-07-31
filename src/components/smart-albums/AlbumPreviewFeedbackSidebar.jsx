@@ -475,6 +475,9 @@ function FeedbackCompose({
 
 export default function AlbumPreviewFeedbackSidebar({
     albumId,
+    album = null,
+    totalPages = 0,
+    photoRevision = 0,
     photographerId = null,
     spreadIndex,
     spreadLabel = 'Spread',
@@ -491,6 +494,8 @@ export default function AlbumPreviewFeedbackSidebar({
     onEditPinMessageChange,
     onEditPinSave,
     onJumpToSpread,
+    onNavigateToPin = null,
+    onNavigateToSlotKey = null,
     onRemoveSwap,
     onRemoveReplacement,
     onBlocked,
@@ -513,7 +518,10 @@ export default function AlbumPreviewFeedbackSidebar({
     return (
         <aside className="av-feedback-sidebar" aria-label="Feedback">
             <header className="av-feedback-sidebar__header">
-                <h2 className="av-feedback-sidebar__title">Feedback</h2>
+                <div className="av-feedback-sidebar__header-row">
+                    <h2 className="av-feedback-sidebar__title">Photo</h2>
+                    <span className="av-feedback-sidebar__spread">{spreadLabel}</span>
+                </div>
             </header>
 
             <div className="av-feedback-sidebar__body">
@@ -531,8 +539,13 @@ export default function AlbumPreviewFeedbackSidebar({
                         <AlbumPreviewSpreadFeed
                             feed={visibleSpreadFeed}
                             albumId={albumId}
+                            album={album}
+                            totalPages={totalPages}
+                            photoRevision={photoRevision}
                             businessName={businessName}
                             spreadOpts={spreadOpts}
+                            proofMode
+                            clientViewer={clientPreview}
                             editingPinId={editingPinId}
                             editingPinMessage={editingPinMessage}
                             onEditPinStart={onEditPinStart}
@@ -540,6 +553,8 @@ export default function AlbumPreviewFeedbackSidebar({
                             onEditPinMessageChange={onEditPinMessageChange}
                             onEditPinSave={onEditPinSave}
                             onJumpToSpread={onJumpToSpread}
+                            onNavigateToPin={onNavigateToPin}
+                            onNavigateToSlotKey={onNavigateToSlotKey}
                             onRemoveSwap={onRemoveSwap}
                             onRemoveReplacement={onRemoveReplacement}
                         />

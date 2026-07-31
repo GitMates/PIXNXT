@@ -5,6 +5,7 @@ import {
     formatCommentTime,
     formatFeedDateLabel,
     getClientReviewerIdentity,
+    getGuestProfile,
     isCommentUnseen,
     isGuestCommentUnseen,
     markCommentsSeen,
@@ -38,6 +39,7 @@ import AlbumPreviewReplacementCard from './AlbumPreviewReplacementCard';
 import OverviewLeatherCover from './OverviewLeatherCover';
 import SwapIcon from './SwapIcon';
 import { getSpreadContext, pageToSpreadIndex } from './albumSpreadUtils';
+import './AlbumQuietProofFeed.css';
 
 function resolveSwapEndpointSrc(albumId, slotKey, album, totalPages) {
     if (!albumId || !slotKey) return null;
@@ -228,7 +230,15 @@ function QuietProofCard({
                     <div className="quiet-proof-card__name-wrap">
                         <span className="quiet-proof-card__name">{name}</span>
                         {badge ? (
-                            <span className="quiet-proof-card__badge">{badge}</span>
+                                    <span
+                                        className={`quiet-proof-card__badge${
+                                            badge === 'Photographer'
+                                                ? ' quiet-proof-card__badge--photographer'
+                                                : ''
+                                        }`}
+                                    >
+                                        {badge}
+                                    </span>
                         ) : null}
                     </div>
                     {timeLabel ? (
@@ -270,12 +280,20 @@ function QuietProofCard({
                                     <span className="quiet-proof-card__reply-name">
                                         {reply.authorName || 'Photographer'}
                                     </span>
-                                    <span className="quiet-proof-card__badge quiet-proof-card__badge--reply">
-                                        Reply
+                                    <span
+                                        className={`quiet-proof-card__badge${
+                                            reply.authorType === 'client'
+                                                ? ''
+                                                : ' quiet-proof-card__badge--photographer'
+                                        }`}
+                                    >
+                                        {reply.authorType === 'client'
+                                            ? 'Photo'
+                                            : 'Photographer'}
                                     </span>
                                     {replyTime ? (
                                         <time
-                                            className="quiet-proof-card__time"
+                                            className="quiet-proof-card__reply-time"
                                             dateTime={reply.createdAt || undefined}
                                         >
                                             {replyTime}
@@ -363,6 +381,7 @@ function QuietProofFeed({
     totalPages = 0,
     photoRevision = 0,
     businessName,
+    clientViewer = false,
     onNavigateToPin,
     onNavigateToSlotKey,
     onRemoveSwap,
@@ -370,7 +389,9 @@ function QuietProofFeed({
 }) {
     void photoRevision;
     const clientName =
-        getClientReviewerIdentity(albumId).name || 'Client';
+        getClientReviewerIdentity(albumId).name ||
+        getGuestProfile(albumId)?.name ||
+        'Client';
     const [replyTargetId, setReplyTargetId] = useState(null);
     const [repliesByParent, setRepliesByParent] = useState(() =>
         getAllProofRepliesForAlbum(albumId)
@@ -412,9 +433,16 @@ function QuietProofFeed({
         const parentKey = makeProofReplyParentKey(item.kind, entityId);
         if (!parentKey) return;
 
+        const guest = getGuestProfile(albumId);
+        const authorName = clientViewer
+            ? guest?.name?.trim() || clientName || 'Guest'
+            : businessName || 'Photographer';
+        const authorType = clientViewer ? 'client' : 'photographer';
+
         addProofReply(albumId, parentKey, {
             body,
-            authorName: businessName || 'Photographer',
+            authorName,
+            authorType,
         });
 
         if (
@@ -422,13 +450,24 @@ function QuietProofFeed({
             item.comment?.id
         ) {
             try {
-                await smartAlbumCommentsService.savePhotographerReply({
-                    albumId,
-                    spreadIndex: item.comment.spread_index,
-                    parentId: item.comment.id,
-                    body,
-                    authorName: businessName || 'Photographer',
-                });
+                if (clientViewer) {
+                    await smartAlbumCommentsService.saveClientReply({
+                        albumId,
+                        spreadIndex: item.comment.spread_index,
+                        parentId: item.comment.id,
+                        body,
+                        authorName,
+                        authorEmail: guest?.email?.trim() || null,
+                    });
+                } else {
+                    await smartAlbumCommentsService.savePhotographerReply({
+                        albumId,
+                        spreadIndex: item.comment.spread_index,
+                        parentId: item.comment.id,
+                        body,
+                        authorName,
+                    });
+                }
             } catch (e) {
                 console.warn('Could not sync comment reply', e);
             }
@@ -485,6 +524,7 @@ function QuietProofFeed({
                             createdAt={comment.updated_at || comment.created_at}
                             badge="Photo"
                             unseen={unseen}
+                            showMarkDone={!clientViewer}
                             onMarkDone={() => markCommentsSeen(albumId, [comment])}
                             {...replyPropsFor(item)}
                         >
@@ -518,6 +558,7 @@ function QuietProofFeed({
                             createdAt={pin.createdAt}
                             badge={`Pin ${ordinal}`}
                             unseen={unseen}
+                            showMarkDone={!clientViewer}
                             onMarkDone={() => markPhotoPinsSeen(albumId, [pin])}
                             onNavigate={navigatePin}
                             {...replyPropsFor(item)}
@@ -607,6 +648,7 @@ function QuietProofFeed({
                         createdAt={swapItem.createdAt}
                         badge="Swap"
                         unseen={swapUnseen}
+                        showMarkDone={!clientViewer}
                         onMarkDone={() => markSwapMarksSeen(albumId, [swapItem])}
                         {...replyPropsFor(item)}
                     >
@@ -710,6 +752,7 @@ export default function AlbumPreviewSpreadFeed({
     onRemoveSwap,
     onRemoveReplacement,
     proofMode = false,
+    clientViewer = false,
     seenTick = 0,
 }) {
     void seenTick;
@@ -726,6 +769,7 @@ export default function AlbumPreviewSpreadFeed({
                 totalPages={totalPages}
                 photoRevision={photoRevision}
                 businessName={businessName}
+                clientViewer={clientViewer}
                 onNavigateToPin={onNavigateToPin}
                 onNavigateToSlotKey={onNavigateToSlotKey}
                 onRemoveSwap={onRemoveSwap}

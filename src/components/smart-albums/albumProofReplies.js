@@ -45,15 +45,18 @@ export function getAllProofRepliesForAlbum(albumId) {
     return { ...(readAll()[albumId] || {}) };
 }
 
-export function addProofReply(albumId, parentKey, { body, authorName } = {}) {
+export function addProofReply(albumId, parentKey, { body, authorName, authorType } = {}) {
     const text = String(body || '').trim();
     if (!albumId || !parentKey || !text) return null;
 
+    const type = authorType === 'client' ? 'client' : 'photographer';
     const reply = {
         id: `reply_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
         body: text,
-        authorName: String(authorName || 'Photographer').trim() || 'Photographer',
-        authorType: 'photographer',
+        authorName:
+            String(authorName || (type === 'client' ? 'Guest' : 'Photographer')).trim() ||
+            (type === 'client' ? 'Guest' : 'Photographer'),
+        authorType: type,
         createdAt: new Date().toISOString(),
     };
 
