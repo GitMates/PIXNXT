@@ -581,7 +581,7 @@ export default function LabFrameWorkshop() {
   ];
 
   return (
-    <div style={{ padding: 28, background: '#F9F9F7', minHeight: '100%', boxSizing: 'border-box', fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
+    <div style={{ padding: 28, background: '#F9F9F7', minHeight: '100%', boxSizing: 'border-box', fontFamily: "var(--font-sans)" }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 20, gap: 12, flexWrap: 'wrap' }}>
         <div>
           <h1 style={{ margin: 0, fontFamily: "'Playfair Display', Georgia, serif", fontSize: 28, fontWeight: 500, color: '#1A1A1A', letterSpacing: '-0.02em' }}>

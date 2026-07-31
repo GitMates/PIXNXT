@@ -24,6 +24,7 @@ export function SettingsToggle({
     label,
     description,
     disabled = false,
+    variant = 'accent',
 }) {
     return (
         <div className="sa-proofer-toggle-row">
@@ -35,12 +36,68 @@ export function SettingsToggle({
                 type="button"
                 disabled={disabled}
                 onClick={() => onChange(!checked)}
-                className={`sa-proofer-toggle ${checked ? 'sa-proofer-toggle--on' : 'sa-proofer-toggle--off'}`}
+                className={`sa-proofer-toggle sa-proofer-toggle--${variant} ${
+                    checked ? 'sa-proofer-toggle--on' : 'sa-proofer-toggle--off'
+                }`}
                 aria-pressed={checked}
                 aria-label={label}
             >
                 <span className="sa-proofer-toggle__knob" />
             </button>
+        </div>
+    );
+}
+
+export function RadioCard({
+    name,
+    value,
+    checked,
+    onChange,
+    label,
+    description,
+    disabled = false,
+}) {
+    return (
+        <label
+            className={`sa-proofer-radio-card${checked ? ' sa-proofer-radio-card--selected' : ''}${
+                disabled ? ' sa-proofer-radio-card--disabled' : ''
+            }`}
+        >
+            <input
+                type="radio"
+                className="sa-proofer-radio-card__input"
+                name={name}
+                value={value}
+                checked={checked}
+                disabled={disabled}
+                onChange={() => onChange(value)}
+            />
+            <span className="sa-proofer-radio-card__dot" aria-hidden />
+            <span className="sa-proofer-radio-card__body">
+                <span className="sa-proofer-radio-card__label">{label}</span>
+                {description ? (
+                    <span className="sa-proofer-radio-card__desc">{description}</span>
+                ) : null}
+            </span>
+        </label>
+    );
+}
+
+export function RadioCardGroup({ name, value, onChange, options, disabled = false }) {
+    return (
+        <div className="sa-proofer-radio-group" role="radiogroup">
+            {options.map((option) => (
+                <RadioCard
+                    key={option.value}
+                    name={name}
+                    value={option.value}
+                    checked={value === option.value}
+                    onChange={onChange}
+                    label={option.label}
+                    description={option.description}
+                    disabled={disabled}
+                />
+            ))}
         </div>
     );
 }
@@ -109,7 +166,8 @@ export function SelectField({
                         {selected?.label}
                         {selected?.description && (
                             <span className="sa-proofer-select-trigger__desc-text">
-                                 — {selected.description}
+                                {' '}
+                                — {selected.description}
                             </span>
                         )}
                     </span>
@@ -198,11 +256,39 @@ export function NumberInput({
     );
 }
 
-function VariableBadge({ variable, onClick }) {
+export function DaysInput({
+    label,
+    description,
+    value,
+    onChange,
+    min = 1,
+    max = 60,
+    disabled = false,
+}) {
     return (
-        <button type="button" onClick={onClick} className="sa-proofer-var">
-            {variable}
-        </button>
+        <div className="sa-proofer-days-row">
+            <div className="sa-proofer-toggle-row__text">
+                <FieldLabel>{label}</FieldLabel>
+                {description && <FieldDescription>{description}</FieldDescription>}
+            </div>
+            <div className="sa-proofer-days-input">
+                <input
+                    type="number"
+                    min={min}
+                    max={max}
+                    disabled={disabled}
+                    value={value}
+                    onChange={(e) =>
+                        onChange(
+                            Math.max(min, Math.min(max, parseInt(e.target.value, 10) || min))
+                        )
+                    }
+                    className="sa-proofer-input sa-proofer-input--days"
+                    aria-label={label}
+                />
+                <span className="sa-proofer-days-input__unit">days</span>
+            </div>
+        </div>
     );
 }
 
@@ -220,17 +306,21 @@ export function TemplateTextarea({
     };
 
     return (
-        <div>
-            <FieldLabel>{label}</FieldLabel>
+        <div className="sa-proofer-template">
+            {label ? <FieldLabel>{label}</FieldLabel> : null}
             {description && <FieldDescription>{description}</FieldDescription>}
             {variables.length > 0 && (
                 <div className="sa-proofer-vars">
                     {variables.map((variable) => (
-                        <VariableBadge
+                        <button
                             key={variable}
-                            variable={variable}
+                            type="button"
+                            className="sa-proofer-var"
+                            disabled={disabled}
                             onClick={() => insertVariable(variable)}
-                        />
+                        >
+                            {variable}
+                        </button>
                     ))}
                 </div>
             )}
@@ -251,7 +341,11 @@ export function CollapsibleStatusSection({ title, isOpen, onToggle, children }) 
             <button type="button" onClick={onToggle} className="sa-proofer-collapse__head">
                 <span>{title}</span>
                 <svg
-                    className={`sa-proofer-collapse__chevron ${isOpen ? 'sa-proofer-collapse__chevron--open' : 'sa-proofer-collapse__chevron--closed'}`}
+                    className={`sa-proofer-collapse__chevron ${
+                        isOpen
+                            ? 'sa-proofer-collapse__chevron--open'
+                            : 'sa-proofer-collapse__chevron--closed'
+                    }`}
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
@@ -268,11 +362,11 @@ export function CollapsibleStatusSection({ title, isOpen, onToggle, children }) 
     );
 }
 
-export function SettingGroup({ title, children }) {
+export function SettingGroup({ title, children, bare = false }) {
     return (
         <section className="sa-proofer-group">
-            <SectionTitle>{title}</SectionTitle>
-            <div className="sa-proofer-card">{children}</div>
+            {title ? <SectionTitle>{title}</SectionTitle> : null}
+            {bare ? children : <div className="sa-proofer-card">{children}</div>}
         </section>
     );
 }
@@ -287,11 +381,34 @@ export function SettingsTabs({ tabs, activeTab, onChange }) {
                     role="tab"
                     aria-selected={activeTab === tab.id}
                     onClick={() => onChange(tab.id)}
-                    className={`sa-proofer-tabs__btn${activeTab === tab.id ? ' sa-proofer-tabs__btn--active' : ''}`}
+                    className={`sa-proofer-tabs__btn${
+                        activeTab === tab.id ? ' sa-proofer-tabs__btn--active' : ''
+                    }`}
                 >
                     {tab.label}
                 </button>
             ))}
+        </div>
+    );
+}
+
+export function SavedStatus({ saving = false }) {
+    return (
+        <div
+            className={`sa-proofer-saved${saving ? ' sa-proofer-saved--saving' : ''}`}
+            role="status"
+            aria-live="polite"
+        >
+            {saving ? (
+                <span className="sa-proofer-saved__dot sa-proofer-saved__dot--saving" aria-hidden />
+            ) : null}
+            <span className="sa-proofer-saved__text">
+                {saving ? 'Saving…' : 'All settings saved'}
+            </span>
+            <span className="sa-proofer-saved__sep" aria-hidden>
+                ·
+            </span>
+            <span className="sa-proofer-saved__hint">changes apply to new albums only</span>
         </div>
     );
 }

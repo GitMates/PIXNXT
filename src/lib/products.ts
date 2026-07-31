@@ -7,6 +7,9 @@ import {
   Settings,
   KanbanSquare,
   CalendarDays,
+  Clock3,
+  CheckCircle2,
+  PanelLeft,
   type LucideIcon,
 } from "lucide-react"
 
@@ -23,6 +26,8 @@ export interface ProductNavItem {
   href: string
   match: (pathname: string) => boolean
   icon: LucideIcon
+  section?: "work" | "studio"
+  countKey?: "albums" | "needsYou" | "approved"
 }
 
 export const products: Product[] = [
@@ -35,7 +40,7 @@ export const products: Product[] = [
   },
   {
     id: "smart-albums",
-    name: "Smart Albums",
+    name: "Album Proofer",
     tagline: "Album design & client proofing",
     href: "/smart-albums",
     icon: BookOpen,
@@ -67,42 +72,61 @@ export const productNavItems: Record<string, ProductNavItem[]> = {
         p.startsWith("/collections") ||
         p.startsWith("/folders"),
       icon: Images,
+      section: "work",
     },
     {
       label: "Starred",
       href: "/starred/collections",
       match: (p) => p.startsWith("/starred"),
       icon: Star,
+      section: "work",
     },
     {
       label: "Homepage",
       href: "/homepage",
       match: (p) => p === "/homepage",
       icon: BookOpen,
+      section: "work",
     },
     {
       label: "Settings",
       href: "/settings",
       match: (p) => p.startsWith("/settings"),
       icon: Settings,
+      section: "studio",
     },
   ],
   "smart-albums": [
     {
       label: "Albums",
       href: "/smart-albums",
-      match: (p) =>
-        p === "/smart-albums" ||
-        p === "/smart-albums/" ||
-        p.startsWith("/smart-albums/awaiting") ||
-        p.startsWith("/smart-albums/approved"),
-      icon: BookOpen,
+      match: (p) => p === "/smart-albums" || p === "/smart-albums/",
+      icon: PanelLeft,
+      section: "work",
+      countKey: "albums",
+    },
+    {
+      label: "Needs you",
+      href: "/smart-albums/awaiting",
+      match: (p) => p.startsWith("/smart-albums/awaiting"),
+      icon: Clock3,
+      section: "work",
+      countKey: "needsYou",
+    },
+    {
+      label: "Approved",
+      href: "/smart-albums/approved",
+      match: (p) => p.startsWith("/smart-albums/approved"),
+      icon: CheckCircle2,
+      section: "work",
+      countKey: "approved",
     },
     {
       label: "Settings",
       href: "/smart-albums/settings",
       match: (p) => p.startsWith("/smart-albums/settings"),
       icon: Settings,
+      section: "studio",
     },
   ],
   portal: [
@@ -114,18 +138,21 @@ export const productNavItems: Record<string, ProductNavItem[]> = {
         p === "/portal/" ||
         p.startsWith("/portal/pipeline"),
       icon: KanbanSquare,
+      section: "work",
     },
     {
       label: "Studio Calendar",
       href: "/portal/calendar",
       match: (p) => p.startsWith("/portal/calendar"),
       icon: CalendarDays,
+      section: "work",
     },
     {
       label: "Settings",
       href: "/portal/settings",
       match: (p) => p.startsWith("/portal/settings"),
       icon: Settings,
+      section: "studio",
     },
   ],
   "mobile-gallery": [
@@ -137,12 +164,14 @@ export const productNavItems: Record<string, ProductNavItem[]> = {
         p === "/mobile-gallery/" ||
         p.startsWith("/mobile-gallery/app/"),
       icon: Smartphone,
+      section: "work",
     },
     {
       label: "Settings",
       href: "/mobile-gallery/settings",
       match: (p) => p.startsWith("/mobile-gallery/settings"),
       icon: Settings,
+      section: "studio",
     },
   ],
 }

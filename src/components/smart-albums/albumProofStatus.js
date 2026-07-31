@@ -2,6 +2,7 @@ import {
     getAlbumApprovedAt,
     getAlbumChangesSubmittedAt,
     albumHasClientCommentingStartedNotified,
+    isAlbumClientApproved,
 } from '../../services/albumProof.service';
 import { countClientRootComments } from '../../services/smartAlbumComments.service';
 
@@ -13,6 +14,8 @@ export function notifyAlbumProofStatusChanged(albumId) {
         new CustomEvent(ALBUM_PROOF_STATUS_CHANGED_EVENT, { detail: { albumId } })
     );
 }
+
+export { isAlbumClientApproved };
 
 function pickLatestTimestamp(...values) {
     let latest = null;
@@ -63,6 +66,15 @@ export function isAlbumAwaitingFeedback(album) {
     return album.share_link_enabled !== false;
 }
 
+function albumHasClientReviewActivity(album) {
+    if (!album) return false;
+    if (album.client_commenting_started_at || album.client_last_activity_at) return true;
+    const summary = album.__proofSummary;
+    if (summary?.clientCommentCount) return true;
+    if (summary?.latestClientActivityAt) return true;
+    return countClientRootComments(album.id) > 0;
+}
+
 export function getAlbumProofStatus(album) {
     const merged = mergeAlbumProofTimestamps(album);
 
@@ -72,10 +84,20 @@ export function getAlbumProofStatus(album) {
     if (merged.client_changes_submitted_at) {
         return { label: 'Revision requested', tone: 'revision' };
     }
-    if (isAlbumAwaitingFeedback(merged)) {
-        return { label: 'Awaiting feedback', tone: 'awaiting' };
+
+    const shareEnabled = merged.share_link_enabled !== false;
+    if (!shareEnabled) {
+        if (merged.published_at || merged.share_token || merged.preview_slug) {
+            return { label: 'Paused', tone: 'paused' };
+        }
+        return { label: 'Draft', tone: 'draft' };
     }
-    return { label: 'Draft', tone: 'draft' };
+
+    if (albumHasClientReviewActivity(merged)) {
+        return { label: 'Awaiting feedback', tone: 'feedback' };
+    }
+
+    return { label: 'Not opened', tone: 'awaiting' };
 }
 
 export function getAlbumProofActivityAt(album) {
@@ -88,7 +110,7 @@ export function getAlbumProofActivityAt(album) {
     if (status.tone === 'revision') {
         return merged.client_changes_submitted_at || merged.client_last_activity_at;
     }
-    if (status.tone === 'awaiting') {
+    if (status.tone === 'feedback' || status.tone === 'awaiting') {
         return (
             merged.client_last_activity_at ||
             merged.client_commenting_started_at ||
@@ -97,6 +119,9 @@ export function getAlbumProofActivityAt(album) {
             merged.updated_at ||
             merged.created_at
         );
+    }
+    if (status.tone === 'paused') {
+        return merged.updated_at || merged.published_at || merged.created_at;
     }
     return merged.updated_at || merged.created_at;
 }
@@ -116,14 +141,17 @@ export function getAlbumProofFootnote(album, status) {
 
     if (status?.tone === 'revision' || merged.client_changes_submitted_at) {
         const spreads = clientSpreadCount || summary?.clientCommentCount || 1;
-        return `${spreads} spread${spreads === 1 ? '' : 's'} with client feedback`;
+        return `${spreads} spread${spreads === 1 ? '' : 's'} have new comments`;
     }
     if (merged.client_approved_at) {
         const by = merged.client_approved_by?.trim();
         return by ? `Approved by ${by}` : 'Approved for binding';
     }
-    if (hasClientActivity) {
+    if (status?.tone === 'feedback' || hasClientActivity) {
         return 'Client started reviewing spreads';
+    }
+    if (status?.tone === 'paused') {
+        return 'Sharing paused';
     }
     if (isAlbumAwaitingFeedback(merged)) {
         return 'Awaiting client sign-off';

@@ -5,7 +5,7 @@
   min-height: 100vh;
   background: var(--cg-background, oklch(0.968 0.006 85));
   color: #1a1a1a;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
 }
 
 .gd-topbar {

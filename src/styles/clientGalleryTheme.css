@@ -16,7 +16,7 @@
 
   color: var(--cg-foreground);
   background-color: var(--cg-background);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
 }
 
 .theme-mono.cg-shell .cg-page-title {
@@ -295,7 +295,7 @@
   font-size: 0.875rem;
   color: #1a1a1a;
   outline: none;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
 }
 
 .theme-mono .cg-field-shell.neu-inset .set-select,
@@ -319,7 +319,7 @@
   appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
 }
 
 .theme-mono .cg-field-shell.neu-inset .set-select::-ms-expand {
@@ -335,7 +335,7 @@
   outline: none;
   color: #1a1a1a;
   font-size: 0.875rem;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
   resize: vertical;
   min-height: 180px;
   padding: 0.75rem 1rem;
@@ -400,7 +400,7 @@
     inset 3px 3px 7px oklch(0.4 0.01 70 / 0.1),
     inset -3px -3px 7px oklch(1 0.004 85 / 0.85);
   cursor: pointer;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
   text-align: left;
   line-height: 1;
   -webkit-appearance: none;
@@ -471,7 +471,7 @@
   background: transparent;
   color: #1a1a1a;
   font-size: 0.875rem;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
   text-align: left;
   cursor: pointer;
   transition: background-color 0.15s ease;

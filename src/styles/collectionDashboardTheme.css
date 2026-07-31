@@ -8,7 +8,7 @@
   --cd-muted: #71717a;
   --cd-border: #eceae6;
   --cd-hover: #f4f3f0;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
   color: var(--cd-foreground);
   background-color: var(--cd-bg);
 }
@@ -44,7 +44,7 @@
 .theme-mono.cd-dashboard-shell .cd-design-title,
 .theme-mono.cd-dashboard-shell .cd-settings-main-title {
   color: var(--cd-foreground) !important;
-  font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  font-family: var(--font-display);
   font-weight: 500 !important;
 }
 
@@ -581,7 +581,7 @@
 /* Create collection page */
 .theme-mono.cd-dashboard-shell.cc-page {
   background-color: var(--cd-bg);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
 }
 
 .theme-mono.cd-dashboard-shell .cc-header {
@@ -590,7 +590,7 @@
 }
 
 .theme-mono.cd-dashboard-shell .cc-header-title {
-  font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  font-family: var(--font-display);
   font-weight: 500;
   color: var(--cd-foreground);
 }
@@ -750,7 +750,7 @@
 /* Design — grid style / size / spacing pickers */
 .theme-mono.cd-dashboard-shell .grid-section-label {
   color: var(--cd-foreground) !important;
-  font-family: 'Playfair Display', Georgia, serif;
+  font-family: var(--font-display);
   font-weight: 500 !important;
 }
 
@@ -866,7 +866,7 @@
 
 .theme-mono.cd-dashboard-shell .cd-modal-title {
   color: var(--cd-foreground) !important;
-  font-family: 'Playfair Display', Georgia, serif;
+  font-family: var(--font-display);
   font-weight: 500 !important;
 }
 

@@ -63,7 +63,7 @@ export default function PhotographerApp() {
         alignItems: 'center',
         justifyContent: 'center',
         padding: '20px',
-        fontFamily: "'europa', 'Inter', sans-serif"
+        fontFamily: "'europa', var(--font-sans)"
       }}>
         <div style={{
           width: '100%',
@@ -704,7 +704,7 @@ function PhotographerPricingDashboard({ onLogout, photographerEmail }) {
       minHeight: '100vh',
       backgroundColor: '#fcfbf9',
       color: '#111111',
-      fontFamily: "'europa', 'Inter', sans-serif",
+      fontFamily: "'europa', var(--font-sans)",
       boxSizing: 'border-box'
     }}>
 

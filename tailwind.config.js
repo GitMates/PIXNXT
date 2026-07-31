@@ -16,10 +16,35 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['Roboto', 'system-ui', '-apple-system', 'sans-serif'],
-        serif: ['Lora', 'serif'],
-        display: ['Outfit', 'sans-serif'],
-        heading: ['Playfair Display', 'serif'],
+        display: [
+          'Fraunces',
+          'Noto Serif Devanagari',
+          'Georgia',
+          'serif',
+        ],
+        sans: [
+          'Plus Jakarta Sans',
+          'Jakarta Fallback',
+          'Noto Sans Devanagari',
+          'Noto Sans Tamil',
+          'system-ui',
+          'sans-serif',
+        ],
+        mono: ['ui-monospace', 'SF Mono', 'Menlo', 'monospace'],
+        serif: ['Fraunces', 'Georgia', 'serif'],
+        heading: ['Fraunces', 'Georgia', 'serif'],
+      },
+      fontSize: {
+        'display-lg': ['2.125rem', { lineHeight: '1.15', letterSpacing: '-0.018em' }],
+        'display-md': ['1.5rem', { lineHeight: '1.15', letterSpacing: '-0.018em' }],
+        'display-sm': ['1.25rem', { lineHeight: '1.15', letterSpacing: '-0.018em' }],
+        title: ['1rem', { lineHeight: '1.3', letterSpacing: '-0.005em' }],
+        'body-lg': ['0.9375rem', { lineHeight: '1.5' }],
+        body: ['0.875rem', { lineHeight: '1.5' }],
+        'body-sm': ['0.8125rem', { lineHeight: '1.5' }],
+        meta: ['0.75rem', { lineHeight: '1.45' }],
+        micro: ['0.6875rem', { lineHeight: '1.45' }],
+        label: ['0.625rem', { lineHeight: '1.2', letterSpacing: '0.12em' }],
       },
       keyframes: {
         cgFadeIn: {
@@ -46,6 +71,23 @@ export default {
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
+        ink: {
+          DEFAULT: '#1c1917',
+          body: '#3f3a36',
+          muted: '#8a8580',
+        },
+        canvas: {
+          DEFAULT: '#f7f6f3',
+          surface: '#ffffff',
+          border: '#e5e2dc',
+        },
+        studio: {
+          accent: '#9a6c67',
+          revision: '#c46a3a',
+          awaiting: '#b08968',
+          approved: '#5f8f6a',
+          draft: '#9a9590',
+        },
         sidebar: {
           DEFAULT: "oklch(0.972 0.006 85)",
           foreground: "oklch(0.45 0.004 60)",

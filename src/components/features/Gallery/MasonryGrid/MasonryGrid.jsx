@@ -500,7 +500,7 @@ export function MasonryGrid({
                   margin: '0 0 2px 0',
                   lineHeight: 1.3,
                   maxWidth: '240px',
-                  fontFamily: "'Inter', sans-serif",
+                  fontFamily: "var(--font-sans)",
                 }}>
                   {subtitle}
                 </p>
@@ -510,7 +510,7 @@ export function MasonryGrid({
                   fontWeight: 700,
                   textTransform: 'uppercase',
                   letterSpacing: '0.05em',
-                  fontFamily: "'Inter', sans-serif",
+                  fontFamily: "var(--font-sans)",
                 }}>
                   {codeLine}
                 </div>
@@ -586,7 +586,7 @@ export function MasonryGrid({
                   color: '#bfa38a',
                   textTransform: 'uppercase',
                   marginBottom: '2px',
-                  fontFamily: "'Inter', sans-serif",
+                  fontFamily: "var(--font-sans)",
                 }}>
                   {codeLine}
                 </span>
@@ -606,7 +606,7 @@ export function MasonryGrid({
                   color: bannerStyle.subtitleColor,
                   margin: '0 0 4px 0',
                   maxWidth: '240px',
-                  fontFamily: "'Inter', sans-serif",
+                  fontFamily: "var(--font-sans)",
                 }}>
                   {subtitle}
                 </p>

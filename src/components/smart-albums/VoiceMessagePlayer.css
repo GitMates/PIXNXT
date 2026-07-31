@@ -1,6 +1,6 @@
 .av-voice-player,
 .av-voice-player * {
-  font-family: 'Outfit', system-ui, -apple-system, sans-serif !important;
+  font-family: var(--font-sans) !important;
 }
 
 .av-voice-player {

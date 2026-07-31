@@ -409,6 +409,7 @@ export default function AlbumPhotoPinLayer({
     const spotActionPicker = spotActionPickerProp || Boolean(ctx.spotActionPicker);
     const spotCanComment = spotCanCommentProp || Boolean(ctx.spotCanComment);
     const spotCanSwap = spotCanSwapProp || Boolean(ctx.spotCanSwap);
+    const ensureClientFeedback = ctx.ensureClientFeedback;
     const spreadMagnifyActive = Boolean(ctx.spreadMagnifyActive);
     const layerId = useId();
     const [openPinId, setOpenPinId] = useState(null);
@@ -728,6 +729,10 @@ export default function AlbumPhotoPinLayer({
                     canComment={spotCanComment}
                     canSwap={spotCanSwap}
                     onComment={() => {
+                        if (ensureClientFeedback && !ensureClientFeedback('comment')) {
+                            setSpotPicker(null);
+                            return;
+                        }
                         const { xPct, yPct } = spotPicker;
                         setSpotPicker(null);
                         setOpenPinId(null);
@@ -739,6 +744,10 @@ export default function AlbumPhotoPinLayer({
                         }
                     }}
                     onSwap={() => {
+                        if (ensureClientFeedback && !ensureClientFeedback('swap')) {
+                            setSpotPicker(null);
+                            return;
+                        }
                         onPlaceSwapPin?.(spotPicker.xPct, spotPicker.yPct);
                         setSpotPicker(null);
                     }}

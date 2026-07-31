@@ -173,7 +173,7 @@ export default function LabPrintQueue() {
   const activeCount = Object.values(printingStatus).filter(s => s === 'running').length;
 
   return (
-    <div style={{ padding: '24px 32px', backgroundColor: '#F9F9F7', minHeight: '100%', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", color: '#1e293b', boxSizing: 'border-box' }}>
+    <div style={{ padding: '24px 32px', backgroundColor: '#F9F9F7', minHeight: '100%', fontFamily: "var(--font-sans)", color: '#1e293b', boxSizing: 'border-box' }}>
       
       {/* Top Header - Fixed (does not scroll horizontally) */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>

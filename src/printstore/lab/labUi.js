@@ -17,7 +17,7 @@ export const LAB_UI = {
   dangerBorder: '#FECACA',
   success: '#207C50',
   successBg: '#ECFDF5',
-  font: "'Inter', system-ui, -apple-system, sans-serif",
+  font: "var(--font-sans)",
   titleFont: "'Playfair Display', Georgia, 'Times New Roman', serif",
 };
 

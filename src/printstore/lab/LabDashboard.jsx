@@ -484,7 +484,7 @@ export default function LabDashboard() {
   ];
 
   return (
-    <div style={{ padding: '24px 32px', backgroundColor: '#F9F9F7', minHeight: '100%', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", color: '#1A1A1A', boxSizing: 'border-box' }}>
+    <div style={{ padding: '24px 32px', backgroundColor: '#F9F9F7', minHeight: '100%', fontFamily: "var(--font-sans)", color: '#1A1A1A', boxSizing: 'border-box' }}>
       
       {/* Greeting and Filter Buttons */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>

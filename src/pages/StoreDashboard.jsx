@@ -1493,7 +1493,7 @@ export default function StoreDashboard() {
       if (f === 'Playfair Display') return "'Playfair Display', serif";
       if (f === 'Georgia') return "'Georgia', serif";
       if (f === 'Montserrat') return "'Montserrat', sans-serif";
-      return "'Inter', sans-serif";
+      return "var(--font-sans)";
     };
 
     if (key === 'text_banner') {
@@ -1538,7 +1538,7 @@ export default function StoreDashboard() {
             }}>
               {title || 'Relive It in Print'}
             </h3>
-            <p style={{ fontSize: isMobile ? '10px' : '12px', color: banner.subtitle_color || '#4a5a4b', maxWidth: '520px', lineHeight: 1.5, margin: '0 0 14px 0', fontFamily: "'Inter', sans-serif" }}>
+            <p style={{ fontSize: isMobile ? '10px' : '12px', color: banner.subtitle_color || '#4a5a4b', maxWidth: '520px', lineHeight: 1.5, margin: '0 0 14px 0', fontFamily: "var(--font-sans)" }}>
               {subtitle || 'Get these moments off the screen and into your hands.'}
             </p>
             {cta && (
@@ -1579,12 +1579,12 @@ export default function StoreDashboard() {
             }}>
               {title || 'Anniversary Sale'}
             </h3>
-            <p style={{ fontSize: isMobile ? '9px' : '10px', color: banner.subtitle_color || '#444444', margin: '0 0 2px 0', lineHeight: 1.3, fontFamily: "'Inter', sans-serif" }}>
+            <p style={{ fontSize: isMobile ? '9px' : '10px', color: banner.subtitle_color || '#444444', margin: '0 0 2px 0', lineHeight: 1.3, fontFamily: "var(--font-sans)" }}>
               {subtitle || 'Celebrate with 30% OFF prints.'}
             </p>
             {/* Timer */}
             <div style={{ margin: '8px 0', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <div style={{ fontSize: isMobile ? '16px' : '18px', fontWeight: 700, color: banner.timer_color || banner.title_color || '#1a1a1a', fontFamily: "'Inter', sans-serif", letterSpacing: '0.04em' }}>
+              <div style={{ fontSize: isMobile ? '16px' : '18px', fontWeight: 700, color: banner.timer_color || banner.title_color || '#1a1a1a', fontFamily: "var(--font-sans)", letterSpacing: '0.04em' }}>
                 00 : 00 : 00 : 00
               </div>
               <div style={{ display: 'flex', gap: '8px', fontSize: '5px', color: '#666', marginTop: '1px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
@@ -1632,7 +1632,7 @@ export default function StoreDashboard() {
             }}>
               {title || 'Your Wedding in Print'}
             </h3>
-            <p style={{ fontSize: isMobile ? '9px' : '10px', color: banner.subtitle_color || '#4a5a4b', margin: '0 0 4px 0', lineHeight: 1.3, fontFamily: "'Inter', sans-serif" }}>
+            <p style={{ fontSize: isMobile ? '9px' : '10px', color: banner.subtitle_color || '#4a5a4b', margin: '0 0 4px 0', lineHeight: 1.3, fontFamily: "var(--font-sans)" }}>
               {subtitle || 'Celebrate those special moments.'}
             </p>
             {/* Double bouquet illustrations side-by-side */}
@@ -3178,7 +3178,7 @@ export default function StoreDashboard() {
                 const campaign = campaigns.find(c => c.id === selectedCampaign);
                 if (!campaign) return null;
                 return (
-                  <div style={{ maxWidth: '960px', margin: '0 auto', fontFamily: "'Inter', sans-serif", color: '#1a1a1a', padding: '0 12px 60px' }}>
+                  <div style={{ maxWidth: '960px', margin: '0 auto', fontFamily: "var(--font-sans)", color: '#1a1a1a', padding: '0 12px 60px' }}>
                     
                     {/* Breadcrumb + Save */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>
@@ -3647,7 +3647,7 @@ export default function StoreDashboard() {
                     {/* Modal Header */}
                     <div style={{ padding: '24px 32px', borderBottom: '1px solid #f1f1f1', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '13px', fontWeight: 600, color: '#2c2c2d', letterSpacing: '0.12em', fontFamily: "'Inter', sans-serif" }}>
+                        <span style={{ fontSize: '13px', fontWeight: 600, color: '#2c2c2d', letterSpacing: '0.12em', fontFamily: "var(--font-sans)" }}>
                           {activeModal === 'text_banner' ? 'TEXT BANNER' :
                            activeModal === 'large_banner' ? 'LARGE BANNER' :
                            activeModal === 'photo_banner' ? 'PHOTO BANNER' :
@@ -5317,7 +5317,7 @@ export default function StoreDashboard() {
                                   color: selectedAutomation.text_color || '#444444',
                                   maxWidth: '400px',
                                   marginBottom: '32px',
-                                  fontFamily: "'Inter', sans-serif"
+                                  fontFamily: "var(--font-sans)"
                                 }}>
                                   {selectedAutomation.message || 'Keep the memories alive with prints. You can redeem your gift code HAPPYANI at checkout to enjoy 30% off prints in your gallery.'}
                                 </div>
@@ -5487,7 +5487,7 @@ export default function StoreDashboard() {
                                       fontSize: '9px',
                                       fontWeight: 600,
                                       letterSpacing: '0.04em',
-                                      fontFamily: "'Inter', sans-serif",
+                                      fontFamily: "var(--font-sans)",
                                       lineHeight: 1.3,
                                       borderBottom: '1px solid rgba(0,0,0,0.06)'
                                     }}>
@@ -5539,7 +5539,7 @@ export default function StoreDashboard() {
                                           <div style={{ fontSize: '13px', fontWeight: 700, color: selectedAutomation.title_color || '#2c3e2d', fontFamily: "'Georgia', serif", marginBottom: '8px' }}>
                                             {selectedAutomation.title || 'Anniversary Sale'}
                                           </div>
-                                          <div style={{ fontSize: '13px', fontWeight: 700, color: selectedAutomation.timer_color || '#3a4a38', fontFamily: "'Inter', sans-serif", letterSpacing: '0.04em' }}>
+                                          <div style={{ fontSize: '13px', fontWeight: 700, color: selectedAutomation.timer_color || '#3a4a38', fontFamily: "var(--font-sans)", letterSpacing: '0.04em' }}>
                                             00 : 00 : 00 : 00
                                           </div>
                                           <div style={{ display: 'flex', gap: '8px', fontSize: '6px', color: '#888', marginTop: '2px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
@@ -5570,7 +5570,7 @@ export default function StoreDashboard() {
                                               fontSize: '14px',
                                               fontWeight: 700,
                                               color: selectedAutomation.title_color || '#2c3e2d',
-                                              fontFamily: selectedAutomation.font === 'Inter' ? "'Inter', sans-serif" : selectedAutomation.font === 'Georgia' ? "'Georgia', serif" : "'Playfair Display', serif"
+                                              fontFamily: selectedAutomation.font === 'Inter' ? "var(--font-sans)" : selectedAutomation.font === 'Georgia' ? "'Georgia', serif" : "'Playfair Display', serif"
                                             }}>{selectedAutomation.title || 'Your Wedding in Print'}</div>
                                             <div style={{ fontSize: '8px', color: selectedAutomation.subtitle_color || '#4a5a4b', maxWidth: '170px', lineHeight: 1.3 }}>
                                               {selectedAutomation.subtitle || 'Anniversary Gift! Celebrate those special moments with {discount-value} off all prints until {exp-date}.'}
@@ -5636,7 +5636,7 @@ export default function StoreDashboard() {
                                               fontSize: '14px',
                                               fontWeight: 700,
                                               color: selectedAutomation.title_color || '#2c3e2d',
-                                              fontFamily: selectedAutomation.font === 'Inter' ? "'Inter', sans-serif" : selectedAutomation.font === 'Georgia' ? "'Georgia', serif" : "'Playfair Display', serif"
+                                              fontFamily: selectedAutomation.font === 'Inter' ? "var(--font-sans)" : selectedAutomation.font === 'Georgia' ? "'Georgia', serif" : "'Playfair Display', serif"
                                             }}>{selectedAutomation.title || 'Relive It in Print'}</div>
                                             <div style={{ fontSize: '8px', color: selectedAutomation.subtitle_color || '#4a5a4b', maxWidth: '170px', lineHeight: 1.3 }}>
                                               {selectedAutomation.subtitle || 'Get these moments off the screen and into your hands with {discount-value} off, thru {exp-date}.'}
@@ -5703,7 +5703,7 @@ export default function StoreDashboard() {
                                         fontSize: '7px',
                                         fontWeight: 600,
                                         letterSpacing: '0.04em',
-                                        fontFamily: "'Inter', sans-serif",
+                                        fontFamily: "var(--font-sans)",
                                         lineHeight: 1.2,
                                         borderBottom: '1px solid rgba(0,0,0,0.06)'
                                       }}>
@@ -5748,7 +5748,7 @@ export default function StoreDashboard() {
                                             <div style={{ fontSize: '9px', fontWeight: 700, color: selectedAutomation.title_color || '#2c3e2d', fontFamily: "'Georgia', serif", marginBottom: '4px' }}>
                                               {selectedAutomation.title || 'Anniversary Sale'}
                                             </div>
-                                            <div style={{ fontSize: '9px', fontWeight: 700, color: selectedAutomation.timer_color || '#3a4a38', fontFamily: "'Inter', sans-serif" }}>
+                                            <div style={{ fontSize: '9px', fontWeight: 700, color: selectedAutomation.timer_color || '#3a4a38', fontFamily: "var(--font-sans)" }}>
                                               00:00:00:00
                                             </div>
                                             <div style={{ display: 'flex', gap: '4px', fontSize: '5px', color: '#888', marginTop: '2px', textTransform: 'uppercase' }}>
@@ -5777,7 +5777,7 @@ export default function StoreDashboard() {
                                               fontSize: '10px',
                                               fontWeight: 700,
                                               color: selectedAutomation.title_color || '#2c3e2d',
-                                              fontFamily: selectedAutomation.font === 'Inter' ? "'Inter', sans-serif" : selectedAutomation.font === 'Georgia' ? "'Georgia', serif" : "'Playfair Display', serif",
+                                              fontFamily: selectedAutomation.font === 'Inter' ? "var(--font-sans)" : selectedAutomation.font === 'Georgia' ? "'Georgia', serif" : "'Playfair Display', serif",
                                               textAlign: 'center'
                                             }}>{selectedAutomation.title || 'Your Wedding in Print'}</div>
                                             <div style={{ fontSize: '6px', color: selectedAutomation.subtitle_color || '#4a5a4b', textAlign: 'center', lineHeight: 1.3 }}>
@@ -5832,7 +5832,7 @@ export default function StoreDashboard() {
                                               fontSize: '10px',
                                               fontWeight: 700,
                                               color: selectedAutomation.title_color || '#2c3e2d',
-                                              fontFamily: selectedAutomation.font === 'Inter' ? "'Inter', sans-serif" : selectedAutomation.font === 'Georgia' ? "'Georgia', serif" : "'Playfair Display', serif",
+                                              fontFamily: selectedAutomation.font === 'Inter' ? "var(--font-sans)" : selectedAutomation.font === 'Georgia' ? "'Georgia', serif" : "'Playfair Display', serif",
                                               textAlign: 'center'
                                             }}>{selectedAutomation.title || 'Relive It in Print'}</div>
                                             <div style={{ fontSize: '6.5px', color: selectedAutomation.subtitle_color || '#4a5a4b', textAlign: 'center', lineHeight: 1.3 }}>{selectedAutomation.subtitle || 'Get these moments off the screen and into your hands with {discount-value} off, thru {exp-date}.'}</div>
@@ -5890,7 +5890,7 @@ export default function StoreDashboard() {
                                           fontSize: '15px',
                                           fontWeight: 700,
                                           color: selectedAutomation.title_color || '#2c3e2d',
-                                          fontFamily: selectedAutomation.font === 'Inter' ? "'Inter', sans-serif" : selectedAutomation.font === 'Georgia' ? "'Georgia', serif" : "'Playfair Display', serif"
+                                          fontFamily: selectedAutomation.font === 'Inter' ? "var(--font-sans)" : selectedAutomation.font === 'Georgia' ? "'Georgia', serif" : "'Playfair Display', serif"
                                         }}>{selectedAutomation.title || 'Anniversary Sale'}</div>
                                         <div style={{ fontSize: '7px', color: selectedAutomation.subtitle_color || '#4a5a4b', maxWidth: '140px', lineHeight: 1.3 }}>
                                           {selectedAutomation.subtitle || 'Enjoy {discount-value} off any print product in your gallery shop, through {exp-date}.'}
@@ -5901,7 +5901,7 @@ export default function StoreDashboard() {
                                         
                                         {/* Expanded countdown timer */}
                                         <div style={{ marginTop: '4px' }}>
-                                          <div style={{ fontSize: '16px', fontWeight: 700, color: selectedAutomation.timer_color || '#3a4a38', fontFamily: "'Inter', sans-serif", letterSpacing: '0.04em' }}>
+                                          <div style={{ fontSize: '16px', fontWeight: 700, color: selectedAutomation.timer_color || '#3a4a38', fontFamily: "var(--font-sans)", letterSpacing: '0.04em' }}>
                                             00 : 00 : 00 : 00
                                           </div>
                                           <div style={{ display: 'flex', gap: '8px', fontSize: '5px', color: '#888', marginTop: '1px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
@@ -5966,7 +5966,7 @@ export default function StoreDashboard() {
                                           fontSize: '10px',
                                           fontWeight: 700,
                                           color: selectedAutomation.title_color || '#2c3e2d',
-                                          fontFamily: selectedAutomation.font === 'Inter' ? "'Inter', sans-serif" : selectedAutomation.font === 'Georgia' ? "'Georgia', serif" : "'Playfair Display', serif"
+                                          fontFamily: selectedAutomation.font === 'Inter' ? "var(--font-sans)" : selectedAutomation.font === 'Georgia' ? "'Georgia', serif" : "'Playfair Display', serif"
                                         }}>{selectedAutomation.title || 'Anniversary Sale'}</div>
                                         <div style={{ fontSize: '5.5px', color: selectedAutomation.subtitle_color || '#4a5a4b', lineHeight: 1.2, maxWidth: '110px' }}>
                                           {selectedAutomation.subtitle || 'Enjoy {discount-value} off any print product...'}
@@ -5977,7 +5977,7 @@ export default function StoreDashboard() {
 
                                         {/* Timer */}
                                         <div style={{ marginTop: '2px' }}>
-                                          <div style={{ fontSize: '10px', fontWeight: 700, color: selectedAutomation.timer_color || '#3a4a38', fontFamily: "'Inter', sans-serif" }}>
+                                          <div style={{ fontSize: '10px', fontWeight: 700, color: selectedAutomation.timer_color || '#3a4a38', fontFamily: "var(--font-sans)" }}>
                                             00:00:00:00
                                           </div>
                                           <div style={{ display: 'flex', gap: '4px', fontSize: '4.5px', color: '#888', textTransform: 'uppercase' }}>
@@ -6204,7 +6204,7 @@ export default function StoreDashboard() {
                 }}
               >✕</button>
 
-              <h3 style={{ fontSize: '11px', fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '24px', fontFamily: "'Inter', sans-serif" }}>
+              <h3 style={{ fontSize: '11px', fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '24px', fontFamily: "var(--font-sans)" }}>
                 Expanded View: {expandedBannerPreview.key.replace(/_/g, ' ')}
               </h3>
 
@@ -6212,14 +6212,14 @@ export default function StoreDashboard() {
                 {/* Desktop View */}
                 {expandedBannerPreview.key !== 'photo_banner' && expandedBannerPreview.key !== 'store_rotator' && (
                   <div style={{ marginBottom: '28px' }}>
-                    <div style={{ fontSize: '9px', fontWeight: 700, color: '#b5b5b5', letterSpacing: '0.08em', marginBottom: '8px', textTransform: 'uppercase', fontFamily: "'Inter', sans-serif" }}>Desktop View</div>
+                    <div style={{ fontSize: '9px', fontWeight: 700, color: '#b5b5b5', letterSpacing: '0.08em', marginBottom: '8px', textTransform: 'uppercase', fontFamily: "var(--font-sans)" }}>Desktop View</div>
                     {renderHighFidelityBanner(expandedBannerPreview.key, expandedBannerPreview.banner, false)}
                   </div>
                 )}
 
                 {/* Mobile / Card View */}
                 <div>
-                  <div style={{ fontSize: '9px', fontWeight: 700, color: '#b5b5b5', letterSpacing: '0.08em', marginBottom: '8px', textTransform: 'uppercase', fontFamily: "'Inter', sans-serif" }}>
+                  <div style={{ fontSize: '9px', fontWeight: 700, color: '#b5b5b5', letterSpacing: '0.08em', marginBottom: '8px', textTransform: 'uppercase', fontFamily: "var(--font-sans)" }}>
                     {expandedBannerPreview.key === 'text_banner' || expandedBannerPreview.key === 'large_banner' ? 'Mobile View' : 'Card View (Masonry Grid)'}
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'center' }}>

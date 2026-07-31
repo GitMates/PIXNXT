@@ -48,9 +48,32 @@ import {
     ALBUM_PROOFER_SETTINGS_CHANGED_EVENT,
     smartAlbumProoferSettingsService,
 } from '../../services/smartAlbumProoferSettings.service';
+import { ALBUM_PROOF_STATUS_CHANGED_EVENT } from '../../components/smart-albums/albumProofStatus';
 import { canClientLeaveFeedback } from '../../components/smart-albums/albumProoferPreview';
 import AlbumPreviewGuestNamePrompt from '../../components/smart-albums/AlbumPreviewGuestNamePrompt';
 import './AlbumViewer.css';
+
+function albumPasswordUnlockKey(albumId) {
+    return `pixnxt.albumPasswordUnlocked.${albumId}`;
+}
+
+function isAlbumPasswordUnlocked(albumId) {
+    if (!albumId) return false;
+    try {
+        return sessionStorage.getItem(albumPasswordUnlockKey(albumId)) === '1';
+    } catch {
+        return false;
+    }
+}
+
+function markAlbumPasswordUnlocked(albumId) {
+    if (!albumId) return;
+    try {
+        sessionStorage.setItem(albumPasswordUnlockKey(albumId), '1');
+    } catch {
+        /* ignore */
+    }
+}
 
 /**
  * Client-facing album preview (gallery-style layout + proofing footer).
@@ -112,6 +135,7 @@ export default function AlbumPreview({
     const spreadCount = getTotalSpreads(totalPages, spreadOpts);
     const [settingsRevision, setSettingsRevision] = useState(0);
     const [guestNamePromptOpen, setGuestNamePromptOpen] = useState(false);
+    const [guestDetailsRequired, setGuestDetailsRequired] = useState(false);
 
     const prooferAccess = useMemo(() => {
         if (!clientPreview || !album?.photographer_id || !albumId) return null;
@@ -134,16 +158,52 @@ export default function AlbumPreview({
             }
         };
         window.addEventListener(ALBUM_PROOFER_SETTINGS_CHANGED_EVENT, onSettingsChanged);
+        window.addEventListener(ALBUM_PROOF_STATUS_CHANGED_EVENT, onSettingsChanged);
         return () => {
             window.removeEventListener(ALBUM_PROOFER_SETTINGS_CHANGED_EVENT, onSettingsChanged);
+            window.removeEventListener(ALBUM_PROOF_STATUS_CHANGED_EVENT, onSettingsChanged);
         };
     }, [albumId]);
 
+    useEffect(() => {
+        if (!clientPreview || !albumId || !prooferAccess) return;
+        if (prooferAccess.feedbackLocked) return;
+
+        const needsPassword =
+            prooferAccess.accessLevel === 'password' ||
+            prooferAccess.privacyLevel === 'password';
+        const passwordOk = !needsPassword || isAlbumPasswordUnlocked(albumId);
+        const profile = getGuestProfile(albumId);
+        const hasDetails = Boolean(profile?.name?.trim() && profile?.email?.trim());
+
+        if (needsPassword && !passwordOk) {
+            setGuestDetailsRequired(true);
+            setGuestNamePromptOpen(true);
+            return;
+        }
+
+        if (!prooferAccess.requireNameForComments) {
+            setGuestDetailsRequired(false);
+            return;
+        }
+
+        if (!hasDetails) {
+            setGuestDetailsRequired(true);
+            setGuestNamePromptOpen(true);
+        }
+    }, [
+        clientPreview,
+        albumId,
+        prooferAccess?.requireNameForComments,
+        prooferAccess?.feedbackLocked,
+        prooferAccess?.accessLevel,
+        prooferAccess?.privacyLevel,
+        settingsRevision,
+    ]);
+
     const handleProoferBlocked = useCallback(
         (message, code) => {
-            if (code === 'name-required') {
-                setGuestNamePromptOpen(true);
-            }
+            if (code === 'name-required') return;
             showToast(message, { variant: 'warning', duration: 4500 });
         },
         [showToast]
@@ -653,7 +713,25 @@ export default function AlbumPreview({
             <AlbumPreviewGuestNamePrompt
                 albumId={albumId}
                 open={guestNamePromptOpen}
-                onClose={() => setGuestNamePromptOpen(false)}
+                required={guestDetailsRequired}
+                requirePassword={
+                    (prooferAccess?.accessLevel === 'password' ||
+                        prooferAccess?.privacyLevel === 'password') &&
+                    !isAlbumPasswordUnlocked(albumId)
+                }
+                expectedPassword={
+                    prooferAccess?.accessPassword || prooferAccess?.albumPassword || ''
+                }
+                onClose={() => {
+                    if (
+                        prooferAccess?.accessLevel === 'password' ||
+                        prooferAccess?.privacyLevel === 'password'
+                    ) {
+                        markAlbumPasswordUnlocked(albumId);
+                    }
+                    setGuestNamePromptOpen(false);
+                    setGuestDetailsRequired(false);
+                }}
             />
             <AppToast toast={toast} onDismiss={clearToast} />
         </div>

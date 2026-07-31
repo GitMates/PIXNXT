@@ -6,7 +6,7 @@
   }
 
   .cg-style-2 {
-    @apply flex-1 relative bg-[#F9F9F7] flex flex-col h-screen overflow-y-auto p-0 font-['Inter',system-ui,-apple-system,sans-serif];
+    @apply flex-1 relative bg-[#F9F9F7] flex flex-col h-screen overflow-y-auto p-0 font-sans;
   }
 
   .cg-style-3 {

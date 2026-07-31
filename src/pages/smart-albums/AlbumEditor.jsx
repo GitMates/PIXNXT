@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import AlbumBook from '../../components/smart-albums/AlbumBook';
 import AlbumCoverEditView from '../../components/smart-albums/AlbumCoverEditView';
 import AlbumEditorSidebar from '../../components/smart-albums/AlbumEditorSidebar';
+import AlbumSpreadFilmstrip from '../../components/smart-albums/AlbumSpreadFilmstrip';
 import AlbumEditorNotifications from '../../components/smart-albums/AlbumEditorNotifications';
 import {
     COVER_TEXT_CHANGED_EVENT,
@@ -38,6 +39,7 @@ import {
     clearCollectionItemPlacements,
     getAlbumPhotoRevision,
     getSlotPlacementCollectionItemId,
+    getSpreadPlacementCollectionItemId,
     getSpreadPhotoOverride,
     migrateBackCoverUsesBookWrap,
     migrateEndHalfSpreadToLeftPage,
@@ -71,12 +73,8 @@ import {
     clearWrapSegmentCache,
 } from '../../components/smart-albums/bookWrapSegment';
 import { clearAlbumSpineBoundsOverride } from '../../components/smart-albums/albumSpineSettings';
-import {
-    clearSpreadPhotos,
-    swapPhotoSlots,
-} from '../../components/smart-albums/albumSlotActions';
+import { clearSpreadPhotos } from '../../components/smart-albums/albumSlotActions';
 import AlbumSpreadSlotMenu from '../../components/smart-albums/AlbumSpreadSlotMenu';
-import AlbumSwapExecuteModal from '../../components/smart-albums/AlbumSwapExecuteModal';
 import {
     clearAlbumTransforms,
     getTransformRevision,
@@ -111,10 +109,13 @@ import {
     isInsideCoverSpreadLeft,
     isManualWholeSpreadPlacement,
     isPreBackHalfSpreadLeftPage,
+    isDraggableOverviewSpread,
     isWholeSpreadLayout,
     pageToSpreadIndex,
     spreadIndexToPage,
 } from '../../components/smart-albums/albumSpreadUtils';
+import { resolveCollectionItemSpreadIndex } from '../../components/smart-albums/collectionThumbLayout';
+import { buildOverviewSpreadReorderPlan } from '../../components/smart-albums/albumSpreadReorder';
 import { AppToast, useAppToast } from '../../components/ui/AppToast';
 import {
     captureSlotImageBeforeReplace,
@@ -124,7 +125,6 @@ import {
 import AlbumEditorSettingsPanel from '../../components/smart-albums/AlbumEditorSettingsPanel';
 import {
     getSwapMarks,
-    isWholeGridSwapSlot,
     markSwapMarksSeen,
     parseSlotKey,
     SWAP_MARKS_CHANGED_EVENT,
@@ -364,7 +364,6 @@ export default function AlbumEditor({
     const albumRef = useRef(album);
     albumRef.current = album;
     const [slotMenu, setSlotMenu] = useState(null);
-    const [swapExecuteOrigin, setSwapExecuteOrigin] = useState(null);
     const [coverTextModalOpen, setCoverTextModalOpen] = useState(false);
     const [coverTextRevision, setCoverTextRevision] = useState(0);
 
@@ -1184,12 +1183,14 @@ export default function AlbumEditor({
             });
             const file = files[0];
             const compressionTarget = getSlotUploadPixelTarget(album, slot, { coverWrap });
+            // Cover wrap replace must delete the previous R2 object so old wraps cannot resurface.
+            const retainPreviousStorage = !coverWrap;
 
             if (previousItemId && file && !isPdfFile(file) && (isImageFile(file) || (await probeImageFile(file)))) {
                 const replaced = await replaceCollectionItemFile(albumId, previousItemId, file, {
                     photographerId,
                     compressionTarget,
-                    retainPreviousStorage: true,
+                    retainPreviousStorage,
                 });
                 if (replaced) return replaced;
             }
@@ -1204,7 +1205,9 @@ export default function AlbumEditor({
             const replacementItem = added[0] || added.duplicateItems?.[0];
             if (previousItemId && replacementItem?.id && previousItemId !== replacementItem.id) {
                 clearCollectionItemPlacements(albumId, previousItemId);
-                await deleteCollectionItemAsset(albumId, previousItemId, { retainStorage: true });
+                await deleteCollectionItemAsset(albumId, previousItemId, {
+                    retainStorage: retainPreviousStorage,
+                });
             }
             return replacementItem;
         },
@@ -1240,13 +1243,36 @@ export default function AlbumEditor({
                 if (placeCollectionItemOnSlot(slot, replacementItem.id, before)) {
                     scheduleWorkspaceRefresh();
                     if (isCoverSlot) {
+                        // Drop any orphaned cover-wrap items left behind by older upload paths.
+                        const keepId = replacementItem.id;
+                        const orphans = getAlbumCollection(albumId).filter(
+                            (item) => isCoverWrapCollectionItem(item) && item.id !== keepId
+                        );
+                        for (const orphan of orphans) {
+                            clearCollectionItemPlacements(albumId, orphan.id);
+                            try {
+                                await deleteCollectionItemAsset(albumId, orphan.id, {
+                                    retainStorage: false,
+                                });
+                            } catch (err) {
+                                console.warn('Could not delete orphaned cover wrap from R2:', err);
+                            }
+                        }
                         clearWrapSegmentCache();
                         clearWrapImageCache();
                         clearAlbumSpineBoundsOverride(albumId);
                         if (getAlbumCoverText(albumId)) {
                             setAlbumCoverText(albumId, '');
                         }
+                        setCollectionRevision(getAlbumCollectionRevision(albumId));
                         keepCoverEditorActive();
+                        if (user?.id) {
+                            try {
+                                await smartAlbumsService.syncAlbumPreviewData(user.id, albumId);
+                            } catch (err) {
+                                console.warn('Could not sync album preview after cover upload:', err);
+                            }
+                        }
                         showToast('Cover image updated.', { variant: 'success', duration: 3500 });
                     } else {
                         showToast('Photo updated.', { variant: 'success', duration: 3500 });
@@ -1321,12 +1347,34 @@ export default function AlbumEditor({
     ]);
 
     const handleRemoveCoverPhotos = useCallback(async () => {
-        if (
-            clearSpreadPhotos(albumId, 0, totalPages, 'whole', {
-                gridLayout: album?.grid_layout,
-                spreadOpts,
-            })
-        ) {
+        const placementId = getSpreadPlacementCollectionItemId(albumId, 0);
+        const coverWrapIds = new Set(
+            getAlbumCollection(albumId)
+                .filter((item) => isCoverWrapCollectionItem(item))
+                .map((item) => item.id)
+        );
+        if (placementId) coverWrapIds.add(placementId);
+
+        const cleared = clearSpreadPhotos(albumId, 0, totalPages, 'whole', {
+            gridLayout: album?.grid_layout,
+            spreadOpts,
+        });
+
+        for (const itemId of coverWrapIds) {
+            clearCollectionItemPlacements(albumId, itemId);
+            try {
+                await deleteCollectionItemAsset(albumId, itemId, { retainStorage: false });
+            } catch (err) {
+                console.warn('Could not delete cover wrap from R2:', err);
+            }
+        }
+
+        clearWrapSegmentCache();
+        clearWrapImageCache();
+        clearAlbumSpineBoundsOverride(albumId);
+        setCollectionRevision(getAlbumCollectionRevision(albumId));
+
+        if (cleared || coverWrapIds.size > 0) {
             scheduleWorkspaceRefresh();
             if (user?.id) {
                 try {
@@ -1337,32 +1385,15 @@ export default function AlbumEditor({
             }
             showToast('Cover photos removed.', { duration: 3500 });
         }
-    }, [albumId, album?.grid_layout, totalPages, spreadOpts, scheduleWorkspaceRefresh, showToast, user?.id]);
-
-    const handleOpenSwapModal = useCallback(() => {
-        if (slotMenu?.slot) setSwapExecuteOrigin(slotMenu.slot);
-        closeSlotMenu();
-    }, [slotMenu, closeSlotMenu]);
-
-    const handleExecuteSwap = useCallback(
-        (targetSlot) => {
-            if (!swapExecuteOrigin || !targetSlot) return;
-            const origin = swapExecuteOrigin;
-            setSwapExecuteOrigin(null);
-            requestAnimationFrame(() => {
-                if (swapPhotoSlots(albumId, origin, targetSlot, totalPages, spreadCtx)) {
-                    scheduleWorkspaceRefresh();
-                    showToast('Photos swapped.', { duration: 3500 });
-                } else {
-                    showToast('Could not swap — one or both slots may be empty.', {
-                        variant: 'error',
-                        duration: 4000,
-                    });
-                }
-            });
-        },
-        [swapExecuteOrigin, albumId, totalPages, spreadCtx, scheduleWorkspaceRefresh, showToast]
-    );
+    }, [
+        albumId,
+        album?.grid_layout,
+        totalPages,
+        spreadOpts,
+        scheduleWorkspaceRefresh,
+        showToast,
+        user?.id,
+    ]);
 
     const placementTargets = useMemo(() => {
         if (!gridSelection || gridSelection.mode === 'cover') return [];
@@ -1627,10 +1658,20 @@ export default function AlbumEditor({
                     setCollectionRevision(getAlbumCollectionRevision(albumId));
                     scheduleWorkspaceRefresh();
                     if (isCoverSlot) {
+                        clearWrapSegmentCache();
+                        clearWrapImageCache();
+                        clearAlbumSpineBoundsOverride(albumId);
                         if (getAlbumCoverText(albumId)) {
                             setAlbumCoverText(albumId, '');
                         }
                         keepCoverEditorActive();
+                        if (user?.id) {
+                            try {
+                                await smartAlbumsService.syncAlbumPreviewData(user.id, albumId);
+                            } catch (err) {
+                                console.warn('Could not sync album preview after cover upload:', err);
+                            }
+                        }
                     }
                     showToast(
                         isCoverSlot
@@ -1730,35 +1771,108 @@ export default function AlbumEditor({
         ]
     );
 
-    const handleReorderCollectionItem = useCallback(
-        async (fromIndex, toIndex) => {
-            if (!reorderCollectionItems(albumId, fromIndex, toIndex, { album })) return;
-            await syncCollectionOrderToSpreads();
-            setCollectionRevision(getAlbumCollectionRevision(albumId));
-            setPhotoLayoutRev(getAlbumPhotoRevision(albumId) || 0);
-            setTransformRevision(getTransformRevision(albumId));
-        },
-        [albumId, album, syncCollectionOrderToSpreads]
-    );
-
-    const handleReorderOverviewSpread = useCallback(
+    const finishSpreadContentReorder = useCallback(
         (fromSpreadIndex, toSpreadIndex) => {
+            const plan = buildOverviewSpreadReorderPlan(
+                fromSpreadIndex,
+                toSpreadIndex,
+                totalPages,
+                spreadOpts
+            );
             if (
                 !reorderOverviewSpreads(albumId, fromSpreadIndex, toSpreadIndex, {
                     totalPages,
                     spreadOpts,
                 })
             ) {
-                return;
+                return false;
             }
+
+            // Keep comment/message badges on the moved spread content immediately.
+            if (plan) {
+                setSpreadCommentsBySpread((prev) => {
+                    const snapshots = Object.fromEntries(
+                        plan.draggable.map((spreadIndex) => [
+                            spreadIndex,
+                            prev[spreadIndex] || [],
+                        ])
+                    );
+                    const next = { ...prev };
+                    plan.draggable.forEach((spreadIndex) => {
+                        delete next[spreadIndex];
+                    });
+                    plan.draggable.forEach((targetSpread, i) => {
+                        const sourceSpread = plan.newOrder[i];
+                        const rows = (snapshots[sourceSpread] || []).map((row) => ({
+                            ...row,
+                            spread_index: targetSpread,
+                        }));
+                        if (rows.length) next[targetSpread] = rows;
+                    });
+                    return next;
+                });
+            }
+
             setTransformRevision(getTransformRevision(albumId));
             setSwapMarks(getSwapMarks(albumId));
             setPhotoPins(getPhotoPins(albumId));
             syncCollectionOrderToPlacements(albumId);
+            setCollectionRevision(getAlbumCollectionRevision(albumId));
+            setPhotoLayoutRev(getAlbumPhotoRevision(albumId) || 0);
             bumpWorkspace();
             showToast('Spread order updated.', { variant: 'success', duration: 3000 });
+            return true;
         },
         [albumId, totalPages, spreadOpts, bumpWorkspace, showToast]
+    );
+
+    const handleReorderCollectionItem = useCallback(
+        async (fromIndex, toIndex) => {
+            if (fromIndex === toIndex) return;
+
+            const items = getAlbumCollection(albumId);
+            const fromSpread = resolveCollectionItemSpreadIndex(
+                fromIndex,
+                items,
+                album,
+                totalPages
+            );
+            const toSpread = resolveCollectionItemSpreadIndex(toIndex, items, album, totalPages);
+            const canMoveWithFeedback =
+                fromSpread != null &&
+                toSpread != null &&
+                fromSpread !== toSpread &&
+                isDraggableOverviewSpread(fromSpread, totalPages, spreadOpts) &&
+                isDraggableOverviewSpread(toSpread, totalPages, spreadOpts);
+
+            // Prefer spread-content reorder so comments, swaps, pins, and messages travel with photos.
+            if (canMoveWithFeedback && finishSpreadContentReorder(fromSpread, toSpread)) {
+                return;
+            }
+
+            if (!reorderCollectionItems(albumId, fromIndex, toIndex, { album })) return;
+            await syncCollectionOrderToSpreads();
+            setCollectionRevision(getAlbumCollectionRevision(albumId));
+            setPhotoLayoutRev(getAlbumPhotoRevision(albumId) || 0);
+            setTransformRevision(getTransformRevision(albumId));
+            setSwapMarks(getSwapMarks(albumId));
+            setPhotoPins(getPhotoPins(albumId));
+        },
+        [
+            albumId,
+            album,
+            totalPages,
+            spreadOpts,
+            finishSpreadContentReorder,
+            syncCollectionOrderToSpreads,
+        ]
+    );
+
+    const handleReorderOverviewSpread = useCallback(
+        (fromSpreadIndex, toSpreadIndex) => {
+            finishSpreadContentReorder(fromSpreadIndex, toSpreadIndex);
+        },
+        [finishSpreadContentReorder]
     );
 
     const canAddPages = totalPages + pagesPerSpread <= maxPages;
@@ -1825,16 +1939,6 @@ export default function AlbumEditor({
             user?.id,
         ]
     );
-
-    const slotMenuSwapHint = useMemo(() => {
-        if (!slotMenu?.slot) return 'Any left or right photo';
-        if (spreadOpts.hasCovers && slotMenu.slot.pageNum === 0) return 'Cover only';
-        const gridLayout = album?.grid_layout || 'two-page';
-        if (isWholeGridSwapSlot(albumId, slotMenu.slot, totalPages, gridLayout, album)) {
-            return 'Other whole spreads only';
-        }
-        return 'Any left or right photo';
-    }, [slotMenu, albumId, album?.grid_layout, totalPages]);
 
     const slotMenuCanAddSpreadBefore = useMemo(() => {
         const spreadLeft = slotMenu?.slot?.spreadLeft;
@@ -2021,22 +2125,6 @@ export default function AlbumEditor({
 
     const spreadEdit = activePanel === 'edit';
     const coverEditMode = activePanel === 'cover' && albumHasCoverSpreads(album);
-
-    const isCoverEditorSlotMenu = useMemo(() => {
-        if (!coverEditMode || !slotMenu?.slot) return false;
-        const slot = slotMenu.slot;
-        return slot.pageNum === 0 || slot.label === 'Cover' || slot.label === 'Book wrap';
-    }, [coverEditMode, slotMenu]);
-
-    const slotMenuCanSwap = useMemo(() => {
-        if (isCoverEditorSlotMenu || !slotMenu?.slot?.hasPhoto) return false;
-        if (spreadOpts.hasCovers && slotMenu?.spreadIndex === 1) return false;
-        const spreadLeft = slotMenu?.slot?.spreadLeft;
-        if (spreadLeft != null && isPreBackHalfSpreadLeftPage(spreadLeft, totalPages, spreadOpts)) {
-            return false;
-        }
-        return true;
-    }, [isCoverEditorSlotMenu, slotMenu, spreadOpts.hasCovers, totalPages, spreadOpts]);
 
     const coverTextMessage = useMemo(() => {
         void coverTextRevision;
@@ -2260,6 +2348,24 @@ export default function AlbumEditor({
                             />
                         )}
                     </div>
+                    {!coverEditMode ? (
+                        <AlbumSpreadFilmstrip
+                            album={albumForBook}
+                            totalPages={totalPages}
+                            bookPage={bookPage}
+                            photoRevision={layoutRevision}
+                            spreadCommentsBySpread={spreadCommentsBySpread}
+                            onReorderSpread={handleReorderOverviewSpread}
+                            disabled={pageCountBusy || spreadEdit}
+                            onSelectSpread={(_spreadIndex, page) => {
+                                const clamped = Math.max(
+                                    0,
+                                    Math.min(page, Math.max(0, totalPages - 1))
+                                );
+                                handleBookPageChange(clamped);
+                            }}
+                        />
+                    ) : null}
                 </main>
 
                 <AlbumEditorSidebar
@@ -2342,8 +2448,8 @@ export default function AlbumEditor({
                 anchorRect={slotMenu?.anchorRect}
                 slotLabel={slotMenu?.label}
                 hasPhoto={slotMenuShowRemovePhotos}
-                canSwap={slotMenuCanSwap}
-                swapHint={slotMenuSwapHint}
+                canUpload={Boolean(slotMenu?.slot)}
+                uploadBusy={uploading}
                 canAddSpreadBefore={slotMenuCanAddSpreadBefore}
                 canAddSpreadAfter={slotMenuCanAddSpreadAfter}
                 canDeleteSpread={slotMenuCanDeleteSpread}
@@ -2353,18 +2459,8 @@ export default function AlbumEditor({
                 onAddSpreadAfter={handleAddSpreadAfter}
                 onDeleteSpread={handleDeleteSpreadAt}
                 onRemovePhotos={handleRemoveSpreadPhotos}
-                onSwap={handleOpenSwapModal}
+                onUpload={handleReplaceFromMenu}
                 onClose={closeSlotMenu}
-            />
-
-            <AlbumSwapExecuteModal
-                open={Boolean(swapExecuteOrigin)}
-                album={album}
-                albumId={albumId}
-                totalPages={totalPages}
-                originSlot={swapExecuteOrigin}
-                onSwap={handleExecuteSwap}
-                onClose={() => setSwapExecuteOrigin(null)}
             />
         </div>
     );

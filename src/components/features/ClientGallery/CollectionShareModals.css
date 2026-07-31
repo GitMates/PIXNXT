@@ -1,4 +1,4 @@
-﻿.cgm-overlay {
+.cgm-overlay {
     position: fixed;
     inset: 0;
     z-index: 10000;
@@ -15,7 +15,7 @@
     background: #fff;
     border-radius: 4px;
     box-shadow: 0 12px 48px rgba(0, 0, 0, 0.18);
-    font-family: 'Outfit', sans-serif;
+    font-family: var(--font-sans);
 }
 
 .cgm-header {

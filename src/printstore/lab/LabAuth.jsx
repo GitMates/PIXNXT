@@ -23,7 +23,7 @@ const fieldInput = {
   background: 'transparent',
   color: '#1A1A1A',
   fontSize: 14,
-  fontFamily: "'Inter', system-ui, sans-serif",
+  fontFamily: "var(--font-sans)",
 };
 
 export default function LabAuth() {
@@ -154,7 +154,7 @@ export default function LabAuth() {
       alignItems: 'center',
       justifyContent: 'center',
       padding: '20px',
-      fontFamily: "'Inter', system-ui, -apple-system, sans-serif"
+      fontFamily: "var(--font-sans)"
     }}>
       <div style={{
         width: '100%',

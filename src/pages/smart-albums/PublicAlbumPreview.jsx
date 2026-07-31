@@ -83,16 +83,17 @@ export default function PublicAlbumPreview() {
     const totalPages = album?.page_count || 21;
     const spreadOpts = getAlbumSpreadOptions(album);
     const initialPage = parseUrlPage(searchParams.get('page'), totalPages, spreadOpts);
+    const resolvedAlbumId = album?.id || albumId;
 
     const access = useMemo(() => {
         if (!album?.id) return null;
         return smartAlbumProoferSettingsService.getEffectiveAlbumAccess(
             album.photographer_id,
-            albumId,
+            album.id,
             album,
             album.preview_data
         );
-    }, [album, albumId]);
+    }, [album]);
 
     const handlePageChange = (pageIdx) => {
         const next = new URLSearchParams(searchParams);
@@ -119,14 +120,10 @@ export default function PublicAlbumPreview() {
     }
 
     return (
-        <AlbumPreviewAccessGate
-            albumId={albumId}
-            photographerId={album.photographer_id}
-            access={access}
-        >
+        <AlbumPreviewAccessGate albumId={resolvedAlbumId} access={access}>
             <AlbumPreview
                 album={normalizeAlbumForClientPreview(album)}
-                albumId={albumId}
+                albumId={resolvedAlbumId}
                 totalPages={totalPages}
                 initialPage={initialPage}
                 photoRevision={photoRevision}

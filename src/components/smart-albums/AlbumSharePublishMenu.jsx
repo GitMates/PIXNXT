@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Ban, Copy, Mail } from 'lucide-react';
+import { Ban, Copy, Eye, EyeOff, Mail } from 'lucide-react';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
 import {
     smartAlbumProoferSettingsService,
     getAlbumShareCopyUrl,
     getAlbumShareDisplayUrl,
 } from '../../services/smartAlbumProoferSettings.service';
+import { countClientRootComments, getClientReviewerIdentity, smartAlbumCommentsService } from '../../services/smartAlbumComments.service';
+import { mergeAlbumProofTimestamps } from './albumProofStatus';
 import { buildGmailComposeUrl } from '../../lib/gmailComposeUrl';
 import AeSettingsSelect from './AeSettingsSelect';
 import './AlbumEditorSettings.css';
@@ -24,26 +26,24 @@ const ACCESS_OPTIONS = [
     },
 ];
 
+const DRAFT_ACCESS_OPTIONS = [
+    {
+        value: 'public',
+        label: 'Anyone with the link',
+        description: 'No PIN. Easiest for the client.',
+    },
+    {
+        value: 'password',
+        label: 'Link + PIN',
+        description: 'A 4-digit code, sent in the same message.',
+    },
+];
+
 const SHARE_CHANNELS = [
     { id: 'whatsapp', label: 'WhatsApp' },
     { id: 'email', label: 'Email' },
     { id: 'copy', label: 'Copy link' },
 ];
-
-function ShareToggle({ on, onChange, label }) {
-    return (
-        <button
-            type="button"
-            role="switch"
-            aria-checked={on}
-            aria-label={label}
-            onClick={onChange}
-            className={`ae-share-toggle ${on ? 'ae-share-toggle--on' : 'ae-share-toggle--off'}`}
-        >
-            <span className="ae-share-toggle__knob" />
-        </button>
-    );
-}
 
 function getPublishMode(album) {
     if (album?.status !== 'published') return 'draft';
@@ -58,9 +58,129 @@ function firstNameFromAlbum(album) {
     return first || 'there';
 }
 
-function buildDefaultShareMessage(album, displayUrl) {
+function clientDisplayFirstName(identity) {
+    const raw = String(identity?.name || '').trim();
+    if (!raw) return 'client';
+    const first = raw.split(/\s+/)[0];
+    return first || 'client';
+}
+
+function formatShareRelativeTime(dateStr) {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    if (Number.isNaN(date.getTime())) return '';
+    const diffMs = Date.now() - date.getTime();
+    const mins = Math.floor(diffMs / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins} minute${mins === 1 ? '' : 's'} ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+    const days = Math.floor(hours / 24);
+    if (days < 7) return `${days} day${days === 1 ? '' : 's'} ago`;
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function getPauseClientCopy(album, identity = null) {
+    const resolved =
+        identity ||
+        (album?.id
+            ? getClientReviewerIdentity(album.id)
+            : { name: '', commentCount: 0, openedAt: null });
+    const displayName = clientDisplayFirstName(resolved);
+    const summaryCount = Number(album?.__proofSummary?.clientCommentCount) || 0;
+    const localCount = album?.id ? countClientRootComments(album.id) : 0;
+    const commentCount = Math.max(
+        Number(resolved.commentCount) || 0,
+        summaryCount,
+        localCount
+    );
+    const openedAt =
+        album?.client_commenting_started_at ||
+        resolved.openedAt ||
+        album?.client_last_activity_at ||
+        album?.__proofSummary?.latestClientActivityAt ||
+        null;
+    const openedRel = formatShareRelativeTime(openedAt);
+
+    if (openedRel && commentCount > 0) {
+        return {
+            lead: `${displayName} opened this album ${openedRel} and left ${commentCount} comment${
+                commentCount === 1 ? '' : 's'
+            }.`,
+            rest: ' Pausing locks them out immediately — the link will show “temporarily unavailable” with no explanation.',
+            keep: 'Their comments and swap requests are kept. The same link works again when you resume.',
+        };
+    }
+
+    if (openedRel) {
+        return {
+            lead: `${displayName} opened this album ${openedRel}.`,
+            rest: ' Pausing locks them out immediately — the link will show “temporarily unavailable” with no explanation.',
+            keep: 'Their comments and swap requests are kept. The same link works again when you resume.',
+        };
+    }
+
+    if (commentCount > 0) {
+        return {
+            lead: `${displayName} left ${commentCount} comment${commentCount === 1 ? '' : 's'} on this album.`,
+            rest: ' Pausing locks them out immediately — the link will show “temporarily unavailable” with no explanation.',
+            keep: 'Their comments and swap requests are kept. The same link works again when you resume.',
+        };
+    }
+
+    return {
+        lead: `${displayName} may already be reviewing this album.`,
+        rest: ' Pausing locks them out immediately — the link will show “temporarily unavailable” with no explanation.',
+        keep: 'Comments and swap requests are kept. The same link works again when you resume.',
+    };
+}
+
+const SHARE_PAUSED_AT_KEY = 'pixnxt_album_share_paused_at';
+
+function readSharePausedAt(albumId) {
+    if (!albumId || typeof window === 'undefined') return null;
+    try {
+        const raw = localStorage.getItem(SHARE_PAUSED_AT_KEY);
+        const map = raw ? JSON.parse(raw) : {};
+        return map[albumId] || null;
+    } catch {
+        return null;
+    }
+}
+
+function writeSharePausedAt(albumId, iso) {
+    if (!albumId || typeof window === 'undefined') return;
+    try {
+        const raw = localStorage.getItem(SHARE_PAUSED_AT_KEY);
+        const map = raw ? JSON.parse(raw) : {};
+        if (iso) map[albumId] = iso;
+        else delete map[albumId];
+        localStorage.setItem(SHARE_PAUSED_AT_KEY, JSON.stringify(map));
+    } catch {
+        /* ignore */
+    }
+}
+
+function buildDefaultShareMessage(album, displayUrl, { pin = '', maxFreeSwaps = 5 } = {}) {
     const name = firstNameFromAlbum(album);
-    return `Hi ${name} — your album proof is ready to review.\n${displayUrl}`;
+    const lines = [`Hi ${name} — your album proof is ready to review.`, '', String(displayUrl || '').trim()];
+
+    const pinText = String(pin || '').trim();
+    if (pinText) {
+        lines.push(`Access PIN: ${pinText}`);
+    }
+
+    lines.push('');
+    const swaps = Number(maxFreeSwaps);
+    if (Number.isFinite(swaps) && swaps > 0) {
+        lines.push(
+            `Tap any spread to comment or ask for a photo swap. Your package includes ${swaps} swaps.`
+        );
+    } else {
+        lines.push('Tap any spread to comment or ask for a photo swap.');
+    }
+
+    return lines.join('\n');
 }
 
 function WhatsAppIcon() {
@@ -83,8 +203,12 @@ export default function AlbumSharePublishMenu({
     const rootRef = useRef(null);
     const saveTimerRef = useRef(null);
     const skipSaveRef = useRef(true);
+    const dirtyRef = useRef(false);
     const loadedAlbumIdRef = useRef(null);
     const messageTouchedRef = useRef(false);
+    const accessLevelRef = useRef('public');
+    const albumPasswordRef = useRef('');
+    const privateShareTokenRef = useRef('');
 
     const mode = getPublishMode(album);
 
@@ -94,15 +218,22 @@ export default function AlbumSharePublishMenu({
     const [pauseConfirm, setPauseConfirm] = useState(false);
     const [shareChannel, setShareChannel] = useState('whatsapp');
     const [shareMessage, setShareMessage] = useState('');
+    const [maxFreeSwaps, setMaxFreeSwaps] = useState(5);
+    const [clientIdentity, setClientIdentity] = useState({
+        name: '',
+        commentCount: 0,
+        openedAt: null,
+    });
+    const messageRef = useRef(null);
 
     const [accessLevel, setAccessLevel] = useState('public');
     const [albumPassword, setAlbumPassword] = useState('');
+    const [showAlbumPassword, setShowAlbumPassword] = useState(false);
     const [privateShareToken, setPrivateShareToken] = useState('');
-    const [requireName, setRequireName] = useState(true);
-    const [allowVoice, setAllowVoice] = useState(true);
-    const [allowExternal, setAllowExternal] = useState(false);
-    const [allowSwaps, setAllowSwaps] = useState(true);
-    const [maxSwaps, setMaxSwaps] = useState(1000);
+
+    accessLevelRef.current = accessLevel;
+    albumPasswordRef.current = albumPassword;
+    privateShareTokenRef.current = privateShareToken;
 
     const shareDisplayUrl = useMemo(
         () => getAlbumShareDisplayUrl(album, { accessLevel, privateShareToken }),
@@ -133,12 +264,18 @@ export default function AlbumSharePublishMenu({
         let cancelled = false;
         (async () => {
             try {
-                const proofer = await smartAlbumProoferSettingsService.loadAlbumSettings(
-                    photographerId,
-                    albumId,
-                    album
-                );
+                // Always read from DB/cache — do not trust a possibly stale album prop.
+                const [proofer, comments] = await Promise.all([
+                    smartAlbumProoferSettingsService.loadAlbumSettings(
+                        photographerId,
+                        albumId,
+                        null
+                    ),
+                    smartAlbumCommentsService.listAlbumComments(albumId).catch(() => []),
+                ]);
                 if (cancelled) return;
+
+                setClientIdentity(getClientReviewerIdentity(albumId, comments));
 
                 const level =
                     proofer.accessLevel === 'password' || proofer.accessLevel === 'private'
@@ -148,21 +285,29 @@ export default function AlbumSharePublishMenu({
                 setAccessLevel(nextLevel);
                 setAlbumPassword(proofer.albumPassword || '');
                 setPrivateShareToken(proofer.privateShareToken || '');
-                setRequireName(proofer.requireNameForComments !== false);
-                setAllowVoice(proofer.allowVoiceRecordings !== false);
-                setAllowExternal(Boolean(proofer.allowExternalUploads));
-                setAllowSwaps(album?.messages_enabled !== false);
-                setMaxSwaps(proofer.maxFreeSwaps ?? 1000);
+                setMaxFreeSwaps(
+                    Number.isFinite(Number(proofer.maxFreeSwaps))
+                        ? Number(proofer.maxFreeSwaps)
+                        : 5
+                );
 
                 if (!messageTouchedRef.current) {
                     const url = getAlbumShareDisplayUrl(album, {
                         accessLevel: nextLevel,
                         privateShareToken: proofer.privateShareToken || '',
                     });
-                    setShareMessage(buildDefaultShareMessage(album, url));
+                    const pin =
+                        nextLevel === 'password' ? String(proofer.albumPassword || '').trim() : '';
+                    setShareMessage(
+                        buildDefaultShareMessage(album, url, {
+                            pin,
+                            maxFreeSwaps: proofer.maxFreeSwaps,
+                        })
+                    );
                 }
 
                 loadedAlbumIdRef.current = albumId;
+                dirtyRef.current = false;
                 skipSaveRef.current = true;
             } catch (err) {
                 console.error(err);
@@ -179,21 +324,97 @@ export default function AlbumSharePublishMenu({
 
     useEffect(() => {
         if (!open || messageTouchedRef.current || !shareDisplayUrl) return;
-        setShareMessage(buildDefaultShareMessage(album, shareDisplayUrl));
-    }, [open, album, shareDisplayUrl]);
+        const pin = accessLevel === 'password' ? String(albumPassword || '').trim() : '';
+        setShareMessage(
+            buildDefaultShareMessage(album, shareDisplayUrl, { pin, maxFreeSwaps })
+        );
+    }, [open, album, shareDisplayUrl, accessLevel, albumPassword, maxFreeSwaps]);
+
+    useEffect(() => {
+        if (!open) return;
+        const el = messageRef.current;
+        if (!el) return;
+        // Reset to default height when the panel opens so the resize grip is available.
+        el.style.height = '';
+    }, [open, ready]);
+
+    const persistSettings = useCallback(async () => {
+        if (!photographerId || !albumId) return false;
+        const nextAccess = accessLevelRef.current;
+        const nextPassword = albumPasswordRef.current;
+        const nextToken = privateShareTokenRef.current;
+        try {
+            const prooferPatch = {
+                accessLevel: nextAccess,
+                albumPassword: nextAccess === 'password' ? nextPassword : '',
+                privateShareToken: nextToken,
+            };
+
+            await smartAlbumProoferSettingsService.saveAlbumSettings(
+                photographerId,
+                albumId,
+                prooferPatch,
+                { album: null }
+            );
+            const refreshed = await smartAlbumsService.getAlbum(photographerId, albumId);
+            const merged = refreshed || {
+                ...album,
+                proofer_settings: {
+                    ...(album?.proofer_settings || {}),
+                    access_level: nextAccess,
+                    album_password: nextAccess === 'password' ? nextPassword : '',
+                    private_share_token: nextToken,
+                },
+            };
+            await smartAlbumsService.syncAlbumPreviewProoferSettings(
+                photographerId,
+                albumId,
+                merged
+            );
+            dirtyRef.current = false;
+            onAlbumUpdated?.(merged);
+            return true;
+        } catch (err) {
+            console.error(err);
+            showToast?.('Could not save share settings.', { variant: 'error', duration: 3500 });
+            return false;
+        }
+    }, [photographerId, albumId, album, onAlbumUpdated, showToast]);
+
+    const flushPersist = useCallback(async () => {
+        if (saveTimerRef.current) {
+            clearTimeout(saveTimerRef.current);
+            saveTimerRef.current = null;
+        }
+        if (!dirtyRef.current) return true;
+        return persistSettings();
+    }, [persistSettings]);
+
+    const closePanel = useCallback(async () => {
+        await flushPersist();
+        onOpenChange(false);
+        setPauseConfirm(false);
+    }, [flushPersist, onOpenChange]);
+
+    // If the parent closes the menu without closePanel(), still flush pending edits.
+    useEffect(() => {
+        if (open) return undefined;
+        if (!dirtyRef.current) return undefined;
+        void flushPersist();
+        return undefined;
+    }, [open, flushPersist]);
 
     useEffect(() => {
         if (!open) return undefined;
         const onPointer = (e) => {
             if (e.target.closest?.('.ae-share-wrap')) return;
             if (e.target.closest?.('.ae-settings-select-options')) return;
-            onOpenChange(false);
-            setPauseConfirm(false);
+            void closePanel();
         };
         const onKey = (e) => {
             if (e.key === 'Escape') {
                 if (pauseConfirm) setPauseConfirm(false);
-                else onOpenChange(false);
+                else void closePanel();
             }
         };
         document.addEventListener('mousedown', onPointer);
@@ -202,100 +423,89 @@ export default function AlbumSharePublishMenu({
             document.removeEventListener('mousedown', onPointer);
             document.removeEventListener('keydown', onKey);
         };
-    }, [open, onOpenChange, pauseConfirm]);
-
-    const persistSettings = useCallback(async () => {
-        if (!photographerId || !albumId) return;
-        try {
-            const prooferPatch = {
-                accessLevel,
-                albumPassword: accessLevel === 'password' ? albumPassword : '',
-                privateShareToken,
-                requireNameForComments: requireName,
-                maxFreeSwaps: maxSwaps,
-                allowExternalUploads: allowExternal,
-                allowVoiceRecordings: allowVoice,
-            };
-            const clientPatch = {
-                messages_enabled: allowSwaps,
-            };
-
-            await smartAlbumProoferSettingsService.saveAlbumSettings(
-                photographerId,
-                albumId,
-                prooferPatch,
-                { album, clientPatch }
-            );
-            await smartAlbumsService.updateAlbumClientSettings(
-                photographerId,
-                albumId,
-                clientPatch
-            );
-            const refreshed = await smartAlbumsService.getAlbum(photographerId, albumId);
-            const merged = refreshed || { ...album, ...clientPatch };
-            await smartAlbumsService.syncAlbumPreviewProoferSettings(
-                photographerId,
-                albumId,
-                merged
-            );
-            onAlbumUpdated?.(merged);
-        } catch (err) {
-            console.error(err);
-            showToast?.('Could not save share settings.', { variant: 'error', duration: 3500 });
-        }
-    }, [
-        photographerId,
-        albumId,
-        album,
-        accessLevel,
-        albumPassword,
-        privateShareToken,
-        requireName,
-        maxSwaps,
-        allowExternal,
-        allowVoice,
-        allowSwaps,
-        onAlbumUpdated,
-        showToast,
-    ]);
+    }, [open, closePanel, pauseConfirm]);
 
     useEffect(() => {
         if (!open || !ready || skipSaveRef.current) {
-            skipSaveRef.current = false;
+            if (skipSaveRef.current && ready) skipSaveRef.current = false;
             return undefined;
         }
+        // Only debounce-save when the user actually changed settings.
+        if (!dirtyRef.current) return undefined;
+
         if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
         saveTimerRef.current = window.setTimeout(() => {
+            saveTimerRef.current = null;
             void persistSettings();
-        }, 600);
+        }, 400);
         return () => {
-            if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+            if (saveTimerRef.current) {
+                clearTimeout(saveTimerRef.current);
+                saveTimerRef.current = null;
+            }
         };
-    }, [
-        open,
-        ready,
-        accessLevel,
-        albumPassword,
-        requireName,
-        allowVoice,
-        allowExternal,
-        allowSwaps,
-        maxSwaps,
-        persistSettings,
-    ]);
+    }, [open, ready, accessLevel, albumPassword, persistSettings]);
+
+    const handleAccessChange = (nextLevel) => {
+        dirtyRef.current = true;
+        skipSaveRef.current = false;
+        accessLevelRef.current = nextLevel;
+        setAccessLevel(nextLevel);
+        // Persist access mode immediately so "Password protected" sticks even before typing.
+        if (saveTimerRef.current) {
+            clearTimeout(saveTimerRef.current);
+            saveTimerRef.current = null;
+        }
+        void persistSettings();
+    };
+
+    const handlePasswordChange = (value) => {
+        dirtyRef.current = true;
+        skipSaveRef.current = false;
+        albumPasswordRef.current = value;
+        setAlbumPassword(value);
+    };
+
+    const handlePasswordKeyDown = (event) => {
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        event.stopPropagation();
+        const input = event.currentTarget;
+        void (async () => {
+            const ok = await flushPersist();
+            // Move focus out of the password field after save.
+            input?.blur();
+            if (ok) {
+                showToast?.('Share settings saved.', { variant: 'success', duration: 2500 });
+            }
+        })();
+    };
+
+    const handlePasswordBlur = () => {
+        if (dirtyRef.current) void flushPersist();
+    };
 
     const accessHint =
         ACCESS_OPTIONS.find((o) => o.value === accessLevel)?.description ||
         'Anyone holding this URL can view and leave feedback.';
 
     const channelHint =
-        shareChannel === 'whatsapp'
-            ? 'Opens WhatsApp with this message ready to send. You send it — nothing goes out automatically.'
-            : shareChannel === 'email'
-              ? 'Opens your email with this message ready to send. You send it — nothing goes out automatically.'
-              : 'Copies the client link to your clipboard.';
+        shareChannel === 'whatsapp' ? (
+            <>
+                Opens WhatsApp with this ready to send.{' '}
+                <strong>You</strong> press send — nothing goes out automatically.
+            </>
+        ) : shareChannel === 'email' ? (
+            <>
+                Opens your email with this ready to send.{' '}
+                <strong>You</strong> press send — nothing goes out automatically.
+            </>
+        ) : (
+            'Copies the client link to your clipboard.'
+        );
 
     const handleCopyLink = async () => {
+        await flushPersist();
         try {
             await navigator.clipboard.writeText(shareCopyUrl);
             setCopied(true);
@@ -308,8 +518,11 @@ export default function AlbumSharePublishMenu({
     };
 
     const runShareChannel = (channelId) => {
+        void flushPersist();
+        const pin = accessLevel === 'password' ? String(albumPassword || '').trim() : '';
         const text =
-            (shareMessage || '').trim() || buildDefaultShareMessage(album, shareDisplayUrl);
+            (shareMessage || '').trim() ||
+            buildDefaultShareMessage(album, shareDisplayUrl, { pin, maxFreeSwaps });
         if (channelId === 'whatsapp') {
             window.open(
                 `https://wa.me/?text=${encodeURIComponent(text)}`,
@@ -331,26 +544,23 @@ export default function AlbumSharePublishMenu({
         void handleCopyLink();
     };
 
-    const handlePublishAndCopy = async () => {
+    const handlePublishAndShare = async () => {
         if (!photographerId || !albumId || busy) return;
         setBusy(true);
         try {
-            await persistSettings();
+            dirtyRef.current = true;
+            await flushPersist();
             const updated = await smartAlbumsService.updateAlbumClientSettings(
                 photographerId,
                 albumId,
                 { status: 'published', share_link_enabled: true }
             );
             onAlbumUpdated?.(updated);
-            await navigator.clipboard.writeText(
-                getAlbumShareCopyUrl(updated || album, { accessLevel, privateShareToken })
-            );
-            setCopied(true);
-            showToast?.('Album published — link copied.', {
+            showToast?.('Album published. Choose how to send the link.', {
                 variant: 'success',
                 duration: 3500,
             });
-            setTimeout(() => setCopied(false), 2000);
+            // Stay open — mode flips to live and shows the published Share panel.
         } catch (err) {
             console.error(err);
             showToast?.('Could not publish album.', { variant: 'error', duration: 4000 });
@@ -363,12 +573,14 @@ export default function AlbumSharePublishMenu({
         if (!photographerId || !albumId || busy) return;
         setBusy(true);
         try {
+            const pausedAt = new Date().toISOString();
             const updated = await smartAlbumsService.updateAlbumClientSettings(
                 photographerId,
                 albumId,
                 { share_link_enabled: false }
             );
-            onAlbumUpdated?.(updated);
+            writeSharePausedAt(albumId, pausedAt);
+            onAlbumUpdated?.({ ...updated, share_link_paused_at: pausedAt });
             setPauseConfirm(false);
             showToast?.('Client access paused.', { duration: 3500 });
         } catch (err) {
@@ -388,6 +600,7 @@ export default function AlbumSharePublishMenu({
                 albumId,
                 { share_link_enabled: true, status: 'published' }
             );
+            writeSharePausedAt(albumId, null);
             onAlbumUpdated?.(updated);
             showToast?.('Client access resumed.', { variant: 'success', duration: 3500 });
         } catch (err) {
@@ -400,7 +613,11 @@ export default function AlbumSharePublishMenu({
 
     if (!open) return null;
 
-    const clientName = album?.name || 'Your client';
+    const proofAlbum = mergeAlbumProofTimestamps(album);
+    const pauseCopy = getPauseClientCopy(proofAlbum, clientIdentity);
+    const pausedAtIso =
+        album?.share_link_paused_at || readSharePausedAt(albumId) || album?.updated_at || null;
+    const pausedRel = formatShareRelativeTime(pausedAtIso);
     const showLoading = !ready && loadedAlbumIdRef.current !== albumId;
 
     const liveShareBody = (
@@ -423,18 +640,36 @@ export default function AlbumSharePublishMenu({
             <AeSettingsSelect
                 id="ae-share-access-live"
                 value={accessLevel}
-                onChange={setAccessLevel}
+                onChange={handleAccessChange}
                 options={ACCESS_OPTIONS}
             />
             <p className="ae-share-hint ae-share-hint--serif">{accessHint}</p>
             {accessLevel === 'password' ? (
-                <input
-                    type="password"
-                    className="ae-share-input"
-                    value={albumPassword}
-                    onChange={(e) => setAlbumPassword(e.target.value)}
-                    placeholder="Set album password"
-                />
+                <div className="ae-share-password-field">
+                    <input
+                        type={showAlbumPassword ? 'text' : 'password'}
+                        className="ae-share-input"
+                        value={albumPassword}
+                        onChange={(e) => handlePasswordChange(e.target.value)}
+                        onKeyDown={handlePasswordKeyDown}
+                        onBlur={handlePasswordBlur}
+                        placeholder="Set album password"
+                        autoComplete="new-password"
+                    />
+                    <button
+                        type="button"
+                        className="ae-share-password-toggle"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => setShowAlbumPassword((prev) => !prev)}
+                        aria-label={showAlbumPassword ? 'Hide password' : 'Show password'}
+                    >
+                        {showAlbumPassword ? (
+                            <EyeOff size={16} strokeWidth={2} aria-hidden />
+                        ) : (
+                            <Eye size={16} strokeWidth={2} aria-hidden />
+                        )}
+                    </button>
+                </div>
             ) : null}
 
             <div className="ae-share-divider" />
@@ -476,13 +711,14 @@ export default function AlbumSharePublishMenu({
             </div>
 
             <textarea
+                ref={messageRef}
                 className="ae-share-message"
                 value={shareMessage}
                 onChange={(e) => {
                     messageTouchedRef.current = true;
                     setShareMessage(e.target.value);
                 }}
-                rows={4}
+                rows={6}
                 aria-label="Share message"
             />
             <p className="ae-share-hint ae-share-hint--serif">{channelHint}</p>
@@ -500,7 +736,9 @@ export default function AlbumSharePublishMenu({
     return (
         <div className="ae-share-panel-wrap" ref={rootRef}>
             <div
-                className={`ae-share-panel${pauseConfirm ? ' ae-share-panel--confirm' : ''}`}
+                className={`ae-share-panel${pauseConfirm ? ' ae-share-panel--confirm' : ''}${
+                    mode === 'draft' && !pauseConfirm && !showLoading ? ' ae-share-panel--draft' : ''
+                }`}
                 role="dialog"
                 aria-label="Share and publish"
             >
@@ -509,15 +747,11 @@ export default function AlbumSharePublishMenu({
                         <p className="ae-share-section-label">Pause client access</p>
                         <div className="ae-share-pause-warn">
                             <p>
-                                {clientName} may already be reviewing this album. Pausing locks them
-                                out immediately — the link will show &ldquo;temporarily
-                                unavailable&rdquo; with no explanation.
+                                <strong>{pauseCopy.lead}</strong>
+                                {pauseCopy.rest}
                             </p>
                         </div>
-                        <p className="ae-share-pause-keep">
-                            Comments and swap requests are kept. The same link works again when you
-                            resume.
-                        </p>
+                        <p className="ae-share-pause-keep">{pauseCopy.keep}</p>
                         <div className="ae-share-pause-actions">
                             <button
                                 type="button"
@@ -529,7 +763,7 @@ export default function AlbumSharePublishMenu({
                             </button>
                             <button
                                 type="button"
-                                className="ae-share-btn ae-share-btn--danger"
+                                className="ae-share-btn ae-share-btn--pause"
                                 onClick={() => void handlePause()}
                                 disabled={busy}
                             >
@@ -540,10 +774,10 @@ export default function AlbumSharePublishMenu({
                 ) : showLoading ? (
                     <p className="ae-share-loading">Loading…</p>
                 ) : mode === 'draft' ? (
-                    <>
+                    <div className="ae-share-draft">
                         <div className="ae-share-draft-hero">
                             <div className="ae-share-draft-icon" aria-hidden>
-                                <Ban size={22} strokeWidth={1.75} />
+                                <Ban size={24} strokeWidth={1.5} />
                             </div>
                             <p className="ae-share-draft-title">
                                 This album is a <strong>Draft</strong>.
@@ -554,81 +788,75 @@ export default function AlbumSharePublishMenu({
                         <div className="ae-share-divider" />
 
                         <p className="ae-share-section-label">Who should be able to open it</p>
-                        <AeSettingsSelect
-                            id="ae-share-access-draft"
-                            value={accessLevel}
-                            onChange={setAccessLevel}
-                            options={ACCESS_OPTIONS}
-                        />
+                        <div
+                            className="ae-share-access-cards"
+                            role="radiogroup"
+                            aria-label="Who should be able to open it"
+                        >
+                            {DRAFT_ACCESS_OPTIONS.map((option) => {
+                                const selected = accessLevel === option.value;
+                                return (
+                                    <button
+                                        key={option.value}
+                                        type="button"
+                                        role="radio"
+                                        aria-checked={selected}
+                                        className={`ae-share-access-card${
+                                            selected ? ' ae-share-access-card--selected' : ''
+                                        }`}
+                                        onClick={() => handleAccessChange(option.value)}
+                                    >
+                                        <span className="ae-share-access-card__radio" aria-hidden />
+                                        <span className="ae-share-access-card__copy">
+                                            <strong>{option.label}</strong>
+                                            <small>{option.description}</small>
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
                         {accessLevel === 'password' ? (
-                            <input
-                                type="password"
-                                className="ae-share-input"
-                                value={albumPassword}
-                                onChange={(e) => setAlbumPassword(e.target.value)}
-                                placeholder="Set album password"
-                            />
+                            <div className="ae-share-password-field">
+                                <input
+                                    type={showAlbumPassword ? 'text' : 'password'}
+                                    className="ae-share-input"
+                                    value={albumPassword}
+                                    onChange={(e) => handlePasswordChange(e.target.value)}
+                                    onKeyDown={handlePasswordKeyDown}
+                                    onBlur={handlePasswordBlur}
+                                    placeholder="4-digit PIN"
+                                    inputMode="numeric"
+                                    maxLength={8}
+                                    autoComplete="new-password"
+                                />
+                                <button
+                                    type="button"
+                                    className="ae-share-password-toggle"
+                                    onMouseDown={(e) => e.preventDefault()}
+                                    onClick={() => setShowAlbumPassword((prev) => !prev)}
+                                    aria-label={showAlbumPassword ? 'Hide PIN' : 'Show PIN'}
+                                >
+                                    {showAlbumPassword ? (
+                                        <EyeOff size={16} strokeWidth={2} aria-hidden />
+                                    ) : (
+                                        <Eye size={16} strokeWidth={2} aria-hidden />
+                                    )}
+                                </button>
+                            </div>
                         ) : null}
 
                         <button
                             type="button"
-                            className="ae-share-btn ae-share-btn--primary"
-                            onClick={() => void handlePublishAndCopy()}
+                            className="ae-share-btn ae-share-btn--primary ae-share-btn--draft-publish"
+                            onClick={() => void handlePublishAndShare()}
                             disabled={busy}
                         >
-                            Publish &amp; copy link
+                            Publish &amp; share...
                         </button>
-                        <p className="ae-share-footnote">
-                            Publishing creates the client link. Nothing is sent automatically.
+                        <p className="ae-share-footnote ae-share-footnote--center">
+                            Publishing creates the link. Nothing is sent until you pick a channel.
                         </p>
-
-                        <div className="ae-share-divider" />
-
-                        <ShareToggleRow
-                            title="Require name"
-                            desc="Identify who is leaving feedback"
-                            on={requireName}
-                            onChange={() => setRequireName((v) => !v)}
-                        />
-                        <ShareToggleRow
-                            title="Voice notes"
-                            desc="Clients can record voice messages"
-                            on={allowVoice}
-                            onChange={() => setAllowVoice((v) => !v)}
-                        />
-                        <ShareToggleRow
-                            title="Image attachments"
-                            desc="Clients can attach reference images"
-                            on={allowExternal}
-                            onChange={() => setAllowExternal((v) => !v)}
-                        />
-                        <ShareToggleRow
-                            title="Allow swaps"
-                            desc="Clients can place swap requests on photos"
-                            on={allowSwaps}
-                            onChange={() => setAllowSwaps((v) => !v)}
-                        />
-                        {allowSwaps ? (
-                            <div className="ae-share-nested">
-                                <div className="ae-share-nested__row">
-                                    <span className="ae-share-nested__label">
-                                        Free swaps included
-                                    </span>
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        className="ae-share-swaps-input"
-                                        value={maxSwaps}
-                                        onChange={(e) =>
-                                            setMaxSwaps(
-                                                Math.max(0, parseInt(e.target.value, 10) || 0)
-                                            )
-                                        }
-                                    />
-                                </div>
-                            </div>
-                        ) : null}
-                    </>
+                    </div>
                 ) : mode === 'paused' ? (
                     <>
                         <p className="ae-share-section-label">Client link</p>
@@ -636,15 +864,15 @@ export default function AlbumSharePublishMenu({
                             <input type="text" readOnly value={shareDisplayUrl} />
                             <button
                                 type="button"
-                                className="ae-share-copy-inline"
+                                className="ae-share-copy-inline ae-share-copy-inline--outline"
                                 onClick={() => void handleCopyLink()}
                             >
                                 {copied ? 'Copied' : 'Copy'}
                             </button>
                         </div>
                         <div className="ae-share-paused-banner">
-                            Access is paused. Anyone opening this link sees &ldquo;This album is
-                            temporarily unavailable.&rdquo;
+                            Access is paused. Anyone opening this link sees{' '}
+                            <strong>&ldquo;This album is temporarily unavailable.&rdquo;</strong>
                         </div>
                         <button
                             type="button"
@@ -654,23 +882,16 @@ export default function AlbumSharePublishMenu({
                         >
                             Resume client access
                         </button>
+                        {pausedRel ? (
+                            <p className="ae-share-footnote ae-share-footnote--center">
+                                Paused {pausedRel} by you.
+                            </p>
+                        ) : null}
                     </>
                 ) : (
                     liveShareBody
                 )}
             </div>
-        </div>
-    );
-}
-
-function ShareToggleRow({ title, desc, on, onChange }) {
-    return (
-        <div className="ae-share-row">
-            <div className="ae-share-row__text">
-                <p className="ae-share-row__title">{title}</p>
-                <p className="ae-share-row__desc">{desc}</p>
-            </div>
-            <ShareToggle on={on} onChange={onChange} label={title} />
         </div>
     );
 }
@@ -682,7 +903,10 @@ export function AlbumPublishStatusBadge({ album, onPublish, publishBusy }) {
         return (
             <div className="ae-publish-status">
                 <div className="ae-publish-seg" role="group" aria-label="Publish status">
-                    <span className="ae-publish-seg__btn ae-publish-seg__btn--active">Draft</span>
+                    <span className="ae-publish-seg__btn ae-publish-seg__btn--active ae-publish-seg__btn--draft">
+                        <span className="ae-publish-seg__dot" aria-hidden />
+                        Draft
+                    </span>
                     <button
                         type="button"
                         className="ae-publish-seg__btn"

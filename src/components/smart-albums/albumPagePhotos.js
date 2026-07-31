@@ -89,10 +89,11 @@ function resolveCollectionItemUrl(albumId, collectionItemId) {
 function resolveStoredPhoto(albumId, stored) {
     if (!stored) return null;
     if (typeof stored === 'string') return stored;
-    if (stored.dataUrl) return stored.dataUrl;
+    // Prefer live collection item over embedded dataUrl so cover/photo replace updates propagate.
     if (stored.collectionItemId) {
         return resolveCollectionItemUrl(albumId, stored.collectionItemId);
     }
+    if (stored.dataUrl) return stored.dataUrl;
     return null;
 }
 
@@ -100,10 +101,10 @@ function resolveRemotePagePhoto(albumId, key) {
     const remote = getRemotePagePhoto(albumId, key);
     if (!remote) return null;
     if (typeof remote === 'string') return remote;
-    if (remote.dataUrl) return remote.dataUrl;
     if (remote.collectionItemId) {
         return resolveCollectionItemUrl(albumId, remote.collectionItemId);
     }
+    if (remote.dataUrl) return remote.dataUrl;
     return null;
 }
 
@@ -651,14 +652,20 @@ export function resolveBookWrapSpreadSrc(album, { showSamples = false } = {}) {
     if (albumId) {
         const onSpread = getSpreadPhotoOverride(albumId, 0);
         if (onSpread) return onSpread;
-        if (!albumHasBlankCovers(album)) {
-            const first = getAlbumCollection(albumId)[0];
-            const fromCollection = resolveCollectionItemUrl(albumId, first?.id);
-            if (fromCollection) return fromCollection;
+        // Blank-cover albums: no placement means leather/blank — never fall back to an
+        // orphaned collection item (that resurrected old wraps after remove).
+        if (albumHasBlankCovers(album)) {
+            return null;
         }
+        const coverWrap = getAlbumCollection(albumId).find((item) => isCoverWrapCollectionItem(item));
+        const fromCoverWrap = resolveCollectionItemUrl(albumId, coverWrap?.id);
+        if (fromCoverWrap) return fromCoverWrap;
+        const first = getAlbumCollection(albumId)[0];
+        const fromCollection = resolveCollectionItemUrl(albumId, first?.id);
+        if (fromCollection) return fromCollection;
     }
     if (albumHasBlankCovers(album)) {
-        return showSamples ? null : null;
+        return null;
     }
     if (album?.cover_image_url) return album.cover_image_url;
     return showSamples ? getSampleImageForPage(0) : null;
@@ -684,6 +691,9 @@ export function resolveCoverImageSrc(album, { showSamples = false } = {}) {
     }
     if (album?.cover_image_url) return album.cover_image_url;
     if (albumId) {
+        const coverWrap = getAlbumCollection(albumId).find((item) => isCoverWrapCollectionItem(item));
+        const fromCoverWrap = resolveCollectionItemUrl(albumId, coverWrap?.id);
+        if (fromCoverWrap) return fromCoverWrap;
         const first = getAlbumCollection(albumId)[0];
         const fromCollection = resolveCollectionItemUrl(albumId, first?.id);
         if (fromCollection) return fromCollection;
@@ -1191,12 +1201,29 @@ export function setSpreadPhotoFromCollectionItem(
     }
     const all = readAll();
     const album = { ...(all[albumId] || {}) };
+    // Always store id-only — never embed a frozen dataUrl that can stale on replace.
     album[spreadStorageKey(leftPage)] = { collectionItemId };
     delete album[String(leftPage)];
     if (rightPage != null) delete album[String(rightPage)];
     album.__revision = (album.__revision || 0) + 1;
     all[albumId] = album;
-    return writeAll(all);
+    const wrote = writeAll(all);
+
+    // Keep remote preview cache in sync so hydrate/merge cannot resurrect an old dataUrl.
+    const remote = getRemotePreviewData(albumId);
+    if (remote?.pages) {
+        const pages = { ...remote.pages };
+        pages[spreadStorageKey(leftPage)] = { collectionItemId };
+        delete pages[String(leftPage)];
+        if (rightPage != null) delete pages[String(rightPage)];
+        hydrateAlbumPreviewData(albumId, {
+            ...remote,
+            pages,
+            revision: (remote.revision || 0) + 1,
+        });
+    }
+
+    return wrote;
 }
 
 export function placeCollectionPhotoOnPages(albumId, dataUrl, pageIndices, { spreadLeftPage } = {}) {

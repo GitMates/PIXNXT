@@ -1,5 +1,4 @@
 import React, { useMemo, useState } from 'react';
-import { Lock } from 'lucide-react';
 import { getGuestProfile, saveGuestProfile } from '../../services/smartAlbumComments.service';
 
 export default function AlbumPreviewAccessGate({
@@ -7,8 +6,9 @@ export default function AlbumPreviewAccessGate({
     access,
     onGranted,
     children,
+    /** Logged-in album owner: skip private-token wall. Password is collected in the overlay. */
+    isOwner = false,
 }) {
-    const [password, setPassword] = useState('');
     const [email, setEmail] = useState(() => getGuestProfile(albumId)?.email || '');
     const [error, setError] = useState('');
     const [granted, setGranted] = useState(false);
@@ -24,8 +24,21 @@ export default function AlbumPreviewAccessGate({
     if (granted) return children;
 
     const accessLevel = access?.accessLevel || access?.privacyLevel || 'public';
+    const requiresPassword =
+        accessLevel === 'password' || access?.privacyLevel === 'password';
+    const requiresPrivate =
+        accessLevel === 'private' ||
+        accessLevel === 'restricted' ||
+        access?.privacyLevel === 'restricted';
 
-    if (accessLevel === 'private') {
+    // Password is collected in the Your Details overlay on top of the album.
+    if (requiresPassword) {
+        return children;
+    }
+
+    if (requiresPrivate) {
+        if (isOwner) return children;
+
         const expectedToken = access?.privateShareToken || '';
         if (expectedToken && urlToken === expectedToken) {
             return children;
@@ -44,54 +57,7 @@ export default function AlbumPreviewAccessGate({
         );
     }
 
-    if (accessLevel === 'password' || access?.privacyLevel === 'password') {
-        const handlePasswordSubmit = (e) => {
-            e.preventDefault();
-            if (password === access.accessPassword) {
-                setGranted(true);
-                onGranted?.();
-                setError('');
-            } else {
-                setError('Incorrect password. Please try again.');
-            }
-        };
-
-        return (
-            <div className="av-page av-page--preview flex items-center justify-center min-h-screen bg-[#f5f5f5] p-6">
-                <form
-                    onSubmit={handlePasswordSubmit}
-                    className="w-full max-w-md rounded-xl border border-[#e8eaed] bg-white p-8 shadow-sm space-y-4"
-                >
-                    <div className="flex items-center gap-3">
-                        <div className="rounded-lg bg-[#f3f4f6] p-2">
-                            <Lock className="size-5 text-[#222]" />
-                        </div>
-                        <div>
-                            <h1 className="text-lg font-semibold text-[#222]">Password required</h1>
-                            <p className="text-sm text-[#888]">Enter the album access password to continue.</p>
-                        </div>
-                    </div>
-                    <input
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="Album password"
-                        className="w-full rounded-lg border border-[#e0e0e0] bg-[#fafafa] px-3 py-2.5 text-sm outline-none focus:border-[#9b59b6]"
-                        autoFocus
-                    />
-                    {error && <p className="text-sm text-red-600">{error}</p>}
-                    <button
-                        type="submit"
-                        className="w-full rounded-lg bg-[#222] py-2.5 text-sm font-semibold text-white hover:bg-[#333]"
-                    >
-                        View album
-                    </button>
-                </form>
-            </div>
-        );
-    }
-
-    if (access?.privacyLevel === 'restricted') {
+    if (access?.privacyLevel === 'restricted' && !requiresPrivate) {
         const whitelist = access?.whitelistedEmails || [];
         const handleEmailSubmit = (e) => {
             e.preventDefault();

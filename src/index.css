@@ -1,25 +1,9 @@
-/* Keep Google Fonts for gallery design themes (Playfair, Lora, Montserrat etc.) */
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Outfit:wght@300;400;500;600;700&family=Lora:ital,wght@0,400..700;1,400..700&family=Montserrat:ital,wght@0,300..800;1,300..800&family=Unbounded:wght@300..800&family=Kaushan+Script&display=swap');
+/* Gallery design themes only (client-facing cover presets). Product UI fonts are self-hosted — see styles/typography.css */
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Lora:ital,wght@0,400..700;1,400..700&family=Montserrat:ital,wght@0,300..800;1,300..800&family=Unbounded:wght@300..800&family=Kaushan+Script&display=swap');
+@import './styles/typography.css';
 @import './styles/galleryColorThemes.css';
 
-/* ── LOCAL FONT: Roboto (from /src/assets/font/) ─────────────── */
-@font-face {
-  font-family: 'Roboto';
-  src: url('./assets/font/Roboto-VariableFont_wdth,wght.ttf') format('truetype');
-  font-weight: 100 900;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Roboto';
-  src: url('./assets/font/Roboto-Italic-VariableFont_wdth,wght.ttf') format('truetype');
-  font-weight: 100 900;
-  font-style: italic;
-  font-display: swap;
-}
-
-/* ── LOCAL FONT: EB Garamond (from /src/assets/font/) ─────────── */
+/* Legacy EB Garamond kept only if an older surface still references it by name */
 @font-face {
   font-family: 'EB Garamond';
   src: url('./assets/font/EBGaramond-VariableFont_wght.ttf') format('truetype');
@@ -41,38 +25,34 @@
 @tailwind utilities;
 
 @layer base {
-  body {
-    font-family: 'EB Garamond', serif;
-  }
-  
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
+    --background: 40 14% 96%;
+    --foreground: 24 10% 10%;
 
     --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
+    --card-foreground: 24 10% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
+    --popover-foreground: 24 10% 10%;
 
-    --primary: 240 5.9% 10%;
-    --primary-foreground: 0 0% 98%;
+    --primary: 24 10% 10%;
+    --primary-foreground: 40 14% 96%;
 
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
+    --secondary: 40 10% 94%;
+    --secondary-foreground: 24 10% 10%;
 
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
+    --muted: 40 10% 94%;
+    --muted-foreground: 30 4% 52%;
 
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
+    --accent: 40 10% 94%;
+    --accent-foreground: 24 10% 10%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 240 10% 3.9%;
+    --border: 36 12% 88%;
+    --input: 36 12% 88%;
+    --ring: 24 10% 10%;
 
     --radius: 0.5rem;
   }
@@ -106,31 +86,27 @@
     --input: 240 3.7% 15.9%;
     --ring: 240 4.9% 83.9%;
   }
-}
 
-@layer base {
-  * {
-    @apply border-border;
-    font-family: 'EB Garamond', serif !important;
+  html {
+    font-size: 16px;
   }
 
   body {
-    @apply bg-background text-foreground font-sans antialiased;
-    font-family: 'EB Garamond', serif !important;
+    @apply antialiased;
+    font-family: var(--font-sans);
+    font-size: var(--t-body);
+    font-weight: 400;
+    line-height: 1.5;
+    color: var(--ink-body);
+    background-color: var(--bg);
   }
 
-  h1 {
-    font-size: 24px !important;
-    font-weight: 700 !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.12em !important;
-    color: #111 !important;
-  }
-
-  h2, h3, h4, h5, h6 {
-    text-transform: uppercase !important;
-    letter-spacing: 0.12em !important;
-    font-weight: 700 !important;
+  /* Product chrome inherits Jakarta; gallery theme wrappers override below */
+  button,
+  input,
+  textarea,
+  select {
+    font-family: inherit;
   }
 
   textarea.ae-spread-message-compose-input {
@@ -164,8 +140,8 @@
 
 /* Typography presets — gallery view + gallery preview wrapper styles */
 :is(.gallery-view-page, .cd-preview-gallery-card, .cd-design-preview-pane).font-sans {
-  --body-font: 'Outfit', sans-serif;
-  --heading-font: 'Outfit', sans-serif;
+  --body-font: var(--font-sans);
+  --heading-font: var(--font-sans);
   --heading-letter-spacing: 0.15em;
   --heading-transform: uppercase;
   --heading-weight: 500;
@@ -194,13 +170,13 @@
   --body-font: 'Lora', serif;
   --heading-font: 'Cormorant Garamond', serif;
   --heading-letter-spacing: 0.05em;
-  --heading-weight: 300;
+  --heading-weight: 400;
   --heading-style: italic;
   --heading-transform: none;
 }
 
 :is(.gallery-view-page, .cd-preview-gallery-card, .cd-design-preview-pane).font-bold {
-  --body-font: 'Outfit', sans-serif;
+  --body-font: var(--font-sans);
   --heading-font: 'Unbounded', sans-serif;
   --heading-letter-spacing: -0.02em;
   --heading-weight: 700;
@@ -209,9 +185,9 @@
 }
 
 :is(.gallery-view-page, .cd-preview-gallery-card, .cd-design-preview-pane).font-subtle {
-  --body-font: 'Outfit', sans-serif;
-  --heading-font: 'Outfit', sans-serif;
-  --heading-weight: 200;
+  --body-font: var(--font-sans);
+  --heading-font: var(--font-sans);
+  --heading-weight: 400;
   --heading-letter-spacing: 0.25em;
   --heading-transform: uppercase;
   --heading-style: normal;

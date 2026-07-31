@@ -45,7 +45,7 @@ export default function LabWorksheets() {
   const activeWorksheets = orders.filter(o => o.status !== 'completed' && o.status !== 'cancelled');
 
   return (
-    <div style={{ padding: '32px', backgroundColor: '#F9F9F7', minHeight: '100%', boxSizing: 'border-box', fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
+    <div style={{ padding: '32px', backgroundColor: '#F9F9F7', minHeight: '100%', boxSizing: 'border-box', fontFamily: "var(--font-sans)" }}>
       
       {/* Hide layout on window print */}
       <style>{`

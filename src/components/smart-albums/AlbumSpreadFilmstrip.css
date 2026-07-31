@@ -1,0 +1,215 @@
+/* Bottom spread filmstrip — live thumbs + drag reorder */
+
+.ae-spread-filmstrip {
+  flex-shrink: 0;
+  width: 100%;
+  padding: 10px 16px 14px;
+  box-sizing: border-box;
+  background: transparent;
+  border-top: 1px solid rgba(28, 25, 23, 0.06);
+}
+
+.ae-spread-filmstrip__track {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 4px 2px 8px;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(28, 25, 23, 0.28) transparent;
+}
+
+.ae-spread-filmstrip__track--dragging {
+  cursor: grabbing;
+  scroll-snap-type: none;
+  user-select: none;
+}
+
+.ae-spread-filmstrip__track--dragging .ae-spread-filmstrip__wrap:not(.ae-spread-filmstrip__wrap--dragging) {
+  transition: transform 0.22s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.ae-spread-filmstrip__track::-webkit-scrollbar {
+  height: 6px;
+}
+
+.ae-spread-filmstrip__track::-webkit-scrollbar-thumb {
+  background: rgba(28, 25, 23, 0.22);
+  border-radius: 999px;
+}
+
+.ae-spread-filmstrip__wrap {
+  flex-shrink: 0;
+  touch-action: none;
+  will-change: transform;
+}
+
+.ae-spread-filmstrip__wrap--dragging {
+  z-index: 5;
+  transition: none;
+}
+
+.ae-spread-filmstrip__tile {
+  appearance: none;
+  position: relative;
+  display: block;
+  width: 148px;
+  height: auto;
+  aspect-ratio: 2 / 1;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  background: #efeee9;
+  overflow: hidden;
+  cursor: pointer;
+  scroll-snap-align: start;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.ae-spread-filmstrip__tile--draggable {
+  cursor: grab;
+}
+
+.ae-spread-filmstrip__wrap--dragging .ae-spread-filmstrip__tile--draggable {
+  cursor: grabbing;
+  border-color: #8e44ad;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16);
+}
+
+.ae-spread-filmstrip__tile:hover {
+  border-color: rgba(28, 25, 23, 0.18);
+}
+
+.ae-spread-filmstrip__tile--active {
+  border-color: #c45c26;
+  box-shadow: 0 0 0 1px #c45c26;
+}
+
+.ae-spread-filmstrip__wrap--dragging .ae-spread-filmstrip__tile--active {
+  border-color: #8e44ad;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16);
+}
+
+.ae-spread-filmstrip__tile--cover,
+.ae-spread-filmstrip__tile--back {
+  width: 74px;
+  aspect-ratio: 1 / 1;
+}
+
+.ae-spread-filmstrip__tile--locked {
+  cursor: default;
+}
+
+.ae-spread-filmstrip__thumb {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #e8e6e0;
+}
+
+.ae-spread-filmstrip__thumb .ab-overview-leather-cover {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+  box-shadow: none !important;
+  transform: none !important;
+  filter: none;
+}
+
+.ae-spread-filmstrip__thumb > img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  display: block;
+  pointer-events: none;
+}
+
+.ae-spread-filmstrip__page {
+  flex: 1 1 50%;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #e8e6e0;
+}
+
+.ae-spread-filmstrip__page + .ae-spread-filmstrip__page {
+  border-left: 1px solid rgba(28, 25, 23, 0.08);
+}
+
+.ae-spread-filmstrip__page img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  display: block;
+  pointer-events: none;
+}
+
+.ae-spread-filmstrip__ph {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #ebe8e2, #ddd8d0);
+}
+
+.ae-spread-filmstrip__num {
+  position: absolute;
+  left: 5px;
+  bottom: 4px;
+  z-index: 1;
+  font-family: var(--font-sans);
+  font-size: var(--t-label, 0.625rem);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+}
+
+.ae-spread-filmstrip__badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 1;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--ink, #1c1917);
+  color: #fff;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+@media (max-width: 768px) {
+  .ae-spread-filmstrip {
+    padding: 8px 12px 12px;
+  }
+
+  .ae-spread-filmstrip__tile {
+    width: 120px;
+  }
+
+  .ae-spread-filmstrip__tile--cover,
+  .ae-spread-filmstrip__tile--back {
+    width: 60px;
+  }
+}

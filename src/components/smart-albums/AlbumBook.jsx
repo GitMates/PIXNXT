@@ -31,6 +31,7 @@ import { getSampleImageForPage } from './sampleAlbumImages';
 import SpreadGridComments from './SpreadGridComments';
 import {
     COMMENTS_SEEN_CHANGED_EVENT,
+    getClientReviewerIdentity,
 } from '../../services/smartAlbumComments.service';
 import { buildOverviewSpreadReorderPlan } from './albumSpreadReorder';
 import AlbumSwapPickerModal from './AlbumSwapPickerModal';
@@ -458,6 +459,7 @@ const AlbumBook = ({
 
         let measureAttempts = 0;
         const maxMeasureAttempts = 64;
+        const fallbackAfterAttempts = 2;
 
         const commitDims = (next) => {
             if (pendingDimsCommitRef.current != null) {
@@ -495,13 +497,18 @@ const AlbumBook = ({
                 const next = getBookDimensions(stage, album?.grid_size);
                 if (!next) {
                     measureAttempts += 1;
-                    if (measureAttempts >= maxMeasureAttempts) {
+                    // Mount cover ASAP on open/reload — don't wait ~1s for stage to hit 300px.
+                    if (
+                        measureAttempts === fallbackAfterAttempts ||
+                        measureAttempts >= maxMeasureAttempts
+                    ) {
                         const fallback = getFallbackBookDimensions(
                             rootRef.current,
                             album?.grid_size
                         );
                         if (fallback) commitDims(fallback);
-                    } else {
+                    }
+                    if (measureAttempts < maxMeasureAttempts) {
                         dimsRafRef.current = requestAnimationFrame(update);
                     }
                     return;
@@ -557,7 +564,7 @@ const AlbumBook = ({
     const goToPage = useCallback(
         (pageNum) => {
             closeAlbumPinPopovers();
-            if (previewMode) spreadMagnify.reset();
+            spreadMagnify.reset();
             const clamped = normalizeStoragePageIndex(pageNum, totalPages, spreadOpts);
             syncingPageRef.current = true;
             const api = bookRef.current?.pageFlip?.();
@@ -572,7 +579,7 @@ const AlbumBook = ({
                 });
             });
         },
-        [totalPages, spreadOpts, onPageChange, previewMode, spreadMagnify.reset]
+        [totalPages, spreadOpts, onPageChange, spreadMagnify.reset]
     );
 
     const canDragOverviewSpreads = Boolean(editable && onReorderOverviewSpread && !pageCountBusy);
@@ -919,7 +926,7 @@ const AlbumBook = ({
 
     const flipPrev = useCallback(() => {
         closeAlbumPinPopovers();
-        if (previewMode) spreadMagnify.reset();
+        spreadMagnify.reset();
         const api = bookRef.current?.pageFlip?.();
         if (!api?.getFlipController?.()) return;
 
@@ -979,11 +986,11 @@ const AlbumBook = ({
 
         if (typeof api.flipPrev === 'function') api.flipPrev(FLIP_CORNER);
         else if (typeof api.turnToPrevPage === 'function') api.turnToPrevPage();
-    }, [album?.has_covers, beginCoverHideTo3DFlip, beginEndRevealFlip, endCoverOnly, external3DCover, onExternalCoverRequest, onPageChange, previewMode, spreadIndex, spreadMagnify.reset, spreadOpts, totalPages]);
+    }, [album?.has_covers, beginCoverHideTo3DFlip, beginEndRevealFlip, endCoverOnly, external3DCover, onExternalCoverRequest, onPageChange, spreadIndex, spreadMagnify.reset, spreadOpts, totalPages]);
 
     const flipNext = useCallback(() => {
         closeAlbumPinPopovers();
-        if (previewMode) spreadMagnify.reset();
+        spreadMagnify.reset();
         const api = bookRef.current?.pageFlip?.();
         if (!api?.getFlipController?.()) return;
 
@@ -1023,7 +1030,7 @@ const AlbumBook = ({
 
         if (typeof api.flipNext === 'function') api.flipNext(FLIP_CORNER);
         else if (typeof api.turnToNextPage === 'function') api.turnToNextPage();
-    }, [album?.has_covers, beginCoverRevealFlip, external3DCover, onPageChange, previewMode, spreadIndex, spreadMagnify.reset, spreadOpts, totalPages, totalSpreads]);
+    }, [album?.has_covers, beginCoverRevealFlip, external3DCover, onPageChange, spreadIndex, spreadMagnify.reset, spreadOpts, totalPages, totalSpreads]);
 
     useEffect(() => {
         if (!initialized || bookFlipping || coverClipTransition) return;
@@ -1278,7 +1285,12 @@ const AlbumBook = ({
                 cellId: secondSlot.cellId ?? 0,
             };
             const hadFeedback = albumHadClientFeedbackBefore(album.id);
-            addSwapMark(album.id, originSlot, secondSlot, { pointA, pointB });
+            const identity = getClientReviewerIdentity(album.id);
+            addSwapMark(album.id, originSlot, secondSlot, {
+                pointA,
+                pointB,
+                authorName: identity?.name || null,
+            });
             if (previewMode) {
                 notifyClientFeedbackEvent(album.id, {
                     photographerId: album.photographer_id,
@@ -1353,6 +1365,7 @@ const AlbumBook = ({
                         cellId: originSlot.cellId ?? 0,
                     },
                     pointB: placementPoint,
+                    authorName: getClientReviewerIdentity(album.id)?.name || null,
                 });
                 if (mark) {
                     if (previewMode) {
@@ -1375,6 +1388,7 @@ const AlbumBook = ({
                 const mark = addSwapMark(album.id, originSlot, placement, {
                     pointA: swapPinFlow.originPoint,
                     pointB: placementPoint,
+                    authorName: getClientReviewerIdentity(album.id)?.name || null,
                 });
                 if (mark) {
                     if (previewMode) {
@@ -1396,6 +1410,7 @@ const AlbumBook = ({
             const mark = addSwapMark(album.id, originSlot, placement, {
                 pointA: swapPinFlow.originPoint,
                 pointB: placementPoint,
+                authorName: getClientReviewerIdentity(album.id)?.name || null,
             });
             if (mark) {
                 if (previewMode) {
@@ -1455,7 +1470,12 @@ const AlbumBook = ({
             if (!album?.id || !pinComposer) return;
             if (!ensureClientFeedback('comment')) return;
             const hadFeedback = albumHadClientFeedbackBefore(album.id);
-            addPhotoPin(album.id, { ...pinComposer, message });
+            const identity = getClientReviewerIdentity(album.id);
+            addPhotoPin(album.id, {
+                ...pinComposer,
+                message,
+                authorName: identity?.name || null,
+            });
             if (previewMode) {
                 notifyClientFeedbackEvent(album.id, {
                     photographerId: album.photographer_id,
@@ -1475,7 +1495,11 @@ const AlbumBook = ({
             if (!album?.id || !placement?.message?.trim()) return;
             if (!ensureClientFeedback('comment')) return;
             const hadFeedback = albumHadClientFeedbackBefore(album.id);
-            addPhotoPin(album.id, placement);
+            const identity = getClientReviewerIdentity(album.id);
+            addPhotoPin(album.id, {
+                ...placement,
+                authorName: placement.authorName || identity?.name || null,
+            });
             if (previewMode) {
                 notifyClientFeedbackEvent(album.id, {
                     photographerId: album.photographer_id,
@@ -1554,8 +1578,9 @@ const AlbumBook = ({
             spotActionPicker: proofSpotPicker,
             spotCanComment,
             spotCanSwap,
+            ensureClientFeedback,
             activeBookPage: pageIndex,
-            spreadMagnifyActive: previewMode && spreadMagnify.active,
+            spreadMagnifyActive: spreadMagnify.active,
         }),
         [
             gridSelection?.leftPage,
@@ -1587,6 +1612,7 @@ const AlbumBook = ({
             proofSpotPicker,
             spotCanComment,
             spotCanSwap,
+            ensureClientFeedback,
             pageIndex,
             previewMode,
             spreadMagnify.active,
@@ -1666,7 +1692,7 @@ const AlbumBook = ({
     return (
         <div
             className={`ab-root${previewMode ? ' ab-root--preview' : ''}${
-                previewMode && spreadMagnify.active ? ' ab-root--spread-magnify' : ''
+                spreadMagnify.active ? ' ab-root--spread-magnify' : ''
             }${isPinModeOn && pinMarkMode ? ' ab-root--pin-mode' : ''}${
                 previewMode && swapMarkMode ? ' ab-root--swap-mode' : ''
             }`}
@@ -1745,7 +1771,7 @@ const AlbumBook = ({
                     className={spreadMagnify.contentClassName}
                     style={spreadMagnify.contentStyle}
                     onPointerDown={
-                        previewMode && spreadMagnify.active
+                        spreadMagnify.active
                             ? spreadMagnify.handlePointerDown
                             : undefined
                     }
@@ -1815,59 +1841,57 @@ const AlbumBook = ({
                 </div>
                 </div>
                 </div>
-                <div
-                    className={`ab-spread-controls${
-                        previewMode ? ' ab-spread-controls--preview' : ''
-                    }`}
-                >
-                    {previewMode ? (
-                        <>
-                            <button
-                                type="button"
-                                className="ab-control-icon ab-control-icon--button"
-                                aria-label="Zoom out"
-                                disabled={!spreadMagnify.canZoomOut}
-                                onClick={spreadMagnify.zoomOut}
-                            >
-                                <svg width="20" height="20" viewBox="0 0 28 28" fill="none" aria-hidden>
-                                    <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.8" />
-                                    <path d="M16 16l5.5 5.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                                    <path d="M8 11h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                                </svg>
-                            </button>
-                            <span className="ab-zoom-level" aria-live="polite">
-                                {zoomPercentLabel}
-                            </span>
-                            <button
-                                type="button"
-                                className="ab-control-icon ab-control-icon--button"
-                                aria-label="Zoom in"
-                                disabled={!spreadMagnify.canZoomIn}
-                                onClick={spreadMagnify.zoomIn}
-                            >
-                                <svg width="20" height="20" viewBox="0 0 28 28" fill="none" aria-hidden>
-                                    <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.8" />
-                                    <path d="M16 16l5.5 5.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                                    <path d="M8 11h6M11 8v6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                                </svg>
-                            </button>
-                            <span className="ab-spread-controls-divider" aria-hidden />
-                        </>
-                    ) : null}
+                <div className="ab-spread-controls ab-spread-controls--toolbar">
+                    <button
+                        type="button"
+                        className="ab-control-icon ab-control-icon--button"
+                        aria-label="Zoom out"
+                        disabled={!spreadMagnify.canZoomOut}
+                        onClick={spreadMagnify.zoomOut}
+                    >
+                        <svg width="20" height="20" viewBox="0 0 28 28" fill="none" aria-hidden>
+                            <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.8" />
+                            <path d="M16 16l5.5 5.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                            <path d="M8 11h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                        </svg>
+                    </button>
+                    <span className="ab-zoom-level" aria-live="polite">
+                        {zoomPercentLabel}
+                    </span>
+                    <button
+                        type="button"
+                        className="ab-control-icon ab-control-icon--button"
+                        aria-label="Zoom in"
+                        disabled={!spreadMagnify.canZoomIn}
+                        onClick={spreadMagnify.zoomIn}
+                    >
+                        <svg width="20" height="20" viewBox="0 0 28 28" fill="none" aria-hidden>
+                            <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.8" />
+                            <path d="M16 16l5.5 5.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                            <path d="M8 11h6M11 8v6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                        </svg>
+                    </button>
+                    <span className="ab-spread-controls-divider" aria-hidden />
                     <button
                         type="button"
                         className="ab-control-icon ab-control-icon--button"
                         aria-label="Show spread full screen"
                         onClick={openFocusView}
                     >
-                        <svg
-                            width={previewMode ? 20 : 28}
-                            height={previewMode ? 20 : 28}
-                            viewBox="0 0 28 28"
-                            fill="none"
-                        >
-                            <path d="M5 11V5h6M17 5h6v6M23 17v6h-6M11 23H5v-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="square" />
-                            <path d="M6 6l6 6M22 6l-6 6M22 22l-6-6M6 22l6-6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="square" />
+                        <svg width="18" height="18" viewBox="0 0 28 28" fill="none" aria-hidden>
+                            <path
+                                d="M11 5H5v6M17 5h6v6M23 17v6h-6M11 23H5v-6"
+                                stroke="currentColor"
+                                strokeWidth="1.8"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            />
+                            <path
+                                d="M5.8 5.8l6.2 6.2M22.2 5.8l-6.2 6.2M22.2 22.2l-6.2-6.2M5.8 22.2l6.2-6.2"
+                                stroke="currentColor"
+                                strokeWidth="1.5"
+                                strokeLinecap="round"
+                            />
                         </svg>
                     </button>
                     <button
@@ -1876,17 +1900,11 @@ const AlbumBook = ({
                         aria-label="Show page overview"
                         onClick={openOverview}
                     >
-                        <svg
-                            width={previewMode ? 20 : 28}
-                            height={previewMode ? 20 : 28}
-                            viewBox="0 0 28 28"
-                            fill="none"
-                        >
-                            {Array.from({ length: 9 }, (_, i) => {
-                                const x = 5 + (i % 3) * 7;
-                                const y = 5 + Math.floor(i / 3) * 7;
-                                return <rect key={i} x={x} y={y} width="4" height="4" stroke="currentColor" strokeWidth="1.5" />;
-                            })}
+                        <svg width="18" height="18" viewBox="0 0 28 28" fill="none" aria-hidden>
+                            <rect x="4" y="4" width="8" height="8" rx="1.2" stroke="currentColor" strokeWidth="1.8" />
+                            <rect x="16" y="4" width="8" height="8" rx="1.2" stroke="currentColor" strokeWidth="1.8" />
+                            <rect x="4" y="16" width="8" height="8" rx="1.2" stroke="currentColor" strokeWidth="1.8" />
+                            <rect x="16" y="16" width="8" height="8" rx="1.2" stroke="currentColor" strokeWidth="1.8" />
                         </svg>
                     </button>
                     <span className="ab-page-counter" title={`Pages ${pageRangeLabel}`}>

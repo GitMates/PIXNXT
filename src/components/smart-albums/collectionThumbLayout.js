@@ -156,16 +156,10 @@ function leftPageFromPlacementSlot(slot) {
     return null;
 }
 
-function spreadLabelFromLeftPage(leftPage, totalPages, spreadOpts) {
-    if (leftPage == null || Number.isNaN(leftPage)) return '';
-    const spreadIndex = pageToSpreadIndex(leftPage, { ...spreadOpts, totalPages });
-    return formatOverviewSpreadLabel(spreadIndex, totalPages, spreadOpts);
-}
-
-/** Spread number label for a collection thumbnail — matches flipbook counter (e.g. 3/6 → "3"). */
-export function resolveCollectionSpreadLabel(index, collectionItems, album, totalPages) {
+/** Resolve the album spread index currently backing a collection thumbnail. */
+export function resolveCollectionItemSpreadIndex(index, collectionItems, album, totalPages) {
     const item = collectionItems[index];
-    if (!item) return '';
+    if (!item) return null;
 
     const gridLayout = album?.grid_layout || 'two-page';
     const spreadOpts = getAlbumSpreadOptions(album);
@@ -175,16 +169,18 @@ export function resolveCollectionSpreadLabel(index, collectionItems, album, tota
         blankCovers: spreadOpts.blankCovers,
         gridLayout,
     };
+    const spreadCtx = { ...spreadOpts, totalPages };
 
     if (spreadOpts.blankCovers && isCoverWrapCollectionItem(item)) {
-        return formatOverviewSpreadLabel(0, totalPages, spreadOpts);
+        return 0;
     }
 
     const placement = getCollectionItemPlacementInfo(album?.id, item.id);
     if (placement) {
         const leftPage =
             placement.mode === 'spread' ? placement.spreadLeft : placement.pageNum;
-        return spreadLabelFromLeftPage(leftPage, totalPages, spreadOpts);
+        if (leftPage == null || Number.isNaN(leftPage)) return null;
+        return pageToSpreadIndex(leftPage, spreadCtx);
     }
 
     const { placementItems, slots } = getCollectionPlacementSlots(
@@ -196,7 +192,7 @@ export function resolveCollectionSpreadLabel(index, collectionItems, album, tota
     if (placementIndex >= 0 && slots[placementIndex]) {
         const leftPage = leftPageFromPlacementSlot(slots[placementIndex]);
         if (leftPage != null) {
-            return spreadLabelFromLeftPage(leftPage, totalPages, spreadOpts);
+            return pageToSpreadIndex(leftPage, spreadCtx);
         }
     }
 
@@ -206,5 +202,22 @@ export function resolveCollectionSpreadLabel(index, collectionItems, album, tota
         placementOpts
     );
     const pageNum = placementIndex >= 0 ? pages[placementIndex] : pages[index];
-    return spreadLabelFromLeftPage(pageNum, totalPages, spreadOpts);
+    if (pageNum == null || Number.isNaN(pageNum)) return null;
+    return pageToSpreadIndex(pageNum, spreadCtx);
+}
+
+/** Spread number label for a collection thumbnail — matches flipbook counter (e.g. 3/6 → "3"). */
+export function resolveCollectionSpreadLabel(index, collectionItems, album, totalPages) {
+    const spreadIndex = resolveCollectionItemSpreadIndex(
+        index,
+        collectionItems,
+        album,
+        totalPages
+    );
+    if (spreadIndex == null) return '';
+    return formatOverviewSpreadLabel(
+        spreadIndex,
+        totalPages,
+        getAlbumSpreadOptions(album)
+    );
 }

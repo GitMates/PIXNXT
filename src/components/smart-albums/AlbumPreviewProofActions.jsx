@@ -7,7 +7,7 @@ import {
     trackAlbumProofActivity,
 } from '../../services/albumProof.service';
 import { getGuestProfile } from '../../services/smartAlbumComments.service';
-import { smartAlbumProoferSettingsService } from '../../services/smartAlbumProoferSettings.service';
+import { smartAlbumProoferSettingsService, notifyAlbumProoferSettingsChanged } from '../../services/smartAlbumProoferSettings.service';
 import { notifyAlbumProofStatusChanged } from './albumProofStatus';
 
 function ProofConfirmModal({
@@ -132,7 +132,18 @@ export default function AlbumPreviewProofActions({ albumId, albumName, album, on
             });
             markAlbumApproved(albumId);
             setApprovedAt(new Date().toISOString());
+            if (album?.photographer_id) {
+                smartAlbumProoferSettingsService.updateAlbumAccess(
+                    album.photographer_id,
+                    albumId,
+                    {
+                        allowExternalUploads: false,
+                        allowVoiceRecordings: false,
+                    }
+                );
+            }
             notifyAlbumProofStatusChanged(albumId);
+            notifyAlbumProoferSettingsChanged(albumId);
             setApproveOpen(false);
             onToast?.('Album approved. Your photographer has been notified.', 'success');
         } catch (e) {

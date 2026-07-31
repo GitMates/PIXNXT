@@ -21,7 +21,7 @@
 
 .av-feedback-sidebar__title {
   margin: 0;
-  font-family: 'EB Garamond', Georgia, 'Times New Roman', serif;
+  font-family: var(--font-display);
   font-size: 22px;
   font-weight: 600;
   line-height: 1.2;
@@ -66,7 +66,7 @@
 
 .av-feedback-tutorial__title {
   margin: 0;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 14px;
   font-weight: 600;
   line-height: 1.35;
@@ -75,7 +75,7 @@
 
 .av-feedback-tutorial__subtitle {
   margin: 4px 0 0;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 12px;
   line-height: 1.45;
   color: #9a9590;
@@ -137,7 +137,7 @@
   position: absolute;
   left: 14px;
   bottom: 12px;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 12px;
   color: #8a8580;
 }
@@ -148,7 +148,7 @@
 
 .av-feedback-tutorial__steps-label {
   margin: 0 0 10px;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -169,7 +169,7 @@
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 12px;
   line-height: 1.5;
   color: #4b5563;
@@ -197,7 +197,7 @@
   border-radius: 999px;
   background: #faf9f7;
   padding: 10px 14px;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 500;
   color: #4b5563;
@@ -217,7 +217,7 @@
 .av-feedback-sidebar__empty {
   margin: 0;
   padding: 8px 4px 4px;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 13px;
   line-height: 1.55;
   color: #9a9590;
@@ -239,7 +239,7 @@
 .av-feedback-sidebar .av-chat-feed-date span {
   padding: 5px 12px;
   border-radius: 999px;
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 11px;
   font-weight: 500;
   color: #8a8580;
@@ -290,7 +290,7 @@
 }
 
 .av-feedback-sidebar .av-chat-bubble-text {
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 13px;
   line-height: 1.45;
   color: #1c1c1c;
@@ -301,9 +301,11 @@
   display: block;
   width: 100%;
   max-width: 220px;
-  max-height: 160px;
+  height: auto;
+  max-height: 180px;
   margin-bottom: 6px;
-  object-fit: cover;
+  object-fit: contain;
+  object-position: center;
   border-radius: 10px;
   border: 1px solid rgba(0, 0, 0, 0.08);
   background: #fff;
@@ -331,14 +333,14 @@
 }
 
 .av-feedback-sidebar .av-chat-bubble--voice .av-chat-bubble-foot time {
-  font-family: 'Outfit', system-ui, sans-serif !important;
+  font-family: var(--font-sans) !important;
   font-size: 10px;
   font-weight: 500;
   color: rgba(47, 61, 54, 0.48);
 }
 
 .av-feedback-sidebar .av-chat-bubble--voice .av-chat-action {
-  font-family: 'Outfit', system-ui, sans-serif !important;
+  font-family: var(--font-sans) !important;
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0;
@@ -358,16 +360,16 @@
 }
 
 .av-feedback-sidebar .av-chat-bubble-foot time {
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 10px;
   color: rgba(28, 28, 28, 0.45);
 }
 
 .av-feedback-compose {
   flex-shrink: 0;
-  padding: 14px 16px 16px;
+  padding: 12px 16px 16px;
   border-top: 1px solid #ebe8e2;
-  background: #faf9f6;
+  background: transparent;
 }
 
 .av-feedback-compose__file-input {
@@ -375,38 +377,52 @@
 }
 
 .av-feedback-compose__input-shell {
-  background: #f0eeea;
-  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  background: #ffffff;
+  border: 1px solid #e3dfd8;
+  border-radius: 14px;
   overflow: hidden;
-  transition: background 0.15s;
+  transition: border-color 0.15s;
 }
 
 .av-feedback-compose__input-shell:focus-within {
-  background: #ebe8e2;
+  border-color: #cfc9c0;
 }
 
 .av-feedback-compose__input-shell--recording {
-  background: #faf4f4;
+  border-color: #f0c4c4;
+  background: #fffbfb;
+}
+
+.av-feedback-compose__input-shell--has-attachment {
+  background: #ffffff;
 }
 
 .av-feedback-compose__inline-attachment {
-  padding: 12px 12px 0;
+  padding: 10px 10px 0;
 }
 
 .av-feedback-compose__inline-image-wrap {
   position: relative;
   display: block;
-  margin-bottom: 4px;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 0 2px;
 }
 
 .av-feedback-compose__inline-image {
   display: block;
-  width: 100%;
-  max-height: 160px;
-  object-fit: cover;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 220px;
+  object-fit: contain;
+  object-position: center;
   border-radius: 8px;
   border: 1px solid #e3dfd8;
-  background: #fff;
+  background: #f5f3ef;
 }
 
 .av-feedback-compose__inline-image-remove {
@@ -456,14 +472,14 @@
 }
 
 .av-feedback-compose__recording-label {
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 600;
   color: #b42318;
 }
 
 .av-feedback-compose__recording-hint {
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 11px;
   color: #9a9590;
 }
@@ -489,13 +505,13 @@
 
 .av-feedback-compose__input {
   width: 100%;
-  min-height: 88px;
+  min-height: 72px;
   resize: none;
   border: none;
   border-radius: 0;
   background: transparent;
-  padding: 14px 16px;
-  font-family: 'Outfit', system-ui, sans-serif;
+  padding: 12px 14px 8px;
+  font-family: var(--font-sans);
   font-size: 13px;
   line-height: 1.5;
   color: #1c1c1c;
@@ -504,8 +520,8 @@
 }
 
 .av-feedback-compose__input--compact {
-  min-height: 56px;
-  padding-top: 10px;
+  min-height: 48px;
+  padding-top: 8px;
 }
 
 .av-feedback-compose__input::placeholder {
@@ -525,7 +541,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 10px;
+  margin-top: 0;
+  padding: 6px 8px 8px;
+  border-top: 1px solid #f0eee9;
 }
 
 .av-feedback-compose__actions-left {

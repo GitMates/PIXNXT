@@ -12,6 +12,42 @@ type TrackAction =
   | 'submit_changes'
   | 'approve';
 
+function disableFeedbackInProoferSettings(settings: unknown) {
+  const raw =
+    settings && typeof settings === 'object' && !Array.isArray(settings)
+      ? { ...(settings as Record<string, unknown>) }
+      : {};
+  return {
+    ...raw,
+    allow_external_uploads: false,
+    allow_voice_recordings: false,
+    allowExternalUploads: false,
+    allowVoiceRecordings: false,
+  };
+}
+
+function disableFeedbackInPreviewData(previewData: unknown) {
+  if (!previewData || typeof previewData !== 'object' || Array.isArray(previewData)) {
+    return previewData;
+  }
+  const next = { ...(previewData as Record<string, unknown>) };
+  const access =
+    next.proofer_access && typeof next.proofer_access === 'object' && !Array.isArray(next.proofer_access)
+      ? { ...(next.proofer_access as Record<string, unknown>) }
+      : {};
+  next.proofer_access = {
+    ...access,
+    commentsEnabled: false,
+    swapsEnabled: false,
+    allowExternalUploads: false,
+    allowVoiceRecordings: false,
+    repliesEnabled: false,
+    feedbackLocked: true,
+  };
+  next.updated_at = new Date().toISOString();
+  return next;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -54,7 +90,7 @@ serve(async (req) => {
     const { data: album, error: albumError } = await supabaseAdmin
       .from('smart_albums')
       .select(
-        'id, client_commenting_started_at, client_changes_submitted_at, client_approved_at'
+        'id, client_commenting_started_at, client_changes_submitted_at, client_approved_at, proofer_settings, preview_data'
       )
       .eq('id', albumId)
       .maybeSingle();
@@ -69,7 +105,7 @@ serve(async (req) => {
 
     const now = new Date().toISOString();
     const clientName = String(guestName || 'Album client').trim();
-    const patch: Record<string, string> = {
+    const patch: Record<string, unknown> = {
       client_last_activity_at: now,
       client_contact_name: clientName,
     };
@@ -81,6 +117,14 @@ serve(async (req) => {
     if (trackAction === 'approve') {
       patch.client_approved_at = now;
       patch.client_approved_by = clientName;
+      // Lock client feedback / messaging once the album is signed off.
+      patch.comments_enabled = false;
+      patch.messages_enabled = false;
+      patch.replies_enabled = false;
+      patch.proofer_settings = disableFeedbackInProoferSettings(album.proofer_settings);
+      if (album.preview_data) {
+        patch.preview_data = disableFeedbackInPreviewData(album.preview_data);
+      }
     } else if (trackAction === 'submit_changes') {
       patch.client_changes_submitted_at = now;
       patch.client_changes_submitted_by = clientName;

@@ -462,6 +462,32 @@
   background: #eceef1;
 }
 
+.av-guest-name-modal__password {
+  position: relative;
+}
+
+.av-guest-name-modal__password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+}
+
+.av-guest-name-modal__password-toggle:hover {
+  color: #111827;
+  background: #e5e7eb;
+}
+
 .av-guest-name-modal__actions {
   display: flex;
   justify-content: flex-end;
@@ -761,9 +787,9 @@
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   scrollbar-gutter: stable;
-  padding: 10px 8px 12px;
-  background: oklch(0.968 0.006 85);
-  border-radius: 10px;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
 }
 
 .av-preview-sidebar-comments > * {

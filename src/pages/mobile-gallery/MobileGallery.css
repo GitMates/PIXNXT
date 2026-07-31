@@ -71,7 +71,7 @@
   padding: 8px;
   animation: mgFadeIn 0.15s ease;
   overflow: hidden;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
 }
 
 @keyframes mgFadeIn {
@@ -206,7 +206,7 @@
   padding: 8px;
   animation: mgFadeIn 0.15s ease;
   overflow: hidden;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
 }
 
 .mg-profile-dropdown-header {
@@ -714,7 +714,7 @@
   color: #1a1a1a;
   outline: none;
   box-sizing: border-box;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
 }
 
 .mg-modal .cg-field-shell.neu-inset .mg-field-input::placeholder {
@@ -859,7 +859,7 @@
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
   border-radius: 12px;
   padding: 6px;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
 }
 
 .mg-context-item {
@@ -911,7 +911,7 @@
   z-index: 500;
   animation: mgFadeIn 0.15s ease;
   overflow: hidden;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
 }
 
 .mg-help-search-field {
@@ -1023,7 +1023,7 @@
   z-index: 500;
   padding: 20px 18px 24px;
   animation: mgFadeIn 0.15s ease;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
 }
 
 .mg-notifications-title {
@@ -1082,7 +1082,7 @@
   gap: 12px;
   color: #71717a;
   position: relative;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
 }
 
 .acct-topbar-icon {
@@ -3566,7 +3566,7 @@
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
   padding: 6px;
   overflow: hidden;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
 }
 
 .mg-photos-sort-option {
@@ -3648,7 +3648,7 @@
   border-radius: 12px;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
   padding: 6px;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
 }
 
 .mg-photos-more-menu button {
@@ -3763,7 +3763,7 @@
   border-radius: 12px;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
   padding: 6px;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
 }
 
 .mg-preview-menu-item {

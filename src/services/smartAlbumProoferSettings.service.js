@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase/client';
 import { getPublicSiteOrigin } from '../lib/publicSiteUrl';
-import { getSmartAlbumPreviewShareUrl } from '../lib/shareSmartAlbum';
+import { isAlbumClientApproved } from './albumProof.service';
 
 const DEFAULTS_CACHE_KEY = 'pixnxt_smart_album_proofer_defaults';
 const ALBUM_CACHE_KEY = 'pixnxt_smart_album_proofer_album';
@@ -16,8 +16,11 @@ export function notifyAlbumProoferSettingsChanged(albumId) {
 
 export const DEFAULT_PROOFER_SETTINGS = {
     accessControl: 'link',
-    allowDownloads: true,
-    requireApprovalPin: false,
+    allowDownloads: false,
+    downloadQuality: 'proof',
+    downloadsOnlyAfterApproval: true,
+    requireApprovalPin: true,
+    lockAlbumAfterApproval: true,
     multiUserCollaboration: true,
     capRevisions: false,
     revisionLimit: 3,
@@ -41,7 +44,7 @@ export const DEFAULT_ALBUM_PROOFER_SETTINGS = {
     accessLevel: 'password',
     albumPassword: '',
     privateShareToken: '',
-    requireNameForComments: false,
+    requireNameForComments: true,
     maxFreeSwaps: 5,
     allowExternalUploads: false,
     allowVoiceRecordings: true,
@@ -117,7 +120,7 @@ function dbAlbumToSettings(row = {}) {
         albumPassword: raw.album_password ?? raw.albumPassword ?? '',
         privateShareToken: raw.private_share_token ?? raw.privateShareToken ?? '',
         requireNameForComments:
-            raw.require_name_for_comments ?? raw.requireNameForComments ?? false,
+            raw.require_name_for_comments ?? raw.requireNameForComments ?? true,
         maxFreeSwaps: Number(raw.max_free_swaps ?? raw.maxFreeSwaps ?? 5) || 0,
         allowExternalUploads:
             raw.allow_external_uploads ?? raw.allowExternalUploads ?? false,
@@ -140,7 +143,7 @@ function settingsToDbFull(settings) {
         access_level: settings.accessLevel || 'password',
         album_password: settings.albumPassword || '',
         private_share_token: settings.privateShareToken || '',
-        require_name_for_comments: Boolean(settings.requireNameForComments),
+        require_name_for_comments: settings.requireNameForComments !== false,
         max_free_swaps: Number(settings.maxFreeSwaps) || 0,
         allow_external_uploads: Boolean(settings.allowExternalUploads),
         allow_voice_recordings: settings.allowVoiceRecordings !== false,
@@ -229,7 +232,9 @@ export function getAlbumShareCopyUrl(album, settings) {
         const origin = getPublicSiteOrigin();
         return `${origin}/album-preview/${encodeURIComponent(album?.id || '')}?token=${token}`;
     }
-    return getSmartAlbumPreviewShareUrl(album);
+    const origin = getPublicSiteOrigin();
+    const slug = album?.slug || album?.id || '';
+    return `${origin}/album-preview/${encodeURIComponent(slug)}`;
 }
 
 export function albumRemindersEnabled(photographerId, albumSettings = null) {
@@ -390,7 +395,7 @@ export const smartAlbumProoferSettingsService = {
                   albumPassword: fromSnapshot.accessPassword || '',
                   privateShareToken: fromSnapshot.privateShareToken || '',
                   approvalPin: fromSnapshot.approvalPin || '',
-                  requireNameForComments: fromSnapshot.requireNameForComments ?? false,
+                  requireNameForComments: fromSnapshot.requireNameForComments !== false,
                   maxFreeSwaps: fromSnapshot.maxFreeSwaps ?? 5,
                   allowExternalUploads: fromSnapshot.allowExternalUploads ?? false,
                   allowVoiceRecordings: fromSnapshot.allowVoiceRecordings ?? true,
@@ -407,6 +412,23 @@ export const smartAlbumProoferSettingsService = {
         let parsed;
         if (hasRowSettings) {
             parsed = dbAlbumToSettings(album);
+            // Public clients may get access rules from the preview snapshot when the
+            // live row omits password fields under RLS.
+            if (snapshotParsed) {
+                if (!parsed.albumPassword && snapshotParsed.albumPassword) {
+                    parsed.albumPassword = snapshotParsed.albumPassword;
+                }
+                if (
+                    (!parsed.accessLevel || parsed.accessLevel === 'public') &&
+                    snapshotParsed.accessLevel &&
+                    snapshotParsed.accessLevel !== 'public'
+                ) {
+                    parsed.accessLevel = snapshotParsed.accessLevel;
+                }
+                if (!parsed.privateShareToken && snapshotParsed.privateShareToken) {
+                    parsed.privateShareToken = snapshotParsed.privateShareToken;
+                }
+            }
         } else if (photographerId && albumId && hasCachedAlbumSettings(photographerId, albumId)) {
             parsed = readCachedAlbumSettings(photographerId, albumId);
         } else if (snapshotParsed) {
@@ -419,7 +441,16 @@ export const smartAlbumProoferSettingsService = {
 
         const defaults = readCachedPhotographerDefaults(photographerId);
 
-        return {
+        const snapshotComments =
+            fromSnapshot?.commentsEnabled !== undefined
+                ? Boolean(fromSnapshot.commentsEnabled)
+                : undefined;
+        const snapshotSwaps =
+            fromSnapshot?.swapsEnabled !== undefined
+                ? Boolean(fromSnapshot.swapsEnabled)
+                : undefined;
+
+        const access = {
             privacyLevel:
                 parsed.accessLevel === 'private'
                     ? 'restricted'
@@ -430,22 +461,45 @@ export const smartAlbumProoferSettingsService = {
             accessPassword: parsed.albumPassword || '',
             privateShareToken: parsed.privateShareToken || '',
             whitelistedEmails: [],
-            allowDownloads: defaults.allowDownloads,
+            allowDownloads:
+                parsed.allowDownloads !== undefined
+                    ? Boolean(parsed.allowDownloads)
+                    : Boolean(defaults.allowDownloads),
+            downloadQuality: defaults.downloadQuality || 'proof',
+            downloadsOnlyAfterApproval: defaults.downloadsOnlyAfterApproval !== false,
             allowMultiUserCollab: defaults.multiUserCollaboration,
             requireDigitalVerification:
                 Boolean(parsed.approvalPin) || defaults.requireApprovalPin,
+            lockAlbumAfterApproval: defaults.lockAlbumAfterApproval !== false,
             approvalPin: parsed.approvalPin || '',
-            requireNameForComments: parsed.requireNameForComments,
+            requireNameForComments: parsed.requireNameForComments !== false,
             maxFreeSwaps: parsed.maxFreeSwaps,
-            allowExternalUploads: parsed.allowExternalUploads,
+            allowExternalUploads: Boolean(parsed.allowExternalUploads),
             allowVoiceRecordings: parsed.allowVoiceRecordings !== false,
             maxRevisionRounds: parsed.maxRevisionRounds,
             sendReminderEmails: parsed.sendReminderEmails,
-            commentsEnabled: album?.comments_enabled !== false,
-            swapsEnabled: album?.messages_enabled !== false,
+            commentsEnabled:
+                snapshotComments !== undefined
+                    ? snapshotComments
+                    : album?.comments_enabled !== false,
+            swapsEnabled:
+                snapshotSwaps !== undefined
+                    ? snapshotSwaps
+                    : album?.messages_enabled !== false,
             shareLinkEnabled: album?.share_link_enabled !== false,
             repliesEnabled: album?.replies_enabled !== false,
         };
+
+        if (isAlbumClientApproved(album, albumId)) {
+            access.commentsEnabled = false;
+            access.swapsEnabled = false;
+            access.allowExternalUploads = false;
+            access.allowVoiceRecordings = false;
+            access.repliesEnabled = false;
+            access.feedbackLocked = true;
+        }
+
+        return access;
     },
 
     applyDefaultsToNewAlbum(photographerId, albumId) {
@@ -460,10 +514,13 @@ export const smartAlbumProoferSettingsService = {
 
         const patch = {
             accessLevel: mapped,
+            albumPassword:
+                mapped === 'password' ? randomPin() : '',
             approvalPin: defaults.requireApprovalPin ? randomPin() : '',
             privateShareToken: mapped === 'private' ? randomToken() : '',
             maxRevisionRounds: defaults.capRevisions ? defaults.revisionLimit : 3,
             sendReminderEmails: defaults.enableClientNudges,
+            allowDownloads: Boolean(defaults.allowDownloads),
         };
 
         cacheAlbumSettings(photographerId, albumId, mergeSettings(DEFAULT_ALBUM_PROOFER_SETTINGS, patch));
@@ -485,10 +542,13 @@ export const smartAlbumProoferSettingsService = {
             privateShareToken: effective.privateShareToken || '',
             whitelistedEmails: effective.whitelistedEmails || [],
             allowDownloads: effective.allowDownloads,
+            downloadQuality: effective.downloadQuality || 'proof',
+            downloadsOnlyAfterApproval: effective.downloadsOnlyAfterApproval !== false,
             allowMultiUserCollab: effective.allowMultiUserCollab,
             requireDigitalVerification: effective.requireDigitalVerification,
+            lockAlbumAfterApproval: effective.lockAlbumAfterApproval !== false,
             approvalPin: effective.approvalPin || '',
-            requireNameForComments: effective.requireNameForComments,
+            requireNameForComments: effective.requireNameForComments !== false,
             maxFreeSwaps: effective.maxFreeSwaps,
             allowExternalUploads: effective.allowExternalUploads,
             allowVoiceRecordings: effective.allowVoiceRecordings !== false,
@@ -497,6 +557,8 @@ export const smartAlbumProoferSettingsService = {
             commentsEnabled: effective.commentsEnabled,
             swapsEnabled: effective.swapsEnabled,
             shareLinkEnabled: effective.shareLinkEnabled,
+            repliesEnabled: effective.repliesEnabled !== false,
+            feedbackLocked: Boolean(effective.feedbackLocked),
         };
     },
 

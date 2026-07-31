@@ -5,8 +5,6 @@ import {
     Bell,
     Home,
     ChevronDown,
-    Database,
-    Plus,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { getUserDisplayLabel, getUserInitial } from '../lib/userInitials';
@@ -24,6 +22,7 @@ import smartAlbumPng from '../assets/icons/smart album.png';
 import dashboardPng from '../assets/icons/dashboard.png';
 import '../styles/clientGalleryTheme.css';
 import '../pages/ClientGallery.css';
+import './SidebarLayout.css';
 
 const PRODUCT_IMAGES = {
     'client-gallery': brandPng,
@@ -34,7 +33,13 @@ const PRODUCT_IMAGES = {
  * Shared product shell used by Client Gallery, Smart Albums, Mobile Gallery, etc.
  * Pass `productId` to switch the active product label + in-product nav.
  */
-const SidebarLayout = ({ children, productId = 'client-gallery', headerActions = null }) => {
+const SidebarLayout = ({
+    children,
+    productId = 'client-gallery',
+    headerActions = null,
+    shellClassName = '',
+    navCounts = null,
+}) => {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [showAppDropdown, setShowAppDropdown] = useState(false);
     const [showContextDropdown, setShowContextDropdown] = useState(false);
@@ -66,38 +71,29 @@ const SidebarLayout = ({ children, productId = 'client-gallery', headerActions =
     );
     const navItems = useMemo(() => getProductNavItems(productId), [productId]);
 
-    const getProfileDisplayName = () => {
-        const fromProfile =
-            profile?.business_name?.trim() ||
-            profile?.display_name?.trim() ||
-            [profile?.first_name, profile?.last_name].filter(Boolean).join(' ').trim();
-        if (fromProfile) return fromProfile;
-        if (user?.email) return user.email.split('@')[0];
-        return 'Studio';
-    };
+    const workNavItems = useMemo(
+        () => navItems.filter((item) => item.section === 'work' || !item.section),
+        [navItems],
+    );
+    const studioNavItems = useMemo(
+        () => navItems.filter((item) => item.section === 'studio'),
+        [navItems],
+    );
+    const hasSections = studioNavItems.length > 0;
 
-    const splitBrandLines = (name) => {
-        const trimmed = (name || '').trim();
-        if (!trimmed) return { primary: 'STUDIO', subtitle: 'PHOTOGRAPHY' };
-        const parts = trimmed.split(/\s+/);
-        if (parts.length === 1) {
-            return { primary: parts[0].toUpperCase(), subtitle: 'PHOTOGRAPHY' };
-        }
-        return {
-            primary: parts[0].toUpperCase(),
-            subtitle: parts.slice(1).join(' ').toUpperCase(),
-        };
-    };
-
-    const displayName = getProfileDisplayName();
-    const { primary: brandPrimary, subtitle: brandSubtitle } = splitBrandLines(displayName);
     const profileIconUrl = profile?.profile_icon_url?.trim() || '';
+    const userInitial = getUserInitial(user);
+    const userDisplayLabel = getUserDisplayLabel(user);
 
     const renderBrandIcon = () =>
         profileIconUrl ? (
-            <img src={profileIconUrl} alt="Logo" className="max-h-9 max-w-[140px] w-auto h-auto object-contain shrink-0" />
+            <img
+                src={profileIconUrl}
+                alt=""
+                className="sb-brand__logo"
+            />
         ) : (
-            <span className="size-9 rounded-xl bg-[#1A1A1A] text-white flex items-center justify-center font-bold text-sm shrink-0 uppercase">{userInitial}</span>
+            <span className="sb-brand__mark" aria-hidden>{userInitial}</span>
         );
 
     const [realStorageBytes, setRealStorageBytes] = useState(() => {
@@ -149,17 +145,17 @@ const SidebarLayout = ({ children, productId = 'client-gallery', headerActions =
     const limitBytes = profile?.storage_limit_bytes;
 
     const formatStorage = (bytes) => {
-        if (!bytes || bytes <= 0) return '0.00 MB';
+        if (!bytes || bytes <= 0) return '0 MB';
         const tbLimit = 1024 * 1024 * 1024 * 1024;
         const gbLimit = 1024 * 1024 * 1024;
 
         if (bytes >= tbLimit) {
-            return `${(bytes / tbLimit).toFixed(2)} TB`;
+            return `${(bytes / tbLimit).toFixed(2)} TB`.replace(/\.00 /, ' ');
         }
         if (bytes >= gbLimit) {
-            return `${(bytes / gbLimit).toFixed(2)} GB`;
+            return `${(bytes / gbLimit).toFixed(2)} GB`.replace(/\.00 /, ' ');
         }
-        return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+        return `${(bytes / (1024 * 1024)).toFixed(2)} MB`.replace(/\.00 /, ' ');
     };
 
     const getLimitBytes = () => {
@@ -173,9 +169,6 @@ const SidebarLayout = ({ children, productId = 'client-gallery', headerActions =
 
     const maxBytes = getLimitBytes();
     const storagePct = Math.min(100, maxBytes > 0 ? (usedBytes / maxBytes) * 100 : 0);
-
-    const userInitial = getUserInitial(user);
-    const userDisplayLabel = getUserDisplayLabel(user);
 
     useEffect(() => {
         const handleClickOutside = (e) => {
@@ -215,7 +208,6 @@ const SidebarLayout = ({ children, productId = 'client-gallery', headerActions =
 
     const renderProfileDropdown = (positionClasses) => (
         <div className={`absolute ${positionClasses} w-[265px] rounded-[24px] bg-[#FAF9F6] p-2.5 shadow-[0_16px_48px_rgba(0,0,0,0.12)] z-[500] border border-[#ECEAE6] font-sans text-left`}>
-            {/* Header User Info */}
             <div className="flex items-center gap-3 px-2 pt-1.5 pb-3">
                 <div className="size-10 rounded-full bg-[#111111] text-white font-bold flex items-center justify-center text-sm shrink-0 uppercase">
                     {userInitial}
@@ -228,9 +220,7 @@ const SidebarLayout = ({ children, productId = 'client-gallery', headerActions =
 
             <div className="h-[1px] w-full bg-[#E5E7EB] my-1" />
 
-            {/* Menu Options */}
             <div className="flex flex-col gap-0.5 pt-1">
-                {/* Invite Friends & Get $20 */}
                 <button
                     type="button"
                     onClick={() => { navigate('/account/refer'); setShowProfileDropdown(false); }}
@@ -246,7 +236,6 @@ const SidebarLayout = ({ children, productId = 'client-gallery', headerActions =
                     <span>Invite Friends & Get $20</span>
                 </button>
 
-                {/* Profile */}
                 <button
                     type="button"
                     onClick={() => { navigate('/account/profile'); setShowProfileDropdown(false); }}
@@ -259,7 +248,6 @@ const SidebarLayout = ({ children, productId = 'client-gallery', headerActions =
                     <span>Profile</span>
                 </button>
 
-                {/* Billing */}
                 <button
                     type="button"
                     onClick={() => { navigate('/account/billing'); setShowProfileDropdown(false); }}
@@ -272,7 +260,6 @@ const SidebarLayout = ({ children, productId = 'client-gallery', headerActions =
                     <span>Billing</span>
                 </button>
 
-                {/* Advanced Settings */}
                 <button
                     type="button"
                     onClick={() => { navigate('/account/advanced'); setShowProfileDropdown(false); }}
@@ -292,7 +279,6 @@ const SidebarLayout = ({ children, productId = 'client-gallery', headerActions =
                     <span>Advanced Settings</span>
                 </button>
 
-                {/* Account */}
                 <button
                     type="button"
                     onClick={() => { navigate('/account/details'); setShowProfileDropdown(false); }}
@@ -306,7 +292,6 @@ const SidebarLayout = ({ children, productId = 'client-gallery', headerActions =
                     <span>Account</span>
                 </button>
 
-                {/* Log Out */}
                 <button
                     type="button"
                     onClick={async () => {
@@ -330,19 +315,16 @@ const SidebarLayout = ({ children, productId = 'client-gallery', headerActions =
         </div>
     );
 
-    const AppSwitcherMenu = () => (
+    const HomeMenu = () => (
         <div ref={appDropdownRef} className="relative">
             <button
                 type="button"
                 onClick={() => setShowAppDropdown((v) => !v)}
-                className={cn(
-                    'neu-circle inline-flex size-8 items-center justify-center rounded-full text-[#71717A] transition-colors hover:text-[#1A1A1A]',
-                    showAppDropdown && 'neu-inset text-[#1A1A1A]',
-                )}
-                aria-label="Switch products"
+                className="sb-icon-btn"
+                aria-label="Home / switch products"
                 aria-expanded={showAppDropdown}
             >
-                <Home className="size-4" />
+                <Home className="size-4" strokeWidth={1.75} />
             </button>
 
             {showAppDropdown && (
@@ -404,8 +386,46 @@ const SidebarLayout = ({ children, productId = 'client-gallery', headerActions =
         </div>
     );
 
+    const defaultNotifications =
+        productId === 'client-gallery' ? (
+            <ClientGalleryNotifications userId={user?.id} variant="sidebar" />
+        ) : (
+            <button type="button" className="sb-icon-btn" aria-label="Notifications">
+                <Bell className="size-4" strokeWidth={1.75} />
+            </button>
+        );
+
+    const renderNavButton = (item) => {
+        const active = item.match(path);
+        const Icon = item.icon;
+        const count =
+            item.countKey && navCounts && typeof navCounts[item.countKey] === 'number'
+                ? navCounts[item.countKey]
+                : null;
+        return (
+            <button
+                key={item.href}
+                type="button"
+                onClick={() => {
+                    navigate(item.href);
+                    setIsMobileMenuOpen(false);
+                }}
+                className={cn('sb-nav-item', active && 'sb-nav-item--active')}
+            >
+                <Icon className="size-4 shrink-0" strokeWidth={1.75} />
+                <span className="sb-nav-item__label">{item.label}</span>
+                {count != null && (
+                    <span className="sb-nav-item__count">{count}</span>
+                )}
+            </button>
+        );
+    };
+
     return (
-        <div className="theme-mono cg-shell flex flex-col md:flex-row min-h-screen md:h-screen w-full max-w-[100vw] overflow-x-hidden md:overflow-hidden">
+        <div className={cn(
+            'theme-mono cg-shell flex flex-col md:flex-row min-h-screen md:h-screen w-full max-w-[100vw] overflow-x-hidden md:overflow-hidden',
+            shellClassName,
+        )}>
             <button
                 type="button"
                 className="fixed top-4 right-4 z-[1100] neu-circle size-10 items-center justify-center text-[#1A1A1A] cursor-pointer flex md:hidden"
@@ -420,39 +440,35 @@ const SidebarLayout = ({ children, productId = 'client-gallery', headerActions =
             )}
 
             <aside className={cn(
-                'fixed md:static top-0 w-60 h-screen shrink-0 flex-col justify-between border-r border-[#ECEAE6] bg-[#F9F9F7] z-[1000] md:z-10 transition-[left] duration-300 overflow-visible',
-                isMobileMenuOpen ? 'left-0 flex shadow-2xl' : '-left-60 hidden md:flex md:shadow-[4px_0_16px_-8px_rgba(0,0,0,0.12)]',
+                'sb-aside fixed md:static top-0 h-screen shrink-0 flex-col justify-between z-[1000] md:z-10 transition-[left] duration-300 overflow-visible',
+                isMobileMenuOpen ? 'left-0 flex shadow-2xl' : '-left-60 hidden md:flex',
             )}>
                 <div className="flex flex-1 flex-col min-h-0">
-                    <div className="relative z-20 shrink-0 overflow-visible px-5 pt-5 pb-8 flex items-center justify-between">
-                        <div className="flex items-center gap-2.5 shrink-0">
+                    <div className="sb-aside__header relative z-20 shrink-0 overflow-visible flex items-center justify-between gap-2">
+                        <div className="sb-brand min-w-0">
                             {renderBrandIcon()}
                         </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                            {headerActions || (productId === 'client-gallery' ? (
-                                <ClientGalleryNotifications userId={user?.id} variant="sidebar" />
-                            ) : (
-                                <button type="button" className="neu-circle relative inline-flex size-8 items-center justify-center rounded-full text-[#71717A] hover:text-[#1A1A1A]" aria-label="Notifications">
-                                    <Bell className="size-4" />
-                                </button>
-                            ))}
-                            <AppSwitcherMenu />
+                        <div className="sb-header-actions">
+                            {headerActions || defaultNotifications}
+                            <HomeMenu />
                         </div>
                     </div>
 
-                    <nav className="flex flex-1 flex-col gap-1 px-3 py-4 neu-scroll overflow-y-auto min-h-0">
-                        <div ref={contextDropdownRef} className="relative px-3 pb-3">
+                    <nav className="sb-nav flex flex-1 flex-col neu-scroll overflow-y-auto min-h-0">
+                        <div ref={contextDropdownRef} className="sb-product-wrap relative">
                             <button
                                 type="button"
                                 onClick={() => setShowContextDropdown((v) => !v)}
-                                className="group flex w-full items-center justify-between gap-2 rounded-md py-1 text-lg font-bold text-[#1A1A1A] transition-colors hover:text-[#1A1A1A]/80"
+                                className="sb-product-btn"
                                 aria-expanded={showContextDropdown}
                             >
                                 <span className="truncate">{activeProduct.name}</span>
-                                <ChevronDown className={cn('size-4 shrink-0 transition-transform', showContextDropdown && 'rotate-180')} />
+                                <span className="sb-product-btn__chevron" aria-hidden>
+                                    <ChevronDown className="size-3.5" strokeWidth={2} />
+                                </span>
                             </button>
                             {showContextDropdown && (
-                                <div className="absolute left-3 right-3 top-full z-50 mt-1.5 overflow-hidden rounded-xl bg-white p-1.5 shadow-xl shadow-black/10 border border-[#ECEAE6]">
+                                <div className="absolute left-0 right-0 top-full z-50 mt-1.5 overflow-hidden rounded-xl bg-white p-1.5 shadow-xl shadow-black/10 border border-[#ECEAE6]">
                                     {products.map((item) => {
                                         const active = isProductActive(item.href, path);
                                         const Icon = item.icon;
@@ -463,7 +479,7 @@ const SidebarLayout = ({ children, productId = 'client-gallery', headerActions =
                                                 onClick={() => { navigate(item.href); setShowContextDropdown(false); setIsMobileMenuOpen(false); }}
                                                 className={cn(
                                                     'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors hover:bg-[#F4F3F0]',
-                                                    active && 'neu-inset',
+                                                    active && 'bg-[#F4F3F0]',
                                                 )}
                                             >
                                                 <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-md bg-[#F4F3F0]">
@@ -478,67 +494,51 @@ const SidebarLayout = ({ children, productId = 'client-gallery', headerActions =
                             )}
                         </div>
 
-                        {navItems.map((item) => {
-                            const active = item.match(path);
-                            const Icon = item.icon;
-                            return (
-                                <button
-                                    key={item.href}
-                                    type="button"
-                                    onClick={() => {
-                                        navigate(item.href);
-                                        setIsMobileMenuOpen(false);
-                                    }}
-                                    className={cn(
-                                        'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all text-left w-full border-0 cursor-pointer',
-                                        active
-                                            ? 'neu-inset text-[#1A1A1A]'
-                                            : 'text-[#71717A]/80 hover:text-[#1A1A1A] bg-transparent',
-                                    )}
-                                >
-                                    <Icon className="size-4 shrink-0" />
-                                    {item.label}
-                                </button>
-                            );
-                        })}
+                        {hasSections ? (
+                            <>
+                                <p className="sb-nav-section">Work</p>
+                                {workNavItems.map(renderNavButton)}
+                                <p className="sb-nav-section sb-nav-section--studio">Studio</p>
+                                {studioNavItems.map(renderNavButton)}
+                            </>
+                        ) : (
+                            workNavItems.map(renderNavButton)
+                        )}
                     </nav>
                 </div>
 
-                <div className="p-4">
-                    <div className="neu-inset rounded-2xl p-4">
-                        <div className="flex items-center justify-between">
-                            <span className="flex items-center gap-2 text-xs font-medium text-[#71717A]">
-                                <Database className="size-3.5 text-[#1A1A1A]" />
-                                Storage
+                <div className="sb-aside__footer">
+                    <div className="sb-storage">
+                        <div className="flex items-center justify-between gap-2">
+                            <span className="sb-storage__label">Storage</span>
+                            <span className="sb-storage__meta">
+                                {formatStorage(usedBytes)} / {formatStorage(maxBytes)}
                             </span>
-                            <button type="button" className="inline-flex size-5 items-center justify-center rounded-md text-[#1A1A1A] hover:bg-[#1A1A1A]/10" aria-label="Upgrade storage">
-                                <Plus className="size-3.5" />
-                            </button>
                         </div>
-                        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-[#ECEAE6]">
-                            <div className="h-full rounded-full bg-[#1A1A1A] transition-all duration-300" style={{ width: `${storagePct}%` }} />
+                        <div className="sb-storage__bar">
+                            <div className="sb-storage__bar-fill" style={{ width: `${storagePct}%` }} />
                         </div>
-                        <p className="mt-1.5 text-xs text-[#71717A]">{formatStorage(usedBytes)} of {formatStorage(maxBytes)} used</p>
                     </div>
 
-                    <div className="relative mt-3" ref={profileDropdownRef}>
+                    <div className="relative" ref={profileDropdownRef}>
                         <button
                             type="button"
                             onClick={() => setShowProfileDropdown((v) => !v)}
-                            className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left transition-colors hover:bg-black/[0.04] font-sans"
+                            className="sb-profile-btn"
                         >
-                            <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-[#1A1A1A] text-sm font-semibold text-white uppercase">
-                                {userInitial}
+                            <span className="sb-profile-btn__avatar">{userInitial}</span>
+                            <span className="min-w-0 flex-1">
+                                <span className="sb-profile-btn__name">{userDisplayLabel}</span>
+                                <span className="sb-profile-btn__role">Studio owner</span>
                             </span>
-                            <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-[#111827]">{userDisplayLabel}</span>
-                            <ChevronDown className={cn('size-4 shrink-0 text-[#6B7280] transition-transform', showProfileDropdown && 'rotate-180')} />
+                            <ChevronDown className={cn('size-4 shrink-0 text-[#8a8580] transition-transform', showProfileDropdown && 'rotate-180')} />
                         </button>
                         {showProfileDropdown && renderProfileDropdown('bottom-full left-0 mb-2')}
                     </div>
                 </div>
             </aside>
 
-            <div className="flex-1 flex flex-col min-h-screen md:h-screen w-full min-w-0 max-w-full overflow-x-hidden overflow-y-auto md:overflow-hidden bg-[#F9F9F7] pt-14 md:pt-0">
+            <div className="sb-main flex-1 flex flex-col min-h-screen md:h-screen w-full min-w-0 max-w-full overflow-x-hidden overflow-y-auto md:overflow-hidden pt-14 md:pt-0">
                 {children}
             </div>
         </div>

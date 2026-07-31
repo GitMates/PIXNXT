@@ -23,7 +23,7 @@
 12. [Supabase Data Architecture (Updated)](#12-supabase-data-architecture)
 13. [React Application Structure (Updated)](#13-react-application-structure)
 14. [Third-Party Integrations](#14-third-party-integrations)
-15. [UI/UX Design Principles](#15-uiux-design-principles)
+15. [UI/UX Design Principles](#15-uiux-design-principles) (incl. Typography System)
 16. [Key User Journeys](#16-key-user-journeys)
 17. [Development Phases & Priorities (Updated)](#17-development-phases--priorities)
 
@@ -831,18 +831,152 @@ PIXNXT follows Pixieset's core design philosophy which is central to its success
 6. **Zero Technical Friction:** Photographers are creatives, not developers. No technical jargon, no required technical knowledge.
 7. **Brand Elevation:** Client-facing surfaces (galleries, booking pages) should make the photographer look premium and professional.
 
-### Design Token Targets
+### Design Token Targets (product chrome)
 
-- **Typography:** Clean sans-serif (Inter or similar)
-- **Color Palette:** Near-white backgrounds, very dark near-black text, single accent color (photographer's brand color replaces default on client pages)
+- **Typography:** Fraunces (display) + Plus Jakarta Sans (interface) — see Typography System below
+- **Color Palette (Album Proofer):** see [Album Proofer Design System](#album-proofer-design-system) below — cream canvas, white surfaces, charcoal ink, burnt-orange accent. No sky blue / cyan in product chrome.
 - **Photo Display:** Dark-on-light for portfolio, light-on-dark for gallery viewer mode
 - **Spacing:** Generous padding, grid-based layouts
+
+### Album Proofer Design System
+
+Canonical tokens in `src/styles/typography.css`. Cursor rule: `.cursor/rules/album-proofer-design.mdc`.
+
+#### Palette
+
+| Token | Hex | Use |
+|---|---|---|
+| `--canvas` / `--bg` | `#f7f6f2` | Page ground |
+| `--surface` | `#ffffff` | Cards, panels |
+| `--surface-sunk` | `#f0efeb` | Inputs, wells |
+| `--ink` | `#1d1916` | Titles · ~17.5:1 |
+| `--ink-body` | `#44403c` | Body · ~10.3:1 |
+| `--ink-muted` | `#857f7b` | Secondary · ~5.2:1 |
+| `--accent` | `#bf7b47` | Marks, rings |
+| `--accent-text` | `#a86c3c` | Links · ~5.5:1 |
+| `--ok-fg` | `#597f5d` | Approved · ~6.2:1 |
+| `--warn-fg` | `#997735` | Needs you / amber states · ~5.4:1 |
+| `--idle-fg` | `#8a8580` | Draft / paused · ~5.7:1 |
+| `--stop-fg` | `#8d3a32` | Destructive only |
+| `--proof-surround` | `#ebeae6` | Proof canvas surround (desaturated by design) |
+
+#### Status vocabulary — use these exact words everywhere
+
+| Label | Tone | Colour |
+|---|---|---|
+| **Draft** | `draft` | Idle grey |
+| **Not opened** | `awaiting` | Amber |
+| **Awaiting feedback** | `feedback` | Amber |
+| **Revision requested** | `revision` | Amber (**not red**) |
+| **Approved** | `approved` | Green |
+| **Paused** | `paused` | Idle grey |
+
+**Revision requested is amber, not red.** It is the single most common healthy state in this module — a client engaging with the proof is the product working. Colouring it red trains the photographer to feel a jolt of failure every time a client does exactly what you asked them to do.
+
+Blank-cover leather swatches must not include sky blue / turquoise (default: `cream`).
 
 ### Client Gallery UI Template (implemented)
 
 The Client Gallery module uses a **Neumorphic Cream UI** (charcoal text, cream backgrounds, inset field shells, dark `neu-pill` CTAs). For class names, tokens, layout patterns, and a checklist when building new modules, see:
 
 **[docs/CLIENT_GALLERY_UI_TEMPLATE.md](./docs/CLIENT_GALLERY_UI_TEMPLATE.md)**
+
+### Typography System (product-wide)
+
+Source of truth: `src/styles/typography.css` (imported once from `src/index.css`). Self-hosted files live in `public/fonts/`. Do **not** redeclare families or sizes in feature CSS — use role classes or CSS tokens.
+
+#### Section 1 — Two families, and only two
+
+One serif for identity, one sans for work. A third family is not a design decision, it's a maintenance liability — every additional family is another download, another fallback stack, another set of vertical metrics that don't match.
+
+| Role | Family | Weights | Use |
+|---|---|---|---|
+| **Display** | **Fraunces** (variable serif) | 400, 500 only | Brand voice. Once per screen on the page title, plus the object name in a workspace header. Never in labels, buttons, or body copy. Bind `opsz` to rendered size: `font-variation-settings: 'opsz' 34`. |
+| **Interface** | **Plus Jakarta Sans** (variable sans) | 400 / 500 / 600 / 700 | Everything else: body, labels, buttons, navigation, data, form fields, client proof view. Tall x-height for 11px; open apertures for phone-at-night. |
+
+Do **not** use weight 300 or lighter anywhere. Thin weights on a light background fail contrast at small sizes even when the colour passes.
+
+Fraunces is a signature, not a UI font. The test: if you removed all serif from a screen and nothing became unclear, the serif was doing its job. If something became hard to scan, it was doing a job it shouldn't have.
+
+> **Exception:** Client Gallery cover *design themes* (Playfair, Lora, Montserrat, etc.) remain photographer-selectable presets on gallery surfaces only. They are not part of the product chrome stack.
+
+#### Section 2 — Loading and performance
+
+ICP is frequently on mid-tier Android over patchy Indian mobile data; wedding guests open the proof view on whatever phone they have. Font weight is a reliability concern, not a theory.
+
+| Rule | Detail |
+|---|---|
+| **self-host** | Do not ship the Google Fonts `<link>` for product UI. Self-host woff2 from `/fonts/`. |
+| **variable** | One variable file per family (two Latin files total), not four static weight files. |
+| **subset** | Latin + Latin-1 Supplement for base files. Drop Cyrillic, Greek, Vietnamese. Expect ~30–45KB per family after subsetting. |
+| **font-display** | `swap` for Plus Jakarta Sans; `optional` for Fraunces. |
+| **preload** | Preload Jakarta only (`index.html`). Preloading everything defeats the purpose. |
+| **fallback metrics** | `Jakarta Fallback` uses `size-adjust` / `ascent-override` / `descent-override` so swap does not reflow. |
+
+**Budget:** 100KB total for all web fonts on first load, base Latin only (current Latin pair ≈ 92KB). Indic faces load on demand via `unicode-range` (Noto Sans Devanagari, Noto Sans Tamil). If you exceed the budget, the answer is fewer weights, never a different family.
+
+#### Section 3 — The scale
+
+Ten steps. Every piece of text in every PIXNXT module is one of these — if a design needs an eleventh, the design is wrong, not the scale. Sizes are in rem against a 16px root.
+
+| Token | Size | Specimen | Where |
+|---|---|---|---|
+| `--t-display-lg` | 34 / 2.125rem · 1.15 · −.018em · 400 | Albums | Page title. Once per screen. Fraunces. |
+| `--t-display-md` | 24 / 1.5rem · 1.15 · −.018em · 400 | Approve this album | Modal and empty-state titles. Fraunces. |
+| `--t-display-sm` | 20 / 1.25rem · 1.15 · −.018em · 400 | Your first album | Serif in tight spaces — phone sheets. Fraunces. |
+| `--t-title` | 16 / 1rem · 1.3 · −.005em · 600 | Adi x Raj — Signature | Object names in a workspace header. |
+| `--t-body-lg` | 15 / 0.9375rem · 1.5 · 0 · 400 | Upload the spreads you designed. | Lead paragraphs, empty-state copy. |
+| `--t-body` | 14 / 0.875rem · 1.5 · 0 · 400 | Clients can leave feedback on each spread. | Base. Everything inherits this unless told otherwise. |
+| `--t-body-sm` | 13 / 0.8125rem · 1.5 · 0 · 500 | Publish & share | Buttons, nav items, dense panels, table cells. |
+| `--t-meta` | 12 / 0.75rem · 1.45 · 0 · 400 | 678 photos · 4.2 GB · 10 Jul | Secondary data. Floor for sentence-case text. |
+| `--t-micro` | 11 / 0.6875rem · 1.45 · 0 · 600 | Revision requested | Status chips, counts, badges. Semibold only. |
+| `--t-label` | 10 / 0.625rem · 1.2 · +.12em · 700 | Sign-off & automation | Uppercase and tracked, always. Never sentence case at this size. |
+
+Why 10px is allowed for labels but 12px is the floor for sentences: capitals have no descenders and a uniform cap-height, and +0.12em tracking opens the letterforms — so a short uppercase label stays legible where lowercase body copy would not. The permission is narrow: uppercase, tracked, weight 700, and never more than about four words. A 10px sentence is a bug.
+
+#### Section 4 — Roles (what to reach for)
+
+Developers shouldn't choose a font size. They should choose a role. Build with these classes; do not let `font-size` appear in feature code.
+
+| Role | Composition | Colour |
+|---|---|---|
+| `.type-page-title` | display-lg · Fraunces 400 · lh 1.15 · ls −.018em | `--ink` |
+| `.type-section-title` | display-md · Fraunces 400 · lh 1.15 | `--ink` |
+| `.type-object-name` | title · Jakarta 600 · lh 1.3 | `--ink` |
+| `.type-card-title` | body-sm · Jakarta 600 · truncate with ellipsis | `--ink` |
+| `.type-lede` | body-lg · Jakarta 400 · lh 1.5 · max 68ch | `--ink-muted` |
+| `.type-body` | body · Jakarta 400 · lh 1.5 · max 72ch | `--ink-body` |
+| `.type-control` | body-sm · Jakarta 500 · buttons, nav, inputs | `--ink-body` |
+| `.type-meta` | meta · Jakarta 400 · tabular-nums | `--ink-muted` |
+| `.type-status` | micro · Jakarta 600 · always paired with a dot AND a word | status token |
+| `.type-group-label` | label · Jakarta 700 · uppercase · ls +.12em | `--ink-muted` |
+| `.type-code` | 0.75rem · mono · PINs, IDs, links, file names | `--ink` |
+
+`.user-text` is required on any element rendering a name, comment, or message a human typed: `line-height: 1.7` for Indic, and `overflow-wrap: anywhere` so a pasted unbroken string cannot blow out card layout.
+
+#### Section 5 — Numerals
+
+Apply `font-variant-numeric: tabular-nums` (or `.type-meta` / `.tabular-nums`) to every number that could appear above or below another number: counts, sizes, dates, durations, storage, spread indices, timestamps, PIN digits, percentages. Use proportional figures only inside running prose.
+
+PINs: tabular, weight 600, `letter-spacing: 0.08em` (`.type-pin`), one digit per box.
+
+#### Color tokens (Album Proofer / product chrome)
+
+| Token | Value | Use |
+|---|---|---|
+| `--bg` | `#f7f6f3` | App canvas |
+| `--surface` | `#ffffff` | Cards, menus, inputs |
+| `--ink` | `#1c1917` | Primary text / titles |
+| `--ink-body` | `#3f3a36` | Body copy |
+| `--ink-muted` | `#8a8580` | Secondary / meta |
+| `--border` | `#e5e2dc` | Hairlines, chips |
+| `--accent` | `#9a6c67` | Active nav indicator |
+| `--status-revision` | `#c46a3a` | Needs you / revision |
+| `--status-awaiting` | `#b08968` | Awaiting client |
+| `--status-approved` | `#5f8f6a` | Approved |
+| `--status-draft` | `#9a9590` | Draft / not opened |
+
+Tailwind mirrors these under `fontFamily.display` / `fontFamily.sans`, `fontSize.display-lg`…`label`, and `colors.ink` / `canvas` / `studio`.
 
 ---
 

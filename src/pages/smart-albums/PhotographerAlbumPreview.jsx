@@ -1,19 +1,27 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { getAlbumPhotoRevision } from '../../components/smart-albums/albumPagePhotos';
 import { useAuth } from '../../hooks/useAuth';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
-import { ALBUM_PROOFER_SETTINGS_CHANGED_EVENT } from '../../services/smartAlbumProoferSettings.service';
+import {
+    ALBUM_PROOFER_SETTINGS_CHANGED_EVENT,
+    smartAlbumProoferSettingsService,
+} from '../../services/smartAlbumProoferSettings.service';
 import AlbumPreview from './AlbumPreview';
+import AlbumPreviewAccessGate from '../../components/smart-albums/AlbumPreviewAccessGate';
 import { getAlbumSpreadOptions } from '../../components/smart-albums/albumSpreadUtils';
 import { parseUrlPage } from './useAlbumWorkspace';
-import { hydrateAlbumPreviewData, clearAlbumPreviewDataCache, normalizeAlbumForClientPreview } from '../../components/smart-albums/albumPreviewData';
+import {
+    hydrateAlbumPreviewData,
+    clearAlbumPreviewDataCache,
+    normalizeAlbumForClientPreview,
+} from '../../components/smart-albums/albumPreviewData';
 import './AlbumViewer.css';
 
 /**
  * Album preview in its own tab (like collection gallery preview).
- * Shows the client-facing view; photographer can proof comments when published.
- * When client access is paused, preview stays closed — same as the share link.
+ * Mirrors the client experience, including password protection when enabled.
+ * Private-link token walls are skipped for the album owner.
  */
 export default function PhotographerAlbumPreview() {
     const { albumId } = useParams();
@@ -85,6 +93,18 @@ export default function PhotographerAlbumPreview() {
     const initialPage = parseUrlPage(searchParams.get('page'), totalPages, spreadOpts);
     const accessPaused = album?.share_link_enabled === false;
 
+    const access = useMemo(() => {
+        if (!album?.id) return null;
+        return smartAlbumProoferSettingsService.getEffectiveAlbumAccess(
+            album.photographer_id,
+            album.id,
+            album,
+            album.preview_data
+        );
+    }, [album]);
+
+    const isOwner = Boolean(user?.id && album?.photographer_id === user.id);
+
     const handlePageChange = (pageIdx) => {
         const next = new URLSearchParams(searchParams);
         next.set('page', String(pageIdx));
@@ -122,16 +142,24 @@ export default function PhotographerAlbumPreview() {
         );
     }
 
+    const resolvedAlbumId = album.id || albumId;
+
     return (
-        <AlbumPreview
-            album={normalizeAlbumForClientPreview(album)}
-            albumId={albumId}
-            totalPages={totalPages}
-            initialPage={initialPage}
-            photoRevision={photoRevision}
-            onPageChange={handlePageChange}
-            minimalChrome
-            clientPreview
-        />
+        <AlbumPreviewAccessGate
+            albumId={resolvedAlbumId}
+            access={access}
+            isOwner={isOwner}
+        >
+            <AlbumPreview
+                album={normalizeAlbumForClientPreview(album)}
+                albumId={resolvedAlbumId}
+                totalPages={totalPages}
+                initialPage={initialPage}
+                photoRevision={photoRevision}
+                onPageChange={handlePageChange}
+                minimalChrome
+                clientPreview
+            />
+        </AlbumPreviewAccessGate>
     );
 }

@@ -211,8 +211,10 @@ function readLocal() {
 function writeLocal(data) {
     try {
         localStorage.setItem(LOCAL_KEY, JSON.stringify(data));
-    } catch {
-        /* ignore */
+        return true;
+    } catch (err) {
+        console.warn('smart_album_comments local write failed:', err);
+        return false;
     }
 }
 
@@ -237,6 +239,9 @@ function mergeCommentRows(localRow, remoteRow) {
     if (!remoteRow) return localRow;
     return {
         ...remoteRow,
+        // Prefer local spread_index after drag-reorder until remote catches up.
+        spread_index:
+            localRow.spread_index != null ? localRow.spread_index : remoteRow.spread_index,
         attachment_url: localRow.attachment_url ?? remoteRow.attachment_url ?? null,
         attachment_name: localRow.attachment_name ?? remoteRow.attachment_name ?? null,
         attachment_type: localRow.attachment_type ?? remoteRow.attachment_type ?? null,
@@ -249,6 +254,49 @@ export function countClientRootComments(albumId) {
     return listLocalAlbumComments(albumId).filter(
         (c) => !c.parent_id && c.author_type === 'client' && hasCommentBody(c)
     ).length;
+}
+
+/**
+ * Resolve the reviewing client’s display name + activity for photographer UI.
+ * Prefers the “Your Details” guest profile name, then comment author_name.
+ * Falls back to empty name (callers should show “client”).
+ */
+export function getClientReviewerIdentity(albumId, comments = null) {
+    const rows = Array.isArray(comments) ? comments : listLocalAlbumComments(albumId);
+    const clientRoots = (rows || []).filter(
+        (c) => !c.parent_id && c.author_type === 'client' && hasCommentBody(c)
+    );
+
+    const guestName = String(getGuestProfile(albumId)?.name || '').trim();
+
+    let authorName = '';
+    const byRecent = [...clientRoots].sort(
+        (a, b) =>
+            new Date(b.updated_at || b.created_at).getTime() -
+            new Date(a.updated_at || a.created_at).getTime()
+    );
+    for (const row of byRecent) {
+        const name = String(row.author_name || '').trim();
+        if (name && normalizeCommentAuthorName(name) !== 'guest') {
+            authorName = name;
+            break;
+        }
+    }
+
+    let openedAt = null;
+    for (const row of clientRoots) {
+        const stamp = row.created_at || row.updated_at;
+        if (!stamp) continue;
+        if (!openedAt || new Date(stamp).getTime() < new Date(openedAt).getTime()) {
+            openedAt = stamp;
+        }
+    }
+
+    return {
+        name: guestName || authorName || '',
+        commentCount: clientRoots.length,
+        openedAt,
+    };
 }
 
 export function normalizeCommentAuthorName(name) {
@@ -424,6 +472,15 @@ export async function purgeSpreadCommentsOnSpreadDelete(albumId, deletedSpreadIn
     notifyCommentsChanged(albumId);
 }
 
+/** Map a spread index through an overview drag-reorder plan. */
+function remapSpreadIndexForOverviewReorder(spreadIndex, draggable, newOrder) {
+    const idx = Number(spreadIndex);
+    if (!Number.isFinite(idx) || !draggable.includes(idx)) return spreadIndex;
+    const destPos = newOrder.indexOf(idx);
+    if (destPos < 0) return spreadIndex;
+    return draggable[destPos];
+}
+
 /** Reindex local spread comments when overview spreads are drag-reordered. */
 export function reorderLocalSpreadCommentsForOverview(albumId, draggable, newOrder) {
     if (!albumId || !draggable?.length || !newOrder?.length) return false;
@@ -455,6 +512,70 @@ export function reorderLocalSpreadCommentsForOverview(albumId, draggable, newOrd
     writeLocal(all);
     notifyCommentsChanged(albumId);
     return true;
+}
+
+/** Reindex remote spread comments (messages + client notes) after overview drag-reorder. */
+export async function reorderRemoteSpreadCommentsForOverview(albumId, draggable, newOrder) {
+    if (!albumId || !draggable?.length || !newOrder?.length) return false;
+
+    try {
+        const { data, error } = await supabase
+            .from('smart_album_comments')
+            .select('*')
+            .eq('album_id', albumId)
+            .in('spread_index', draggable);
+
+        if (error) {
+            if (!isMissingTableError(error)) {
+                console.warn('reorderRemoteSpreadCommentsForOverview:', error.message);
+            }
+            return false;
+        }
+        if (!data?.length) return false;
+
+        const updates = data
+            .map((row) => {
+                const nextIndex = remapSpreadIndexForOverviewReorder(
+                    row.spread_index,
+                    draggable,
+                    newOrder
+                );
+                if (nextIndex === row.spread_index) return null;
+                return { ...row, spread_index: nextIndex };
+            })
+            .filter(Boolean);
+
+        if (!updates.length) return false;
+
+        await Promise.all(
+            updates.map((row) =>
+                supabase
+                    .from('smart_album_comments')
+                    .update({ spread_index: row.spread_index })
+                    .eq('id', row.id)
+            )
+        );
+
+        // Mirror remapped remote rows into local so later merges keep the new indices.
+        const all = readLocal();
+        const bucket = { ...(all[albumId] || {}) };
+        updates.forEach((row) => {
+            const mapped = mapRow(row);
+            const spreadKey = mapped.spread_index;
+            Object.keys(bucket).forEach((key) => {
+                bucket[key] = (bucket[key] || []).filter((c) => c.id !== mapped.id);
+            });
+            bucket[spreadKey] = [...(bucket[spreadKey] || []), mapped];
+        });
+        all[albumId] = bucket;
+        writeLocal(all);
+
+        notifyCommentsChanged(albumId);
+        return true;
+    } catch (err) {
+        console.warn('reorderRemoteSpreadCommentsForOverview failed:', err);
+        return false;
+    }
 }
 
 export const smartAlbumCommentsService = {
@@ -580,9 +701,21 @@ export const smartAlbumCommentsService = {
                 resolvedAttachmentName ?? localRow?.attachment_name ?? null;
             const attachment_type =
                 resolvedAttachmentType ?? localRow?.attachment_type ?? null;
-            if (!attachment_url && !attachment_name) return row;
+            if (!attachment_url && !attachment_name && !resolvedAttachmentUrl) {
+                return saveLocal({
+                    ...row,
+                    body: payload.body,
+                    author_name: payload.author_name,
+                    author_email: payload.author_email,
+                    updated_at: payload.updated_at,
+                });
+            }
             return saveLocal({
                 ...row,
+                body: payload.body,
+                author_name: payload.author_name,
+                author_email: payload.author_email,
+                updated_at: payload.updated_at,
                 attachment_url,
                 attachment_name,
                 attachment_type,
@@ -603,7 +736,6 @@ export const smartAlbumCommentsService = {
                     .select();
 
                 if (!error && data?.[0]) {
-                    notifyCommentsChanged(albumId);
                     return withAttachment(mapRow(data[0]));
                 }
                 if (error && !isMissingTableError(error)) {
@@ -652,7 +784,6 @@ export const smartAlbumCommentsService = {
                 .select();
 
             if (!error && data?.[0]) {
-                notifyCommentsChanged(albumId);
                 return withAttachment(mapRow(data[0]));
             }
             if (error && !isMissingTableError(error)) {
@@ -817,13 +948,32 @@ export const smartAlbumCommentsService = {
             ...row,
             spread_index: normalizedSpread,
             parent_id: row.parent_id ?? base.parent_id ?? null,
+            attachment_url:
+                row.attachment_url !== undefined
+                    ? row.attachment_url
+                    : base.attachment_url ?? null,
+            attachment_name:
+                row.attachment_name !== undefined
+                    ? row.attachment_name
+                    : base.attachment_name ?? null,
+            attachment_type:
+                row.attachment_type !== undefined
+                    ? row.attachment_type
+                    : base.attachment_type ?? null,
             created_at: row.created_at || base.created_at || new Date().toISOString(),
         };
         if (idx >= 0) list[idx] = entry;
         else list.push(entry);
         bucket[normalizedSpread] = list;
         all[albumId] = bucket;
-        writeLocal(all);
+        const persisted = writeLocal(all);
+        if (!persisted && entry.attachment_url) {
+            const err = new Error(
+                'Could not save the image attachment. Try a smaller photo, or remove other attachments and try again.'
+            );
+            err.code = 'local-storage-full';
+            throw err;
+        }
         return mapRow(entry);
     },
 
@@ -961,15 +1111,27 @@ export const smartAlbumCommentsService = {
         });
     },
 
-    async getAlbumPublic(albumId) {
-        const { data, error } = await supabase
+    async getAlbumPublic(albumIdOrSlug) {
+        const key = String(albumIdOrSlug || '').trim();
+        if (!key) return null;
+
+        const byId = await supabase
             .from('smart_albums')
             .select('*')
-            .eq('id', albumId)
+            .eq('id', key)
             .maybeSingle();
 
-        if (error) throw error;
-        return data;
+        if (byId.error) throw byId.error;
+        if (byId.data) return byId.data;
+
+        const bySlug = await supabase
+            .from('smart_albums')
+            .select('*')
+            .eq('slug', key)
+            .maybeSingle();
+
+        if (bySlug.error) throw bySlug.error;
+        return bySlug.data;
     },
 
     async notifyPhotographerAlbumComments({

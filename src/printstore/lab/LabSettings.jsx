@@ -18,7 +18,7 @@ export default function LabSettings() {
   };
 
   return (
-    <div style={{ padding: '32px', backgroundColor: '#F9F9F7', minHeight: '100%', boxSizing: 'border-box', fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
+    <div style={{ padding: '32px', backgroundColor: '#F9F9F7', minHeight: '100%', boxSizing: 'border-box', fontFamily: "var(--font-sans)" }}>
       
       {/* Header Area */}
       <div style={{ borderBottom: '1px solid #eaeaea', paddingBottom: '20px', marginBottom: '24px' }}>

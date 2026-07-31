@@ -944,6 +944,7 @@ export async function replaceCollectionItemFile(
             storagePath: uploaded.path,
             contentHash: undefined,
             size_bytes: Number(prepared?.size) || 0,
+            replacedAt: Date.now(),
         };
         if (width > 0 && height > 0) {
             next.width = width;

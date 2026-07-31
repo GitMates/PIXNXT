@@ -8,7 +8,10 @@ import {
 import { reorderImageReplacementsForOverview } from './albumImageReplacements';
 import { reorderPhotoPinsForOverview } from './albumPhotoPins';
 import { reorderSwapMarksForOverview } from './albumSwapMarks';
-import { reorderLocalSpreadCommentsForOverview } from '../../services/smartAlbumComments.service';
+import {
+    reorderLocalSpreadCommentsForOverview,
+    reorderRemoteSpreadCommentsForOverview,
+} from '../../services/smartAlbumComments.service';
 
 /** After overview drag-reorder: map a spread index to where its metadata should live. */
 export function remapSpreadIndexAfterOverviewReorder(spreadIndex, draggable, newOrder) {
@@ -61,6 +64,8 @@ export function reorderOverviewSpreadMetadata(
     reorderImageReplacementsForOverview(albumId, draggable, newOrder, totalPages, spreadOpts);
     reorderSwapMarksForOverview(albumId, draggable, newOrder, totalPages, spreadOpts);
     reorderPhotoPinsForOverview(albumId, draggable, newOrder, totalPages, spreadOpts);
+    // Keep published comments/messages attached to the moved spread content.
+    void reorderRemoteSpreadCommentsForOverview(albumId, draggable, newOrder);
     return true;
 }
 

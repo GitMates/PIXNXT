@@ -15,8 +15,7 @@
   background: oklch(0.995 0.004 85);
   border: 1px solid oklch(0.905 0.007 82);
   box-shadow: 0 16px 40px oklch(0.4 0.01 70 / 0.12);
-  font-family: 'Outfit', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
-    sans-serif;
+  font-family: var(--font-sans);
   overflow: hidden;
 }
 
@@ -31,7 +30,7 @@
 
 .theme-mono .sa-status-filter__title {
   margin: 0;
-  font-family: 'Outfit', system-ui, sans-serif !important;
+  font-family: var(--font-sans) !important;
   font-size: 15px !important;
   font-weight: 600 !important;
   letter-spacing: normal !important;
@@ -118,19 +117,21 @@
 }
 
 .theme-mono .sa-status-filter__dot--draft {
-  background: oklch(0.72 0.005 85);
+  background: var(--idle-fg);
 }
 
-.theme-mono .sa-status-filter__dot--awaiting {
-  background: oklch(0.78 0.12 85);
-}
-
+.theme-mono .sa-status-filter__dot--awaiting,
+.theme-mono .sa-status-filter__dot--feedback,
 .theme-mono .sa-status-filter__dot--revision {
-  background: oklch(0.62 0.16 25);
+  background: var(--warn-fg);
 }
 
 .theme-mono .sa-status-filter__dot--approved {
-  background: oklch(0.62 0.14 145);
+  background: var(--ok-fg);
+}
+
+.theme-mono .sa-status-filter__dot--paused {
+  background: var(--idle-fg);
 }
 
 .theme-mono .sa-status-filter__option-label {

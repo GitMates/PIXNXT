@@ -185,7 +185,7 @@ export default function LabInventory() {
   // Render Full Page Stock Ledger History
   if (showHistoryView) {
     return (
-      <div style={{ padding: '36px 40px', backgroundColor: '#F9F9F7', minHeight: '100%', boxSizing: 'border-box', fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
+      <div style={{ padding: '36px 40px', backgroundColor: '#F9F9F7', minHeight: '100%', boxSizing: 'border-box', fontFamily: "var(--font-sans)" }}>
         
         {/* Full-Page History Header */}
         <div style={{ borderBottom: '1px solid #eaeaea', paddingBottom: '20px', marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -277,7 +277,7 @@ export default function LabInventory() {
 
   // Standard Catalog List Page View
   return (
-    <div style={{ padding: '36px 40px', backgroundColor: '#F9F9F7', minHeight: '100%', boxSizing: 'border-box', fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
+    <div style={{ padding: '36px 40px', backgroundColor: '#F9F9F7', minHeight: '100%', boxSizing: 'border-box', fontFamily: "var(--font-sans)" }}>
       
       {/* Header Area */}
       <div style={{ borderBottom: '1px solid #eaeaea', paddingBottom: '20px', marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
