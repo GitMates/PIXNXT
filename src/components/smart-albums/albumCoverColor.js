@@ -16,15 +16,6 @@ export const COVER_LEATHER_PRESETS = [
         text: '#8a4018',
     },
     {
-        id: 'turquoise',
-        label: 'Turquoise',
-        base: '#3fbccf',
-        highlight: '#62d0df',
-        shadow: '#2a9aab',
-        spine: '#35b0c2',
-        text: '#e6eef0',
-    },
-    {
         id: 'sky',
         label: 'Dark blue',
         base: '#1a3d66',
@@ -62,7 +53,7 @@ export const COVER_LEATHER_PRESETS = [
     },
 ];
 
-export const DEFAULT_COVER_COLOR_PRESET_ID = 'turquoise';
+export const DEFAULT_COVER_COLOR_PRESET_ID = 'cream';
 
 const DEFAULT_PRESET_ID = DEFAULT_COVER_COLOR_PRESET_ID;
 

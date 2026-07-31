@@ -834,9 +834,46 @@ PIXNXT follows Pixieset's core design philosophy which is central to its success
 ### Design Token Targets (product chrome)
 
 - **Typography:** Fraunces (display) + Plus Jakarta Sans (interface) — see Typography System below
-- **Color Palette:** Soft cream canvas (`#f7f6f3`), white surfaces, charcoal ink (`#1c1917`), muted secondary (`#8a8580`), warm studio accent (`#9a6c67`)
+- **Color Palette (Album Proofer):** see [Album Proofer Design System](#album-proofer-design-system) below — cream canvas, white surfaces, charcoal ink, burnt-orange accent. No sky blue / cyan in product chrome.
 - **Photo Display:** Dark-on-light for portfolio, light-on-dark for gallery viewer mode
 - **Spacing:** Generous padding, grid-based layouts
+
+### Album Proofer Design System
+
+Canonical tokens in `src/styles/typography.css`. Cursor rule: `.cursor/rules/album-proofer-design.mdc`.
+
+#### Palette
+
+| Token | Hex | Use |
+|---|---|---|
+| `--canvas` / `--bg` | `#f7f6f2` | Page ground |
+| `--surface` | `#ffffff` | Cards, panels |
+| `--surface-sunk` | `#f0efeb` | Inputs, wells |
+| `--ink` | `#1d1916` | Titles · ~17.5:1 |
+| `--ink-body` | `#44403c` | Body · ~10.3:1 |
+| `--ink-muted` | `#857f7b` | Secondary · ~5.2:1 |
+| `--accent` | `#bf7b47` | Marks, rings |
+| `--accent-text` | `#a86c3c` | Links · ~5.5:1 |
+| `--ok-fg` | `#597f5d` | Approved · ~6.2:1 |
+| `--warn-fg` | `#997735` | Needs you / amber states · ~5.4:1 |
+| `--idle-fg` | `#8a8580` | Draft / paused · ~5.7:1 |
+| `--stop-fg` | `#8d3a32` | Destructive only |
+| `--proof-surround` | `#ebeae6` | Proof canvas surround (desaturated by design) |
+
+#### Status vocabulary — use these exact words everywhere
+
+| Label | Tone | Colour |
+|---|---|---|
+| **Draft** | `draft` | Idle grey |
+| **Not opened** | `awaiting` | Amber |
+| **Awaiting feedback** | `feedback` | Amber |
+| **Revision requested** | `revision` | Amber (**not red**) |
+| **Approved** | `approved` | Green |
+| **Paused** | `paused` | Idle grey |
+
+**Revision requested is amber, not red.** It is the single most common healthy state in this module — a client engaging with the proof is the product working. Colouring it red trains the photographer to feel a jolt of failure every time a client does exactly what you asked them to do.
+
+Blank-cover leather swatches must not include sky blue / turquoise (default: `cream`).
 
 ### Client Gallery UI Template (implemented)
 

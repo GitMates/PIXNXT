@@ -1,0 +1,44 @@
+---
+description: Album Proofer palette tokens and exact status vocabulary
+globs: src/**/smart-albums/**/*,src/styles/typography.css,src/pages/smart-albums/**
+alwaysApply: false
+---
+
+# Album Proofer design system
+
+Full reference: `docs/ALBUM_PROOFER_DESIGN.md` and README §15.
+
+## Palette tokens (`src/styles/typography.css`)
+
+Use these CSS variables — do not invent sky blue / cyan accents for Album Proofer chrome.
+
+| Token | Hex | Use |
+|---|---|---|
+| `--canvas` | `#f7f6f2` | Page ground (`--bg` alias) |
+| `--surface` | `#ffffff` | Cards, panels |
+| `--surface-sunk` | `#f0efeb` | Inputs, wells |
+| `--ink` | `#1d1916` | Titles |
+| `--ink-body` | `#44403c` | Body |
+| `--ink-muted` | `#857f7b` | Secondary |
+| `--accent` | `#bf7b47` | Marks, rings |
+| `--accent-text` | `#a86c3c` | Links |
+| `--ok-fg` | `#597f5d` | Approved |
+| `--warn-fg` | `#997735` | Needs you / amber statuses |
+| `--idle-fg` | `#8a8580` | Draft / paused |
+| `--stop-fg` | `#8d3a32` | Destructive only |
+| `--proof-surround` | `#ebeae6` | Proof canvas surround |
+
+## Status vocabulary — exact words everywhere
+
+| Label | Tone | Colour |
+|---|---|---|
+| Draft | `draft` | Idle grey |
+| Not opened | `awaiting` | Amber |
+| Awaiting feedback | `feedback` | Amber |
+| Revision requested | `revision` | Amber (**never red**) |
+| Approved | `approved` | Green |
+| Paused | `paused` | Idle grey |
+
+**Revision requested is amber, not red.** Client engagement is a healthy product state — red trains photographers to feel failure when the product is working.
+
+Blank-cover leather swatches must not include sky blue / turquoise. Default leather: `cream`.

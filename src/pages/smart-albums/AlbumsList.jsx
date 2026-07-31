@@ -74,6 +74,43 @@ function formatRelativeTime(dateStr) {
     return formatAlbumDate(dateStr);
 }
 
+function formatListRelativeTime(dateStr) {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    if (Number.isNaN(date.getTime())) return '';
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const startOfYesterday = new Date(startOfToday);
+    startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+    if (date >= startOfToday) {
+        const mins = Math.floor((Date.now() - date.getTime()) / 60000);
+        if (mins < 1) return 'Just now';
+        if (mins < 60) return `${mins}m ago`;
+        return `${Math.floor(mins / 60)}h ago`;
+    }
+    if (date >= startOfYesterday) return 'Yesterday';
+    const days = Math.floor((Date.now() - date.getTime()) / 86400000);
+    if (days < 7) return `${days}d ago`;
+    return formatAlbumDate(dateStr);
+}
+
+function getAlbumListSubtitle(album, clientLabel) {
+    const parts = [];
+    if (clientLabel) parts.push(clientLabel);
+    const spreads = Number(album?.page_count) || 0;
+    if (spreads > 0) {
+        parts.push(`${spreads} spread${spreads === 1 ? '' : 's'}`);
+    }
+    return parts.join(' · ');
+}
+
+function getAlbumListAction(status) {
+    if (status?.tone === 'feedback' || status?.tone === 'awaiting') {
+        return { label: 'Remind', kind: 'remind' };
+    }
+    return { label: 'Open', kind: 'open' };
+}
+
 function getAlbumClientLabel(album) {
     const tags = getAlbumCategories(album);
     if (tags.length) return tags.join(' & ');
@@ -100,7 +137,6 @@ function isNeedsYouAlbum(album) {
 }
 
 function formatStatusLabel(status) {
-    if (status?.tone === 'awaiting') return 'Not opened';
     return status?.label || 'Draft';
 }
 
@@ -160,7 +196,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
         setContextMenuAnchor(null);
     }, []);
 
-    const loadAlbums = useCallback(async () => {
+    const loadAlbums = useCallback(async ({ silent = false } = {}) => {
         if (!user?.id) {
             setAlbums([]);
             setProofSummaries({});
@@ -169,7 +205,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
         }
 
         try {
-            setLoading(true);
+            if (!silent) setLoading(true);
             const data = starredOnly
                 ? await smartAlbumsService.getStarredAlbums(user.id)
                 : await smartAlbumsService.getAlbums(user.id);
@@ -196,7 +232,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
         if (!user?.id) return undefined;
 
         const refresh = () => {
-            void loadAlbums();
+            void loadAlbums({ silent: true });
         };
 
         const onCommentsChanged = () => refresh();
@@ -385,7 +421,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
         for (const album of enrichedAlbums) {
             const tone = getAlbumProofStatus(album).tone;
             if (tone === 'revision') needYou += 1;
-            else if (tone === 'awaiting') awaitingClient += 1;
+            else if (tone === 'awaiting' || tone === 'feedback') awaitingClient += 1;
             else if (tone === 'approved') approved += 1;
         }
         return { needYou, awaitingClient, approved, total: enrichedAlbums.length };
@@ -438,7 +474,16 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
         statusFilter !== 'all' ||
         createdFilter !== 'newest';
     const showEmpty = !loading && filteredAlbums.length === 0 && !searchQuery && !hasActiveFilters;
-    const showFirstProofEmpty = showEmpty && !starredOnly;
+    const showFirstProofEmpty = showEmpty && !starredOnly && proofFilter === 'all';
+    // Avoid flashing Albums chrome + "Loading…" before the first-proof empty state.
+    const awaitingFirstProof =
+        loading &&
+        !starredOnly &&
+        proofFilter === 'all' &&
+        albums.length === 0 &&
+        !searchQuery &&
+        !hasActiveFilters;
+    const hideListChrome = showFirstProofEmpty || awaitingFirstProof;
 
     const pageSubtitle =
         proofFilter === 'awaiting'
@@ -448,8 +493,8 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
               : `${proofCounts.needYou} need you · ${proofCounts.awaitingClient} awaiting client · ${proofCounts.approved} approved`;
 
     return (
-        <main className={`sa-proofer-albums${showFirstProofEmpty ? ' sa-proofer-albums--first-proof' : ''}`}>
-            {!showFirstProofEmpty && (
+        <main className={`sa-proofer-albums${hideListChrome ? ' sa-proofer-albums--first-proof' : ''}`}>
+            {!hideListChrome && (
                 <>
             <header className="sa-proofer-albums__hero">
                 <div>
@@ -600,7 +645,11 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
             )}
 
             <div className="sa-proofer-albums__content">
-                {loading ? (
+                {awaitingFirstProof ? (
+                    <div className="sa-proofer-albums__first-proof" aria-busy="true" aria-live="polite">
+                        <p className="sa-proofer-albums__first-proof-loading">Loading…</p>
+                    </div>
+                ) : loading ? (
                     <p className="sa-proofer-albums__loading">Loading albums…</p>
                 ) : showEmpty ? (
                     starredOnly ? (
@@ -673,40 +722,86 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                             const footnote = getAlbumProofFootnote(album, status);
                             const activityAt = getAlbumProofActivityAt(album);
                             const metaLine = formatAlbumMetaLine(clientLabel, footnote, activityAt);
+                            const listSubtitle = getAlbumListSubtitle(album, clientLabel);
+                            const listAction = getAlbumListAction(status);
+                            const listTime = formatListRelativeTime(activityAt);
+                            const openAlbum = () => navigate(`/smart-albums/album/${album.id}`);
                             return (
                                 <article
                                     key={album.id}
-                                    className={`sa-proofer-album-card${settingsAlbum?.id === album.id ? ' sa-proofer-album-card--menu-open' : ''}`}
-                                    onClick={() => navigate(`/smart-albums/album/${album.id}`)}
-                                    onKeyDown={(e) =>
-                                        e.key === 'Enter' && navigate(`/smart-albums/album/${album.id}`)
-                                    }
+                                    className={`sa-proofer-album-card${
+                                        viewMode === 'list' ? ' sa-proofer-album-card--list' : ''
+                                    }${settingsAlbum?.id === album.id ? ' sa-proofer-album-card--menu-open' : ''}`}
+                                    onClick={openAlbum}
+                                    onKeyDown={(e) => e.key === 'Enter' && openAlbum()}
                                     role="button"
                                     tabIndex={0}
                                 >
                                     <div className="sa-proofer-album-card__media">
-                                        <AlbumListCoverThumb album={album} alt={album.name} />
-                                        <button
-                                            type="button"
-                                            className="sa-proofer-album-card__menu"
-                                            onClick={(e) => openAlbumSettings(e, album)}
-                                            aria-label="Open album settings"
-                                        >
-                                            ⋮
-                                        </button>
-                                    </div>
-                                    <div className="sa-proofer-album-card__body">
-                                        <div className="sa-proofer-album-card__top">
-                                            <h3 className="sa-proofer-album-card__name">{album.name}</h3>
-                                            <span className={`sa-proofer-album-status sa-proofer-album-status--${status.tone}`}>
-                                                <span className="sa-proofer-album-status__dot" aria-hidden />
-                                                {formatStatusLabel(status)}
-                                            </span>
-                                        </div>
-                                        {metaLine ? (
-                                            <p className="sa-proofer-album-card__meta">{metaLine}</p>
+                                        <AlbumListCoverThumb
+                                            album={album}
+                                            alt={album.name}
+                                            variant={viewMode === 'list' ? 'list' : 'grid'}
+                                        />
+                                        {viewMode !== 'list' ? (
+                                            <button
+                                                type="button"
+                                                className="sa-proofer-album-card__menu"
+                                                onClick={(e) => openAlbumSettings(e, album)}
+                                                aria-label="Open album settings"
+                                            >
+                                                ⋮
+                                            </button>
                                         ) : null}
                                     </div>
+                                    {viewMode === 'list' ? (
+                                        <>
+                                            <div className="sa-proofer-album-card__info">
+                                                <h3 className="sa-proofer-album-card__name">{album.name}</h3>
+                                                {listSubtitle ? (
+                                                    <p className="sa-proofer-album-card__subtitle">{listSubtitle}</p>
+                                                ) : null}
+                                            </div>
+                                            <div className="sa-proofer-album-card__trailing">
+                                                <span
+                                                    className={`sa-proofer-album-status sa-proofer-album-status--${status.tone} sa-proofer-album-status--list`}
+                                                >
+                                                    <span className="sa-proofer-album-status__dot" aria-hidden />
+                                                    {formatStatusLabel(status)}
+                                                </span>
+                                                <span className="sa-proofer-album-card__time">
+                                                    {listTime || '—'}
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    className="sa-proofer-album-card__action"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        if (listAction.kind === 'remind') {
+                                                            handleGetDirectLink(album);
+                                                        } else {
+                                                            openAlbum();
+                                                        }
+                                                    }}
+                                                >
+                                                    {listAction.label}
+                                                </button>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div className="sa-proofer-album-card__body">
+                                            <div className="sa-proofer-album-card__top">
+                                                <h3 className="sa-proofer-album-card__name">{album.name}</h3>
+                                                <span className={`sa-proofer-album-status sa-proofer-album-status--${status.tone}`}>
+                                                    <span className="sa-proofer-album-status__dot" aria-hidden />
+                                                    {formatStatusLabel(status)}
+                                                </span>
+                                            </div>
+                                            {metaLine ? (
+                                                <p className="sa-proofer-album-card__meta">{metaLine}</p>
+                                            ) : null}
+                                        </div>
+                                    )}
                                 </article>
                             );
                         })}

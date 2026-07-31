@@ -103,6 +103,7 @@
 }
 
 .ae-spread-filmstrip__thumb {
+  position: relative;
   display: flex;
   align-items: stretch;
   justify-content: center;
@@ -111,6 +112,17 @@
   overflow: hidden;
   border-radius: 8px;
   background: #e8e6e0;
+}
+
+.ae-spread-filmstrip__thumb .ab-overview-leather-cover {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+  box-shadow: none !important;
+  transform: none !important;
+  filter: none;
 }
 
 .ae-spread-filmstrip__thumb > img {

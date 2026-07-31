@@ -1,3 +1,16 @@
+.sa-album-list-thumb {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.sa-album-list-thumb--list {
+  border-radius: 8px;
+}
+
 .sa-album-list-thumb-crop {
   position: absolute;
   inset: 0;
@@ -39,6 +52,13 @@
   object-fit: cover;
 }
 
+.sa-album-list-thumb > .sa-album-list-thumb-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .cg-style-74 .sa-album-list-thumb-img:not(.ab-book-wrap-cover-img) {
   position: absolute;
   inset: 0;
@@ -46,4 +66,11 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.sa-album-thumb-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f0efeb;
 }

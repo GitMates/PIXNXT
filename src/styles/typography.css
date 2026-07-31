@@ -1,6 +1,15 @@
 /**
  * PIXNXT typography — one file, imported once.
  * Do not redeclare families or sizes in feature CSS. Use role classes / tokens.
+ *
+ * Album Proofer palette + status vocabulary (keep exact):
+ *   --canvas #f7f6f2 · --surface #fff · --surface-sunk #f0efeb
+ *   --ink #1d1916 · --ink-body #44403c · --ink-muted #857f7b
+ *   --accent #bf7b47 · --accent-text #a86c3c
+ *   --ok-fg #597f5d · --warn-fg #997735 · --idle-fg #8a8580 · --stop-fg #8d3a32
+ *   --proof-surround #ebeae6
+ * Status labels: Draft | Not opened | Awaiting feedback | Revision requested (amber, never red) | Approved | Paused
+ * Rule: .cursor/rules/album-proofer-design.mdc
  */
 
 /* ── Latin — always loaded ─────────────────────────────────────── */
@@ -74,18 +83,36 @@
   --t-micro: 0.6875rem; /* 11px */
   --t-label: 0.625rem; /* 10px */
 
-  /* Ink & surfaces — Album Proofer / product chrome */
-  --bg: #f7f6f3;
+  /* Album Proofer / product chrome palette */
+  --canvas: #f7f6f2;
+  --bg: var(--canvas);
   --surface: #ffffff;
-  --ink: #1c1917;
-  --ink-body: #3f3a36;
-  --ink-muted: #8a8580;
+  --surface-sunk: #f0efeb;
+  --ink: #1d1916;
+  --ink-body: #44403c;
+  --ink-muted: #857f7b;
   --border: #e5e2dc;
-  --accent: #9a6c67;
-  --status-revision: #c46a3a;
-  --status-awaiting: #b08968;
-  --status-approved: #5f8f6a;
-  --status-draft: #9a9590;
+  --accent: #bf7b47;
+  --accent-text: #a86c3c;
+  --ok-fg: #597f5d;
+  --warn-fg: #997735;
+  --idle-fg: #8a8580;
+  --stop-fg: #8d3a32;
+  --proof-surround: #ebeae6;
+
+  /* Status tones — revision/awaiting/feedback are amber, never red */
+  --status-revision: var(--warn-fg);
+  --status-awaiting: var(--warn-fg);
+  --status-feedback: var(--warn-fg);
+  --status-approved: var(--ok-fg);
+  --status-draft: var(--idle-fg);
+  --status-paused: var(--idle-fg);
+  --status-revision-bg: #faf3e0;
+  --status-awaiting-bg: #faf3e0;
+  --status-feedback-bg: #faf3e0;
+  --status-approved-bg: #eef4f0;
+  --status-draft-bg: var(--surface-sunk);
+  --status-paused-bg: var(--surface-sunk);
 }
 
 /* ── Role classes — choose a role, never a raw font-size in features ─ */

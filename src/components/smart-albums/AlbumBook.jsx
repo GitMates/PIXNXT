@@ -458,6 +458,7 @@ const AlbumBook = ({
 
         let measureAttempts = 0;
         const maxMeasureAttempts = 64;
+        const fallbackAfterAttempts = 2;
 
         const commitDims = (next) => {
             if (pendingDimsCommitRef.current != null) {
@@ -495,13 +496,18 @@ const AlbumBook = ({
                 const next = getBookDimensions(stage, album?.grid_size);
                 if (!next) {
                     measureAttempts += 1;
-                    if (measureAttempts >= maxMeasureAttempts) {
+                    // Mount cover ASAP on open/reload — don't wait ~1s for stage to hit 300px.
+                    if (
+                        measureAttempts === fallbackAfterAttempts ||
+                        measureAttempts >= maxMeasureAttempts
+                    ) {
                         const fallback = getFallbackBookDimensions(
                             rootRef.current,
                             album?.grid_size
                         );
                         if (fallback) commitDims(fallback);
-                    } else {
+                    }
+                    if (measureAttempts < maxMeasureAttempts) {
                         dimsRafRef.current = requestAnimationFrame(update);
                     }
                     return;

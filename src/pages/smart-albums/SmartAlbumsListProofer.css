@@ -9,8 +9,10 @@
   --sa-proofer-accent: var(--accent);
   --sa-proofer-status-revision: var(--status-revision);
   --sa-proofer-status-awaiting: var(--status-awaiting);
+  --sa-proofer-status-feedback: var(--status-feedback);
   --sa-proofer-status-approved: var(--status-approved);
   --sa-proofer-status-draft: var(--status-draft);
+  --sa-proofer-status-paused: var(--status-paused);
 
   flex: 1;
   min-height: 100%;
@@ -235,18 +237,142 @@
 
 .theme-mono .sa-proofer-albums__grid--list {
   grid-template-columns: 1fr;
-  gap: 16px;
+  gap: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
 }
 
-.theme-mono .sa-proofer-albums__grid--list .sa-proofer-album-card {
-  display: grid;
-  grid-template-columns: 180px 1fr;
+.theme-mono .sa-proofer-albums__grid--list .sa-proofer-album-card,
+.theme-mono .sa-proofer-album-card--list {
+  display: flex;
+  align-items: center;
   gap: 16px;
-  align-items: start;
+  padding: 16px 20px;
+  border-radius: 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  transform: none;
+  transition: background 0.15s ease;
+}
+
+.theme-mono .sa-proofer-albums__grid--list .sa-proofer-album-card:last-child {
+  border-bottom: none;
+}
+
+.theme-mono .sa-proofer-albums__grid--list .sa-proofer-album-card:hover,
+.theme-mono .sa-proofer-album-card--list:hover {
+  background: #fdf8f3;
+  transform: none;
 }
 
 .theme-mono .sa-proofer-albums__grid--list .sa-proofer-album-card__media {
-  aspect-ratio: 4 / 3;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  aspect-ratio: 1 / 1;
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+  background: var(--surface-sunk);
+}
+
+.theme-mono .sa-proofer-albums__grid--list .sa-proofer-album-card__media .sa-album-list-thumb,
+.theme-mono .sa-proofer-albums__grid--list .sa-proofer-album-card__media .sa-album-list-thumb-crop,
+.theme-mono .sa-proofer-albums__grid--list .sa-proofer-album-card__media .sa-album-list-thumb-crop--front-cover {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border-radius: 8px;
+}
+
+.theme-mono .sa-proofer-album-card__info {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.theme-mono .sa-proofer-album-card__trailing {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.theme-mono .sa-proofer-albums__grid--list .sa-proofer-album-card__name {
+  font-size: var(--t-body);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.theme-mono .sa-proofer-album-card__subtitle {
+  margin: 0;
+  font-size: var(--t-meta);
+  line-height: 1.4;
+  color: var(--ink-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.theme-mono .sa-proofer-album-status--list {
+  padding: 0;
+  background: transparent !important;
+  font-size: var(--t-meta);
+  font-weight: 500;
+  min-width: 8.75rem;
+}
+
+.theme-mono .sa-proofer-album-card__time {
+  flex-shrink: 0;
+  min-width: 4.25rem;
+  text-align: left;
+  font-size: var(--t-meta);
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.theme-mono .sa-proofer-album-card__action {
+  flex-shrink: 0;
+  min-width: 3.25rem;
+  margin: 0;
+  padding: 4px 0;
+  border: none;
+  background: transparent;
+  color: var(--accent-text);
+  font-family: inherit;
+  font-size: var(--t-body-sm);
+  font-weight: 600;
+  text-align: right;
+  cursor: pointer;
+}
+
+.theme-mono .sa-proofer-album-card__action:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+@media (max-width: 720px) {
+  .theme-mono .sa-proofer-albums__grid--list .sa-proofer-album-card,
+  .theme-mono .sa-proofer-album-card--list {
+    flex-wrap: wrap;
+    gap: 10px 12px;
+  }
+
+  .theme-mono .sa-proofer-album-card__info {
+    flex: 1 1 calc(100% - 72px);
+  }
+
+  .theme-mono .sa-proofer-album-card__trailing {
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-end;
+    gap: 16px;
+  }
 }
 
 .theme-mono .sa-proofer-album-card {
@@ -344,9 +470,12 @@
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
+  padding: 4px 10px 4px 8px;
+  border-radius: 999px;
   font-size: var(--t-micro);
   font-weight: 600;
   color: var(--sa-proofer-muted);
+  background: var(--status-draft-bg);
   white-space: nowrap;
 }
 
@@ -355,38 +484,47 @@
   height: 7px;
   border-radius: 50%;
   flex-shrink: 0;
+  background: currentColor;
 }
 
 .theme-mono .sa-proofer-album-status--revision {
-  color: var(--sa-proofer-status-revision);
+  color: var(--warn-fg);
+  background: var(--status-revision-bg);
 }
 
 .theme-mono .sa-proofer-album-status--revision .sa-proofer-album-status__dot {
-  background: var(--sa-proofer-status-revision);
+  background: var(--warn-fg);
 }
 
-.theme-mono .sa-proofer-album-status--awaiting {
-  color: var(--sa-proofer-status-awaiting);
+.theme-mono .sa-proofer-album-status--awaiting,
+.theme-mono .sa-proofer-album-status--feedback {
+  color: var(--warn-fg);
+  background: var(--status-awaiting-bg);
 }
 
-.theme-mono .sa-proofer-album-status--awaiting .sa-proofer-album-status__dot {
-  background: var(--sa-proofer-status-awaiting);
+.theme-mono .sa-proofer-album-status--awaiting .sa-proofer-album-status__dot,
+.theme-mono .sa-proofer-album-status--feedback .sa-proofer-album-status__dot {
+  background: var(--warn-fg);
 }
 
 .theme-mono .sa-proofer-album-status--approved {
-  color: var(--sa-proofer-status-approved);
+  color: var(--ok-fg);
+  background: var(--status-approved-bg);
 }
 
 .theme-mono .sa-proofer-album-status--approved .sa-proofer-album-status__dot {
-  background: var(--sa-proofer-status-approved);
+  background: var(--ok-fg);
 }
 
-.theme-mono .sa-proofer-album-status--draft {
-  color: var(--sa-proofer-status-draft);
+.theme-mono .sa-proofer-album-status--draft,
+.theme-mono .sa-proofer-album-status--paused {
+  color: var(--idle-fg);
+  background: var(--status-draft-bg);
 }
 
-.theme-mono .sa-proofer-album-status--draft .sa-proofer-album-status__dot {
-  background: var(--sa-proofer-status-draft);
+.theme-mono .sa-proofer-album-status--draft .sa-proofer-album-status__dot,
+.theme-mono .sa-proofer-album-status--paused .sa-proofer-album-status__dot {
+  background: var(--idle-fg);
 }
 
 .theme-mono .sa-proofer-album-card__meta {
@@ -448,6 +586,12 @@
   max-width: 34rem;
   font-size: var(--t-body);
   line-height: 1.55;
+  color: var(--sa-proofer-muted);
+}
+
+.theme-mono .sa-proofer-albums__first-proof-loading {
+  margin: 0;
+  font-size: var(--t-body);
   color: var(--sa-proofer-muted);
 }
 

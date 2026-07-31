@@ -29,6 +29,7 @@ import { COVER_TEXT_CHANGED_EVENT, resolveFrontCoverDisplayText } from './albumC
 import {
     COVER_COLOR_CHANGED_EVENT,
     getAlbumCoverColor,
+    getCoverLeatherCssVars,
 } from './albumCoverColor';
 import { getCoverLeatherSurfaceStyle } from './coverLeatherSurface';
 import { parseGridSizeAspect } from './albumGridSize';
@@ -373,10 +374,13 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     const pageAspect = parseGridSizeAspect(album?.grid_size || 'square');
     const leatherStyle =
         showLeatherCover && albumId
-            ? getCoverLeatherSurfaceStyle(getAlbumCoverColor(albumId), {
-                  aspect: pageAspect,
-                  title: coverText,
-              })
+            ? {
+                  ...getCoverLeatherCssVars(getAlbumCoverColor(albumId)),
+                  ...getCoverLeatherSurfaceStyle(getAlbumCoverColor(albumId), {
+                      aspect: pageAspect,
+                      title: coverText,
+                  }),
+              }
             : null;
     const coverPlacementMode = placementMode;
     const showStar = pageNum === 1 && album?.is_starred;
@@ -400,9 +404,12 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
         album?.blank_covers === true && !src && isBackCoverPage;
     const leatherBackStyle =
         showLeatherBackCover && albumId
-            ? getCoverLeatherSurfaceStyle(getAlbumCoverColor(albumId), {
-                  aspect: pageAspect,
-              })
+            ? {
+                  ...getCoverLeatherCssVars(getAlbumCoverColor(albumId)),
+                  ...getCoverLeatherSurfaceStyle(getAlbumCoverColor(albumId), {
+                      aspect: pageAspect,
+                  }),
+              }
             : null;
     const endCoverSwapMarkInfo =
         isEndCoverPage ? liveGetSwapMarkInfo?.(pageNum, 1, spreadLeftForPage) : null;

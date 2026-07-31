@@ -117,19 +117,21 @@
 }
 
 .theme-mono .sa-status-filter__dot--draft {
-  background: oklch(0.72 0.005 85);
+  background: var(--idle-fg);
 }
 
-.theme-mono .sa-status-filter__dot--awaiting {
-  background: oklch(0.78 0.12 85);
-}
-
+.theme-mono .sa-status-filter__dot--awaiting,
+.theme-mono .sa-status-filter__dot--feedback,
 .theme-mono .sa-status-filter__dot--revision {
-  background: oklch(0.62 0.16 25);
+  background: var(--warn-fg);
 }
 
 .theme-mono .sa-status-filter__dot--approved {
-  background: oklch(0.62 0.14 145);
+  background: var(--ok-fg);
+}
+
+.theme-mono .sa-status-filter__dot--paused {
+  background: var(--idle-fg);
 }
 
 .theme-mono .sa-status-filter__option-label {

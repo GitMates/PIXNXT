@@ -9,6 +9,7 @@ import {
     isWholeSpreadLayout,
     pageToSpreadIndex,
     spreadIndexToPage,
+    albumHasBlankCovers,
 } from './albumSpreadUtils';
 import { getSpreadLeftPageIndex } from './albumSpreadGrid';
 import {
@@ -18,6 +19,7 @@ import {
     resolveCoverImageSrc,
 } from './albumPagePhotos';
 import { buildOverviewSpreadReorderPlan } from './albumSpreadReorder';
+import OverviewLeatherCover from './OverviewLeatherCover';
 import './AlbumSpreadFilmstrip.css';
 
 const STRIP_GAP_PX = 10;
@@ -107,10 +109,16 @@ function resolveFilmstripVisual(album, spreadIndex, totalPages, spreadOpts) {
         leftSrc,
         rightSrc,
         showSpreadFull: Boolean(spreadSrc),
+        useLeather:
+            (isCover || isEndSpread) &&
+            !coverSrc &&
+            !leftSrc &&
+            !rightSrc &&
+            albumHasBlankCovers(album),
     };
 }
 
-function FilmstripThumb({ visual }) {
+function FilmstripThumb({ visual, album }) {
     const {
         isCover,
         isEndSpread,
@@ -119,6 +127,7 @@ function FilmstripThumb({ visual }) {
         leftSrc,
         rightSrc,
         showSpreadFull,
+        useLeather,
     } = visual;
 
     if (showSpreadFull) {
@@ -127,11 +136,13 @@ function FilmstripThumb({ visual }) {
 
     if (isCover || isEndSpread) {
         const src = coverSrc || leftSrc || rightSrc;
-        return src ? (
-            <img src={src} alt="" draggable={false} />
-        ) : (
-            <span className="ae-spread-filmstrip__ph" />
-        );
+        if (src) {
+            return <img src={src} alt="" draggable={false} />;
+        }
+        if (useLeather || albumHasBlankCovers(album)) {
+            return <OverviewLeatherCover album={album} showTitle={isCover} />;
+        }
+        return <span className="ae-spread-filmstrip__ph" />;
     }
 
     return (
@@ -482,7 +493,7 @@ export default function AlbumSpreadFilmstrip({
                                 }}
                             >
                                 <span className="ae-spread-filmstrip__thumb">
-                                    <FilmstripThumb visual={visual} />
+                                    <FilmstripThumb visual={visual} album={album} />
                                 </span>
                                 <span className="ae-spread-filmstrip__num">{label}</span>
                                 {commentCount > 0 ? (
