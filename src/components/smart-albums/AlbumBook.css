@@ -1250,6 +1250,11 @@
   transform: translateY(-50%);
   width: 48px;
   height: 48px;
+  padding: 0;
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  line-height: 0;
   border: none;
   background: rgba(255, 255, 255, 0.95);
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
@@ -1434,14 +1439,18 @@
   letter-spacing: 0.01em;
 }
 
-/* Gallery proofing — arrows pinned to viewport sides */
+/* Gallery proofing — arrows sit in the book gutters (not viewport-fixed) */
 .ab-root--preview .ab-nav {
-  position: fixed;
+  position: absolute;
   top: 50%;
   transform: translateY(-50%);
   width: 58px;
   height: 58px;
   padding: 0;
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  line-height: 0;
   background: rgba(255, 255, 255, 0.62);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -1466,18 +1475,28 @@
 .ab-root--preview .ab-nav svg {
   width: 30px;
   height: 30px;
+  display: block;
   stroke-width: 1.65;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
+/* Chevron tip reads heavy toward the pointed side — nudge so it looks centered */
+.ab-root--preview .ab-nav--prev svg {
+  transform: translateX(1px);
+}
+
+.ab-root--preview .ab-nav--next svg {
+  transform: translateX(-1px);
+}
+
 .ab-root--preview .ab-nav--prev {
-  left: 14px;
+  left: 8px;
   right: auto;
 }
 
 .ab-root--preview .ab-nav--next {
-  right: 14px;
+  right: 8px;
   left: auto;
 }
 

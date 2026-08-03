@@ -653,7 +653,60 @@
   width: 100%;
   max-height: 80vh;
   background: #000;
-  border-radius: 14px;
+  border-radius: 14px 14px 0 0;
+  cursor: pointer;
+}
+
+.avp-video-popup__controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px 12px;
+  background: #111;
+}
+
+.avp-video-popup__play {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avp-video-popup__play:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.avp-video-popup__pause-icon {
+  display: block;
+  width: 10px;
+  height: 12px;
+  background:
+    linear-gradient(#fff, #fff) left / 3px 100% no-repeat,
+    linear-gradient(#fff, #fff) right / 3px 100% no-repeat;
+}
+
+.avp-video-popup__time {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.78);
+  font-variant-numeric: tabular-nums;
+  min-width: 72px;
+}
+
+.avp-video-popup__seek {
+  flex: 1;
+  min-width: 0;
+  height: 4px;
+  accent-color: #fff;
+  cursor: pointer;
 }
 
 .avp-video-popup__close {
