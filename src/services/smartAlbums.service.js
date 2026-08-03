@@ -980,7 +980,7 @@ export const smartAlbumsService = {
       writeSettingsOverride(photographer_id, data.id, {
         comments_enabled: true,
         messages_enabled: true,
-        share_link_enabled: defaults.accessControl === 'link',
+        share_link_enabled: true,
         replies_enabled: defaults.multiUserCollaboration,
       });
       removeLocalAlbum(photographer_id, data.id);
@@ -1026,7 +1026,7 @@ export const smartAlbumsService = {
         writeSettingsOverride(photographer_id, album.id, {
           comments_enabled: true,
           messages_enabled: true,
-          share_link_enabled: defaults.accessControl === 'link',
+          share_link_enabled: true,
           replies_enabled: defaults.multiUserCollaboration,
         });
 

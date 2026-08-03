@@ -18,7 +18,7 @@ export const DEFAULT_PROOFER_SETTINGS = {
     accessControl: 'link',
     allowDownloads: false,
     downloadQuality: 'proof',
-    downloadsOnlyAfterApproval: true,
+    downloadsOnlyAfterApproval: false,
     requireApprovalPin: true,
     lockAlbumAfterApproval: true,
     multiUserCollaboration: true,
@@ -72,6 +72,15 @@ function writeJson(key, value) {
 
 function mergeSettings(base, patch) {
     return { ...base, ...(patch || {}) };
+}
+
+/** Spread downloads are locked off until the feature ships. */
+function withDownloadsLockedOff(settings) {
+    return {
+        ...settings,
+        allowDownloads: false,
+        downloadsOnlyAfterApproval: false,
+    };
 }
 
 function isMissingTableError(error) {
@@ -150,10 +159,8 @@ function settingsToDbFull(settings) {
         max_revision_rounds: Number(settings.maxRevisionRounds) || 1,
         approval_pin: settings.approvalPin || '',
         send_reminder_emails: Boolean(settings.sendReminderEmails),
+        allow_downloads: false,
     };
-    if (settings.allowDownloads !== undefined) {
-        out.allow_downloads = Boolean(settings.allowDownloads);
-    }
     if (settings.multiUserCollaboration !== undefined) {
         out.multi_user_collaboration = Boolean(settings.multiUserCollaboration);
     }
@@ -200,7 +207,9 @@ function cacheAlbumSettings(photographerId, albumId, settings) {
 
 function readCachedPhotographerDefaults(photographerId) {
     const all = readJson(DEFAULTS_CACHE_KEY, {});
-    return mergeSettings(DEFAULT_PROOFER_SETTINGS, all[photographerId]);
+    return withDownloadsLockedOff(
+        mergeSettings(DEFAULT_PROOFER_SETTINGS, all[photographerId])
+    );
 }
 
 function readCachedAlbumSettings(photographerId, albumId) {
@@ -214,16 +223,8 @@ function hasCachedAlbumSettings(photographerId, albumId) {
 }
 
 export function getAlbumShareDisplayUrl(album, settings) {
-    const origin = getPublicSiteOrigin();
-    const host = origin.replace(/^https?:\/\//, '');
-    const slug = album?.slug || album?.id || '';
-
-    if (settings?.accessLevel === 'private') {
-        const token = settings.privateShareToken || album?.id || '';
-        return `${host}/album-preview/${encodeURIComponent(album?.id || '')}?token=${token}`;
-    }
-
-    return `${host}/album-preview/${encodeURIComponent(slug || album?.id || '')}`;
+    // Prefer the full absolute URL so copied/shared links open correctly.
+    return getAlbumShareCopyUrl(album, settings);
 }
 
 export function getAlbumShareCopyUrl(album, settings) {
@@ -251,7 +252,7 @@ export const smartAlbumProoferSettingsService = {
     },
 
     async loadPhotographerDefaults(photographerId) {
-        if (!photographerId) return { ...DEFAULT_PROOFER_SETTINGS };
+        if (!photographerId) return withDownloadsLockedOff({ ...DEFAULT_PROOFER_SETTINGS });
 
         try {
             const { data, error } = await supabase
@@ -262,9 +263,11 @@ export const smartAlbumProoferSettingsService = {
 
             if (error && !isMissingTableError(error)) throw error;
 
-            const merged = mergeSettings(
-                DEFAULT_PROOFER_SETTINGS,
-                data?.settings || readCachedPhotographerDefaults(photographerId)
+            const merged = withDownloadsLockedOff(
+                mergeSettings(
+                    DEFAULT_PROOFER_SETTINGS,
+                    data?.settings || readCachedPhotographerDefaults(photographerId)
+                )
             );
             cachePhotographerDefaults(photographerId, merged);
             return merged;
@@ -275,10 +278,12 @@ export const smartAlbumProoferSettingsService = {
     },
 
     async savePhotographerDefaults(photographerId, patch) {
-        if (!photographerId) return { ...DEFAULT_PROOFER_SETTINGS };
+        if (!photographerId) {
+            return withDownloadsLockedOff({ ...DEFAULT_PROOFER_SETTINGS });
+        }
 
         const current = await this.loadPhotographerDefaults(photographerId);
-        const next = mergeSettings(current, patch);
+        const next = withDownloadsLockedOff(mergeSettings(current, patch));
         cachePhotographerDefaults(photographerId, next);
 
         try {
@@ -300,7 +305,9 @@ export const smartAlbumProoferSettingsService = {
     },
 
     updatePhotographerDefaults(photographerId, patch) {
-        const next = mergeSettings(readCachedPhotographerDefaults(photographerId), patch);
+        const next = withDownloadsLockedOff(
+            mergeSettings(readCachedPhotographerDefaults(photographerId), patch)
+        );
         cachePhotographerDefaults(photographerId, next);
         void this.savePhotographerDefaults(photographerId, patch);
         return next;
@@ -461,12 +468,9 @@ export const smartAlbumProoferSettingsService = {
             accessPassword: parsed.albumPassword || '',
             privateShareToken: parsed.privateShareToken || '',
             whitelistedEmails: [],
-            allowDownloads:
-                parsed.allowDownloads !== undefined
-                    ? Boolean(parsed.allowDownloads)
-                    : Boolean(defaults.allowDownloads),
+            allowDownloads: false,
             downloadQuality: defaults.downloadQuality || 'proof',
-            downloadsOnlyAfterApproval: defaults.downloadsOnlyAfterApproval !== false,
+            downloadsOnlyAfterApproval: false,
             allowMultiUserCollab: defaults.multiUserCollaboration,
             requireDigitalVerification:
                 Boolean(parsed.approvalPin) || defaults.requireApprovalPin,
@@ -520,7 +524,7 @@ export const smartAlbumProoferSettingsService = {
             privateShareToken: mapped === 'private' ? randomToken() : '',
             maxRevisionRounds: defaults.capRevisions ? defaults.revisionLimit : 3,
             sendReminderEmails: defaults.enableClientNudges,
-            allowDownloads: Boolean(defaults.allowDownloads),
+            allowDownloads: false,
         };
 
         cacheAlbumSettings(photographerId, albumId, mergeSettings(DEFAULT_ALBUM_PROOFER_SETTINGS, patch));
@@ -541,9 +545,9 @@ export const smartAlbumProoferSettingsService = {
             accessPassword: effective.accessPassword || '',
             privateShareToken: effective.privateShareToken || '',
             whitelistedEmails: effective.whitelistedEmails || [],
-            allowDownloads: effective.allowDownloads,
+            allowDownloads: false,
             downloadQuality: effective.downloadQuality || 'proof',
-            downloadsOnlyAfterApproval: effective.downloadsOnlyAfterApproval !== false,
+            downloadsOnlyAfterApproval: false,
             allowMultiUserCollab: effective.allowMultiUserCollab,
             requireDigitalVerification: effective.requireDigitalVerification,
             lockAlbumAfterApproval: effective.lockAlbumAfterApproval !== false,
