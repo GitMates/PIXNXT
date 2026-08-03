@@ -43,7 +43,7 @@ export default function AlbumProoferSettingsDrawerPanel({
     const [accessLevel, setAccessLevel] = useState('public');
     const [albumPassword, setAlbumPassword] = useState('');
     const [privateShareToken, setPrivateShareToken] = useState('');
-    const [allowDownloads, setAllowDownloads] = useState(true);
+    const [allowDownloads, setAllowDownloads] = useState(false);
     const [multiUserCollab, setMultiUserCollab] = useState(true);
     const [requireVerification, setRequireVerification] = useState(false);
     const [approvalPin, setApprovalPin] = useState('');
@@ -74,9 +74,7 @@ export default function AlbumProoferSettingsDrawerPanel({
                 setAccessLevel(proofer.accessLevel || 'public');
                 setAlbumPassword(proofer.albumPassword || '');
                 setPrivateShareToken(proofer.privateShareToken || '');
-                setAllowDownloads(
-                    raw.allow_downloads ?? raw.allowDownloads ?? defaults.allowDownloads ?? true
-                );
+                setAllowDownloads(false);
                 setMultiUserCollab(
                     raw.multi_user_collaboration ??
                         raw.multiUserCollaboration ??
@@ -120,7 +118,7 @@ export default function AlbumProoferSettingsDrawerPanel({
                         ? privateShareToken || smartAlbumProoferSettingsService.randomToken()
                         : privateShareToken,
                 approvalPin: nextPin,
-                allowDownloads,
+                allowDownloads: false,
                 multiUserCollaboration: multiUserCollab,
                 activeViewers,
             };

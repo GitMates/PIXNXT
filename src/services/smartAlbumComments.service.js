@@ -1115,14 +1115,24 @@ export const smartAlbumCommentsService = {
         const key = String(albumIdOrSlug || '').trim();
         if (!key) return null;
 
-        const byId = await supabase
-            .from('smart_albums')
-            .select('*')
-            .eq('id', key)
-            .maybeSingle();
+        const looksLikeUuid =
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+                key
+            );
 
-        if (byId.error) throw byId.error;
-        if (byId.data) return byId.data;
+        // Query by id only for real UUIDs — slug strings make Postgres reject uuid columns.
+        if (looksLikeUuid) {
+            const byId = await supabase
+                .from('smart_albums')
+                .select('*')
+                .eq('id', key)
+                .maybeSingle();
+
+            if (byId.error && !/uuid|invalid input syntax/i.test(byId.error.message || '')) {
+                throw byId.error;
+            }
+            if (byId.data) return byId.data;
+        }
 
         const bySlug = await supabase
             .from('smart_albums')

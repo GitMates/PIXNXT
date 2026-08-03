@@ -6,7 +6,6 @@ import {
 } from '../../../services/smartAlbumProoferSettings.service';
 import {
     CollapsibleStatusSection,
-    DaysInput,
     Divider,
     NumberInput,
     RadioCardGroup,
@@ -22,7 +21,6 @@ import './SmartAlbumProoferSettings.css';
 const TABS = [
     { id: 'access', label: 'Access' },
     { id: 'notifications', label: 'Notifications' },
-    { id: 'feedback', label: 'Feedback' },
     { id: 'signoff', label: 'Sign-off' },
     { id: 'reminders', label: 'Reminders' },
 ];
@@ -194,10 +192,11 @@ export default function SmartAlbumProoferSettingsPanel() {
                         <SettingGroup title="Client permissions" bare>
                             <div className="sa-proofer-section-stack">
                                 <SettingsToggle
-                                    checked={Boolean(settings.allowDownloads)}
-                                    onChange={(allowDownloads) => patch({ allowDownloads })}
+                                    checked={false}
+                                    disabled
+                                    onChange={() => {}}
                                     label="Allow spread downloads"
-                                    description="Clients can save spreads as JPG. Off by default — a proof is not a deliverable."
+                                    description="Clients can save spreads as JPG. Currently unavailable — stays off."
                                 />
 
                                 <Divider />
@@ -221,12 +220,11 @@ export default function SmartAlbumProoferSettingsPanel() {
                                 <Divider />
 
                                 <SettingsToggle
-                                    checked={Boolean(settings.downloadsOnlyAfterApproval)}
-                                    onChange={(downloadsOnlyAfterApproval) =>
-                                        patch({ downloadsOnlyAfterApproval })
-                                    }
+                                    checked={false}
+                                    disabled
+                                    onChange={() => {}}
                                     label="Only after approval"
-                                    description="Downloads stay locked until the client signs off. Strongly recommended if you allow anything above proof quality."
+                                    description="Downloads stay locked until the client signs off. Currently unavailable — stays off."
                                 />
                             </div>
                         </SettingGroup>
@@ -247,46 +245,6 @@ export default function SmartAlbumProoferSettingsPanel() {
                                 }
                                 options={ALERT_FREQUENCY_OPTIONS}
                             />
-                        </SettingGroup>
-
-                        <SettingGroup title="Client Auto-Reminders">
-                            <SettingsToggle
-                                variant="ok"
-                                checked={Boolean(settings.enableClientNudges)}
-                                onChange={(enableClientNudges) =>
-                                    patch({ enableClientNudges })
-                                }
-                                label="Enable Email Reminders"
-                                description="Automatically remind clients who haven't started their review"
-                            />
-                            {settings.enableClientNudges ? (
-                                <div className="sa-proofer-nested">
-                                    <NumberInput
-                                        label="Send Reminder After (Days)"
-                                        description="Days of inactivity before sending reminder"
-                                        value={Number(settings.nudgeDays) || 5}
-                                        onChange={(nudgeDays) => patch({ nudgeDays })}
-                                        min={1}
-                                        max={30}
-                                    />
-                                    <Divider />
-                                    <TemplateTextarea
-                                        label="Email Template"
-                                        description="Customize the reminder email sent to clients"
-                                        value={settings.clientReminderTemplate || ''}
-                                        onChange={(clientReminderTemplate) =>
-                                            patch({ clientReminderTemplate })
-                                        }
-                                        variables={[
-                                            '{{client_name}}',
-                                            '{{album_name}}',
-                                            '{{album_link}}',
-                                            '{{days_inactive}}',
-                                        ]}
-                                        placeholder="Hi {{client_name}}, Just a friendly reminder that your album {{album_name}} is awaiting your feedback."
-                                    />
-                                </div>
-                            ) : null}
                         </SettingGroup>
 
                         <SettingGroup title="Status Change Notifications">
@@ -355,8 +313,6 @@ export default function SmartAlbumProoferSettingsPanel() {
                     </div>
                 )}
 
-                {activeTab === 'feedback' && <div className="sa-proofer-empty" />}
-
                 {activeTab === 'signoff' && (
                     <>
                         <SettingGroup title="Sign-off" bare>
@@ -386,27 +342,44 @@ export default function SmartAlbumProoferSettingsPanel() {
 
                 {activeTab === 'reminders' && (
                     <>
-                        <SettingGroup title="Reminders" bare>
-                            <div className="sa-proofer-section-stack">
-                                <SettingsToggle
-                                    checked={Boolean(settings.enableClientNudges)}
-                                    onChange={(enableClientNudges) =>
-                                        patch({ enableClientNudges })
-                                    }
-                                    label="Chase an inactive client"
-                                    description="Sends a gentle nudge if the album has had no activity. Counts from when you sent it, not from when you published it."
-                                />
-                                <Divider />
-                                <DaysInput
-                                    label="After how long"
-                                    description="Most couples take four to eight days on a first pass."
-                                    value={Number(settings.nudgeDays) || 5}
-                                    onChange={(nudgeDays) => patch({ nudgeDays })}
-                                    min={1}
-                                    max={60}
-                                    disabled={!settings.enableClientNudges}
-                                />
-                            </div>
+                        <SettingGroup title="Client Auto-Reminders">
+                            <SettingsToggle
+                                variant="ok"
+                                checked={Boolean(settings.enableClientNudges)}
+                                onChange={(enableClientNudges) =>
+                                    patch({ enableClientNudges })
+                                }
+                                label="Enable Email Reminders"
+                                description="Automatically remind clients who haven't started their review"
+                            />
+                            {settings.enableClientNudges ? (
+                                <div className="sa-proofer-nested">
+                                    <NumberInput
+                                        label="Send Reminder After (Days)"
+                                        description="Days of inactivity before sending reminder"
+                                        value={Number(settings.nudgeDays) || 5}
+                                        onChange={(nudgeDays) => patch({ nudgeDays })}
+                                        min={1}
+                                        max={30}
+                                    />
+                                    <Divider />
+                                    <TemplateTextarea
+                                        label="Email Template"
+                                        description="Customize the reminder email sent to clients"
+                                        value={settings.clientReminderTemplate || ''}
+                                        onChange={(clientReminderTemplate) =>
+                                            patch({ clientReminderTemplate })
+                                        }
+                                        variables={[
+                                            '{{client_name}}',
+                                            '{{album_name}}',
+                                            '{{album_link}}',
+                                            '{{days_inactive}}',
+                                        ]}
+                                        placeholder="Hi {{client_name}}, Just a friendly reminder that your album {{album_name}} is awaiting your feedback."
+                                    />
+                                </div>
+                            ) : null}
                         </SettingGroup>
                         {savedFooter}
                     </>

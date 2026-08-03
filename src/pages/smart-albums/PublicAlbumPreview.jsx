@@ -109,11 +109,22 @@ export default function PublicAlbumPreview() {
         );
     }
 
-    if (!album || !isClientShareLinkLive(album)) {
+    if (!album) {
         return (
             <div className="av-page av-page--preview">
                 <div className="av-loading">
-                    Album not found, not published, or the client share link is disabled.
+                    Album not found or not published.
+                </div>
+            </div>
+        );
+    }
+
+    if (!isClientShareLinkLive(album)) {
+        return (
+            <div className="av-page av-page--preview">
+                <div className="av-loading">
+                    Client access is paused for this album. Ask the photographer to turn the share
+                    link back on.
                 </div>
             </div>
         );
