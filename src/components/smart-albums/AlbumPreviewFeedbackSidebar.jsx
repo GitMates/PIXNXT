@@ -591,7 +591,7 @@ export default function AlbumPreviewFeedbackSidebar({
         <aside className="av-feedback-sidebar" aria-label="Feedback">
             <header className="av-feedback-sidebar__header">
                 <div className="av-feedback-sidebar__header-row">
-                    <h2 className="av-feedback-sidebar__title">Photo</h2>
+                    <h2 className="av-feedback-sidebar__title">Comment</h2>
                     <span className="av-feedback-sidebar__spread">{spreadLabel}</span>
                 </div>
             </header>
