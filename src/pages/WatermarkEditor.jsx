@@ -209,7 +209,7 @@ const WatermarkEditor = () => {
                     <div>
                         <h3 className="wm-sidebar-title">Settings</h3>
                         <p className="wm-sidebar-help">
-                            Watermarks will not appear on prints ordered through Store. Any watermark changes will only apply to photos uploaded moving forward.
+                            Watermarks are stripped from anything sent to the print lab, so ordered prints stay clean. Any watermark changes will only apply to photos uploaded moving forward.
                         </p>
                     </div>
 

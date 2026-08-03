@@ -95,7 +95,7 @@ export function buildPeopleFromMetadata(metadataRows, photos) {
     .sort((a, b) => b.photoIds.length - a.photoIds.length)
     .map((person, index) => ({
       ...person,
-      label: `Person ${index + 1}`,
+      label: 'Not named',
       count: person.photoIds.length,
     }));
 }

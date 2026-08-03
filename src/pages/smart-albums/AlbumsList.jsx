@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { openSmartAlbumPreview, getSmartAlbumPreviewShareUrl, openShareByEmail, openWhatsAppShare } from '../../lib/shareSmartAlbum';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
+import { galleryService } from '../../services/gallery.service';
 import { smartAlbumCommentsService, COMMENTS_CHANGED_EVENT } from '../../services/smartAlbumComments.service';
 import {
     ALBUM_PROOF_STATUS_CHANGED_EVENT,
@@ -139,6 +140,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
     const [contextMenuAnchor, setContextMenuAnchor] = useState(null);
     const [shareLinkAlbum, setShareLinkAlbum] = useState(null);
     const [shareQrAlbum, setShareQrAlbum] = useState(null);
+    const [photographerProfile, setPhotographerProfile] = useState(null);
     const [duplicateBusyId, setDuplicateBusyId] = useState(null);
     const [editAlbum, setEditAlbum] = useState(null);
     const [editSaving, setEditSaving] = useState(false);
@@ -192,6 +194,25 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
         if (authLoading) return;
         void loadAlbums();
     }, [authLoading, loadAlbums]);
+
+    useEffect(() => {
+        if (!user?.id) {
+            setPhotographerProfile(null);
+            return undefined;
+        }
+        let cancelled = false;
+        galleryService
+            .getPhotographerProfile(user.id)
+            .then((profile) => {
+                if (!cancelled) setPhotographerProfile(profile || null);
+            })
+            .catch(() => {
+                if (!cancelled) setPhotographerProfile(null);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [user?.id]);
 
     useEffect(() => {
         if (!user?.id) return undefined;
@@ -293,18 +314,24 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
         (album) => {
             if (!album) return;
             closeContextMenu();
-            openShareByEmail(getSmartAlbumPreviewShareUrl(album), album.name || 'Album');
+            openShareByEmail(
+                getSmartAlbumPreviewShareUrl(album, { photographerProfile }),
+                album.name || 'Album'
+            );
         },
-        [closeContextMenu]
+        [closeContextMenu, photographerProfile]
     );
 
     const handleShareWhatsApp = useCallback(
         (album) => {
             if (!album) return;
             closeContextMenu();
-            openWhatsAppShare(getSmartAlbumPreviewShareUrl(album), album.name || 'Album');
+            openWhatsAppShare(
+                getSmartAlbumPreviewShareUrl(album, { photographerProfile }),
+                album.name || 'Album'
+            );
         },
-        [closeContextMenu]
+        [closeContextMenu, photographerProfile]
     );
 
     const handleGetDirectLink = useCallback(
@@ -831,11 +858,13 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
 
             <AlbumPreviewLinkModal
                 album={shareLinkAlbum}
+                photographerProfile={photographerProfile}
                 isOpen={Boolean(shareLinkAlbum)}
                 onClose={() => setShareLinkAlbum(null)}
             />
             <AlbumPreviewQrModal
                 album={shareQrAlbum}
+                photographerProfile={photographerProfile}
                 isOpen={Boolean(shareQrAlbum)}
                 onClose={() => setShareQrAlbum(null)}
             />

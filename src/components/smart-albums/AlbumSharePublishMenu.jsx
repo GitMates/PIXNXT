@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Ban, Copy, Eye, EyeOff, Mail } from 'lucide-react';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
+import { galleryService } from '../../services/gallery.service';
 import {
     smartAlbumProoferSettingsService,
     getAlbumShareCopyUrl,
@@ -195,18 +196,29 @@ export default function AlbumSharePublishMenu({
     const [albumPassword, setAlbumPassword] = useState('');
     const [showAlbumPassword, setShowAlbumPassword] = useState(false);
     const [privateShareToken, setPrivateShareToken] = useState('');
+    const [photographerProfile, setPhotographerProfile] = useState(null);
 
     accessLevelRef.current = accessLevel;
     albumPasswordRef.current = albumPassword;
     privateShareTokenRef.current = privateShareToken;
 
     const shareDisplayUrl = useMemo(
-        () => getAlbumShareDisplayUrl(album, { accessLevel, privateShareToken }),
-        [album, accessLevel, privateShareToken]
+        () =>
+            getAlbumShareDisplayUrl(
+                album,
+                { accessLevel, privateShareToken },
+                photographerProfile
+            ),
+        [album, accessLevel, privateShareToken, photographerProfile]
     );
     const shareCopyUrl = useMemo(
-        () => getAlbumShareCopyUrl(album, { accessLevel, privateShareToken }),
-        [album, accessLevel, privateShareToken]
+        () =>
+            getAlbumShareCopyUrl(
+                album,
+                { accessLevel, privateShareToken },
+                photographerProfile
+            ),
+        [album, accessLevel, privateShareToken, photographerProfile]
     );
 
     useEffect(() => {
@@ -227,19 +239,23 @@ export default function AlbumSharePublishMenu({
         }
 
         let cancelled = false;
+        let profileForShare = null;
         (async () => {
             try {
                 // Always read from DB/cache — do not trust a possibly stale album prop.
-                const [proofer, comments] = await Promise.all([
+                const [proofer, comments, profile] = await Promise.all([
                     smartAlbumProoferSettingsService.loadAlbumSettings(
                         photographerId,
                         albumId,
                         null
                     ),
                     smartAlbumCommentsService.listAlbumComments(albumId).catch(() => []),
+                    galleryService.getPhotographerProfile(photographerId).catch(() => null),
                 ]);
                 if (cancelled) return;
 
+                profileForShare = profile || null;
+                setPhotographerProfile(profileForShare);
                 setClientIdentity(getClientReviewerIdentity(albumId, comments));
 
                 const level =
@@ -257,10 +273,14 @@ export default function AlbumSharePublishMenu({
                 );
 
                 if (!messageTouchedRef.current) {
-                    const url = getAlbumShareDisplayUrl(album, {
-                        accessLevel: nextLevel,
-                        privateShareToken: proofer.privateShareToken || '',
-                    });
+                    const url = getAlbumShareDisplayUrl(
+                        album,
+                        {
+                            accessLevel: nextLevel,
+                            privateShareToken: proofer.privateShareToken || '',
+                        },
+                        profileForShare
+                    );
                     const pin =
                         nextLevel === 'password' ? String(proofer.albumPassword || '').trim() : '';
                     setShareMessage(

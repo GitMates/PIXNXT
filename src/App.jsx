@@ -216,6 +216,7 @@ function App() {
             <Route path="/m/:slug/pwa" element={<MobileGalleryClient />} />
             <Route path="/m/:slug/view" element={<MobileGalleryViewRedirect />} />
             <Route path="/m/:slug" element={<MobileGalleryInstall />} />
+            <Route path="/album-preview/:albumId" element={<PublicAlbumPreview />} />
             {/* Fallback to main app redirect if they try to access dashboard on subdomain */}
             <Route path="*" element={<Navigate to={`http${host.includes('localhost') ? '' : 's'}://${host.replace(activeSlug + '.', '')}/dashboard`} replace />} />
           </Routes>

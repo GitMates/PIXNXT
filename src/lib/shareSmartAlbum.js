@@ -1,4 +1,5 @@
 import { getPublicSiteOrigin, getShareUrlWarning } from './publicSiteUrl';
+import { getPhotographerPublicOrigin, isCustomDomainVerified } from './customDomain';
 import { openSpaPath } from './spaNavigation';
 import {
     openShareByEmail,
@@ -8,10 +9,28 @@ import {
 
 export { getShareUrlWarning, openShareByEmail, openWhatsAppShare, getQrCodeImageUrl };
 
-/** Shareable URL for read-only album preview (flipbook view only). */
-export function getSmartAlbumPreviewShareUrl(album) {
-    const origin = getPublicSiteOrigin();
+/**
+ * Shareable URL for read-only album preview (flipbook view only).
+ * Prefers verified custom domain, then studio slug host, then platform origin.
+ */
+export function getSmartAlbumPreviewShareUrl(album, options = {}) {
+    const { photographerProfile } = options;
     const id = album?.id ?? album;
+
+    let origin = getPublicSiteOrigin();
+    if (photographerProfile) {
+        if (isCustomDomainVerified(photographerProfile)) {
+            origin = getPhotographerPublicOrigin(photographerProfile);
+        } else {
+            try {
+                const studioOrigin = getPhotographerPublicOrigin(photographerProfile);
+                if (studioOrigin) origin = studioOrigin;
+            } catch {
+                /* keep platform origin */
+            }
+        }
+    }
+
     if (!id) return `${origin}/smart-albums`;
     return `${origin}/album-preview/${encodeURIComponent(id)}`;
 }

@@ -102,7 +102,7 @@ export async function clusterFacesForCollection(collectionId, faceEntries) {
       id: cluster.id,
       faceIds: Array.from(cluster.faceIds),
       photoIds: Array.from(cluster.photoIds),
-      label: `Person ${index + 1}`,
+      label: 'Not named',
       count: cluster.photoIds.size,
       avatarFace: cluster.avatarFace,
     }))

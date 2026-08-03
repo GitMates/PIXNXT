@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase/client';
 import { getPublicSiteOrigin } from '../lib/publicSiteUrl';
+import { getPhotographerPublicOrigin, isCustomDomainVerified } from '../lib/customDomain';
 import { isAlbumClientApproved } from './albumProof.service';
 
 const DEFAULTS_CACHE_KEY = 'pixnxt_smart_album_proofer_defaults';
@@ -222,18 +223,30 @@ function hasCachedAlbumSettings(photographerId, albumId) {
     return Boolean(all[photographerId]?.[albumId]);
 }
 
-export function getAlbumShareDisplayUrl(album, settings) {
+export function getAlbumShareDisplayUrl(album, settings, photographerProfile = null) {
     // Prefer the full absolute URL so copied/shared links open correctly.
-    return getAlbumShareCopyUrl(album, settings);
+    return getAlbumShareCopyUrl(album, settings, photographerProfile);
 }
 
-export function getAlbumShareCopyUrl(album, settings) {
+export function getAlbumShareCopyUrl(album, settings, photographerProfile = null) {
+    let origin = getPublicSiteOrigin();
+    if (photographerProfile) {
+        if (isCustomDomainVerified(photographerProfile)) {
+            origin = getPhotographerPublicOrigin(photographerProfile);
+        } else {
+            try {
+                const studioOrigin = getPhotographerPublicOrigin(photographerProfile);
+                if (studioOrigin) origin = studioOrigin;
+            } catch {
+                /* keep platform origin */
+            }
+        }
+    }
+
     if (settings?.accessLevel === 'private') {
         const token = settings.privateShareToken || album?.id || '';
-        const origin = getPublicSiteOrigin();
         return `${origin}/album-preview/${encodeURIComponent(album?.id || '')}?token=${token}`;
     }
-    const origin = getPublicSiteOrigin();
     const slug = album?.slug || album?.id || '';
     return `${origin}/album-preview/${encodeURIComponent(slug)}`;
 }

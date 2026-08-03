@@ -136,6 +136,22 @@
   font-family: inherit;
 }
 
+.acct-shell .acct-eyebrow {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8a847e;
+}
+
+.acct-shell .acct-lead {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.55;
+  color: #71717a;
+}
+
 .acct-shell .acct-loading {
   padding: 32px 0;
   color: #71717a;

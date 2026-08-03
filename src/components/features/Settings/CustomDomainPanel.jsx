@@ -123,8 +123,8 @@ export function CustomDomainPanel({ profile, updateProfile }) {
           <input className="set-input" type="text" readOnly value={defaultHost} />
         </div>
         <p className="set-help-text">
-          Your client galleries and mobile gallery apps are always available with your default site address.
-          To change your default domain, edit your username under{' '}
+          Every delivery you create is reachable at these addresses. Change the first part by editing your
+          studio handle in{' '}
           <Link to="/account/profile" className="set-link-teal">
             Account
           </Link>

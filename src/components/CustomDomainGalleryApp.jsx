@@ -5,6 +5,7 @@ import GalleryView from '../pages/public/GalleryView';
 import GalleryFavoritesHub from '../pages/public/GalleryFavoritesHub';
 import MobileGalleryClient from '../pages/public/MobileGalleryClient';
 import MobileGalleryInstall from '../pages/public/MobileGalleryInstall';
+import PublicAlbumPreview from '../pages/smart-albums/PublicAlbumPreview';
 import { galleryService } from '../services/gallery.service';
 import { GlobalUploadShell } from './features/CollectionDashboard/Upload/GlobalUploadShell';
 
@@ -82,6 +83,7 @@ export function CustomDomainGalleryApp({ hostname }) {
         <Route path="/m/:slug/pwa" element={<MobileGalleryClient />} />
         <Route path="/m/:slug/view" element={<MobileGalleryViewRedirect />} />
         <Route path="/m/:slug" element={<MobileGalleryInstall />} />
+        <Route path="/album-preview/:albumId" element={<PublicAlbumPreview />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <GlobalUploadShell />

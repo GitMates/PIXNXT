@@ -54,9 +54,9 @@ function CopyField({ label, value }) {
     );
 }
 
-export function AlbumPreviewLinkModal({ album, isOpen, onClose }) {
+export function AlbumPreviewLinkModal({ album, photographerProfile = null, isOpen, onClose }) {
     if (!isOpen || !album) return null;
-    const url = getSmartAlbumPreviewShareUrl(album);
+    const url = getSmartAlbumPreviewShareUrl(album, { photographerProfile });
     const warning = getShareUrlWarning(url);
     const shareLinkDisabled = !isClientShareLinkEnabled(album);
     const shareLinkLive = isClientShareLinkLive(album);
@@ -79,9 +79,9 @@ export function AlbumPreviewLinkModal({ album, isOpen, onClose }) {
     );
 }
 
-export function AlbumPreviewQrModal({ album, isOpen, onClose }) {
+export function AlbumPreviewQrModal({ album, photographerProfile = null, isOpen, onClose }) {
     if (!isOpen || !album) return null;
-    const url = getSmartAlbumPreviewShareUrl(album);
+    const url = getSmartAlbumPreviewShareUrl(album, { photographerProfile });
     const warning = getShareUrlWarning(url);
     const shareLinkDisabled = !isClientShareLinkEnabled(album);
     const shareLinkLive = isClientShareLinkLive(album);
