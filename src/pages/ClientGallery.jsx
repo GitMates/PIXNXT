@@ -16,8 +16,9 @@ import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
 import { openSpaPath } from '../lib/spaNavigation';
 import { openShareByEmail, openWhatsAppShare, getShareUrlForCollection } from '../lib/shareCollection';
-import { getCollectionCardCoverSrc } from '../lib/photoDisplayUrl';
+import { CollectionCardCover } from '../components/features/ClientGallery/CollectionCardCover';
 import { CollectionContextMenu } from '../components/features/ClientGallery/CollectionContextMenu';
+import { getCollectionCardCoverSrc } from '../lib/photoDisplayUrl';
 import { FolderThumbGrid } from '../components/features/ClientGallery/FolderThumbGrid';
 import { EditCollectionModal } from '../components/features/ClientGallery/EditCollectionModal';
 import {
@@ -796,7 +797,7 @@ const ClientGallery = () => {
                                     <div className={`cg-style-74 ${selectedCards.includes(item.collection.id) ? 'cg-style-74--selected' : ''}`}>
                                         <div className="cg-card-cover">
                                             {getCoverSrc(item.collection) ? (
-                                                <img src={getCoverSrc(item.collection)} alt={item.collection.name} loading="lazy" decoding="async" />
+                                                <CollectionCardCover collection={item.collection} alt={item.collection.name} />
                                             ) : (
                                                 <div className="cg-style-38">
                                                     <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
@@ -924,7 +925,7 @@ const ClientGallery = () => {
                                     <div className="cg-style-48">
                                         <div className="cg-style-53">
                                             {getCoverSrc(item.collection) ? (
-                                                <img src={getCoverSrc(item.collection)} alt={item.collection.name} loading="lazy" />
+                                                <CollectionCardCover collection={item.collection} alt={item.collection.name} />
                                             ) : (
                                                 <div className="cg-style-38">
                                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>

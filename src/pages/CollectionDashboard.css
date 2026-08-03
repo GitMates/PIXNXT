@@ -1395,16 +1395,15 @@
     inset: 0;
     width: 100%;
     height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: visible;
+    display: block;
+    overflow: hidden;
     background: var(--cd-manage-cell-bg);
     border-radius: 0;
 }
 
 .cd-photo-grid--manage .cd-photo-card-inner--contain .smooth-media-wrap {
-    position: relative;
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
     min-width: 0;
@@ -1415,11 +1414,11 @@
 .cd-photo-grid--manage .cd-photo-card-inner--contain .smooth-media-img,
 .cd-photo-grid--manage .cd-photo-card-inner--contain .cd-photo-video-thumb,
 .cd-photo-grid--manage .cd-photo-card-inner--contain .cd-photo-grid-contain-media {
-    width: auto !important;
-    height: auto !important;
-    max-width: 100% !important;
-    max-height: 100% !important;
-    object-fit: contain !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    object-fit: cover !important;
     object-position: center !important;
     image-orientation: from-image;
     background-color: var(--cd-manage-cell-bg) !important;
@@ -4050,8 +4049,8 @@
     }
 
     .cd-photo-grid--manage .cd-photo-card-inner--contain .smooth-media-wrap {
-        position: relative !important;
-        inset: auto !important;
+        position: absolute !important;
+        inset: 0 !important;
         width: 100% !important;
         height: 100% !important;
     }
@@ -4059,11 +4058,11 @@
     .cd-photo-grid--manage .cd-photo-card-inner--contain img,
     .cd-photo-grid--manage .cd-photo-card-inner--contain .cd-photo-video-thumb,
     .cd-photo-grid--manage .cd-photo-card-inner--contain .cd-photo-grid-contain-media {
-        width: auto !important;
-        height: auto !important;
-        max-width: 100% !important;
-        max-height: 100% !important;
-        object-fit: contain !important;
+        width: 100% !important;
+        height: 100% !important;
+        max-width: none !important;
+        max-height: none !important;
+        object-fit: cover !important;
         image-orientation: from-image;
     }
 

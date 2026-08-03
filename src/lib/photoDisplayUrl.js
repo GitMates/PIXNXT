@@ -64,7 +64,17 @@ export function getPhotoGridDisplayUrl(photo, preferOriginalAspect = false) {
   if (isRawMedia(photo)) {
     return getRawPreviewUrl(photo);
   }
-  return resolveMediaUrl(photo.web_url || photo.thumbnail_url || photo.full_url || '');
+  if (isGifMedia(photo)) {
+    return resolveMediaUrl(photo.web_url || photo.full_url || photo.thumbnail_url || '');
+  }
+  const ordered = preferOriginalAspect
+    ? [photo.web_url, photo.full_url, photo.thumbnail_url]
+    : [photo.thumbnail_url, photo.web_url, photo.full_url];
+  for (const url of ordered) {
+    const resolved = resolveMediaUrl(url);
+    if (resolved && isBrowserDisplayableImageUrl(resolved)) return resolved;
+  }
+  return '';
 }
 
 /**
@@ -308,25 +318,75 @@ export function toThumbDerivativeUrl(url) {
   const resolved = resolveMediaUrl(stripHash(url));
   if (!resolved) return '';
   if (resolved.includes('/thumb/')) return resolved;
-  let next = resolved;
-  if (next.includes('/original/')) next = next.replace('/original/', '/thumb/');
-  else if (next.includes('/web/')) next = next.replace('/web/', '/thumb/');
-  else return resolved;
-  // Derivatives are JPEG even when the original was RAW / HEIC / etc.
-  return next.replace(/(\/[^/?#]+)\.[^.\/?#]+/, '$1.jpg');
+
+  if (resolved.includes('/web/')) {
+    // Keep filename/casing exactly — web + thumb share the same stem.
+    return resolved.replace('/web/', '/thumb/');
+  }
+
+  if (resolved.includes('/original/')) {
+    let next = resolved.replace('/original/', '/thumb/');
+    // Original may be RAW/HEIC; derivatives are always .jpg. Preserve .jpg/.jpeg casing.
+    if (!/\.jpe?g(\?|#|$)/i.test(next)) {
+      next = next.replace(/(\/[^/?#]+)\.[^.\/?#]+/, '$1.jpg');
+    }
+    return next;
+  }
+
+  return resolved;
+}
+
+function toWebDerivativeUrl(url) {
+  if (!url) return '';
+  const resolved = resolveMediaUrl(stripHash(url));
+  if (!resolved) return '';
+  if (resolved.includes('/web/')) return resolved;
+  if (resolved.includes('/thumb/')) return resolved.replace('/thumb/', '/web/');
+  if (resolved.includes('/original/')) {
+    let next = resolved.replace('/original/', '/web/');
+    if (!/\.jpe?g(\?|#|$)/i.test(next)) {
+      next = next.replace(/(\/[^/?#]+)\.[^.\/?#]+/, '$1.jpg');
+    }
+    return next;
+  }
+  return resolved;
 }
 
 function stripHash(url) {
   return String(url).split('#')[0];
 }
 
+/**
+ * Ordered cover candidates for list cards: thumb → web → stored URL.
+ * Tries cover_url and list_cover_url so a dead cover still falls back to a photo thumb.
+ * Callers should advance on <img onError> so a missing /thumb/ does not blank the card.
+ */
+export function getCollectionCardCoverCandidates(collection) {
+  if (!collection) return [];
+
+  const sources = [
+    collection.cover_url,
+    collection.cover,
+    collection.list_cover_url,
+  ].filter(Boolean);
+
+  const out = [];
+  const push = (u) => {
+    if (u && !out.includes(u)) out.push(u);
+  };
+
+  for (const raw of sources) {
+    const resolved = resolveMediaUrl(stripHash(raw));
+    if (!resolved) continue;
+    push(toThumbDerivativeUrl(resolved));
+    push(toWebDerivativeUrl(resolved));
+    if (!resolved.includes('/original/')) push(resolved);
+  }
+
+  return out;
+}
+
 /** Cover src for Client Gallery / Starred list cards (~227×124). */
 export function getCollectionCardCoverSrc(collection) {
-  if (!collection) return '';
-  const raw =
-    collection.cover_url ||
-    collection.cover ||
-    collection.list_cover_url ||
-    '';
-  return toThumbDerivativeUrl(raw);
+  return getCollectionCardCoverCandidates(collection)[0] || '';
 }

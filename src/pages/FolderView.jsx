@@ -6,8 +6,9 @@ import { galleryService } from '../services/gallery.service';
 import { openSpaPath } from '../lib/spaNavigation';
 import { openShareByEmail, openWhatsAppShare, getShareUrlForCollection } from '../lib/shareCollection';
 import { getFolderStudioUrl } from '../lib/folderStudioUrl';
-import { getCollectionCardCoverSrc } from '../lib/photoDisplayUrl';
+import { CollectionCardCover } from '../components/features/ClientGallery/CollectionCardCover';
 import { CollectionContextMenu } from '../components/features/ClientGallery/CollectionContextMenu';
+import { getCollectionCardCoverSrc } from '../lib/photoDisplayUrl';
 import { EditCollectionModal } from '../components/features/ClientGallery/EditCollectionModal';
 import {
   CollectionDirectLinkModal,
@@ -492,7 +493,7 @@ const FolderView = () => {
             >
               <div className={`cg-style-74 ${selectedCards.includes(collection.id) ? 'cg-style-74--selected' : ''}`}>
                 {getCoverSrc(collection) ? (
-                  <img src={getCoverSrc(collection)} alt={collection.name} loading="lazy" />
+                  <CollectionCardCover collection={collection} alt={collection.name} />
                 ) : (
                   <div className="cg-style-38">
                     <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="1.5">
@@ -553,7 +554,7 @@ const FolderView = () => {
               <div className="cg-style-48">
                 <div className="cg-style-53">
                   {getCoverSrc(collection) ? (
-                    <img src={getCoverSrc(collection)} alt="" loading="lazy" />
+                    <CollectionCardCover collection={collection} alt="" />
                   ) : (
                     <div className="cg-style-38" />
                   )}
