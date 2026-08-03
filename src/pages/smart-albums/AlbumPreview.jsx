@@ -1,6 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
 import AlbumBook from '../../components/smart-albums/AlbumBook';
-import AlbumHybrid3DPreview from '../../components/smart-albums/3d/AlbumHybrid3DPreview';
 import { useAlbumWrapAspect, withAlbumWrapAspect } from '../../components/smart-albums/useAlbumWrapAspect';
 import {
     pageToSpreadIndex,
@@ -53,6 +52,10 @@ import { canClientLeaveFeedback } from '../../components/smart-albums/albumProof
 import AlbumPreviewGuestNamePrompt from '../../components/smart-albums/AlbumPreviewGuestNamePrompt';
 import './AlbumViewer.css';
 
+const AlbumHybrid3DPreview = lazy(
+    () => import('../../components/smart-albums/3d/AlbumHybrid3DPreview')
+);
+
 function albumPasswordUnlockKey(albumId) {
     return `pixnxt.albumPasswordUnlocked.${albumId}`;
 }
@@ -73,6 +76,22 @@ function markAlbumPasswordUnlocked(albumId) {
     } catch {
         /* ignore */
     }
+}
+
+function needsGuestDetailsBeforeViewer(albumId, prooferAccess, clientPreview) {
+    if (!clientPreview || !albumId || !prooferAccess) return false;
+    if (prooferAccess.feedbackLocked) return false;
+
+    const needsPassword =
+        prooferAccess.accessLevel === 'password' ||
+        prooferAccess.privacyLevel === 'password';
+    const passwordOk = !needsPassword || isAlbumPasswordUnlocked(albumId);
+    const profile = getGuestProfile(albumId);
+    const hasDetails = Boolean(profile?.name?.trim() && profile?.email?.trim());
+
+    if (needsPassword && !passwordOk) return true;
+    if (prooferAccess.requireNameForComments && !hasDetails) return true;
+    return false;
 }
 
 /**
@@ -134,6 +153,7 @@ export default function AlbumPreview({
     );
     const spreadCount = getTotalSpreads(totalPages, spreadOpts);
     const [settingsRevision, setSettingsRevision] = useState(0);
+    const [guestSessionTick, setGuestSessionTick] = useState(0);
     const [guestNamePromptOpen, setGuestNamePromptOpen] = useState(false);
     const [guestDetailsRequired, setGuestDetailsRequired] = useState(false);
 
@@ -149,6 +169,11 @@ export default function AlbumPreview({
 
     const commentsEnabled = prooferAccess?.commentsEnabled ?? album?.comments_enabled !== false;
     const messagesEnabled = prooferAccess?.swapsEnabled ?? album?.messages_enabled !== false;
+
+    const guestGatePending = useMemo(
+        () => needsGuestDetailsBeforeViewer(albumId, prooferAccess, clientPreview),
+        [albumId, prooferAccess, clientPreview, guestSessionTick, settingsRevision]
+    );
 
     useEffect(() => {
         if (!albumId) return undefined;
@@ -166,40 +191,13 @@ export default function AlbumPreview({
     }, [albumId]);
 
     useEffect(() => {
-        if (!clientPreview || !albumId || !prooferAccess) return;
-        if (prooferAccess.feedbackLocked) return;
-
-        const needsPassword =
-            prooferAccess.accessLevel === 'password' ||
-            prooferAccess.privacyLevel === 'password';
-        const passwordOk = !needsPassword || isAlbumPasswordUnlocked(albumId);
-        const profile = getGuestProfile(albumId);
-        const hasDetails = Boolean(profile?.name?.trim() && profile?.email?.trim());
-
-        if (needsPassword && !passwordOk) {
-            setGuestDetailsRequired(true);
-            setGuestNamePromptOpen(true);
-            return;
-        }
-
-        if (!prooferAccess.requireNameForComments) {
+        if (!guestGatePending) {
             setGuestDetailsRequired(false);
             return;
         }
-
-        if (!hasDetails) {
-            setGuestDetailsRequired(true);
-            setGuestNamePromptOpen(true);
-        }
-    }, [
-        clientPreview,
-        albumId,
-        prooferAccess?.requireNameForComments,
-        prooferAccess?.feedbackLocked,
-        prooferAccess?.accessLevel,
-        prooferAccess?.privacyLevel,
-        settingsRevision,
-    ]);
+        setGuestDetailsRequired(true);
+        setGuestNamePromptOpen(true);
+    }, [guestGatePending]);
 
     const handleProoferBlocked = useCallback(
         (message, code) => {
@@ -649,15 +647,29 @@ export default function AlbumPreview({
                 <div className="av-preview-main">
                 <div className="av-preview-book-section">
                     <div className="av-viewer-body av-viewer-body--preview-book">
-                        {albumForBook?.has_covers ? (
-                            <AlbumHybrid3DPreview
-                                album={albumForBook}
-                                totalPages={totalPages}
-                                bookPage={bookPage}
-                                onPageChange={handleBookPageChange}
-                                photoRevision={photoRevision}
-                                albumBookProps={albumBookProps}
+                        {guestGatePending ? (
+                            <div
+                                className="av-preview-book-deferred"
+                                aria-hidden
                             />
+                        ) : albumForBook?.has_covers ? (
+                            <Suspense
+                                fallback={
+                                    <div
+                                        className="av-preview-book-deferred"
+                                        aria-busy="true"
+                                    />
+                                }
+                            >
+                                <AlbumHybrid3DPreview
+                                    album={albumForBook}
+                                    totalPages={totalPages}
+                                    bookPage={bookPage}
+                                    onPageChange={handleBookPageChange}
+                                    photoRevision={photoRevision}
+                                    albumBookProps={albumBookProps}
+                                />
+                            </Suspense>
                         ) : (
                             <AlbumBook
                                 key={`${albumId}-preview`}
@@ -750,6 +762,7 @@ export default function AlbumPreview({
                     }
                     setGuestNamePromptOpen(false);
                     setGuestDetailsRequired(false);
+                    setGuestSessionTick((value) => value + 1);
                 }}
             />
             <AppToast toast={toast} onDismiss={clearToast} />

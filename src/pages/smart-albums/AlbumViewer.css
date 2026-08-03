@@ -1560,9 +1560,27 @@
   overscroll-behavior: contain;
 }
 
-/* Keep right nav arrow outside the preview sidebar */
+/* Keep preview nav arrows fully visible beside the spread (clear of sidebar clip) */
+.av-preview-main .ab-root--preview .ab-nav {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 46;
+}
+
+.av-preview-main .ab-root--preview .ab-nav:hover:not(:disabled) {
+  transform: translateY(-50%) scale(1.05);
+}
+
+.av-preview-main .ab-root--preview .ab-nav--prev {
+  left: 14px;
+  right: auto;
+}
+
 .av-preview-main .ab-root--preview .ab-nav--next {
-  right: 336px;
+  /* Clear the 320px sidebar + divider; sit in the book gutter like the left arrow */
+  right: calc(320px + 52px);
+  left: auto;
 }
 
 .av-preview-footer {
@@ -1621,6 +1639,14 @@
   width: 100%;
 }
 
+.av-preview-book-deferred {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+}
+
 /* Shrink flipbook so footer stays on screen (override AlbumBook preview viewport sizing) */
 .av-page--preview.av-page--with-comments .ab-book-stage {
   min-height: 0 !important;
@@ -1637,7 +1663,8 @@
   height: 100%;
   min-height: 0;
   overflow: hidden;
-  padding: 4px 48px 8px;
+  /* Side padding reserves gutter so spread stays clear of nav hit targets */
+  padding: 4px 72px 8px;
   box-sizing: border-box;
 }
 
