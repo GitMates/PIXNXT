@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import SidebarLayout from '../components/SidebarLayout';
 import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
-import { getPhotoGridDisplayUrl, getPhotoVideoSrc } from '../lib/photoDisplayUrl';
+import { getPhotoGridDisplayUrl, getPhotoVideoSrc, getCollectionCardCoverSrc } from '../lib/photoDisplayUrl';
 import { formatStorageBytes } from '../utils/formatStorageBytes';
 import { isGalleryVideo } from '../lib/galleryMediaType';
 import {
@@ -73,7 +73,7 @@ const Starred = () => {
         }
     };
 
-    const getCoverSrc = (collection) => collection.cover_url || collection.cover || '';
+    const getCoverSrc = (collection) => getCollectionCardCoverSrc(collection);
 
     const openCollection = (collection) => {
         navigate(`/collections/manage?id=${encodeURIComponent(collection.id)}`);

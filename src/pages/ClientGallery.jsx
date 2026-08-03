@@ -16,6 +16,7 @@ import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
 import { openSpaPath } from '../lib/spaNavigation';
 import { openShareByEmail, openWhatsAppShare, getShareUrlForCollection } from '../lib/shareCollection';
+import { getCollectionCardCoverSrc } from '../lib/photoDisplayUrl';
 import { CollectionContextMenu } from '../components/features/ClientGallery/CollectionContextMenu';
 import { FolderThumbGrid } from '../components/features/ClientGallery/FolderThumbGrid';
 import { EditCollectionModal } from '../components/features/ClientGallery/EditCollectionModal';
@@ -381,7 +382,7 @@ const ClientGallery = () => {
         );
     };
 
-    const getCoverSrc = (collection) => collection.cover_url || collection.cover || '';
+    const getCoverSrc = (collection) => getCollectionCardCoverSrc(collection);
 
     const handlePreviewCollection = useCallback((collection) => {
         closeContextMenu();

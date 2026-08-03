@@ -297,3 +297,36 @@ export function getWebResolutionUrl(photo) {
   }
   return '';
 }
+
+/**
+ * Prefer the /thumb/ derivative for small collection/folder cover cards.
+ * Stored cover_url often points at /original/ (8–15 MB) or /web/.
+ * Thumbs are always stored as .jpg (same stem as the original filename).
+ */
+export function toThumbDerivativeUrl(url) {
+  if (!url) return '';
+  const resolved = resolveMediaUrl(stripHash(url));
+  if (!resolved) return '';
+  if (resolved.includes('/thumb/')) return resolved;
+  let next = resolved;
+  if (next.includes('/original/')) next = next.replace('/original/', '/thumb/');
+  else if (next.includes('/web/')) next = next.replace('/web/', '/thumb/');
+  else return resolved;
+  // Derivatives are JPEG even when the original was RAW / HEIC / etc.
+  return next.replace(/(\/[^/?#]+)\.[^.\/?#]+/, '$1.jpg');
+}
+
+function stripHash(url) {
+  return String(url).split('#')[0];
+}
+
+/** Cover src for Client Gallery / Starred list cards (~227×124). */
+export function getCollectionCardCoverSrc(collection) {
+  if (!collection) return '';
+  const raw =
+    collection.cover_url ||
+    collection.cover ||
+    collection.list_cover_url ||
+    '';
+  return toThumbDerivativeUrl(raw);
+}

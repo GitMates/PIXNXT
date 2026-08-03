@@ -4,7 +4,7 @@ import { getFileMime, isVideoMime, getUploadMediaType } from '../lib/fileMime';
 import { compressImageForUpload, compressImageVariants } from '../lib/prepareUploadFile';
 import { isRawImageFile } from '../lib/rawImageFormats';
 import { extractRawPreviewBlob } from '../lib/rawImagePreview';
-import { hasRawDisplayPreview, isRawMedia, resolveMediaUrl } from '../lib/photoDisplayUrl';
+import { hasRawDisplayPreview, isRawMedia, resolveMediaUrl, toThumbDerivativeUrl } from '../lib/photoDisplayUrl';
 import { generateCollectionSlug } from '../lib/collectionSlug';
 import { storageService } from './storage.service';
 import {
@@ -144,6 +144,41 @@ function mapCollectionDashboardRow(c) {
   };
 }
 
+/**
+ * For list cards with no cover_url, attach the earliest photo's thumb URL
+ * so the Client Gallery grid still shows an image.
+ */
+async function attachMissingListCovers(collections) {
+  if (!Array.isArray(collections) || collections.length === 0) return collections;
+
+  const missing = collections.filter((c) => !c.cover_url && !c.cover && c.photo_count > 0);
+  if (missing.length === 0) return collections;
+
+  const pairs = await Promise.all(
+    missing.map(async (c) => {
+      const { data, error } = await supabase
+        .from('photos')
+        .select('thumbnail_url, web_url, full_url')
+        .eq('collection_id', c.id)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (error || !data) return [c.id, null];
+      const url = toThumbDerivativeUrl(data.thumbnail_url || data.web_url || data.full_url || '');
+      return [c.id, url || null];
+    })
+  );
+
+  const firstByCollection = Object.fromEntries(pairs.filter(([, url]) => url));
+
+  return collections.map((c) => {
+    if (c.cover_url || c.cover) return c;
+    const fallback = firstByCollection[c.id];
+    if (!fallback) return c;
+    return { ...c, list_cover_url: fallback };
+  });
+}
+
 export const galleryService = {
   /**
    * Fetch all collections for a specific photographer (Dashboard view)
@@ -159,7 +194,8 @@ export const galleryService = {
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    return data ? data.map(mapCollectionDashboardRow) : [];
+    const mapped = data ? data.map(mapCollectionDashboardRow) : [];
+    return attachMissingListCovers(mapped);
   },
 
   /**
@@ -193,7 +229,7 @@ export const galleryService = {
       .order('updated_at', { ascending: false });
 
     if (error) throw error;
-    return (data || []).map(mapCollectionDashboardRow);
+    return attachMissingListCovers((data || []).map(mapCollectionDashboardRow));
   },
 
   /** Starred photos across all collections for the dashboard Starred → Photos tab. */
@@ -350,7 +386,7 @@ export const galleryService = {
     for (const c of inFolder) {
       if (!c.folder_id) continue;
       countBy[c.folder_id] = (countBy[c.folder_id] || 0) + 1;
-      const thumb = c.cover_url || c.cover;
+      const thumb = c.cover_url || c.cover || c.list_cover_url;
       if (!thumb) continue;
       if (!coversByFolder[c.folder_id]) coversByFolder[c.folder_id] = [];
       if (coversByFolder[c.folder_id].length < 4) coversByFolder[c.folder_id].push(thumb);
@@ -402,7 +438,7 @@ export const galleryService = {
 
     if (error) throw error;
 
-    return (data || []).map(mapCollectionDashboardRow);
+    return attachMissingListCovers((data || []).map(mapCollectionDashboardRow));
   },
 
   async updateFolder(folderId, photographerId, updates) {

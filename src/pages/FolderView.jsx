@@ -6,6 +6,7 @@ import { galleryService } from '../services/gallery.service';
 import { openSpaPath } from '../lib/spaNavigation';
 import { openShareByEmail, openWhatsAppShare, getShareUrlForCollection } from '../lib/shareCollection';
 import { getFolderStudioUrl } from '../lib/folderStudioUrl';
+import { getCollectionCardCoverSrc } from '../lib/photoDisplayUrl';
 import { CollectionContextMenu } from '../components/features/ClientGallery/CollectionContextMenu';
 import { EditCollectionModal } from '../components/features/ClientGallery/EditCollectionModal';
 import {
@@ -103,7 +104,7 @@ const FolderView = () => {
     [collections, activeSort]
   );
 
-  const getCoverSrc = (c) => c.cover_url || c.cover || '';
+  const getCoverSrc = (c) => getCollectionCardCoverSrc(c);
 
   const closeContextMenu = useCallback(() => {
     setContextMenuId(null);

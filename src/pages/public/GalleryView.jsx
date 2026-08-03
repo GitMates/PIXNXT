@@ -1487,12 +1487,8 @@ const GalleryView = () => {
           ? 200
           : 140;
 
-  const galleryCustomColumnCount =
-    collection?.thumbnail_size === 'large'
-      ? 2
-      : collection?.thumbnail_size === 'regular'
-        ? 3
-        : 4;
+  // Column count is viewport-driven inside MasonryGrid (4 cols above 1600px).
+  // Do not pass a fixed customColumnCount — thumbnail_size only affects tile height.
 
   const handleStartSlideshow = useCallback(() => {
     if (filteredPhotos.length < 1) return;
@@ -2197,7 +2193,6 @@ const GalleryView = () => {
               onShop: handleShopClick,
               favoritedPhotoIds: favoritedPhotos,
               customRowHeight: galleryCustomRowHeight,
-              customColumnCount: galleryCustomColumnCount,
               showFilename: false,
               className: 'mt-2',
             };

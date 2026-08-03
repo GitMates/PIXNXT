@@ -724,7 +724,11 @@ export function MasonryGrid({
           ) : (
             <SmoothMediaImage
               src={src}
-              thumbSrc={resolveMediaUrl(photo.watermarked_url || photo.thumbnail_url || photo.web_url || photo.full_url || '')}
+              thumbSrc={
+                photo.thumbnail_url
+                  ? resolveMediaUrl(photo.thumbnail_url)
+                  : undefined
+              }
               alt={photo.filename || `Gallery image ${index + 1}`}
               wrapClassName="gallery-masonry-media"
               objectFit="cover"
