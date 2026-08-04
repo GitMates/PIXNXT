@@ -200,7 +200,7 @@ export const galleryService = {
   },
 
   /**
-   * Fetch published collections for a public homepage
+   * Fetch published deliveries for a public showcase portfolio
    */
   async getPublicCollections(photographerId) {
     if (!photographerId) return [];
@@ -209,7 +209,7 @@ export const galleryService = {
       .select('*')
       .eq('photographer_id', photographerId)
       .eq('status', 'published')
-      .neq('show_on_homepage', false)
+      .neq('show_on_showcase', false)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -303,7 +303,7 @@ export const galleryService = {
 
   /**
    * @param {string} photographerId
-   * @param {string | { name: string; eventDate?: string | null; showOnHomepage?: boolean; passwordEnabled?: boolean; password?: string | null }} nameOrOptions
+   * @param {string | { name: string; eventDate?: string | null; showOnShowcase?: boolean; passwordEnabled?: boolean; password?: string | null }} nameOrOptions
    */
   async createFolder(photographerId, nameOrOptions) {
     const options =
@@ -335,11 +335,11 @@ export const galleryService = {
         name,
         slug,
         position,
-        show_on_homepage: options.showOnHomepage !== false,
+        show_on_showcase: options.showOnShowcase !== false,
         event_date: options.eventDate || null,
         guest_password_hash: passwordEnabled && password ? password : null,
       })
-      .select('id, name, cover_url, event_date, show_on_homepage')
+      .select('id, name, cover_url, event_date, show_on_showcase')
       .single();
 
     if (error) throw error;
@@ -370,7 +370,7 @@ export const galleryService = {
 
     const { data: folders, error } = await supabase
       .from('folders')
-      .select('id, name, slug, cover_url, position, created_at, event_date, show_on_homepage')
+      .select('id, name, slug, cover_url, position, created_at, event_date, show_on_showcase')
       .eq('photographer_id', photographerId)
       .order('position', { ascending: true })
       .order('created_at', { ascending: false });
@@ -450,7 +450,7 @@ export const galleryService = {
     const patch = {};
     if (updates.name !== undefined) patch.name = String(updates.name).trim();
     if (updates.event_date !== undefined) patch.event_date = updates.event_date || null;
-    if (updates.show_on_homepage !== undefined) patch.show_on_homepage = !!updates.show_on_homepage;
+    if (updates.show_on_showcase !== undefined) patch.show_on_showcase = !!updates.show_on_showcase;
     if (updates.cover_url !== undefined) patch.cover_url = updates.cover_url;
     if (updates.guest_password_hash !== undefined) patch.guest_password_hash = updates.guest_password_hash;
 
@@ -495,7 +495,7 @@ export const galleryService = {
       `)
       .eq('photographer_id', photographerId)
       .eq('status', 'published')
-      .neq('show_on_homepage', false)
+      .neq('show_on_showcase', false)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -657,7 +657,7 @@ export const galleryService = {
       max_favorites: source.max_favorites ?? null,
       gallery_photo_sort: source.gallery_photo_sort ?? null,
       show_filenames: source.show_filenames,
-      show_on_homepage: source.show_on_homepage,
+      show_on_showcase: source.show_on_showcase,
       client_exclusive_enabled: source.client_exclusive_enabled,
       allow_clients_mark_private: source.allow_clients_mark_private,
       client_only_highlights: source.client_only_highlights,
@@ -1868,16 +1868,16 @@ export const galleryService = {
   },
 
   /**
-   * Fetch a photographer's profile/branding by their homepage slug
+   * Fetch a photographer's profile/branding by their showcase slug (DB: showcase_slug)
    */
   async getPhotographerProfileBySlug(slug) {
     if (!slug) return null;
 
-    // 1. Try to find by homepage_slug
+    // 1. Try to find by showcase_slug
     let { data, error } = await supabase
       .from('photographers')
       .select('*')
-      .ilike('homepage_slug', slug)
+      .ilike('showcase_slug', slug)
       .single();
 
     if (error && error.code !== 'PGRST116') {
@@ -1941,7 +1941,7 @@ export const galleryService = {
   },
 
   /**
-   * Update a photographer's profile (bio, contact info, homepage settings, etc.)
+   * Update a photographer's profile (bio, contact info, showcase settings, etc.)
    */
   async updatePhotographerProfile(photographerId, updates) {
     if (!photographerId) throw new Error('Photographer ID is required.');

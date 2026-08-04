@@ -27,6 +27,7 @@ import {
   isDeliveryPath,
   isDeliveryStarredPath,
 } from "./deliveryIds"
+import { SHOWCASE_ROUTE, isShowcasePath } from "./showcaseIds"
 
 export interface Product {
   id: string
@@ -94,9 +95,9 @@ export const productNavItems: Record<string, ProductNavItem[]> = {
       section: "work",
     },
     {
-      label: "Homepage",
-      href: "/homepage",
-      match: (p) => p === "/homepage",
+      label: "Showcase",
+      href: SHOWCASE_ROUTE,
+      match: (p) => isShowcasePath(p),
       icon: BookOpen,
       section: "work",
     },
@@ -238,7 +239,7 @@ export function isProductActive(productHref: string, pathname: string): boolean 
       pathname.startsWith("/collections") ||
       pathname.startsWith("/folders") ||
       pathname.startsWith("/starred") ||
-      pathname === "/homepage" ||
+      isShowcasePath(pathname) ||
       pathname.startsWith("/settings") ||
       pathname.startsWith("/photos")
     )

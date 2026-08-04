@@ -22,7 +22,7 @@ import CollectionShare from './pages/CollectionShare';
 import PhotoLibrary from './pages/PhotoLibrary';
 import GetStarted from './pages/GetStarted';
 import Starred from './pages/Starred';
-import Homepage from './pages/Homepage';
+import Showcase from './pages/Showcase';
 import Settings from './pages/Settings';
 import AccountSettings from './pages/AccountSettings';
 import AuthPage from './pages/AuthPage';
@@ -157,6 +157,7 @@ function App() {
     location.pathname === '/folders/create' ||
     location.pathname === '/photos' ||
     location.pathname.startsWith('/starred') ||
+    location.pathname === '/showcase' ||
     location.pathname === '/homepage' ||
     location.pathname.startsWith('/settings') ||
     location.pathname.startsWith('/account') ||
@@ -251,7 +252,8 @@ function App() {
           <Route path="/starred" element={<ProtectedRoute><Navigate to="/starred/deliveries" replace /></ProtectedRoute>} />
           <Route path="/starred/collections" element={<ProtectedRoute><Navigate to="/starred/deliveries" replace /></ProtectedRoute>} />
           <Route path="/starred/:tab" element={<ProtectedRoute><Starred /></ProtectedRoute>} />
-          <Route path="/homepage" element={<Homepage />} />
+          <Route path="/showcase" element={<ProtectedRoute><Showcase /></ProtectedRoute>} />
+          <Route path="/homepage" element={<Navigate to="/showcase" replace />} />
           <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
           <Route path="/settings/:tab" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
           <Route path="/settings/presets/:id" element={<ProtectedRoute><PresetEditor /></ProtectedRoute>} />

@@ -439,7 +439,7 @@ const CollectionDashboard = () => {
 
     // Privacy State
     const [collectionPassword, setCollectionPassword] = useState('');
-    const [showOnHomepage, setShowOnHomepage] = useState(true);
+    const [showOnShowcase, setShowOnShowcase] = useState(true);
     const [clientExclusiveAccess, setClientExclusiveAccess] = useState(false);
     const [clientPrivatePassword, setClientPrivatePassword] = useState('');
     const [allowClientsMarkPrivate, setAllowClientsMarkPrivate] = useState(false);
@@ -1668,7 +1668,7 @@ const CollectionDashboard = () => {
             nav_style: s.navigationStyle === 'text' ? 'icons_labels' : 'icons',
             
             password_enabled: !!s.collectionPassword,
-            homepage_enabled: s.showOnHomepage !== false,
+            show_on_showcase: (s.showOnShowcase ?? s.showOnHomepage) !== false,
             
             downloads_enabled: !!s.photoDownload,
             gallery_download_enabled: !!s.photoDownload,
@@ -1726,7 +1726,7 @@ const CollectionDashboard = () => {
             });
 
             setCollectionPassword(s.collectionPasswordValue || '');
-            setShowOnHomepage(s.showOnHomepage !== false);
+            setShowOnShowcase((s.showOnShowcase ?? s.showOnHomepage) !== false);
             setPhotoDownload(!!s.photoDownload);
             setDownloadPin(!!s.downloadPin);
             setFavoritePhotos(!!s.favoritePhotos);
@@ -1765,7 +1765,7 @@ const CollectionDashboard = () => {
             navigationStyle: gridSettings.navigation,
             collectionPassword: !!collectionPassword,
             collectionPasswordValue: collectionPassword || '',
-            showOnHomepage: showOnHomepage,
+            showOnShowcase: showOnShowcase,
             photoDownload: photoDownload,
             highResolutionDownload: photoDownloadSizes.includes('high'),
             webSizeDownload: photoDownloadSizes.includes('web'),
@@ -1999,6 +1999,7 @@ const CollectionDashboard = () => {
                 if (data.allow_clients_mark_private !== undefined) setAllowClientsMarkPrivate(data.allow_clients_mark_private);
                 if (data.client_only_highlights !== undefined) setClientOnlyHighlights(data.client_only_highlights);
                 if (data.highlights_enabled !== undefined) setHighlightsEnabled(data.highlights_enabled !== false);
+                if (data.show_on_showcase !== undefined) setShowOnShowcase(data.show_on_showcase !== false);
 
                 // Map individual columns to state
                 setSelectedCoverStyle(resolveCoverLayoutId(data));
@@ -3055,6 +3056,7 @@ const CollectionDashboard = () => {
                     client_password_hash: clientPrivatePassword || null,
                     allow_clients_mark_private: allowClientsMarkPrivate,
                     client_only_highlights: clientOnlyHighlights,
+                    show_on_showcase: showOnShowcase,
                     privacy: clientExclusiveAccess ? 'client_exclusive' : collection?.privacy === 'client_exclusive' ? 'public' : collection?.privacy,
                 });
             } catch (err) {
@@ -3069,6 +3071,7 @@ const CollectionDashboard = () => {
         clientPrivatePassword,
         allowClientsMarkPrivate,
         clientOnlyHighlights,
+        showOnShowcase,
         collectionId,
         collection,
         loading,
@@ -4258,8 +4261,8 @@ const CollectionDashboard = () => {
                             <PrivacySettings
                                 collectionPassword={collectionPassword}
                                 setCollectionPassword={setCollectionPassword}
-                                showOnHomepage={showOnHomepage}
-                                setShowOnHomepage={setShowOnHomepage}
+                                showOnShowcase={showOnShowcase}
+                                setShowOnShowcase={setShowOnShowcase}
                                 clientExclusiveAccess={clientExclusiveAccess}
                                 setClientExclusiveAccess={setClientExclusiveAccess}
                                 clientPrivatePassword={clientPrivatePassword}

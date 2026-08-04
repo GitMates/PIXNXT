@@ -357,7 +357,7 @@ export type Database = {
           privacy: Database["public"]["Enums"]["privacy_mode"]
           published_at: string | null
           show_filenames: boolean
-          show_on_homepage: boolean
+          show_on_showcase: boolean
           slug: string
           slideshow_enabled: boolean
           social_sharing_enabled: boolean
@@ -412,7 +412,7 @@ export type Database = {
           privacy?: Database["public"]["Enums"]["privacy_mode"]
           published_at?: string | null
           show_filenames?: boolean
-          show_on_homepage?: boolean
+          show_on_showcase?: boolean
           slug: string
           slideshow_enabled?: boolean
           social_sharing_enabled?: boolean
@@ -467,7 +467,7 @@ export type Database = {
           privacy?: Database["public"]["Enums"]["privacy_mode"]
           published_at?: string | null
           show_filenames?: boolean
-          show_on_homepage?: boolean
+          show_on_showcase?: boolean
           slug?: string
           slideshow_enabled?: boolean
           social_sharing_enabled?: boolean
@@ -751,7 +751,7 @@ export type Database = {
           name: string
           photographer_id: string
           position: number
-          show_on_homepage: boolean
+          show_on_showcase: boolean
           slug: string
           updated_at: string
         }
@@ -762,7 +762,7 @@ export type Database = {
           name: string
           photographer_id: string
           position?: number
-          show_on_homepage?: boolean
+          show_on_showcase?: boolean
           slug: string
           updated_at?: string
         }
@@ -773,7 +773,7 @@ export type Database = {
           name?: string
           photographer_id?: string
           position?: number
-          show_on_homepage?: boolean
+          show_on_showcase?: boolean
           slug?: string
           updated_at?: string
         }
@@ -1105,10 +1105,10 @@ export type Database = {
           display_name: string
           email: string
           ga_tracking_id: string | null
-          homepage_enabled: boolean
-          homepage_password: string | null
-          homepage_slug: string | null
-          homepage_sort: string | null
+          showcase_enabled: boolean
+          showcase_password: string | null
+          showcase_slug: string | null
+          showcase_sort: string | null
           id: string
           logo_storage_path: string | null
           logo_url: string | null
@@ -1135,10 +1135,10 @@ export type Database = {
           display_name?: string
           email: string
           ga_tracking_id?: string | null
-          homepage_enabled?: boolean
-          homepage_password?: string | null
-          homepage_slug?: string | null
-          homepage_sort?: string | null
+          showcase_enabled?: boolean
+          showcase_password?: string | null
+          showcase_slug?: string | null
+          showcase_sort?: string | null
           id: string
           logo_storage_path?: string | null
           logo_url?: string | null
@@ -1165,10 +1165,10 @@ export type Database = {
           display_name?: string
           email?: string
           ga_tracking_id?: string | null
-          homepage_enabled?: boolean
-          homepage_password?: string | null
-          homepage_slug?: string | null
-          homepage_sort?: string | null
+          showcase_enabled?: boolean
+          showcase_password?: string | null
+          showcase_slug?: string | null
+          showcase_sort?: string | null
           id?: string
           logo_storage_path?: string | null
           logo_url?: string | null
@@ -1568,7 +1568,7 @@ export type Database = {
           photographer_slug: string | null
           privacy: Database["public"]["Enums"]["privacy_mode"] | null
           published_at: string | null
-          show_on_homepage: boolean | null
+          show_on_showcase: boolean | null
           slug: string | null
           social_sharing_enabled: boolean | null
           status: Database["public"]["Enums"]["delivery_status"] | null

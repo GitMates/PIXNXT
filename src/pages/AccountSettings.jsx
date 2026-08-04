@@ -27,7 +27,7 @@ const ACCOUNT_TABS = [
     { id: 'refer', label: 'Refer a Friend' },
 ];
 
-const getDynamicHomepageUrl = (slug) => {
+const getDynamicShowcaseUrl = (slug) => {
     if (!slug) return '';
     const host = window.location.host;
     const protocol = window.location.protocol;
@@ -516,7 +516,7 @@ function ProfileTab({ user, showToast }) {
                                 </div>
                             )}
                         </div>
-                        <p className="acct-field-help leading-relaxed">Your profile icon is a center cropped square icon shown on your galleries, homepage<br/>and applicable places. Tip: make your image a square image before uploading.</p>
+                        <p className="acct-field-help leading-relaxed">Your profile icon is a center cropped square icon shown on your galleries, showcase<br/>and applicable places. Tip: make your image a square image before uploading.</p>
                     </div>
 
                     <InlineField
@@ -525,7 +525,7 @@ function ProfileTab({ user, showToast }) {
                         value={formData.business_name}
                         onChange={handleChange}
                         onSave={handleAutoSave}
-                        hint="Your business name is shown on your homepage, deliveries, email notifications and more."
+                        hint="Your business name is shown on your showcase, deliveries, email notifications and more."
                     />
 
                     <InlineField
@@ -798,7 +798,7 @@ function AccountTab({ user, showToast }) {
     const fallbackSlug = user?.email ? user.email.split('@')[0] : 'poojz';
 
     const [formData, setFormData] = useState({
-        homepage_slug: fallbackSlug,
+        showcase_slug: fallbackSlug,
         email: user?.email || 'poojaelango03@gmail.com',
         two_factor_enabled: false,
         google_connected: true,
@@ -876,7 +876,7 @@ function AccountTab({ user, showToast }) {
 
                     setFormData(prev => ({
                         ...prev,
-                        homepage_slug: data.homepage_slug || data.username || fallbackSlug,
+                        showcase_slug: data.showcase_slug || data.username || fallbackSlug,
                         email: data.contact_email || user?.email || 'poojaelango03@gmail.com',
                         two_factor_enabled: data.two_factor_enabled || false,
                         google_connected: data.google_connected !== undefined ? data.google_connected : true,
@@ -1021,12 +1021,12 @@ function AccountTab({ user, showToast }) {
                     <div>
                         <label className="acct-field-label">Username</label>
                         <div className="w-full bg-[#f9f9f9] border border-[#f1f1f1] px-4 py-3 flex justify-between items-center group transition-colors hover:border-[#ddd]">
-                            <span className="text-[17px] text-[#111]">{formData.homepage_slug}</span>
+                            <span className="text-[17px] text-[#111]">{formData.showcase_slug}</span>
                             <svg 
                                 width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1A1A1A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" 
                                 className="cursor-pointer opacity-80 hover:opacity-100 flex-shrink-0 ml-2"
                                 onClick={() => {
-                                    setModalUsername(formData.homepage_slug);
+                                    setModalUsername(formData.showcase_slug);
                                     setShowUsernameModal(true);
                                 }}
                             >
@@ -1035,14 +1035,14 @@ function AccountTab({ user, showToast }) {
                             </svg>
                         </div>
                         <p className="text-[15px] text-[#888] mt-2">
-                            Your Homepage will be at{' '}
+                            Your Showcase will be at{' '}
                             <a 
-                                href={getDynamicHomepageUrl(formData.homepage_slug)} 
+                                href={getDynamicShowcaseUrl(formData.showcase_slug)} 
                                 target="_blank" 
                                 rel="noopener noreferrer" 
                                 className="text-[#1A1A1A] hover:underline font-medium"
                             >
-                                {getDynamicHomepageUrl(formData.homepage_slug)}
+                                {getDynamicShowcaseUrl(formData.showcase_slug)}
                             </a>
                         </p>
                     </div>
@@ -1379,9 +1379,9 @@ function AccountTab({ user, showToast }) {
                             <button 
                                 className="neu-pill acct-btn-primary text-[16px] font-medium px-6 py-2 transition-colors"
                                 onClick={async () => {
-                                    setFormData(prev => ({ ...prev, homepage_slug: modalUsername }));
+                                    setFormData(prev => ({ ...prev, showcase_slug: modalUsername }));
                                     setShowUsernameModal(false);
-                                    await handleAutoSave('homepage_slug', modalUsername);
+                                    await handleAutoSave('showcase_slug', modalUsername);
                                     window.dispatchEvent(new CustomEvent('pixnxt:username-changed', { detail: { slug: modalUsername } }));
                                 }}
                             >

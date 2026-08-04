@@ -22,7 +22,7 @@ export function EditCollectionModal({ collection, isOpen, onClose, onSave, onAdv
     const [eventDate, setEventDate] = useState('');
     const [status, setStatus] = useState('draft');
     const [categoryTags, setCategoryTags] = useState('');
-    const [showOnHomepage, setShowOnHomepage] = useState(false);
+    const [showOnShowcase, setShowOnShowcase] = useState(false);
     const [tagInput, setTagInput] = useState('');
 
     useEffect(() => {
@@ -31,7 +31,7 @@ export function EditCollectionModal({ collection, isOpen, onClose, onSave, onAdv
         setEventDate(collection.event_date ? collection.event_date.slice(0, 10) : '');
         setStatus(collection.status || 'draft');
         setCategoryTags(collection.description || categoryTagsFromCollection(collection).join(', '));
-        setShowOnHomepage(Boolean(collection.show_on_homepage));
+        setShowOnShowcase(Boolean(collection.show_on_showcase));
         setTagInput('');
     }, [collection, isOpen]);
 
@@ -79,7 +79,7 @@ export function EditCollectionModal({ collection, isOpen, onClose, onSave, onAdv
             event_date: eventDate || null,
             status,
             category_tags: normalizeCategoryTagsFromString(categoryTags),
-            show_on_homepage: showOnHomepage,
+            show_on_showcase: showOnShowcase,
         });
     };
 
@@ -141,9 +141,9 @@ export function EditCollectionModal({ collection, isOpen, onClose, onSave, onAdv
                         <button
                             type="button"
                             role="switch"
-                            aria-checked={showOnHomepage}
-                            onClick={() => setShowOnHomepage((v) => !v)}
-                            className={cn('ecm-toggle', showOnHomepage && 'ecm-toggle--on')}
+                            aria-checked={showOnShowcase}
+                            onClick={() => setShowOnShowcase((v) => !v)}
+                            className={cn('ecm-toggle', showOnShowcase && 'ecm-toggle--on')}
                         >
                             <span className="ecm-toggle-knob" />
                         </button>

@@ -586,7 +586,7 @@ sets                         -- Folder subdivisions inside deliveries
   id, collection_id, photographer_id, name, description, position, photo_count, is_private, created_at
 
 folders                      -- Groups of deliveries
-  id, photographer_id, name, slug, cover_url, position, event_date, show_on_homepage, 
+  id, photographer_id, name, slug, cover_url, position, event_date, show_on_showcase, 
   guest_password_hash, created_at
 
 client_sessions              -- Active proofing sessions per gallery

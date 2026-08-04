@@ -5,13 +5,13 @@ import './EditCollectionModal.css';
 export function EditFolderModal({ folder, isOpen, onClose, onSave, saving }) {
   const [name, setName] = useState('');
   const [eventDate, setEventDate] = useState('');
-  const [showOnHomepage, setShowOnHomepage] = useState(true);
+  const [showOnShowcase, setShowOnShowcase] = useState(true);
 
   useEffect(() => {
     if (!folder || !isOpen) return;
     setName(folder.name || '');
     setEventDate(folder.event_date ? String(folder.event_date).slice(0, 10) : '');
-    setShowOnHomepage(folder.show_on_homepage !== false);
+    setShowOnShowcase(folder.show_on_showcase !== false);
   }, [folder, isOpen]);
 
   if (!isOpen || !folder) return null;
@@ -21,7 +21,7 @@ export function EditFolderModal({ folder, isOpen, onClose, onSave, saving }) {
     onSave({
       name: name.trim(),
       event_date: eventDate || null,
-      show_on_homepage: showOnHomepage,
+      show_on_showcase: showOnShowcase,
     });
   };
 
@@ -55,17 +55,17 @@ export function EditFolderModal({ folder, isOpen, onClose, onSave, saving }) {
 
           <div className="ecm-toggle-block">
             <div className="ecm-toggle-row">
-              <span className="ecm-toggle-label">Show on Homepage</span>
+              <span className="ecm-toggle-label">Show on Showcase</span>
               <button
                 type="button"
                 role="switch"
-                aria-checked={showOnHomepage}
-                className={`ecm-toggle ${showOnHomepage ? 'ecm-toggle--on' : ''}`}
-                onClick={() => setShowOnHomepage((v) => !v)}
+                aria-checked={showOnShowcase}
+                className={`ecm-toggle ${showOnShowcase ? 'ecm-toggle--on' : ''}`}
+                onClick={() => setShowOnShowcase((v) => !v)}
               >
                 <span className="ecm-toggle-knob" />
               </button>
-              <span className="ecm-toggle-state">{showOnHomepage ? 'On' : 'Off'}</span>
+              <span className="ecm-toggle-state">{showOnShowcase ? 'On' : 'Off'}</span>
             </div>
           </div>
 

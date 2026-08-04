@@ -179,7 +179,7 @@ const products = [
     links: [
       { label: 'Manage Deliveries', path: '/client-gallery' },
       { label: 'Create Delivery', path: '/deliveries/create' },
-      { label: 'View Homepage', path: '/homepage' },
+      { label: 'View Showcase', path: '/showcase' },
       { label: 'Settings', path: '/settings' },
     ],
   },

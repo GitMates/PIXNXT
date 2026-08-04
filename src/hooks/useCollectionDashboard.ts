@@ -36,7 +36,7 @@ export function useCollectionDashboard(collectionId: string | null) {
 
   // Privacy State
   const [collectionPassword, setCollectionPassword] = useState("");
-  const [showOnHomepage, setShowOnHomepage] = useState(true);
+  const [showOnShowcase, setShowOnShowcase] = useState(true);
   const [clientExclusiveAccess, setClientExclusiveAccess] = useState(false);
   const [clientPrivatePassword, setClientPrivatePassword] = useState("");
   const [allowClientsMarkPrivate, setAllowClientsMarkPrivate] = useState(false);
@@ -325,8 +325,8 @@ export function useCollectionDashboard(collectionId: string | null) {
     setLanguage,
     collectionPassword,
     setCollectionPassword,
-    showOnHomepage,
-    setShowOnHomepage,
+    showOnShowcase,
+    setShowOnShowcase,
     clientExclusiveAccess,
     setClientExclusiveAccess,
     photoDownload,

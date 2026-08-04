@@ -47,7 +47,7 @@ export default function PresetEditor() {
     gridSpacing: 'regular',
     navigationStyle: 'icon',
     collectionPassword: false,
-    showOnHomepage: true,
+    showOnShowcase: true,
     photoDownload: true,
     highResolutionDownload: true,
     highResolutionSize: '3600px',
@@ -77,7 +77,13 @@ export default function PresetEditor() {
         if (error) throw error;
         setPreset(data);
         if (data.settings) {
-          setSettings(prev => ({ ...prev, ...data.settings }));
+          setSettings((prev) => {
+            const next = { ...prev, ...data.settings };
+            if (next.showOnShowcase === undefined && next.showOnHomepage !== undefined) {
+              next.showOnShowcase = next.showOnHomepage;
+            }
+            return next;
+          });
         }
 
         // Fetch watermarks
@@ -587,17 +593,17 @@ export default function PresetEditor() {
               </div>
 
               <div className="form-group form-group-spaced">
-                <label>Show on Homepage</label>
+                <label>Show on Showcase</label>
                 <div className="toggle-row">
                   <button 
-                    className={`toggle-switch ${settings.showOnHomepage ? 'on' : ''}`}
-                    onClick={() => setSettings({...settings, showOnHomepage: !settings.showOnHomepage})}
+                    className={`toggle-switch ${settings.showOnShowcase ? 'on' : ''}`}
+                    onClick={() => setSettings({...settings, showOnShowcase: !settings.showOnShowcase})}
                   >
                     <div className="toggle-handle" />
                   </button>
-                  <span className="toggle-label">{settings.showOnHomepage ? 'On' : 'Off'}</span>
+                  <span className="toggle-label">{settings.showOnShowcase ? 'On' : 'Off'}</span>
                 </div>
-                <p className="help-text">Show your deliveries on your <a href="#">Homepage</a>. Manage Homepage in <a href="#">Settings</a>.</p>
+                <p className="help-text">Show your deliveries on your <a href="/showcase">Showcase</a>. Manage Showcase in <a href="/showcase">Showcase settings</a>.</p>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '48px' }}>

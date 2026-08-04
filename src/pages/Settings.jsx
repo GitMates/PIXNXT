@@ -276,10 +276,10 @@ const WatermarkTab = ({ profile, updateProfile }) => {
             <div className="set-section">
                 <h3 className="set-section-title">Apply watermark to web size downloads</h3>
                 <div className="set-toggle-row">
-                    <button className={`hp-toggle ${wToggle ? 'on' : 'off'}`} onClick={handleWebDownloadToggle}>
-                        <div className="hp-toggle-handle"></div>
+                    <button className={`set-toggle ${wToggle ? 'on' : 'off'}`} onClick={handleWebDownloadToggle}>
+                        <div className="set-toggle-handle"></div>
                     </button>
-                    <span className="hp-toggle-label">{wToggle ? 'On' : 'Off'}</span>
+                    <span className="set-toggle-label">{wToggle ? 'On' : 'Off'}</span>
                 </div>
                 <p className="set-help-text">
                     Enable to apply watermark to web size downloads from your deliveries and web size downloads sold through Store.

@@ -33,8 +33,8 @@ export function getWallpaperUrl(app, photos, coverOverride) {
   return firstPhoto?.full_url || firstPhoto?.thumbnail_url || null;
 }
 
-export function buildPreviewHomepageUrl(profile, user) {
-  const slug = (profile?.homepage_slug || user?.email?.split('@')[0] || 'gallery').toLowerCase();
+export function buildPreviewShowcaseUrl(profile, user) {
+  const slug = (profile?.showcase_slug || user?.email?.split('@')[0] || 'gallery').toLowerCase();
   const host = window.location.host;
   const protocol = window.location.protocol;
 
@@ -64,7 +64,7 @@ export function getPreviewWebsiteLink(profile, user) {
     }
   }
 
-  const href = buildPreviewHomepageUrl(profile, user);
+  const href = buildPreviewShowcaseUrl(profile, user);
   try {
     const parsed = new URL(href);
     return { href, label: `${parsed.host.replace(/^www\./, '')}/` };
