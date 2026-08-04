@@ -1,6 +1,6 @@
 import { getSwapMarks } from './albumSwapMarks';
 
-/** Client-preview guard before comments, swaps, or pins are saved locally. */
+/** Client-preview guard before comments, swaps, or pins are saved. */
 export function canClientLeaveFeedback(albumId, prooferAccess, action = 'comment') {
     if (!albumId || !prooferAccess) return { ok: true };
 
@@ -64,6 +64,11 @@ export function mergeAlbumClientFlagsFromProoferAccess(album) {
     if (!access) return album;
 
     const locked = Boolean(access.feedbackLocked || album.client_approved_at);
+    // Column on smart_albums is the only source of truth for pause/resume.
+    const shareLinkEnabled =
+        album.share_link_enabled !== undefined
+            ? album.share_link_enabled !== false
+            : access.shareLinkEnabled !== false;
 
     return {
         ...album,
@@ -82,9 +87,6 @@ export function mergeAlbumClientFlagsFromProoferAccess(album) {
             : access.repliesEnabled !== undefined
               ? access.repliesEnabled
               : album.replies_enabled,
-        share_link_enabled:
-            access.shareLinkEnabled !== undefined
-                ? access.shareLinkEnabled
-                : album.share_link_enabled,
+        share_link_enabled: shareLinkEnabled,
     };
 }

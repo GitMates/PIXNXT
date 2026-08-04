@@ -358,7 +358,7 @@ function FeedbackCompose({
 
         setSaving(true);
         try {
-            await smartAlbumCommentsService.saveClientCommentAndConsolidate({
+            await smartAlbumCommentsService.saveClientComment({
                 albumId,
                 spreadIndex,
                 body,

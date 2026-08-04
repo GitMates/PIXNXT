@@ -88,7 +88,7 @@ serve(async (req) => {
     );
 
     const { data: album, error: albumError } = await supabaseAdmin
-      .from('smart_albums')
+      .from('album_proofer_albums')
       .select(
         'id, client_commenting_started_at, client_changes_submitted_at, client_approved_at, proofer_settings, preview_data'
       )
@@ -135,7 +135,7 @@ serve(async (req) => {
     }
 
     const { error: updateError } = await supabaseAdmin
-      .from('smart_albums')
+      .from('album_proofer_albums')
       .update(patch)
       .eq('id', albumId);
 

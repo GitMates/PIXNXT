@@ -25,7 +25,7 @@ async function resolveClientEmail(
   if (direct) return { email: direct, name: '' };
 
   const { data: album } = await supabaseAdmin
-    .from('smart_albums')
+    .from('album_proofer_albums')
     .select('client_contact_email, client_contact_name')
     .eq('id', albumId)
     .maybeSingle();
@@ -39,7 +39,7 @@ async function resolveClientEmail(
   }
 
   const { data: comment } = await supabaseAdmin
-    .from('smart_album_comments')
+    .from('album_proofer_comments')
     .select('author_email, author_name')
     .eq('album_id', albumId)
     .not('author_email', 'is', null)
@@ -107,7 +107,7 @@ serve(async (req) => {
     );
 
     const { data: album, error: albumError } = await supabaseAdmin
-      .from('smart_albums')
+      .from('album_proofer_albums')
       .select(
         'id, name, slug, status, photographer_id, proofer_settings, client_approved_at, client_approved_notified_at, revision_ready_notified_at, client_reminder_sent_at'
       )
@@ -217,7 +217,7 @@ serve(async (req) => {
       contactPatch.revision_ready_notified_at = now;
     }
 
-    await supabaseAdmin.from('smart_albums').update(contactPatch).eq('id', albumId);
+    await supabaseAdmin.from('album_proofer_albums').update(contactPatch).eq('id', albumId);
 
     return new Response(
       JSON.stringify({ ok: true, action, to: client.email }),

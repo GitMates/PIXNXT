@@ -20,6 +20,8 @@ import {
     getTotalSpreads,
     isDraggableOverviewSpread,
     isEndHalfSpreadIndex,
+    isInsideCoverSpreadLeft,
+    isPreBackHalfSpreadIndex,
     isWholeSpreadLayout,
     formatOverviewSpreadLabel,
     normalizeStoragePageIndex,
@@ -47,6 +49,7 @@ import {
     slotsMatch,
     getSlotLabel,
     SWAP_MARKS_CHANGED_EVENT,
+    hydrateSwapMarks,
 } from './albumSwapMarks';
 import {
     addPhotoPin,
@@ -54,6 +57,7 @@ import {
     getPinsForSlot,
     PHOTO_PINS_CHANGED_EVENT,
     removePhotoPin,
+    hydratePhotoPins,
 } from './albumPhotoPins';
 import {
     albumHadClientFeedbackBefore,
@@ -166,19 +170,28 @@ function resolveOverviewSpreadVisual(album, overviewSpreadIndex, totalPages, spr
     const { left, right } = getSpreadPages(overviewSpreadIndex, totalPages, spreadOpts);
     const isCover = spreadOpts.hasCovers && overviewSpreadIndex === 0;
     const isEndSpread = isEndHalfSpreadIndex(overviewSpreadIndex, totalPages, spreadOpts);
+    const isInsideCover = isInsideCoverSpreadLeft(left, totalPages, spreadOpts);
+    const isPreBack = isPreBackHalfSpreadIndex(overviewSpreadIndex, totalPages, spreadOpts);
     const spreadSrc = !isCover && !isEndSpread ? getSpreadPhotoOverride(album?.id, left) : null;
     const bookWrapSrc =
         isCover || isEndSpread
             ? getSpreadPhotoOverride(album?.id, 0) || resolveCoverImageSrc(album, { showSamples })
             : null;
-    const leftSrc = getOverviewPageImage(album, left, totalPages, showSamples);
+    // Structural first/last blanks stay empty — never samples or stray slot photos.
+    const leftSrc = isInsideCover
+        ? null
+        : getOverviewPageImage(album, left, totalPages, showSamples);
     const rightSrc =
-        right !== left ? getOverviewPageImage(album, right, totalPages, showSamples) : null;
+        right === left || isPreBack
+            ? null
+            : getOverviewPageImage(album, right, totalPages, showSamples);
 
     return {
         isCover,
         isEndSpread,
         isEndHalf: isEndSpread,
+        isInsideCover,
+        isPreBack,
         spreadSrc,
         bookWrapSrc,
         leftSrc,
@@ -1111,6 +1124,22 @@ const AlbumBook = ({
     }, [totalPages, pageIndex, spreadOpts, goToPage]);
 
     useEffect(() => {
+        if (!album?.id) return undefined;
+        let cancelled = false;
+        void Promise.all([
+            hydrateSwapMarks(album.id),
+            hydratePhotoPins(album.id),
+        ]).then(() => {
+            if (cancelled) return;
+            setSwapMarks(getSwapMarks(album.id));
+            setPhotoPins(getPhotoPins(album.id));
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [album?.id]);
+
+    useEffect(() => {
         setSwapMarks(getSwapMarks(album?.id));
     }, [album?.id]);
 
@@ -1978,7 +2007,7 @@ const AlbumBook = ({
                     <div className="ab-overview-body" onClick={(e) => e.stopPropagation()}>
                     {canDragOverviewSpreads ? (
                         <p className="ab-overview-drag-hint">
-                            Drag middle spreads to reorder photos. Cover, first inner spread, spread before back, and back stay fixed.
+                            The first and last spreads stay fixed. Drag any spread in between to reorder.
                         </p>
                     ) : null}
                     <OverviewSortableGrid
@@ -2003,12 +2032,16 @@ const AlbumBook = ({
                                 isCover,
                                 isEndSpread,
                                 isEndHalf,
+                                isInsideCover,
+                                isPreBack,
                                 spreadSrc,
                                 bookWrapSrc,
                                 leftSrc,
                                 rightSrc,
                                 showSpreadFull,
                             } = visual;
+                            const designedBlankLeft = Boolean(isInsideCover);
+                            const designedBlankRight = Boolean(isPreBack);
                             const targetPage = spreadIndexToPage(overviewSpreadIndex, spreadCtx);
                             const isSelected = overviewSpreadIndex === overviewTargetSpreadIndex;
                             return (
@@ -2017,6 +2050,8 @@ const AlbumBook = ({
                                     className={`ab-overview-item${
                                         isCover ? ' ab-overview-item--cover' : ''
                                     }${isEndSpread ? ' ab-overview-item--back' : ''}${
+                                        isInsideCover ? ' ab-overview-item--inside-cover' : ''
+                                    }${isPreBack ? ' ab-overview-item--pre-back' : ''}${
                                         isSelected ? ' ab-overview-item--active' : ''
                                     }${
                                         spreadDraggable ? ' ab-overview-item--draggable' : ''
@@ -2075,7 +2110,13 @@ const AlbumBook = ({
                                                     {leftSrc ? (
                                                         <img src={leftSrc} alt="" draggable={false} />
                                                     ) : (
-                                                        <span className="ab-overview-placeholder" />
+                                                        <span
+                                                            className={`ab-overview-placeholder${
+                                                                designedBlankLeft
+                                                                    ? ' ab-overview-placeholder--designed-blank'
+                                                                    : ''
+                                                            }`}
+                                                        />
                                                     )}
                                                 </span>
                                                 {!spreadSrc && (
@@ -2087,7 +2128,13 @@ const AlbumBook = ({
                                                                 draggable={false}
                                                             />
                                                         ) : (
-                                                            <span className="ab-overview-placeholder" />
+                                                            <span
+                                                                className={`ab-overview-placeholder${
+                                                                    designedBlankRight
+                                                                        ? ' ab-overview-placeholder--designed-blank'
+                                                                        : ''
+                                                                }`}
+                                                            />
                                                         )}
                                                     </span>
                                                 )}

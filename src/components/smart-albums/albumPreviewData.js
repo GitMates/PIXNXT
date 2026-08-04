@@ -1,11 +1,25 @@
 import { getAlbumCollection } from './albumCollection';
 import { spliceIndexedPhotoMap } from './albumPageStorage';
 import { serializeImageReplacementsForSnapshot } from './albumImageReplacements';
+import { readAlbumTransformBucket } from './albumPageTransforms';
 import { smartAlbumProoferSettingsService } from '../../services/smartAlbumProoferSettings.service';
 import { mergeAlbumClientFlagsFromProoferAccess } from './albumProoferPreview';
 
 const PHOTOS_KEY = 'pixnxt_album_page_photos';
+const COVER_TEXT_KEY = 'pixnxt_album_cover_text';
 const REMOTE_CACHE = new Map();
+
+function readLocalCoverText(albumId) {
+    if (!albumId) return '';
+    try {
+        const raw = localStorage.getItem(COVER_TEXT_KEY);
+        const all = raw ? JSON.parse(raw) : {};
+        const text = all[albumId]?.message;
+        return typeof text === 'string' ? text.trim() : '';
+    } catch {
+        return '';
+    }
+}
 
 function readLocalPhotos(albumId) {
     try {
@@ -117,6 +131,26 @@ function resolvePageValue(albumId, stored) {
     return stored;
 }
 
+function serializeTransformsForSnapshot(albumId) {
+    const bucket = readAlbumTransformBucket(albumId) || {};
+    const transforms = {};
+    Object.keys(bucket).forEach((key) => {
+        if (key === '__revision') return;
+        const value = bucket[key];
+        if (!value || typeof value !== 'object') return;
+        transforms[key] = {
+            x: Number(value.x) || 0,
+            y: Number(value.y) || 0,
+            scaleX: Number(value.scaleX) || Number(value.scale) || 1,
+            scaleY: Number(value.scaleY) || Number(value.scale) || 1,
+        };
+    });
+    return {
+        transforms,
+        transform_revision: Number(bucket.__revision) || 0,
+    };
+}
+
 /** Build a portable snapshot for Supabase (URLs, not local blobs). */
 export function buildAlbumPreviewSnapshot(
     albumId,
@@ -147,15 +181,24 @@ export function buildAlbumPreviewSnapshot(
         pages[key] = resolvePageValue(albumId, localPages[key]);
     });
 
+    const { transforms, transform_revision } = serializeTransformsForSnapshot(albumId);
+    const coverText = readLocalCoverText(albumId);
+
     const snapshot = {
-        version: 1,
+        version: 2,
         updated_at: new Date().toISOString(),
         collection,
         pages,
+        transforms,
+        transform_revision,
         revision: localPages.__revision ?? 0,
         image_replacements: serializeImageReplacementsForSnapshot(albumId),
         storage_bytes: collection.reduce((sum, item) => sum + (Number(item.size_bytes) || 0), 0),
     };
+
+    if (coverText) {
+        snapshot.cover_text = coverText;
+    }
 
     if (album) {
         snapshot.has_covers = album.has_covers !== false;

@@ -1,4 +1,4 @@
-/** Demo photos for Smart Album spreads until real uploads are wired up. */
+/** Demo photos for Album Proofer spreads until real uploads are wired up. */
 const SAMPLE_COUNT = 12;
 
 export function getSampleImageForPage(pageNum) {

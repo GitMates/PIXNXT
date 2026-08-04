@@ -1244,7 +1244,7 @@ const CreateAlbum = () => {
             const { user: syncUser } = await ensureAuthSession();
             await smartAlbumsService.syncAlbumPreviewData(syncUser.id, album.id);
 
-            navigate(`/smart-albums/album/${album.id}`, {
+            navigate(`/album-proofer/album/${album.id}`, {
                 state: { syncCollectionOrder: true },
             });
         } catch (err) {
@@ -1319,7 +1319,7 @@ const CreateAlbum = () => {
                         {wizardStep === 1 ? (
                             <section className="sa-wizard-card">
                                 <div className="sa-wizard-card-intro">
-                                    <span className="sa-create-kicker">SMART ALBUM SETUP</span>
+                                    <span className="sa-create-kicker">ALBUM PROOFER SETUP</span>
                                     <h2>Design the album before you start editing.</h2>
                                 </div>
 
@@ -1406,7 +1406,7 @@ const CreateAlbum = () => {
                                     <button
                                         type="button"
                                         className="cc-cancel-btn"
-                                        onClick={() => navigate('/smart-albums')}
+                                        onClick={() => navigate('/album-proofer')}
                                     >
                                         Cancel
                                     </button>
@@ -1419,7 +1419,7 @@ const CreateAlbum = () => {
                                 }`}
                             >
                                 <div className="sa-wizard-card-intro">
-                                    <span className="sa-create-kicker">SMART ALBUM SETUP</span>
+                                    <span className="sa-create-kicker">ALBUM PROOFER SETUP</span>
                                     <h2>Now bring the spreads to life.</h2>
                                 </div>
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import CommentAttachmentContent from './CommentAttachmentContent';
-import { hasCommentAttachment, isCommentAudioAttachment } from './albumCommentAttachments';
+import { getClientCommentBadgeLabel, hasCommentAttachment, isCommentAudioAttachment } from './albumCommentAttachments';
 import {
     formatCommentTime,
     formatFeedDateLabel,
@@ -522,7 +522,7 @@ function QuietProofFeed({
                             key={item.id}
                             authorName={comment.author_name || clientName}
                             createdAt={comment.updated_at || comment.created_at}
-                            badge="Photo"
+                            badge={getClientCommentBadgeLabel(comment)}
                             unseen={unseen}
                             showMarkDone={!clientViewer}
                             onMarkDone={() => markCommentsSeen(albumId, [comment])}

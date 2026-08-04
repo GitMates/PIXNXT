@@ -275,7 +275,7 @@ export async function downloadPhotosToZip(
 /**
  * Download one photo/video as a real file (image or video extension), not a zip.
  * @param options.preferOriginal — use full/original first (free gallery download when paid digital is off)
- * @param options.watermarkOptions — optional Smart Album watermark overlay
+ * @param options.watermarkOptions — optional Album Proofer watermark overlay
  */
 export async function downloadSinglePhotoFile(
   photo: BulkDownloadPhoto,

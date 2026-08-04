@@ -7,6 +7,7 @@ import {
     makeSlotKey,
     slotsMatch,
     SWAP_MARKS_CHANGED_EVENT,
+    hydrateSwapMarks,
 } from './albumSwapMarks';
 import {
     addPhotoPin,
@@ -14,7 +15,9 @@ import {
     getPinsForSlot,
     PHOTO_PINS_CHANGED_EVENT,
     removePhotoPin,
+    hydratePhotoPins,
 } from './albumPhotoPins';
+import { hydrateProofReplies } from './albumProofReplies';
 
 /**
  * Shared proofing state/handlers for AlbumBook and 3D spread overlays.
@@ -47,6 +50,23 @@ export default function useAlbumBookProofing({
     const [pinComposer, setPinComposer] = useState(null);
 
     const isPinModeOn = previewMode ? pinMarkMode : pinModeActive;
+
+    useEffect(() => {
+        if (!albumId) return undefined;
+        let cancelled = false;
+        void Promise.all([
+            hydrateSwapMarks(albumId),
+            hydratePhotoPins(albumId),
+            hydrateProofReplies(albumId),
+        ]).then(() => {
+            if (cancelled) return;
+            setSwapMarks(getSwapMarks(albumId));
+            setPhotoPins(getPhotoPins(albumId));
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [albumId]);
 
     useEffect(() => {
         if (!albumId) return undefined;

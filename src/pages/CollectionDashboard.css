@@ -1209,6 +1209,11 @@
     min-width: 0;
     touch-action: none;
     position: relative;
+    overflow: visible;
+}
+
+.cd-photo-sortable-wrap:has(.cd-photo-card.selected) {
+    z-index: 11;
 }
 
 .cd-photo-sortable-wrap--draggable {
@@ -1305,9 +1310,17 @@
     background: #e6f5f2 !important;
 }
 
+.cd-photo-grid--manage .cd-photo-card.selected {
+    border-color: #111111;
+    outline: none;
+    box-shadow: none;
+    z-index: 11;
+}
+
 .cd-photo-grid--manage.cd-photo-grid--filenames .cd-photo-card.selected {
-    border-color: #0d9488;
-    box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.25), 0 4px 14px rgba(0, 0, 0, 0.08);
+    border-color: #111111;
+    outline: none;
+    box-shadow: none;
 }
 
 /* Clips only the image; menu lives in the inner layer above this shell. */
@@ -1381,13 +1394,7 @@
 }
 
 .cd-photo-grid--manage .cd-photo-card--menu-open {
-    z-index: 80;
-}
-
-.cd-photo-grid--manage .cd-photo-card.selected {
-    border-color: #12b8a6;
-    outline: none;
-    box-shadow: none;
+    z-index: 120;
 }
 
 .cd-photo-grid--manage .cd-photo-card-inner--contain {
@@ -1418,7 +1425,7 @@
     height: 100% !important;
     max-width: none !important;
     max-height: none !important;
-    object-fit: cover !important;
+    object-fit: contain !important;
     object-position: center !important;
     image-orientation: from-image;
     background-color: var(--cd-manage-cell-bg) !important;
@@ -1522,15 +1529,19 @@
     transform: scale(1.03);
 }
 
-/* Selected state */
+/* Selected state — full black box on every side (no outer ring for neighbors to cover) */
 .cd-photo-card.selected {
     outline: 2px solid #111111;
     outline-offset: -2px;
 }
 
-.cd-photo-grid--manage .cd-photo-card.selected {
+.cd-photo-grid--manage .cd-photo-card.selected,
+.cd-photo-grid--manage.cd-photo-grid--filenames .cd-photo-card.selected {
     outline: none;
     outline-offset: 0;
+    border-color: #111111;
+    box-shadow: none;
+    z-index: 11;
 }
 
 /* Photo image â€” shared */
@@ -2299,23 +2310,24 @@
 /* Multi-Selection Toolbar */
 .cd-selection-toolbar {
     position: fixed;
-    bottom: 40px;
+    bottom: 28px;
     left: 50%;
     transform: translateX(-50%);
-    background: rgba(17, 17, 17, 0.95);
-    backdrop-filter: blur(12px);
-    height: 64px;
-    padding: 0 16px 0 24px;
-    border-radius: 12px;
+    background: rgba(17, 17, 17, 0.92);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    height: 56px;
+    padding: 0 12px 0 16px;
+    border-radius: 999px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    width: 720px;
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3), 0 0 1px rgba(255, 255, 255, 0.1);
+    width: min(640px, calc(100vw - 32px));
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(255, 255, 255, 0.08);
     z-index: 1100;
     transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     animation: cdToolbarSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: none;
     overflow: visible;
 }
 
@@ -2340,9 +2352,9 @@
 
 .cd-selection-count {
     color: #fff;
-    font-size: 17px;
+    font-size: 15px;
     font-weight: 600;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.01em;
 }
 
 .cd-selection-close {
@@ -2382,8 +2394,8 @@
 }
 
 .cd-selection-count {
-    font-size: 18px;
-    font-weight: 500;
+    font-size: 15px;
+    font-weight: 600;
     white-space: nowrap;
 }
 
@@ -4062,7 +4074,7 @@
         height: 100% !important;
         max-width: none !important;
         max-height: none !important;
-        object-fit: cover !important;
+        object-fit: contain !important;
         image-orientation: from-image;
     }
 
@@ -4646,17 +4658,42 @@
     top: 40px;
     right: 0;
     background: #ffffff;
-    border-radius: 10px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12), 0 0 1px rgba(0, 0, 0, 0.1);
+    border-radius: 12px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.14), 0 0 0 1px rgba(0, 0, 0, 0.06);
     z-index: 2000;
     min-width: 220px;
-    max-height: min(70vh, 520px);
+    max-height: min(72vh, 560px);
+    overflow-x: hidden;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     padding: 8px 0;
     display: flex;
     flex-direction: column;
     border: none;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.28) transparent;
+}
+
+.cd-photo-menu::-webkit-scrollbar {
+    width: 6px;
+}
+
+.cd-photo-menu::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.cd-photo-menu::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.22);
+    border-radius: 999px;
+}
+
+.cd-photo-menu--portal {
+    position: fixed;
+    top: auto;
+    right: auto;
+    left: auto;
+    z-index: 5000;
+    max-height: min(72vh, calc(100vh - 24px));
 }
 
 .cd-photo-menu--align-left {
@@ -4666,6 +4703,14 @@
 
 .cd-photo-card--menu-open {
     z-index: 150;
+}
+
+.cd-photo-grid--manage .cd-photo-card--menu-open {
+    z-index: 120;
+}
+
+.cd-photo-card--menu-open .cd-photo-actions {
+    opacity: 1;
 }
 
 .cd-photo-menu .cd-ctx-item {
@@ -5915,8 +5960,17 @@
 }
 
 .cd-photo-grid--manage .cd-photo-card.selected {
-    border-color: #8BDFDD !important;
-    box-shadow: 0 0 0 3px rgba(139, 223, 221, 0.25), 0 8px 24px rgba(0, 0, 0, 0.05) !important;
+    border-color: #111111 !important;
+    outline: none !important;
+    /* Border lives inside the card — adjacent cells can no longer hide the left/right edges. */
+    box-shadow: none !important;
+    z-index: 11 !important;
+}
+
+.cd-photo-grid--manage.cd-photo-grid--filenames .cd-photo-card.selected {
+    border-color: #111111 !important;
+    outline: none !important;
+    box-shadow: none !important;
 }
 
 .cd-photo-grid--manage .cd-photo-thumb-shell {

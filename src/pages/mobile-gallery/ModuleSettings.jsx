@@ -324,15 +324,15 @@ const ModuleSettings = () => {
             onChange={handleLogoChange}
           />
           <p className="mg-settings-help">
-            Logo to be used in place of the logo text and icon in the Contact Info tab and more. PNG file with
-            transparent background is recommended.
+            The main mark replaces your studio name in headers. The cover mark sits over photographs, so a light
+            version with a transparent background reads best.
           </p>
 
           <div className="mg-settings-branding-row">
             <div>
               <h3 className="mg-settings-card-title mg-settings-card-title--inline">PIXNXT branding</h3>
               <p className="mg-settings-help mg-settings-help--tight">
-                Switching this off will hide &ldquo;Powered by PIXNXT&rdquo;. Keep it on if you love us!
+                Turn this off to remove every mention of PIXNXT from your deliveries and Showcase page.
               </p>
             </div>
             <BrandingToggle

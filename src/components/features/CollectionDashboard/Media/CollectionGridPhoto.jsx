@@ -16,7 +16,7 @@ const containWrapStyle = {
   height: '100%',
 };
 
-/** Square manage grid — fill the cell (cover). Avoids sparse cream around wide/proof sheets. */
+/** Square manage grid — fit entire image in the cell (contain / letterbox). */
 function ContainGridMedia({ photo, index, isVideo }) {
   const gridSrc = useMemo(() => {
     const url = getPhotoGridDisplayUrl(photo, false);
@@ -41,7 +41,7 @@ function ContainGridMedia({ photo, index, isVideo }) {
       fallbacks={fallbacks}
       alt=""
       className="cd-photo-img cd-photo-grid-contain-media"
-      objectFit="cover"
+      objectFit="contain"
       loading={index < 24 ? 'eager' : 'lazy'}
       deferUntilVisible={index >= 24}
       style={containWrapStyle}
@@ -62,7 +62,7 @@ function ContainGridVideo({ photo }) {
           alt=""
           aria-hidden
           className="smooth-media-blur"
-          style={{ objectFit: 'cover', imageOrientation: 'from-image' }}
+          style={{ objectFit: 'contain', imageOrientation: 'from-image' }}
         />
       )}
       <video
@@ -72,7 +72,7 @@ function ContainGridVideo({ photo }) {
         style={{
           width: '100%',
           height: '100%',
-          objectFit: 'cover',
+          objectFit: 'contain',
           backgroundColor: '#fff',
         }}
         muted

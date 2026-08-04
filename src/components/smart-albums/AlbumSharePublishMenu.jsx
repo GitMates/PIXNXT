@@ -6,6 +6,7 @@ import {
     smartAlbumProoferSettingsService,
     getAlbumShareCopyUrl,
     getAlbumShareDisplayUrl,
+    notifyAlbumProoferSettingsChanged,
 } from '../../services/smartAlbumProoferSettings.service';
 import { countClientRootComments, getClientReviewerIdentity, smartAlbumCommentsService } from '../../services/smartAlbumComments.service';
 import { mergeAlbumProofTimestamps } from './albumProofStatus';
@@ -566,6 +567,7 @@ export default function AlbumSharePublishMenu({
             );
             writeSharePausedAt(albumId, pausedAt);
             onAlbumUpdated?.({ ...updated, share_link_paused_at: pausedAt });
+            notifyAlbumProoferSettingsChanged(albumId);
             setPauseConfirm(false);
             showToast?.('Client access paused.', { duration: 3500 });
         } catch (err) {
@@ -587,6 +589,7 @@ export default function AlbumSharePublishMenu({
             );
             writeSharePausedAt(albumId, null);
             onAlbumUpdated?.({ ...updated, share_link_paused_at: null });
+            notifyAlbumProoferSettingsChanged(albumId);
             showToast?.('Client access resumed.', { variant: 'success', duration: 3500 });
         } catch (err) {
             console.error(err);

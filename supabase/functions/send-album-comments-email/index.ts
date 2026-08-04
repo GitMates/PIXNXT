@@ -1,7 +1,11 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SmtpClient } from 'https://deno.land/x/smtp@v0.7.0/mod.ts';
-import { loadPhotographerProoferSettings, applyTemplate } from '../_shared/smartAlbumProoferEmail.ts';
+import {
+  applyTemplate,
+  buildAlbumEditorUrl,
+  loadPhotographerProoferSettings,
+} from '../_shared/smartAlbumProoferEmail.ts';
 
 if (!Deno.writeAll) {
   // @ts-ignore
@@ -251,7 +255,7 @@ serve(async (req) => {
     );
 
     const { data: album, error: albumError } = await supabaseAdmin
-      .from('smart_albums')
+      .from('album_proofer_albums')
       .select('id, name, status, photographer_id, comments_enabled')
       .eq('id', albumId)
       .maybeSingle();
@@ -298,7 +302,7 @@ serve(async (req) => {
     let rows: CommentRow[] = Array.isArray(comments) ? comments : [];
 
     const { data: dbComments, error: commentsError } = await supabaseAdmin
-      .from('smart_album_comments')
+      .from('album_proofer_comments')
       .select('spread_index, author_name, body, created_at, updated_at, parent_id')
       .eq('album_id', albumId)
       .is('parent_id', null)
@@ -355,7 +359,7 @@ serve(async (req) => {
       }));
 
     const origin = (siteOrigin || Deno.env.get('PUBLIC_SITE_URL') || '').replace(/\/$/, '');
-    const editorUrl = `${origin}/smart_albums/album/${albumId}`;
+    const editorUrl = buildAlbumEditorUrl(albumId, origin);
     const clientName = String(guestName || rows[0]?.author_name || 'A client').trim();
     const subject = isInstant
       ? `New ${eventType || 'activity'} on ${album.name || 'album'}`
@@ -481,11 +485,11 @@ serve(async (req) => {
     if (guestEmail?.trim()) {
       contactPatch.client_contact_email = guestEmail.trim();
     }
-    await supabaseAdmin.from('smart_albums').update(contactPatch).eq('id', albumId);
+    await supabaseAdmin.from('album_proofer_albums').update(contactPatch).eq('id', albumId);
 
     if (!isInstant) {
       await supabaseAdmin
-        .from('smart_albums')
+        .from('album_proofer_albums')
         .update({
           client_changes_submitted_at: new Date().toISOString(),
           client_changes_submitted_by: clientName,

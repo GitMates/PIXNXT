@@ -416,7 +416,7 @@ export default function MyModulePage() {
 
 ## Related modules
 
-The **Portal** and **Smart Albums** modules reuse the same `theme-mono` + `neu-inset` / `neu-pill` system from `portal.css`. When aligning those modules with Client Gallery, match the tokens and class names above rather than introducing new accent colors.
+The **Portal** and **Album Proofer** modules reuse the same `theme-mono` + `neu-inset` / `neu-pill` system from `portal.css`. When aligning those modules with Client Gallery, match the tokens and class names above rather than introducing new accent colors.
 
 ---
 

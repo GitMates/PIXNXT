@@ -35,7 +35,7 @@ serve(async (req) => {
 
     const siteOrigin = (Deno.env.get('PUBLIC_SITE_URL') || '').replace(/\/$/, '');
     const { data: albums, error } = await supabaseAdmin
-      .from('smart_albums')
+      .from('album_proofer_albums')
       .select(
         'id, name, slug, photographer_id, proofer_settings, status, client_contact_email, client_contact_name, client_last_activity_at, client_commenting_started_at, client_approved_at, client_changes_submitted_at, published_at, updated_at, client_reminder_sent_at, share_link_enabled'
       )
@@ -139,7 +139,7 @@ serve(async (req) => {
         });
 
         await supabaseAdmin
-          .from('smart_albums')
+          .from('album_proofer_albums')
           .update({ client_reminder_sent_at: new Date().toISOString() })
           .eq('id', album.id);
 

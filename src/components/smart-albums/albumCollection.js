@@ -107,7 +107,7 @@ async function getAlbumPathFolder(albumId) {
     if (ALBUM_PATH_CACHE.has(albumId)) return ALBUM_PATH_CACHE.get(albumId);
     try {
         const { data } = await supabase
-            .from('smart_albums')
+            .from('album_proofer_albums')
             .select('id, name')
             .eq('id', albumId)
             .maybeSingle();
@@ -173,7 +173,7 @@ async function uploadCollectionFile({ file, sortIndex, batchUploadTs, pathContex
     const path = [
         'users',
         photographerFolder,
-        'smart-album',
+        'album-proofer',
         albumFolder,
         `${batchUploadTs}-${sortIndex + 1}-${safeSegment(file.name)}`,
     ].join('/');
@@ -411,9 +411,21 @@ async function listR2CollectionItems(albumId, photographerId) {
         getPhotographerPathFolder(photographerId),
         getAlbumPathFolder(albumId),
     ]);
-    const prefix = ['users', photographerFolder, 'smart-album', albumFolder, ''].join('/');
+    // New uploads use album-proofer/; keep listing legacy smart-album/ for existing assets.
+    const prefixes = ['album-proofer', 'smart-album'].map((module) =>
+        ['users', photographerFolder, module, albumFolder, ''].join('/')
+    );
     try {
-        const objects = await storageService.listByPrefix(prefix);
+        const seen = new Set();
+        const objects = [];
+        for (const prefix of prefixes) {
+            const listed = await storageService.listByPrefix(prefix);
+            for (const obj of listed) {
+                if (!obj?.key || seen.has(obj.key)) continue;
+                seen.add(obj.key);
+                objects.push(obj);
+            }
+        }
         return objects
             .filter(({ key }) => /\.(jpe?g|png|webp|gif)$/i.test(key))
             .sort((a, b) => {
@@ -446,7 +458,7 @@ export async function loadAlbumAssetsFromCloud(albumId, photographerId) {
 
     try {
         let { data, error } = await supabase
-            .from('smart_albums')
+            .from('album_proofer_albums')
             .select('preview_data, cover_image_url')
             .eq('id', albumId)
             .eq('photographer_id', photographerId)
@@ -460,7 +472,7 @@ export async function loadAlbumAssetsFromCloud(albumId, photographerId) {
                 msg.includes('column');
             if (missingPreview) {
                 ({ data, error } = await supabase
-                    .from('smart_albums')
+                    .from('album_proofer_albums')
                     .select('cover_image_url')
                     .eq('id', albumId)
                     .eq('photographer_id', photographerId)

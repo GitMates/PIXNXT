@@ -269,7 +269,7 @@ export const smartAlbumProoferSettingsService = {
 
         try {
             const { data, error } = await supabase
-                .from('smart_album_proofer_settings')
+                .from('album_proofer_settings')
                 .select('settings')
                 .eq('photographer_id', photographerId)
                 .maybeSingle();
@@ -301,7 +301,7 @@ export const smartAlbumProoferSettingsService = {
 
         try {
             const now = new Date().toISOString();
-            const { error } = await supabase.from('smart_album_proofer_settings').upsert(
+            const { error } = await supabase.from('album_proofer_settings').upsert(
                 {
                     photographer_id: photographerId,
                     settings: next,
@@ -339,7 +339,7 @@ export const smartAlbumProoferSettingsService = {
         if (!row?.proofer_settings) {
             try {
                 const { data, error } = await supabase
-                    .from('smart_albums')
+                    .from('album_proofer_albums')
                     .select('proofer_settings, slug')
                     .eq('photographer_id', photographerId)
                     .eq('id', albumId)
@@ -379,7 +379,7 @@ export const smartAlbumProoferSettingsService = {
 
         try {
             const { data, error } = await supabase
-                .from('smart_albums')
+                .from('album_proofer_albums')
                 .update(payload)
                 .eq('photographer_id', photographerId)
                 .eq('id', albumId)

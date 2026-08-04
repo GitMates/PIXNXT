@@ -48,6 +48,7 @@ import {
     smartAlbumProoferSettingsService,
 } from '../../services/smartAlbumProoferSettings.service';
 import { ALBUM_PROOF_STATUS_CHANGED_EVENT } from '../../components/smart-albums/albumProofStatus';
+import { hydrateAlbumClientFeedback } from '../../components/smart-albums/hydrateAlbumClientFeedback';
 import { canClientLeaveFeedback } from '../../components/smart-albums/albumProoferPreview';
 import AlbumPreviewGuestNamePrompt from '../../components/smart-albums/AlbumPreviewGuestNamePrompt';
 import './AlbumViewer.css';
@@ -418,6 +419,25 @@ export default function AlbumPreview({
     useEffect(() => {
         loadSpreadComments();
     }, [loadSpreadComments]);
+
+    useEffect(() => {
+        if (!albumId) return undefined;
+        let cancelled = false;
+        const guest = getGuestProfile(albumId);
+        const viewerKey = guest?.email?.trim() || guest?.name?.trim() || 'default';
+        void hydrateAlbumClientFeedback(albumId, {
+            viewerRole: 'client',
+            viewerKey,
+        }).then(() => {
+            if (cancelled) return;
+            setPhotoPins(getPhotoPins(albumId));
+            setSwapMarks(getSwapMarks(albumId));
+            void loadSpreadComments();
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [albumId, loadSpreadComments]);
 
     useEffect(() => {
         if (!albumId) return undefined;

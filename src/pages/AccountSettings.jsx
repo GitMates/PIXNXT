@@ -112,11 +112,11 @@ export default function AccountSettings() {
                                     </div>
                                     <div
                                         className="mg-app-dropdown-item"
-                                        onClick={() => { navigate('/smart-albums'); setShowDropdown(false); }}
+                                        onClick={() => { navigate('/album-proofer'); setShowDropdown(false); }}
                                     >
                                         <img src={smartAlbumPng} alt="" className="mg-app-dropdown-icon" />
                                         <div>
-                                            <span className="mg-app-dropdown-title">Smart Albums</span>
+                                            <span className="mg-app-dropdown-title">Album Proofer</span>
                                             <span className="mg-app-dropdown-desc">Design and deliver beautiful photo albums</span>
                                         </div>
                                     </div>
@@ -2442,9 +2442,9 @@ function ReferTab({ user, showToast }) {
                 <h1 className="cg-page-title text-3xl font-medium mb-8 pb-6 border-b border-[#ECEAE6]">Referral Dashboard</h1>
                 
                 <div className="mb-10">
-                    <h2 className="text-[17px] font-bold text-[#111] mb-2">Invite Friends & Get $20</h2>
+                    <h2 className="text-[17px] font-bold text-[#111] mb-2">Refer a studio</h2>
                     <p className="text-[15px] text-[#555] leading-relaxed">
-                        Give your friends $20 off their first bill on Pixnxt, and get a $20 referral credit for each person that subscribes to Pixnxt.
+                        Refer a studio — both of you get ₹1,500 in credit once they publish their first delivery.
                     </p>
                 </div>
 

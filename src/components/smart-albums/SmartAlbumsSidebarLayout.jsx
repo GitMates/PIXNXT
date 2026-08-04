@@ -21,7 +21,7 @@ function isNeedsYouTone(tone) {
 }
 
 /**
- * Smart Albums / Album Proofer product shell.
+ * Album Proofer product shell.
  */
 const SmartAlbumsSidebarLayout = ({ children }) => {
     const { user } = useAuth();
@@ -83,7 +83,7 @@ const SmartAlbumsSidebarLayout = ({ children }) => {
 
     return (
         <SidebarLayout
-            productId="smart-albums"
+            productId="album-proofer"
             shellClassName="sa-proofer-shell"
             navCounts={navCounts}
             headerActions={

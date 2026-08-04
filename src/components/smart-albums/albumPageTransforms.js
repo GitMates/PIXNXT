@@ -1,3 +1,5 @@
+import { getRemotePreviewData } from './albumPreviewData';
+
 const STORAGE_KEY = 'pixnxt_album_page_transforms';
 
 const DEFAULT = { x: 0, y: 0, scaleX: 1, scaleY: 1 };
@@ -57,9 +59,21 @@ function bookWrapSpineTransformKey() {
     return 'spine:0';
 }
 
+function albumTransformBucket(albumId) {
+    if (!albumId) return null;
+    const local = readAll()[albumId];
+    if (local && Object.keys(local).some((k) => k !== '__revision')) return local;
+    const remote = getRemotePreviewData(albumId);
+    if (!remote?.transforms || typeof remote.transforms !== 'object') return local || null;
+    return {
+        ...remote.transforms,
+        __revision: remote.transform_revision ?? 0,
+    };
+}
+
 export function getBookWrapSpineTransform(albumId) {
     if (!albumId) return { ...DEFAULT };
-    const album = readAll()[albumId];
+    const album = albumTransformBucket(albumId);
     return normalizePhotoTransform(album?.[bookWrapSpineTransformKey()]);
 }
 
@@ -85,7 +99,7 @@ function persistTransform(transform) {
 
 export function getSpreadPhotoTransform(albumId, leftPage) {
     if (!albumId || leftPage == null) return { ...DEFAULT };
-    const album = readAll()[albumId];
+    const album = albumTransformBucket(albumId);
     return normalizePhotoTransform(album?.[spreadTransformKey(leftPage)]);
 }
 
@@ -101,7 +115,7 @@ export function setSpreadPhotoTransform(albumId, leftPage, transform) {
 
 export function getPagePhotoTransform(albumId, pageNum) {
     if (!albumId || pageNum == null) return { ...DEFAULT };
-    const album = readAll()[albumId];
+    const album = albumTransformBucket(albumId);
     return normalizePhotoTransform(album?.[String(pageNum)]);
 }
 
@@ -116,7 +130,9 @@ export function setPagePhotoTransform(albumId, pageNum, transform) {
 }
 
 export function getTransformRevision(albumId) {
-    return readAll()[albumId]?.__revision ?? 0;
+    const local = readAll()[albumId]?.__revision;
+    if (local != null) return local;
+    return getRemotePreviewData(albumId)?.transform_revision ?? 0;
 }
 
 /** Move spread:1 / page-2 pan/zoom to page 3 for inside-cover albums. */
@@ -197,7 +213,7 @@ export function clearAlbumTransforms(albumId) {
 
 export function readAlbumTransformBucket(albumId) {
     if (!albumId) return {};
-    return { ...(readAll()[albumId] || {}) };
+    return { ...(albumTransformBucket(albumId) || {}) };
 }
 
 export function writeAlbumTransformBucket(albumId, bucket) {

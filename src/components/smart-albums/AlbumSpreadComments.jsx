@@ -74,21 +74,7 @@ export default function AlbumSpreadComments({
             const name = profile.name || '';
             const email = profile.email || '';
             const authorForLookup = name.trim() || 'Guest';
-            let displayRows = rows;
-            const existing = findGuestSpreadRootComment(rows, authorForLookup);
-            if (existing && clientView && !isPhotographer) {
-                await smartAlbumCommentsService.consolidateClientSpreadComments(
-                    albumId,
-                    spreadIndex,
-                    authorForLookup,
-                    existing.id
-                );
-                displayRows = await smartAlbumCommentsService.listSpreadComments(
-                    albumId,
-                    spreadIndex
-                );
-                if (seq !== loadSeqRef.current) return;
-            }
+            const displayRows = rows;
 
             setComments(displayRows);
             setGuestName(name);

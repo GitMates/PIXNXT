@@ -271,10 +271,12 @@ export default function CollectionPhotoSortableGrid({
             stopAutoScroll();
             document.body.style.userSelect = '';
 
-            try {
-                wrapRefs.current[drag.fromIndex]?.releasePointerCapture(e.pointerId);
-            } catch {
-                /* ignore */
+            if (drag.activated) {
+                try {
+                    wrapRefs.current[drag.fromIndex]?.releasePointerCapture(e.pointerId);
+                } catch {
+                    /* ignore */
+                }
             }
 
             const display = displayPhotosRef.current;
@@ -303,6 +305,7 @@ export default function CollectionPhotoSortableGrid({
                 }
             }
 
+            // Only swallow the trailing click after a real drag; plain clicks must select.
             if (moved) {
                 suppressClickUntilRef.current = performance.now() + 250;
             }
@@ -321,9 +324,20 @@ export default function CollectionPhotoSortableGrid({
 
             const deltaX = e.clientX - drag.startX;
             const deltaY = e.clientY - drag.startY;
-            if (Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4) {
+
+            // Activate drag only past threshold so preventDefault/capture don't cancel click-to-select.
+            if (!drag.activated && (Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4)) {
+                drag.activated = true;
                 dragMovedRef.current = true;
+                document.body.style.userSelect = 'none';
+                try {
+                    wrapRefs.current[drag.fromIndex]?.setPointerCapture(e.pointerId);
+                } catch {
+                    /* ignore */
+                }
             }
+
+            if (!drag.activated) return;
 
             const scroller = getScrollParent(mergedGridRef.current);
             if (scroller) {
@@ -372,15 +386,9 @@ export default function CollectionPhotoSortableGrid({
             const wrap = wrapRefs.current[index];
             if (!wrap) return;
 
-            e.preventDefault();
-            e.stopPropagation();
+            // Do not preventDefault/stopPropagation here — that suppresses the click
+            // used by cd-photo-card to toggle selection. Capture starts after drag threshold.
             dragMovedRef.current = false;
-
-            try {
-                wrap.setPointerCapture(e.pointerId);
-            } catch {
-                /* ignore */
-            }
 
             const scroller = getScrollParent(mergedGridRef.current);
             const count = displayPhotos.length;
@@ -396,12 +404,11 @@ export default function CollectionPhotoSortableGrid({
                 layoutRects: captureLayoutRects(wrapRefs, count),
                 startScrollTop: scroller?.scrollTop ?? 0,
                 scrollDelta: 0,
+                activated: false,
             };
-
-            document.body.style.userSelect = 'none';
-            bumpDrag();
+            // No bumpDrag yet — wait until drag threshold so click-to-select is undisturbed.
         },
-        [bumpDrag, disabled, displayPhotos, isDraggable, mergedGridRef]
+        [disabled, displayPhotos, isDraggable, mergedGridRef]
     );
 
     const handlePointerUp = useCallback(
@@ -414,7 +421,7 @@ export default function CollectionPhotoSortableGrid({
     const consumeClick = useCallback(() => performance.now() < suppressClickUntilRef.current, []);
 
     const drag = dragRef.current;
-    const dragging = Boolean(drag);
+    const dragging = Boolean(drag?.activated);
     void dragTick;
 
     return (
@@ -423,8 +430,10 @@ export default function CollectionPhotoSortableGrid({
             className={`${className}${dragging ? ' cd-photo-grid--dragging' : ''}`}
         >
             {displayPhotos.map((photo, index) => {
-                const isDragging = drag?.fromIndex === index;
-                const transform = getWrapTransform(index, drag, lockedIndices);
+                const isDragging = Boolean(drag?.activated && drag.fromIndex === index);
+                const transform = drag?.activated
+                    ? getWrapTransform(index, drag, lockedIndices)
+                    : null;
                 const canDrag = isDraggable?.(index, photo) && !disabled;
                 return (
                     <div

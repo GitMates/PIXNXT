@@ -11,8 +11,11 @@ import {
 import AlbumPreview from './AlbumPreview';
 import { getAlbumSpreadOptions } from '../../components/smart-albums/albumSpreadUtils';
 import { isClientShareLinkLive } from '../../lib/shareSmartAlbum';
+import { supabase } from '../../lib/supabase/client';
 import { parseUrlPage } from './useAlbumWorkspace';
 import './AlbumViewer.css';
+
+const SHARE_LINK_POLL_MS = 5000;
 
 /**
  * Public share link: album preview + per-spread comments (no login required).
@@ -64,6 +67,95 @@ export default function PublicAlbumPreview() {
         };
     }, [albumId]);
 
+    // Keep share-link pause/resume in sync while the client tab stays open (no reload needed).
+    useEffect(() => {
+        const resolvedId = album?.id;
+        if (!resolvedId) return undefined;
+
+        let cancelled = false;
+
+        const applyShareFields = (row) => {
+            if (!row || cancelled) return;
+            setAlbum((prev) => {
+                if (!prev) return prev;
+                const nextEnabled = row.share_link_enabled;
+                const nextPausedAt = row.share_link_paused_at ?? null;
+                const nextStatus = row.status ?? prev.status;
+                if (
+                    prev.share_link_enabled === nextEnabled &&
+                    (prev.share_link_paused_at ?? null) === nextPausedAt &&
+                    prev.status === nextStatus
+                ) {
+                    return prev;
+                }
+                return {
+                    ...prev,
+                    share_link_enabled: nextEnabled,
+                    share_link_paused_at: nextPausedAt,
+                    status: nextStatus,
+                };
+            });
+        };
+
+        const refreshShareLink = async () => {
+            if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+            try {
+                const { data, error } = await supabase
+                    .from('album_proofer_albums')
+                    .select('id, share_link_enabled, share_link_paused_at, status')
+                    .eq('id', resolvedId)
+                    .maybeSingle();
+                if (error) throw error;
+                // RLS hides paused albums from anon — treat a missing row as paused.
+                if (!data) {
+                    applyShareFields({
+                        share_link_enabled: false,
+                        share_link_paused_at: null,
+                    });
+                    return;
+                }
+                applyShareFields(data);
+            } catch (e) {
+                console.error(e);
+                if (!cancelled) {
+                    applyShareFields({
+                        share_link_enabled: false,
+                        share_link_paused_at: null,
+                    });
+                }
+            }
+        };
+
+        const channel = supabase
+            .channel(`public-album-share-link:${resolvedId}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'smart_albums',
+                    filter: `id=eq.${resolvedId}`,
+                },
+                (payload) => {
+                    applyShareFields(payload.new);
+                }
+            )
+            .subscribe();
+
+        const pollId = window.setInterval(refreshShareLink, SHARE_LINK_POLL_MS);
+        const onVisible = () => {
+            if (document.visibilityState === 'visible') refreshShareLink();
+        };
+        document.addEventListener('visibilitychange', onVisible);
+
+        return () => {
+            cancelled = true;
+            window.clearInterval(pollId);
+            document.removeEventListener('visibilitychange', onVisible);
+            void supabase.removeChannel(channel);
+        };
+    }, [album?.id]);
+
     useEffect(() => {
         if (album?.preview_data) {
             hydrateAlbumPreviewData(albumId, album.preview_data);
@@ -111,9 +203,15 @@ export default function PublicAlbumPreview() {
 
     if (!album) {
         return (
-            <div className="av-page av-page--preview">
-                <div className="av-loading">
-                    Album not found or not published.
+            <div className="av-page av-page--preview av-access-gate">
+                <div className="av-access-gate__card av-access-gate__card--center">
+                    <h1 className="av-access-gate__title">
+                        This album is temporarily unavailable
+                    </h1>
+                    <p className="av-access-gate__text">
+                        Access may be paused, or this album is not published. Ask the photographer
+                        for an updated link.
+                    </p>
                 </div>
             </div>
         );
@@ -121,10 +219,14 @@ export default function PublicAlbumPreview() {
 
     if (!isClientShareLinkLive(album)) {
         return (
-            <div className="av-page av-page--preview">
-                <div className="av-loading">
-                    Client access is paused for this album. Ask the photographer to turn the share
-                    link back on.
+            <div className="av-page av-page--preview av-access-gate">
+                <div className="av-access-gate__card av-access-gate__card--center">
+                    <h1 className="av-access-gate__title">
+                        This album is temporarily unavailable
+                    </h1>
+                    <p className="av-access-gate__text">
+                        Client access is paused. Please check back later or contact the photographer.
+                    </p>
                 </div>
             </div>
         );

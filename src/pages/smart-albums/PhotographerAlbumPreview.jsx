@@ -16,7 +16,11 @@ import {
     clearAlbumPreviewDataCache,
     normalizeAlbumForClientPreview,
 } from '../../components/smart-albums/albumPreviewData';
+import { isClientShareLinkLive } from '../../lib/shareSmartAlbum';
+import { supabase } from '../../lib/supabase/client';
 import './AlbumViewer.css';
+
+const SHARE_LINK_POLL_MS = 5000;
 
 /**
  * Album preview in its own tab (like collection gallery preview).
@@ -72,6 +76,76 @@ export default function PhotographerAlbumPreview() {
         };
     }, [user?.id, albumId]);
 
+    // Pick up pause/resume while this preview tab stays open.
+    useEffect(() => {
+        const resolvedId = album?.id;
+        if (!resolvedId) return undefined;
+
+        let cancelled = false;
+
+        const applyShareFields = (row) => {
+            if (!row || cancelled) return;
+            setAlbum((prev) => {
+                if (!prev) return prev;
+                const nextEnabled = row.share_link_enabled;
+                const nextPausedAt = row.share_link_paused_at ?? null;
+                if (
+                    prev.share_link_enabled === nextEnabled &&
+                    (prev.share_link_paused_at ?? null) === nextPausedAt
+                ) {
+                    return prev;
+                }
+                return {
+                    ...prev,
+                    share_link_enabled: nextEnabled,
+                    share_link_paused_at: nextPausedAt,
+                };
+            });
+        };
+
+        const refreshShareLink = async () => {
+            if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+            try {
+                const { data, error } = await supabase
+                    .from('album_proofer_albums')
+                    .select('id, share_link_enabled, share_link_paused_at')
+                    .eq('id', resolvedId)
+                    .maybeSingle();
+                if (error) throw error;
+                if (data) applyShareFields(data);
+            } catch (e) {
+                console.error(e);
+            }
+        };
+
+        const channel = supabase
+            .channel(`photographer-album-share-link:${resolvedId}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'smart_albums',
+                    filter: `id=eq.${resolvedId}`,
+                },
+                (payload) => applyShareFields(payload.new)
+            )
+            .subscribe();
+
+        const pollId = window.setInterval(refreshShareLink, SHARE_LINK_POLL_MS);
+        const onVisible = () => {
+            if (document.visibilityState === 'visible') refreshShareLink();
+        };
+        document.addEventListener('visibilitychange', onVisible);
+
+        return () => {
+            cancelled = true;
+            window.clearInterval(pollId);
+            document.removeEventListener('visibilitychange', onVisible);
+            void supabase.removeChannel(channel);
+        };
+    }, [album?.id]);
+
     useEffect(() => {
         if (album?.preview_data) {
             hydrateAlbumPreviewData(albumId, album.preview_data);
@@ -91,7 +165,7 @@ export default function PhotographerAlbumPreview() {
     const totalPages = album?.page_count || 21;
     const spreadOpts = getAlbumSpreadOptions(album);
     const initialPage = parseUrlPage(searchParams.get('page'), totalPages, spreadOpts);
-    const accessPaused = album?.share_link_enabled === false;
+    const accessPaused = !isClientShareLinkLive(album);
 
     const access = useMemo(() => {
         if (!album?.id) return null;
@@ -108,7 +182,7 @@ export default function PhotographerAlbumPreview() {
     const handlePageChange = (pageIdx) => {
         const next = new URLSearchParams(searchParams);
         next.set('page', String(pageIdx));
-        navigate(`/smart-albums/preview/${albumId}?${next.toString()}`, { replace: true });
+        navigate(`/album-proofer/preview/${albumId}?${next.toString()}`, { replace: true });
     };
 
     if (loading) {

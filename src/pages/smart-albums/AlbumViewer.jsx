@@ -52,7 +52,7 @@ const AlbumViewer = () => {
         const next = new URLSearchParams(searchParams);
         next.delete('view');
         const qs = next.toString();
-        navigate(`/smart-albums/album/${albumId}${qs ? `?${qs}` : ''}`, { replace: true });
+        navigate(`/album-proofer/album/${albumId}${qs ? `?${qs}` : ''}`, { replace: true });
     }, [album, albumId, searchParams, navigate, totalPages]);
 
     if (loading) {
@@ -67,7 +67,7 @@ const AlbumViewer = () => {
         return (
             <div className="av-page">
                 <div className="av-topbar">
-                    <button type="button" className="av-back-btn" onClick={() => navigate('/smart-albums')}>
+                    <button type="button" className="av-back-btn" onClick={() => navigate('/album-proofer')}>
                         Back to Albums
                     </button>
                 </div>

@@ -16,7 +16,7 @@
 5. [Module 3 — Website Builder](#5-module-3--website-builder)
 6. [Module 4 — Store (Print & Digital Commerce)](#6-module-4--store-print--digital-commerce)
 7. [Module 5 — Mobile Gallery App](#7-module-5--mobile-gallery-app)
-8. [Module 6 — Smart Albums (Book & Layout Builder)](#8-module-6--smart-albums-book--layout-builder)
+8. [Module 6 — Album Proofer (Book & Layout Builder)](#8-module-6--smart-albums-book--layout-builder)
 9. [Cross-Module Features (Enhanced)](#9-cross-module-features)
 10. [User Roles & Permissions](#10-user-roles--permissions)
 11. [Pricing & Subscription Plans](#11-pricing--subscription-plans)
@@ -64,7 +64,7 @@ PIXNXT removes the need for photographers to juggle separate tools for:
 | **Website Builder** | Drag-and-drop photography portfolio website | DB, Storage |
 | **Store** | Sell prints, digital downloads, and packages from galleries | DB, Edge Functions, Storage |
 | **Mobile Gallery App** | White-labeled mobile experience for clients to view galleries | Storage, Auth |
-| **Smart Albums** | Design layout photo albums & flip-books for client proofing | DB, Storage, (Fallback LocalStorage) |
+| **Album Proofer** | Design layout photo albums & flip-books for client proofing | DB, Storage, (Fallback LocalStorage) |
 
 ### High-Level Tech Decisions
 
@@ -73,7 +73,7 @@ PIXNXT removes the need for photographers to juggle separate tools for:
 - **Supabase Storage** buckets for gallery photos, website assets, and document uploads
 - **Supabase Auth** with Row Level Security (RLS) for multi-tenant isolation (each photographer's data is private)
 - **Supabase Edge Functions** (Deno) for server-side logic: payment processing webhooks, email notifications, PDF generation, favorites locking notifications
-- **Local Storage Caching / Sync**: Hybrid engine for Smart Albums to allow offline work or cache retrieval if Supabase caches refresh
+- **Local Storage Caching / Sync**: Hybrid engine for Album Proofer to allow offline work or cache retrieval if Supabase caches refresh
 - **Stripe** for payment processing (invoices, store checkout, subscription billing)
 - **Resend / SendGrid** for transactional email (gallery delivery, contract signing, payment receipts, favorites confirmations)
 
@@ -400,16 +400,16 @@ The Mobile Gallery App provides clients with a native-app-like experience to vie
 
 > **Implementation Note:** In the React + Supabase stack, this module is best implemented as a **PWA (Progressive Web App)** with a separate React route/subdomain serving the client gallery experience. Native iOS/Android apps can be considered in a later phase using React Native or Capacitor.
 
-## 8. Module 6 — Smart Albums (Book & Layout Builder)
+## 8. Module 6 — Album Proofer (Book & Layout Builder)
 
 ### Overview
 
-The Smart Albums module is a professional layout builder for physical photo books and client album proofing. It allows photographers to compile high-resolution spreads, layout custom multi-photo templates, star/tag albums, and preview final books with seamless page-flipping book simulations (powered by `react-pageflip`).
+The Album Proofer module is a professional layout builder for physical photo books and client album proofing. It allows photographers to compile high-resolution spreads, layout custom multi-photo templates, star/tag albums, and preview final books with seamless page-flipping book simulations (powered by `react-pageflip`).
 
 ### Sub-Features
 
 #### 8.1 Album Workspace & Layout Builder (Implemented)
-- Photographers can create a **Smart Album** with a set page count (default 21 pages), custom name, and event date.
+- Photographers can create an **Album Proofer** album with a set page count (default 21 pages), custom name, and event date.
 - **Spread & Grid Canvas editor:** An editor workspace allowing photographers to lay out masonry or uniform layouts on spreads, select grids, and customize photo distributions.
 - Context menu tools: Easily star, delete, duplicate, or open previews from the albums grid.
 - **Starring & Category Filtering:** Mark albums as favorites to display on a dedicated Starred tab, and filter albums using category tags.
@@ -431,7 +431,7 @@ These features span multiple modules and should be treated as shared infrastruct
 ### 9.1 Unified Dashboard
 
 - Single login for all modules.
-- Left sidebar navigation with top-level sections: Gallery, Studio Manager, Website, Store, Settings, Smart Albums.
+- Left sidebar navigation with top-level sections: Gallery, Studio Manager, Website, Store, Settings, Album Proofer.
 - Notification bell showing alerts across all modules (client viewed gallery, contract signed, invoice paid, new booking, etc.).
 - Inbox accessible from all dashboard views.
 - Mobile-responsive dashboard for on-the-go management.
@@ -480,7 +480,7 @@ These features span multiple modules and should be treated as shared infrastruct
 ### 10.1 Photographer (Account Owner)
 
 - Full access to all modules and settings.
-- Creates and manages all content (galleries, documents, bookings, store products, website, smart albums).
+- Creates and manages all content (galleries, documents, bookings, store products, website, album proofer).
 - Manages billing and subscription.
 
 ### 10.2 Studio Team Members (Multi-User / Studio Plans)
@@ -505,12 +505,12 @@ These features span multiple modules and should be treated as shared infrastruct
 
 PIXNXT offers **individual product plans** or a bundled **Suite plan**. All products have a free tier to get started.
 
-#### Client Gallery & Smart Albums Plans
+#### Client Gallery & Album Proofer Plans
 
 | Plan | Monthly Price | Storage | Key Features |
 |---|---|---|---|
 | **Free** | $0 | 3 GB | Basic gallery, local fallback albums, 15% store commission |
-| **Basic** | ~$8/mo | 15 GB | Custom domain, 0% commission, video upload, Smart Albums |
+| **Basic** | ~$8/mo | 15 GB | Custom domain, 0% commission, video upload, Album Proofer |
 | **Plus** | ~$16/mo | 100 GB | All Basic + |
 | **Pro** | ~$24/mo | 1 TB | All Plus + RAW file delivery |
 | **Ultimate** | ~$40/mo | Unlimited | All Pro + unlimited storage |
@@ -607,7 +607,7 @@ quick_share_links            -- Curated sub-selections of photos
 quick_share_photos           -- Photos included in a quick share
   quick_share_id, photo_id
 
--- SMART ALBUMS MODULE
+-- ALBUM PROOFER MODULE
 smart_albums                 -- Photography album layout projects
   id, photographer_id, name, event_date, slug, page_count, cover_image_url, status, 
   is_starred, category_tags, expiry_date, created_at, updated_at
@@ -747,7 +747,7 @@ src/
 │   │   ├── FolderView.jsx             # Grouped collection manager
 │   │   └── PhotoLibrary.jsx           # All media overview
 │   │
-│   ├── smart-albums/                  # Smart Albums workspace (new)
+│   ├── smart-albums/                  # Album Proofer workspace (new)
 │   │   ├── index.js                   # Entry router
 │   │   ├── AlbumsList.jsx             # Project gallery view
 │   │   ├── StarredAlbumsList.jsx      # Starred/favorite layout projects
@@ -792,7 +792,7 @@ src/
 │
 ├── services/                          # Supabase API services
 │   ├── gallery.service.js             # Handles photo CRUD, focal points, sets, and favorite list locks
-│   └── smartAlbums.service.js         # Smart Albums CRUD, stars, categories, with LocalStorage fallback
+│   └── smartAlbums.service.js         # Album Proofer CRUD, stars, categories, with LocalStorage fallback
 │
 └── lib/
     ├── supabase/

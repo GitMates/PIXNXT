@@ -223,7 +223,7 @@
   margin: 0 0 28px;
 }
 
-/* Smart Albums should not show Client Gallery hover badge */
+/* Album Proofer should not show Client Gallery hover badge */
 .sa-main .cg-style-74::after {
   content: none;
   display: none;
@@ -248,7 +248,7 @@
   }
 }
 
-/* Smart Albums dashboard polish */
+/* Album Proofer dashboard polish */
 .sa-main {
   background: #f7f7f9;
 }

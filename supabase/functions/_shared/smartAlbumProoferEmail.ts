@@ -35,7 +35,7 @@ export async function loadPhotographerProoferSettings(
   photographerId: string
 ): Promise<ProoferSettings> {
   const { data } = await supabaseAdmin
-    .from('smart_album_proofer_settings')
+    .from('album_proofer_settings')
     .select('settings')
     .eq('photographer_id', photographerId)
     .maybeSingle();
@@ -81,6 +81,11 @@ export function templateToHtmlParagraphs(body: string): string {
       return `<p style="margin:0 0 16px;font-size:15px;line-height:1.8;color:#555;">${escapeHtml(line)}</p>`;
     })
     .join('\n');
+}
+
+export function buildAlbumEditorUrl(albumId: string, siteOrigin: string): string {
+  const origin = siteOrigin.replace(/\/$/, '');
+  return `${origin}/album-proofer/album/${encodeURIComponent(albumId)}`;
 }
 
 export function buildAlbumPreviewUrl(

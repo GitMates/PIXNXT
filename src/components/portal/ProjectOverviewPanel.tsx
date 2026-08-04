@@ -47,7 +47,7 @@ const initialModules: ModuleState[] = [
     label: "Album Proofer",
     description: "Swipeable spreads with feedback",
     icon: BookOpen,
-    href: "/smart-albums",
+    href: "/album-proofer",
     stat: "24 spreads · awaiting review",
     enabled: true,
   },

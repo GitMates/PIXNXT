@@ -1702,7 +1702,7 @@ export default function StoreDashboard() {
                 </div>
                 <div className="dash-dropdown-items">
                   <button className="dash-dropdown-item" style={{ borderRadius: '4px' }}>
-                    <Gift size={16} style={{ marginRight: '8px' }} /> Invite Friends & Get $20
+                    <Gift size={16} style={{ marginRight: '8px' }} /> Refer a studio
                   </button>
                   <div className="dash-dropdown-divider" />
                   <button className="dash-dropdown-item" onClick={() => navigate('/settings')} style={{ borderRadius: '4px' }}>

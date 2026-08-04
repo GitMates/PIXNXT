@@ -1,6 +1,6 @@
 # Album Proofer — Design System
 
-Source of truth for Album Proofer (Smart Albums proofing chrome). CSS tokens live in `src/styles/typography.css`. Keep labels and colours exact.
+Source of truth for Album Proofer proofing chrome. CSS tokens live in `src/styles/typography.css`. Keep labels and colours exact.
 
 ---
 

@@ -184,13 +184,13 @@ const products = [
     ],
   },
   {
-    name: 'Smart Albums',
+    name: 'Album Proofer',
     color: 'purple',
-    icon: <img src={smartAlbumsGif} alt="Smart Albums" className="dash-product-image-gif" loading="lazy" decoding="async" />,
-    route: '/smart-albums',
+    icon: <img src={smartAlbumsGif} alt="Album Proofer" className="dash-product-image-gif" loading="lazy" decoding="async" />,
+    route: '/album-proofer',
     links: [
-      { label: 'Manage Albums', path: '/smart-albums' },
-      { label: 'Create Album', path: '/smart-albums/create' },
+      { label: 'Manage Albums', path: '/album-proofer' },
+      { label: 'Create Album', path: '/album-proofer/create' },
     ],
   },
   {
@@ -483,12 +483,12 @@ const Dashboard = () => {
             </div>
             <div className="dash-footer-block">
               <div className="dash-footer-block-icon">
-                <img src={heartPng} alt="Invite Friends" />
+                <img src={heartPng} alt="Refer a studio" />
               </div>
               <h3>Refer a studio</h3>
               <p>
                 Both of you get ₹1,500 in credit — once they publish their first delivery.{' '}
-                <a href="#">Invite friends now</a>.
+                <a href="#">Refer a studio</a>.
               </p>
             </div>
           </div>

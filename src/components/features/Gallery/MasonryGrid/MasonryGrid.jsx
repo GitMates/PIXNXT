@@ -55,7 +55,11 @@ export function MasonryGrid({
   packagePickLimit = 0,
 }) {
   const [dynamicAspectRatios, setDynamicAspectRatios] = useState({});
-  const [colsCount, setColsCount] = useState(customColumnCount || 3);
+  const [colsCount, setColsCount] = useState(() => {
+    if (customColumnCount != null) return customColumnCount;
+    if (typeof window !== 'undefined') return getGalleryMasonryColumnCount(window.innerWidth);
+    return 3;
+  });
 
   const displayPhotos = useMemo(() => {
     const hasInlineBanner = !!(activeCampaign?.banners?.photo_banner?.enabled || activeCampaign?.banners?.store_rotator?.enabled);

@@ -31,7 +31,7 @@ export function getSmartAlbumPreviewShareUrl(album, options = {}) {
         }
     }
 
-    if (!id) return `${origin}/smart-albums`;
+    if (!id) return `${origin}/album-proofer`;
     return `${origin}/album-preview/${encodeURIComponent(id)}`;
 }
 
@@ -48,9 +48,9 @@ export function isClientShareLinkLive(album) {
 /** In-app preview path (opens in a new tab via openSmartAlbumPreview). */
 export function getSmartAlbumPreviewPath(albumId, page = 0) {
     const id = albumId?.id ?? albumId;
-    if (!id) return '/smart-albums';
+    if (!id) return '/album-proofer';
     const pageNum = Math.max(0, Number(page) || 0);
-    return `/smart-albums/preview/${encodeURIComponent(id)}?page=${pageNum}`;
+    return `/album-proofer/preview/${encodeURIComponent(id)}?page=${pageNum}`;
 }
 
 /** Open album preview in a new browser tab (same pattern as gallery preview). */

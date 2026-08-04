@@ -146,6 +146,7 @@ function App() {
     location.pathname === '/auth' ||
     location.pathname === '/dashboard' ||
     location.pathname === '/client-gallery' ||
+    location.pathname.startsWith('/album-proofer') ||
     location.pathname.startsWith('/smart-albums') ||
     location.pathname.startsWith('/mobile-gallery') ||
     location.pathname.startsWith('/guest-delivery') ||
@@ -172,6 +173,7 @@ function App() {
     location.pathname.startsWith('/lab') ||
     location.pathname.startsWith('/photographer') ||
     location.pathname.startsWith('/dev/') ||
+    /\/album-proofer\/preview\//.test(location.pathname) ||
     /\/smart-albums\/preview\//.test(location.pathname);
 
   if (location.pathname.startsWith('/m/')) {
@@ -239,7 +241,12 @@ function App() {
           <Route path="/signup" element={<Navigate to="/auth?mode=signup" replace />} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/client-gallery" element={<ClientGallery />} />
-          <Route path="/smart-albums/*" element={<ProtectedRoute><SmartAlbums /></ProtectedRoute>} />
+          <Route path="/album-proofer/*" element={<ProtectedRoute><SmartAlbums /></ProtectedRoute>} />
+          <Route
+            path="/smart-albums/*"
+            element={<Navigate to={location.pathname.replace(/^\/smart-albums/, '/album-proofer') + location.search} replace />}
+          />
+          <Route path="/smart-albums" element={<Navigate to="/album-proofer" replace />} />
           <Route path="/mobile-gallery/*" element={<ProtectedRoute><MobileGallery /></ProtectedRoute>} />
           <Route path="/guest-delivery/*" element={<ProtectedRoute><GuestDelivery /></ProtectedRoute>} />
           <Route path="/portal/*" element={<ProtectedRoute><PixnxtPortal /></ProtectedRoute>} />
