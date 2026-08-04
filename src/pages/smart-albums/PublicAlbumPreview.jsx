@@ -133,7 +133,7 @@ export default function PublicAlbumPreview() {
                 {
                     event: 'UPDATE',
                     schema: 'public',
-                    table: 'smart_albums',
+                    table: 'album_proofer_albums',
                     filter: `id=eq.${resolvedId}`,
                 },
                 (payload) => {

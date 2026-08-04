@@ -229,18 +229,11 @@ export function getAlbumShareDisplayUrl(album, settings, photographerProfile = n
 }
 
 export function getAlbumShareCopyUrl(album, settings, photographerProfile = null) {
+    // Match gallery shares: platform origin unless a verified custom domain is set.
+    // Unverified studio hosts (slug.pixnxt.in) have no DNS and break client links.
     let origin = getPublicSiteOrigin();
-    if (photographerProfile) {
-        if (isCustomDomainVerified(photographerProfile)) {
-            origin = getPhotographerPublicOrigin(photographerProfile);
-        } else {
-            try {
-                const studioOrigin = getPhotographerPublicOrigin(photographerProfile);
-                if (studioOrigin) origin = studioOrigin;
-            } catch {
-                /* keep platform origin */
-            }
-        }
+    if (photographerProfile && isCustomDomainVerified(photographerProfile)) {
+        origin = getPhotographerPublicOrigin(photographerProfile);
     }
 
     if (settings?.accessLevel === 'private') {
