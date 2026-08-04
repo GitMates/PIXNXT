@@ -97,7 +97,11 @@ export function GalleryPeopleStrip({
                 size={64}
                 className="gallery-people-strip__avatar"
               />
-              <span className="gallery-people-strip__person-name">{person.label}</span>
+              <span className="gallery-people-strip__person-name">
+                {/^Person \d+$/i.test(String(person.label || ''))
+                  ? 'Not named'
+                  : person.label || 'Not named'}
+              </span>
               <span className="gallery-people-strip__person-meta">
                 {person.count} photo{person.count === 1 ? '' : 's'}
               </span>

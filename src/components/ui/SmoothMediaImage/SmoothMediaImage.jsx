@@ -97,6 +97,8 @@ export function SmoothMediaImage({
     setLoaded(false);
   };
 
+  // LQIP only while the main image is loading — unmount after load so /thumb/
+  // does not stay in the DOM at opacity:0 (doubles decode work on large galleries).
   const blurSrc =
     thumbSrc && thumbSrc !== activeSrc && !error && shouldLoad ? thumbSrc : null;
 

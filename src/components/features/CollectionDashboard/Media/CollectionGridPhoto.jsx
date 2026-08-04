@@ -16,15 +16,15 @@ const containWrapStyle = {
   height: '100%',
 };
 
-/** Square manage grid — shimmer + fade-in via SmoothMediaImage (no blur thumb). */
+/** Square manage grid — fit entire image in the cell (contain / letterbox). */
 function ContainGridMedia({ photo, index, isVideo }) {
   const gridSrc = useMemo(() => {
-    const url = getPhotoGridDisplayUrl(photo, true);
+    const url = getPhotoGridDisplayUrl(photo, false);
     return url && isBrowserDisplayableImageUrl(url) ? url : '';
   }, [photo.id, photo.thumbnail_url, photo.web_url, photo.full_url, photo.watermarked_url, photo.media_type, photo.filename]);
 
   const fallbacks = useMemo(() => {
-    return getPhotoDisplayFallbacks(photo, true).filter((url) => url !== gridSrc);
+    return getPhotoDisplayFallbacks(photo, false).filter((url) => url !== gridSrc);
   }, [photo.id, photo.thumbnail_url, photo.web_url, photo.full_url, photo.watermarked_url, photo.media_type, photo.filename, gridSrc]);
 
   if (isVideo) {
@@ -40,7 +40,6 @@ function ContainGridMedia({ photo, index, isVideo }) {
       src={gridSrc}
       fallbacks={fallbacks}
       alt=""
-      wrapClassName="smooth-media-wrap--contain-cell"
       className="cd-photo-img cd-photo-grid-contain-media"
       objectFit="contain"
       loading={index < 24 ? 'eager' : 'lazy'}
@@ -55,7 +54,7 @@ function ContainGridVideo({ photo }) {
   const poster = getPhotoVideoPoster(photo);
 
   return (
-    <span className="smooth-media-wrap smooth-media-wrap--contain-cell" style={containWrapStyle}>
+    <span className="smooth-media-wrap" style={containWrapStyle}>
       {!ready && <span className="smooth-media-shimmer" aria-hidden />}
       {poster && !ready && (
         <img
@@ -71,10 +70,8 @@ function ContainGridVideo({ photo }) {
         poster={poster}
         className={`cd-photo-img cd-photo-video-thumb cd-photo-grid-contain-media smooth-media-img${ready ? ' smooth-media-img--visible' : ''}`}
         style={{
-          width: 'auto',
-          height: 'auto',
-          maxWidth: '100%',
-          maxHeight: '100%',
+          width: '100%',
+          height: '100%',
           objectFit: 'contain',
           backgroundColor: '#fff',
         }}

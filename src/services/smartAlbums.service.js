@@ -171,7 +171,10 @@ function isMissingTableError(error) {
 
   const msg = error?.message || '';
 
-  return msg.includes('smart_albums') && (msg.includes('does not exist') || msg.includes('schema cache'));
+  const mentionsTable =
+    msg.includes('album_proofer_albums') || msg.includes('smart_albums');
+
+  return mentionsTable && (msg.includes('does not exist') || msg.includes('schema cache'));
 
 }
 
@@ -234,7 +237,7 @@ const ALBUM_DETAIL_GRID_FIELDS = `${ALBUM_DETAIL_FIELDS_MINIMAL}, grid_size, gri
 
 async function selectAlbumRow(photographerId, albumId, fields) {
   return supabase
-    .from('smart_albums')
+    .from('album_proofer_albums')
     .select(fields)
     .eq('photographer_id', photographerId)
     .eq('id', albumId)
@@ -336,7 +339,7 @@ async function insertAlbumRowResilient(row) {
 
   while (true) {
     const { data, error } = await supabase
-      .from('smart_albums')
+      .from('album_proofer_albums')
       .insert(payload)
       .select('*')
       .single();
@@ -352,7 +355,7 @@ async function insertAlbumRowResilient(row) {
         .includes('duplicate');
     if (duplicate && payload.id) {
       const { data: existing } = await supabase
-        .from('smart_albums')
+        .from('album_proofer_albums')
         .select('*')
         .eq('id', payload.id)
         .maybeSingle();
@@ -377,7 +380,7 @@ async function updateAlbumRowResilient(photographerId, albumId, patch) {
   while (attempts < maxAttempts) {
     attempts += 1;
     const { data, error } = await supabase
-      .from('smart_albums')
+      .from('album_proofer_albums')
       .update(payload)
       .eq('photographer_id', photographerId)
       .eq('id', albumId)
@@ -397,6 +400,53 @@ async function updateAlbumRowResilient(photographerId, albumId, patch) {
   }
 
   return { data: null, error: new Error('Album update failed after retries') };
+}
+
+/** Must persist share_link_enabled — never drop that column on retry. */
+async function updateShareLinkEnabledRow(photographerId, albumId, enabled, pausedAt = null) {
+  const base = {
+    share_link_enabled: enabled,
+    updated_at: new Date().toISOString(),
+  };
+  const withPausedAt = {
+    ...base,
+    share_link_paused_at: enabled ? null : pausedAt || new Date().toISOString(),
+  };
+
+  let { data, error } = await supabase
+    .from('album_proofer_albums')
+    .update(withPausedAt)
+    .eq('photographer_id', photographerId)
+    .eq('id', albumId)
+    .select('*')
+    .maybeSingle();
+
+  if (
+    error &&
+    isGenericColumnError(error) &&
+    /share_link_paused_at/i.test(String(error.message || ''))
+  ) {
+    ({ data, error } = await supabase
+      .from('album_proofer_albums')
+      .update(base)
+      .eq('photographer_id', photographerId)
+      .eq('id', albumId)
+      .select('*')
+      .maybeSingle());
+  }
+
+  if (!error && !data) {
+    await syncLocalAlbumsToSupabase(photographerId, []);
+    ({ data, error } = await supabase
+      .from('album_proofer_albums')
+      .update(base)
+      .eq('photographer_id', photographerId)
+      .eq('id', albumId)
+      .select('*')
+      .maybeSingle());
+  }
+
+  return { data, error };
 }
 
 
@@ -442,9 +492,7 @@ function applySettingsOverrides(row, photographerId) {
   if (ovr.messages_enabled !== undefined) {
     merged.messages_enabled = ovr.messages_enabled;
   }
-  if (ovr.share_link_enabled !== undefined) {
-    merged.share_link_enabled = ovr.share_link_enabled;
-  }
+  // share_link_enabled is DB-only — never overlay from localStorage (that faked PAUSED while public stayed open).
   if (ovr.status !== undefined) {
     merged.status = ovr.status;
   }
@@ -809,7 +857,7 @@ export const smartAlbumsService = {
 
     const { data, error } = await supabase
 
-      .from('smart_albums')
+      .from('album_proofer_albums')
 
       .select(ALBUM_LIST_FIELDS)
 
@@ -823,7 +871,7 @@ export const smartAlbumsService = {
 
       if (shouldUseLocalStore(error) || isGenericColumnError(error)) {
         const fallback = await supabase
-          .from('smart_albums')
+          .from('album_proofer_albums')
           .select('id, photographer_id, name, event_date, slug, page_count, cover_image_url, status, created_at, updated_at')
           .eq('photographer_id', photographerId)
           .order('created_at', { ascending: false });
@@ -1062,7 +1110,7 @@ export const smartAlbumsService = {
     writePageCountOverride(photographerId, albumId, count);
 
     const { data, error } = await supabase
-      .from('smart_albums')
+      .from('album_proofer_albums')
       .update({ page_count: count, updated_at: new Date().toISOString() })
       .eq('photographer_id', photographerId)
       .eq('id', albumId)
@@ -1088,6 +1136,7 @@ export const smartAlbumsService = {
 
   /**
    * Persist client preview settings (publish + comments) to Supabase and local cache.
+   * share_link_enabled must land in the DB — local-only pause would leave public links open.
    */
   async updateAlbumClientSettings(photographerId, albumId, patch) {
     const payload = { ...patch, updated_at: new Date().toISOString() };
@@ -1099,6 +1148,7 @@ export const smartAlbumsService = {
       payload.share_link_paused_at = null;
     }
 
+    // Non-share flags may cache locally first; share_link_enabled only after DB confirms.
     const settingsPatch = {};
     if (patch.comments_enabled !== undefined) {
       settingsPatch.comments_enabled = patch.comments_enabled;
@@ -1108,9 +1158,6 @@ export const smartAlbumsService = {
     }
     if (patch.messages_enabled !== undefined) {
       settingsPatch.messages_enabled = patch.messages_enabled;
-    }
-    if (patch.share_link_enabled !== undefined) {
-      settingsPatch.share_link_enabled = patch.share_link_enabled;
     }
     if (patch.status !== undefined) {
       settingsPatch.status = patch.status;
@@ -1122,7 +1169,12 @@ export const smartAlbumsService = {
     if (patch.status === 'published') {
       const album = await this.getAlbum(photographerId, albumId);
       const previewData = buildAlbumPreviewSnapshot(albumId, {
-        album,
+        album: {
+          ...album,
+          ...(patch.share_link_enabled !== undefined
+            ? { share_link_enabled: patch.share_link_enabled }
+            : {}),
+        },
         coverColorPreset: getAlbumCoverColor(albumId),
         spineBounds: getAlbumSpineBoundsOverride(albumId),
       });
@@ -1135,27 +1187,63 @@ export const smartAlbumsService = {
       }
     }
 
-    let { data, error } = await supabase
-      .from('smart_albums')
-      .update(payload)
-      .eq('photographer_id', photographerId)
-      .eq('id', albumId)
-      .select('*')
-      .maybeSingle();
+    let { data, error } = await updateAlbumRowResilient(photographerId, albumId, payload);
 
     if (!error && !data) {
       await syncLocalAlbumsToSupabase(photographerId, []);
-      ({ data, error } = await supabase
-        .from('smart_albums')
-        .update(payload)
-        .eq('photographer_id', photographerId)
-        .eq('id', albumId)
-        .select('*')
-        .maybeSingle());
+      ({ data, error } = await updateAlbumRowResilient(photographerId, albumId, payload));
+    }
+
+    // Critical: pause/resume must update the remote column the public link reads.
+    // Never rely on localStorage-only — that leaves pixnxt.in /album-preview open.
+    if (patch.share_link_enabled !== undefined) {
+      const remoteEnabled = data?.share_link_enabled;
+      if (!data || remoteEnabled !== patch.share_link_enabled) {
+        const shareResult = await updateShareLinkEnabledRow(
+          photographerId,
+          albumId,
+          patch.share_link_enabled,
+          payload.share_link_paused_at
+        );
+        if (shareResult.error || !shareResult.data) {
+          console.error(
+            'smart_albums share_link_enabled update failed:',
+            shareResult.error?.message || shareResult.error || error?.message
+          );
+          throw new Error(
+            shareResult.error?.message ||
+              error?.message ||
+              'Could not update client access on the server. The public link was not paused.'
+          );
+        }
+        data = shareResult.data;
+        error = null;
+      }
+
+      if (!data || data.share_link_enabled !== patch.share_link_enabled) {
+        throw new Error(
+          'Could not update client access on the server. The public link was not paused.'
+        );
+      }
     }
 
     if (!error && data) {
-      const mapped = mapAlbumRow(data, photographerId);
+      let mapped = mapAlbumRow(data, photographerId);
+      if (patch.share_link_enabled !== undefined) {
+        mapped = { ...mapped, share_link_enabled: patch.share_link_enabled };
+        try {
+          const syncedPreview = await this.syncAlbumPreviewProoferSettings(
+            photographerId,
+            albumId,
+            mapped
+          );
+          if (syncedPreview) {
+            mapped = { ...mapped, preview_data: syncedPreview };
+          }
+        } catch (syncErr) {
+          console.warn('syncAlbumPreviewProoferSettings after share toggle:', syncErr);
+        }
+      }
       if (
         patch.status === 'published' &&
         mapped.client_changes_submitted_at &&
@@ -1172,6 +1260,14 @@ export const smartAlbumsService = {
           });
       }
       return mapped;
+    }
+
+    // Never fake a successful pause/resume from local-only state.
+    if (patch.share_link_enabled !== undefined) {
+      throw new Error(
+        error?.message ||
+          'Could not update client access on the server. The public link was not paused.'
+      );
     }
 
     if (error && shouldUseLocalStore(error)) {
@@ -1270,7 +1366,7 @@ export const smartAlbumsService = {
     }
 
     const { data, error } = await supabase
-      .from('smart_albums')
+      .from('album_proofer_albums')
       .update(payload)
       .eq('photographer_id', photographerId)
       .eq('id', albumId)
@@ -1307,7 +1403,7 @@ export const smartAlbumsService = {
 
     const { data, error } = await supabase
 
-      .from('smart_albums')
+      .from('album_proofer_albums')
 
       .update({ is_starred: isStarred, updated_at: new Date().toISOString() })
 
@@ -1360,7 +1456,7 @@ export const smartAlbumsService = {
 
     const { error } = await supabase
 
-      .from('smart_albums')
+      .from('album_proofer_albums')
 
       .delete()
 
@@ -1438,7 +1534,8 @@ export const smartAlbumsService = {
       replies_enabled: source.replies_enabled,
       messages_enabled: source.messages_enabled,
       share_link_enabled: source.share_link_enabled,
-      status: 'published',
+      // Duplicates always start as drafts so the photographer can review before sharing.
+      status: 'draft',
     });
 
     await this.syncAlbumPreviewData(photographerId, copy.id);

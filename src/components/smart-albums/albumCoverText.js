@@ -1,4 +1,5 @@
 import { resolveCoverImageSrc } from './albumPagePhotos';
+import { getRemotePreviewData } from './albumPreviewData';
 
 const STORAGE_KEY = 'pixnxt_album_cover_text';
 
@@ -36,7 +37,9 @@ export function getAlbumCoverText(albumId) {
     if (!albumId) return '';
     const row = readAll()[albumId];
     const text = row?.message;
-    return typeof text === 'string' ? text.trim() : '';
+    if (typeof text === 'string' && text.trim()) return text.trim();
+    const remote = getRemotePreviewData(albumId)?.cover_text;
+    return typeof remote === 'string' ? remote.trim() : '';
 }
 
 export function setAlbumCoverText(albumId, message) {

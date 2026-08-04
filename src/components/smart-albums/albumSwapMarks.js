@@ -1,3 +1,4 @@
+import { supabase } from '../../lib/supabase/client';
 import { getGridSlotPhoto, getPagePhotoOverride, getSpreadPhotoOverride } from './albumPagePhotos';
 import { getProofCellPhotoIndex, getSpreadLeftPageIndex } from './albumSpreadGrid';
 import {
@@ -17,9 +18,15 @@ import {
     remapSpreadIndexAfterOverviewReorder,
     spreadIndexForPageNum,
 } from './albumSpreadReorder';
+import {
+    isMissingRelationError,
+    loadFeedbackSeenMap,
+    upsertFeedbackSeenRows,
+} from './albumFeedbackDb';
 
-const STORAGE_KEY = 'pixnxt_album_swap_marks';
-const SEEN_KEY = 'pixnxt_album_swap_marks_seen';
+/** In-memory cache hydrated from Supabase (shared client + photographer). */
+const marksByAlbum = Object.create(null);
+const seenByAlbum = Object.create(null);
 
 export const SWAP_MARKS_CHANGED_EVENT = 'pixnxt-album-swap-marks-changed';
 export const SWAP_MARKS_SEEN_CHANGED_EVENT = 'pixnxt-album-swap-marks-seen-changed';
@@ -51,28 +58,6 @@ function swapSlotLookupKeys(
     return keys;
 }
 
-function readAll() {
-    try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        return raw ? JSON.parse(raw) : {};
-    } catch {
-        return {};
-    }
-}
-
-function writeAll(data) {
-    try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-        window.dispatchEvent(
-            new CustomEvent(SWAP_MARKS_CHANGED_EVENT, {
-                detail: { albumId: null },
-            })
-        );
-    } catch {
-        /* ignore */
-    }
-}
-
 function notify(albumId) {
     try {
         window.dispatchEvent(
@@ -83,21 +68,125 @@ function notify(albumId) {
     }
 }
 
-function readSeen() {
+function setAlbumMarks(albumId, list, { silent = false } = {}) {
+    marksByAlbum[albumId] = list;
+    if (!silent) notify(albumId);
+}
+
+function mapSwapRow(row) {
+    return {
+        id: row.id,
+        a: row.slot_a,
+        b: row.slot_b,
+        labelA: row.label_a || '',
+        labelB: row.label_b || '',
+        locked: row.locked !== false,
+        pointA: row.point_a || null,
+        pointB: row.point_b || null,
+        createdAt: row.created_at,
+        authorName: row.author_name || null,
+        authorEmail: row.author_email || null,
+    };
+}
+
+function toSwapInsert(albumId, mark) {
+    return {
+        id: mark.id,
+        album_id: albumId,
+        slot_a: mark.a,
+        slot_b: mark.b,
+        label_a: mark.labelA || '',
+        label_b: mark.labelB || '',
+        locked: mark.locked !== false,
+        point_a: mark.pointA || null,
+        point_b: mark.pointB || null,
+        author_name: mark.authorName || null,
+        author_email: mark.authorEmail || null,
+        created_at: mark.createdAt || new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+    };
+}
+
+async function persistSwapInsert(albumId, mark) {
     try {
-        const raw = localStorage.getItem(SEEN_KEY);
-        return raw ? JSON.parse(raw) : {};
-    } catch {
-        return {};
+        const { error } = await supabase
+            .from('album_proofer_swap_marks')
+            .insert(toSwapInsert(albumId, mark));
+        if (error && !isMissingRelationError(error, 'album_proofer_swap_marks')) {
+            console.warn('persistSwapInsert:', error.message);
+        }
+    } catch (err) {
+        console.warn('persistSwapInsert failed:', err);
     }
 }
 
-function writeSeen(data) {
+async function persistSwapDelete(markId) {
     try {
-        localStorage.setItem(SEEN_KEY, JSON.stringify(data));
-    } catch {
-        /* ignore */
+        const { error } = await supabase
+            .from('album_proofer_swap_marks')
+            .delete()
+            .eq('id', markId);
+        if (error && !isMissingRelationError(error, 'album_proofer_swap_marks')) {
+            console.warn('persistSwapDelete:', error.message);
+        }
+    } catch (err) {
+        console.warn('persistSwapDelete failed:', err);
     }
+}
+
+async function persistSwapUpdate(albumId, mark) {
+    try {
+        const { error } = await supabase
+            .from('album_proofer_swap_marks')
+            .update({
+                slot_a: mark.a,
+                slot_b: mark.b,
+                label_a: mark.labelA || '',
+                label_b: mark.labelB || '',
+                locked: mark.locked !== false,
+                point_a: mark.pointA || null,
+                point_b: mark.pointB || null,
+                updated_at: new Date().toISOString(),
+            })
+            .eq('id', mark.id)
+            .eq('album_id', albumId);
+        if (error && !isMissingRelationError(error, 'album_proofer_swap_marks')) {
+            console.warn('persistSwapUpdate:', error.message);
+        }
+    } catch (err) {
+        console.warn('persistSwapUpdate failed:', err);
+    }
+}
+
+/** Load swap marks from Supabase into memory (client link + photographer). */
+export async function hydrateSwapMarks(albumId) {
+    if (!albumId) return [];
+    try {
+        const { data, error } = await supabase
+            .from('album_proofer_swap_marks')
+            .select('*')
+            .eq('album_id', albumId)
+            .order('created_at', { ascending: true });
+        if (error) {
+            if (!isMissingRelationError(error, 'album_proofer_swap_marks')) {
+                console.warn('hydrateSwapMarks:', error.message);
+            }
+            return getSwapMarks(albumId);
+        }
+        const list = (data || []).map(mapSwapRow);
+        setAlbumMarks(albumId, list);
+        return list;
+    } catch (err) {
+        console.warn('hydrateSwapMarks failed:', err);
+        return getSwapMarks(albumId);
+    }
+}
+
+export async function hydrateSwapMarksSeen(albumId, viewerRole = 'photographer', viewerKey = 'default') {
+    if (!albumId) return;
+    const map = await loadFeedbackSeenMap(albumId, viewerRole, viewerKey);
+    seenByAlbum[albumId] = map.swap || {};
+    notifySwapMarksSeenChanged(albumId);
 }
 
 export function notifySwapMarksSeenChanged(albumId) {
@@ -112,7 +201,7 @@ export function notifySwapMarksSeenChanged(albumId) {
 
 export function isSwapMarkUnseen(albumId, mark) {
     if (!albumId || !mark?.id) return false;
-    const seenAt = readSeen()[albumId]?.[mark.id];
+    const seenAt = seenByAlbum[albumId]?.[mark.id];
     if (!seenAt) return true;
     const stamp = mark.createdAt;
     if (!stamp) return false;
@@ -123,17 +212,30 @@ export function countUnseenSwapMarks(albumId, marks) {
     return (marks || []).filter((mark) => isSwapMarkUnseen(albumId, mark)).length;
 }
 
-export function markSwapMarksSeen(albumId, marks) {
+export function markSwapMarksSeen(
+    albumId,
+    marks,
+    { viewerRole = 'photographer', viewerKey = 'default' } = {}
+) {
     if (!albumId || !marks?.length) return;
-    const all = readSeen();
-    const bucket = { ...(all[albumId] || {}) };
+    const bucket = { ...(seenByAlbum[albumId] || {}) };
     const now = new Date().toISOString();
+    const rows = [];
     marks.forEach((mark) => {
-        if (mark?.id) bucket[mark.id] = now;
+        if (!mark?.id) return;
+        bucket[mark.id] = now;
+        rows.push({
+            album_id: albumId,
+            viewer_role: viewerRole,
+            viewer_key: viewerKey || 'default',
+            item_kind: 'swap',
+            item_id: String(mark.id),
+            seen_at: now,
+        });
     });
-    all[albumId] = bucket;
-    writeSeen(all);
+    seenByAlbum[albumId] = bucket;
     notifySwapMarksSeenChanged(albumId);
+    void upsertFeedbackSeenRows(rows);
 }
 
 /** All swappable photo slots for the album layout. */
@@ -226,7 +328,7 @@ export function getSlotThumbnail(albumId, slot, { showSamples = false, album, to
 
 export function getSwapMarks(albumId) {
     if (!albumId) return [];
-    return readAll()[albumId] || [];
+    return marksByAlbum[albumId] || [];
 }
 
 function swapMarkPointKey(pt) {
@@ -244,8 +346,7 @@ export function addSwapMark(albumId, slotA, slotB, options = {}) {
     const pointB = options?.pointB || null;
     if (sameSlot && (!pointA || !pointB)) return null;
 
-    const all = readAll();
-    const list = [...(all[albumId] || [])];
+    const list = [...getSwapMarks(albumId)];
     const nextPointAKey = swapMarkPointKey(pointA);
     const nextPointBKey = swapMarkPointKey(pointB);
 
@@ -261,7 +362,7 @@ export function addSwapMark(albumId, slotA, slotB, options = {}) {
     if (duplicate) return duplicate;
 
     const mark = {
-        id: `swap_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        id: crypto.randomUUID(),
         a: keyA,
         b: keyB,
         labelA: slotA.label || getSlotLabel(slotA.pageNum, slotA.cellId, slotA.whole),
@@ -270,23 +371,22 @@ export function addSwapMark(albumId, slotA, slotB, options = {}) {
         pointA,
         pointB,
         createdAt: new Date().toISOString(),
+        authorName: options?.authorName || null,
+        authorEmail: options?.authorEmail || null,
     };
     list.push(mark);
-    all[albumId] = list;
-    writeAll(all);
-    notify(albumId);
+    setAlbumMarks(albumId, list);
+    void persistSwapInsert(albumId, mark);
     return mark;
 }
 
 export function removeSwapMark(albumId, markId) {
     if (!albumId || !markId) return;
-    const all = readAll();
-    const list = all[albumId] || [];
+    const list = getSwapMarks(albumId);
     const next = list.filter((m) => m.id !== markId);
     if (next.length === list.length) return;
-    all[albumId] = next;
-    writeAll(all);
-    notify(albumId);
+    setAlbumMarks(albumId, next);
+    void persistSwapDelete(markId);
 }
 
 function shiftPageNumForStorage(page, insertAt, delta) {
@@ -317,15 +417,18 @@ function shiftSwapPointForStorage(point, insertAt, delta) {
 /** Shift or drop swap marks when album pages are inserted/removed. */
 export function shiftAlbumSwapMarks(albumId, insertAt, delta) {
     if (!albumId || !delta) return;
-    const all = readAll();
-    const list = all[albumId];
+    const list = getSwapMarks(albumId);
     if (!list?.length) return;
 
     const next = [];
+    const removedIds = [];
     for (const mark of list) {
         const a = shiftSlotKeyForStorage(mark.a, insertAt, delta);
         const b = shiftSlotKeyForStorage(mark.b, insertAt, delta);
-        if (!a || !b) continue;
+        if (!a || !b) {
+            removedIds.push(mark.id);
+            continue;
+        }
 
         const pointA = mark.pointA
             ? shiftSwapPointForStorage(mark.pointA, insertAt, delta)
@@ -333,7 +436,10 @@ export function shiftAlbumSwapMarks(albumId, insertAt, delta) {
         const pointB = mark.pointB
             ? shiftSwapPointForStorage(mark.pointB, insertAt, delta)
             : null;
-        if ((mark.pointA && !pointA) || (mark.pointB && !pointB)) continue;
+        if ((mark.pointA && !pointA) || (mark.pointB && !pointB)) {
+            removedIds.push(mark.id);
+            continue;
+        }
 
         next.push({
             ...mark,
@@ -355,9 +461,9 @@ export function shiftAlbumSwapMarks(albumId, insertAt, delta) {
         );
     if (!changed) return;
 
-    all[albumId] = next;
-    writeAll(all);
-    notify(albumId);
+    setAlbumMarks(albumId, next);
+    removedIds.forEach((id) => void persistSwapDelete(id));
+    next.forEach((mark) => void persistSwapUpdate(albumId, mark));
 }
 
 /** Slot keys that belong to a locked swap mark. */
@@ -938,8 +1044,7 @@ function remapSwapPointForOverviewReorder(point, draggable, newOrder, totalPages
 export function reorderSwapMarksForOverview(albumId, draggable, newOrder, totalPages, spreadOpts) {
     if (!albumId || !draggable?.length) return false;
 
-    const all = readAll();
-    const list = all[albumId];
+    const list = getSwapMarks(albumId);
     if (!list?.length) return false;
 
     const next = list.map((mark) => ({
@@ -975,8 +1080,7 @@ export function reorderSwapMarksForOverview(albumId, draggable, newOrder, totalP
     );
     if (!changed) return false;
 
-    all[albumId] = next;
-    writeAll(all);
-    notify(albumId);
+    setAlbumMarks(albumId, next);
+    next.forEach((mark) => void persistSwapUpdate(albumId, mark));
     return true;
 }

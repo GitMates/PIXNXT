@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { openSmartAlbumPreview, getSmartAlbumPreviewShareUrl, openShareByEmail, openWhatsAppShare } from '../../lib/shareSmartAlbum';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
+import { galleryService } from '../../services/gallery.service';
 import { smartAlbumCommentsService, COMMENTS_CHANGED_EVENT } from '../../services/smartAlbumComments.service';
 import {
     ALBUM_PROOF_STATUS_CHANGED_EVENT,
@@ -16,6 +17,7 @@ import { AlbumContextMenu } from '../../components/smart-albums/AlbumContextMenu
 import AlbumListCoverThumb from '../../components/smart-albums/AlbumListCoverThumb';
 import { AlbumPreviewLinkModal, AlbumPreviewQrModal } from '../../components/smart-albums/AlbumShareModals';
 import EditAlbumModal from '../../components/smart-albums/EditAlbumModal';
+import AlbumDuplicateModal from '../../components/smart-albums/AlbumDuplicateModal';
 import AlbumSettingsSheet from '../../components/smart-albums/AlbumSettingsSheet';
 import AlbumStatusFilterPopover from '../../components/smart-albums/AlbumStatusFilterPopover';
 import '../../components/portal/portal.css';
@@ -139,7 +141,9 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
     const [contextMenuAnchor, setContextMenuAnchor] = useState(null);
     const [shareLinkAlbum, setShareLinkAlbum] = useState(null);
     const [shareQrAlbum, setShareQrAlbum] = useState(null);
+    const [photographerProfile, setPhotographerProfile] = useState(null);
     const [duplicateBusyId, setDuplicateBusyId] = useState(null);
+    const [duplicateAlbum, setDuplicateAlbum] = useState(null);
     const [editAlbum, setEditAlbum] = useState(null);
     const [editSaving, setEditSaving] = useState(false);
     const [settingsAlbum, setSettingsAlbum] = useState(null);
@@ -192,6 +196,25 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
         if (authLoading) return;
         void loadAlbums();
     }, [authLoading, loadAlbums]);
+
+    useEffect(() => {
+        if (!user?.id) {
+            setPhotographerProfile(null);
+            return undefined;
+        }
+        let cancelled = false;
+        galleryService
+            .getPhotographerProfile(user.id)
+            .then((profile) => {
+                if (!cancelled) setPhotographerProfile(profile || null);
+            })
+            .catch(() => {
+                if (!cancelled) setPhotographerProfile(null);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [user?.id]);
 
     useEffect(() => {
         if (!user?.id) return undefined;
@@ -274,13 +297,25 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
         }
     };
 
-    const handleDuplicateAlbum = async (album) => {
-        if (!user || duplicateBusyId) return;
-        closeContextMenu();
+    const openDuplicateAlbum = useCallback(
+        (album) => {
+            if (!album || duplicateBusyId) return;
+            closeContextMenu();
+            setSettingsAlbum(null);
+            setSettingsAnchor(null);
+            setDuplicateAlbum(album);
+        },
+        [closeContextMenu, duplicateBusyId]
+    );
+
+    const handleConfirmDuplicateAlbum = async () => {
+        if (!user || !duplicateAlbum || duplicateBusyId) return;
+        const album = duplicateAlbum;
         setDuplicateBusyId(album.id);
         try {
             const copy = await smartAlbumsService.duplicateAlbum(user.id, album.id);
             setAlbums((prev) => [copy, ...prev]);
+            setDuplicateAlbum(null);
         } catch (err) {
             console.error(err);
             alert(err?.message || 'Failed to duplicate album. Please try again.');
@@ -293,18 +328,24 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
         (album) => {
             if (!album) return;
             closeContextMenu();
-            openShareByEmail(getSmartAlbumPreviewShareUrl(album), album.name || 'Album');
+            openShareByEmail(
+                getSmartAlbumPreviewShareUrl(album, { photographerProfile }),
+                album.name || 'Album'
+            );
         },
-        [closeContextMenu]
+        [closeContextMenu, photographerProfile]
     );
 
     const handleShareWhatsApp = useCallback(
         (album) => {
             if (!album) return;
             closeContextMenu();
-            openWhatsAppShare(getSmartAlbumPreviewShareUrl(album), album.name || 'Album');
+            openWhatsAppShare(
+                getSmartAlbumPreviewShareUrl(album, { photographerProfile }),
+                album.name || 'Album'
+            );
         },
-        [closeContextMenu]
+        [closeContextMenu, photographerProfile]
     );
 
     const handleGetDirectLink = useCallback(
@@ -384,7 +425,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                     closeContextMenu();
                     setSettingsAlbum(album);
                 }}
-                onDuplicate={() => handleDuplicateAlbum(album)}
+                onDuplicate={() => openDuplicateAlbum(album)}
                 onDelete={() => handleDeleteAlbum(album)}
                 onShareByEmail={() => handleShareByEmail(album)}
                 onGetDirectLink={() => handleGetDirectLink(album)}
@@ -501,7 +542,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                     <button
                         type="button"
                         className="sa-proofer-albums__new-btn"
-                        onClick={() => navigate('/smart-albums/create')}
+                        onClick={() => navigate('/album-proofer/create')}
                     >
                         New album
                     </button>
@@ -673,7 +714,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                                 <button
                                     type="button"
                                     className="sa-proofer-albums__new-btn"
-                                    onClick={() => navigate('/smart-albums/create')}
+                                    onClick={() => navigate('/album-proofer/create')}
                                 >
                                     Upload spreads
                                 </button>
@@ -690,7 +731,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                                     <span className="sa-proofer-albums__first-proof-step-num" aria-hidden>1</span>
                                     <div>
                                         <strong>Upload your spreads</strong>
-                                        <span>JPG or PNG exports from InDesign, Photoshop or SmartAlbums. Drag the folder in.</span>
+                                        <span>JPG or PNG exports from InDesign, Photoshop or Album Proofer. Drag the folder in.</span>
                                     </div>
                                 </li>
                                 <li>
@@ -726,7 +767,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                             const listAction = getAlbumListAction(status);
                             const cardTime = formatAlbumCardTime(activityAt, { now: relativeNow });
                             const cardTimeTitle = formatAbsoluteDateTime(activityAt);
-                            const openAlbum = () => navigate(`/smart-albums/album/${album.id}`);
+                            const openAlbum = () => navigate(`/album-proofer/album/${album.id}`);
                             return (
                                 <article
                                     key={album.id}
@@ -831,11 +872,13 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
 
             <AlbumPreviewLinkModal
                 album={shareLinkAlbum}
+                photographerProfile={photographerProfile}
                 isOpen={Boolean(shareLinkAlbum)}
                 onClose={() => setShareLinkAlbum(null)}
             />
             <AlbumPreviewQrModal
                 album={shareQrAlbum}
+                photographerProfile={photographerProfile}
                 isOpen={Boolean(shareQrAlbum)}
                 onClose={() => setShareQrAlbum(null)}
             />
@@ -852,6 +895,16 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                     );
                 }}
                 saving={editSaving}
+            />
+            <AlbumDuplicateModal
+                album={duplicateAlbum}
+                isOpen={Boolean(duplicateAlbum)}
+                onClose={() => {
+                    if (duplicateBusyId) return;
+                    setDuplicateAlbum(null);
+                }}
+                onConfirm={handleConfirmDuplicateAlbum}
+                busy={Boolean(duplicateBusyId && duplicateAlbum?.id === duplicateBusyId)}
             />
             <AlbumSettingsSheet
                 isOpen={Boolean(settingsAlbum)}
@@ -886,10 +939,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                     }, 0);
                 }}
                 onDuplicate={() => {
-                    if (settingsAlbum) {
-                        handleDuplicateAlbum(settingsAlbum);
-                        setSettingsAlbum(null);
-                    }
+                    if (settingsAlbum) openDuplicateAlbum(settingsAlbum);
                 }}
                 onDelete={async () => {
                     if (!settingsAlbum) return;

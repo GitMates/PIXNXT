@@ -146,6 +146,7 @@ function App() {
     location.pathname === '/auth' ||
     location.pathname === '/dashboard' ||
     location.pathname === '/client-gallery' ||
+    location.pathname.startsWith('/album-proofer') ||
     location.pathname.startsWith('/smart-albums') ||
     location.pathname.startsWith('/mobile-gallery') ||
     location.pathname.startsWith('/guest-delivery') ||
@@ -172,6 +173,7 @@ function App() {
     location.pathname.startsWith('/lab') ||
     location.pathname.startsWith('/photographer') ||
     location.pathname.startsWith('/dev/') ||
+    /\/album-proofer\/preview\//.test(location.pathname) ||
     /\/smart-albums\/preview\//.test(location.pathname);
 
   if (location.pathname.startsWith('/m/')) {
@@ -216,6 +218,7 @@ function App() {
             <Route path="/m/:slug/pwa" element={<MobileGalleryClient />} />
             <Route path="/m/:slug/view" element={<MobileGalleryViewRedirect />} />
             <Route path="/m/:slug" element={<MobileGalleryInstall />} />
+            <Route path="/album-preview/:albumId" element={<PublicAlbumPreview />} />
             {/* Fallback to main app redirect if they try to access dashboard on subdomain */}
             <Route path="*" element={<Navigate to={`http${host.includes('localhost') ? '' : 's'}://${host.replace(activeSlug + '.', '')}/dashboard`} replace />} />
           </Routes>
@@ -238,7 +241,12 @@ function App() {
           <Route path="/signup" element={<Navigate to="/auth?mode=signup" replace />} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/client-gallery" element={<ClientGallery />} />
-          <Route path="/smart-albums/*" element={<ProtectedRoute><SmartAlbums /></ProtectedRoute>} />
+          <Route path="/album-proofer/*" element={<ProtectedRoute><SmartAlbums /></ProtectedRoute>} />
+          <Route
+            path="/smart-albums/*"
+            element={<Navigate to={location.pathname.replace(/^\/smart-albums/, '/album-proofer') + location.search} replace />}
+          />
+          <Route path="/smart-albums" element={<Navigate to="/album-proofer" replace />} />
           <Route path="/mobile-gallery/*" element={<ProtectedRoute><MobileGallery /></ProtectedRoute>} />
           <Route path="/guest-delivery/*" element={<ProtectedRoute><GuestDelivery /></ProtectedRoute>} />
           <Route path="/portal/*" element={<ProtectedRoute><PixnxtPortal /></ProtectedRoute>} />

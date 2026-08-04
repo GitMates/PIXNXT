@@ -575,13 +575,18 @@
   background: #fff;
 }
 
+/* Designed empty space on first (inside-cover) & last (pre-back) blank pages */
 .ab-flip-page--inside-cover-blank,
 .ab-flip-page--inside-cover-blank .ab-page-empty,
 .ab-flip-page--pre-back-blank,
 .ab-flip-page--pre-back-blank .ab-page-empty {
   visibility: visible !important;
-  background: #fff !important;
   opacity: 1 !important;
+  background-color: #e8eaed !important;
+  background-image:
+    radial-gradient(rgba(0, 0, 0, 0.035) 0.6px, transparent 0.7px),
+    linear-gradient(180deg, #eceef1 0%, #e4e6ea 100%) !important;
+  background-size: 5px 5px, 100% 100%;
 }
 
 .ab-flip-page--single-photo {
@@ -1790,9 +1795,26 @@
   background: #fff;
 }
 
+/* Designed empty space — first (inside-cover left) & last (pre-back right) blanks */
+.ab-overview-placeholder--designed-blank,
+.ab-overview-item--inside-cover .ab-overview-page:first-child,
+.ab-overview-item--inside-cover .ab-overview-page:first-child .ab-overview-placeholder,
+.ab-overview-item--pre-back .ab-overview-page:last-child,
+.ab-overview-item--pre-back .ab-overview-page:last-child .ab-overview-placeholder {
+  background-color: #e8eaed !important;
+  background-image:
+    radial-gradient(rgba(0, 0, 0, 0.035) 0.6px, transparent 0.7px),
+    linear-gradient(180deg, #eceef1 0%, #e4e6ea 100%) !important;
+  background-size: 5px 5px, 100% 100%;
+}
+
 /* Cover spread: blank inside left, framed photo on right */
 .ab-overview-page--cover-blank {
-  background: #e8eaed;
+  background-color: #e8eaed;
+  background-image:
+    radial-gradient(rgba(0, 0, 0, 0.035) 0.6px, transparent 0.7px),
+    linear-gradient(180deg, #eceef1 0%, #e4e6ea 100%);
+  background-size: 5px 5px, 100% 100%;
 }
 
 /* Cover overview: right half only (matches spread editor front cover) */

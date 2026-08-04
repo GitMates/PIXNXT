@@ -27,11 +27,12 @@ import './SidebarLayout.css';
 
 const PRODUCT_IMAGES = {
     'client-gallery': brandPng,
+    'album-proofer': smartAlbumPng,
     'smart-albums': smartAlbumPng,
 };
 
 /**
- * Shared product shell used by Client Gallery, Smart Albums, Mobile Gallery, etc.
+ * Shared product shell used by Client Gallery, Album Proofer, Mobile Gallery, etc.
  * Pass `productId` to switch the active product label + in-product nav.
  */
 const SidebarLayout = ({
@@ -264,7 +265,7 @@ const SidebarLayout = ({
                         <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" />
                         <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" />
                     </svg>
-                    <span>Invite Friends & Get $20</span>
+                    <span>Refer a studio</span>
                 </button>
 
                 <button

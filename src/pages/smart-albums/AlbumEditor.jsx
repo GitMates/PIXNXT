@@ -142,6 +142,7 @@ import {
     groupRootCommentsBySpread,
     smartAlbumCommentsService,
 } from '../../services/smartAlbumComments.service';
+import { hydrateAlbumClientFeedback } from '../../components/smart-albums/hydrateAlbumClientFeedback';
 import { useAuth } from '../../hooks/useAuth';
 import { getUserDisplayLabel } from '../../lib/userInitials';
 import { computePageCountFromPhotoCount } from './createAlbumLayout';
@@ -671,6 +672,22 @@ export default function AlbumEditor({
         syncCollectionOrderToSpreads,
         scheduleWorkspaceRefresh,
     ]);
+
+    useEffect(() => {
+        if (!albumId) return undefined;
+        let cancelled = false;
+        void hydrateAlbumClientFeedback(albumId, {
+            viewerRole: 'photographer',
+            viewerKey: user?.id || 'default',
+        }).then(() => {
+            if (cancelled) return;
+            setSwapMarks(getSwapMarks(albumId));
+            setPhotoPins(getPhotoPins(albumId));
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [albumId, user?.id]);
 
     useEffect(() => {
         setSwapMarks(getSwapMarks(albumId));
@@ -2211,7 +2228,7 @@ export default function AlbumEditor({
                     <button
                         type="button"
                         className="ae-icon-btn ae-topbar-back"
-                        onClick={() => navigate('/smart-albums')}
+                        onClick={() => navigate('/album-proofer')}
                         aria-label="Back to albums"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

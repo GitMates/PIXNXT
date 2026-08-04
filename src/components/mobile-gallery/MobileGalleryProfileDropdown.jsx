@@ -113,7 +113,7 @@ const MobileGalleryProfileDropdown = ({ open, onToggle, onClose, triggerClassNam
           </div>
           <button type="button" className="mg-profile-dropdown-item mg-profile-dropdown-item--icon mg-profile-dropdown-item--invite" onClick={() => go('/account/refer')}>
             <GiftIcon />
-            Invite Friends &amp; Get $20
+            Refer a studio
           </button>
           <div className="mg-profile-dropdown-divider" />
           <button type="button" className="mg-profile-dropdown-item mg-profile-dropdown-item--icon" onClick={() => go('/account/profile')}>

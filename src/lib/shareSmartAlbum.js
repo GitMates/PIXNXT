@@ -1,4 +1,5 @@
 import { getPublicSiteOrigin, getShareUrlWarning } from './publicSiteUrl';
+import { getPhotographerPublicOrigin, isCustomDomainVerified } from './customDomain';
 import { openSpaPath } from './spaNavigation';
 import {
     openShareByEmail,
@@ -8,11 +9,29 @@ import {
 
 export { getShareUrlWarning, openShareByEmail, openWhatsAppShare, getQrCodeImageUrl };
 
-/** Shareable URL for read-only album preview (flipbook view only). */
-export function getSmartAlbumPreviewShareUrl(album) {
-    const origin = getPublicSiteOrigin();
+/**
+ * Shareable URL for read-only album preview (flipbook view only).
+ * Prefers verified custom domain, then studio slug host, then platform origin.
+ */
+export function getSmartAlbumPreviewShareUrl(album, options = {}) {
+    const { photographerProfile } = options;
     const id = album?.id ?? album;
-    if (!id) return `${origin}/smart-albums`;
+
+    let origin = getPublicSiteOrigin();
+    if (photographerProfile) {
+        if (isCustomDomainVerified(photographerProfile)) {
+            origin = getPhotographerPublicOrigin(photographerProfile);
+        } else {
+            try {
+                const studioOrigin = getPhotographerPublicOrigin(photographerProfile);
+                if (studioOrigin) origin = studioOrigin;
+            } catch {
+                /* keep platform origin */
+            }
+        }
+    }
+
+    if (!id) return `${origin}/album-proofer`;
     return `${origin}/album-preview/${encodeURIComponent(id)}`;
 }
 
@@ -29,9 +48,9 @@ export function isClientShareLinkLive(album) {
 /** In-app preview path (opens in a new tab via openSmartAlbumPreview). */
 export function getSmartAlbumPreviewPath(albumId, page = 0) {
     const id = albumId?.id ?? albumId;
-    if (!id) return '/smart-albums';
+    if (!id) return '/album-proofer';
     const pageNum = Math.max(0, Number(page) || 0);
-    return `/smart-albums/preview/${encodeURIComponent(id)}?page=${pageNum}`;
+    return `/album-proofer/preview/${encodeURIComponent(id)}?page=${pageNum}`;
 }
 
 /** Open album preview in a new browser tab (same pattern as gallery preview). */

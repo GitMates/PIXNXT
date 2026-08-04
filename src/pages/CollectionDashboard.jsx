@@ -218,6 +218,8 @@ const CollectionDashboard = () => {
     const [showSelectAllMenu, setShowSelectAllMenu] = useState(false);
     const [showMoveToSetMenu, setShowMoveToSetMenu] = useState(false);
     const [moveMenuPosition, setMoveMenuPosition] = useState(null);
+    const [photoMenuPosition, setPhotoMenuPosition] = useState(null);
+    const [photoMenuAlignLeft, setPhotoMenuAlignLeft] = useState(false);
 
     // MORE DROPDOWN MODAL STATES
     const [showGetDirectLinkModal, setShowGetDirectLinkModal] = useState(false);
@@ -877,6 +879,57 @@ const CollectionDashboard = () => {
         };
     }, []);
 
+    const computePhotoMenuPosition = useCallback((anchorEl, alignLeft) => {
+        if (!anchorEl) return null;
+        const rect = anchorEl.getBoundingClientRect();
+        const menuWidth = 240;
+        const estimatedHeight = 420;
+        const gutter = 8;
+        const spaceBelow = window.innerHeight - rect.bottom - gutter;
+        const spaceAbove = rect.top - gutter;
+        const openUpward = spaceBelow < Math.min(estimatedHeight, 280) && spaceAbove > spaceBelow;
+        const left = alignLeft
+            ? Math.min(Math.max(gutter, rect.left), window.innerWidth - menuWidth - gutter)
+            : Math.min(Math.max(gutter, rect.right - menuWidth), window.innerWidth - menuWidth - gutter);
+
+        if (openUpward) {
+            return {
+                position: 'fixed',
+                top: 'auto',
+                bottom: window.innerHeight - rect.top + 6,
+                left,
+                minWidth: menuWidth,
+                maxHeight: Math.max(160, spaceAbove - 6),
+                zIndex: 5000,
+            };
+        }
+
+        return {
+            position: 'fixed',
+            top: rect.bottom + 6,
+            bottom: 'auto',
+            left,
+            minWidth: menuWidth,
+            maxHeight: Math.max(160, spaceBelow - 6),
+            zIndex: 5000,
+        };
+    }, []);
+
+    const closePhotoMenu = useCallback(() => {
+        setPhotoMenu(null);
+        setPhotoMenuPosition(null);
+    }, []);
+
+    const openPhotoMenuFor = useCallback((photoId, anchorEl, alignLeft) => {
+        if (photoMenu === photoId) {
+            closePhotoMenu();
+            return;
+        }
+        setPhotoMenuAlignLeft(Boolean(alignLeft));
+        setPhotoMenuPosition(computePhotoMenuPosition(anchorEl, alignLeft));
+        setPhotoMenu(photoId);
+    }, [closePhotoMenu, computePhotoMenuPosition, photoMenu]);
+
     useLayoutEffect(() => {
         if (!showMoveToSetMenu) {
             setMoveMenuPosition(null);
@@ -891,6 +944,27 @@ const CollectionDashboard = () => {
             window.removeEventListener('scroll', apply, true);
         };
     }, [showMoveToSetMenu, sets.length, highlightsName, updateMoveMenuPosition]);
+
+    useLayoutEffect(() => {
+        if (!photoMenu) {
+            setPhotoMenuPosition(null);
+            return undefined;
+        }
+        const apply = () => {
+            const anchor = document.querySelector(
+                `.cd-photo-card--menu-open .cd-photo-more-btn`
+            );
+            if (!anchor) return;
+            setPhotoMenuPosition(computePhotoMenuPosition(anchor, photoMenuAlignLeft));
+        };
+        apply();
+        window.addEventListener('resize', apply);
+        window.addEventListener('scroll', apply, true);
+        return () => {
+            window.removeEventListener('resize', apply);
+            window.removeEventListener('scroll', apply, true);
+        };
+    }, [photoMenu, photoMenuAlignLeft, computePhotoMenuPosition]);
     const favoriteDetailToolbarMenuRef = useRef(null);
     const favoriteDetailPhotoMenuRef = useRef(null);
     const designHydratedRef = useRef(false);
@@ -2856,32 +2930,6 @@ const CollectionDashboard = () => {
         }
     };
 
-    const handleSelectionReorder = async (toEnd) => {
-        const selIds = new Set(getSelectedPhotoRecords().map((p) => p.id));
-        if (selIds.size === 0) return;
-
-        let pool = photos.filter((p) => (activeSetId ? p.set_id === activeSetId : !p.set_id));
-        pool = [...pool].sort((a, b) => (a.position || 0) - (b.position || 0));
-
-        const selected = pool.filter((p) => selIds.has(p.id));
-        const rest = pool.filter((p) => !selIds.has(p.id));
-        const reordered = toEnd ? [...rest, ...selected] : [...selected, ...rest];
-
-        closeSelectionChrome();
-        try {
-            setSaving(true);
-            await Promise.all(reordered.map((p, index) => galleryService.updatePhoto(p.id, { position: index })));
-            const posMap = new Map(reordered.map((p, index) => [p.id, index]));
-            setPhotos((prev) => prev.map((p) => (posMap.has(p.id) ? { ...p, position: posMap.get(p.id) } : p)));
-            if (sortOption !== 'custom') setSortOption('custom');
-        } catch (err) {
-            console.error('Reorder failed:', err);
-            alert('Failed to reorder photos.');
-        } finally {
-            setSaving(false);
-        }
-    };
-
     const handleGridPhotoReorder = useCallback(
         async (_fromIndex, _toIndex, nextIds) => {
             if (!nextIds?.length) return;
@@ -3255,7 +3303,14 @@ const CollectionDashboard = () => {
     useEffect(() => {
         const handleClickOutside = (e) => {
             if (shareRef.current && !shareRef.current.contains(e.target)) setShowShareDropdown(false);
-            if (photoMenuRef.current && !photoMenuRef.current.contains(e.target)) setPhotoMenu(null);
+            if (
+                photoMenuRef.current
+                && !photoMenuRef.current.contains(e.target)
+                && !e.target.closest?.('.cd-photo-more-btn')
+            ) {
+                setPhotoMenu(null);
+                setPhotoMenuPosition(null);
+            }
             if (gridSettingsRef.current && !gridSettingsRef.current.contains(e.target)) setShowGridSettings(false);
             if (moreRef.current && !moreRef.current.contains(e.target)) {
                 setShowMoreDropdown(false);
@@ -4006,64 +4061,18 @@ const CollectionDashboard = () => {
                                                     {!isPending && (
                                                     <>
                                                     <div className="cd-photo-actions">
-                                                    <button className="cd-photo-more-btn" onClick={(e) => { e.stopPropagation(); setPhotoMenu(photoMenu === photo.id ? null : photo.id); }}>
+                                                    <button
+                                                        type="button"
+                                                        className="cd-photo-more-btn"
+                                                        aria-haspopup="menu"
+                                                        aria-expanded={photoMenu === photo.id}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            openPhotoMenuFor(photo.id, e.currentTarget, menuAlignLeft);
+                                                        }}
+                                                    >
                                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
                                                     </button>
-                                                    {photoMenu === photo.id && (
-                                                        <div className={`cd-photo-menu ${menuAlignLeft ? 'cd-photo-menu--align-left' : ''}`} ref={photoMenuRef}>
-                                                            {showFilename && photo.filename && (
-                                                                <>
-                                                                    <div className="cd-photo-menu-filename-hint" title={photo.filename}>
-                                                                        {photo.filename}
-                                                                    </div>
-                                                                    <div className="cd-ctx-divider" />
-                                                                </>
-                                                            )}
-                                                            <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setPhotoMenu(null); setLightboxOpenIndex(index); }}>
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
-                                                                <span>Open</span>
-                                                            </div>
-                                                            <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setPhotoMenu(null); handleQuickShare(photo); }}>
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
-                                                                <span>Quick share</span>
-                                                            </div>
-                                                            <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setPhotoMenu(null); handleDownloadPhoto(photo); }}>
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                                                                <span>Download</span>
-                                                            </div>
-                                                            <div className="cd-ctx-divider"></div>
-                                                            <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setPhotoMenu(null); setEditingPhoto(photo); setTargetSetId(photo.set_id); setMoveMode('move'); setShowMoveModal(true); }}>
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
-                                                                <span>Move/Copy</span>
-                                                            </div>
-                                                            <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setPhotoMenu(null); handleCopyFilename(photo); }}>
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                                                                <span>Copy filenames</span>
-                                                            </div>
-                                                            <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setPhotoMenu(null); handleSetAsCover(photo); }}>
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                                                                <span>Set as cover</span>
-                                                            </div>
-                                                            <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setPhotoMenu(null); setEditingPhoto(photo); setNewPhotoName(photo.filename); setShowRenameModal(true); }}>
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
-                                                                <span>Rename</span>
-                                                            </div>
-                                                            <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setPhotoMenu(null); setEditingPhoto(photo); setShowReplaceModal(true); }}>
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9"></path></svg>
-                                                                <span>Replace photo</span>
-                                                            </div>
-                                                            <div className="cd-ctx-divider"></div>
-                                                            <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setPhotoMenu(null); setEditingPhoto(photo); setShowWatermarkModal(true); }}>
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M14.83 14.83a4 4 0 1 1 0-5.66"></path></svg>
-                                                                <span>Watermark</span>
-                                                            </div>
-                                                            <div className="cd-ctx-divider"></div>
-                                                            <div className="cd-ctx-item cd-ctx-delete" onClick={(e) => { e.stopPropagation(); setPhotoMenu(null); deleteSelectedPhotos([photo.id]); }}>
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                                                                <span>Delete</span>
-                                                            </div>
-                                                        </div>
-                                                    )}
                                                 </div>
                                                 <button
                                                     className={`cd-photo-star ${photo.is_starred ? 'active' : ''}`}
@@ -4410,6 +4419,75 @@ const CollectionDashboard = () => {
                         )}
                     </main>
 
+                    {photoMenu && photoMenuPosition && (() => {
+                        const menuPhoto = gridPhotos.find((p) => p.id === photoMenu) || photos.find((p) => p.id === photoMenu);
+                        if (!menuPhoto) return null;
+                        const menuIndex = gridPhotos.findIndex((p) => p.id === menuPhoto.id);
+                        return createPortal(
+                            <div
+                                className={`cd-photo-menu cd-photo-menu--portal${photoMenuAlignLeft ? ' cd-photo-menu--align-left' : ''}`}
+                                ref={photoMenuRef}
+                                role="menu"
+                                style={photoMenuPosition}
+                                onMouseDown={(e) => e.stopPropagation()}
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                {showFilename && menuPhoto.filename && (
+                                    <>
+                                        <div className="cd-photo-menu-filename-hint" title={menuPhoto.filename}>
+                                            {menuPhoto.filename}
+                                        </div>
+                                        <div className="cd-ctx-divider" />
+                                    </>
+                                )}
+                                <div className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); closePhotoMenu(); setLightboxOpenIndex(menuIndex >= 0 ? menuIndex : 0); }}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+                                    <span>Open</span>
+                                </div>
+                                <div className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); closePhotoMenu(); handleQuickShare(menuPhoto); }}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                                    <span>Quick share</span>
+                                </div>
+                                <div className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); closePhotoMenu(); handleDownloadPhoto(menuPhoto); }}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                                    <span>Download</span>
+                                </div>
+                                <div className="cd-ctx-divider"></div>
+                                <div className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); closePhotoMenu(); setEditingPhoto(menuPhoto); setTargetSetId(menuPhoto.set_id); setMoveMode('move'); setShowMoveModal(true); }}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
+                                    <span>Move/Copy</span>
+                                </div>
+                                <div className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); closePhotoMenu(); handleCopyFilename(menuPhoto); }}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                    <span>Copy filenames</span>
+                                </div>
+                                <div className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); closePhotoMenu(); handleSetAsCover(menuPhoto); }}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                                    <span>Set as cover</span>
+                                </div>
+                                <div className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); closePhotoMenu(); setEditingPhoto(menuPhoto); setNewPhotoName(menuPhoto.filename); setShowRenameModal(true); }}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                                    <span>Rename</span>
+                                </div>
+                                <div className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); closePhotoMenu(); setEditingPhoto(menuPhoto); setShowReplaceModal(true); }}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9"></path></svg>
+                                    <span>Replace photo</span>
+                                </div>
+                                <div className="cd-ctx-divider"></div>
+                                <div className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); closePhotoMenu(); setEditingPhoto(menuPhoto); setShowWatermarkModal(true); }}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M14.83 14.83a4 4 0 1 1 0-5.66"></path></svg>
+                                    <span>Watermark</span>
+                                </div>
+                                <div className="cd-ctx-divider"></div>
+                                <div className="cd-ctx-item cd-ctx-delete" role="menuitem" onClick={(e) => { e.stopPropagation(); closePhotoMenu(); deleteSelectedPhotos([menuPhoto.id]); }}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                    <span>Delete</span>
+                                </div>
+                            </div>,
+                            document.body
+                        );
+                    })()}
+
                     {/* Multi-Selection Toolbar */}
                     {selectedPhotos.length > 0 && (
                         <div className="cd-selection-toolbar">
@@ -4521,20 +4599,6 @@ const CollectionDashboard = () => {
                                             <button type="button" className="cd-ctx-item" role="menuitem" onClick={handleSelectionWatermark}>
                                                 <div className="cd-ctx-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M14.5 9a2.5 2.5 0 0 0-5 0v6a2.5 2.5 0 0 0 5 0" /><path d="M10 12h4.5" /></svg></div>
                                                 <span className="cd-ctx-text">Watermark</span>
-                                            </button>
-                                            <button type="button" className="cd-ctx-item" role="menuitem" onClick={() => handleSelectionReorder(false)}>
-                                                <div className="cd-ctx-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V6m0 0l-5 5m5-5l5 5M5 6h14" /></svg></div>
-                                                <span className="cd-ctx-text">Move to top</span>
-                                                <span className="cd-ctx-hotkey">⌘ + ↑</span>
-                                            </button>
-                                            <button type="button" className="cd-ctx-item" role="menuitem" onClick={() => handleSelectionReorder(true)}>
-                                                <div className="cd-ctx-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v13m0 0l-5-5m5 5l5-5M5 18h14" /></svg></div>
-                                                <span className="cd-ctx-text">Move to bottom</span>
-                                                <span className="cd-ctx-hotkey">⌘ + ↓</span>
-                                            </button>
-                                            <button type="button" className="cd-ctx-item" role="menuitem" onClick={() => { closeSelectionChrome(); alert('Mobile app creation is coming soon.'); }}>
-                                                <div className="cd-ctx-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg></div>
-                                                <span className="cd-ctx-text">Create mobile app</span>
                                             </button>
                                         </div>
                                     )}

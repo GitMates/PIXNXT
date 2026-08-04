@@ -176,7 +176,7 @@ export async function savePeopleClusters(supabase, collectionId, photographerId,
       cluster_key: person.id,
       face_ids: person.faceIds,
       photo_ids: person.photoIds,
-      label: person.label || `Person ${index + 1}`,
+      label: person.label || 'Not named',
       sort_order: index,
       avatar_photo_id: person.avatarFace?.photoId || null,
       avatar_bounding_box: person.avatarFace?.boundingBox || null,
@@ -237,7 +237,7 @@ export async function clusterAndPersistPeople(supabase, collectionId, photograph
   const clustered = await clusterFacesForCollection(collectionId, faceEntries);
   const people = clustered.map((person, index) => ({
     ...person,
-    label: person.label || `Person ${index + 1}`,
+    label: person.label || 'Not named',
   }));
 
   await savePeopleClusters(supabase, collectionId, photographerId, people, stats);
@@ -288,7 +288,7 @@ export async function getPeopleForCollection(
       supabase,
       clustered.map((person, index) => ({
         ...person,
-        label: person.label || `Person ${index + 1}`,
+        label: person.label || 'Not named',
       }))
     );
     return { people, fromCache: false, missingTables: true };

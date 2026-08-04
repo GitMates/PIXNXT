@@ -362,6 +362,17 @@ export default function AlbumProoferSettingsDrawerPanel({
                         >
                             <Edit2 size={16} /> Quick Edit Details
                         </button>
+                        <button
+                            type="button"
+                            className="sa-album-settings-drawer__action-btn"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                onDuplicate?.();
+                            }}
+                        >
+                            <Copy size={16} /> Duplicate Album
+                        </button>
                         <button type="button" className="sa-album-settings-drawer__action-btn" onClick={onGetDirectLink}>
                             <Link size={16} /> Get Direct Link
                         </button>

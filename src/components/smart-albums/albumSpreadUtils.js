@@ -50,30 +50,33 @@ export function getSpreadContext(album, totalPages, { collectionCount } = {}) {
     };
 }
 
-/** 1-based spread number for UI labels from a spread's left page index. */
+/** 1-based content spread number for UI (Cover/Back excluded from the count). */
 export function spreadNumberFromLeftPage(leftPage, opts = {}) {
     const spreadOpts = normalizeSpreadOpts(opts);
     const totalPages = opts.totalPages ?? 0;
     const spreadIndex = pageToSpreadIndex(leftPage, { ...spreadOpts, totalPages });
+    if (spreadOpts.hasCovers) return Math.max(1, spreadIndex);
     return spreadIndex + 1;
 }
 
-/** Human-readable spread label matching flipbook counter (e.g. "2/6" → "Spread 2"). */
+/** Human-readable spread label matching flipbook counter (e.g. "Spread 1" after Cover). */
 export function formatSpreadDisplayLabel(spreadIndex, opts = {}) {
     const idx = Number(spreadIndex);
     if (!Number.isFinite(idx)) return 'Spread';
     const { hasCovers } = normalizeSpreadOpts(opts);
     if (hasCovers && idx <= 0) return 'Cover';
+    if (hasCovers) return `Spread ${idx}`;
     return `Spread ${idx + 1}`;
 }
 
-/** Label under a spread thumbnail in page overview (matches flipbook counter, e.g. 4/7 → "4"). */
+/** Label under a spread thumbnail in page overview (Cover, 1…n, Back). */
 export function formatOverviewSpreadLabel(spreadIndex, totalPages, opts = {}) {
     const idx = Number(spreadIndex);
     if (!Number.isFinite(idx)) return '';
     const spreadOpts = normalizeSpreadOpts(opts);
     if (spreadOpts.hasCovers && idx <= 0) return 'Cover';
     if (isEndHalfSpreadIndex(idx, totalPages, spreadOpts)) return 'Back';
+    if (spreadOpts.hasCovers) return String(idx);
     return String(idx + 1);
 }
 

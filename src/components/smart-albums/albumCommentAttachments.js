@@ -1,10 +1,9 @@
 import { compressImageForUpload } from '../../lib/prepareUploadFile';
 import { isImageFile } from '../../lib/pdfToImages';
 
-/** Keep comment attachments small enough for localStorage (no DB attachment columns). */
-const COMMENT_ATTACHMENT_MAX_EDGE = 960;
-const COMMENT_ATTACHMENT_QUALITY = 0.72;
-const COMMENT_ATTACHMENT_MAX_DATA_URL_CHARS = 450_000;
+/** Keep comment attachments reasonably sized before R2 upload. */
+const COMMENT_ATTACHMENT_MAX_EDGE = 1600;
+const COMMENT_ATTACHMENT_QUALITY = 0.82;
 
 function fileToDataUrl(file) {
     return new Promise((resolve, reject) => {
@@ -28,33 +27,16 @@ async function compressToDataUrl(file, maxEdge, quality) {
     };
 }
 
-/** Compress a user-selected image for inline comment attachment storage. */
+/** Compress a user-selected image for comment attachment (uploaded to storage on save). */
 export async function prepareCommentAttachmentFromFile(file) {
     if (!file || !isImageFile(file)) {
         throw new Error('Please choose an image file.');
     }
 
-    let prepared = await compressToDataUrl(
-        file,
-        COMMENT_ATTACHMENT_MAX_EDGE,
-        COMMENT_ATTACHMENT_QUALITY
-    );
-
-    // If still too large for reliable localStorage, compress harder.
-    if (prepared.url.length > COMMENT_ATTACHMENT_MAX_DATA_URL_CHARS) {
-        prepared = await compressToDataUrl(file, 720, 0.62);
-    }
-    if (prepared.url.length > COMMENT_ATTACHMENT_MAX_DATA_URL_CHARS) {
-        prepared = await compressToDataUrl(file, 520, 0.55);
-    }
-    if (prepared.url.length > COMMENT_ATTACHMENT_MAX_DATA_URL_CHARS) {
-        throw new Error('That image is too large to attach. Please choose a smaller photo.');
-    }
-
-    return prepared;
+    return compressToDataUrl(file, COMMENT_ATTACHMENT_MAX_EDGE, COMMENT_ATTACHMENT_QUALITY);
 }
 
-/** Store a recorded voice clip as an inline comment attachment. */
+/** Store a recorded voice clip as a temporary data URL (uploaded to storage on save). */
 export async function prepareCommentAudioFromBlob(blob) {
     if (!blob || !blob.size) {
         throw new Error('Recording is empty. Please try again.');
@@ -84,12 +66,25 @@ export function getCommentAttachmentType(comment) {
     if (comment?.attachment_type === 'audio' || comment?.attachment_type === 'image') {
         return comment.attachment_type;
     }
-    const url = comment?.attachment_url || '';
-    if (url.startsWith('data:audio/')) return 'audio';
+    const url = String(comment?.attachment_url || '').toLowerCase();
+    const name = String(comment?.attachment_name || '').toLowerCase();
+    if (url.startsWith('data:audio/') || name.startsWith('voice-message.')) {
+        return 'audio';
+    }
+    if (/\.(webm|m4a|ogg|mp3|wav|aac)(\?|$)/.test(url) || /\.(webm|m4a|ogg|mp3|wav|aac)$/.test(name)) {
+        return 'audio';
+    }
     if (url.startsWith('data:image/')) return 'image';
     return hasCommentAttachment(comment) ? 'image' : null;
 }
 
 export function isCommentAudioAttachment(comment) {
     return getCommentAttachmentType(comment) === 'audio';
+}
+
+/** Badge label for client feedback items in the comment sidebar. */
+export function getClientCommentBadgeLabel(comment) {
+    if (isCommentAudioAttachment(comment)) return 'Audio';
+    if (hasCommentAttachment(comment)) return 'Photo';
+    return 'Comment';
 }

@@ -3,6 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SmtpClient } from 'https://deno.land/x/smtp@v0.7.0/mod.ts';
 import {
   applyTemplate,
+  buildAlbumEditorUrl,
   buildAlbumPreviewUrl,
   buildClientTemplateEmailHtml,
   loadPhotographerProoferSettings,
@@ -856,7 +857,7 @@ serve(async (req) => {
     );
 
     const { data: album, error: albumError } = await supabaseAdmin
-      .from('smart_albums')
+      .from('album_proofer_albums')
       .select(
         'id, name, slug, status, photographer_id, proofer_settings, client_commenting_started_at, client_commenting_started_by, client_approved_notified_at'
       )
@@ -907,7 +908,7 @@ serve(async (req) => {
     if (action === 'submit_changes') {
       if (!photoRows.length && !swapRows.length && !spreadRows.length) {
         const { data: dbComments, error: commentsError } = await supabaseAdmin
-          .from('smart_album_comments')
+          .from('album_proofer_comments')
           .select('spread_index, author_name, body, created_at, updated_at, parent_id')
           .eq('album_id', albumId)
           .is('parent_id', null)
@@ -956,7 +957,7 @@ serve(async (req) => {
     };
 
     const origin = (siteOrigin || Deno.env.get('PUBLIC_SITE_URL') || '').replace(/\/$/, '');
-    const editorUrl = `${origin}/smart-albums/album/${albumId}`;
+    const editorUrl = buildAlbumEditorUrl(albumId, origin);
     const clientName = String(guestName || spreadRows[0]?.author_name || 'A client').trim();
     const timeZone =
       typeof clientTimezone === 'string' && clientTimezone.trim() ? clientTimezone.trim() : undefined;
@@ -1223,7 +1224,7 @@ serve(async (req) => {
     }
 
     const { error: proofUpdateError } = await supabaseAdmin
-      .from('smart_albums')
+      .from('album_proofer_albums')
       .update(proofPatch)
       .eq('id', albumId);
 

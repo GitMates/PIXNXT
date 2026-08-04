@@ -1,0 +1,253 @@
+/* Duplicate album confirm — Album Proofer cream surface */
+
+.adm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10060;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  background: rgb(29 25 22 / 0.32);
+  backdrop-filter: blur(5px);
+}
+
+.adm-modal {
+  width: 100%;
+  max-width: 440px;
+  max-height: min(92vh, 680px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  border-radius: 18px;
+  background: #faf8f4;
+  box-shadow:
+    0 24px 64px rgb(29 25 22 / 0.22),
+    0 2px 8px rgb(29 25 22 / 0.08);
+  color: #1d1916;
+  font-family: var(--font-sans);
+}
+
+.adm-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 22px 24px 0;
+}
+
+.adm-eyebrow {
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #857f7b;
+}
+
+.adm-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  color: #1d1916;
+  word-break: break-word;
+}
+
+.adm-close {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  margin-top: 2px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: #857f7b;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.adm-close:hover:not(:disabled) {
+  background: #efece7;
+  color: #1d1916;
+}
+
+.adm-close:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.adm-body {
+  padding: 16px 24px 8px;
+}
+
+.adm-lead {
+  margin: 0 0 16px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #44403c;
+}
+
+.adm-lead strong {
+  font-weight: 600;
+  color: #1d1916;
+}
+
+.adm-preview {
+  padding: 14px;
+  border-radius: 14px;
+  background: #f0efeb;
+}
+
+.adm-preview__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.adm-preview__label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #857f7b;
+}
+
+.adm-preview__count {
+  font-size: 12px;
+  font-weight: 600;
+  color: #44403c;
+}
+
+.adm-preview__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.adm-preview__cell {
+  aspect-ratio: 1;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #e5e2dc;
+}
+
+.adm-preview__cell img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.adm-preview__cell--more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: #44403c;
+  background: #e5e2dc;
+}
+
+.adm-preview__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0 4px;
+}
+
+.adm-preview__cover {
+  width: 88px;
+  height: 88px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #e5e2dc;
+}
+
+.adm-preview__cover .sa-album-list-thumb,
+.adm-preview__cover .sa-album-list-thumb-img,
+.adm-preview__cover .sa-album-list-thumb-crop {
+  width: 100%;
+  height: 100%;
+}
+
+.adm-preview__status {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #857f7b;
+  text-align: center;
+}
+
+.adm-notes {
+  margin: 14px 0 0;
+  padding: 0 0 0 18px;
+  list-style: disc;
+}
+
+.adm-notes li {
+  margin-bottom: 8px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #857f7b;
+}
+
+.adm-notes li:last-child {
+  margin-bottom: 0;
+}
+
+.adm-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px 24px 22px;
+}
+
+.adm-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+}
+
+.adm-btn--ghost {
+  border: 1px solid #e5e2dc;
+  background: #ffffff;
+  color: #44403c;
+}
+
+.adm-btn--ghost:hover:not(:disabled) {
+  background: #f7f5f1;
+}
+
+.adm-btn--primary {
+  border: none;
+  background: #1d1916;
+  color: #ffffff;
+  min-width: 120px;
+}
+
+.adm-btn--primary:hover:not(:disabled) {
+  background: #2c2622;
+}
+
+.adm-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

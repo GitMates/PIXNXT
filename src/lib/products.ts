@@ -12,6 +12,13 @@ import {
   PanelLeft,
   type LucideIcon,
 } from "lucide-react"
+import {
+  ALBUM_PROOFER_PRODUCT_ID,
+  ALBUM_PROOFER_PRODUCT_ID_LEGACY,
+  ALBUM_PROOFER_ROUTE,
+  ALBUM_PROOFER_ROUTE_LEGACY,
+  isAlbumProoferPath,
+} from "./albumProoferIds"
 
 export interface Product {
   id: string
@@ -39,10 +46,10 @@ export const products: Product[] = [
     icon: Images,
   },
   {
-    id: "smart-albums",
+    id: ALBUM_PROOFER_PRODUCT_ID,
     name: "Album Proofer",
     tagline: "Album design & client proofing",
-    href: "/smart-albums",
+    href: ALBUM_PROOFER_ROUTE,
     icon: BookOpen,
   },
   {
@@ -96,39 +103,51 @@ export const productNavItems: Record<string, ProductNavItem[]> = {
       section: "studio",
     },
   ],
-  "smart-albums": [
+  [ALBUM_PROOFER_PRODUCT_ID]: [
     {
       label: "Albums",
-      href: "/smart-albums",
-      match: (p) => p === "/smart-albums" || p === "/smart-albums/",
+      href: ALBUM_PROOFER_ROUTE,
+      match: (p) =>
+        p === ALBUM_PROOFER_ROUTE ||
+        p === `${ALBUM_PROOFER_ROUTE}/` ||
+        p === ALBUM_PROOFER_ROUTE_LEGACY ||
+        p === `${ALBUM_PROOFER_ROUTE_LEGACY}/`,
       icon: PanelLeft,
       section: "work",
       countKey: "albums",
     },
     {
       label: "Needs you",
-      href: "/smart-albums/awaiting",
-      match: (p) => p.startsWith("/smart-albums/awaiting"),
+      href: `${ALBUM_PROOFER_ROUTE}/awaiting`,
+      match: (p) =>
+        p.startsWith(`${ALBUM_PROOFER_ROUTE}/awaiting`) ||
+        p.startsWith(`${ALBUM_PROOFER_ROUTE_LEGACY}/awaiting`),
       icon: Clock3,
       section: "work",
       countKey: "needsYou",
     },
     {
       label: "Approved",
-      href: "/smart-albums/approved",
-      match: (p) => p.startsWith("/smart-albums/approved"),
+      href: `${ALBUM_PROOFER_ROUTE}/approved`,
+      match: (p) =>
+        p.startsWith(`${ALBUM_PROOFER_ROUTE}/approved`) ||
+        p.startsWith(`${ALBUM_PROOFER_ROUTE_LEGACY}/approved`),
       icon: CheckCircle2,
       section: "work",
       countKey: "approved",
     },
     {
       label: "Settings",
-      href: "/smart-albums/settings",
-      match: (p) => p.startsWith("/smart-albums/settings"),
+      href: `${ALBUM_PROOFER_ROUTE}/settings`,
+      match: (p) =>
+        p.startsWith(`${ALBUM_PROOFER_ROUTE}/settings`) ||
+        p.startsWith(`${ALBUM_PROOFER_ROUTE_LEGACY}/settings`),
       icon: Settings,
       section: "studio",
     },
   ],
+  // Keep legacy product id wired to the same nav during redirects.
+  [ALBUM_PROOFER_PRODUCT_ID_LEGACY]: [],
   portal: [
     {
       label: "Pipeline / Leads",
@@ -176,11 +195,21 @@ export const productNavItems: Record<string, ProductNavItem[]> = {
   ],
 }
 
+// Alias legacy id to the same nav items
+productNavItems[ALBUM_PROOFER_PRODUCT_ID_LEGACY] =
+  productNavItems[ALBUM_PROOFER_PRODUCT_ID]
+
 export function getProductById(productId: string): Product | undefined {
+  if (productId === ALBUM_PROOFER_PRODUCT_ID_LEGACY) {
+    return products.find((p) => p.id === ALBUM_PROOFER_PRODUCT_ID)
+  }
   return products.find((p) => p.id === productId)
 }
 
 export function getProductNavItems(productId: string): ProductNavItem[] {
+  if (productId === ALBUM_PROOFER_PRODUCT_ID_LEGACY) {
+    return productNavItems[ALBUM_PROOFER_PRODUCT_ID] || []
+  }
   return productNavItems[productId] || productNavItems["client-gallery"]
 }
 
@@ -208,8 +237,8 @@ export function isProductActive(productHref: string, pathname: string): boolean 
       pathname.startsWith("/photos")
     )
   }
-  if (productHref === "/smart-albums") {
-    return pathname === "/smart-albums" || pathname.startsWith("/smart-albums/")
+  if (productHref === ALBUM_PROOFER_ROUTE || productHref === ALBUM_PROOFER_ROUTE_LEGACY) {
+    return isAlbumProoferPath(pathname)
   }
   if (productHref === "/mobile-gallery") {
     return pathname === "/mobile-gallery" || pathname.startsWith("/mobile-gallery/")

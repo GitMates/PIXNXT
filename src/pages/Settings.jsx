@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import SidebarLayout from '../components/SidebarLayout';
 import {
@@ -9,12 +9,10 @@ import { ClientGallerySelect } from '../components/features/ClientGallery/Client
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase/client';
 import { galleryService } from '../services/gallery.service';
-import RichTextEditor from '../components/RichTextEditor';
 import './Settings.css';
 import './ClientGallery.css';
 
 const SETTINGS_TABS = [
-    { id: 'branding', label: 'Branding' },
     { id: 'watermark', label: 'Watermark' },
     { id: 'presets', label: 'Presets' },
     { id: 'email-templates', label: 'Email Templates' },
@@ -25,7 +23,7 @@ const SETTINGS_TABS = [
 const Settings = () => {
     const { tab } = useParams();
     const navigate = useNavigate();
-    const activeTab = tab || 'branding';
+    const activeTab = tab || 'watermark';
     const { user } = useAuth();
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -57,6 +55,12 @@ const Settings = () => {
     useEffect(() => {
         fetchProfile();
     }, [fetchProfile]);
+
+    useEffect(() => {
+        if (tab === 'branding') {
+            navigate('/account/studio-identity', { replace: true });
+        }
+    }, [tab, navigate]);
 
     const updateProfile = async (updates) => {
         if (!user?.id) return;
@@ -91,22 +95,21 @@ const Settings = () => {
         <SidebarLayout>
             <ClientGalleryPageShell
                 title="Settings"
-                subtitle="Branding, delivery defaults, and gallery preferences."
+                subtitle="Delivery defaults and gallery preferences. Studio logos, domain, and legal live under Account."
                 toolbar={(
                     <ClientGallerySubpageTabs
                         tabs={SETTINGS_TABS}
-                        activeId={activeTab}
+                        activeId={activeTab === 'branding' ? 'watermark' : activeTab}
                         onChange={(id) => navigate(`/settings/${id}`)}
                     />
                 )}
                 contentClassName="pt-6"
             >
                 <div className="set-content">
-                    {activeTab === 'branding' && <BrandingTab profile={profile} updateProfile={updateProfile} />}
                     {activeTab === 'watermark' && <WatermarkTab profile={profile} updateProfile={updateProfile} />}
                     {activeTab === 'presets' && <PresetsTab profile={profile} />}
                     {activeTab === 'email-templates' && <EmailTemplatesTab profile={profile} />}
-                    {activeTab === 'preferences' && <PreferencesTab profile={profile} updateProfile={updateProfile} showToast={showToast} />}
+                    {activeTab === 'preferences' && <PreferencesTab profile={profile} updateProfile={updateProfile} />}
                     {activeTab === 'integrations' && <IntegrationsTab profile={profile} updateProfile={updateProfile} />}
                 </div>
             </ClientGalleryPageShell>
@@ -119,252 +122,6 @@ const Settings = () => {
                 </div>
             )}
         </SidebarLayout>
-    );
-};
-
-import { useRef } from 'react';
-import { storageService } from '../services/storage.service';
-import { CustomDomainPanel } from '../components/features/Settings/CustomDomainPanel';
-
-const BrandingTab = ({ profile, updateProfile }) => {
-    const [pToggle, setPToggle] = useState(() => {
-        if (profile?.hide_branding !== undefined && profile?.hide_branding !== null) {
-            return !profile.hide_branding;
-        }
-        const saved = localStorage.getItem('hide_branding');
-        return saved !== 'true';
-    });
-    const [uploadingLogo, setUploadingLogo] = useState(false);
-    const [uploadingCoverLogo, setUploadingCoverLogo] = useState(false);
-    const [uploadingFavicon, setUploadingFavicon] = useState(false);
-    const logoInputRef = useRef(null);
-    const coverLogoInputRef = useRef(null);
-    const faviconInputRef = useRef(null);
-
-    React.useEffect(() => {
-        if (profile?.hide_branding !== undefined && profile?.hide_branding !== null) {
-            setPToggle(!profile.hide_branding);
-        }
-    }, [profile?.hide_branding]);
-
-    React.useEffect(() => {
-        const localFavicon = localStorage.getItem('custom_favicon_url');
-        if (profile && !profile.favicon_url && localFavicon) {
-            console.log('Syncing local favicon to database:', localFavicon);
-            void updateProfile({ favicon_url: localFavicon });
-        }
-    }, [profile, updateProfile]);
-
-    const handleBrandingToggle = () => {
-        const nextVal = !pToggle;
-        setPToggle(nextVal);
-        localStorage.setItem('hide_branding', (!nextVal).toString());
-        void updateProfile({ hide_branding: !nextVal });
-    };
-
-    const handleLogoUpload = async (e) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        try {
-            setUploadingLogo(true);
-            const path = `photographers/${profile.id}/logos/logo_${Date.now()}_${file.name}`;
-            const result = await storageService.upload(path, file);
-            await updateProfile({ logo_url: result.url });
-        } catch (err) {
-            console.error('Error uploading logo:', err);
-            alert(`Logo upload failed: ${err.message}`);
-        } finally {
-            setUploadingLogo(false);
-        }
-    };
-
-    const handleLogoDelete = async () => {
-        if (!window.confirm('Are you sure you want to remove your logo?')) return;
-        try {
-            await updateProfile({ logo_url: null });
-        } catch (err) {
-            console.error('Error deleting logo:', err);
-        }
-    };
-
-    const handleCoverLogoUpload = async (e) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        try {
-            setUploadingCoverLogo(true);
-            const path = `photographers/${profile.id}/logos/cover_logo_${Date.now()}_${file.name}`;
-            const result = await storageService.upload(path, file);
-            await updateProfile({ cover_logo_url: result.url });
-        } catch (err) {
-            console.error('Error uploading cover logo:', err);
-            alert(`Cover logo upload failed: ${err.message}`);
-        } finally {
-            setUploadingCoverLogo(false);
-        }
-    };
-
-    const handleCoverLogoDelete = async () => {
-        if (!window.confirm('Are you sure you want to remove your cover logo?')) return;
-        try {
-            await updateProfile({ cover_logo_url: null });
-        } catch (err) {
-            console.error('Error deleting cover logo:', err);
-        }
-    };
-
-    const handleFaviconUpload = async (e) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        try {
-            setUploadingFavicon(true);
-            const path = `photographers/${profile.id}/favicons/favicon_${Date.now()}_${file.name}`;
-            const result = await storageService.upload(path, file);
-            localStorage.setItem('custom_favicon_url', result.url);
-            await updateProfile({ favicon_url: result.url });
-            alert('Favicon uploaded successfully!');
-        } catch (err) {
-            console.error('Error uploading favicon:', err);
-            alert(`Favicon upload failed: ${err.message}`);
-        } finally {
-            setUploadingFavicon(false);
-        }
-    };
-
-    const handleFaviconDelete = async () => {
-        if (!window.confirm('Are you sure you want to remove your favicon?')) return;
-        try {
-            localStorage.removeItem('custom_favicon_url');
-            await updateProfile({ favicon_url: null });
-            alert('Favicon removed successfully!');
-        } catch (err) {
-            console.error('Error deleting favicon:', err);
-            alert(`Failed to delete favicon: ${err.message}`);
-        }
-    };
-
-    return (
-        <div className="set-tab-content">
-            <CustomDomainPanel profile={profile} updateProfile={updateProfile} />
-
-            <div className="set-upgrade-box no-bg-mobile">
-                <div className="set-box-header">
-                    <h3 className="set-upgrade-title">Brand Customization</h3>
-                </div>
-                <p className="set-help-text mb-4">Add your custom logo and favicon to personalize your client galleries.</p>
-
-                <div className="set-branding-item" style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginBottom: '20px' }}>
-                    <h4 className="set-mini-label" style={{ marginBottom: '5px' }}>Logos</h4>
-                    
-                    <div style={{ display: 'flex', gap: '24px', alignItems: 'center', flexWrap: 'wrap' }}>
-                        {/* Logo */}
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                            <div
-                                className="set-upload-square"
-                                onClick={() => logoInputRef.current?.click()}
-                                style={{ position: 'relative', cursor: 'pointer', width: '120px', height: '120px', border: '1px dashed #ccc', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', backgroundColor: '#f9f9f9', borderRadius: '4px' }}
-                            >
-                                {uploadingLogo ? (
-                                    <span style={{ fontSize: '11px', color: '#666' }}>Uploading...</span>
-                                ) : profile?.logo_url ? (
-                                    <img src={profile.logo_url} alt="Logo" style={{ maxWidth: '90%', maxHeight: '90%', objectFit: 'contain' }} />
-                                ) : (
-                                    <>
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '4px' }}><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                                        <span style={{ fontSize: '11px', color: '#999', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Upload</span>
-                                    </>
-                                )}
-                            </div>
-                            <span style={{ fontSize: '11px', fontWeight: '600', color: '#555', marginTop: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>LOGO</span>
-                            {profile?.logo_url && (
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); handleLogoDelete(); }}
-                                    style={{ marginTop: '4px', fontSize: '11px', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}
-                                >
-                                    Remove
-                                </button>
-                            )}
-                            <input type="file" ref={logoInputRef} onChange={handleLogoUpload} accept="image/*" style={{ display: 'none' }} />
-                        </div>
-
-                        {/* Cover Logo */}
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                             <div
-                                className="set-upload-square"
-                                onClick={() => coverLogoInputRef.current?.click()}
-                                style={{ position: 'relative', cursor: 'pointer', width: '120px', height: '120px', border: '1px dashed #ccc', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', backgroundColor: '#fff', borderRadius: '4px' }}
-                            >
-                                {uploadingCoverLogo ? (
-                                    <span style={{ fontSize: '11px', color: '#666' }}>Uploading...</span>
-                                ) : profile?.cover_logo_url ? (
-                                    <img src={profile.cover_logo_url} alt="Cover Logo" style={{ maxWidth: '90%', maxHeight: '90%', objectFit: 'contain' }} />
-                                ) : (
-                                    <>
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#777" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '4px' }}><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                                        <span style={{ fontSize: '11px', color: '#777', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Upload</span>
-                                    </>
-                                )}
-                            </div>
-                            <span style={{ fontSize: '11px', fontWeight: '600', color: '#555', marginTop: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>COVER LOGO</span>
-                            {profile?.cover_logo_url && (
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); handleCoverLogoDelete(); }}
-                                    style={{ marginTop: '4px', fontSize: '11px', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}
-                                >
-                                    Remove
-                                </button>
-                            )}
-                            <input type="file" ref={coverLogoInputRef} onChange={handleCoverLogoUpload} accept="image/*" style={{ display: 'none' }} />
-                        </div>
-                    </div>
-
-
-
-                    <p className="set-help-text-[16px]" style={{ marginTop: '10px' }}>
-                        Your logo will be used in place of the text logo and profile icon. PNG file with transparent background is recommended. For cover logo, we recommend using a white/light color logo with transparent background for best display.
-                    </p>
-                </div>
-
-                <div className="set-branding-item mt-4" style={{ display: 'flex', alignItems: 'flex-start', gap: '20px', marginBottom: '20px' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                        <h4 className="set-mini-label" style={{ marginBottom: '5px' }}>Favicon</h4>
-                        <div
-                            className="set-upload-square"
-                            onClick={() => faviconInputRef.current?.click()}
-                            style={{ position: 'relative', cursor: 'pointer', width: '100px', height: '100px', border: '1px dashed #ccc', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderRadius: '4px', backgroundColor: '#f9f9f9' }}
-                        >
-                            {uploadingFavicon ? (
-                                <span style={{ fontSize: '11px', color: '#666' }}>Uploading...</span>
-                            ) : (profile?.favicon_url || localStorage.getItem('custom_favicon_url')) ? (
-                                <img src={profile?.favicon_url || localStorage.getItem('custom_favicon_url')} alt="Favicon" style={{ maxWidth: '32px', maxHeight: '32px', objectFit: 'contain' }} />
-                            ) : (
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                            )}
-                        </div>
-                        {(profile?.favicon_url || localStorage.getItem('custom_favicon_url')) && (
-                            <button
-                                onClick={(e) => { e.stopPropagation(); handleFaviconDelete(); }}
-                                style={{ marginTop: '4px', fontSize: '11px', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}
-                            >
-                                Remove
-                            </button>
-                        )}
-                        <input type="file" ref={faviconInputRef} onChange={handleFaviconUpload} accept="image/x-icon,image/png,image/gif" style={{ display: 'none' }} />
-                    </div>
-                    <p className="set-help-text-[16px]" style={{ flex: 1, marginTop: '25px' }}>You can upload a GIF, PNG or ICO file up to 32x32 pixels. Learn more</p>
-                </div>
-
-                <div className="set-branding-item mt-4">
-                    <h4 className="set-mini-label">PIXNXT Branding</h4>
-                    <div className="set-toggle-row">
-                        <button className={`set-toggle ${pToggle ? 'on' : 'off'}`} onClick={handleBrandingToggle}>
-                            <div className="set-toggle-handle"></div>
-                        </button>
-                        <span className="set-toggle-label">{pToggle ? 'On' : 'Off'}</span>
-                    </div>
-                    <p className="set-help-text-[16px] mt-2">Switching this off will hide PIXNXT branding from your collections and homepage.</p>
-                </div>
-            </div>
-        </div>
     );
 };
 
@@ -512,7 +269,7 @@ const WatermarkTab = ({ profile, updateProfile }) => {
                 )}
 
                 <p className="set-help-text" style={{ marginTop: '20px' }}>
-                    Protect your photos with custom watermarks. Watermarks will not appear on prints ordered through Store. <a href="https://support.pixieset.com" target="_blank" rel="noopener noreferrer" style={{ color: '#0d9488' }}>Learn more</a>
+                    Protect your photos with custom watermarks. Watermarks are stripped from anything sent to the print lab, so ordered prints stay clean. <a href="https://support.pixieset.com" target="_blank" rel="noopener noreferrer" style={{ color: '#0d9488' }}>Learn more</a>
                 </p>
             </div>
 
@@ -646,7 +403,7 @@ const PresetsTab = ({ profile }) => {
                     Add Preset
                 </div>
 
-                <p className="set-help-text mt-4">Collection presets allow you to apply default settings when creating a new collection so you don't have to make changes every time.</p>
+                <p className="set-help-text mt-4">Save a set of delivery settings once and apply it to every new wedding, so you're not repeating the same six toggles.</p>
             </div>
 
             {showAddForm && (
@@ -877,7 +634,7 @@ const EmailTemplatesTab = ({ profile }) => {
     );
 };
 
-const PreferencesTab = ({ profile, updateProfile, showToast }) => {
+const PreferencesTab = ({ profile, updateProfile }) => {
     const getInitialString = (key, fallback) => {
         if (profile && profile[key] !== undefined && profile[key] !== null) return profile[key];
         return localStorage.getItem(key) || fallback;
@@ -889,13 +646,10 @@ const PreferencesTab = ({ profile, updateProfile, showToast }) => {
     };
 
     const [rawToggle, setRawToggle] = useState(getInitialBool('raw_photo_support'));
-    const [cookieToggle, setCookieToggle] = useState(getInitialBool('cookie_banner_enabled'));
     const [language, setLanguage] = useState(getInitialString('default_language', 'english'));
     const [filenameDisplay, setFilenameDisplay] = useState(getInitialString('filename_display', 'show'));
     const [sharpening, setSharpening] = useState(getInitialString('sharpening_level', 'optimal'));
     const [uploadQuality, setUploadQuality] = useState(getInitialString('upload_quality', 'original'));
-    const [tos, setTos] = useState(getInitialString('tos_text', ''));
-    const [privacyPolicy, setPrivacyPolicy] = useState(getInitialString('privacy_policy_text', ''));
 
     const handleLanguageChange = async (val) => {
         setLanguage(val);
@@ -922,22 +676,6 @@ const PreferencesTab = ({ profile, updateProfile, showToast }) => {
         const next = !rawToggle;
         setRawToggle(next);
         localStorage.setItem('raw_photo_support', next.toString());
-    };
-
-    const handleCookieToggle = async () => {
-        const next = !cookieToggle;
-        setCookieToggle(next);
-        localStorage.setItem('cookie_banner_enabled', next.toString());
-    };
-
-    const saveTos = async () => {
-        localStorage.setItem('tos_text', tos);
-        showToast('Terms of Service saved!');
-    };
-
-    const savePrivacyPolicy = async () => {
-        localStorage.setItem('privacy_policy_text', privacyPolicy);
-        showToast('Privacy Policy saved!');
     };
 
     return (
@@ -981,7 +719,7 @@ const PreferencesTab = ({ profile, updateProfile, showToast }) => {
                         { value: 'high', label: 'High' }
                     ]}
                 />
-                <p className="set-help-text">This setting only applies to web display copies of your photos. Your originals are not altered.</p>
+                <p className="set-help-text">Applies to the versions guests view in the browser. Your uploaded files are never touched.</p>
             </div>
 
             <div className="set-section">
@@ -1006,54 +744,7 @@ const PreferencesTab = ({ profile, updateProfile, showToast }) => {
                     </button>
                     <span className="set-toggle-label">{rawToggle ? 'On' : 'Off'}</span>
                 </div>
-                <p className="set-help-text"><strong>Pro Feature:</strong> Enable RAW photos to be included in your galleries alongside other file formats.</p>
-            </div>
-
-            <div className="set-section mt-4">
-                <h3 className="set-section-title">Terms of Service</h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <RichTextEditor
-                        value={tos}
-                        onChange={(val) => setTos(val)}
-                        placeholder="Enter terms of service..."
-                    />
-                    <button
-                        onClick={saveTos}
-                        style={{ alignSelf: 'flex-start', padding: '8px 16px', backgroundColor: '#0d9488', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                    >
-                        Save TOS
-                    </button>
-                </div>
-                <p className="set-help-text">Set the Terms of service that your customers are subject to. This will be shown in the footer of your collections.</p>
-            </div>
-
-            <div className="set-section mt-4">
-                <h3 className="set-section-title">Privacy Policy</h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <RichTextEditor
-                        value={privacyPolicy}
-                        onChange={(val) => setPrivacyPolicy(val)}
-                        placeholder="Enter privacy policy..."
-                    />
-                    <button
-                        onClick={savePrivacyPolicy}
-                        style={{ alignSelf: 'flex-start', padding: '8px 16px', backgroundColor: '#0d9488', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                    >
-                        Save Privacy Policy
-                    </button>
-                </div>
-                <p className="set-help-text">Set the Privacy Policy that your customers are subject to. This will be shown in the footer of your collections.</p>
-            </div>
-
-            <div className="set-section mt-4">
-                <h3 className="set-section-title">Enable Cookie Banner</h3>
-                <div className="set-toggle-row">
-                    <button className={`set-toggle ${cookieToggle ? 'on' : 'off'}`} onClick={handleCookieToggle}>
-                        <div className="set-toggle-handle"></div>
-                    </button>
-                    <span className="set-toggle-label">{cookieToggle ? 'On' : 'Off'}</span>
-                </div>
-                <p className="set-help-text">Enable banner to notify visitors that your site uses cookies.</p>
+                <p className="set-help-text">Include RAW files alongside JPEGs in a delivery. Available on Studio and Pro.</p>
             </div>
         </div>
     );

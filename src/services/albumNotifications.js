@@ -559,7 +559,7 @@ export function buildNotificationUrl(item, album) {
     const params = new URLSearchParams();
     params.set('page', String(page));
     if (panel) params.set('panel', panel);
-    return `/smart-albums/album/${item.albumId}?${params.toString()}`;
+    return `/album-proofer/album/${item.albumId}?${params.toString()}`;
 }
 
 export const NOTIFICATION_REFRESH_EVENTS = [

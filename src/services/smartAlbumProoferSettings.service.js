@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase/client';
 import { getPublicSiteOrigin } from '../lib/publicSiteUrl';
+import { getPhotographerPublicOrigin, isCustomDomainVerified } from '../lib/customDomain';
 import { isAlbumClientApproved } from './albumProof.service';
 
 const DEFAULTS_CACHE_KEY = 'pixnxt_smart_album_proofer_defaults';
@@ -222,18 +223,30 @@ function hasCachedAlbumSettings(photographerId, albumId) {
     return Boolean(all[photographerId]?.[albumId]);
 }
 
-export function getAlbumShareDisplayUrl(album, settings) {
+export function getAlbumShareDisplayUrl(album, settings, photographerProfile = null) {
     // Prefer the full absolute URL so copied/shared links open correctly.
-    return getAlbumShareCopyUrl(album, settings);
+    return getAlbumShareCopyUrl(album, settings, photographerProfile);
 }
 
-export function getAlbumShareCopyUrl(album, settings) {
+export function getAlbumShareCopyUrl(album, settings, photographerProfile = null) {
+    let origin = getPublicSiteOrigin();
+    if (photographerProfile) {
+        if (isCustomDomainVerified(photographerProfile)) {
+            origin = getPhotographerPublicOrigin(photographerProfile);
+        } else {
+            try {
+                const studioOrigin = getPhotographerPublicOrigin(photographerProfile);
+                if (studioOrigin) origin = studioOrigin;
+            } catch {
+                /* keep platform origin */
+            }
+        }
+    }
+
     if (settings?.accessLevel === 'private') {
         const token = settings.privateShareToken || album?.id || '';
-        const origin = getPublicSiteOrigin();
         return `${origin}/album-preview/${encodeURIComponent(album?.id || '')}?token=${token}`;
     }
-    const origin = getPublicSiteOrigin();
     const slug = album?.slug || album?.id || '';
     return `${origin}/album-preview/${encodeURIComponent(slug)}`;
 }
@@ -256,7 +269,7 @@ export const smartAlbumProoferSettingsService = {
 
         try {
             const { data, error } = await supabase
-                .from('smart_album_proofer_settings')
+                .from('album_proofer_settings')
                 .select('settings')
                 .eq('photographer_id', photographerId)
                 .maybeSingle();
@@ -288,7 +301,7 @@ export const smartAlbumProoferSettingsService = {
 
         try {
             const now = new Date().toISOString();
-            const { error } = await supabase.from('smart_album_proofer_settings').upsert(
+            const { error } = await supabase.from('album_proofer_settings').upsert(
                 {
                     photographer_id: photographerId,
                     settings: next,
@@ -326,7 +339,7 @@ export const smartAlbumProoferSettingsService = {
         if (!row?.proofer_settings) {
             try {
                 const { data, error } = await supabase
-                    .from('smart_albums')
+                    .from('album_proofer_albums')
                     .select('proofer_settings, slug')
                     .eq('photographer_id', photographerId)
                     .eq('id', albumId)
@@ -366,7 +379,7 @@ export const smartAlbumProoferSettingsService = {
 
         try {
             const { data, error } = await supabase
-                .from('smart_albums')
+                .from('album_proofer_albums')
                 .update(payload)
                 .eq('photographer_id', photographerId)
                 .eq('id', albumId)

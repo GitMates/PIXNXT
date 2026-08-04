@@ -48,6 +48,7 @@ import {
     smartAlbumProoferSettingsService,
 } from '../../services/smartAlbumProoferSettings.service';
 import { ALBUM_PROOF_STATUS_CHANGED_EVENT } from '../../components/smart-albums/albumProofStatus';
+import { hydrateAlbumClientFeedback } from '../../components/smart-albums/hydrateAlbumClientFeedback';
 import { canClientLeaveFeedback } from '../../components/smart-albums/albumProoferPreview';
 import AlbumPreviewGuestNamePrompt from '../../components/smart-albums/AlbumPreviewGuestNamePrompt';
 import './AlbumViewer.css';
@@ -216,12 +217,17 @@ export default function AlbumPreview({
         () => album?.preview_data?.business_name?.trim() || ''
     );
     const [profileIconUrl, setProfileIconUrl] = useState(
-        () => album?.preview_data?.profile_icon_url?.trim() || ''
+        () =>
+            album?.preview_data?.logo_url?.trim() ||
+            album?.preview_data?.profile_icon_url?.trim() ||
+            ''
     );
+    const [studioFaviconUrl, setStudioFaviconUrl] = useState('');
     const [profileBrandResolved, setProfileBrandResolved] = useState(
         () =>
             Boolean(
-                album?.preview_data?.profile_icon_url?.trim() ||
+                album?.preview_data?.logo_url?.trim() ||
+                    album?.preview_data?.profile_icon_url?.trim() ||
                     album?.preview_data?.business_name?.trim()
             )
     );
@@ -308,16 +314,11 @@ export default function AlbumPreview({
 
     useEffect(() => {
         const fromSnapshotName = album?.preview_data?.business_name?.trim();
-        const fromSnapshotIcon = album?.preview_data?.profile_icon_url?.trim();
+        const fromSnapshotLogo =
+            album?.preview_data?.logo_url?.trim() ||
+            album?.preview_data?.profile_icon_url?.trim();
         if (fromSnapshotName) setBusinessName(fromSnapshotName);
-        if (fromSnapshotIcon) setProfileIconUrl(fromSnapshotIcon);
-        if (fromSnapshotName && fromSnapshotIcon) {
-            setProfileBrandResolved(true);
-            return undefined;
-        }
-        if (fromSnapshotIcon) {
-            setProfileBrandResolved(true);
-        }
+        if (fromSnapshotLogo) setProfileIconUrl(fromSnapshotLogo);
 
         const photographerId = album?.photographer_id;
         if (!photographerId) {
@@ -337,8 +338,17 @@ export default function AlbumPreview({
                         [profile.first_name, profile.last_name].filter(Boolean).join(' ').trim();
                     if (name) setBusinessName(name);
                 }
-                if (!fromSnapshotIcon && profile.profile_icon_url?.trim()) {
-                    setProfileIconUrl(profile.profile_icon_url.trim());
+                // Studio identity logo first; Account profile icon as fallback
+                if (!fromSnapshotLogo) {
+                    const brandSrc =
+                        profile.logo_url?.trim() || profile.profile_icon_url?.trim() || '';
+                    if (brandSrc) setProfileIconUrl(brandSrc);
+                }
+                if (profile.favicon_url?.trim()) {
+                    setStudioFaviconUrl(profile.favicon_url.trim());
+                } else {
+                    const localFav = localStorage.getItem('custom_favicon_url');
+                    if (localFav) setStudioFaviconUrl(localFav);
                 }
             })
             .catch(() => {})
@@ -352,8 +362,42 @@ export default function AlbumPreview({
     }, [
         album?.photographer_id,
         album?.preview_data?.business_name,
+        album?.preview_data?.logo_url,
         album?.preview_data?.profile_icon_url,
     ]);
+
+    useEffect(() => {
+        if (!studioFaviconUrl) return undefined;
+
+        const link = document.querySelector("link[rel*='icon']");
+        const originalHref = link ? link.getAttribute('href') : '/logo.png';
+        const originalType = link ? link.getAttribute('type') : 'image/png';
+        const faviconUrl = studioFaviconUrl;
+
+        if (link) {
+            link.href = faviconUrl;
+            if (faviconUrl.endsWith('.png')) link.type = 'image/png';
+            else if (faviconUrl.endsWith('.gif')) link.type = 'image/gif';
+            else if (faviconUrl.endsWith('.ico')) link.type = 'image/x-icon';
+        } else {
+            const newLink = document.createElement('link');
+            newLink.rel = 'icon';
+            newLink.href = faviconUrl;
+            if (faviconUrl.endsWith('.png')) newLink.type = 'image/png';
+            else if (faviconUrl.endsWith('.gif')) newLink.type = 'image/gif';
+            else if (faviconUrl.endsWith('.ico')) newLink.type = 'image/x-icon';
+            document.head.appendChild(newLink);
+        }
+
+        return () => {
+            const activeLink = document.querySelector("link[rel*='icon']");
+            if (activeLink) {
+                activeLink.href = originalHref;
+                if (originalType) activeLink.type = originalType;
+                else activeLink.removeAttribute('type');
+            }
+        };
+    }, [studioFaviconUrl]);
 
     useEffect(() => {
         if (!profileIconUrl) return undefined;
@@ -375,6 +419,25 @@ export default function AlbumPreview({
     useEffect(() => {
         loadSpreadComments();
     }, [loadSpreadComments]);
+
+    useEffect(() => {
+        if (!albumId) return undefined;
+        let cancelled = false;
+        const guest = getGuestProfile(albumId);
+        const viewerKey = guest?.email?.trim() || guest?.name?.trim() || 'default';
+        void hydrateAlbumClientFeedback(albumId, {
+            viewerRole: 'client',
+            viewerKey,
+        }).then(() => {
+            if (cancelled) return;
+            setPhotoPins(getPhotoPins(albumId));
+            setSwapMarks(getSwapMarks(albumId));
+            void loadSpreadComments();
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [albumId, loadSpreadComments]);
 
     useEffect(() => {
         if (!albumId) return undefined;

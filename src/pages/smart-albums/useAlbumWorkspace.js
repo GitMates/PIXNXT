@@ -179,7 +179,7 @@ export function useAlbumWorkspace() {
                 next.set('view', view);
             }
             const qs = next.toString();
-            navigate(`/smart-albums/album/${albumId}${qs ? `?${qs}` : ''}`, { replace: true });
+            navigate(`/album-proofer/album/${albumId}${qs ? `?${qs}` : ''}`, { replace: true });
         },
         [navigate, albumId, searchParams]
     );
@@ -364,7 +364,7 @@ export function useAlbumWorkspace() {
             const next = new URLSearchParams(searchParams);
             next.delete('view');
             const qs = next.toString();
-            navigate(`/smart-albums/album/${albumId}${qs ? `?${qs}` : ''}`, { replace: true });
+            navigate(`/album-proofer/album/${albumId}${qs ? `?${qs}` : ''}`, { replace: true });
         }
     }, [searchParams, navigate, albumId]);
 

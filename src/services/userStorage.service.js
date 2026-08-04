@@ -16,7 +16,7 @@ function safePathSegment(value, fallback = 'item') {
  * - clientgallery
  * - guestdelivery
  * - mobilegallery
- * - smart-album / smart-albums
+ * - album-proofer (and legacy smart-album / smart-albums paths)
  */
 export const userStorageService = {
   async calculateUserStorageBytes(user, profile) {
@@ -69,7 +69,14 @@ export const userStorageService = {
         }
       } catch (err) {
         // Explicit module subfolders fallback
-        const modules = ['clientgallery', 'guestdelivery', 'mobilegallery', 'smart-album', 'smart-albums'];
+        const modules = [
+          'clientgallery',
+          'guestdelivery',
+          'mobilegallery',
+          'album-proofer',
+          'smart-album',
+          'smart-albums',
+        ];
         for (const mod of modules) {
           try {
             const objects = await storageService.listByPrefix(`users/${folder}/${mod}/`, { maxKeys: 5000 });

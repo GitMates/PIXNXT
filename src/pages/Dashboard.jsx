@@ -184,13 +184,13 @@ const products = [
     ],
   },
   {
-    name: 'Smart Albums',
+    name: 'Album Proofer',
     color: 'purple',
-    icon: <img src={smartAlbumsGif} alt="Smart Albums" className="dash-product-image-gif" loading="lazy" decoding="async" />,
-    route: '/smart-albums',
+    icon: <img src={smartAlbumsGif} alt="Album Proofer" className="dash-product-image-gif" loading="lazy" decoding="async" />,
+    route: '/album-proofer',
     links: [
-      { label: 'Manage Albums', path: '/smart-albums' },
-      { label: 'Create Album', path: '/smart-albums/create' },
+      { label: 'Manage Albums', path: '/album-proofer' },
+      { label: 'Create Album', path: '/album-proofer/create' },
     ],
   },
   {
@@ -334,7 +334,7 @@ const Dashboard = () => {
                 </div>
                 <div className="dash-dropdown-items">
                   <button className="dash-dropdown-item">
-                    <GiftIcon /> Invite Friends & Get $20
+                    <GiftIcon /> Refer a studio · ₹1,500
                   </button>
                   <div className="dash-dropdown-divider" />
                   <button className="dash-dropdown-item">
@@ -438,8 +438,8 @@ const Dashboard = () => {
                 <img src={recentOrdersGif} alt="Recent Orders" /> RECENT ORDERS
               </div>
               <div className="dash-quick-card-body">
-                <h3>Setup your 24/7 Print Lab</h3>
-                <p>Launch your online store in 4 easy steps</p>
+                <h3>Start selling prints</h3>
+                <p>Four steps to turn a delivery into an order.</p>
                 <button className="dash-get-started-btn">Get Started</button>
               </div>
             </div>
@@ -461,8 +461,8 @@ const Dashboard = () => {
                 <img src={referAFriendGif} alt="Refer a Friend" /> REFER A FRIEND
               </div>
               <div className="dash-quick-card-body">
-                <h3>Invite friends & get $20</h3>
-                <p>Earn referral credits for every friend you refer</p>
+                <h3>Refer a studio</h3>
+                <p>Both of you get ₹1,500 in credit — once they publish their first delivery.</p>
                 <button className="dash-get-started-btn" onClick={() => navigate('/account/refer')}>
                   Refer a Friend
                 </button>
@@ -478,18 +478,17 @@ const Dashboard = () => {
               </div>
               <h3>We're Here for You</h3>
               <p>
-                Ask questions, browse articles & find answers. Visit the{' '}
-                <a href="#">Pixnxt Help Center</a>.
+                Stuck on something? Search the guides, or message us — we reply in a few hours, IST.
               </p>
             </div>
             <div className="dash-footer-block">
               <div className="dash-footer-block-icon">
-                <img src={heartPng} alt="Invite Friends" />
+                <img src={heartPng} alt="Refer a studio" />
               </div>
-              <h3>Invite friends & get $20</h3>
+              <h3>Refer a studio</h3>
               <p>
-                Spread the love and earn referral credits for every friend you refer.{' '}
-                <a href="#">Invite friends now</a>.
+                Both of you get ₹1,500 in credit — once they publish their first delivery.{' '}
+                <a href="#">Refer a studio</a>.
               </p>
             </div>
           </div>

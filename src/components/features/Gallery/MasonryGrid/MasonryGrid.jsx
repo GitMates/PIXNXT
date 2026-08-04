@@ -55,7 +55,11 @@ export function MasonryGrid({
   packagePickLimit = 0,
 }) {
   const [dynamicAspectRatios, setDynamicAspectRatios] = useState({});
-  const [colsCount, setColsCount] = useState(customColumnCount || 3);
+  const [colsCount, setColsCount] = useState(() => {
+    if (customColumnCount != null) return customColumnCount;
+    if (typeof window !== 'undefined') return getGalleryMasonryColumnCount(window.innerWidth);
+    return 3;
+  });
 
   const displayPhotos = useMemo(() => {
     const hasInlineBanner = !!(activeCampaign?.banners?.photo_banner?.enabled || activeCampaign?.banners?.store_rotator?.enabled);
@@ -724,7 +728,11 @@ export function MasonryGrid({
           ) : (
             <SmoothMediaImage
               src={src}
-              thumbSrc={resolveMediaUrl(photo.watermarked_url || photo.thumbnail_url || photo.web_url || photo.full_url || '')}
+              thumbSrc={
+                photo.thumbnail_url
+                  ? resolveMediaUrl(photo.thumbnail_url)
+                  : undefined
+              }
               alt={photo.filename || `Gallery image ${index + 1}`}
               wrapClassName="gallery-masonry-media"
               objectFit="cover"
