@@ -1560,27 +1560,10 @@
   overscroll-behavior: contain;
 }
 
-/* Keep preview nav arrows fully visible beside the spread (clear of sidebar clip) */
+/* Preview nav arrows are positioned dynamically against the spread (see AlbumBook). */
 .av-preview-main .ab-root--preview .ab-nav {
-  position: fixed;
-  top: 50%;
-  transform: translateY(-50%);
+  position: absolute;
   z-index: 46;
-}
-
-.av-preview-main .ab-root--preview .ab-nav:hover:not(:disabled) {
-  transform: translateY(-50%) scale(1.05);
-}
-
-.av-preview-main .ab-root--preview .ab-nav--prev {
-  left: 14px;
-  right: auto;
-}
-
-.av-preview-main .ab-root--preview .ab-nav--next {
-  /* Clear the 320px sidebar + divider; sit in the book gutter like the left arrow */
-  right: calc(320px + 52px);
-  left: auto;
 }
 
 .av-preview-footer {
@@ -1663,8 +1646,8 @@
   height: 100%;
   min-height: 0;
   overflow: hidden;
-  /* Side padding reserves gutter so spread stays clear of nav hit targets */
-  padding: 4px 72px 8px;
+  /* Side gutters: room for 58px arrows + gap outside the spread */
+  padding: 4px 76px 8px;
   box-sizing: border-box;
 }
 
