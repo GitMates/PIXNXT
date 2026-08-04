@@ -151,7 +151,7 @@ serve(async (req) => {
         submitted_at,
         session_id,
         collection_id,
-        collections!inner (
+        deliveries!inner (
           id,
           name,
           slug,
@@ -171,13 +171,13 @@ serve(async (req) => {
       });
     }
 
-    const collectionRaw = list.collections as
+    const collectionRaw = list.deliveries as
       | { id: string; name: string; slug: string; photographer_id: string }
       | { id: string; name: string; slug: string; photographer_id: string }[];
     const collection = Array.isArray(collectionRaw) ? collectionRaw[0] : collectionRaw;
 
     if (!collection?.slug) {
-      return new Response(JSON.stringify({ error: 'Collection not found' }), {
+      return new Response(JSON.stringify({ error: 'Delivery not found' }), {
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -209,7 +209,7 @@ serve(async (req) => {
 
     const origin = (siteOrigin || Deno.env.get('PUBLIC_SITE_URL') || '').replace(/\/$/, '');
     const selectionsUrl = `${origin}/gallery/${collection.slug}?list=${listId}`;
-    const dashboardUrl = `${origin}/collections/manage?id=${collection.id}`;
+    const dashboardUrl = `${origin}/deliveries/manage?id=${collection.id}`;
 
     const visitorEmail = session?.visitor_email || 'A client';
     const photographerName = photographer.display_name || 'Photographer';

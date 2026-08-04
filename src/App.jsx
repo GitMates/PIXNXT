@@ -22,7 +22,7 @@ import CollectionShare from './pages/CollectionShare';
 import PhotoLibrary from './pages/PhotoLibrary';
 import GetStarted from './pages/GetStarted';
 import Starred from './pages/Starred';
-import Homepage from './pages/Homepage';
+import Showcase from './pages/Showcase';
 import Settings from './pages/Settings';
 import AccountSettings from './pages/AccountSettings';
 import AuthPage from './pages/AuthPage';
@@ -152,17 +152,15 @@ function App() {
     location.pathname.startsWith('/guest-delivery') ||
     location.pathname.startsWith('/portal') ||
     location.pathname.startsWith('/folders/') ||
-    location.pathname === '/collections/create' ||
+    location.pathname.startsWith('/deliveries') ||
+    location.pathname.startsWith('/collections') ||
     location.pathname === '/folders/create' ||
-    location.pathname === '/collections/manage' ||
-    location.pathname === '/collections/manage/share' ||
     location.pathname === '/photos' ||
-    location.pathname === '/collections/get-started' ||
     location.pathname.startsWith('/starred') ||
+    location.pathname === '/showcase' ||
     location.pathname === '/homepage' ||
     location.pathname.startsWith('/settings') ||
     location.pathname.startsWith('/account') ||
-    location.pathname === '/collections' ||
     location.pathname.startsWith('/gallery/') ||
     location.pathname.startsWith('/m/') ||
     location.pathname.startsWith('/e/') ||
@@ -251,9 +249,11 @@ function App() {
           <Route path="/guest-delivery/*" element={<ProtectedRoute><GuestDelivery /></ProtectedRoute>} />
           <Route path="/portal/*" element={<ProtectedRoute><PixnxtPortal /></ProtectedRoute>} />
           <Route path="/photos" element={<ProtectedRoute><PhotoLibrary /></ProtectedRoute>} />
-          <Route path="/starred" element={<ProtectedRoute><Navigate to="/starred/collections" replace /></ProtectedRoute>} />
+          <Route path="/starred" element={<ProtectedRoute><Navigate to="/starred/deliveries" replace /></ProtectedRoute>} />
+          <Route path="/starred/collections" element={<ProtectedRoute><Navigate to="/starred/deliveries" replace /></ProtectedRoute>} />
           <Route path="/starred/:tab" element={<ProtectedRoute><Starred /></ProtectedRoute>} />
-          <Route path="/homepage" element={<Homepage />} />
+          <Route path="/showcase" element={<ProtectedRoute><Showcase /></ProtectedRoute>} />
+          <Route path="/homepage" element={<Navigate to="/showcase" replace />} />
           <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
           <Route path="/settings/:tab" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
           <Route path="/settings/presets/:id" element={<ProtectedRoute><PresetEditor /></ProtectedRoute>} />
@@ -263,12 +263,12 @@ function App() {
           <Route path="/settings/email-templates/:id/edit" element={<ProtectedRoute><EmailTemplateEditor /></ProtectedRoute>} />
           <Route path="/account" element={<ProtectedRoute><Navigate to="/account/profile" replace /></ProtectedRoute>} />
           <Route path="/account/:tab" element={<ProtectedRoute><AccountSettings /></ProtectedRoute>} />
-          <Route path="/collections/get-started" element={<ProtectedRoute><GetStarted /></ProtectedRoute>} />
-          <Route path="/collections/create" element={<ProtectedRoute><CreateCollection /></ProtectedRoute>} />
+          <Route path="/deliveries/get-started" element={<ProtectedRoute><GetStarted /></ProtectedRoute>} />
+          <Route path="/deliveries/create" element={<ProtectedRoute><CreateCollection /></ProtectedRoute>} />
           <Route path="/folders/create" element={<ProtectedRoute><CreateFolder /></ProtectedRoute>} />
           <Route path="/folders/:folderId" element={<ProtectedRoute><FolderView /></ProtectedRoute>} />
           <Route
-            path="/collections/manage"
+            path="/deliveries/manage"
             element={
               <ProtectedRoute>
                 <ErrorBoundary>
@@ -278,7 +278,7 @@ function App() {
             }
           />
           <Route
-            path="/collections/manage/share"
+            path="/deliveries/manage/share"
             element={
               <ProtectedRoute>
                 <ErrorBoundary>
@@ -287,7 +287,17 @@ function App() {
               </ProtectedRoute>
             }
           />
-          <Route path="/collections" element={<CollectionList />} />
+          <Route path="/deliveries" element={<CollectionList />} />
+          <Route
+            path="/collections/*"
+            element={
+              <Navigate
+                to={location.pathname.replace(/^\/collections/, '/deliveries') + location.search}
+                replace
+              />
+            }
+          />
+          <Route path="/collections" element={<Navigate to="/deliveries" replace />} />
           <Route path="/gallery/:slug/f" element={<GalleryFavoritesHub />} />
           <Route path="/gallery/:slug" element={<GalleryView />} />
           <Route path="/m/:slug/pwa" element={<MobileGalleryClient />} />

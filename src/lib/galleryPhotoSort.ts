@@ -17,7 +17,7 @@ const VALID_SORTS = new Set<DashboardPhotoSort>([
 ]);
 
 /**
- * Maps `collections.gallery_photo_sort`, dashboard props, or legacy strings
+ * Maps `deliveries.gallery_photo_sort`, dashboard props, or legacy strings
  * to a canonical sort key used by the public gallery and preview.
  */
 export function normalizeGalleryPhotoSort(

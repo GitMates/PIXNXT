@@ -37,7 +37,7 @@ const AuthPage = () => {
           </h1>
           <p className="auth-page__subtitle">
             {isLogin
-              ? 'Log in to manage your photography collections and galleries.'
+              ? 'Log in to manage your photography deliveries and galleries.'
               : 'Create an account to start showcasing your best work to the world.'}
           </p>
         </div>

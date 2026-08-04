@@ -132,7 +132,7 @@ const EmailTemplateEditor = () => {
     }
 
     const resolvedPreviewBody = resolveTemplateBody(body, {
-        collectionName: '[COLLECTION NAME]',
+        collectionName: '[DELIVERY NAME]',
         daysPrior: '7 days',
         expiryDate: 'October 30, 2026'
     });
@@ -208,15 +208,15 @@ const EmailTemplateEditor = () => {
                             <div className="ete-help-content">
                                 <p style={{ marginBottom: '16px' }}>Use the following codes to insert dynamic information into the email.</p>
                                 <div className="ete-help-row">
-                                    <div className="ete-help-label">Collection Name:</div>
-                                    <div className="ete-help-code">{'{collection.name}'}</div>
+                                    <div className="ete-help-label">Delivery Name:</div>
+                                    <div className="ete-help-code">{'{delivery.name}'}</div>
                                 </div>
                                 <div className="ete-help-row">
                                     <div className="ete-help-label">Days before Expiry Date:</div>
                                     <div className="ete-help-code">{'{days.prior}'}</div>
                                 </div>
                                 <div className="ete-help-row">
-                                    <div className="ete-help-label">Collection Expiry Date:</div>
+                                    <div className="ete-help-label">Delivery Expiry Date:</div>
                                     <div className="ete-help-code">{'{expiry.date}'}</div>
                                 </div>
                             </div>
@@ -228,12 +228,12 @@ const EmailTemplateEditor = () => {
                     <div className="ete-preview-email">
                         <div className="ete-preview-content">
                             <div className="ete-preview-logo">PHOTOGRAPHER</div>
-                            <div className="ete-preview-title">[COLLECTION NAME]</div>
+                            <div className="ete-preview-title">[DELIVERY NAME]</div>
                             
                             <img 
                                 className="ete-preview-image" 
                                 src="/workflow-adventure.jpg" 
-                                alt="Sample Collection Cover" 
+                                alt="Sample Delivery Cover" 
                             />
                             
                             <div className="ete-preview-text-block">

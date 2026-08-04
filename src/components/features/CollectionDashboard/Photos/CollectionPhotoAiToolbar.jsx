@@ -221,7 +221,7 @@ export function CollectionPhotoAiToolbar({
                 ? 'After you run the SQL migrations in Supabase, upload photos to detect people automatically.'
                 : analyzing
                   ? 'Detecting faces in your photos…'
-                  : 'No people detected yet. Upload photos to this collection and faces will be grouped automatically.'}
+                  : 'No people detected yet. Upload photos to this delivery and faces will be grouped automatically.'}
             </p>
           )}
         </div>

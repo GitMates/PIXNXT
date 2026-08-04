@@ -155,7 +155,7 @@
   background: oklch(0 0 0 / 0.12);
 }
 
-/* Shared sub-page form fields (Homepage, Settings) */
+/* Shared sub-page form fields (Showcase, Settings) */
 .cg-field-group {
   display: flex;
   flex-direction: column;
@@ -273,10 +273,10 @@
 
 .theme-mono .cg-field-shell.neu-inset .set-input,
 .theme-mono .set-input-wrap.cg-field-shell.neu-inset .set-input,
-.theme-mono .cg-field-shell.neu-inset .hp-input,
-.theme-mono .hp-input-wrap.cg-field-shell.neu-inset .hp-input,
-.theme-mono .cg-field-shell.neu-inset .hp-input-read,
-.theme-mono .hp-input-wrap.cg-field-shell.neu-inset .hp-input-read,
+.theme-mono .cg-field-shell.neu-inset .sc-input,
+.theme-mono .sc-input-wrap.cg-field-shell.neu-inset .sc-input,
+.theme-mono .cg-field-shell.neu-inset .sc-input-read,
+.theme-mono .sc-input-wrap.cg-field-shell.neu-inset .sc-input-read,
 .theme-mono .cg-field-shell.neu-inset .mg-field-input,
 .theme-mono .cg-field-shell.neu-inset .mg-share-input,
 .theme-mono .cg-field-shell.neu-inset .mg-app-settings-input,
@@ -326,8 +326,8 @@
   display: none;
 }
 
-.theme-mono .cg-field-shell-textarea.neu-inset .hp-textarea,
-.theme-mono .hp-textarea-wrap.cg-field-shell-textarea.neu-inset .hp-textarea,
+.theme-mono .cg-field-shell-textarea.neu-inset .sc-textarea,
+.theme-mono .sc-textarea-wrap.cg-field-shell-textarea.neu-inset .sc-textarea,
 .theme-mono .cg-field-shell-textarea.neu-inset .mg-share-textarea {
   width: 100%;
   background: transparent;
@@ -372,12 +372,12 @@
     inset -3px -3px 7px oklch(1 0.004 85 / 0.85);
 }
 
-.theme-mono .hp-textarea-wrap.cg-field-shell-textarea.neu-inset .hp-textarea {
+.theme-mono .sc-textarea-wrap.cg-field-shell-textarea.neu-inset .sc-textarea {
   min-height: 100px;
   line-height: 1.55;
 }
 
-.theme-mono .hp-textarea-wrap.cg-field-shell-textarea.neu-inset .hp-char-count {
+.theme-mono .sc-textarea-wrap.cg-field-shell-textarea.neu-inset .sc-char-count {
   color: #71717a;
   font-size: 0.8125rem;
 }

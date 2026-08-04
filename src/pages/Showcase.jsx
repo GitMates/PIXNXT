@@ -4,15 +4,15 @@ import { ClientGalleryPageShell } from '../components/features/ClientGallery/Cli
 import { ClientGallerySelect } from '../components/features/ClientGallery/ClientGallerySelect';
 import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
-import './Homepage.css';
+import './Showcase.css';
 import './ClientGallery.css';
 import imageIconPlaceholder from '../assets/icons/image icon.png';
 
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-const buildHomepageUrl = (profile, user) => {
-    const slug = (profile?.homepage_slug || user?.email?.split('@')[0] || 'poojz').toLowerCase();
+const buildShowcaseUrl = (profile, user) => {
+    const slug = (profile?.showcase_slug || user?.email?.split('@')[0] || 'poojz').toLowerCase();
     const host = window.location.host; // includes port
     const protocol = window.location.protocol;
     
@@ -40,7 +40,7 @@ const formatEventDate = (dateStr) => {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-const Homepage = () => {
+const Showcase = () => {
     const { user } = useAuth();
 
     // Remote data
@@ -67,7 +67,7 @@ const Homepage = () => {
     const [password, setPassword] = useState('');
     const [collectionSort, setCollectionSort] = useState('created-new');
 
-    // Homepage info checkboxes (which fields to display publicly)
+    // Showcase info checkboxes (which fields to display publicly)
     const [showBio, setShowBio] = useState(true);
     const [showSocial, setShowSocial] = useState(true);
     const [showWebsite, setShowWebsite] = useState(false);
@@ -86,10 +86,10 @@ const Homepage = () => {
             .then((data) => {
                 setProfile(data);
                 // Seed editable fields from DB
-                setStatusOn(data?.homepage_enabled ?? true);
+                setStatusOn(data?.showcase_enabled ?? true);
                 setBio(data?.biography || data?.bio || '');
-                setPassword(data?.homepage_password || '');
-                setCollectionSort(data?.homepage_sort || 'created-new');
+                setPassword(data?.showcase_password || '');
+                setCollectionSort(data?.showcase_sort || 'created-new');
                 setShowBio(data?.show_bio ?? true);
                 setShowSocial(data?.show_social ?? true);
                 setShowWebsite(data?.show_website ?? false);
@@ -110,7 +110,7 @@ const Homepage = () => {
         setCollectionsLoading(true);
         galleryService.getCollections(user.id)
             .then((data) => setCollections(data || []))
-            .catch((err) => console.error('Failed to load collections:', err))
+            .catch((err) => console.error('Failed to load deliveries:', err))
             .finally(() => setCollectionsLoading(false));
     }, [user?.id]);
 
@@ -119,7 +119,7 @@ const Homepage = () => {
         const handleUsernameChanged = (e) => {
             const newSlug = e.detail?.slug;
             if (newSlug) {
-                setProfile((prev) => ({ ...(prev || {}), homepage_slug: newSlug }));
+                setProfile((prev) => ({ ...(prev || {}), showcase_slug: newSlug }));
             }
         };
         window.addEventListener('pixnxt:username-changed', handleUsernameChanged);
@@ -129,7 +129,7 @@ const Homepage = () => {
     // ── Sorted preview collections ───────────────────────────────────────────
     const previewCollections = React.useMemo(() => {
         // First get published collections
-        let list = collections.filter((c) => c.status === 'published' && c.show_on_homepage !== false);
+        let list = collections.filter((c) => c.status === 'published' && c.show_on_showcase !== false);
         
         // If we have fewer than 6, fill with any other available collections to fully populate the mockup with real data!
         if (list.length < 6) {
@@ -173,11 +173,11 @@ const Homepage = () => {
         try {
             const current = stateRef.current;
             const updates = {
-                homepage_enabled: overrides.hasOwnProperty('homepage_enabled') ? overrides.homepage_enabled : current.statusOn,
+                showcase_enabled: overrides.hasOwnProperty('showcase_enabled') ? overrides.showcase_enabled : current.statusOn,
                 bio: overrides.hasOwnProperty('bio') ? overrides.bio : current.bio,
                 biography: overrides.hasOwnProperty('bio') ? overrides.bio : current.bio,
-                homepage_password: overrides.hasOwnProperty('homepage_password') ? overrides.homepage_password : current.password,
-                homepage_sort: overrides.hasOwnProperty('homepage_sort') ? overrides.homepage_sort : current.collectionSort,
+                showcase_password: overrides.hasOwnProperty('showcase_password') ? overrides.showcase_password : current.password,
+                showcase_sort: overrides.hasOwnProperty('showcase_sort') ? overrides.showcase_sort : current.collectionSort,
                 show_bio: overrides.hasOwnProperty('show_bio') ? overrides.show_bio : current.showBio,
                 show_social: overrides.hasOwnProperty('show_social') ? overrides.show_social : current.showSocial,
                 show_website: overrides.hasOwnProperty('show_website') ? overrides.show_website : current.showWebsite,
@@ -189,7 +189,7 @@ const Homepage = () => {
             // Normalize values
             if (typeof updates.bio === 'string') updates.bio = updates.bio.trim() || null;
             if (typeof updates.biography === 'string') updates.biography = updates.biography.trim() || null;
-            if (typeof updates.homepage_password === 'string') updates.homepage_password = updates.homepage_password.trim() || null;
+            if (typeof updates.showcase_password === 'string') updates.showcase_password = updates.showcase_password.trim() || null;
 
             const updated = await galleryService.updatePhotographerProfile(user.id, updates);
             setProfile((prev) => ({ ...prev, ...updated }));
@@ -232,7 +232,7 @@ const Homepage = () => {
         for (let i = 0; i < 10; i++) pwd += chars[Math.floor(Math.random() * chars.length)];
         setPassword(pwd);
         setShowPassword(true); // show generated password as plain text
-        autoSave({ homepage_password: pwd }, true);
+        autoSave({ showcase_password: pwd }, true);
     };
 
     // ── Copy password ─────────────────────────────────────────────────────────
@@ -248,12 +248,12 @@ const Homepage = () => {
     const handleClearPassword = () => {
         setPassword('');
         setShowPassword(false);
-        autoSave({ homepage_password: '' }, true);
+        autoSave({ showcase_password: '' }, true);
     };
 
     // ── Copy URL ─────────────────────────────────────────────────────────────
     const handleCopyUrl = useCallback(() => {
-        const url = buildHomepageUrl(profile, user);
+        const url = buildShowcaseUrl(profile, user);
         navigator.clipboard.writeText(url).then(() => {
             setCopyDone(true);
             setTimeout(() => setCopyDone(false), 2000);
@@ -262,7 +262,7 @@ const Homepage = () => {
 
     // ── View site ─────────────────────────────────────────────────────────────
     const handleViewSite = () => {
-        const targetUrl = buildHomepageUrl(profile, user);
+        const targetUrl = buildShowcaseUrl(profile, user);
         window.open(targetUrl, '_blank');
     };
 
@@ -273,14 +273,14 @@ const Homepage = () => {
     const displayAddress = [profile?.address_line_1, profile?.city, profile?.state_province].filter(Boolean).join(', ') || '';
     const displayWebsite = profile?.website || '';
 
-    const homepageUrl = buildHomepageUrl(profile, user);
+    const showcaseUrl = buildShowcaseUrl(profile, user);
 
     // ─── Render ───────────────────────────────────────────────────────────────
     return (
         <SidebarLayout>
             <ClientGalleryPageShell
-                title="Homepage"
-                subtitle="Manage your public photographer homepage and showcase collections."
+                title="Showcase"
+                subtitle="Manage your public photographer showcase and featured deliveries."
                 actions={(
                     <button
                         type="button"
@@ -294,52 +294,52 @@ const Homepage = () => {
                 contentClassName="pt-2"
             >
                 {error && (
-                    <div className="hp-error-banner">{error}</div>
+                    <div className="sc-error-banner">{error}</div>
                 )}
 
                 {!user && (
-                    <div className="hp-loading">
-                        <span className="text-sm text-[#71717A]">Please log in to view and edit your homepage settings.</span>
+                    <div className="sc-loading">
+                        <span className="text-sm text-[#71717A]">Please log in to view and edit your showcase settings.</span>
                     </div>
                 )}
 
                 {profileLoading && user ? (
-                    <div className="hp-loading">
-                        <div className="hp-loading-spinner" />
+                    <div className="sc-loading">
+                        <div className="sc-loading-spinner" />
                         <span>Loading your profile…</span>
                     </div>
                 ) : user ? (
-                    <div className="hp-content">
+                    <div className="sc-content">
                         {/* ── LEFT COLUMN ── */}
-                        <div className="hp-left-col">
+                        <div className="sc-left-col">
 
-                            {/* Homepage Status */}
-                            <div className="hp-form-group">
-                                <label className="hp-label">Homepage Status</label>
-                                <div className="hp-toggle-row">
+                            {/* Showcase Status */}
+                            <div className="sc-form-group">
+                                <label className="sc-label">Showcase Status</label>
+                                <div className="sc-toggle-row">
                                     <button
-                                        className={`hp-toggle ${statusOn ? 'on' : 'off'}`}
+                                        className={`sc-toggle ${statusOn ? 'on' : 'off'}`}
                                         onClick={() => {
                                             const nextVal = !statusOn;
                                             setStatusOn(nextVal);
-                                            autoSave({ homepage_enabled: nextVal }, true);
+                                            autoSave({ showcase_enabled: nextVal }, true);
                                         }}
                                     >
-                                        <div className="hp-toggle-handle"></div>
+                                        <div className="sc-toggle-handle"></div>
                                     </button>
-                                    <span className="hp-toggle-label">{statusOn ? 'On' : 'Off'}</span>
+                                    <span className="sc-toggle-label">{statusOn ? 'On' : 'Off'}</span>
                                 </div>
-                                <p className="hp-help-text">
-                                    Your Homepage is a public page where your collections are listed. You can also select which collections will be shown here under each collection's setting. <a href="#learn">Learn more</a>
+                                <p className="sc-help-text">
+                                    Your Showcase is a public page where your deliveries are listed. You can also select which deliveries will be shown here under each delivery's setting. <a href="#learn">Learn more</a>
                                 </p>
                             </div>
 
-                            {/* Homepage URL */}
-                            <div className="hp-form-group">
-                                <label className="hp-label">Homepage URL</label>
-                                <div className="hp-input-wrap neu-inset cg-field-shell">
-                                    <div className="hp-input-read">{homepageUrl}</div>
-                                    <button className="hp-input-action-btn" onClick={handleCopyUrl}>
+                            {/* Showcase URL */}
+                            <div className="sc-form-group">
+                                <label className="sc-label">Showcase URL</label>
+                                <div className="sc-input-wrap neu-inset cg-field-shell">
+                                    <div className="sc-input-read">{showcaseUrl}</div>
+                                    <button className="sc-input-action-btn" onClick={handleCopyUrl}>
                                         {copyDone ? (
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
                                         ) : (
@@ -350,28 +350,28 @@ const Homepage = () => {
                                 </div>
                             </div>
 
-                            {/* Homepage Password */}
-                            <div className="hp-form-group">
-                                <label className="hp-label">Homepage Password</label>
-                                <div className="hp-input-wrap neu-inset cg-field-shell">
+                            {/* Showcase Password */}
+                            <div className="sc-form-group">
+                                <label className="sc-label">Showcase Password</label>
+                                <div className="sc-input-wrap neu-inset cg-field-shell">
                                     <input
                                         type={showPassword ? 'text' : 'password'}
-                                        className="hp-input"
+                                        className="sc-input"
                                         placeholder="Add a password"
                                         value={password}
                                         onChange={(e) => {
                                             const val = e.target.value;
                                             setPassword(val);
-                                            autoSave({ homepage_password: val }, false);
+                                            autoSave({ showcase_password: val }, false);
                                         }}
                                     />
 
                                     {password ? (
                                         /* Password exists: show eye-slash toggle + copy icon */
-                                        <div className="hp-pw-actions">
+                                        <div className="sc-pw-actions">
                                             {/* Eye / Eye-slash toggle */}
                                             <button
-                                                className="hp-pw-icon-btn"
+                                                className="sc-pw-icon-btn"
                                                 onClick={() => setShowPassword((v) => !v)}
                                                 title={showPassword ? 'Hide password' : 'Show password'}
                                             >
@@ -393,7 +393,7 @@ const Homepage = () => {
 
                                             {/* Copy icon */}
                                             <button
-                                                className={`hp-pw-icon-btn ${pwCopyDone ? 'hp-pw-icon-btn--done' : ''}`}
+                                                className={`sc-pw-icon-btn ${pwCopyDone ? 'sc-pw-icon-btn--done' : ''}`}
                                                 onClick={handleCopyPassword}
                                                 title="Copy password"
                                             >
@@ -411,7 +411,7 @@ const Homepage = () => {
                                         </div>
                                     ) : (
                                         /* No password: show teal Generate button */
-                                        <button className="hp-pw-generate-btn" onClick={generatePassword} title="Generate a random password">
+                                        <button className="sc-pw-generate-btn" onClick={generatePassword} title="Generate a random password">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                                                 <polyline points="23 4 23 10 17 10"/>
                                                 <polyline points="1 20 1 14 7 14"/>
@@ -421,20 +421,20 @@ const Homepage = () => {
                                         </button>
                                     )}
                                 </div>
-                                <p className={`hp-help-text ${password ? 'hp-help-text--active' : ''}`}>
-                                    Protect your Homepage with a password
+                                <p className={`sc-help-text ${password ? 'sc-help-text--active' : ''}`}>
+                                    Protect your Showcase with a password
                                     {password && (
-                                        <button className="hp-pw-clear-btn" onClick={handleClearPassword}>Remove</button>
+                                        <button className="sc-pw-clear-btn" onClick={handleClearPassword}>Remove</button>
                                     )}
                                 </p>
                             </div>
 
                             {/* Biography */}
-                            <div className="hp-form-group">
-                                <label className="hp-label">Biography</label>
-                                <div className="hp-textarea-wrap neu-inset cg-field-shell-textarea">
+                            <div className="sc-form-group">
+                                <label className="sc-label">Biography</label>
+                                <div className="sc-textarea-wrap neu-inset cg-field-shell-textarea">
                                     <textarea
-                                        className="hp-textarea"
+                                        className="sc-textarea"
                                         maxLength="500"
                                         placeholder="Tell your clients about yourself and your photography style…"
                                         value={bio}
@@ -444,16 +444,16 @@ const Homepage = () => {
                                             autoSave({ bio: val, biography: val }, false);
                                         }}
                                     ></textarea>
-                                    <div className="hp-char-count">{bio.length} / 500</div>
+                                    <div className="sc-char-count">{bio.length} / 500</div>
                                 </div>
                             </div>
 
-                            {/* Homepage Info — which fields to show */}
-                            <div className="hp-form-group">
-                                <label className="hp-label">Homepage Info</label>
+                            {/* Showcase Info — which fields to show */}
+                            <div className="sc-form-group">
+                                <label className="sc-label">Showcase Info</label>
 
 
-                                <div className="hp-checkbox-list">
+                                <div className="sc-checkbox-list">
                                     <CheckboxItem checked={showBio} onChange={(v) => { setShowBio(v); autoSave({ show_bio: v }, true); }} label="Biography" sublabel={bio ? `"${bio.slice(0, 40)}${bio.length > 40 ? '…' : ''}"` : 'No bio added yet'} />
                                     <CheckboxItem checked={showSocial} onChange={(v) => { setShowSocial(v); autoSave({ show_social: v }, true); }} label="Social Links" sublabel={(profile?.social_instagram || profile?.social_facebook || profile?.social_x_twitter || profile?.social_pinterest || profile?.social_tiktok || profile?.social_youtube || profile?.social_vimeo || profile?.social_linkedin) ? 'Configured' : 'Not configured'} />
                                     <CheckboxItem checked={showWebsite} onChange={(v) => { setShowWebsite(v); autoSave({ show_website: v }, true); }} label="Website" sublabel={displayWebsite || 'Not set'} />
@@ -462,21 +462,21 @@ const Homepage = () => {
                                     <CheckboxItem checked={showAddress} onChange={(v) => { setShowAddress(v); autoSave({ show_address: v }, true); }} label="Business Address" sublabel={displayAddress || 'Not set'} />
                                 </div>
 
-                                <p className="hp-help-text mt-2">
-                                    To update any of the above details, please go to your <a href="/settings">profile</a>. Any information left blank will not appear on your homepage.
+                                <p className="sc-help-text mt-2">
+                                    To update any of the above details, please go to your <a href="/settings">profile</a>. Any information left blank will not appear on your showcase.
                                 </p>
                             </div>
 
-                            {/* Collection Sort Order */}
-                            <div className="hp-form-group">
-                                <label className="hp-label">Collection Sort Order</label>
+                            {/* Delivery Sort Order */}
+                            <div className="sc-form-group">
+                                <label className="sc-label">Delivery Sort Order</label>
                                 <ClientGallerySelect
                                     value={collectionSort}
                                     onChange={(val) => {
                                         setCollectionSort(val);
-                                        autoSave({ homepage_sort: val }, true);
+                                        autoSave({ showcase_sort: val }, true);
                                     }}
-                                    aria-label="Collection sort order"
+                                    aria-label="Delivery sort order"
                                     options={[
                                         { value: 'created-new', label: 'Date created: New to Old' },
                                         { value: 'created-old', label: 'Date created: Old to New' },
@@ -486,19 +486,19 @@ const Homepage = () => {
                                         { value: 'name-za', label: 'Name: Z → A' },
                                     ]}
                                 />
-                                <p className="hp-help-text mt-2">Select the order you wish your collections to appear on your public homepage.</p>
+                                <p className="sc-help-text mt-2">Select the order you wish your deliveries to appear on your public showcase.</p>
                             </div>
 
                         </div>
 
                         {/* ── RIGHT COLUMN — Live Preview ── */}
-                        <div className="hp-right-col">
-                            <div className="hp-mockup-bg">
-                                <div className="hp-mockup-card">
+                        <div className="sc-right-col">
+                            <div className="sc-mockup-bg">
+                                <div className="sc-mockup-card">
 
                                     {/* Social icons row — top left */}
                                     {showSocial && (
-                                        <div className="hp-mockup-social-row">
+                                        <div className="sc-mockup-social-row">
                                             {/* Facebook */}
                                             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
                                             {/* Instagram */}
@@ -512,7 +512,7 @@ const Homepage = () => {
 
                                     {/* Photographer name or logo */}
                                     {profile?.logo_url ? (
-                                        <div className="hp-mockup-logo-container" style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+                                        <div className="sc-mockup-logo-container" style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
                                             <img
                                                 src={profile.logo_url}
                                                 alt={photographerName}
@@ -524,38 +524,38 @@ const Homepage = () => {
                                             />
                                         </div>
                                     ) : (
-                                        <h3 className="hp-mockup-title">{photographerName.toUpperCase()}</h3>
+                                        <h3 className="sc-mockup-title">{photographerName.toUpperCase()}</h3>
                                     )}
 
                                     {/* Bio preview */}
                                     {showBio && bio && (
-                                        <p className="hp-mockup-bio">
+                                        <p className="sc-mockup-bio">
                                             {bio.slice(0, 80)}{bio.length > 80 ? '…' : ''}
                                         </p>
                                     )}
 
                                     {/* Contact info preview */}
-                                    <div className="hp-mockup-contact">
+                                    <div className="sc-mockup-contact">
                                         {showWebsite && displayWebsite && (
-                                            <div className="hp-mockup-line">
+                                            <div className="sc-mockup-line">
                                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
                                                 <span>{displayWebsite}</span>
                                             </div>
                                         )}
                                         {showEmail && (
-                                            <div className="hp-mockup-line">
+                                            <div className="sc-mockup-line">
                                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
                                                 <span>{displayEmail || 'poojaelango03@gmail.com'}</span>
                                             </div>
                                         )}
                                         {showAddress && (
-                                            <div className="hp-mockup-line">
+                                            <div className="sc-mockup-line">
                                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>
                                                 <span>{displayAddress || '101 Main Street'}</span>
                                             </div>
                                         )}
                                         {showPhone && (
-                                            <div className="hp-mockup-line">
+                                            <div className="sc-mockup-line">
                                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
                                                 <span>{displayPhone || '9363090781'}</span>
                                             </div>
@@ -563,31 +563,31 @@ const Homepage = () => {
                                     </div>
 
                                     {/* Collections grid — dynamic collections list or stunning fallback items */}
-                                    <div className="hp-mockup-grid">
+                                    <div className="sc-mockup-grid">
                                         {Array(6).fill(0).map((_, i) => {
                                             const col = previewCollections[i];
                                             if (col) {
                                                 return (
-                                                    <div key={col.id || i} className="hp-mockup-item">
-                                                        <div className="hp-mockup-img">
+                                                    <div key={col.id || i} className="sc-mockup-item">
+                                                        <div className="sc-mockup-img">
                                                             {col.cover_photo_url || col.cover_image ? (
                                                                 <img src={col.cover_photo_url || col.cover_image} alt={col.name} />
                                                             ) : (
-                                                                <div className="hp-mockup-img-placeholder" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                                    <img src={imageIconPlaceholder} alt="Placeholder Icon" className="hp-mockup-placeholder-icon" style={{ width: '15px', height: '15px', mixBlendMode: 'multiply' }} />
+                                                                <div className="sc-mockup-img-placeholder" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                    <img src={imageIconPlaceholder} alt="Placeholder Icon" className="sc-mockup-placeholder-icon" style={{ width: '15px', height: '15px', mixBlendMode: 'multiply' }} />
                                                                 </div>
                                                             )}
                                                         </div>
-                                                        <div className="hp-mockup-name">{col.name}</div>
-                                                        <div className="hp-mockup-date">{formatEventDate(col.event_date) || formatEventDate(col.created_at)}</div>
+                                                        <div className="sc-mockup-name">{col.name}</div>
+                                                        <div className="sc-mockup-date">{formatEventDate(col.event_date) || formatEventDate(col.created_at)}</div>
                                                     </div>
                                                 );
                                             } else {
                                                 // High-end fallback placeholder using a gorgeous glass-gradient design and custom image icon
                                                 return (
-                                                    <div key={i} className="hp-mockup-item">
-                                                        <div className="hp-mockup-img hp-mockup-img--empty" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-                                                            <div className="hp-mockup-gradient-placeholder" style={{
+                                                    <div key={i} className="sc-mockup-item">
+                                                        <div className="sc-mockup-img sc-mockup-img--empty" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                                                            <div className="sc-mockup-gradient-placeholder" style={{
                                                                 background: `linear-gradient(${135 + i * 25}deg, #8BDFDD 0%, #111111 100%)`,
                                                                 width: '100%',
                                                                 height: '100%',
@@ -596,10 +596,10 @@ const Homepage = () => {
                                                                 top: 0,
                                                                 left: 0
                                                             }} />
-                                                            <img src={imageIconPlaceholder} alt="Placeholder Icon" className="hp-mockup-placeholder-icon" style={{ width: '15px', height: '15px', mixBlendMode: 'multiply', opacity: 0.35, position: 'relative', zIndex: 1 }} />
+                                                            <img src={imageIconPlaceholder} alt="Placeholder Icon" className="sc-mockup-placeholder-icon" style={{ width: '15px', height: '15px', mixBlendMode: 'multiply', opacity: 0.35, position: 'relative', zIndex: 1 }} />
                                                         </div>
-                                                        <div className="hp-mockup-text-1"></div>
-                                                        <div className="hp-mockup-text-2"></div>
+                                                        <div className="sc-mockup-text-1"></div>
+                                                        <div className="sc-mockup-text-2"></div>
                                                     </div>
                                                 );
                                             }
@@ -626,18 +626,18 @@ const Homepage = () => {
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 const CheckboxItem = ({ checked, onChange, label, sublabel }) => (
-    <label className="hp-checkbox-item">
+    <label className="sc-checkbox-item">
         <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
         <span className="chk-box">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="20 6 9 17 4 12"></polyline>
             </svg>
         </span>
-        <span className="hp-checkbox-label-wrap">
-            <span className="hp-checkbox-main">{label}</span>
-            {sublabel && <span className="hp-checkbox-sub">{sublabel}</span>}
+        <span className="sc-checkbox-label-wrap">
+            <span className="sc-checkbox-main">{label}</span>
+            {sublabel && <span className="sc-checkbox-sub">{sublabel}</span>}
         </span>
     </label>
 );
 
-export default Homepage;
+export default Showcase;

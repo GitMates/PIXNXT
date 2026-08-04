@@ -1,5 +1,5 @@
 /**
- * Sort folder rows for the client gallery (same keys as collections where possible).
+ * Sort folder rows for the client gallery (same keys as deliveries where possible).
  * @param {Array} folders
  * @param {string} sortKey
  */

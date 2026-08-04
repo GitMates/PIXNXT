@@ -11,7 +11,7 @@ const CreateFolder = () => {
     const { user } = useAuth();
     const [name, setName] = useState('');
     const [eventDate, setEventDate] = useState('');
-    const [showOnHomepage, setShowOnHomepage] = useState(true);
+    const [showOnShowcase, setShowOnShowcase] = useState(true);
     const [passwordEnabled, setPasswordEnabled] = useState(false);
     const [password, setPassword] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -31,7 +31,7 @@ const CreateFolder = () => {
             const created = await galleryService.createFolder(user.id, {
                 name,
                 eventDate: eventDate || null,
-                showOnHomepage,
+                showOnShowcase,
                 passwordEnabled,
                 password: passwordEnabled ? password : null,
             });
@@ -94,26 +94,26 @@ const CreateFolder = () => {
                         <div className="cf-toggle-group">
                             <div className="cf-toggle-row">
                                 <span className="cf-toggle-label">
-                                    Show on Homepage
-                                    <span className="cf-info" title="When enabled, this folder can appear on your public homepage.">i</span>
+                                    Show on Showcase
+                                    <span className="cf-info" title="When enabled, this folder can appear on your public showcase.">i</span>
                                 </span>
                                 <div className="cf-toggle-control">
                                     <label className="cf-toggle">
                                         <input
                                             type="checkbox"
-                                            checked={showOnHomepage}
-                                            onChange={() => setShowOnHomepage((v) => !v)}
+                                            checked={showOnShowcase}
+                                            onChange={() => setShowOnShowcase((v) => !v)}
                                         />
                                         <span className="cf-toggle-slider" />
                                     </label>
-                                    <span className="cf-toggle-state">{showOnHomepage ? 'On' : 'Off'}</span>
+                                    <span className="cf-toggle-state">{showOnShowcase ? 'On' : 'Off'}</span>
                                 </div>
                             </div>
 
                             <div className="cf-toggle-row">
                                 <span className="cf-toggle-label">
                                     Global Folder Password
-                                    <span className="cf-info" title="When enabled, visitors need this password to open any collection in the folder.">i</span>
+                                    <span className="cf-info" title="When enabled, visitors need this password to open any delivery in the folder.">i</span>
                                 </span>
                                 <div className="cf-toggle-control">
                                     <label className="cf-toggle">

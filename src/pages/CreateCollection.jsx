@@ -58,7 +58,7 @@ const CreateCollection = () => {
     const handleCreate = async (e) => {
         e.preventDefault();
         if (!user) {
-            setError('You must be logged in to create a collection.');
+            setError('You must be logged in to create a delivery.');
             return;
         }
         
@@ -124,10 +124,10 @@ const CreateCollection = () => {
                 }
             }
             
-            navigate(`/collections/manage?id=${newCollection.id}`);
+            navigate(`/deliveries/manage?id=${newCollection.id}`);
         } catch (err) {
             console.error('Error creating collection:', err);
-            setError(err.message || 'Failed to create collection. Please try again.');
+            setError(err.message || 'Failed to create delivery. Please try again.');
         } finally {
             setIsSubmitting(false);
         }
@@ -148,7 +148,7 @@ const CreateCollection = () => {
                     <button type="button" className="cc-back-btn neu-circle" onClick={handleClose} title="Back">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
                     </button>
-                    <h1 className="cc-header-title">New Collection</h1>
+                    <h1 className="cc-header-title">New Delivery</h1>
                 </div>
             </header>
 
@@ -162,7 +162,7 @@ const CreateCollection = () => {
 
                     <form onSubmit={handleCreate}>
                         <div className="cc-form-group">
-                            <label className="cc-label" htmlFor="collection-name">Collection Name</label>
+                            <label className="cc-label" htmlFor="collection-name">Delivery Name</label>
                             <div className="cc-input-shell neu-inset">
                                 <input
                                     id="collection-name"
@@ -192,7 +192,7 @@ const CreateCollection = () => {
                             <ClientGallerySelect
                                 value={preset}
                                 onChange={setPreset}
-                                aria-label="Collection preset"
+                                aria-label="Delivery preset"
                                 options={presetOptions}
                             />
                         </div>
@@ -217,7 +217,7 @@ const CreateCollection = () => {
 
                         <div className="cc-actions">
                             <button type="submit" className="cc-submit-btn neu-pill" disabled={isSubmitting}>
-                                {isSubmitting ? 'Creating...' : 'Create Collection'}
+                                {isSubmitting ? 'Creating...' : 'Create Delivery'}
                             </button>
                             <button type="button" className="cc-cancel-btn" onClick={handleClose}>
                                 Cancel

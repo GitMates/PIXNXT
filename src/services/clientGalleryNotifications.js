@@ -102,7 +102,7 @@ export function clearAllClientGalleryNotifications(items) {
 export function buildClientGalleryNotificationUrl(item) {
   if (!item?.collectionId) return '/client-gallery';
   const activity = item.type || CG_NOTIFICATION_TYPES.DOWNLOAD;
-  return `/collections/manage?id=${encodeURIComponent(item.collectionId)}&tab=activity&activity=${encodeURIComponent(activity)}`;
+  return `/deliveries/manage?id=${encodeURIComponent(item.collectionId)}&tab=activity&activity=${encodeURIComponent(activity)}`;
 }
 
 /**
@@ -113,7 +113,7 @@ export async function listClientGalleryNotifications(photographerId) {
   if (!photographerId) return [];
 
   const { data: collections, error: colErr } = await supabase
-    .from('collections')
+    .from('deliveries')
     .select('id, name')
     .eq('photographer_id', photographerId)
     .order('created_at', { ascending: false });
@@ -122,7 +122,7 @@ export async function listClientGalleryNotifications(photographerId) {
   if (!collections?.length) return [];
 
   const collectionIds = collections.map((c) => c.id);
-  const nameById = Object.fromEntries(collections.map((c) => [c.id, c.name || 'Collection']));
+  const nameById = Object.fromEntries(collections.map((c) => [c.id, c.name || 'Delivery']));
 
   const [downloadsRes, favoritesRes, ordersRes, emailsRes] = await Promise.all([
     supabase
@@ -169,7 +169,7 @@ export async function listClientGalleryNotifications(photographerId) {
       id,
       type: CG_NOTIFICATION_TYPES.DOWNLOAD,
       collectionId: row.collection_id,
-      collectionName: nameById[row.collection_id] || 'Collection',
+      collectionName: nameById[row.collection_id] || 'Delivery',
       preview: `${email} · ${kind}`,
       createdAt: row.created_at,
       timeLabel: formatRelativeTime(row.created_at),
@@ -201,7 +201,7 @@ export async function listClientGalleryNotifications(photographerId) {
       id,
       type: CG_NOTIFICATION_TYPES.FAVORITE,
       collectionId: row.collection_id,
-      collectionName: nameById[row.collection_id] || 'Collection',
+      collectionName: nameById[row.collection_id] || 'Delivery',
       preview: submitted
         ? `${email} submitted “${listName}”`
         : `${email} started “${listName}”`,
@@ -224,7 +224,7 @@ export async function listClientGalleryNotifications(photographerId) {
       id,
       type: CG_NOTIFICATION_TYPES.STORE,
       collectionId: row.collection_id,
-      collectionName: nameById[row.collection_id] || 'Collection',
+      collectionName: nameById[row.collection_id] || 'Delivery',
       preview: `${who} placed an order${amount}`,
       createdAt: row.created_at,
       timeLabel: formatRelativeTime(row.created_at),
@@ -247,7 +247,7 @@ export async function listClientGalleryNotifications(photographerId) {
       id,
       type: CG_NOTIFICATION_TYPES.EMAIL,
       collectionId: row.collection_id,
-      collectionName: nameById[row.collection_id] || 'Collection',
+      collectionName: nameById[row.collection_id] || 'Delivery',
       preview: `${row.visitor_email} registered`,
       createdAt: row.created_at,
       timeLabel: formatRelativeTime(row.created_at),

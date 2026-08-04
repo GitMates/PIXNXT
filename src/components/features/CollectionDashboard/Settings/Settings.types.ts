@@ -31,8 +31,8 @@ export interface GeneralSettingsProps {
 export interface PrivacySettingsProps {
     collectionPassword: string;
     setCollectionPassword: (val: string) => void;
-    showOnHomepage: boolean;
-    setShowOnHomepage: (val: boolean) => void;
+    showOnShowcase: boolean;
+    setShowOnShowcase: (val: boolean) => void;
     clientExclusiveAccess: boolean;
     setClientExclusiveAccess: (val: boolean) => void;
     clientPrivatePassword: string;

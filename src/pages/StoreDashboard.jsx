@@ -453,7 +453,7 @@ export default function StoreDashboard() {
     try {
       const colId = (collections && collections.length > 0) ? collections[0].id : null;
       if (!colId) {
-        alert("No collections found to link this campaign test to.");
+        alert("No deliveries found to link this campaign test to.");
         return;
       }
       if (!user?.id) {
@@ -557,7 +557,7 @@ export default function StoreDashboard() {
       const payload = buildGalleryCampaignPayload(updatedCampaigns);
       const jsonStr = JSON.stringify(payload);
       const { error } = await supabase
-        .from('collections')
+        .from('deliveries')
         .update({ store_banner_text: jsonStr })
         .in('id', collectionIds);
       if (error) throw error;
@@ -666,7 +666,7 @@ export default function StoreDashboard() {
           .select('*');
 
         const { data: collectionsData } = await supabase
-          .from('collections')
+          .from('deliveries')
           .select('id, name, digital_download_enabled, digital_download_price_single, digital_download_price_all, cover_url, event_date, store_banner_text')
           .eq('photographer_id', user.id);
 
@@ -1160,7 +1160,7 @@ export default function StoreDashboard() {
         for (let i = 0; i < collectionIds.length; i += chunkSize) {
           const chunk = collectionIds.slice(i, i + chunkSize);
           const { error } = await supabase
-            .from('collections')
+            .from('deliveries')
             .update({
               digital_download_enabled: globalDigitalEnabled,
               digital_download_price_single: singlePrice,
@@ -1234,7 +1234,7 @@ export default function StoreDashboard() {
       localStorage.setItem('pixnxt_global_vault_desc_1year', globalVaultDesc1Year);
       localStorage.setItem('pixnxt_global_vault_desc_lifetime', globalVaultDescLifetime);
 
-      setNotification({ type: 'success', text: `✓ Successfully saved Vault & Extension settings across all collections.` });
+      setNotification({ type: 'success', text: `✓ Successfully saved Vault & Extension settings across all deliveries.` });
       setTimeout(() => setNotification(null), 4000);
     } catch (err) {
       console.error("Error saving Vault:", err);
@@ -1374,7 +1374,7 @@ export default function StoreDashboard() {
             const type = first?.product_type;
             let planLabel = first?.product_name || 'Digital Download';
             if (type === 'digital_download') planLabel = first?.product_name || 'Single Photo';
-            if (type === 'digital_download_all') planLabel = first?.product_name || 'Entire Collection';
+            if (type === 'digital_download_all') planLabel = first?.product_name || 'Entire Delivery';
             if (type === 'digital_package') {
               const count = first?.options?.photo_count;
               const cat = first?.options?.category_tag;
@@ -1870,7 +1870,7 @@ export default function StoreDashboard() {
                       <th>Status</th>
                       <th>Customer</th>
                       <th>Contact</th>
-                      <th>Collection</th>
+                      <th>Delivery</th>
                       <th>Date</th>
                       <th>Time</th>
                       <th style={{ textAlign: 'center' }}>Items</th>

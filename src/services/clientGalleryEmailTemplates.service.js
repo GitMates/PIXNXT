@@ -1,8 +1,13 @@
 import { supabase } from '../lib/supabase/client';
 
-export function resolveTemplateBody(body, { collectionName, daysPrior, expiryDate }) {
+export function resolveTemplateBody(body, { collectionName, daysPrior, expiryDate, collectionUrl }) {
+  const name = collectionName || '[DELIVERY NAME]';
+  const url = collectionUrl || '[GALLERY URL]';
   return String(body || '')
-    .replace(/\{collection\.name\}/g, collectionName || '[COLLECTION NAME]')
+    .replace(/\{delivery\.name\}/g, name)
+    .replace(/\{collection\.name\}/g, name)
+    .replace(/\{delivery\.url\}/g, url)
+    .replace(/\{collection\.url\}/g, url)
     .replace(/\{days\.prior\}/g, daysPrior || '[DAYS]')
     .replace(/\{expiry\.date\}/g, expiryDate || '[DATE]');
 }
@@ -16,7 +21,7 @@ export function createDefaultEmailTemplates() {
       body: `Hi,\n\nThanks again for sharing your special day with me! I had an incredible time photographing the two of you, and I am very excited to share the photos with you!\n\nClick on the View Gallery button to view your personalized gallery. Feel free to then share this gallery with your family and friends.\n\nI hope you enjoy the photos and please let me know if you have any questions. Have a great day!\n\nCheers,\nYour Name`,
       created_at: new Date().toISOString(),
       isSystem: true,
-      category: 'collection-sharing'
+      category: 'delivery-sharing'
     },
     {
       id: 'default-newborn',
@@ -25,13 +30,13 @@ export function createDefaultEmailTemplates() {
       body: `Hi,\n\nThe photos for your little one are ready for viewing! It was an honour taking photos of the newest addition to your family. It was so much fun and I hope you like the photos!\n\nYour gallery can be viewed by clicking on the View Gallery button in this email. Feel free to then share this gallery with your family and friends.\n\nLooking forward to capturing his next big milestone!\n\nCheers,\nYour Name`,
       created_at: new Date().toISOString(),
       isSystem: true,
-      category: 'collection-sharing'
+      category: 'delivery-sharing'
     },
     {
       id: 'default-auto-expiry',
       name: 'Auto Expiry Reminder',
-      subject: 'The gallery {collection.name} is about to expire',
-      body: `Hi,\n\nThe gallery {collection.name} will expire in {days.prior} on {expiry.date}. You will no longer be able to access this gallery after the expiry date.\n\nIf you have any questions, please don't hesitate to get in touch!\n\nCheers,\nYour Name`,
+      subject: 'The gallery {delivery.name} is about to expire',
+      body: `Hi,\n\nThe gallery {delivery.name} will expire in {days.prior} on {expiry.date}. You will no longer be able to access this gallery after the expiry date.\n\nIf you have any questions, please don't hesitate to get in touch!\n\nCheers,\nYour Name`,
       created_at: new Date().toISOString(),
       isSystem: true,
       category: 'auto-expiry'
@@ -123,7 +128,7 @@ export const clientGalleryEmailTemplatesService = {
       name: partial.name?.trim() || 'Untitled Template',
       subject: partial.subject ?? '',
       body: partial.body ?? 'Enter your text here',
-      category: 'collection-sharing',
+      category: 'delivery-sharing',
       isSystem: false,
       created_at: new Date().toISOString(),
     };

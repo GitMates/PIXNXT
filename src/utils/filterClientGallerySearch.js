@@ -1,5 +1,5 @@
 /**
- * Client gallery dashboard search — folders, collections, and photo filenames.
+ * Client gallery dashboard search — folders, deliveries, and photo filenames.
  */
 export function normalizeGallerySearchQuery(query) {
   return String(query ?? '').trim().toLowerCase();

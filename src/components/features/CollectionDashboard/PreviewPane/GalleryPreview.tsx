@@ -68,7 +68,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
   const shareUrl = typeof window !== 'undefined'
     ? window.location.origin + '/gallery/' + (collectionSlug || 'preview')
     : '';
-  const shareTitle = collectionTitle || dashboardState?.collection?.name || 'Collection';
+  const shareTitle = collectionTitle || dashboardState?.collection?.name || 'Delivery';
   const isPreviewDark = colorPalette === 'dark';
 
   // Build a collection-shaped object the shared DownloadModal understands
@@ -317,7 +317,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
       return;
     }
     if (!collectionId) {
-      alert('Save your collection before using favorites in preview.');
+      alert('Save your delivery before using favorites in preview.');
       return;
     }
     if (!favFeatureOn) return;
@@ -390,7 +390,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
       }
     } else {
       if (!collectionId) {
-        alert('Save your collection before favoriting in preview.');
+        alert('Save your delivery before favoriting in preview.');
         return;
       }
       setPendingFavoritePhotoId(pid);

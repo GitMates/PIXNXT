@@ -36,7 +36,7 @@ export function useCollectionDashboard(collectionId: string | null) {
 
   // Privacy State
   const [collectionPassword, setCollectionPassword] = useState("");
-  const [showOnHomepage, setShowOnHomepage] = useState(true);
+  const [showOnShowcase, setShowOnShowcase] = useState(true);
   const [clientExclusiveAccess, setClientExclusiveAccess] = useState(false);
   const [clientPrivatePassword, setClientPrivatePassword] = useState("");
   const [allowClientsMarkPrivate, setAllowClientsMarkPrivate] = useState(false);
@@ -108,7 +108,7 @@ export function useCollectionDashboard(collectionId: string | null) {
     try {
       // 1. Fetch Collection
       const { data: collectionData, error: colError } = await supabase
-        .from("collections")
+        .from("deliveries")
         .select("*")
         .eq("id", collectionId)
         .single();
@@ -226,7 +226,7 @@ export function useCollectionDashboard(collectionId: string | null) {
       if (!collectionId || !collection) return;
 
       const { error } = await supabase
-        .from('collections')
+        .from('deliveries')
         .update({
           cover_style: designSettings.coverStyle,
           font_family: designSettings.fontFamily,
@@ -325,8 +325,8 @@ export function useCollectionDashboard(collectionId: string | null) {
     setLanguage,
     collectionPassword,
     setCollectionPassword,
-    showOnHomepage,
-    setShowOnHomepage,
+    showOnShowcase,
+    setShowOnShowcase,
     clientExclusiveAccess,
     setClientExclusiveAccess,
     photoDownload,

@@ -10,7 +10,7 @@ const STATUS_OPTIONS = [
 const SETTINGS = [
     { id: 'status', label: 'Status' },
     { id: 'tags', label: 'Category Tags' },
-    { id: 'homepage', label: 'Show on Homepage' },
+    { id: 'showcase', label: 'Show on Showcase' },
     { id: 'email', label: 'Email Registration' },
     { id: 'sharing', label: 'Social Sharing Buttons' },
     { id: 'downloads', label: 'Photo Download Status' },
@@ -20,7 +20,7 @@ export function BulkEditCollectionsModal({ isOpen, count, onClose, onApply, appl
     const [activeSetting, setActiveSetting] = useState(null);
     const [status, setStatus] = useState('');
     const [tags, setTags] = useState('');
-    const [showOnHomepage, setShowOnHomepage] = useState(null);
+    const [showOnShowcase, setShowOnShowcase] = useState(null);
     const [emailRegistration, setEmailRegistration] = useState(null);
     const [socialSharing, setSocialSharing] = useState(null);
     const [downloadsEnabled, setDownloadsEnabled] = useState(null);
@@ -30,7 +30,7 @@ export function BulkEditCollectionsModal({ isOpen, count, onClose, onApply, appl
         setActiveSetting(null);
         setStatus('');
         setTags('');
-        setShowOnHomepage(null);
+        setShowOnShowcase(null);
         setEmailRegistration(null);
         setSocialSharing(null);
         setDownloadsEnabled(null);
@@ -40,12 +40,12 @@ export function BulkEditCollectionsModal({ isOpen, count, onClose, onApply, appl
         const next = {};
         if (status) next.status = status;
         if (tags.trim()) next.description = tags.trim();
-        if (showOnHomepage !== null) next.show_on_homepage = showOnHomepage;
+        if (showOnShowcase !== null) next.show_on_showcase = showOnShowcase;
         if (emailRegistration !== null) next.email_capture_enabled = emailRegistration;
         if (socialSharing !== null) next.social_sharing_enabled = socialSharing;
         if (downloadsEnabled !== null) next.downloads_enabled = downloadsEnabled;
         return next;
-    }, [status, tags, showOnHomepage, emailRegistration, socialSharing, downloadsEnabled]);
+    }, [status, tags, showOnShowcase, emailRegistration, socialSharing, downloadsEnabled]);
 
     const canApply = Object.keys(payload).length > 0;
 
@@ -54,7 +54,7 @@ export function BulkEditCollectionsModal({ isOpen, count, onClose, onApply, appl
     const renderPanel = () => {
         if (!activeSetting) {
             return (
-                <p className="bec-empty">Select settings from the left to modify your collection{count === 1 ? '' : 's'}.</p>
+                <p className="bec-empty">Select settings from the left to modify your {count === 1 ? 'delivery' : 'deliveries'}.</p>
             );
         }
 
@@ -85,12 +85,12 @@ export function BulkEditCollectionsModal({ isOpen, count, onClose, onApply, appl
                         />
                     </div>
                 );
-            case 'homepage':
+            case 'showcase':
                 return (
                     <ToggleRow
-                        label="Show on Homepage"
-                        value={showOnHomepage}
-                        onChange={setShowOnHomepage}
+                        label="Show on Showcase"
+                        value={showOnShowcase}
+                        onChange={setShowOnShowcase}
                     />
                 );
             case 'email':
@@ -134,7 +134,7 @@ export function BulkEditCollectionsModal({ isOpen, count, onClose, onApply, appl
 
                 <div className="bec-body">
                     <aside className="bec-sidebar">
-                        <p className="bec-sidebar-heading">Collection Settings</p>
+                        <p className="bec-sidebar-heading">Delivery Settings</p>
                         <ul className="bec-sidebar-list">
                             {SETTINGS.map((item) => (
                                 <li key={item.id}>
@@ -160,7 +160,7 @@ export function BulkEditCollectionsModal({ isOpen, count, onClose, onApply, appl
                         disabled={!canApply || applying}
                         onClick={() => onApply(payload)}
                     >
-                        {applying ? 'Applying…' : `Apply to ${count} collection${count === 1 ? '' : 's'}`}
+                        {applying ? 'Applying…' : `Apply to ${count} ${count === 1 ? 'delivery' : 'deliveries'}`}
                     </button>
                 </div>
             </div>
@@ -184,7 +184,7 @@ function ToggleRow({ label, value, onChange }) {
                 </button>
                 <span className="bec-toggle-state">{value === true ? 'On' : value === false ? 'Off' : 'Not set'}</span>
             </div>
-            <p className="bec-toggle-hint">Toggle to set this value for all selected collections.</p>
+            <p className="bec-toggle-hint">Toggle to set this value for all selected deliveries.</p>
         </div>
     );
 }

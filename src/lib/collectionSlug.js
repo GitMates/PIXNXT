@@ -1,5 +1,5 @@
 export function generateCollectionSlug(text) {
-    return String(text || 'collection')
+    return String(text || 'delivery')
         .toLowerCase()
         .trim()
         .replace(/[^\w ]+/g, '')

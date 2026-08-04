@@ -9,7 +9,7 @@ async function assertCollectionAccess(req, collectionId) {
   const { supabase, isAdmin, userId } = await getAuthedSupabase(req);
   if (!isAdmin) {
     const { data: collection, error } = await supabase
-      .from('collections')
+      .from('deliveries')
       .select('id, photographer_id')
       .eq('id', collectionId)
       .maybeSingle();

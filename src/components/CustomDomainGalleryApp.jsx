@@ -32,9 +32,9 @@ export function CustomDomainGalleryApp({ hostname }) {
       .getPhotographerProfileByCustomDomain(hostname)
       .then((profile) => {
         if (cancelled) return;
-        if (profile?.homepage_slug || profile?.display_name) {
+        if (profile?.showcase_slug || profile?.display_name) {
           setSlug(
-            profile.homepage_slug ||
+            profile.showcase_slug ||
               profile.display_name ||
               profile.email?.split('@')[0] ||
               null

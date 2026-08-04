@@ -292,7 +292,7 @@ export function FavoriteActivityDetailModal({
                     Copy to new set
                   </button>
                   <button type="button" className="activity-menu-item" role="menuitem" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
-                    Copy to new collection
+                    Copy to new delivery
                   </button>
                   <button type="button" className="activity-menu-item" role="menuitem" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
                     Create mobile app

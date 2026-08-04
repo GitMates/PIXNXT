@@ -20,7 +20,7 @@ export const ShareCollectionModal: React.FC<ShareCollectionModalProps> = ({
   isOpen,
   onClose,
   shareUrl,
-  shareTitle = 'Collection',
+  shareTitle = 'Delivery',
   themeClassName = 'font-sans',
 }) => {
   const [copied, setCopied] = useState(false);
@@ -31,7 +31,7 @@ export const ShareCollectionModal: React.FC<ShareCollectionModalProps> = ({
   };
 
   const handleWhatsAppShare = () => {
-    const text = `Check out this collection: ${shareTitle} ${shareUrl}`;
+    const text = `Check out this delivery: ${shareTitle} ${shareUrl}`;
     window.open(
       `https://wa.me/?text=${encodeURIComponent(text)}`,
       '_blank',
@@ -94,7 +94,7 @@ export const ShareCollectionModal: React.FC<ShareCollectionModalProps> = ({
                 id="share-collection-title"
                 className="gallery-heading mb-2 text-xl font-bold text-zinc-900"
               >
-                Share Collection
+                Share Delivery
               </h3>
               <p className="gallery-body-text text-sm text-zinc-500">
                 Share these memories with family and friends.

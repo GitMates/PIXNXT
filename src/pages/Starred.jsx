@@ -19,7 +19,7 @@ const Starred = () => {
     const { tab } = useParams();
     const navigate = useNavigate();
     const { user } = useAuth();
-    const activeTab = tab === 'photos' ? 'photos' : 'collections';
+    const activeTab = tab === 'photos' ? 'photos' : 'deliveries';
 
     const [collections, setCollections] = useState([]);
     const [photos, setPhotos] = useState([]);
@@ -77,16 +77,16 @@ const Starred = () => {
     const getCoverSrc = (collection) => getCollectionCardCoverSrc(collection);
 
     const openCollection = (collection) => {
-        navigate(`/collections/manage?id=${encodeURIComponent(collection.id)}`);
+        navigate(`/deliveries/manage?id=${encodeURIComponent(collection.id)}`);
     };
 
     const openPhotoCollection = (photo) => {
         const collectionId = photo.collection_id || photo.collection?.id;
         if (!collectionId) return;
-        navigate(`/collections/manage?id=${encodeURIComponent(collectionId)}`);
+        navigate(`/deliveries/manage?id=${encodeURIComponent(collectionId)}`);
     };
 
-    const isEmpty = activeTab === 'collections' ? collections.length === 0 : photos.length === 0;
+    const isEmpty = activeTab === 'deliveries' ? collections.length === 0 : photos.length === 0;
 
     return (
         <SidebarLayout>
@@ -95,7 +95,7 @@ const Starred = () => {
                 toolbar={(
                     <ClientGallerySubpageTabs
                         tabs={[
-                            { id: 'collections', label: 'Collections' },
+                            { id: 'deliveries', label: 'Deliveries' },
                             { id: 'photos', label: 'Photos' },
                         ]}
                         activeId={activeTab}
@@ -119,29 +119,29 @@ const Starred = () => {
                                 <path d="M40 100L45 110L55 110L48 118L51 128L40 122L29 128L32 118L25 110L35 110L40 100Z" fill="#F0F4F3" stroke="#999" strokeWidth="1" />
                             </svg>
                         </div>
-                        {activeTab === 'collections' ? (
+                        {activeTab === 'deliveries' ? (
                             <>
-                                <h2 className="pl-empty-title">You have no starred collections yet</h2>
+                                <h2 className="pl-empty-title">You have no starred deliveries yet</h2>
                                 <p className="pl-empty-text">
-                                    Star collections from the Collections page to see them here.
+                                    Star deliveries from the Deliveries page to see them here.
                                 </p>
                                 <button type="button" className="neu-pill inline-flex h-10 items-center rounded-full px-5 text-sm font-medium" onClick={() => navigate('/client-gallery')}>
-                                    Go to Collections
+                                    Go to Deliveries
                                 </button>
                             </>
                         ) : (
                             <>
                                 <h2 className="pl-empty-title">You have no starred photos yet</h2>
                                 <p className="pl-empty-text">
-                                    Star photos inside a collection to track your favorites here.
+                                    Star photos inside a delivery to track your favorites here.
                                 </p>
                                 <button type="button" className="neu-pill inline-flex h-10 items-center rounded-full px-5 text-sm font-medium" onClick={() => navigate('/client-gallery')}>
-                                    Go to Collections
+                                    Go to Deliveries
                                 </button>
                             </>
                         )}
                     </div>
-                ) : activeTab === 'collections' ? (
+                ) : activeTab === 'deliveries' ? (
                     <div className="st-grid cg-style-37">
                         {collections.map((collection) => (
                             <div
@@ -198,7 +198,7 @@ const Starred = () => {
                         {photos.map((photo) => {
                             const isVideo = isGalleryVideo(photo);
                             const src = isVideo ? getPhotoVideoSrc(photo) : getPhotoGridDisplayUrl(photo);
-                            const collectionName = photo.collection?.name || 'Collection';
+                            const collectionName = photo.collection?.name || 'Delivery';
                             return (
                                 <div
                                     key={photo.id}

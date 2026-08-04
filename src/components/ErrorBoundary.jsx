@@ -28,7 +28,7 @@ export class ErrorBoundary extends React.Component {
               onClick={() => window.location.assign('/client-gallery')}
               className="px-6 py-2 bg-[#111111] text-white rounded hover:bg-[#333] transition-colors"
             >
-              Back to Collections
+              Back to Deliveries
             </button>
           </div>
         </div>

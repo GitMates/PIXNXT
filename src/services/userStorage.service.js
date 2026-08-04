@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase/client';
 import { storageService } from './storage.service';
+import { DELIVERY_R2_MODULE, DELIVERY_R2_MODULE_LEGACY } from '../lib/deliveryIds';
 
 function safePathSegment(value, fallback = 'item') {
   return String(value || fallback)
@@ -12,8 +13,8 @@ function safePathSegment(value, fallback = 'item') {
 }
 
 /**
- * Service to calculate real-time storage used by a photographer across all 4 modules:
- * - clientgallery
+ * Service to calculate real-time storage used by a photographer across modules:
+ * - deliveries (and legacy clientgallery)
  * - guestdelivery
  * - mobilegallery
  * - album-proofer (and legacy smart-album / smart-albums paths)
@@ -70,7 +71,8 @@ export const userStorageService = {
       } catch (err) {
         // Explicit module subfolders fallback
         const modules = [
-          'clientgallery',
+          DELIVERY_R2_MODULE,
+          DELIVERY_R2_MODULE_LEGACY,
           'guestdelivery',
           'mobilegallery',
           'album-proofer',
@@ -91,11 +93,11 @@ export const userStorageService = {
       }
     }
 
-    // Query Supabase collections / photos as a fallback or database measure
+    // Query Supabase deliveries / photos as a fallback or database measure
     let dbTotalBytes = 0;
     try {
       const { data: collections } = await supabase
-        .from('collections')
+        .from('deliveries')
         .select('storage_bytes')
         .eq('photographer_id', user.id);
 

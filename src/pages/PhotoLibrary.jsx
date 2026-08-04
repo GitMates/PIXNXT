@@ -91,7 +91,7 @@ const PhotoLibrary = () => {
   const openPhotoCollection = (photo) => {
     const collectionId = photo.collection_id || photo.collection?.id;
     if (!collectionId) return;
-    navigate(`/collections/manage?id=${encodeURIComponent(collectionId)}`);
+    navigate(`/deliveries/manage?id=${encodeURIComponent(collectionId)}`);
   };
 
   return (
@@ -102,7 +102,7 @@ const PhotoLibrary = () => {
             <h1 className="pl-title">Photo Library</h1>
             {!loading && hasPhotos ? (
               <p className="pl-subtitle">
-                {photos.length} photo{photos.length === 1 ? '' : 's'} from {collectionCount} collection{collectionCount === 1 ? '' : 's'}
+                {photos.length} photo{photos.length === 1 ? '' : 's'} from {collectionCount} delivery{collectionCount === 1 ? '' : 's'}
               </p>
             ) : null}
           </div>
@@ -141,12 +141,12 @@ const PhotoLibrary = () => {
             </div>
             <h2 className="pl-empty-title">You have no photos yet</h2>
             <p className="pl-empty-text">
-              Every photo you upload to a client gallery collection
+              Every photo you upload to a client gallery delivery
               <br />
               will appear here automatically.
             </p>
-            <button type="button" className="pl-new-btn" onClick={() => navigate('/collections/get-started')}>
-              New Collection
+            <button type="button" className="pl-new-btn" onClick={() => navigate('/deliveries/get-started')}>
+              New Delivery
             </button>
           </div>
         ) : filteredPhotos.length === 0 ? (

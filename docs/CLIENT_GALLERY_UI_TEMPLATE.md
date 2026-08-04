@@ -24,7 +24,7 @@ Reference guide for the **Neumorphic Cream UI** used in the Client Gallery modul
 | [`src/components/portal/portal.css`](../src/components/portal/portal.css) | Base neumorphic primitives (`neu-inset`, `neu-circle`, `neu-input`) |
 | [`src/components/SidebarLayout.jsx`](../src/components/SidebarLayout.jsx) | App shell — imports theme CSS, wraps pages in `theme-mono cg-shell` |
 | [`src/components/features/ClientGallery/ClientGalleryPageShell.jsx`](../src/components/features/ClientGallery/ClientGalleryPageShell.jsx) | Reusable page layout, search field, sub-page tabs |
-| [`src/pages/ClientGallery.css`](../src/pages/ClientGallery.css) | Tailwind `@layer` utilities (`cg-style-*`) for Collections-specific UI |
+| [`src/pages/ClientGallery.css`](../src/pages/ClientGallery.css) | Tailwind `@layer` utilities (`cg-style-*`) for Deliveries-specific UI |
 
 ---
 
@@ -83,7 +83,7 @@ Root wrapper classes:
 |-------|-----|
 | `#8BDFDD` / teal accents | Old Pixieset-style accent — replaced by charcoal/cream |
 | `.teal-link` | Removed; use `.set-action-text` or charcoal links |
-| `cg-style-11` (teal button) | Legacy Collections CTA — use `neu-pill` instead |
+| `cg-style-11` (teal button) | Legacy Deliveries CTA — use `neu-pill` instead |
 
 > **Note:** `.text-teal` in Settings still exists but renders **charcoal** (`#1A1A1A`). Prefer explicit charcoal classes for new code.
 
@@ -96,8 +96,8 @@ Root wrapper classes:
 | Page title | **Playfair Display** (serif) | `cg-page-title text-3xl sm:text-4xl font-medium` |
 | Body / UI | **Inter** | Default via `cg-style-2` and theme |
 | Subtitle | Inter, muted | `text-sm text-[#71717A]` |
-| Section label | Inter, semibold | `set-section-title`, `hp-label`, or `cg-field-label` |
-| Help text | Inter, muted | `set-help-text`, `hp-help-text`, or `cg-field-help` |
+| Section label | Inter, semibold | `set-section-title`, `sc-label`, or `cg-field-label` |
+| Help text | Inter, muted | `set-help-text`, `sc-help-text`, or `cg-field-help` |
 
 ---
 
@@ -109,7 +109,7 @@ All live under `.theme-mono` (from `portal.css` + `clientGalleryTheme.css`).
 |-------|--------|-------------|
 | **`neu-inset`** | Pressed / recessed surface | Search inputs, active sidebar item, tab track, field shells |
 | **`neu-circle`** | Small raised circle | Icon buttons, hamburger, active tab pill inside tab bar |
-| **`neu-pill`** | Dark charcoal gradient pill | Primary CTAs: "New Collection", "View Site", "Go to Collections" |
+| **`neu-pill`** | Dark charcoal gradient pill | Primary CTAs: "New Delivery", "View Site", "Go to Deliveries" |
 | **`neu-glow-pill`** | Soft raised pill | Secondary elevated chips |
 | **`glass`** | Elevated card panel | Integration cards, modal panels |
 | **`neu-scroll`** | Minimal scrollbar | Scrollable nav / lists — thumb appears on hover |
@@ -140,7 +140,7 @@ All live under `.theme-mono` (from `portal.css` + `clientGalleryTheme.css`).
 
 ## Page layout
 
-Use **`ClientGalleryPageShell`** for any top-level Client Gallery page (Collections pattern).
+Use **`ClientGalleryPageShell`** for any top-level Client Gallery page (Deliveries pattern).
 
 ```jsx
 import { ClientGalleryPageShell, ClientGallerySubpageTabs } from '../components/features/ClientGallery/ClientGalleryPageShell';
@@ -187,7 +187,7 @@ Applied automatically by `ClientGalleryPageShell`.
 
 **Golden rule:** put `neu-inset` + `cg-field-shell` on the **wrapper**, not on the raw `<input>` / `<select>`.
 
-### Pill input / select (matches Collections search)
+### Pill input / select (matches Deliveries search)
 
 ```jsx
 {/* Text input */}
@@ -200,18 +200,18 @@ Applied automatically by `ClientGalleryPageShell`.
   <select className="set-select">...</select>
 </div>
 
-{/* Homepage-style input with action */}
-<div className="hp-input-wrap neu-inset cg-field-shell">
-  <input className="hp-input" />
-  <button className="hp-input-action-btn">Copy</button>
+{/* Showcase-style input with action */}
+<div className="sc-input-wrap neu-inset cg-field-shell">
+  <input className="sc-input" />
+  <button className="sc-input-action-btn">Copy</button>
 </div>
 ```
 
 ### Textarea / rich text
 
 ```jsx
-<div className="hp-textarea-wrap neu-inset cg-field-shell-textarea">
-  <textarea className="hp-textarea" />
+<div className="sc-textarea-wrap neu-inset cg-field-shell-textarea">
+  <textarea className="sc-textarea" />
 </div>
 
 <div className="set-rte-box neu-inset cg-field-shell-textarea">
@@ -257,7 +257,7 @@ className={cn(
 )}
 ```
 
-### Sub-page tabs (Settings, Homepage sections)
+### Sub-page tabs (Settings, Showcase sections)
 
 Use **`ClientGallerySubpageTabs`** — inset track with `neu-circle` on active tab.
 
@@ -265,7 +265,7 @@ Use **`ClientGallerySubpageTabs`** — inset track with `neu-circle` on active t
 
 ## Toggles
 
-Homepage and Settings share the same toggle markup:
+Showcase and Settings share the same toggle markup:
 
 ```jsx
 <button className={`set-toggle ${on ? 'on' : 'off'}`} onClick={...}>
@@ -279,7 +279,7 @@ Inside `cg-style-2`:
 - **ON** → `#1A1A1A` (charcoal)
 - **OFF** → `#d4d4d8` (light gray)
 
-Homepage uses `hp-toggle` / `hp-toggle-handle` — same visual rules under `cg-style-2`.
+Showcase uses `sc-toggle` / `sc-toggle-handle` — same visual rules under `cg-style-2`.
 
 ---
 
@@ -324,7 +324,7 @@ Legacy pages keep their prefixes; new shared code should prefer `cg-*`.
 | Prefix | Page / area | Examples |
 |--------|-------------|----------|
 | **`cg-`** | Shared Client Gallery | `cg-style-2`, `cg-field-shell`, `cg-page-title` |
-| **`hp-`** | Homepage | `hp-form-group`, `hp-label`, `hp-input-wrap`, `hp-toggle` |
+| **`sc-`** | Showcase | `sc-form-group`, `sc-label`, `sc-input-wrap`, `sc-toggle` |
 | **`set-`** | Settings | `set-section`, `set-select-wrap`, `set-action-text`, `set-toggle` |
 | **`pl-`** | Legacy primary buttons | Avoid — use `neu-pill` |
 
@@ -352,9 +352,9 @@ import './YourModule.css'; // optional page-specific overrides scoped under .cg-
 
 | Route | Shell | Notes |
 |-------|-------|-------|
-| `/client-gallery` | Custom `cg-style-2` main | Collections grid, filter popover, search |
+| `/client-gallery` | Custom `cg-style-2` main | Deliveries grid, filter popover, search |
 | `/starred/*` | `ClientGalleryPageShell` | Tabs only — no extra filter toolbar |
-| `/homepage` | `ClientGalleryPageShell` | Form fields + live preview column |
+| `/showcase` | `ClientGalleryPageShell` | Form fields + live preview column |
 | `/settings/*` | `ClientGalleryPageShell` + `ClientGallerySubpageTabs` | Branding, Preferences, Integrations |
 
 ---
@@ -420,4 +420,4 @@ The **Portal** and **Album Proofer** modules reuse the same `theme-mono` + `neu-
 
 ---
 
-*Last updated: Client Gallery neumorphic cream template (Collections, Starred, Homepage, Settings).*
+*Last updated: Client Gallery neumorphic cream template (Deliveries, Starred, Showcase, Settings).*

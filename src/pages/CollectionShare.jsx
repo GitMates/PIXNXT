@@ -170,7 +170,7 @@ const CollectionShare = () => {
 
                 // 3. Fetch templates
                 const tpls = await clientGalleryEmailTemplatesService.getTemplates(activeUser.id);
-                const sharingTpls = tpls.filter(t => t.category === 'collection-sharing' || t.isSystem);
+                const sharingTpls = tpls.filter(t => t.category === 'delivery-sharing' || t.category === 'collection-sharing' || t.isSystem);
                 setTemplates(sharingTpls);
             }
 
@@ -180,13 +180,13 @@ const CollectionShare = () => {
 
             // Set initial default subject / body if exists
             const tpls = activeUser?.id ? await clientGalleryEmailTemplatesService.getTemplates(activeUser.id) : [];
-            const sharingTpls = tpls.filter(t => t.category === 'collection-sharing' || t.isSystem);
+            const sharingTpls = tpls.filter(t => t.category === 'delivery-sharing' || t.category === 'collection-sharing' || t.isSystem);
             if (sharingTpls.length > 0) {
                 const defaultTpl = sharingTpls[0];
                 setSubject(defaultTpl.subject || '');
                 setBody(resolveTemplateBody(defaultTpl.body, { collectionName: col?.name || '' }).split('\n\n').map(p => `<p>${p.replace(/\n/g, '<br />')}</p>`).join(''));
             } else {
-                setSubject(`Photos from ${col?.name || 'Collection'} are ready`);
+                setSubject(`Photos from ${col?.name || 'Delivery'} are ready`);
                 setBody(`<p>Hi,</p><p>I'd like to share my photo gallery with you. Enjoy!</p>`);
             }
 
@@ -233,7 +233,7 @@ const CollectionShare = () => {
         if (!collectionId) return;
         try {
             const { data, error } = await supabase
-                .from('collection_share_emails')
+                .from('delivery_share_emails')
                 .select('*')
                 .eq('collection_id', collectionId)
                 .order('created_at', { ascending: false });
@@ -267,7 +267,7 @@ const CollectionShare = () => {
             let finalMessage = body;
             let appendInfo = '';
             if (includePassword && collection?.password) {
-                appendInfo += `<p><strong>Collection Password:</strong> ${collection.password}</p>`;
+                appendInfo += `<p><strong>Delivery Password:</strong> ${collection.password}</p>`;
             }
             if (includePrivatePassword && collection?.private_password) {
                 appendInfo += `<p><strong>Client Private Password:</strong> ${collection.private_password}</p>`;
@@ -321,7 +321,7 @@ const CollectionShare = () => {
 
             // Record sharing in database logs (resilient to edge function failures)
             try {
-                const { error: dbErr } = await supabase.from('collection_share_emails').insert({
+                const { error: dbErr } = await supabase.from('delivery_share_emails').insert({
                     collection_id: collectionId,
                     sender_email: profile?.email || currentUser?.email || 'photographer@email.com',
                     recipient_email: recipientEmail.trim(),
@@ -351,7 +351,7 @@ const CollectionShare = () => {
 
             showToast(scheduledDate ? `Email scheduled successfully!` : 'Email sent successfully!');
             setTimeout(() => {
-                navigate(`/collections/manage?id=${collectionId}`);
+                navigate(`/deliveries/manage?id=${collectionId}`);
             }, 1500);
 
         } catch (err) {
@@ -378,10 +378,10 @@ const CollectionShare = () => {
             {/* TOP HEADER BAR */}
             <div className="cs-top-bar">
                 <div className="cs-top-bar-left">
-                    <button type="button" className="cs-close-btn" onClick={() => navigate(`/collections/manage?id=${collectionId}`)}>
+                    <button type="button" className="cs-close-btn" onClick={() => navigate(`/deliveries/manage?id=${collectionId}`)}>
                         <X size={18} />
                     </button>
-                    <span className="cs-top-title">Share Collection</span>
+                    <span className="cs-top-title">Share Delivery</span>
                 </div>
                 <div className="cs-top-bar-right">
                     <div className="cs-more-dropdown-wrapper" ref={moreDropdownRef}>
@@ -431,7 +431,7 @@ const CollectionShare = () => {
                             </div>
                         )}
                     </div>
-                    <button type="button" className="cs-top-link cs-direct-link" onClick={() => navigate(`/collections/manage?id=${collectionId}&action=link`)}>
+                    <button type="button" className="cs-top-link cs-direct-link" onClick={() => navigate(`/deliveries/manage?id=${collectionId}&action=link`)}>
                         Get direct link
                     </button>
                 </div>
@@ -520,7 +520,7 @@ const CollectionShare = () => {
 
                         <div className="cs-composer-footer-row">
                             <div className="cs-info-checkboxes">
-                                <span className="cs-checkbox-group-label">Include collection info:</span>
+                                <span className="cs-checkbox-group-label">Include delivery info:</span>
                                 <div className="cs-checkbox-list">
                                     {collection?.password && (
                                         <label className="cs-checkbox-label">
@@ -529,7 +529,7 @@ const CollectionShare = () => {
                                                 checked={includePassword}
                                                 onChange={(e) => setIncludePassword(e.target.checked)}
                                             />
-                                            <span>Collection Password</span>
+                                            <span>Delivery Password</span>
                                         </label>
                                     )}
                                     {collection?.private_password && (
@@ -632,7 +632,7 @@ const CollectionShare = () => {
                             {/* Collection Cover Image */}
                             {coverUrl ? (
                                 <div className="cs-email-cover-wrap">
-                                    <img src={coverUrl} alt="Collection Cover" className="cs-email-cover" />
+                                    <img src={coverUrl} alt="Delivery Cover" className="cs-email-cover" />
                                 </div>
                             ) : (
                                 <div className="cs-email-cover-placeholder">
@@ -649,7 +649,7 @@ const CollectionShare = () => {
                                     <div className="cs-email-access-details">
                                         <h4 className="cs-access-title">Access Details</h4>
                                         {includePassword && collection?.password && (
-                                            <p><strong>Collection Password:</strong> {collection.password}</p>
+                                            <p><strong>Delivery Password:</strong> {collection.password}</p>
                                         )}
                                         {includePrivatePassword && collection?.private_password && (
                                             <p><strong>Client Private Password:</strong> {collection.private_password}</p>
@@ -780,7 +780,7 @@ const CollectionShare = () => {
                         </div>
                         <div className="cs-modal-body">
                             <p style={{ margin: 0, fontSize: '13px', color: '#71717a', lineHeight: 1.5 }}>
-                                Emails sent for this collection will be listed here. Note that email history might take up to a few minutes to show up.
+                                Emails sent for this delivery will be listed here. Note that email history might take up to a few minutes to show up.
                             </p>
                             <div className="cs-history-table-wrapper">
                                 <table className="cs-history-table">

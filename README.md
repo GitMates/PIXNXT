@@ -59,7 +59,7 @@ PIXNXT removes the need for photographers to juggle separate tools for:
 
 | Module | Purpose | Supabase Services Used |
 |---|---|---|
-| **Client Gallery** | Deliver, showcase, and share photo collections with clients | Storage, DB, Auth, Realtime |
+| **Client Gallery** | Deliver, showcase, and share photo deliveries with clients | Storage, DB, Auth, Realtime |
 | **Studio Manager** | CRM: bookings, invoices, contracts, questionnaires, scheduling | DB, Auth, Edge Functions, Realtime |
 | **Website Builder** | Drag-and-drop photography portfolio website | DB, Storage |
 | **Store** | Sell prints, digital downloads, and packages from galleries | DB, Edge Functions, Storage |
@@ -83,30 +83,30 @@ PIXNXT removes the need for photographers to juggle separate tools for:
 
 ### Overview
 
-The Client Gallery is the flagship feature of PIXNXT. It allows photographers to upload, organize, and deliver photo collections to their clients via a password-protected, beautifully designed online gallery link. Clients can view, favorite, comment on, download, and order prints directly from the gallery.
+The Client Gallery is the flagship feature of PIXNXT. It allows photographers to upload, organize, and deliver photo galleries to their clients via a password-protected, beautifully designed online gallery link. Clients can view, favorite, comment on, download, and order prints directly from the gallery.
 
 ### Sub-Features
 
 #### 3.1 Gallery Creation & Upload (Enhanced)
 
-- Photographers create a **Collection** (a gallery) with a name, event date, category tags (e.g., Wedding, Portrait, Newborn), and cover photo.
+- Photographers create a **Delivery** (a gallery) with a name, event date, category tags (e.g., Wedding, Portrait, Newborn), and cover photo.
 - Bulk photo and video upload (4K video support).
 - **Background Upload Queue Engine:** Integrated with a global upload context (`UploadQueueContext`) and a minimizable overlay widget (`GlobalUploadShell`). Photographers can continue navigating the dashboard, editing settings, or creating folders while large batches upload in the background in parallel.
-- Drag-and-drop photo reordering within a collection.
+- Drag-and-drop photo reordering within a delivery.
 - Bulk actions: delete, move, download, apply watermark to selected photos.
 - **Starred photos** feature: photographer can star/highlight their best images within a gallery.
 
 #### 3.2 Gallery Organization & Folders (Implemented)
 
-- **Collections** = individual galleries (one shoot = one collection).
-- **Folders** = containers that group multiple collections under a single client access link. Full CRUD support in the database (`folders` table) and frontend (`CreateFolder`, `FolderView`).
-- Collages & cover preview: Folders dynamically render a 4-photo cover collage from child collections.
-- Collection Filters in the dashboard: filter by Status (Active, Expired, Hidden), Category Tag, and Event Date.
-- **Bulk Edit:** update settings across multiple collections at once.
+- **Deliveries** = individual galleries (one shoot = one delivery). Table: `deliveries` (formerly `collections`).
+- **Folders** = containers that group multiple deliveries under a single client access link. Full CRUD support in the database (`folders` table) and frontend (`CreateFolder`, `FolderView`).
+- Collages & cover preview: Folders dynamically render a 4-photo cover collage from child deliveries.
+- Delivery Filters in the dashboard: filter by Status (Active, Expired, Hidden), Category Tag, and Event Date.
+- **Bulk Edit:** update settings across multiple deliveries at once.
 
 #### 3.3 Gallery Settings & Customization (Enhanced)
 
-Each collection has the following configurable settings:
+Each delivery has the following configurable settings:
 
 | Setting | Description |
 |---|---|
@@ -142,16 +142,16 @@ The gallery link opens a **public-facing, client-optimized page** (no PIXNXT bra
 #### 3.6 Quick Share Links
 
 A sub-feature of Gallery Sharing:
-- Select specific photos from a collection.
+- Select specific photos from a delivery.
 - Generate a dedicated Quick Share page accessible via a unique link.
 - Manage all Quick Share links (enable/disable download per link, deactivate links).
 
 #### 3.7 Gallery Dashboard (Photographer-Side)
 
-- All collections displayed in a dashboard with thumbnail, status badge, event date, view count, and order count.
+- All deliveries displayed in a dashboard with thumbnail, status badge, event date, view count, and order count.
 - Mobile-optimized dashboard: photographers can upload and manage galleries from their phone.
-- Search and filter collections.
-- Collection analytics: view count, download count, favorites count, store revenue.
+- Search and filter deliveries.
+- Delivery analytics: view count, download count, favorites count, store revenue.
 
 ---
 
@@ -272,7 +272,7 @@ The Flex Editor uses a **block/section-based** layout system. Each page is made 
 
 | Block Type | Description |
 |---|---|
-| **Gallery / Portfolio Block** | Display curated photos from Client Gallery collections |
+| **Gallery / Portfolio Block** | Display curated photos from Client Gallery deliveries |
 | **Slideshow** | Fullscreen or windowed auto-playing slideshow |
 | **Carousel** | Horizontal scrolling image carousel |
 | **Image Grid** | Masonry or uniform grid of photos |
@@ -341,7 +341,7 @@ The PIXNXT Store enables photographers to sell physical prints, digital download
 
 #### 6.2 Price Sheets
 
-- A **Price Sheet** is a catalog of products with configured pricing, assigned to one or more gallery collections.
+- A **Price Sheet** is a catalog of products with configured pricing, assigned to one or more gallery deliveries.
 - Photographers create multiple price sheets (e.g., "Wedding Pricing," "Portrait Pricing," "Mini Session Pricing") and assign them to relevant galleries.
 - Each product within a price sheet has:
   - Base cost (from print lab partner)
@@ -390,7 +390,7 @@ The Mobile Gallery App provides clients with a native-app-like experience to vie
 ### Sub-Features
 
 - Clients receive a link/invitation to install/access the mobile gallery app.
-- View full gallery collections with swipe-based photo browsing.
+- View full gallery deliveries with swipe-based photo browsing.
 - Favorite/heart individual photos.
 - Download individual photos or full gallery to camera roll.
 - Share photos directly to social media.
@@ -559,7 +559,7 @@ Design UX prompts to encourage upgrades when users hit:
 
 - Use **Supabase Auth** for photographer account sign-up/login (email+password, Google OAuth).
 - Client access to galleries is **passwordless / link-based** (does not require a Supabase Auth account). Tracks client identity via `client_sessions` and `favorite_lists` using the visitor's email address.
-- Row Level Security (RLS) policies on all tables: photographers can only read/write their own collections, folders, and albums.
+- Row Level Security (RLS) policies on all tables: photographers can only read/write their own deliveries, folders, and albums.
 
 ### 12.2 Core Database Tables
 
@@ -571,22 +571,22 @@ subscriptions                -- Active plan details per photographer
   id, user_id, plan_name, status, stripe_subscription_id, current_period_end
 
 -- GALLERY MODULE
-collections                  -- Individual galleries
+deliveries                   -- Individual galleries (Client Gallery)
   id, photographer_id, folder_id, name, slug, event_date, cover_photo_id, cover_url, 
   cover_focal_x, cover_focal_y, password_hash, downloads_enabled, download_limit_gallery, 
   watermark_enabled, expiry_date, status, is_starred, client_exclusive_enabled, 
   allow_clients_mark_private, client_only_highlights, created_at
 
-photos                       -- Photos within a collection
+photos                       -- Photos within a delivery
   id, collection_id, set_id, photographer_id, filename, full_url, web_url, thumbnail_url,
   original_storage_path, size_bytes, width, height, media_type, position, status,
   is_starred, is_private, exif_taken_at, created_at
 
-sets                         -- Folder subdivisions inside collections
+sets                         -- Folder subdivisions inside deliveries
   id, collection_id, photographer_id, name, description, position, photo_count, is_private, created_at
 
-folders                      -- Groups of collections
-  id, photographer_id, name, slug, cover_url, position, event_date, show_on_homepage, 
+folders                      -- Groups of deliveries
+  id, photographer_id, name, slug, cover_url, position, event_date, show_on_showcase, 
   guest_password_hash, created_at
 
 client_sessions              -- Active proofing sessions per gallery
@@ -737,14 +737,14 @@ src/
 │   │
 │   ├── dashboard/
 │   │   ├── Dashboard.jsx              # Main dashboard wrapper
-│   │   ├── Starred.jsx                # Starred galleries and collections
+│   │   ├── Starred.jsx                # Starred galleries and deliveries
 │   │   └── AccountSettings.jsx        # Photographer preferences
 │   │
 │   ├── gallery/
 │   │   ├── CollectionDashboard.jsx    # Photo list, drag-and-drop workspace, sets management
-│   │   ├── CreateCollection.jsx       # Collection parameters (focal crop, watermarks)
+│   │   ├── CreateCollection.jsx       # Delivery parameters (focal crop, watermarks)
 │   │   ├── CreateFolder.jsx           # Folders CRUD
-│   │   ├── FolderView.jsx             # Grouped collection manager
+│   │   ├── FolderView.jsx             # Grouped delivery manager
 │   │   └── PhotoLibrary.jsx           # All media overview
 │   │
 │   ├── smart-albums/                  # Album Proofer workspace (new)
@@ -985,7 +985,7 @@ Tailwind mirrors these under `fontFamily.display` / `fontFamily.sans`, `fontSize
 ### Journey 1: Photographer Onboards and Delivers First Gallery
 
 1. Signs up (email or Google) → Free plan activated automatically.
-2. Uploads photos to first Collection.
+2. Uploads photos to first Delivery.
 3. Configures gallery: sets cover photo, enables/disables downloads, optionally sets password.
 4. Clicks "Share Gallery" → composes and sends delivery email to client from within PIXNXT.
 5. Client receives email, clicks link, optionally enters password, views gallery.
@@ -1030,13 +1030,13 @@ Tailwind mirrors these under `fontFamily.display` / `fontFamily.sans`, `fontSize
 
 - [ ] Supabase project setup (Auth, DB schema, Storage buckets)
 - [ ] Photographer auth (signup, login, password reset)
-- [ ] Collection CRUD (create, edit, delete galleries)
+- [ ] Delivery CRUD (create, edit, delete galleries)
 - [ ] Photo upload to Supabase Storage (bulk, background upload)
 - [ ] Photo display grid with drag-and-drop reordering
 - [ ] Gallery settings: password, download toggle, expiry date
 - [ ] Public gallery viewer (client-facing page)
 - [ ] Gallery email delivery (send link to client)
-- [ ] Basic dashboard with collections list
+- [ ] Basic dashboard with deliveries list
 - [ ] Free plan with storage limit enforcement
 - [ ] Stripe subscription integration (Basic and Pro plans)
 
@@ -1084,7 +1084,7 @@ Tailwind mirrors these under `fontFamily.display` / `fontFamily.sans`, `fontSize
 - [ ] Mobile Gallery App (PWA)
 - [ ] Quick Share links
 - [ ] Folders for gallery organization
-- [ ] Bulk edit for collections
+- [ ] Bulk edit for deliveries
 - [ ] Instagram Feed block for website
 - [ ] Referral program
 - [ ] Analytics dashboard (gallery views, store revenue, booking conversion)

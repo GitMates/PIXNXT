@@ -75,11 +75,11 @@ export function GlobalUploadShell() {
     };
 
     const isOnTargetManage =
-      location.pathname === '/collections/manage' &&
+      location.pathname === '/deliveries/manage' &&
       new URLSearchParams(location.search).get('id') === targetCollectionId;
 
     if (!isOnTargetManage) {
-      navigate(`/collections/manage?id=${encodeURIComponent(targetCollectionId)}`, {
+      navigate(`/deliveries/manage?id=${encodeURIComponent(targetCollectionId)}`, {
         state: { uploadView: detail },
       });
     } else {
@@ -101,7 +101,7 @@ export function GlobalUploadShell() {
       {showExpanded && (
         <UploadManager
           state={state}
-          destinationLabel={destinationLabel || 'Collection'}
+          destinationLabel={destinationLabel || 'Delivery'}
           isPaused={state.isPaused}
           onMinimize={minimize}
           onExpand={expand}

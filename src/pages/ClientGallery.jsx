@@ -67,7 +67,7 @@ const ClientGallery = () => {
     const [folders, setFolders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const navigateNewCollection = () => navigate('/collections/create');
+    const navigateNewCollection = () => navigate('/deliveries/create');
 
     const navigateNewFolder = () => {
         setShowNewCollectionDropdown(false);
@@ -132,7 +132,7 @@ const ClientGallery = () => {
             if (closeEdit) setBulkEditOpen(false);
         } catch (err) {
             console.error('Bulk update failed:', err);
-            alert('Failed to update collections. Please try again.');
+            alert('Failed to update deliveries. Please try again.');
         } finally {
             setBulkApplying(false);
         }
@@ -197,7 +197,7 @@ const ClientGallery = () => {
                 setFolders(folderRows);
             } catch (err) {
                 console.error('Error fetching collections:', err);
-                setError('Failed to load collections. Please try again.');
+                setError('Failed to load deliveries. Please try again.');
             } finally {
                 setLoading(false);
             }
@@ -261,7 +261,7 @@ const ClientGallery = () => {
     }, [collections]);
 
     useEffect(() => {
-        const fullText = 'Search collections or clients…';
+        const fullText = 'Search deliveries or clients…';
         let index = 0;
         const interval = window.setInterval(() => {
             if (index <= fullText.length) {
@@ -323,7 +323,7 @@ const ClientGallery = () => {
         const n = folder.collection_count || 0;
         const msg =
             n > 0
-                ? `Remove folder "${folder.name}"? ${n} collection(s) will move back to the main list (not deleted).`
+                ? `Remove folder "${folder.name}"? ${n} delivery(s) will move back to the main list (not deleted).`
                 : `Remove folder "${folder.name}"?`;
         if (!window.confirm(msg)) return;
         if (!user?.id) return;
@@ -395,7 +395,7 @@ const ClientGallery = () => {
     const handleShareByEmail = useCallback((collection) => {
         if (!collection) return;
         closeContextMenu();
-        navigate(`/collections/manage/share?id=${collection.id}`);
+        navigate(`/deliveries/manage/share?id=${collection.id}`);
     }, [closeContextMenu, navigate]);
 
     const handleShareWhatsApp = useCallback((collection) => {
@@ -449,10 +449,10 @@ const ClientGallery = () => {
                 photographerId
             );
             setDuplicateCollection(null);
-            navigate(`/collections/manage?id=${newRow.id}`);
+            navigate(`/deliveries/manage?id=${newRow.id}`);
         } catch (err) {
             console.error('Failed to duplicate collection:', err);
-            alert(err?.message || 'Failed to duplicate collection. Please try again.');
+            alert(err?.message || 'Failed to duplicate delivery. Please try again.');
         } finally {
             setDuplicateBusy(false);
         }
@@ -503,7 +503,7 @@ const ClientGallery = () => {
             });
             return;
         }
-        navigate(`/collections/manage?id=${collection.id}`);
+        navigate(`/deliveries/manage?id=${collection.id}`);
     };
 
     const handleCoverUpload = async (collectionId, e) => {
@@ -515,7 +515,7 @@ const ClientGallery = () => {
                 // In a real app, upload to storage and get URL
                 // For now, let's just use the galleryService to update
                 // But normally we'd do galleryService.uploadPhotos then updateCollection
-                alert('Please use the dynamic Collection Dashboard to manage cover photos for better storage management.');
+                alert('Please use the dynamic Delivery Dashboard to manage cover photos for better storage management.');
             } catch (err) {
                 console.error('Error updating cover:', err);
             } finally {
@@ -525,14 +525,14 @@ const ClientGallery = () => {
     };
 
     const handleDeleteCollection = async (collectionId) => {
-        if (!window.confirm('Are you sure you want to delete this collection? All photos will be removed.')) return;
+        if (!window.confirm('Are you sure you want to delete this delivery? All photos will be removed.')) return;
         
         try {
             await galleryService.deleteCollection(collectionId);
             setCollections(prev => prev.filter(c => c.id !== collectionId));
         } catch (err) {
             console.error('Error deleting collection:', err);
-            alert('Failed to delete collection.');
+            alert('Failed to delete delivery.');
         }
     };
 
@@ -588,7 +588,7 @@ const ClientGallery = () => {
                 <div className="mx-auto w-full max-w-7xl px-4 pt-10 sm:px-8 sm:pt-12">
                     <div className="flex items-start justify-between gap-4">
                         <div>
-                            <h1 className="cg-page-title text-3xl font-medium tracking-tight sm:text-4xl">Collections</h1>
+                            <h1 className="cg-page-title text-3xl font-medium tracking-tight sm:text-4xl">Deliveries</h1>
                             <p className="mt-2 text-sm text-[#71717A]">
                                 {dashboardStats.total} galleries · {dashboardStats.live} live ·{' '}
                                 {dashboardStats.photos.toLocaleString()} photos delivered
@@ -601,7 +601,7 @@ const ClientGallery = () => {
                                 className="neu-pill inline-flex h-10 items-center gap-1.5 rounded-full px-5 text-sm font-medium"
                             >
                                 <Plus className="size-4" />
-                                New collection
+                                New delivery
                             </button>
                         </div>
                     </div>
@@ -614,7 +614,7 @@ const ClientGallery = () => {
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 placeholder={displayPlaceholder}
-                                aria-label="Search collections, folders, and photo filenames"
+                                aria-label="Search deliveries, folders, and photo filenames"
                                 className="neu-inset h-10 w-full rounded-full border-0 pl-9 pr-3 text-sm text-[#1A1A1A] outline-none placeholder:text-[#71717A]"
                             />
                         </div>
@@ -725,9 +725,9 @@ const ClientGallery = () => {
                     </div>
                 ) : hasActiveClientGalleryFilters(galleryFilters) && dashboardGridItems.length === 0 ? (
                     <div className="cg-style-60">
-                        <h3 className="cg-style-61">No matching collections</h3>
+                        <h3 className="cg-style-61">No matching deliveries</h3>
                         <p className="cg-style-62">
-                            No folders or collections match the current filters.
+                            No folders or deliveries match the current filters.
                         </p>
                         <button
                             type="button"
@@ -775,8 +775,8 @@ const ClientGallery = () => {
                                             <div className="cg-style-44-meta">
                                                 <span>
                                                     {(item.folder.collection_count || 0) === 1
-                                                        ? '1 collection'
-                                                        : `${item.folder.collection_count || 0} collections`}
+                                                        ? '1 delivery'
+                                                        : `${item.folder.collection_count || 0} deliveries`}
                                                 </span>
                                                 {formatFolderDate(item.folder) && (
                                                     <>
@@ -814,7 +814,7 @@ const ClientGallery = () => {
                                                     : 'cg-card-star-btn--idle group-hover:opacity-100',
                                             )}
                                             onClick={(e) => handleToggleCollectionStar(e, item.collection)}
-                                            aria-label={item.collection.is_starred ? 'Unstar collection' : 'Star collection'}
+                                            aria-label={item.collection.is_starred ? 'Unstar delivery' : 'Star delivery'}
                                         >
                                             <Star
                                                 className="size-3.5"
@@ -830,7 +830,7 @@ const ClientGallery = () => {
                                                 contextMenuId === item.collection.id && 'cg-style-39--visible',
                                             )}
                                             onClick={(e) => openContextMenu(e, item.collection.id)}
-                                            aria-label="Collection options"
+                                            aria-label="Delivery options"
                                         >
                                             <MoreHorizontal className="size-3.5" strokeWidth={2} />
                                         </button>
@@ -887,8 +887,8 @@ const ClientGallery = () => {
                                             </span>
                                             <span className="cg-style-56">
                                                 {(item.folder.collection_count || 0) === 1
-                                                    ? '1 collection'
-                                                    : `${item.folder.collection_count || 0} collections`}
+                                                    ? '1 delivery'
+                                                    : `${item.folder.collection_count || 0} deliveries`}
                                                 {formatFolderDate(item.folder) ? ` · ${formatFolderDate(item.folder)}` : ''}
                                             </span>
                                         </div>
@@ -972,10 +972,10 @@ const ClientGallery = () => {
                         <div className="mb-6">
                             <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#d0d5d9" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"></path></svg>
                         </div>
-                        <h3 className="cg-style-61">No collections yet</h3>
-                        <p className="cg-style-62">Create your first collection to get started</p>
+                        <h3 className="cg-style-61">No deliveries yet</h3>
+                        <p className="cg-style-62">Create your first delivery to get started</p>
                         <button className="neu-pill inline-flex h-10 items-center gap-1.5 rounded-full px-5 text-sm font-medium" onClick={navigateNewCollection}>
-                            Create Collection
+                            Create Delivery
                         </button>
                     </div>
                 ) : null}
@@ -1028,7 +1028,7 @@ const ClientGallery = () => {
                     isOpen={Boolean(editCollection)}
                     onClose={() => setEditCollection(null)}
                     onSave={handleEditSave}
-                    onAdvanced={(c) => navigate(`/collections/manage?id=${c.id}`)}
+                    onAdvanced={(c) => navigate(`/deliveries/manage?id=${c.id}`)}
                     saving={editSaving}
                 />
                 <CollectionDirectLinkModal

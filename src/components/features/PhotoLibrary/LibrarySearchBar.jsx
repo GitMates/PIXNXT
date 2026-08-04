@@ -65,7 +65,7 @@ export function LibrarySearchBar({
           autoComplete="off"
           className="pl-search-input"
           value={query}
-          placeholder="Search collections or keywords…"
+          placeholder="Search deliveries or keywords…"
           onChange={(e) => onQueryChange(e.target.value)}
           onFocus={openSearchPanel}
           aria-label="Search photo library"
@@ -138,7 +138,7 @@ export function LibrarySearchBar({
             </div>
           )}
 
-          <p className="pl-search-help">Search across every photo in all of your client gallery collections.</p>
+          <p className="pl-search-help">Search across every photo in all of your client gallery deliveries.</p>
         </div>
       )}
     </div>

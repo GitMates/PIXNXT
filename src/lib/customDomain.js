@@ -66,7 +66,7 @@ export function isPlatformHost(host) {
 
 export function getDefaultGalleryHost(profile) {
   const slug =
-    profile?.homepage_slug ||
+    profile?.showcase_slug ||
     profile?.display_name ||
     profile?.email?.split('@')[0] ||
     'gallery';

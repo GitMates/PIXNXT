@@ -47,7 +47,7 @@ export default function PresetEditor() {
     gridSpacing: 'regular',
     navigationStyle: 'icon',
     collectionPassword: false,
-    showOnHomepage: true,
+    showOnShowcase: true,
     photoDownload: true,
     highResolutionDownload: true,
     highResolutionSize: '3600px',
@@ -77,7 +77,13 @@ export default function PresetEditor() {
         if (error) throw error;
         setPreset(data);
         if (data.settings) {
-          setSettings(prev => ({ ...prev, ...data.settings }));
+          setSettings((prev) => {
+            const next = { ...prev, ...data.settings };
+            if (next.showOnShowcase === undefined && next.showOnHomepage !== undefined) {
+              next.showOnShowcase = next.showOnHomepage;
+            }
+            return next;
+          });
         }
 
         // Fetch watermarks
@@ -168,14 +174,14 @@ export default function PresetEditor() {
           {activeTab === 'general' && (
             <div className="tab-content general-tab">
               <div className="form-group">
-                <label>Collection Tags</label>
+                <label>Delivery Tags</label>
                 <input 
                   type="text" 
                   placeholder="Optional" 
                   value={settings.collectionTags || ''} 
                   onChange={e => setSettings({...settings, collectionTags: e.target.value})}
                 />
-                <p className="help-text">Add tags to categorize different collections e.g. wedding, outdoor, summer. <a href="#">Learn more</a></p>
+                <p className="help-text">Add tags to categorize different deliveries e.g. wedding, outdoor, summer. <a href="#">Learn more</a></p>
               </div>
 
               <div className="form-group">
@@ -221,7 +227,7 @@ export default function PresetEditor() {
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
                     Add expiry reminder email
                   </button>
-                  <p className="help-text" style={{ marginTop: '12px' }}>Setup reminder emails that will send when you create a collection and add an Auto Expiry date.</p>
+                  <p className="help-text" style={{ marginTop: '12px' }}>Setup reminder emails that will send when you create a delivery and add an Auto Expiry date.</p>
                 </div>
               </div>
 
@@ -236,7 +242,7 @@ export default function PresetEditor() {
                   </button>
                   <span className="toggle-label">{settings.emailRegistration ? 'On' : 'Off'}</span>
                 </div>
-                <p className="help-text">Track email addresses accessing this collection. <a href="#">Learn more</a></p>
+                <p className="help-text">Track email addresses accessing this delivery. <a href="#">Learn more</a></p>
               </div>
 
               <div className="form-group form-group-spaced">
@@ -250,7 +256,7 @@ export default function PresetEditor() {
                   </button>
                   <span className="toggle-label">{settings.galleryAssist ? 'On' : 'Off'}</span>
                 </div>
-                <p className="help-text">Add walk through cards to help visitors use the collection. <a href="#">Learn more</a></p>
+                <p className="help-text">Add walk through cards to help visitors use the delivery. <a href="#">Learn more</a></p>
               </div>
 
               <div className="form-group form-group-spaced">
@@ -264,7 +270,7 @@ export default function PresetEditor() {
                   </button>
                   <span className="toggle-label">{settings.slideshow ? 'On' : 'Off'}</span>
                 </div>
-                <p className="help-text">Allow visitors to view the images in their collection as a slideshow. <a href="#">Learn more</a></p>
+                <p className="help-text">Allow visitors to view the images in their delivery as a slideshow. <a href="#">Learn more</a></p>
                 <button className="action-link" style={{ marginTop: '8px' }}>
                   Additional options
                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
@@ -282,7 +288,7 @@ export default function PresetEditor() {
                   </button>
                   <span className="toggle-label">{settings.socialSharing ? 'On' : 'Off'}</span>
                 </div>
-                <p className="help-text">Allow collection visitors to share your work to social media.</p>
+                <p className="help-text">Allow delivery visitors to share your work to social media.</p>
               </div>
 
               <div className="form-group form-group-spaced">
@@ -296,7 +302,7 @@ export default function PresetEditor() {
                   <option value="French">French</option>
                   <option value="German">German</option>
                 </select>
-                <p className="help-text">Choose the language to display these collections in.</p>
+                <p className="help-text">Choose the language to display these deliveries in.</p>
               </div>
 
               <div style={{ textAlign: 'right', marginTop: '24px' }}>
@@ -573,7 +579,7 @@ export default function PresetEditor() {
           {activeTab === 'privacy' && (
             <div className="tab-content privacy-tab">
               <div className="form-group form-group-spaced" style={{ marginTop: 0 }}>
-                <label>Collection Password</label>
+                <label>Delivery Password</label>
                 <div className="toggle-row">
                   <button 
                     className={`toggle-switch ${settings.collectionPassword ? 'on' : ''}`}
@@ -583,21 +589,21 @@ export default function PresetEditor() {
                   </button>
                   <span className="toggle-label">{settings.collectionPassword ? 'On' : 'Off'}</span>
                 </div>
-                <p className="help-text">If enabled, all collections created from this collection preset will have a secure password set automatically at the time of their creation.</p>
+                <p className="help-text">If enabled, all deliveries created from this delivery preset will have a secure password set automatically at the time of their creation.</p>
               </div>
 
               <div className="form-group form-group-spaced">
-                <label>Show on Homepage</label>
+                <label>Show on Showcase</label>
                 <div className="toggle-row">
                   <button 
-                    className={`toggle-switch ${settings.showOnHomepage ? 'on' : ''}`}
-                    onClick={() => setSettings({...settings, showOnHomepage: !settings.showOnHomepage})}
+                    className={`toggle-switch ${settings.showOnShowcase ? 'on' : ''}`}
+                    onClick={() => setSettings({...settings, showOnShowcase: !settings.showOnShowcase})}
                   >
                     <div className="toggle-handle" />
                   </button>
-                  <span className="toggle-label">{settings.showOnHomepage ? 'On' : 'Off'}</span>
+                  <span className="toggle-label">{settings.showOnShowcase ? 'On' : 'Off'}</span>
                 </div>
-                <p className="help-text">Show your collections on your <a href="#">Homepage</a>. Manage Homepage in <a href="#">Settings</a>.</p>
+                <p className="help-text">Show your deliveries on your <a href="/showcase">Showcase</a>. Manage Showcase in <a href="/showcase">Showcase settings</a>.</p>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '48px' }}>
@@ -669,14 +675,14 @@ export default function PresetEditor() {
                   </button>
                   <span className="toggle-label">{settings.downloadPin ? 'On' : 'Off'}</span>
                 </div>
-                <p className="help-text">If enabled, all collections created from this collection preset will have a download PIN set automatically at the time of their creation.</p>
+                <p className="help-text">If enabled, all deliveries created from this delivery preset will have a download PIN set automatically at the time of their creation.</p>
               </div>
 
               <div className="form-group form-group-spaced">
                 <h4 style={{ fontSize: '12px', fontWeight: 'bold', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Advanced Settings</h4>
                 
                 <div style={{ marginBottom: '32px' }}>
-                  <label>Restrict Downloads to Collection Contacts</label>
+                  <label>Restrict Downloads to Delivery Contacts</label>
                   <div className="toggle-row">
                     <button 
                       className={`toggle-switch ${settings.restrictDownloads ? 'on' : ''}`}
@@ -686,7 +692,7 @@ export default function PresetEditor() {
                     </button>
                     <span className="toggle-label">{settings.restrictDownloads ? 'On' : 'Off'}</span>
                   </div>
-                  <p className="help-text">Allow only assigned Collection Contacts to download photos.</p>
+                  <p className="help-text">Allow only assigned Delivery Contacts to download photos.</p>
                 </div>
 
                 <div style={{ marginBottom: '32px' }}>
@@ -700,7 +706,7 @@ export default function PresetEditor() {
                     </button>
                     <span className="toggle-label">{settings.limitPhotoDownloads ? 'On' : 'Off'}</span>
                   </div>
-                  <p className="help-text">Set the number of photos that can be downloaded in these collections. Note that this limit is shared between all visitors who can download. If you restrict downloads to contacts only, each client will be able to download their own set of photos up to the limit. <a href="#">Learn more</a></p>
+                  <p className="help-text">Set the number of photos that can be downloaded in these deliveries. Note that this limit is shared between all visitors who can download. If you restrict downloads to contacts only, each client will be able to download their own set of photos up to the limit. <a href="#">Learn more</a></p>
                 </div>
 
                 <div>
@@ -711,7 +717,7 @@ export default function PresetEditor() {
                     value={settings.limitPinUsage || ''} 
                     onChange={e => setSettings({...settings, limitPinUsage: e.target.value})}
                   />
-                  <p className="help-text">Limit the number of times this PIN can be used for Collection Download. This does not apply to Video download or Single Photo download.</p>
+                  <p className="help-text">Limit the number of times this PIN can be used for Delivery Download. This does not apply to Video download or Single Photo download.</p>
                 </div>
               </div>
 
@@ -779,7 +785,7 @@ export default function PresetEditor() {
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
                     <span>Activate Store</span>
                   </div>
-                  <p>Setup Pixieset Store to start selling prints, digital downloads, and more directly from your collections.</p>
+                  <p>Setup Pixieset Store to start selling prints, digital downloads, and more directly from your deliveries.</p>
                   <button className="action-link" style={{ fontSize: '14px', marginTop: '4px' }}>Get Started</button>
                 </div>
               </div>
@@ -795,7 +801,7 @@ export default function PresetEditor() {
                   </button>
                   <span className="toggle-label">{settings.storeStatus ? 'On' : 'Off'}</span>
                 </div>
-                <p className="help-text">Allow visitors to purchase products from collections.</p>
+                <p className="help-text">Allow visitors to purchase products from deliveries.</p>
               </div>
 
               <div className="form-group form-group-spaced">
@@ -807,7 +813,7 @@ export default function PresetEditor() {
                   <option value="My Price Sheet">My Price Sheet</option>
                   <option value="Default Price Sheet">Default Price Sheet</option>
                 </select>
-                <p className="help-text">Set which products are for sale in collections. Manage price sheets in <a href="#">Store</a></p>
+                <p className="help-text">Set which products are for sale in deliveries. Manage price sheets in <a href="#">Store</a></p>
               </div>
 
               <div className="form-group form-group-spaced">

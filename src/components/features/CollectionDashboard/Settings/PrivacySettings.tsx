@@ -5,8 +5,8 @@ import type { ClientExclusiveSetOption } from '../../ClientExclusiveAccess';
 export interface PrivacySettingsProps {
   collectionPassword: string;
   setCollectionPassword: (val: string) => void;
-  showOnHomepage: boolean;
-  setShowOnHomepage: (val: boolean) => void;
+  showOnShowcase: boolean;
+  setShowOnShowcase: (val: boolean) => void;
   clientExclusiveAccess: boolean;
   setClientExclusiveAccess: (val: boolean) => void;
   clientPrivatePassword: string;
@@ -22,8 +22,8 @@ export interface PrivacySettingsProps {
 export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
   collectionPassword,
   setCollectionPassword,
-  showOnHomepage,
-  setShowOnHomepage,
+  showOnShowcase,
+  setShowOnShowcase,
   clientExclusiveAccess,
   setClientExclusiveAccess,
   clientPrivatePassword,
@@ -43,7 +43,7 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
 
       <div className="cd-settings-form">
         <div className="settings-section">
-          <label className="settings-label">Collection Password</label>
+          <label className="settings-label">Delivery Password</label>
           <div className="settings-input-wrapper with-action">
             <input
               type="text"
@@ -61,23 +61,23 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
               Generate
             </button>
           </div>
-          <p className="settings-desc">Require visitors to enter this password in order to see the collection.</p>
+          <p className="settings-desc">Require visitors to enter this password in order to see the delivery.</p>
         </div>
 
         <div className="settings-toggle-section">
           <div className="settings-toggle-row">
             <div className="toggle-info">
-              <label className="settings-label">Show on Homepage</label>
+              <label className="settings-label">Show on Showcase</label>
             </div>
             <div className="toggle-control">
               <label className="cd-toggle">
-                <input type="checkbox" checked={showOnHomepage} onChange={() => setShowOnHomepage(!showOnHomepage)} />
+                <input type="checkbox" checked={showOnShowcase} onChange={() => setShowOnShowcase(!showOnShowcase)} />
                 <span className="cd-toggle-slider"></span>
               </label>
-              <span className="toggle-state-label">{showOnHomepage ? 'On' : 'Off'}</span>
+              <span className="toggle-state-label">{showOnShowcase ? 'On' : 'Off'}</span>
             </div>
           </div>
-          <p className="settings-desc small">Show this collection on your <span className="settings-link">Homepage</span>. Manage Homepage in <span className="settings-link">Homepage settings</span>.</p>
+          <p className="settings-desc small">Show this delivery on your <a className="settings-link" href="/showcase">Showcase</a>. Manage Showcase in <a className="settings-link" href="/showcase">Showcase settings</a>.</p>
         </div>
 
         <ClientExclusiveAccessSettings

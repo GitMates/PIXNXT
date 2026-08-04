@@ -32,7 +32,7 @@ export const StoreSettings: React.FC<StoreSettingsProps> = ({
               <span className="toggle-state-label">{storeEnabled ? 'On' : 'Off'}</span>
             </div>
           </div>
-          <p className="settings-desc small">Activate Print Lab to allow visitors to purchase prints and products directly from your collections.</p>
+          <p className="settings-desc small">Activate Print Lab to allow visitors to purchase prints and products directly from your deliveries.</p>
         </div>
       </div>
     </div>

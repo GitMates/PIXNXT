@@ -398,7 +398,7 @@ export default function PrintStoreApp() {
 
       if (slug) {
         const { data: collection } = await supabase
-          .from('collections')
+          .from('deliveries')
           .select('*')
           .eq('slug', slug)
           .maybeSingle();
@@ -510,7 +510,7 @@ export default function PrintStoreApp() {
 
           if (session?.collection_id) {
             const { data: collection } = await supabase
-              .from('collections')
+              .from('deliveries')
               .select('*')
               .eq('id', session.collection_id)
               .maybeSingle();

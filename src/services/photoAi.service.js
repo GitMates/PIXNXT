@@ -202,7 +202,7 @@ export const photoAiService = {
 
   async setPersonHidden(collectionId, personId, hidden) {
     if (!collectionId || !personId) {
-      throw new Error('Missing collection or person.');
+      throw new Error('Missing delivery or person.');
     }
 
     const { error } = await supabase
@@ -266,12 +266,12 @@ export const photoAiService = {
   },
 
   searchBySelfie(collectionId, imageBase64, threshold = 85) {
-    if (!collectionId || !imageBase64) return Promise.reject(new Error('Missing collection or image'));
+    if (!collectionId || !imageBase64) return Promise.reject(new Error('Missing delivery or image'));
     return postJson('/api/photo-ai/search-selfie', { collectionId, imageBase64, threshold });
   },
 
   searchBySelfiePublic(collectionId, imageBase64, threshold = 85) {
-    if (!collectionId || !imageBase64) return Promise.reject(new Error('Missing collection or image'));
+    if (!collectionId || !imageBase64) return Promise.reject(new Error('Missing delivery or image'));
     return postJson('/api/photo-ai/public/search-selfie', { collectionId, imageBase64, threshold });
   },
 };

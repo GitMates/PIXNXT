@@ -36,7 +36,7 @@ function isCoverImageFile(file) {
 }
 
 /**
- * Cover slot: drag from the active set, browse from device, or pick from the collection.
+ * Cover slot: drag from the active set, browse from device, or pick from the delivery.
  */
 export function SidebarCoverUpload({
   coverUrl,
@@ -146,14 +146,14 @@ export function SidebarCoverUpload({
       )}
       role="button"
       tabIndex={isUpdating ? -1 : 0}
-      aria-label={`Set collection cover. Drag a photo from ${activeSetName}, browse files, or select from collection.`}
+      aria-label={`Set delivery cover. Drag a photo from ${activeSetName}, browse files, or select from delivery.`}
       onClick={handleBrowseClick}
       onKeyDown={handleDropzoneKeyDown}
     >
       <div className="cd-sidebar-cover-drop-icon" aria-hidden>
         {COVER_DROP_ICON}
       </div>
-      <p className="cd-sidebar-cover-drop-label">Collection cover</p>
+      <p className="cd-sidebar-cover-drop-label">Delivery cover</p>
       <p className="cd-sidebar-cover-drop-title">
         {isUpdating ? (
           'Updating cover…'
@@ -179,7 +179,7 @@ export function SidebarCoverUpload({
             className="cd-sidebar-cover-action-btn cd-sidebar-cover-action-btn--secondary"
             onClick={handleSelectFromCollection}
           >
-            From collection
+            From delivery
           </button>
         </div>
       )}
@@ -203,7 +203,7 @@ export function SidebarCoverUpload({
 
       {hasCover ? (
         <>
-          <img src={coverUrl.split('#')[0]} alt="Collection cover" draggable={false} />
+          <img src={coverUrl.split('#')[0]} alt="Delivery cover" draggable={false} />
           <div
             className={cn(
               'cd-sidebar-cover-dropzone cd-sidebar-cover-dropzone--overlay',

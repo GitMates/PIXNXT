@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS public.mobile_gallery_apps (
   icon_url text,
   cover_image_url text,
   status text NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published')),
-  collection_id uuid REFERENCES public.collections(id) ON DELETE SET NULL,
+  collection_id uuid REFERENCES public.deliveries(id) ON DELETE SET NULL,
   settings jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()

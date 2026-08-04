@@ -36,7 +36,7 @@ const CollectionList = ({ slug }) => {
         const photographerData = await galleryService.getPhotographerProfileBySlug(slug);
         if (!photographerData) throw new Error('Not found');
         setProfile(photographerData);
-        if (photographerData.homepage_enabled !== false) {
+        if (photographerData.showcase_enabled !== false) {
           const collectionsData = await galleryService.getPublicCollections(photographerData.id);
           setCollections(collectionsData || []);
         }
@@ -95,7 +95,7 @@ const CollectionList = ({ slug }) => {
 
   const handlePasswordSubmit = (e) => {
     e.preventDefault();
-    if (passwordInput === profile.homepage_password) {
+    if (passwordInput === profile.showcase_password) {
       setIsAuthenticated(true);
       setPasswordError(false);
     } else {
@@ -122,13 +122,13 @@ const CollectionList = ({ slug }) => {
     </div>
   );
 
-  if (profile.homepage_enabled === false) return (
+  if (profile.showcase_enabled === false) return (
     <div style={{ display:'flex', height:'100vh', flexDirection:'column', alignItems:'center', justifyContent:'center', background:'#fff' }}>
       <h1 style={{ fontSize:24, fontWeight:400, fontFamily:'Georgia, serif' }}>Coming Soon</h1>
     </div>
   );
 
-  if (profile.homepage_password && !isAuthenticated) return (
+  if (profile.showcase_password && !isAuthenticated) return (
     <div style={{ display:'flex', height:'100vh', alignItems:'center', justifyContent:'center', background:'#fafafa' }}>
       <div style={{ background:'#fff', padding:'60px 48px', maxWidth:400, width:'100%', textAlign:'center' }}>
         <h2 style={{ fontSize:18, fontWeight:400, marginBottom:8, fontFamily:'Georgia, serif', letterSpacing:'0.05em' }}>Password Required</h2>
@@ -146,9 +146,9 @@ const CollectionList = ({ slug }) => {
 
   const photographerName = profile.business_name || (profile.first_name ? `${profile.first_name} ${profile.last_name || ''}`.trim() : slug);
   const filteredCollections = collections
-    .filter(c => c.status === 'published' && c.show_on_homepage !== false)
+    .filter(c => c.status === 'published' && c.show_on_showcase !== false)
     .filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()));
-  const sortedCollections = sortCollections(filteredCollections, profile?.homepage_sort || 'created-new');
+  const sortedCollections = sortCollections(filteredCollections, profile?.showcase_sort || 'created-new');
   const totalPages = Math.ceil(sortedCollections.length / ITEMS_PER_PAGE);
   const safePage = Math.min(currentPage, Math.max(1, totalPages));
   const pagedCollections = sortedCollections.slice((safePage - 1) * ITEMS_PER_PAGE, safePage * ITEMS_PER_PAGE);
@@ -403,7 +403,7 @@ const CollectionList = ({ slug }) => {
         <section style={{ padding: '0 40px 80px', maxWidth: 1200, margin: '0 auto' }}>
           {sortedCollections.length === 0 ? (
             <div style={{ textAlign:'center', padding:'60px 0', color:'#aaa', fontFamily:'sans-serif', fontSize:13, letterSpacing:'0.08em', textTransform:'uppercase' }}>
-              {collections.length === 0 ? 'No galleries yet.' : 'No results found.'}
+              {collections.length === 0 ? 'No deliveries yet.' : 'No results found.'}
             </div>
           ) : (
             <div style={{
@@ -435,7 +435,7 @@ const CollectionList = ({ slug }) => {
                   {/* Card metadata */}
                   <div style={{ marginTop: 14 }}>
                     <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                      {col.homepage_password && (
+                      {(col.guest_password_hash || col.password || col.privacy === 'password') && (
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="2" strokeLinecap="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                       )}
                       <span style={{

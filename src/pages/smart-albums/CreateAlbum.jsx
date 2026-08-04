@@ -1358,7 +1358,7 @@ const CreateAlbum = () => {
                                                         id="album-name-suggestions"
                                                         className="sa-name-suggest-menu"
                                                         role="listbox"
-                                                        aria-label="Client gallery collections"
+                                                        aria-label="Client gallery deliveries"
                                                     >
                                                         {nameSuggestions.map((collection, index) => {
                                                             const isActive = index === activeSuggestionIndex;

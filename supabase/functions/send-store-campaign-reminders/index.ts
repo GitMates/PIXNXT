@@ -623,7 +623,7 @@ serve(async (req) => {
 
       // Collections owned by photographer (prefer one if provided)
       let collectionsQuery = supabaseAdmin
-        .from("collections")
+        .from("deliveries")
         .select("id, name, slug, cover_url, photographer_id")
         .eq("photographer_id", photographerId);
       if (preferredCollectionId) {

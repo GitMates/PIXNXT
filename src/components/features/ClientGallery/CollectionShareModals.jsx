@@ -53,7 +53,7 @@ export function CollectionDirectLinkModal({ collection, isOpen, onClose }) {
 
     return (
         <ModalShell title="GET DIRECT LINK" onClose={onClose}>
-            <CopyField label="COLLECTION URL" value={url} />
+            <CopyField label="DELIVERY URL" value={url} />
             {warning ? <p className="cgm-warning">{warning}</p> : null}
             <p className="cgm-hint">Share this link with clients to view the gallery.</p>
         </ModalShell>
@@ -73,20 +73,20 @@ export function CollectionQrModal({ collection, isOpen, onClose }) {
             <div className="cgm-qr-wrap">
                 <img src={qrSrc} alt={`QR code for ${collection.name}`} width={220} height={220} />
             </div>
-            <CopyField label="COLLECTION URL" value={url} />
+            <CopyField label="DELIVERY URL" value={url} />
             {isDraft ? (
                 <p className="cgm-warning">
-                    This collection is still a <strong>draft</strong>. Change status to <strong>Published</strong> in the top bar before clients scan this QR code.
+                    This delivery is still a <strong>draft</strong>. Change status to <strong>Published</strong> in the top bar before clients scan this QR code.
                 </p>
             ) : null}
             {missingSlug ? (
                 <p className="cgm-warning">
-                    Set a collection URL slug under Settings before sharing this QR code.
+                    Set a delivery URL slug under Settings before sharing this QR code.
                 </p>
             ) : null}
             {warning ? <p className="cgm-warning">{warning}</p> : null}
             <p className="cgm-hint">
-                Clients scan the code to open the public gallery. The collection must be published, and your live site URL must be set in{' '}
+                Clients scan the code to open the public gallery. The delivery must be published, and your live site URL must be set in{' '}
                 <code>VITE_PUBLIC_SITE_URL</code> on Vercel (then redeploy).
             </p>
         </ModalShell>
@@ -97,11 +97,11 @@ export function CollectionDuplicateModal({ collection, isOpen, onClose, onConfir
     if (!isOpen || !collection) return null;
 
     return (
-        <ModalShell title="DUPLICATE COLLECTION" onClose={onClose}>
-            <p className="cgm-text">Are you sure you want to duplicate this collection?</p>
+        <ModalShell title="DUPLICATE DELIVERY" onClose={onClose}>
+            <p className="cgm-text">Are you sure you want to duplicate this delivery?</p>
             <ul className="cgm-duplicate-notes">
-                <li>Duplicating a collection may take a few minutes depending on the size.</li>
-                <li>Photos and videos in the new collection may be temporarily unavailable while the process is running.</li>
+                <li>Duplicating a delivery may take a few minutes depending on the size.</li>
+                <li>Photos and videos in the new delivery may be temporarily unavailable while the process is running.</li>
             </ul>
             <div className="cgm-footer-actions">
                 <button type="button" className="cgm-btn-ghost" onClick={onClose} disabled={busy}>
@@ -122,7 +122,7 @@ export function FolderDirectLinkModal({ folder, isOpen, onClose }) {
     return (
         <ModalShell title="GET DIRECT LINK" onClose={onClose}>
             <CopyField label="FOLDER URL" value={url} />
-            <p className="cgm-hint">Opens this folder in your studio. Share with your team to manage collections inside it.</p>
+            <p className="cgm-hint">Opens this folder in your studio. Share with your team to manage deliveries inside it.</p>
         </ModalShell>
     );
 }
