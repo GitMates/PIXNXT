@@ -11,24 +11,17 @@ export { getShareUrlWarning, openShareByEmail, openWhatsAppShare, getQrCodeImage
 
 /**
  * Shareable URL for read-only album preview (flipbook view only).
- * Prefers verified custom domain, then studio slug host, then platform origin.
+ * Uses verified custom domain when set; otherwise the platform public origin.
  */
 export function getSmartAlbumPreviewShareUrl(album, options = {}) {
     const { photographerProfile } = options;
-    const id = album?.id ?? album;
+    const id = album?.slug || album?.id || (typeof album === 'string' ? album : '');
 
+    // Only use photographer host when custom domain is verified.
+    // Studio subdomains (slug.pixnxt.in) have no wildcard DNS and do not resolve.
     let origin = getPublicSiteOrigin();
-    if (photographerProfile) {
-        if (isCustomDomainVerified(photographerProfile)) {
-            origin = getPhotographerPublicOrigin(photographerProfile);
-        } else {
-            try {
-                const studioOrigin = getPhotographerPublicOrigin(photographerProfile);
-                if (studioOrigin) origin = studioOrigin;
-            } catch {
-                /* keep platform origin */
-            }
-        }
+    if (photographerProfile && isCustomDomainVerified(photographerProfile)) {
+        origin = getPhotographerPublicOrigin(photographerProfile);
     }
 
     if (!id) return `${origin}/album-proofer`;
