@@ -36,7 +36,7 @@ const initialModules: ModuleState[] = [
   {
     id: "client-gallery",
     label: "Client Gallery",
-    description: "Share collections and collect favorites",
+    description: "Share deliveries and collect favorites",
     icon: Images,
     href: "/client-gallery",
     stat: "412 photos shared",

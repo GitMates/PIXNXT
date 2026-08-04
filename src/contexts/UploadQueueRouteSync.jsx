@@ -13,7 +13,7 @@ export function UploadQueueRouteSync() {
     const curr = location.pathname;
     prevPathRef.current = curr;
 
-    if (prev === '/collections/manage' && curr !== '/collections/manage') {
+    if (prev === '/deliveries/manage' && curr !== '/deliveries/manage') {
       if (state.isOpen && !state.isMinimized) {
         minimize();
       }

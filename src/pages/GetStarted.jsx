@@ -12,7 +12,7 @@ const GetStarted = () => {
         <div className="gs-intro">
             <div className="gs-intro-header">
                 <span className="gs-label">Get Started</span>
-                <h1 className="gs-title">Create beautiful photo collections in 3 steps</h1>
+                <h1 className="gs-title">Create beautiful photo deliveries in 3 steps</h1>
                 <button className="gs-btn" onClick={() => setStep(1)}>
                     Get Started with Sample Photos
                 </button>
@@ -58,7 +58,7 @@ const GetStarted = () => {
 
             <div className="gs-card">
                 <div className="gs-form-group">
-                    <label>Collection Name</label>
+                    <label>Delivery Name</label>
                     <input type="text" placeholder="e.g. Jessie & Ryan" />
                 </div>
 
@@ -99,7 +99,7 @@ const GetStarted = () => {
                 ))}
             </div>
 
-            <button className="gs-btn gs-left" onClick={() => navigate('/collections/manage')}>Next</button>
+            <button className="gs-btn gs-left" onClick={() => navigate('/deliveries/manage')}>Next</button>
         </div>
     );
 

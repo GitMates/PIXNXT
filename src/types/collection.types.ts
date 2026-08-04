@@ -1,6 +1,6 @@
 import { Tables } from './supabase';
 
-export type Collection = Tables<'collections'>;
+export type Collection = Tables<'deliveries'>;
 export type PhotoSet = Tables<'sets'>;
 export type Photo = Tables<'photos'>;
 

@@ -145,7 +145,7 @@ export function UploadQueueProvider({ children }) {
           progress: 0,
           errorMessage: !photographerId
             ? 'Photographer account not loaded. Refresh and try again.'
-            : 'Open a collection before uploading.',
+            : 'Open a delivery before uploading.',
         });
         return;
       }
@@ -403,7 +403,7 @@ export function UploadQueueProvider({ children }) {
       }
       const target = targetRef.current;
       if (!target?.collectionId || !target?.photographerId) {
-        alert('Open a collection or event before uploading photos.');
+        alert('Open a delivery or event before uploading photos.');
         return false;
       }
 
@@ -496,7 +496,7 @@ export function UploadQueueProvider({ children }) {
         const preview = skipped.slice(0, 5).join(', ');
         const more = skipped.length > 5 ? ` and ${skipped.length - 5} more` : '';
         alert(
-          `Skipped ${skipped.length} duplicate file(s) already in this collection: ${preview}${more}`
+          `Skipped ${skipped.length} duplicate file(s) already in this delivery: ${preview}${more}`
         );
       }
       if (accepted.length === 0 && resumable.length === 0) return false;
@@ -507,7 +507,7 @@ export function UploadQueueProvider({ children }) {
         );
       }
 
-      const batchDestination = target.destinationLabel || destinationLabel || 'Collection';
+      const batchDestination = target.destinationLabel || destinationLabel || 'Delivery';
       const baseSortIndex = photoIndexRef.current;
 
       lastBatchTargetRef.current = {
@@ -767,7 +767,7 @@ export function UploadQueueProvider({ children }) {
       return {
         collectionId: batch.collectionId,
         activeSetId: batch.activeSetId ?? null,
-        destinationLabel: batch.destinationLabel || destinationLabel || 'Collection',
+        destinationLabel: batch.destinationLabel || destinationLabel || 'Delivery',
         viewPath: batch.viewPath || null,
       };
     }
@@ -776,7 +776,7 @@ export function UploadQueueProvider({ children }) {
     return {
       collectionId: target.collectionId,
       activeSetId: target.activeSetId ?? null,
-      destinationLabel: target.destinationLabel || destinationLabel || 'Collection',
+      destinationLabel: target.destinationLabel || destinationLabel || 'Delivery',
       viewPath: target.viewPath || null,
     };
   }, [destinationLabel]);

@@ -75,7 +75,7 @@ export default function StorePurchaseTable({
           type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search name, email, id, collection…"
+          placeholder="Search name, email, id, delivery…"
           className="neu-inset"
           style={{
             height: '40px',
@@ -100,7 +100,7 @@ export default function StorePurchaseTable({
               <th>Status</th>
               <th>Customer</th>
               <th>Contact</th>
-              <th>Collection</th>
+              <th>Delivery</th>
               <th>Date</th>
               <th>Time</th>
               <th>{planColumnLabel}</th>
@@ -182,7 +182,7 @@ export default function StorePurchaseTable({
                                   </span>
                                 </div>
                                 <div className="shipping-detail-col">
-                                  <span className="label-heading">Collection</span>
+                                  <span className="label-heading">Delivery</span>
                                   <span className="value-text">{row.collection_name || '—'}</span>
                                 </div>
                                 {row.detail ? (

@@ -403,7 +403,7 @@ const CollectionList = ({ slug }) => {
         <section style={{ padding: '0 40px 80px', maxWidth: 1200, margin: '0 auto' }}>
           {sortedCollections.length === 0 ? (
             <div style={{ textAlign:'center', padding:'60px 0', color:'#aaa', fontFamily:'sans-serif', fontSize:13, letterSpacing:'0.08em', textTransform:'uppercase' }}>
-              {collections.length === 0 ? 'No galleries yet.' : 'No results found.'}
+              {collections.length === 0 ? 'No deliveries yet.' : 'No results found.'}
             </div>
           ) : (
             <div style={{

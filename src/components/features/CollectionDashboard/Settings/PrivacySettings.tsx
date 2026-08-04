@@ -43,7 +43,7 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
 
       <div className="cd-settings-form">
         <div className="settings-section">
-          <label className="settings-label">Collection Password</label>
+          <label className="settings-label">Delivery Password</label>
           <div className="settings-input-wrapper with-action">
             <input
               type="text"
@@ -61,7 +61,7 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
               Generate
             </button>
           </div>
-          <p className="settings-desc">Require visitors to enter this password in order to see the collection.</p>
+          <p className="settings-desc">Require visitors to enter this password in order to see the delivery.</p>
         </div>
 
         <div className="settings-toggle-section">
@@ -77,7 +77,7 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
               <span className="toggle-state-label">{showOnHomepage ? 'On' : 'Off'}</span>
             </div>
           </div>
-          <p className="settings-desc small">Show this collection on your <span className="settings-link">Homepage</span>. Manage Homepage in <span className="settings-link">Homepage settings</span>.</p>
+          <p className="settings-desc small">Show this delivery on your <span className="settings-link">Homepage</span>. Manage Homepage in <span className="settings-link">Homepage settings</span>.</p>
         </div>
 
         <ClientExclusiveAccessSettings

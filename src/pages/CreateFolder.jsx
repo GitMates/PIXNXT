@@ -113,7 +113,7 @@ const CreateFolder = () => {
                             <div className="cf-toggle-row">
                                 <span className="cf-toggle-label">
                                     Global Folder Password
-                                    <span className="cf-info" title="When enabled, visitors need this password to open any collection in the folder.">i</span>
+                                    <span className="cf-info" title="When enabled, visitors need this password to open any delivery in the folder.">i</span>
                                 </span>
                                 <div className="cf-toggle-control">
                                     <label className="cf-toggle">

@@ -84,7 +84,7 @@ export default function LeftSidebar({ isOpen, onClose, onSeeGallery, onGoToCart,
 
   const handleShareClick = () => {
     navigator.clipboard.writeText(window.location.href);
-    alert("Collection link copied to clipboard!");
+    alert("Delivery link copied to clipboard!");
   };
 
   const handleGoToLab = () => {

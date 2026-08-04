@@ -124,7 +124,7 @@ export function MoveCollectionModal({
       onClose();
     } catch (err) {
       console.error('Failed to move collection:', err);
-      alert(err instanceof Error ? err.message : 'Failed to move collection.');
+      alert(err instanceof Error ? err.message : 'Failed to move delivery.');
     } finally {
       setBusy(false);
     }
@@ -160,7 +160,7 @@ export function MoveCollectionModal({
       >
         <div className="cd-modal-header">
           <h3 id="move-collection-title" className="cd-modal-title">
-            {isBulk ? 'MOVE COLLECTIONS TO' : 'MOVE COLLECTION TO'}
+            {isBulk ? 'MOVE DELIVERIES TO' : 'MOVE DELIVERY TO'}
           </h3>
           <button type="button" className="cd-modal-close" onClick={onClose} aria-label="Close">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -194,7 +194,7 @@ export function MoveCollectionModal({
             {loading && <p className="move-folder-status">Loading folders…</p>}
             {!loading && folders.length === 0 && (
               <p className="move-folder-status move-folder-status--muted">
-                No folders yet. Create one below to organize collections.
+                No folders yet. Create one below to organize deliveries.
               </p>
             )}
             {folders.map((folder) => (

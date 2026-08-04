@@ -19,6 +19,14 @@ import {
   ALBUM_PROOFER_ROUTE_LEGACY,
   isAlbumProoferPath,
 } from "./albumProoferIds"
+import {
+  DELIVERY_PRODUCT_HOME,
+  DELIVERY_ROUTE,
+  DELIVERY_ROUTE_LEGACY,
+  DELIVERY_STARRED_ROUTE,
+  isDeliveryPath,
+  isDeliveryStarredPath,
+} from "./deliveryIds"
 
 export interface Product {
   id: string
@@ -41,7 +49,7 @@ export const products: Product[] = [
   {
     id: "client-gallery",
     name: "Client Gallery",
-    tagline: "Collections, proofing & delivery",
+    tagline: "Deliveries, proofing & sharing",
     href: "/client-gallery",
     icon: Images,
   },
@@ -72,19 +80,16 @@ export const products: Product[] = [
 export const productNavItems: Record<string, ProductNavItem[]> = {
   "client-gallery": [
     {
-      label: "Collections",
-      href: "/client-gallery",
-      match: (p) =>
-        p === "/client-gallery" ||
-        p.startsWith("/collections") ||
-        p.startsWith("/folders"),
+      label: "Deliveries",
+      href: DELIVERY_PRODUCT_HOME,
+      match: (p) => isDeliveryPath(p),
       icon: Images,
       section: "work",
     },
     {
       label: "Starred",
-      href: "/starred/collections",
-      match: (p) => p.startsWith("/starred"),
+      href: DELIVERY_STARRED_ROUTE,
+      match: (p) => isDeliveryStarredPath(p),
       icon: Star,
       section: "work",
     },
@@ -229,6 +234,7 @@ export function isProductActive(productHref: string, pathname: string): boolean 
   if (productHref === "/client-gallery") {
     return (
       pathname === "/client-gallery" ||
+      pathname.startsWith("/deliveries") ||
       pathname.startsWith("/collections") ||
       pathname.startsWith("/folders") ||
       pathname.startsWith("/starred") ||

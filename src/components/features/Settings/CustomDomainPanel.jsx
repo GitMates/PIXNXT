@@ -287,7 +287,7 @@ export function CustomDomainPanel({ profile, updateProfile }) {
                   />
                 </div>
                 <p className="set-help-text">
-                  We recommend connecting a subdomain for your collections and mobile apps.
+                  We recommend connecting a subdomain for your deliveries and mobile apps.
                 </p>
 
                 {error && <p className="set-domain-error">{error}</p>}

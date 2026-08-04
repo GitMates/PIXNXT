@@ -154,10 +154,10 @@ serve(async (req) => {
               </div>
             `;
           } else {
-            // Entire collection — show a note instead of embedding all photos
+            // Entire delivery — show a note instead of embedding all photos
             downloadSection = `
               <div style="margin-top:10px; padding:10px 14px; background:#ecfdf5; border-radius:6px; border:1px solid #bbf7d0; color:#059669; font-size:13px;">
-                📧 Your full collection download link will arrive in a separate email once processing is complete.
+                📧 Your full delivery download link will arrive in a separate email once processing is complete.
               </div>
             `;
           }
@@ -253,7 +253,7 @@ serve(async (req) => {
                 </a>
               ` : `
                 <div style="background:#f0fdf4; border:1px solid #bbf7d0; color:#16a34a; padding:12px 16px; border-radius:6px; font-size:13.5px; font-weight:500;">
-                  ⚡ Your entire collection download zip and link will be processed and sent to your inbox in 10-15 minutes.
+                  ⚡ Your entire delivery download zip and link will be processed and sent to your inbox in 10-15 minutes.
                 </div>
               `}
             </div>

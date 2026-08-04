@@ -105,7 +105,7 @@ function buildShareCollectionEmailHtml(options: {
     ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:${cardBgColor};text-align:center;">
         <tr>
           <td style="padding:0;">
-            <img src="${escapeHtml(coverUrl)}" alt="Collection Cover" style="width:100%;max-width:100%;height:360px;object-fit:cover;display:block;" />
+            <img src="${escapeHtml(coverUrl)}" alt="Delivery Cover" style="width:100%;max-width:100%;height:360px;object-fit:cover;display:block;" />
           </td>
         </tr>
       </table>`
@@ -196,14 +196,14 @@ serve(async (req) => {
 
     // Fetch collection info
     const { data: collection, error: colError } = await supabaseAdmin
-      .from('collections')
+      .from('deliveries')
       .select('id, name, slug, cover_url, photographer_id')
       .eq('slug', collectionSlug)
       .maybeSingle();
 
     if (colError) throw colError;
     if (!collection) {
-      return new Response(JSON.stringify({ error: 'Collection not found' }), {
+      return new Response(JSON.stringify({ error: 'Delivery not found' }), {
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -219,7 +219,7 @@ serve(async (req) => {
     if (photogError) throw photogError;
 
     const photographerBrandName = photographer?.business_name || photographer?.display_name || 'KAVI';
-    const collectionName = collection.name || 'Collection';
+    const collectionName = collection.name || 'Delivery';
     const coverUrl = collection.cover_url || null;
 
     // Build URLs

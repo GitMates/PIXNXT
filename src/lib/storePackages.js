@@ -3,7 +3,7 @@ import { categoryTagsFromCollection, normalizeCategoryTag } from './categoryTags
 
 export const STORE_PACKAGE_CATEGORIES = ['Default', 'Wedding', 'Portrait', 'Event'];
 
-/** Collections with fewer than this many photos are not package-eligible. */
+/** Deliveries with fewer than this many photos are not package-eligible. */
 export const PACKAGE_THRESHOLD = 10;
 
 /** Pack sizes offered for social sharing (in addition to single photo). */

@@ -127,7 +127,7 @@ const FolderView = () => {
       if (closeEdit) setBulkEditOpen(false);
     } catch (err) {
       console.error('Bulk update failed:', err);
-      alert('Failed to update collections. Please try again.');
+      alert('Failed to update deliveries. Please try again.');
     } finally {
       setBulkApplying(false);
     }
@@ -198,11 +198,11 @@ const FolderView = () => {
 
   const handleCardClick = (collection) => {
     if (selectedCards.length > 0) return;
-    navigate(`/collections/manage?id=${collection.id}`);
+    navigate(`/deliveries/manage?id=${collection.id}`);
   };
 
   const navigateNewInFolder = () => {
-    navigate(`/collections/create?folderId=${folderId}`);
+    navigate(`/deliveries/create?folderId=${folderId}`);
   };
 
   useEffect(() => {
@@ -260,7 +260,7 @@ const FolderView = () => {
         }}
         onShareByEmail={() => {
           closeContextMenu();
-          navigate(`/collections/manage/share?id=${collection.id}`);
+          navigate(`/deliveries/manage/share?id=${collection.id}`);
         }}
         onGetDirectLink={() => {
           setDirectLinkCollection(collection);
@@ -297,13 +297,13 @@ const FolderView = () => {
   };
 
   const handleDeleteCollection = async (collectionId) => {
-    if (!window.confirm('Delete this collection? All photos will be removed.')) return;
+    if (!window.confirm('Delete this delivery? All photos will be removed.')) return;
     try {
       await galleryService.deleteCollection(collectionId);
       setCollections((prev) => prev.filter((c) => c.id !== collectionId));
     } catch (err) {
       console.error(err);
-      alert('Failed to delete collection.');
+      alert('Failed to delete delivery.');
     }
   };
 
@@ -317,10 +317,10 @@ const FolderView = () => {
         photographerId
       );
       setDuplicateCollection(null);
-      navigate(`/collections/manage?id=${newRow.id}`);
+      navigate(`/deliveries/manage?id=${newRow.id}`);
     } catch (err) {
       console.error(err);
-      alert(err?.message || 'Failed to duplicate collection. Please try again.');
+      alert(err?.message || 'Failed to duplicate delivery. Please try again.');
     } finally {
       setDuplicateBusy(false);
     }
@@ -338,7 +338,7 @@ const FolderView = () => {
     <SidebarLayout>
       <main className="cg-style-2 fv-main">
         <div className="fv-topbar">
-          <button type="button" className="fv-back" onClick={() => navigate('/client-gallery')} aria-label="Back to collections">
+          <button type="button" className="fv-back" onClick={() => navigate('/client-gallery')} aria-label="Back to deliveries">
             <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="15 18 9 12 15 6" />
             </svg>
@@ -404,7 +404,7 @@ const FolderView = () => {
               className="cg-style-11 fv-btn-primary fv-new-collection-solo"
               onClick={navigateNewInFolder}
             >
-              New Collection
+              New Delivery
             </button>
           </div>
         </div>
@@ -473,12 +473,12 @@ const FolderView = () => {
                 <circle cx="60" cy="44" r="3" fill="#333" />
               </svg>
             </div>
-            <h2 className="fv-empty-title">Create collections for this folder</h2>
+            <h2 className="fv-empty-title">Create deliveries for this folder</h2>
             <p className="fv-empty-desc">
-              Group collections into a folder to stay organized — ideal for events with multiple galleries or volume photography sessions.
+              Group deliveries into a folder to stay organized — ideal for events with multiple galleries or volume photography sessions.
             </p>
             <button type="button" className="fv-empty-cta" onClick={navigateNewInFolder}>
-              New Collection
+              New Delivery
             </button>
           </div>
         )}
@@ -580,7 +580,7 @@ const FolderView = () => {
         isOpen={Boolean(editCollection)}
         onClose={() => setEditCollection(null)}
         onSave={handleEditSave}
-        onAdvanced={(c) => navigate(`/collections/manage?id=${c.id}`)}
+        onAdvanced={(c) => navigate(`/deliveries/manage?id=${c.id}`)}
         saving={editSaving}
       />
       <CollectionDirectLinkModal collection={directLinkCollection} isOpen={Boolean(directLinkCollection)} onClose={() => setDirectLinkCollection(null)} />

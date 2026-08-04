@@ -93,7 +93,7 @@ export function EditCollectionModal({ collection, isOpen, onClose, onSave, onAdv
             <aside className="ecm-drawer" role="dialog" aria-labelledby="ecm-title">
                 <div className="ecm-drawer-header">
                     <div>
-                        <p className="ecm-eyebrow">Collection</p>
+                        <p className="ecm-eyebrow">Delivery</p>
                         <h2 id="ecm-title" className="ecm-drawer-title">Edit Details</h2>
                     </div>
                     <button type="button" className="ecm-close" onClick={onClose} aria-label="Close panel">
@@ -103,7 +103,7 @@ export function EditCollectionModal({ collection, isOpen, onClose, onSave, onAdv
 
                 <form className="ecm-drawer-body" onSubmit={handleSubmit}>
                     <div className="ecm-field">
-                        <label className="ecm-label" htmlFor="ecm-name">Collection Name</label>
+                        <label className="ecm-label" htmlFor="ecm-name">Delivery Name</label>
                         <input
                             id="ecm-name"
                             type="text"
@@ -136,7 +136,7 @@ export function EditCollectionModal({ collection, isOpen, onClose, onSave, onAdv
                     <div className="ecm-toggle-card">
                         <div className="min-w-0">
                             <p className="ecm-toggle-title">Show in Showcase</p>
-                            <p className="ecm-toggle-hint">Display this collection on your public portfolio page</p>
+                            <p className="ecm-toggle-hint">Display this delivery on your public portfolio page</p>
                         </div>
                         <button
                             type="button"
@@ -150,7 +150,7 @@ export function EditCollectionModal({ collection, isOpen, onClose, onSave, onAdv
                     </div>
 
                     <div className="ecm-field">
-                        <label className="ecm-label">Collection Tags</label>
+                        <label className="ecm-label">Delivery Tags</label>
                         <div className="ecm-tag-input">
                             {tags.map((tag) => (
                                 <span key={tag} className="ecm-tag-chip">

@@ -62,7 +62,7 @@ export default function PhotoGrid({
     return (
       <div className="photos-section" style={{ textAlign: 'center', padding: '4rem 0' }}>
         <p style={{ color: '#777777', fontSize: '1rem', letterSpacing: '0.05em' }}>
-          No photos found in this collection.
+          No photos found in this delivery.
         </p>
       </div>
     );

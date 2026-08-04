@@ -115,8 +115,8 @@ serve(async (req) => {
     )
 
     const { data: reminders, error: fetchError } = await supabaseAdmin
-      .from('collection_reminders')
-      .select('*, collections!inner(name, slug, auto_expiry, download_pin_hash, cover_url, photographer_id)')
+      .from('delivery_reminders')
+      .select('*, deliveries!inner(name, slug, auto_expiry, download_pin_hash, cover_url, photographer_id)')
       .is('last_sent_at', null);
 
     if (fetchError) throw fetchError
@@ -142,7 +142,7 @@ serve(async (req) => {
     const results = []
 
     for (const reminder of reminders || []) {
-      const collection = reminder.collections;
+      const collection = reminder.deliveries;
       if (!collection.auto_expiry) continue;
 
       const expiryDate = new Date(collection.auto_expiry)
@@ -154,7 +154,7 @@ serve(async (req) => {
         day: 'numeric'
       });
 
-      // All collections expire at 11:59 PM
+      // All deliveries expire at 11:59 PM
       const formattedTime = "11:59 PM";
 
       const daysBefore = parseInt(reminder.timing?.split(' ')[0] || '1')
@@ -178,10 +178,12 @@ serve(async (req) => {
         const pinValue = collection.download_pin_hash || 'N/A'
 
         const replacements: Record<string, string> = {
+          '{delivery.name}': collection.name,
           '{collection.name}': collection.name,
           '{expiry.date}': formattedDate,
           '{expiry.time}': formattedTime,
           '{days.prior}': `${daysBefore} day${daysBefore > 1 ? 's' : ''}`,
+          '{delivery.url}': galleryUrl,
           '{collection.url}': galleryUrl,
           '{pin}': pinValue,
         }
@@ -312,7 +314,7 @@ serve(async (req) => {
 
         // Mark as sent
         await supabaseAdmin
-          .from('collection_reminders')
+          .from('delivery_reminders')
           .update({ last_sent_at: new Date().toISOString() })
           .eq('id', reminder.id)
 

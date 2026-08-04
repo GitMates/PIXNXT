@@ -62,14 +62,14 @@ export type Database = {
             foreignKeyName: "activity_log_collection_id_fkey"
             columns: ["collection_id"]
             isOneToOne: false
-            referencedRelation: "collections"
+            referencedRelation: "deliveries"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "activity_log_collection_id_fkey"
             columns: ["collection_id"]
             isOneToOne: false
-            referencedRelation: "collections_public"
+            referencedRelation: "deliveries_public"
             referencedColumns: ["id"]
           },
           {
@@ -141,14 +141,14 @@ export type Database = {
             foreignKeyName: "client_sessions_collection_id_fkey"
             columns: ["collection_id"]
             isOneToOne: false
-            referencedRelation: "collections"
+            referencedRelation: "deliveries"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "client_sessions_collection_id_fkey"
             columns: ["collection_id"]
             isOneToOne: false
-            referencedRelation: "collections_public"
+            referencedRelation: "deliveries_public"
             referencedColumns: ["id"]
           },
           {
@@ -160,7 +160,7 @@ export type Database = {
           },
         ]
       }
-      collection_contacts: {
+      delivery_contacts: {
         Row: {
           assigned_at: string
           collection_id: string
@@ -178,21 +178,21 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "collection_contacts_collection_id_fkey"
+            foreignKeyName: "delivery_contacts_collection_id_fkey"
             columns: ["collection_id"]
             isOneToOne: false
-            referencedRelation: "collections"
+            referencedRelation: "deliveries"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "collection_contacts_collection_id_fkey"
+            foreignKeyName: "delivery_contacts_collection_id_fkey"
             columns: ["collection_id"]
             isOneToOne: false
-            referencedRelation: "collections_public"
+            referencedRelation: "deliveries_public"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "collection_contacts_contact_id_fkey"
+            foreignKeyName: "delivery_contacts_contact_id_fkey"
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "contacts"
@@ -200,7 +200,121 @@ export type Database = {
           },
         ]
       }
-      collections: {
+      delivery_reminders: {
+        Row: {
+          activity_lists: string[] | null
+          body: string
+          collection_id: string
+          created_at: string | null
+          id: string
+          include_pin: boolean | null
+          last_sent_at: string | null
+          send_copy: boolean | null
+          subject: string
+          timing: string
+          to_email: string | null
+          to_whatsapp: string | null
+          updated_at: string | null
+          whatsapp_body: string | null
+          whatsapp_enabled: boolean | null
+        }
+        Insert: {
+          activity_lists?: string[] | null
+          body: string
+          collection_id: string
+          created_at?: string | null
+          id?: string
+          include_pin?: boolean | null
+          last_sent_at?: string | null
+          send_copy?: boolean | null
+          subject: string
+          timing: string
+          to_email?: string | null
+          to_whatsapp?: string | null
+          updated_at?: string | null
+          whatsapp_body?: string | null
+          whatsapp_enabled?: boolean | null
+        }
+        Update: {
+          activity_lists?: string[] | null
+          body?: string
+          collection_id?: string
+          created_at?: string | null
+          id?: string
+          include_pin?: boolean | null
+          last_sent_at?: string | null
+          send_copy?: boolean | null
+          subject?: string
+          timing?: string
+          to_email?: string | null
+          to_whatsapp?: string | null
+          updated_at?: string | null
+          whatsapp_body?: string | null
+          whatsapp_enabled?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collection_reminders_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "deliveries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collection_reminders_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "deliveries_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      delivery_share_emails: {
+        Row: {
+          collection_id: string
+          created_at: string
+          id: string
+          recipient_email: string
+          sender_email: string | null
+          status: string
+          subject: string
+        }
+        Insert: {
+          collection_id: string
+          created_at?: string
+          id?: string
+          recipient_email: string
+          sender_email?: string | null
+          status?: string
+          subject: string
+        }
+        Update: {
+          collection_id?: string
+          created_at?: string
+          id?: string
+          recipient_email?: string
+          sender_email?: string | null
+          status?: string
+          subject?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collection_share_emails_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "deliveries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collection_share_emails_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "deliveries_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deliveries: {
         Row: {
           background_color: string | null
           client_password_hash: string | null
@@ -247,7 +361,7 @@ export type Database = {
           slug: string
           slideshow_enabled: boolean
           social_sharing_enabled: boolean
-          status: Database["public"]["Enums"]["collection_status"]
+          status: Database["public"]["Enums"]["delivery_status"]
           store_banner_text: string | null
           store_enabled: boolean
           thumbnail_size: Database["public"]["Enums"]["thumbnail_size"]
@@ -302,7 +416,7 @@ export type Database = {
           slug: string
           slideshow_enabled?: boolean
           social_sharing_enabled?: boolean
-          status?: Database["public"]["Enums"]["collection_status"]
+          status?: Database["public"]["Enums"]["delivery_status"]
           store_banner_text?: string | null
           store_enabled?: boolean
           thumbnail_size?: Database["public"]["Enums"]["thumbnail_size"]
@@ -357,7 +471,7 @@ export type Database = {
           slug?: string
           slideshow_enabled?: boolean
           social_sharing_enabled?: boolean
-          status?: Database["public"]["Enums"]["collection_status"]
+          status?: Database["public"]["Enums"]["delivery_status"]
           store_banner_text?: string | null
           store_enabled?: boolean
           thumbnail_size?: Database["public"]["Enums"]["thumbnail_size"]
@@ -525,14 +639,14 @@ export type Database = {
             foreignKeyName: "email_registrations_collection_id_fkey"
             columns: ["collection_id"]
             isOneToOne: false
-            referencedRelation: "collections"
+            referencedRelation: "deliveries"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "email_registrations_collection_id_fkey"
             columns: ["collection_id"]
             isOneToOne: false
-            referencedRelation: "collections_public"
+            referencedRelation: "deliveries_public"
             referencedColumns: ["id"]
           },
           {
@@ -610,14 +724,14 @@ export type Database = {
             foreignKeyName: "favorite_lists_collection_id_fkey"
             columns: ["collection_id"]
             isOneToOne: false
-            referencedRelation: "collections"
+            referencedRelation: "deliveries"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "favorite_lists_collection_id_fkey"
             columns: ["collection_id"]
             isOneToOne: false
-            referencedRelation: "collections_public"
+            referencedRelation: "deliveries_public"
             referencedColumns: ["id"]
           },
           {
@@ -895,14 +1009,14 @@ export type Database = {
             foreignKeyName: "orders_collection_id_fkey"
             columns: ["collection_id"]
             isOneToOne: false
-            referencedRelation: "collections"
+            referencedRelation: "deliveries"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "orders_collection_id_fkey"
             columns: ["collection_id"]
             isOneToOne: false
-            referencedRelation: "collections_public"
+            referencedRelation: "deliveries_public"
             referencedColumns: ["id"]
           },
           {
@@ -1167,14 +1281,14 @@ export type Database = {
             foreignKeyName: "photos_collection_id_fkey"
             columns: ["collection_id"]
             isOneToOne: false
-            referencedRelation: "collections"
+            referencedRelation: "deliveries"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "photos_collection_id_fkey"
             columns: ["collection_id"]
             isOneToOne: false
-            referencedRelation: "collections_public"
+            referencedRelation: "deliveries_public"
             referencedColumns: ["id"]
           },
           {
@@ -1401,14 +1515,14 @@ export type Database = {
             foreignKeyName: "sets_collection_id_fkey"
             columns: ["collection_id"]
             isOneToOne: false
-            referencedRelation: "collections"
+            referencedRelation: "deliveries"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "sets_collection_id_fkey"
             columns: ["collection_id"]
             isOneToOne: false
-            referencedRelation: "collections_public"
+            referencedRelation: "deliveries_public"
             referencedColumns: ["id"]
           },
           {
@@ -1422,7 +1536,7 @@ export type Database = {
       }
     }
     Views: {
-      collections_public: {
+      deliveries_public: {
         Row: {
           background_color: string | null
           color_palette: string | null
@@ -1457,7 +1571,7 @@ export type Database = {
           show_on_homepage: boolean | null
           slug: string | null
           social_sharing_enabled: boolean | null
-          status: Database["public"]["Enums"]["collection_status"] | null
+          status: Database["public"]["Enums"]["delivery_status"] | null
           store_banner_text: string | null
           store_enabled: boolean | null
           thumbnail_size: Database["public"]["Enums"]["thumbnail_size"] | null
@@ -1497,7 +1611,7 @@ export type Database = {
         | "password_attempt"
         | "store_view"
         | "cart_add"
-      collection_status: "draft" | "published" | "archived"
+      delivery_status: "draft" | "published" | "archived"
       coupon_type:
         | "percent_off"
         | "amount_off"

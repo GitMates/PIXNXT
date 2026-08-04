@@ -6,6 +6,7 @@ import { isRawImageFile } from '../lib/rawImageFormats';
 import { extractRawPreviewBlob } from '../lib/rawImagePreview';
 import { hasRawDisplayPreview, isRawMedia, resolveMediaUrl, toThumbDerivativeUrl } from '../lib/photoDisplayUrl';
 import { generateCollectionSlug } from '../lib/collectionSlug';
+import { DELIVERY_R2_MODULE } from '../lib/deliveryIds';
 import { storageService } from './storage.service';
 import {
   isIncompleteUploadPhoto,
@@ -67,21 +68,21 @@ function safePathSegment(value, fallback = 'item') {
 }
 
 async function getCollectionPathFolder(collectionId) {
-  if (!collectionId) return 'collection';
+  if (!collectionId) return 'delivery';
   if (collectionPathNameCache.has(collectionId)) {
     return collectionPathNameCache.get(collectionId);
   }
   try {
     const { data } = await supabase
-      .from('collections')
+      .from('deliveries')
       .select('id, name')
       .eq('id', collectionId)
       .maybeSingle();
-    const folder = `${safePathSegment(data?.name, 'collection')}__${collectionId}`;
+    const folder = `${safePathSegment(data?.name, 'delivery')}__${collectionId}`;
     collectionPathNameCache.set(collectionId, folder);
     return folder;
   } catch {
-    return `collection__${collectionId}`;
+    return `delivery__${collectionId}`;
   }
 }
 
@@ -185,7 +186,7 @@ export const galleryService = {
    */
   async getCollections(photographerId) {
     const { data, error } = await supabase
-      .from('collections')
+      .from('deliveries')
       .select(`
         *,
         photos:photos!photos_collection_id_fkey(size_bytes, filename)
@@ -204,7 +205,7 @@ export const galleryService = {
   async getPublicCollections(photographerId) {
     if (!photographerId) return [];
     const { data, error } = await supabase
-      .from('collections')
+      .from('deliveries')
       .select('*')
       .eq('photographer_id', photographerId)
       .eq('status', 'published')
@@ -219,7 +220,7 @@ export const galleryService = {
   async getStarredCollections(photographerId) {
     if (!photographerId) return [];
     const { data, error } = await supabase
-      .from('collections')
+      .from('deliveries')
       .select(`
         *,
         photos:photos!photos_collection_id_fkey(size_bytes, filename)
@@ -232,14 +233,14 @@ export const galleryService = {
     return attachMissingListCovers((data || []).map(mapCollectionDashboardRow));
   },
 
-  /** Starred photos across all collections for the dashboard Starred → Photos tab. */
+  /** Starred photos across all deliveries for the dashboard Starred → Photos tab. */
   async getStarredPhotos(photographerId) {
     if (!photographerId) return [];
     const { data, error } = await supabase
       .from('photos')
       .select(`
         ${DASHBOARD_PHOTO_FIELDS},
-        collection:collections!photos_collection_id_fkey(id, name, slug)
+        collection:deliveries!photos_collection_id_fkey(id, name, slug)
       `)
       .eq('photographer_id', photographerId)
       .eq('is_starred', true)
@@ -268,7 +269,7 @@ export const galleryService = {
     if (folderError) throw folderError;
 
     const { data: collections, error: collectionError } = await supabase
-      .from('collections')
+      .from('deliveries')
       .select('folder_id, cover_url, created_at')
       .eq('photographer_id', photographerId)
       .not('folder_id', 'is', null)
@@ -347,11 +348,11 @@ export const galleryService = {
 
   async moveCollectionToFolder(collectionId, folderId) {
     if (!collectionId) {
-      throw new Error('Collection is required.');
+      throw new Error('Delivery is required.');
     }
 
     const { data, error } = await supabase
-      .from('collections')
+      .from('deliveries')
       .update({ folder_id: folderId ?? null })
       .eq('id', collectionId)
       .select('id, folder_id')
@@ -427,7 +428,7 @@ export const galleryService = {
     if (!photographerId || !folderId) return [];
 
     const { data, error } = await supabase
-      .from('collections')
+      .from('deliveries')
       .select(`
         *,
         photos:photos!photos_collection_id_fkey(size_bytes, filename)
@@ -487,7 +488,7 @@ export const galleryService = {
    */
   async getPublicCollections(photographerId) {
     const { data, error } = await supabase
-      .from('collections')
+      .from('deliveries')
       .select(`
         *,
         photos:photos!photos_collection_id_fkey(count)
@@ -505,7 +506,7 @@ export const galleryService = {
   },
 
   /**
-   * Create a new collection
+   * Create a new delivery
    */
   async createCollection(collectionData) {
     if (collectionData.photographer_id) {
@@ -589,7 +590,7 @@ export const galleryService = {
     const { _vaultSettings, ...insertPayload } = finalCollectionData;
 
     const { data, error } = await supabase
-      .from('collections')
+      .from('deliveries')
       .insert([insertPayload])
       .select()
       .single();
@@ -618,7 +619,7 @@ export const galleryService = {
    */
   async duplicateCollection(sourceCollectionId, photographerId) {
     if (!sourceCollectionId || !photographerId) {
-      throw new Error('Collection and photographer are required to duplicate.');
+      throw new Error('Delivery and photographer are required to duplicate.');
     }
 
     const source = await this.getCollectionById(sourceCollectionId);
@@ -759,7 +760,7 @@ export const galleryService = {
    */
   async updateCollection(id, updateData) {
     const { data, error } = await supabase
-      .from('collections')
+      .from('deliveries')
       .update(updateData)
       .eq('id', id)
       .select()
@@ -773,32 +774,29 @@ export const galleryService = {
    * Delete a collection and all associated files
    */
   async deleteCollection(id) {
-    // 1. Get collection info (to get photographer_id and list of photos)
+    // 1. Delivery + photo storage keys (covers deliveries/ and legacy clientgallery/ paths)
     const { data: collection, error: fetchError } = await supabase
-      .from('collections')
-      .select('photographer_id, photos:photos!photos_collection_id_fkey(original_storage_path)')
+      .from('deliveries')
+      .select(
+        `photographer_id, photos:photos!photos_collection_id_fkey(${PHOTO_STORAGE_PATH_COLUMNS.join(', ')})`
+      )
       .eq('id', id)
       .single();
 
     if (fetchError) throw fetchError;
 
-    // 2. Delete files from Storage if they exist
-    const storagePaths = collection.photos
-      ?.map(p => p.original_storage_path)
-      .filter(path => !!path);
-
-    if (storagePaths && storagePaths.length > 0) {
-      try {
-        await storageService.delete(storagePaths);
-      } catch (storageError) {
-        console.error('Error deleting storage files from R2:', storageError);
-        // We continue anyway to at least delete the database records
-      }
+    // 2. Delete all derivative keys from R2 when present
+    const storagePaths = (collection.photos || []).flatMap(collectPhotoStoragePaths);
+    try {
+      await deleteStoragePaths(storagePaths);
+    } catch (storageError) {
+      console.error('Error deleting storage files from R2:', storageError);
+      // Continue so DB rows are still removed
     }
 
-    // 3. Delete the collection record (cascade deletes related DB tables)
+    // 3. Delete the delivery row (cascade deletes related DB tables)
     const { error } = await supabase
-      .from('collections')
+      .from('deliveries')
       .delete()
       .eq('id', id);
 
@@ -811,7 +809,7 @@ export const galleryService = {
   async getCollectionDashboardData(id) {
     const [collectionRes, photosRes] = await Promise.all([
       supabase
-        .from('collections')
+        .from('deliveries')
         .select(`*, sets!sets_collection_id_fkey (*)`)
         .eq('id', id)
         .single(),
@@ -838,7 +836,7 @@ export const galleryService = {
    */
   async getCollectionById(id) {
     const { data, error } = await supabase
-      .from('collections')
+      .from('deliveries')
       .select(`
         *,
         photos!photos_collection_id_fkey (${DASHBOARD_PHOTO_FIELDS}),
@@ -897,7 +895,7 @@ export const galleryService = {
 
     const baseQuery = () =>
       supabase
-        .from('collections')
+        .from('deliveries')
         .select(select)
         .eq('status', 'published');
 
@@ -1086,7 +1084,7 @@ export const galleryService = {
     }
 
     const setFolder = setId ? `set__${safePathSegment(setId, 'set')}` : 'highlights';
-    return `users/${photographerFolder}/clientgallery/${collectionFolder}/photoset/${setFolder}`;
+    return `users/${photographerFolder}/${DELIVERY_R2_MODULE}/${collectionFolder}/photoset/${setFolder}`;
   },
 
   /**
@@ -1105,7 +1103,7 @@ export const galleryService = {
   ) {
     const { signal } = options;
     if (!collectionId || !photographerId) {
-      throw new Error('Collection or photographer is missing. Refresh the page and try again.');
+      throw new Error('Delivery or photographer is missing. Refresh the page and try again.');
     }
 
     await this._assertStorageQuota(photographerId, file.size);
@@ -1547,7 +1545,7 @@ export const galleryService = {
    */
   async replacePhoto(photoId, photographerId, collectionId, file, onProgress = null) {
     if (!collectionId || !photographerId) {
-      throw new Error('Collection or photographer is missing. Refresh the page and try again.');
+      throw new Error('Delivery or photographer is missing. Refresh the page and try again.');
     }
 
     const { data: existing, error: fetchError } = await supabase
@@ -1560,7 +1558,7 @@ export const galleryService = {
 
     if (fetchError) throw fetchError;
     if (!existing || existing.collection_id !== collectionId) {
-      throw new Error('Photo not found in this collection.');
+      throw new Error('Photo not found in this delivery.');
     }
 
     const mime = getFileMime(file);
@@ -1573,7 +1571,7 @@ export const galleryService = {
     const setFolder = existing?.set_id
       ? `set__${safePathSegment(existing.set_id, 'set')}`
       : 'highlights';
-    const basePath = `users/${photographerFolder}/clientgallery/${collectionFolder}/photoset/${setFolder}`;
+    const basePath = `users/${photographerFolder}/${DELIVERY_R2_MODULE}/${collectionFolder}/photoset/${setFolder}`;
     const filePath = `${basePath}/original/${fileName}`;
 
     const isVideo = isVideoMime(mime);
@@ -1731,7 +1729,7 @@ export const galleryService = {
     const collectionIds = [...new Set(rows.map((r) => r.collection_id).filter(Boolean))];
     for (const collectionId of collectionIds) {
       const { data: collection, error: coverError } = await supabase
-        .from('collections')
+        .from('deliveries')
         .select('cover_photo_id')
         .eq('id', collectionId)
         .single();
@@ -1740,7 +1738,7 @@ export const galleryService = {
 
       if (collection?.cover_photo_id && ids.includes(collection.cover_photo_id)) {
         const { error: clearCoverError } = await supabase
-          .from('collections')
+          .from('deliveries')
           .update({ cover_photo_id: null })
           .eq('id', collectionId);
         if (clearCoverError) throw clearCoverError;
@@ -1981,7 +1979,7 @@ export const galleryService = {
   async createOrGetSession(collectionId, email, options = {}) {
     const { ensureDefaultFavoriteList = true } = options;
     if (!collectionId || !email) {
-      throw new Error('Collection ID and email are required');
+      throw new Error('Delivery ID and email are required');
     }
 
     try {
@@ -2040,7 +2038,7 @@ export const galleryService = {
         // Log registration for Email Registration activity tab (best-effort)
         try {
           const { data: col } = await supabase
-            .from('collections')
+            .from('deliveries')
             .select('photographer_id, user_id')
             .eq('id', collectionId)
             .maybeSingle();
@@ -2511,7 +2509,7 @@ export const galleryService = {
     const rows = data ?? [];
     if (rows.length === 0) {
       throw new Error(
-        'Could not save this list (nothing was returned after update). Run the latest Supabase migrations, or add RLS policies so the collection owner can SELECT and UPDATE favorite_lists.'
+        'Could not save this list (nothing was returned after update). Run the latest Supabase migrations, or add RLS policies so the delivery owner can SELECT and UPDATE favorite_lists.'
       );
     }
     if (rows.length > 1) {
@@ -2544,7 +2542,7 @@ export const galleryService = {
     const n = Number(deletedCount);
     if (Number.isNaN(n) || n !== 1) {
       throw new Error(
-        'This favorite list could not be deleted. Sign in as the account that owns this collection, or confirm the list still exists.'
+        'This favorite list could not be deleted. Sign in as the account that owns this delivery, or confirm the list still exists.'
       );
     }
 
@@ -2778,7 +2776,7 @@ export const galleryService = {
     const n = Number(deletedCount);
     if (Number.isNaN(n) || n !== 1) {
       throw new Error(
-        'This activity row could not be deleted. Sign in as the account that owns this collection, or confirm the entry still exists.'
+        'This activity row could not be deleted. Sign in as the account that owns this delivery, or confirm the entry still exists.'
       );
     }
 
@@ -2793,7 +2791,7 @@ export const galleryService = {
       let photographerId = data.photographerId || null;
       if (!photographerId && collectionId) {
         const { data: col } = await supabase
-          .from('collections')
+          .from('deliveries')
           .select('photographer_id, user_id')
           .eq('id', collectionId)
           .maybeSingle();
@@ -2991,7 +2989,7 @@ export const galleryService = {
    */
   async getCollectionReminders(collectionId) {
     const { data, error } = await supabase
-      .from('collection_reminders')
+      .from('delivery_reminders')
       .select('*')
       .eq('collection_id', collectionId)
       .order('created_at', { ascending: true });
@@ -3005,7 +3003,7 @@ export const galleryService = {
    */
   async createCollectionReminder(reminderData) {
     const { data, error } = await supabase
-      .from('collection_reminders')
+      .from('delivery_reminders')
       .insert([reminderData])
       .select()
       .single();
@@ -3019,7 +3017,7 @@ export const galleryService = {
    */
   async updateCollectionReminder(id, updateData) {
     const { data, error } = await supabase
-      .from('collection_reminders')
+      .from('delivery_reminders')
       .update(updateData)
       .eq('id', id)
       .select()
@@ -3034,7 +3032,7 @@ export const galleryService = {
    */
   async deleteCollectionReminder(id) {
     const { error } = await supabase
-      .from('collection_reminders')
+      .from('delivery_reminders')
       .delete()
       .eq('id', id);
 
@@ -3068,7 +3066,7 @@ export const galleryService = {
    */
   async getCollectionShareEmailHistory(collectionId) {
     const { data, error } = await supabase
-      .from('collection_share_emails')
+      .from('delivery_share_emails')
       .select('id, sender_email, recipient_email, subject, status, created_at')
       .eq('collection_id', collectionId)
       .order('created_at', { ascending: false })

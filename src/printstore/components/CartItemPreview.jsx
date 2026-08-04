@@ -105,7 +105,7 @@ export default function CartItemPreview({ item, collectionPhotos = [], compact =
     );
   }
 
-  // 0b. Digital Download – Entire Collection (All Photos)
+  // 0b. Digital Download – Entire Delivery (All Photos)
   if (product.id === 'digital_download_all') {
     if (collectionPhotos.length === 0) {
       return (

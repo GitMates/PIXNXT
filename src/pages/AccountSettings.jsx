@@ -525,7 +525,7 @@ function ProfileTab({ user, showToast }) {
                         value={formData.business_name}
                         onChange={handleChange}
                         onSave={handleAutoSave}
-                        hint="Your business name is shown on your homepage, collections, email notifications and more."
+                        hint="Your business name is shown on your homepage, deliveries, email notifications and more."
                     />
 
                     <InlineField
@@ -1215,7 +1215,7 @@ function AccountTab({ user, showToast }) {
                 <div className="mt-14">
                     <h2 className="acct-section-label mb-6">MANAGE ACCOUNT</h2>
                     <p className="text-[16px] text-[#888] leading-relaxed">
-                        Please understand that by deleting your account, all photos, collections, mobile apps and other account data will be permanently deleted. Yes, <span onClick={() => setShowDeleteModal(true)} className="text-[#1A1A1A] cursor-pointer hover:underline">delete</span> my account.
+                        Please understand that by deleting your account, all photos, deliveries, mobile apps and other account data will be permanently deleted. Yes, <span onClick={() => setShowDeleteModal(true)} className="text-[#1A1A1A] cursor-pointer hover:underline">delete</span> my account.
                     </p>
                 </div>
             </div>
@@ -1292,7 +1292,7 @@ function AccountTab({ user, showToast }) {
                         
                         <div className="p-8 flex flex-col gap-6">
                             <div className="text-[16px] text-[#333] bg-red-50 border border-red-200 px-4 py-3 rounded-[2px] leading-relaxed">
-                                <strong>Warning:</strong> Deleting your account will permanently delete all of your photos, collections, client galleries, mobile apps, and other related data. This action is completely irreversible.
+                                <strong>Warning:</strong> Deleting your account will permanently delete all of your photos, deliveries, client galleries, mobile apps, and other related data. This action is completely irreversible.
                             </div>
                             {deleteError && (
                                 <div className="text-[15px] text-red-500 bg-red-50 border border-red-200 px-4 py-3 rounded-[2px]">
@@ -2088,7 +2088,7 @@ function AdvancedTab({ user, showToast }) {
                         <div className="px-6 pb-6 pt-1 border-t border-[#f8f8f8] animate-[cgFadeIn_0.15s_ease]">
                             <div className="text-[14px] text-[#888] font-normal mb-3">Send me an email when:</div>
                             <div className="flex flex-col text-[#222]">
-                                {renderToggleRow("Someone downloads a Collection", "cgDownloadCollection")}
+                                {renderToggleRow("Someone downloads a Delivery", "cgDownloadCollection")}
                                 {renderToggleRow("Someone downloads a single photo", "cgDownloadPhoto")}
                                 {renderToggleRow("Someone downloads a single video", "cgDownloadVideo")}
                                 {renderToggleRow("Someone creates a new Favorite list", "cgCreateFavoriteList")}

@@ -18,7 +18,7 @@ export async function assertPublishedCollection(collectionId) {
 
   const supabase = getSupabaseAnon();
   const { data, error } = await supabase
-    .from('collections')
+    .from('deliveries')
     .select('id, status')
     .eq('id', collectionId)
     .eq('status', 'published')

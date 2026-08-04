@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { getCollectionCardCoverCandidates } from '../../../lib/photoDisplayUrl';
 
 /**
- * Collection list cover — tries /thumb/ first, then /web/, then the stored URL.
+ * Delivery list cover — tries /thumb/ first, then /web/, then the stored URL.
  * Avoids broken <img> when a rewritten thumb path is missing on R2.
  */
 export function CollectionCardCover({ collection, alt = '', className, style }) {

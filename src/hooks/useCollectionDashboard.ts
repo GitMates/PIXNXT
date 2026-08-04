@@ -108,7 +108,7 @@ export function useCollectionDashboard(collectionId: string | null) {
     try {
       // 1. Fetch Collection
       const { data: collectionData, error: colError } = await supabase
-        .from("collections")
+        .from("deliveries")
         .select("*")
         .eq("id", collectionId)
         .single();
@@ -226,7 +226,7 @@ export function useCollectionDashboard(collectionId: string | null) {
       if (!collectionId || !collection) return;
 
       const { error } = await supabase
-        .from('collections')
+        .from('deliveries')
         .update({
           cover_style: designSettings.coverStyle,
           font_family: designSettings.fontFamily,

@@ -525,7 +525,7 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
                                                                         </button>
                                                                         <button type="button" className="activity-menu-item" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
                                                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>
-                                                                            Copy to new collection
+                                                                            Copy to new delivery
                                                                         </button>
                                                                         <button type="button" className="activity-menu-item" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
                                                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><rect x="5" y="2" width="14" height="20" rx="2" ry="2" /><line x1="12" y1="18" x2="12.01" y2="18" /></svg>
@@ -1113,13 +1113,13 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
                                             </h3>
                                             <p className="cd-empty-state-text">
                                                 {activeActivitySubTab === 'download' && (
-                                                    activeDownloadActivityTab === 'gallery' ? 'Gallery download activity details will show here when visitors download all photos from their collection.' :
+                                                    activeDownloadActivityTab === 'gallery' ? 'Gallery download activity details will show here when visitors download all photos from their delivery.' :
                                                     activeDownloadActivityTab === 'photo' ? 'Single photo download activity details will show here when visitors download individual photos.' :
                                                     'Single video download activity details will show here when visitors download individual videos.'
                                                 )}
-                                                {activeActivitySubTab === 'favorite' && 'Activity details will show here when visitors favorite photos in their collection.'}
+                                                {activeActivitySubTab === 'favorite' && 'Activity details will show here when visitors favorite photos in their delivery.'}
 
-                                                {activeActivitySubTab === 'email' && 'Email registration activity will show here when visitors register their email before viewing the collection.'}
+                                                {activeActivitySubTab === 'email' && 'Email registration activity will show here when visitors register their email before viewing the delivery.'}
                                                 {activeActivitySubTab === 'share' && 'Quick Share links will show here when you create them from the photos tab.'}
                                                 {activeActivitySubTab === 'private' && 'Private photo activity details will show here when clients mark photos as private.'}
                                             </p>

@@ -502,13 +502,13 @@ const CollectionDashboard = () => {
     const [showExpiryReminderModal, setShowExpiryReminderModal] = useState(false);
     const [expiryEmailTiming, setExpiryEmailTiming] = useState('1 day before auto expiry date');
     const [expiryEmailTo, setExpiryEmailTo] = useState('');
-    const [expiryEmailSubject, setExpiryEmailSubject] = useState('The gallery {collection.name} is about to expire');
-    const [expiryEmailBody, setExpiryEmailBody] = useState('Hi,\n\nThe gallery {collection.name} will expire in {days.prior} on {expiry.date}. You will no longer be able to access this gallery after the expiry date.\n\nIf you have any questions, please don\'t hesitate to get in touch!');
+    const [expiryEmailSubject, setExpiryEmailSubject] = useState('The gallery {delivery.name} is about to expire');
+    const [expiryEmailBody, setExpiryEmailBody] = useState('Hi,\n\nThe gallery {delivery.name} will expire in {days.prior} on {expiry.date}. You will no longer be able to access this gallery after the expiry date.\n\nIf you have any questions, please don\'t hesitate to get in touch!');
     const [expiryEmailIncludePin, setExpiryEmailIncludePin] = useState(false);
     const [expiryEmailSendCopy, setExpiryEmailSendCopy] = useState(true);
     const [expiryEmailLists, setExpiryEmailLists] = useState([]); // ['downloaded', 'favorited', etc.]
     const [whatsappEnabled, setWhatsappEnabled] = useState(false);
-    const [whatsappBody, setWhatsappBody] = useState('Hi, the gallery {collection.name} is expiring on {expiry.date}. View it here: {collection.url}');
+    const [whatsappBody, setWhatsappBody] = useState('Hi, the gallery {delivery.name} is expiring on {expiry.date}. View it here: {delivery.url}');
     const [toWhatsapp, setToWhatsapp] = useState('');
     const [showDynamicTextInfo, setShowDynamicTextInfo] = useState(false);
     const [backendActivityCounts, setBackendActivityCounts] = useState({
@@ -631,7 +631,7 @@ const CollectionDashboard = () => {
         [downloadActivity, activeDownloadActivityTab]
     );
 
-    const downloadExportFilenameBase = `collection-${collectionId}-download-activity-${activeDownloadActivityTab}`;
+    const downloadExportFilenameBase = `delivery-${collectionId}-download-activity-${activeDownloadActivityTab}`;
 
     const resolveDownloadActivityExportItems = useCallback(
         (explicitItems) => {
@@ -1468,7 +1468,7 @@ const CollectionDashboard = () => {
 
         const photographerId = collection?.photographer_id ?? user?.id;
         if (!collectionId || !photographerId) {
-            alert('Collection is still loading. Please try again.');
+            alert('Delivery is still loading. Please try again.');
             return;
         }
 
@@ -1497,7 +1497,7 @@ const CollectionDashboard = () => {
 
     const handlePublishGuestDelivery = async () => {
         if (!gdEvent) return;
-        if (!window.confirm('This will run face matching on all collection photos and match them to registered guests, then send delivery emails. Continue?')) return;
+        if (!window.confirm('This will run face matching on all delivery photos and match them to registered guests, then send delivery emails. Continue?')) return;
         try {
             setGdPublishing(true);
             const result = await guestDeliveryPublishService.publishEvent(gdEvent.id);
@@ -1620,8 +1620,8 @@ const CollectionDashboard = () => {
         setExpiryEmailTiming('1 day before auto expiry date');
         setExpiryEmailTo('');
         
-        let initialSubject = 'The gallery {collection.name} is about to expire';
-        let initialBody = 'Hi,\n\nThe gallery {collection.name} will expire in {days.prior} on {expiry.date}. You will no longer be able to access this gallery after the expiry date.\n\nIf you have any questions, please don\'t hesitate to get in touch!';
+        let initialSubject = 'The gallery {delivery.name} is about to expire';
+        let initialBody = 'Hi,\n\nThe gallery {delivery.name} will expire in {days.prior} on {expiry.date}. You will no longer be able to access this gallery after the expiry date.\n\nIf you have any questions, please don\'t hesitate to get in touch!';
         
         if (user?.id) {
             try {
@@ -1641,7 +1641,7 @@ const CollectionDashboard = () => {
         setExpiryEmailSendCopy(true);
         setExpiryEmailLists([]);
         setWhatsappEnabled(false);
-        setWhatsappBody('Hi, the gallery {collection.name} is expiring on {expiry.date}. View it here: {collection.url}');
+        setWhatsappBody('Hi, the gallery {delivery.name} is expiring on {expiry.date}. View it here: {delivery.url}');
         setToWhatsapp('');
         setShowExpiryReminderModal(true);
     };
@@ -1826,7 +1826,7 @@ const CollectionDashboard = () => {
         const fileExt = photo.filename.split('.').pop() || 'jpg';
         const fileName = `${photo.id || Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
         const setFolder = photo.set_id ? `set__${photo.set_id}` : 'highlights';
-        const watermarkedPath = `users/${photographerFolder}/clientgallery/${collectionFolder}/photoset/${setFolder}/watermarked/${fileName}`;
+        const watermarkedPath = `users/${photographerFolder}/deliveries/${collectionFolder}/photoset/${setFolder}/watermarked/${fileName}`;
 
         const uploadResult = await storageService.upload(watermarkedPath, watermarkedBlob);
         const watermarkedUrl = uploadResult.url;
@@ -1980,7 +1980,7 @@ const CollectionDashboard = () => {
                 const data = await galleryService.getCollectionDashboardData(collectionId);
                 
                 if (!data) {
-                    setError('Collection not found');
+                    setError('Delivery not found');
                     return;
                 }
                 
@@ -2104,7 +2104,7 @@ const CollectionDashboard = () => {
                     .catch((activityErr) => console.warn('Activity counts unavailable:', activityErr));
             } catch (err) {
                 console.error('Error fetching collection:', err);
-                setError(err.message || 'Failed to load collection');
+                setError(err.message || 'Failed to load delivery');
             } finally {
                 setLoading(false);
             }
@@ -2484,7 +2484,7 @@ const CollectionDashboard = () => {
     const activeSetName = activeSet ? activeSet.name : highlightsName;
 
     const uploadDestinationLabel = collection
-        ? `${collection.name || 'Collection'} / ${activeSetName}`
+        ? `${collection.name || 'Delivery'} / ${activeSetName}`
         : activeSetName;
 
     const getUploadTargetSnapshot = useCallback(
@@ -3441,7 +3441,7 @@ const CollectionDashboard = () => {
             <div className="theme-mono cd-dashboard-shell flex h-screen items-center justify-center bg-[#F9F9F7]">
                 <div className="flex flex-col items-center gap-4">
                     <div className="w-12 h-12 border-4 border-[#111111] border-t-transparent rounded-full animate-spin"></div>
-                    <p className="text-[#111111] font-medium tracking-widest uppercase text-[16px]">Loading Collection...</p>
+                    <p className="text-[#111111] font-medium tracking-widest uppercase text-[16px]">Loading Delivery...</p>
                 </div>
             </div>
         );
@@ -3454,14 +3454,14 @@ const CollectionDashboard = () => {
                     <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                     <div>
                         <h2 className="text-xl font-semibold text-[#111111] mb-2">
-                            {error === 'Collection not found' ? 'Collection Not Found' : 'Failed to Load Collection'}
+                            {error === 'Delivery not found' ? 'Delivery Not Found' : 'Failed to Load Delivery'}
                         </h2>
-                        <p className="text-[#666] mb-4">{error || 'This collection may have been deleted or you may not have permission to access it.'}</p>
+                        <p className="text-[#666] mb-4">{error || 'This delivery may have been deleted or you may not have permission to access it.'}</p>
                         <button 
                             onClick={() => navigate('/client-gallery')}
                             className="neu-pill inline-flex h-10 items-center rounded-full px-5 text-sm font-medium"
                         >
-                            Back to Collections
+                            Back to Deliveries
                         </button>
                     </div>
                 </div>
@@ -3475,7 +3475,7 @@ const CollectionDashboard = () => {
             {/* Top Navigation Bar ALWAYS Top */}
             <header className="cd-topbar">
                 <div className="cd-topbar-left">
-                    <button className="cd-back-btn" onClick={() => navigate('/client-gallery')} title="Back to Collections">
+                    <button className="cd-back-btn" onClick={() => navigate('/client-gallery')} title="Back to Deliveries">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
                     </button>
                     <div className="cd-title-area">
@@ -3555,7 +3555,7 @@ const CollectionDashboard = () => {
                                 </button>
                                 <button type="button" className="cd-ctx-item" role="menuitem" onClick={() => { setShowMoreDropdown(false); setShowPresetsSubmenu(false); setShowDeleteCollectionModal(true); setDeleteCollectionConfirm(false); }}>
                                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
-                                    <span>Delete collection</span>
+                                    <span>Delete delivery</span>
                                 </button>
                             </div>
                         )}
@@ -3598,7 +3598,7 @@ const CollectionDashboard = () => {
                                     className="cd-share-item"
                                     onClick={() => {
                                         setShowShareDropdown(false);
-                                        navigate(`/collections/manage/share?id=${collectionId}`);
+                                        navigate(`/deliveries/manage/share?id=${collectionId}`);
                                     }}
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
@@ -3629,7 +3629,7 @@ const CollectionDashboard = () => {
                                     onClick={() => {
                                         setShowShareDropdown(false);
                                         if (collectionUrl) {
-                                            openWhatsAppShare(getCollectionShareUrl(collectionUrl), collection?.name || 'Collection');
+                                            openWhatsAppShare(getCollectionShareUrl(collectionUrl), collection?.name || 'Delivery');
                                         }
                                     }}
                                 >
@@ -4177,7 +4177,7 @@ const CollectionDashboard = () => {
                                         colorPalette: selectedColorPalette,
                                         grid: gridSettings
                                     }}
-                                    collectionTitle={collection?.name || 'My Collection'}
+                                    collectionTitle={collection?.name || 'My Delivery'}
                                     collectionDate={coverDisplayDate}
                                     collectionDescription={
                                         activeSetId
@@ -4986,7 +4986,7 @@ const CollectionDashboard = () => {
                         </div>
                         <div className="cd-modal-body" style={{ padding: '24px' }}>
                             <div style={{ marginBottom: '20px' }}>
-                                <label style={{ fontSize: '11px', fontWeight: '600', color: '#666', letterSpacing: '0.5px', display: 'block', marginBottom: '8px' }}>COLLECTION URL</label>
+                                <label style={{ fontSize: '11px', fontWeight: '600', color: '#666', letterSpacing: '0.5px', display: 'block', marginBottom: '8px' }}>DELIVERY URL</label>
                                 <div style={{ display: 'flex' }}>
                                     <input type="text" readOnly value={`${window.location.origin}/gallery/${collectionUrl}`} style={{ flex: 1, padding: '10px 12px', border: '1px solid #ddd', borderRadius: '4px 0 0 4px', fontSize: '14px', backgroundColor: '#f9f9f9', outline: 'none', color: '#555' }} />
                                     <button style={{ padding: '0 16px', backgroundColor: '#fff', border: '1px solid #ddd', borderLeft: 'none', borderRadius: '0 4px 4px 0', cursor: 'pointer', fontWeight: '500', fontSize: '13px' }} onClick={() => navigator.clipboard.writeText(`${window.location.origin}/gallery/${collectionUrl}`)}>Copy</button>
@@ -4994,7 +4994,7 @@ const CollectionDashboard = () => {
                                 <div style={{ fontSize: '13px', color: '#2b78c5', marginTop: '8px', cursor: 'pointer', display: 'inline-block' }}>Need a custom domain?</div>
                             </div>
                             <div style={{ marginBottom: '20px' }}>
-                                <label style={{ fontSize: '11px', fontWeight: '600', color: '#666', letterSpacing: '0.5px', display: 'block', marginBottom: '8px' }}>COLLECTION PASSWORD</label>
+                                <label style={{ fontSize: '11px', fontWeight: '600', color: '#666', letterSpacing: '0.5px', display: 'block', marginBottom: '8px' }}>DELIVERY PASSWORD</label>
                                 <div style={{ display: 'flex' }}>
                                     <input type="text" readOnly value={collectionPassword || 'No password set'} style={{ flex: 1, padding: '10px 12px', border: '1px solid #ddd', borderRadius: '4px 0 0 4px', fontSize: '14px', backgroundColor: '#f9f9f9', outline: 'none', color: '#555' }} />
                                     <button style={{ padding: '0 16px', backgroundColor: '#fff', border: '1px solid #ddd', borderLeft: 'none', borderRadius: '0 4px 4px 0', cursor: 'pointer', fontWeight: '500', fontSize: '13px' }} onClick={() => collectionPassword && navigator.clipboard.writeText(collectionPassword)}>Copy</button>
@@ -5070,13 +5070,13 @@ const CollectionDashboard = () => {
                 <div className="cd-modal-overlay" onClick={() => setShowApplyPresetModal(false)}>
                     <div className="cd-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '450px' }}>
                         <div className="cd-modal-header">
-                            <h3 className="cd-modal-title">APPLY PRESET TO COLLECTION</h3>
+                            <h3 className="cd-modal-title">APPLY PRESET TO DELIVERY</h3>
                             <button className="cd-modal-close" onClick={() => setShowApplyPresetModal(false)}>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                             </button>
                         </div>
                         <div className="cd-modal-body" style={{ padding: '24px' }}>
-                            <p style={{ fontSize: '14px', color: '#555', marginBottom: '20px' }}>Applying a preset will overwrite your current collection settings. This action cannot be undone.</p>
+                            <p style={{ fontSize: '14px', color: '#555', marginBottom: '20px' }}>Applying a preset will overwrite your current delivery settings. This action cannot be undone.</p>
                             <label style={{ fontSize: '11px', fontWeight: '600', color: '#666', letterSpacing: '0.5px', display: 'block', marginBottom: '8px' }}>SELECT PRESET</label>
                             <div style={{ position: 'relative', marginBottom: '10px' }}>
                                 <select 
@@ -5111,7 +5111,7 @@ const CollectionDashboard = () => {
                             </button>
                         </div>
                         <div className="cd-modal-body" style={{ padding: '24px' }}>
-                            <p style={{ fontSize: '14px', color: '#555', marginBottom: '20px' }}>Save your current collection settings as a preset to easily apply them to other collections.</p>
+                            <p style={{ fontSize: '14px', color: '#555', marginBottom: '20px' }}>Save your current delivery settings as a preset to easily apply them to other deliveries.</p>
                             <label style={{ fontSize: '11px', fontWeight: '600', color: '#666', letterSpacing: '0.5px', display: 'block', marginBottom: '8px' }}>PRESET NAME</label>
                             <input 
                                 type="text" 
@@ -5146,17 +5146,17 @@ const CollectionDashboard = () => {
                 onConfirm={async () => {
                     const photographerId = collection?.photographer_id ?? user?.id;
                     if (!collectionId || !photographerId) {
-                        alert('Missing collection or account. Refresh and try again.');
+                        alert('Missing delivery or account. Refresh and try again.');
                         return;
                     }
                     try {
                         setSaving(true);
                         const newRow = await galleryService.duplicateCollection(collectionId, photographerId);
                         setShowDuplicateModal(false);
-                        navigate(`/collections/manage?id=${newRow.id}`);
+                        navigate(`/deliveries/manage?id=${newRow.id}`);
                     } catch (err) {
                         console.error('Failed to duplicate:', err);
-                        alert(err?.message || 'Failed to duplicate collection. Please try again.');
+                        alert(err?.message || 'Failed to duplicate delivery. Please try again.');
                     } finally {
                         setSaving(false);
                     }
@@ -5186,18 +5186,18 @@ const CollectionDashboard = () => {
                 </div>
             )}
 
-            {/* Delete Collection Modal */}
+            {/* Delete Delivery Modal */}
             {showDeleteCollectionModal && (
                 <div className="cd-modal-overlay" onClick={() => setShowDeleteCollectionModal(false)}>
                     <div className="cd-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '450px' }}>
                         <div className="cd-modal-header">
-                            <h3 className="cd-modal-title">DELETE COLLECTION</h3>
+                            <h3 className="cd-modal-title">DELETE DELIVERY</h3>
                             <button className="cd-modal-close" onClick={() => setShowDeleteCollectionModal(false)}>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                             </button>
                         </div>
                         <div className="cd-modal-body" style={{ padding: '24px' }}>
-                            <p style={{ fontSize: '14px', color: '#555', marginBottom: '16px' }}>Are you sure you want to delete this collection?</p>
+                            <p style={{ fontSize: '14px', color: '#555', marginBottom: '16px' }}>Are you sure you want to delete this delivery?</p>
                             <p style={{ fontSize: '14px', color: '#555', marginBottom: '24px' }}><strong>Warning:</strong> All photos and past activities will be permanently removed.</p>
                             <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer' }}>
                                 <input
@@ -5206,7 +5206,7 @@ const CollectionDashboard = () => {
                                     onChange={(e) => setDeleteCollectionConfirm(e.target.checked)}
                                     style={{ marginTop: '4px', width: '16px', height: '16px' }}
                                 />
-                                <span style={{ fontSize: '13px', color: '#333' }}>I accept that this collection will be permanently deleted</span>
+                                <span style={{ fontSize: '13px', color: '#333' }}>I accept that this delivery will be permanently deleted</span>
                             </label>
                         </div>
                         <div className="cd-modal-footer">
@@ -5222,7 +5222,7 @@ const CollectionDashboard = () => {
                                         navigate('/client-gallery');
                                     } catch (err) {
                                         console.error('Failed to delete collection:', err);
-                                        alert('Failed to delete collection. Please try again.');
+                                        alert('Failed to delete delivery. Please try again.');
                                         setSaving(false);
                                     }
                                 }}
@@ -5487,7 +5487,7 @@ const CollectionDashboard = () => {
                                     </button>
                                 </div>
                                 <div className="cd-quick-share-icons" style={{ display: 'flex', gap: 12, marginTop: 20, justifyContent: 'center', flexWrap: 'wrap' }}>
-                                    <button type="button" title="Share by email" onClick={() => openShareByEmail(shareUrl, `Photo from ${collection?.name || 'Collection'}`)} style={{ width: 44, height: 44, borderRadius: '50%', backgroundColor: '#f5f5f5', color: '#111', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                                    <button type="button" title="Share by email" onClick={() => openShareByEmail(shareUrl, `Photo from ${collection?.name || 'Delivery'}`)} style={{ width: 44, height: 44, borderRadius: '50%', backgroundColor: '#f5f5f5', color: '#111', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
                                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>
                                     </button>
                                     <button type="button" title="Copy direct link" onClick={() => { void navigator.clipboard.writeText(shareUrl); }} style={{ width: 44, height: 44, borderRadius: '50%', backgroundColor: '#f5f5f5', color: '#111', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
@@ -5560,7 +5560,7 @@ const CollectionDashboard = () => {
                                     onChange={(e) => setApplyToAllPhotos(e.target.checked)}
                                     style={{ width: '16px', height: '16px', border: '1px solid #d2d6dc', borderRadius: '3px', cursor: 'pointer' }}
                                 />
-                                Apply to all in this collection ({photos.length} photos)
+                                Apply to all in this delivery ({photos.length} photos)
                             </label>
                         </div>
                         <div className="cd-set-modal-footer" style={{ borderTop: 'none', padding: '12px 0 0 0', display: 'flex', justifyContent: 'flex-end', gap: '16px', alignItems: 'center' }}>
@@ -5742,17 +5742,17 @@ const CollectionDashboard = () => {
                                     {showDynamicTextInfo && (
                                         <div className="section-content">
                                             <ul style={{ listStyle: "none", padding: 0, margin: "12px 0 0 0", display: "flex", flexDirection: "column", gap: "8px" }}>
-                                                <li><strong>{`{collection.name}`}</strong> - Name of the collection</li>
-                                                <li><strong>{`{expiry.date}`}</strong> - The date the collection expires</li>
+                                                <li><strong>{`{delivery.name}`}</strong> - Name of the delivery</li>
+                                                <li><strong>{`{expiry.date}`}</strong> - The date the delivery expires</li>
                                                 <li><strong>{`{days.prior}`}</strong> - Number of days before expiry</li>
-                                                <li><strong>{`{collection.url}`}</strong> - Link to the gallery</li>
+                                                <li><strong>{`{delivery.url}`}</strong> - Link to the gallery</li>
                                             </ul>
                                         </div>
                                     )}
                                 </div>
 
                                 <div className="include-info-section">
-                                    <p className="section-label">Include collection info:</p>
+                                    <p className="section-label">Include delivery info:</p>
                                     <div className="checkbox-row">
                                         <label className="checkbox-item">
                                             <input type="checkbox" checked={expiryEmailIncludePin} onChange={(e) => setExpiryEmailIncludePin(e.target.checked)} />
@@ -5830,10 +5830,12 @@ const CollectionDashboard = () => {
                                             <div className="email-preview-body">
                                                 <p className="preview-greeting">Hi,</p>
                                                 {expiryEmailBody
-                                                    .replace(/{collection.name}/g, collection?.name || 'WEDDING')
-                                                    .replace(/{expiry.date}/g, autoExpiry ? `${new Date(autoExpiry).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} at 11:59 PM` : 'MM/DD/YYYY at 11:59 PM')
-                                                    .replace(/{days.prior}/g, expiryEmailTiming.split(' ')[0])
-                                                    .replace(/{collection.url}/g, `${window.location.origin}/gallery/${collection?.slug || '...'}`)
+                                                    .replace(/\{delivery\.name\}/g, collection?.name || 'WEDDING')
+                                                    .replace(/\{collection\.name\}/g, collection?.name || 'WEDDING')
+                                                    .replace(/\{expiry\.date\}/g, autoExpiry ? `${new Date(autoExpiry).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} at 11:59 PM` : 'MM/DD/YYYY at 11:59 PM')
+                                                    .replace(/\{days\.prior\}/g, expiryEmailTiming.split(' ')[0])
+                                                    .replace(/\{delivery\.url\}/g, `${window.location.origin}/gallery/${collection?.slug || '...'}`)
+                                                    .replace(/\{collection\.url\}/g, `${window.location.origin}/gallery/${collection?.slug || '...'}`)
                                                     .split('\n').map((line, i) => {
                                                         const trimmedLine = line.trim().toLowerCase();
                                                         if (i === 0 && (trimmedLine === 'hi,' || trimmedLine === 'hi')) return null;

@@ -16,7 +16,7 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
   const imagePhotos = photos.filter(isGalleryImagePhoto);
   const emptyMessage =
     scopeLabel === 'All photos'
-      ? 'No photos in this collection yet. Add media to a set first.'
+      ? 'No photos in this delivery yet. Add media to a set first.'
       : `No photos in ${scopeLabel} yet.`;
 
   return (

@@ -1097,7 +1097,7 @@ const GalleryView = () => {
     isPaidDigitalDownloadOn;
 
   const shareUrl = typeof window !== 'undefined' ? window.location.origin + "/gallery/" + (slug || '') : '';
-  const shareTitle = collection?.name || 'Collection';
+  const shareTitle = collection?.name || 'Delivery';
 
   useEffect(() => {
     const fetchGallery = async () => {
@@ -1107,7 +1107,7 @@ const GalleryView = () => {
 
         if (!data) {
           setError(
-            'This gallery is not available. Publish the collection, confirm the URL slug in Settings, and scan again.'
+            'This gallery is not available. Publish the delivery, confirm the URL slug in Settings, and scan again.'
           );
           return;
         }
@@ -1811,7 +1811,7 @@ const GalleryView = () => {
   if (error || !collection) return (
     <div className="flex h-screen flex-col items-center justify-center p-6 text-center bg-white">
       <Typography variant="h2" className="mb-4">Gallery Not Found</Typography>
-      <Typography variant="muted" className="mb-8">The collection you are looking for does not exist or is private.</Typography>
+      <Typography variant="muted" className="mb-8">The delivery you are looking for does not exist or is private.</Typography>
       <a href="/" className="text-[6px] font-bold underline uppercase tracking-[0.4em]">Back to Home</a>
     </div>
   );
@@ -3000,7 +3000,7 @@ const GalleryView = () => {
                     {selectedDownloadType === 'package' && selectedStorePackage
                       ? (selectedStorePackage.name || `${selectedStorePackage.photo_count}-Photo Package`)
                       : selectedDownloadType === 'all'
-                        ? 'Entire Collection Download (All Photos)'
+                        ? 'Entire Delivery Download (All Photos)'
                         : (digitalPricing?.single?.label || 'Single Photo Download')}
                   </span>
                 </div>
@@ -3086,7 +3086,7 @@ const GalleryView = () => {
 
                       const itemProductId = isAll ? 'digital_download_all' : 'digital_download';
                       const itemProductName = isAll
-                        ? 'Entire Collection Download (All Photos)'
+                        ? 'Entire Delivery Download (All Photos)'
                         : (digitalPricing?.single?.label || 'Single Photo Download');
                       const itemUnitPrice = Number(
                         isAll

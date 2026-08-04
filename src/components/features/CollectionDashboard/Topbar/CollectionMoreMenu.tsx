@@ -210,7 +210,7 @@ export function CollectionMoreMenu({
               <polyline points="3 6 5 6 21 6" />
               <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
             </svg>
-            <span>Delete collection</span>
+            <span>Delete delivery</span>
           </div>
         </div>
       )}
@@ -229,12 +229,12 @@ export function CollectionMoreMenu({
             </div>
             <div className="cd-modal-body" style={{ padding: '24px' }}>
               <div style={{ marginBottom: '20px' }}>
-                <label style={{ fontSize: '11px', fontWeight: 600, color: '#666', letterSpacing: '0.5px', display: 'block', marginBottom: '8px' }}>COLLECTION URL</label>
+                <label style={{ fontSize: '11px', fontWeight: 600, color: '#666', letterSpacing: '0.5px', display: 'block', marginBottom: '8px' }}>DELIVERY URL</label>
                 <div style={{ display: 'flex' }}>
                   <input
                     type="text"
                     readOnly
-                    value={galleryUrl || 'Publish the collection to get a link'}
+                    value={galleryUrl || 'Publish the delivery to get a link'}
                     style={{
                       flex: 1,
                       padding: '10px 12px',
@@ -266,7 +266,7 @@ export function CollectionMoreMenu({
                 </div>
               </div>
               <div style={{ marginBottom: '20px' }}>
-                <label style={{ fontSize: '11px', fontWeight: 600, color: '#666', letterSpacing: '0.5px', display: 'block', marginBottom: '8px' }}>COLLECTION PASSWORD</label>
+                <label style={{ fontSize: '11px', fontWeight: 600, color: '#666', letterSpacing: '0.5px', display: 'block', marginBottom: '8px' }}>DELIVERY PASSWORD</label>
                 <div style={{ display: 'flex' }}>
                   <input
                     type="text"
@@ -400,7 +400,7 @@ export function CollectionMoreMenu({
         <div className="cd-modal-overlay" onClick={() => setApplyPresetOpen(false)}>
           <div className="cd-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '450px' }}>
             <div className="cd-modal-header">
-              <h3 className="cd-modal-title">APPLY PRESET TO COLLECTION</h3>
+              <h3 className="cd-modal-title">APPLY PRESET TO DELIVERY</h3>
               <button type="button" className="cd-modal-close" onClick={() => setApplyPresetOpen(false)} aria-label="Close">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18" />
@@ -433,7 +433,7 @@ export function CollectionMoreMenu({
               </button>
             </div>
             <div className="cd-modal-body" style={{ padding: '24px' }}>
-              <p style={{ fontSize: '14px', color: '#555', marginBottom: '16px' }}>Name your preset to reuse these design settings on other collections.</p>
+              <p style={{ fontSize: '14px', color: '#555', marginBottom: '16px' }}>Name your preset to reuse these design settings on other deliveries.</p>
               <label style={{ fontSize: '11px', fontWeight: 600, color: '#666', display: 'block', marginBottom: '8px' }}>PRESET NAME</label>
               <input type="text" placeholder="e.g. Standard Wedding" style={{ width: '100%', padding: '10px 12px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '14px', boxSizing: 'border-box' }} />
             </div>
@@ -464,17 +464,17 @@ export function CollectionMoreMenu({
         busy={busy}
         onConfirm={async () => {
           if (!photographerId || !collectionId) {
-            alert('Collection not loaded. Refresh and try again.');
+            alert('Delivery not loaded. Refresh and try again.');
             return;
           }
           try {
             setBusy(true);
             const newRow = await galleryService.duplicateCollection(collectionId, photographerId);
             setDuplicateOpen(false);
-            navigate(`/collections/manage?id=${newRow.id}`);
+            navigate(`/deliveries/manage?id=${newRow.id}`);
           } catch (err) {
             console.error(err);
-            alert(err?.message || 'Failed to duplicate collection. Please try again.');
+            alert(err?.message || 'Failed to duplicate delivery. Please try again.');
           } finally {
             setBusy(false);
           }
@@ -485,7 +485,7 @@ export function CollectionMoreMenu({
         <div className="cd-modal-overlay" onClick={() => setDeleteOpen(false)}>
           <div className="cd-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '450px' }}>
             <div className="cd-modal-header">
-              <h3 className="cd-modal-title">DELETE COLLECTION</h3>
+              <h3 className="cd-modal-title">DELETE DELIVERY</h3>
               <button type="button" className="cd-modal-close" onClick={() => setDeleteOpen(false)} aria-label="Close">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18" />
@@ -494,7 +494,7 @@ export function CollectionMoreMenu({
               </button>
             </div>
             <div className="cd-modal-body" style={{ padding: '24px' }}>
-              <p style={{ fontSize: '14px', color: '#555', marginBottom: '16px' }}>Are you sure you want to delete this collection?</p>
+              <p style={{ fontSize: '14px', color: '#555', marginBottom: '16px' }}>Are you sure you want to delete this delivery?</p>
               <p style={{ fontSize: '14px', color: '#555', marginBottom: '24px' }}>
                 <strong>Warning:</strong> All photos and past activities will be permanently removed.
               </p>
@@ -505,7 +505,7 @@ export function CollectionMoreMenu({
                   onChange={(e) => setDeleteConfirm(e.target.checked)}
                   style={{ marginTop: '4px', width: '16px', height: '16px' }}
                 />
-                <span style={{ fontSize: '13px', color: '#333' }}>I accept that this collection will be permanently deleted</span>
+                <span style={{ fontSize: '13px', color: '#333' }}>I accept that this delivery will be permanently deleted</span>
               </label>
             </div>
             <div className="cd-modal-footer">
@@ -526,7 +526,7 @@ export function CollectionMoreMenu({
                     navigate('/dashboard');
                   } catch (err) {
                     console.error(err);
-                    alert('Failed to delete collection.');
+                    alert('Failed to delete delivery.');
                     setBusy(false);
                   }
                 }}

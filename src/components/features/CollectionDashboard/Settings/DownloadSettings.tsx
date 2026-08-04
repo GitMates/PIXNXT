@@ -167,7 +167,7 @@ export const DownloadSettings: React.FC<DownloadSettingsProps> = ({
                 <div className="advanced-settings-panel">
                     <div className="settings-section">
                         <label className="settings-label">Download Limits</label>
-                        <p className="settings-desc">Limit the total number of photo downloads for this collection. Leave blank for no limit.</p>
+                        <p className="settings-desc">Limit the total number of photo downloads for this delivery. Leave blank for no limit.</p>
                         <div className="settings-input-wrapper">
                             <input
                                 type="number"

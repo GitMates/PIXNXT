@@ -282,7 +282,7 @@ const WatermarkTab = ({ profile, updateProfile }) => {
                     <span className="hp-toggle-label">{wToggle ? 'On' : 'Off'}</span>
                 </div>
                 <p className="set-help-text">
-                    Enable to apply watermark to web size downloads from your collections and web size downloads sold through Store.
+                    Enable to apply watermark to web size downloads from your deliveries and web size downloads sold through Store.
                 </p>
             </div>
         </div>
@@ -367,12 +367,12 @@ const PresetsTab = ({ profile }) => {
     return (
         <div className="set-tab-content">
             <div className="set-section">
-                <h3 className="set-section-title">Collection Presets</h3>
+                <h3 className="set-section-title">Delivery Presets</h3>
                 
                 {loading ? (
                     <div style={{ padding: '20px 0', color: '#666' }}>Loading presets...</div>
                 ) : presets.length === 0 ? (
-                    <p className="set-help-text mt-2" style={{ margin: '15px 0' }}>No presets found. Create a preset to save time when making new collections.</p>
+                    <p className="set-help-text mt-2" style={{ margin: '15px 0' }}>No presets found. Create a preset to save time when making new deliveries.</p>
                 ) : (
                     <div className="set-list-container mt-2" style={{ border: '1px solid #eee', borderRadius: '4px', overflow: 'hidden', marginBottom: '20px' }}>
                         {presets.map(preset => (
@@ -476,7 +476,9 @@ const EmailTemplatesTab = ({ profile }) => {
         fetchTemplates();
     }, [fetchTemplates]);
 
-    const collectionSharingTemplates = templates.filter(t => t.category === 'collection-sharing');
+    const collectionSharingTemplates = templates.filter(
+      (t) => t.category === 'delivery-sharing' || t.category === 'collection-sharing'
+    );
     const autoExpiryTemplates = templates.filter(t => t.category === 'auto-expiry');
 
     const TemplateListItem = ({ tpl, index, isLast }) => {
@@ -593,7 +595,7 @@ const EmailTemplatesTab = ({ profile }) => {
     return (
         <div className="set-tab-content">
             <div className="set-section" style={{ paddingBottom: '30px', borderBottom: '1px solid #eaeaea', marginBottom: '30px' }}>
-                <h3 className="set-section-title" style={{ fontSize: '16px', fontWeight: '600', marginBottom: '15px' }}>Collection Sharing Email</h3>
+                <h3 className="set-section-title" style={{ fontSize: '16px', fontWeight: '600', marginBottom: '15px' }}>Delivery Sharing Email</h3>
 
                 {loading ? (
                     <div style={{ padding: '20px 0', color: '#666' }}>Loading templates...</div>
@@ -609,7 +611,7 @@ const EmailTemplatesTab = ({ profile }) => {
                             Add Email Template
                         </div>
                         <p className="set-help-text mt-3" style={{ fontSize: '13px', color: '#888' }}>
-                            Create a custom email template and save time when sharing collections with your clients.<br/>
+                            Create a custom email template and save time when sharing deliveries with your clients.<br/>
                             <span style={{ color: '#2dd4bf', cursor: 'pointer' }}>Learn more</span>
                         </p>
                     </>
@@ -681,7 +683,7 @@ const PreferencesTab = ({ profile, updateProfile }) => {
     return (
         <div className="set-tab-content">
             <div className="set-section">
-                <h3 className="set-section-title">Default Collection Language</h3>
+                <h3 className="set-section-title">Default Delivery Language</h3>
                 <ClientGallerySelect
                     value={language}
                     onChange={handleLanguageChange}
@@ -692,7 +694,7 @@ const PreferencesTab = ({ profile, updateProfile }) => {
                         { value: 'german', label: 'Deutsch' }
                     ]}
                 />
-                <p className="set-help-text">Select the default language for newly created collections.</p>
+                <p className="set-help-text">Select the default language for newly created deliveries.</p>
             </div>
 
             <div className="set-section">
@@ -705,7 +707,7 @@ const PreferencesTab = ({ profile, updateProfile }) => {
                         { value: 'hide', label: 'Hide' }
                     ]}
                 />
-                <p className="set-help-text">You can choose to show / hide your filenames on photos in your collections.</p>
+                <p className="set-help-text">You can choose to show / hide your filenames on photos in your deliveries.</p>
             </div>
 
             <div className="set-section">
@@ -787,7 +789,7 @@ const IntegrationsTab = ({ profile, updateProfile }) => {
                 </div>
                 <div className="set-integration-info">
                     <h3>Google Analytics</h3>
-                    <p>Enable Google Analytics on your collections by entering your Google Analytics Tracking ID.</p>
+                    <p>Enable Google Analytics on your deliveries by entering your Google Analytics Tracking ID.</p>
                     
                     <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '10px' }}>
                         <div className="set-input-wrap neu-inset cg-field-shell flex-grow" style={{ flexGrow: 1 }}>

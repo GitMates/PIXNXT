@@ -174,7 +174,7 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
 
             <div className="cd-settings-form">
                 <div className="settings-section">
-                    <label className="settings-label">Collection URL</label>
+                    <label className="settings-label">Delivery URL</label>
                     <div className="settings-input-wrapper">
                         <input
                             type="text"
@@ -183,7 +183,7 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                             onChange={(e) => setCollectionUrl(e.target.value)}
                         />
                     </div>
-                    <p className="settings-desc">Choose a unique url for visitors to access your collection.</p>
+                    <p className="settings-desc">Choose a unique url for visitors to access your delivery.</p>
                 </div>
 
                 <div className="settings-section">
@@ -194,7 +194,7 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                       disabled={categoryTagsSaving}
                     />
                     <p className="settings-desc">
-                      Add tags to categorize different collections e.g. wedding, outdoor, summer.
+                      Add tags to categorize different deliveries e.g. wedding, outdoor, summer.
                       Press <strong>Enter</strong> to add each tag (tags are not added automatically).{' '}
                       <span className="settings-link">Learn more</span>
                     </p>
@@ -229,7 +229,7 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                             disablePastDates={true}
                         />
                     </div>
-                    <p className="settings-desc">Automatically set your collection to hidden on a specific date (at 11:59pm <span className="highlight-text">GMT+5:30</span>)</p>
+                    <p className="settings-desc">Automatically set your delivery to hidden on a specific date (at 11:59pm <span className="highlight-text">GMT+5:30</span>)</p>
                     
                     {autoExpiry && (
                         <div style={{
@@ -328,7 +328,7 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                             <span className="toggle-state-label">{emailRegistration ? 'On' : 'Off'}</span>
                         </div>
                     </div>
-                    <p className="settings-desc small">Track email addresses accessing this collection. <span className="settings-link">Learn more</span></p>
+                    <p className="settings-desc small">Track email addresses accessing this delivery. <span className="settings-link">Learn more</span></p>
                 </div>
 
                 <div className="settings-toggle-section">
@@ -344,7 +344,7 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                             <span className="toggle-state-label">{galleryAssist ? 'On' : 'Off'}</span>
                         </div>
                     </div>
-                    <p className="settings-desc small">Add walk-through cards to help visitors use the collection. <span className="settings-link">Learn more</span></p>
+                    <p className="settings-desc small">Add walk-through cards to help visitors use the delivery. <span className="settings-link">Learn more</span></p>
                 </div>
 
                 <div className="settings-toggle-section">
@@ -369,7 +369,7 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                             <span className="toggle-state-label">{slideshow ? 'On' : 'Off'}</span>
                         </div>
                     </div>
-                    <p className="settings-desc small">Allow visitors to view the images in their collection as a slideshow. <span className="settings-link">Learn more</span></p>
+                    <p className="settings-desc small">Allow visitors to view the images in their delivery as a slideshow. <span className="settings-link">Learn more</span></p>
                 </div>
 
                 <div className="settings-toggle-section">
@@ -394,7 +394,7 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                             <span className="toggle-state-label">{socialSharing ? 'On' : 'Off'}</span>
                         </div>
                     </div>
-                    <p className="settings-desc small">Allow collection visitors to share your work to social media.</p>
+                    <p className="settings-desc small">Allow delivery visitors to share your work to social media.</p>
                 </div>
 
                 <div className="settings-section">
@@ -402,7 +402,7 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                     <ClientGallerySelect
                         value={language}
                         onChange={setLanguage}
-                        aria-label="Collection language"
+                        aria-label="Delivery language"
                         options={[
                             { value: 'English', label: 'English' },
                             { value: 'Spanish', label: 'Spanish' },
@@ -410,7 +410,7 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                             { value: 'German', label: 'German' },
                         ]}
                     />
-                    <p className="settings-desc">Choose the language to display this collection in.</p>
+                    <p className="settings-desc">Choose the language to display this delivery in.</p>
                 </div>
             </div>
 

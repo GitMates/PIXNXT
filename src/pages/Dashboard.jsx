@@ -177,8 +177,8 @@ const products = [
     icon: <img src={clientGalleryGif} alt="Client Gallery" className="dash-product-image-gif" loading="lazy" decoding="async" />,
     route: '/client-gallery',
     links: [
-      { label: 'Manage Collections', path: '/client-gallery' },
-      { label: 'Create Collection', path: '/collections/create' },
+      { label: 'Manage Deliveries', path: '/client-gallery' },
+      { label: 'Create Delivery', path: '/deliveries/create' },
       { label: 'View Homepage', path: '/homepage' },
       { label: 'Settings', path: '/settings' },
     ],
@@ -406,25 +406,25 @@ const Dashboard = () => {
           {/* Quick Access */}
           <p className="dash-section-label">QUICK ACCESS</p>
           <div className="dash-quick-grid">
-            {/* Recent Collections */}
+            {/* Recent Deliveries */}
             <div className="dash-quick-card">
               <div className="dash-quick-card-header teal-icon">
-                <img src={recentCollectionsGif} alt="Recent Collections" /> RECENT COLLECTIONS
+                <img src={recentCollectionsGif} alt="Recent Deliveries" /> RECENT DELIVERIES
               </div>
               <div className="dash-quick-card-body">
                 {collections.length > 0 ? (
                   <>
-                    <h3>You have {collections.length} active collection{collections.length > 1 ? 's' : ''}</h3>
+                    <h3>You have {collections.length} active {collections.length === 1 ? 'delivery' : 'deliveries'}</h3>
                     <p>Keep showcasing your beautiful work to your clients.</p>
                     <button className="dash-get-started-btn" onClick={() => navigate('/client-gallery')}>
-                      Manage Collections
+                      Manage Deliveries
                     </button>
                   </>
                 ) : (
                   <>
-                    <h3>Create your first Collection</h3>
+                    <h3>Create your first Delivery</h3>
                     <p>Create your beautiful client gallery in 3 steps</p>
-                    <button className="dash-get-started-btn" onClick={() => navigate('/collections/get-started')}>
+                    <button className="dash-get-started-btn" onClick={() => navigate('/deliveries/get-started')}>
                       Get Started
                     </button>
                   </>

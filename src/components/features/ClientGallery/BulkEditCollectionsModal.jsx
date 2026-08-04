@@ -54,7 +54,7 @@ export function BulkEditCollectionsModal({ isOpen, count, onClose, onApply, appl
     const renderPanel = () => {
         if (!activeSetting) {
             return (
-                <p className="bec-empty">Select settings from the left to modify your collection{count === 1 ? '' : 's'}.</p>
+                <p className="bec-empty">Select settings from the left to modify your {count === 1 ? 'delivery' : 'deliveries'}.</p>
             );
         }
 
@@ -134,7 +134,7 @@ export function BulkEditCollectionsModal({ isOpen, count, onClose, onApply, appl
 
                 <div className="bec-body">
                     <aside className="bec-sidebar">
-                        <p className="bec-sidebar-heading">Collection Settings</p>
+                        <p className="bec-sidebar-heading">Delivery Settings</p>
                         <ul className="bec-sidebar-list">
                             {SETTINGS.map((item) => (
                                 <li key={item.id}>
@@ -160,7 +160,7 @@ export function BulkEditCollectionsModal({ isOpen, count, onClose, onApply, appl
                         disabled={!canApply || applying}
                         onClick={() => onApply(payload)}
                     >
-                        {applying ? 'Applying…' : `Apply to ${count} collection${count === 1 ? '' : 's'}`}
+                        {applying ? 'Applying…' : `Apply to ${count} ${count === 1 ? 'delivery' : 'deliveries'}`}
                     </button>
                 </div>
             </div>
@@ -184,7 +184,7 @@ function ToggleRow({ label, value, onChange }) {
                 </button>
                 <span className="bec-toggle-state">{value === true ? 'On' : value === false ? 'Off' : 'Not set'}</span>
             </div>
-            <p className="bec-toggle-hint">Toggle to set this value for all selected collections.</p>
+            <p className="bec-toggle-hint">Toggle to set this value for all selected deliveries.</p>
         </div>
     );
 }

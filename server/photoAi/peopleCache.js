@@ -138,7 +138,7 @@ export async function loadPeopleFromDb(supabase, collectionId, { includeHidden =
 
 async function getPhotographerId(supabase, collectionId) {
   const { data, error } = await supabase
-    .from('collections')
+    .from('deliveries')
     .select('photographer_id')
     .eq('id', collectionId)
     .maybeSingle();

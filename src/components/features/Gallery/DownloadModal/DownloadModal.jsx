@@ -186,7 +186,7 @@ export const DownloadModal = ({
       const allowedEmails = collection.restrict_to_emails.split(',').map(e => e.trim().toLowerCase());
       const enteredEmail = email.trim().toLowerCase();
       if (!enteredEmail || !allowedEmails.includes(enteredEmail)) {
-        setError('Your email is not authorized to download this collection.');
+        setError('Your email is not authorized to download this delivery.');
         return;
       }
     }
@@ -215,7 +215,7 @@ export const DownloadModal = ({
       if (collection?.download_limit_gallery) {
         const downloadCount = await galleryService.getDownloadCount(collection.id);
         if (downloadCount >= collection.download_limit_gallery) {
-          setError(`Download limit reached. This collection can only be downloaded ${collection.download_limit_gallery} time${collection.download_limit_gallery !== 1 ? 's' : ''}.`);
+          setError(`Download limit reached. This delivery can only be downloaded ${collection.download_limit_gallery} time${collection.download_limit_gallery !== 1 ? 's' : ''}.`);
           setIsProcessing(false);
           return;
         }
@@ -684,16 +684,16 @@ export const DownloadModal = ({
                 </h2>
                 <p className="text-center text-[14px] text-zinc-500 mb-8 leading-relaxed max-w-[280px] mx-auto">
                   {limitOnly
-                    ? `Verifying download availability for this collection.`
+                    ? `Verifying download availability for this delivery.`
                     : needsPin && needsEmail
-                    ? `Please enter your email and the download PIN provided by ${collection?.name || 'the photographer'} to download this photo collection.`
+                    ? `Please enter your email and the download PIN provided by ${collection?.name || 'the photographer'} to download this photo delivery.`
                     : needsPin
-                    ? `Please enter the download PIN provided by ${collection?.name || 'the photographer'} to download this photo collection.`
-                    : `Please enter your email address to download this photo collection.`
+                    ? `Please enter the download PIN provided by ${collection?.name || 'the photographer'} to download this photo delivery.`
+                    : `Please enter your email address to download this photo delivery.`
                   }
                   {hasDownloadLimit && (
                     <span className="block mt-2 text-zinc-400 text-[13px]">
-                      {collection.download_limit_gallery} download{collection.download_limit_gallery !== 1 ? 's' : ''} remaining for this collection.
+                      {collection.download_limit_gallery} download{collection.download_limit_gallery !== 1 ? 's' : ''} remaining for this delivery.
                     </span>
                   )}
                   {hasPinUsageLimit && (

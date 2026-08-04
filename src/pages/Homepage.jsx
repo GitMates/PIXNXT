@@ -110,7 +110,7 @@ const Homepage = () => {
         setCollectionsLoading(true);
         galleryService.getCollections(user.id)
             .then((data) => setCollections(data || []))
-            .catch((err) => console.error('Failed to load collections:', err))
+            .catch((err) => console.error('Failed to load deliveries:', err))
             .finally(() => setCollectionsLoading(false));
     }, [user?.id]);
 
@@ -280,7 +280,7 @@ const Homepage = () => {
         <SidebarLayout>
             <ClientGalleryPageShell
                 title="Homepage"
-                subtitle="Manage your public photographer homepage and showcase collections."
+                subtitle="Manage your public photographer homepage and showcase deliveries."
                 actions={(
                     <button
                         type="button"
@@ -330,7 +330,7 @@ const Homepage = () => {
                                     <span className="hp-toggle-label">{statusOn ? 'On' : 'Off'}</span>
                                 </div>
                                 <p className="hp-help-text">
-                                    Your Homepage is a public page where your collections are listed. You can also select which collections will be shown here under each collection's setting. <a href="#learn">Learn more</a>
+                                    Your Homepage is a public page where your deliveries are listed. You can also select which deliveries will be shown here under each delivery's setting. <a href="#learn">Learn more</a>
                                 </p>
                             </div>
 
@@ -469,14 +469,14 @@ const Homepage = () => {
 
                             {/* Collection Sort Order */}
                             <div className="hp-form-group">
-                                <label className="hp-label">Collection Sort Order</label>
+                                <label className="hp-label">Delivery Sort Order</label>
                                 <ClientGallerySelect
                                     value={collectionSort}
                                     onChange={(val) => {
                                         setCollectionSort(val);
                                         autoSave({ homepage_sort: val }, true);
                                     }}
-                                    aria-label="Collection sort order"
+                                    aria-label="Delivery sort order"
                                     options={[
                                         { value: 'created-new', label: 'Date created: New to Old' },
                                         { value: 'created-old', label: 'Date created: Old to New' },
@@ -486,7 +486,7 @@ const Homepage = () => {
                                         { value: 'name-za', label: 'Name: Z → A' },
                                     ]}
                                 />
-                                <p className="hp-help-text mt-2">Select the order you wish your collections to appear on your public homepage.</p>
+                                <p className="hp-help-text mt-2">Select the order you wish your deliveries to appear on your public homepage.</p>
                             </div>
 
                         </div>

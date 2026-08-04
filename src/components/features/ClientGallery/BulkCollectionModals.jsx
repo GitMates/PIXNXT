@@ -31,7 +31,7 @@ function BulkModalShell({ title, count, isOpen, onClose, onApply, applying, appl
                                 disabled={applying || applyDisabled}
                                 onClick={onApply}
                             >
-                                {applying ? 'Applying…' : `Apply to ${count} collection${count === 1 ? '' : 's'}`}
+                                {applying ? 'Applying…' : `Apply to ${count} ${count === 1 ? 'delivery' : 'deliveries'}`}
                             </button>
                         </div>
                     </div>
@@ -50,7 +50,7 @@ export function BulkCollectionStatusModal({ isOpen, count, onClose, onApply, app
 
     return (
         <BulkModalShell
-            title="EDIT COLLECTION STATUS"
+            title="EDIT DELIVERY STATUS"
             count={count}
             isOpen={isOpen}
             onClose={onClose}

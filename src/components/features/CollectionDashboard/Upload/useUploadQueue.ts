@@ -59,7 +59,7 @@ export function useUploadQueue(options: {
       existingFilenames: existingFilenamesRef.current ?? options.existingFilenames ?? [],
       existingCompleteFilenames: options.existingFilenames ?? [],
       incompletePhotos: options.incompletePhotos ?? [],
-      destinationLabel: options.destinationLabel || 'Collection',
+      destinationLabel: options.destinationLabel || 'Delivery',
       viewPath: options.viewPath ?? null,
       uploadPhotoFn: uploadPhotoFnRef.current
         ? (args: Parameters<UploadPhotoFn>[0]) => uploadPhotoFnRef.current!(args)
