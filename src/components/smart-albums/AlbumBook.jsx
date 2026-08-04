@@ -569,6 +569,59 @@ const AlbumBook = ({
         viewportHeight: bookDims?.height ?? 0,
     });
 
+    // Keep preview nav arrows outside the spread bounds (never over photos / sidebar).
+    useLayoutEffect(() => {
+        if (!previewMode) return undefined;
+        const root = rootRef.current;
+        if (!root) return undefined;
+
+        const NAV = 58;
+        const GAP = 12;
+        const MIN = 4;
+
+        const syncNavGutters = () => {
+            const book =
+                root.querySelector('.ab-spread-display') ||
+                root.querySelector('.ab-spread-book-block') ||
+                stageOuterRef.current;
+            if (!book) return;
+
+            const rootRect = root.getBoundingClientRect();
+            const bookRect = book.getBoundingClientRect();
+            if (rootRect.width < 8 || bookRect.width < 8) return;
+
+            let prevLeft = bookRect.left - rootRect.left - NAV - GAP;
+            let nextRight = rootRect.right - bookRect.right - NAV - GAP;
+
+            // Stay outside the spread; fall back to root inset if the gutter is tight.
+            prevLeft = Math.max(MIN, Math.min(prevLeft, bookRect.left - rootRect.left - NAV - 2));
+            nextRight = Math.max(
+                MIN,
+                Math.min(nextRight, rootRect.right - bookRect.right - NAV - 2)
+            );
+
+            const top = bookRect.top - rootRect.top + bookRect.height / 2;
+            root.style.setProperty('--ab-nav-prev-inset', `${prevLeft}px`);
+            root.style.setProperty('--ab-nav-next-inset', `${nextRight}px`);
+            root.style.setProperty('--ab-nav-top', `${top}px`);
+        };
+
+        syncNavGutters();
+        const ro = new ResizeObserver(() => {
+            syncNavGutters();
+        });
+        ro.observe(root);
+        if (stageOuterRef.current) ro.observe(stageOuterRef.current);
+        window.addEventListener('resize', syncNavGutters);
+        return () => {
+            ro.disconnect();
+            window.removeEventListener('resize', syncNavGutters);
+            root.style.removeProperty('--ab-nav-prev-inset');
+            root.style.removeProperty('--ab-nav-next-inset');
+            root.style.removeProperty('--ab-nav-top');
+        };
+    }, [previewMode, bookDims, pageIndex, spreadMagnify.scale, spreadMagnify.active]);
+
     const zoomPercentLabel = useMemo(
         () => `${Math.round(spreadMagnify.scale * 100)}%`,
         [spreadMagnify.scale]

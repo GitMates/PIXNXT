@@ -1444,10 +1444,10 @@
   letter-spacing: 0.01em;
 }
 
-/* Gallery proofing — arrows sit in the book gutters (not viewport-fixed) */
+/* Gallery proofing — arrows hug the spread edges via --ab-nav-* (set in AlbumBook) */
 .ab-root--preview .ab-nav {
   position: absolute;
-  top: 50%;
+  top: var(--ab-nav-top, 50%);
   transform: translateY(-50%);
   width: 58px;
   height: 58px;
@@ -1463,11 +1463,15 @@
   border-radius: 50%;
   color: #b0b0b0;
   z-index: 45;
+  pointer-events: auto;
   transition:
     color 0.22s ease,
     background 0.22s ease,
     box-shadow 0.22s ease,
-    transform 0.22s ease;
+    transform 0.22s ease,
+    left 0.18s ease,
+    right 0.18s ease,
+    top 0.18s ease;
 }
 
 .ab-root--preview .ab-nav:hover:not(:disabled) {
@@ -1496,12 +1500,12 @@
 }
 
 .ab-root--preview .ab-nav--prev {
-  left: 8px;
+  left: var(--ab-nav-prev-inset, 8px);
   right: auto;
 }
 
 .ab-root--preview .ab-nav--next {
-  right: 8px;
+  right: var(--ab-nav-next-inset, 8px);
   left: auto;
 }
 
