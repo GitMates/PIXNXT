@@ -276,11 +276,10 @@ function InlineField({ label, name, value, type = 'text', placeholder = '', hint
 function LegalConsentTab({ showToast }) {
     return (
         <div>
-            <p className="acct-eyebrow">Profile › Legal & consent</p>
-            <h1 className="cg-page-title text-3xl font-medium mb-2">Legal & consent</h1>
-            <p className="acct-lead mb-8 pb-6 border-b border-[#ECEAE6]">
-                One set of terms, privacy, and consent notices for every delivery your studio
-                shares.
+            <h1 className="cg-page-title text-3xl font-medium mb-2" style={{ fontFamily: 'inherit' }}>Legal &amp; consent</h1>
+            <p className="acct-lead mb-8">
+                One set of documents across everything the studio delivers. The obligation follows you,
+                not a product — which is the entire reason these are here and not in Client Gallery.
             </p>
             <LegalConsentPanel showToast={showToast} />
         </div>
@@ -328,11 +327,10 @@ function StudioIdentityTab({ user, showToast }) {
 
     return (
         <div>
-            <p className="acct-eyebrow">Profile › Studio identity</p>
-            <h1 className="cg-page-title text-3xl font-medium mb-2">Studio identity</h1>
-            <p className="acct-lead mb-8 pb-6 border-b border-[#ECEAE6]">
-                Domain, logos, and branding used across Client Gallery, Album Proofer, Mobile
-                Gallery, and Print Lab.
+            <h1 className="cg-page-title text-3xl font-medium mb-2" style={{ fontFamily: 'inherit' }}>Studio identity</h1>
+            <p className="acct-lead mb-8">
+                Your marks and addresses. Every module draws from here, so a logo change lands on a
+                proof, a print order and a guest gallery at the same time.
             </p>
             <StudioIdentityPanel profile={profile} updateProfile={updateProfile} />
         </div>
