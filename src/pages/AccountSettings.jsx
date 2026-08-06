@@ -191,7 +191,9 @@ export default function AccountSettings() {
     const renderTabContent = () => (
         <>
             {activeTab === 'profile' && <ProfileTab user={user} showToast={showToast} />}
-            {activeTab === 'legal-consent' && <LegalConsentTab showToast={showToast} />}
+            {activeTab === 'legal-consent' && (
+                <LegalConsentTab showToast={showToast} studioName={businessName} />
+            )}
             {activeTab === 'studio-identity' && (
                 <StudioIdentityTab user={user} showToast={showToast} embedded />
             )}
@@ -520,16 +522,16 @@ function InlineField({ label, name, value, type = 'text', placeholder = '', hint
     );
 }
 
-function LegalConsentTab({ showToast }) {
+function LegalConsentTab({ showToast, studioName }) {
     return (
-        <div>
-            <h1 className="type-page-title si-page-title">Legal &amp; consent</h1>
-            <p className="type-lede si-page-lead">
-                One set of documents across everything the studio delivers.
+        <div className="lc-page">
+            <h1 className="type-page-title si-page-title lc-page-title">
+                Legal <span className="lc-amp" aria-hidden="true">&amp;</span> consent
+            </h1>
+            <p className="type-lede si-page-lead lc-page-lead">
+                One set of documents across everything you deliver.
             </p>
-            <div style={{ marginTop: 28 }}>
-                <LegalConsentPanel showToast={showToast} />
-            </div>
+            <LegalConsentPanel showToast={showToast} studioName={studioName} />
         </div>
     );
 }
