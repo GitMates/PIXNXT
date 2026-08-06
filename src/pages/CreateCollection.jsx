@@ -6,6 +6,7 @@ import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
 import { guestDeliveryService } from '../services/guestDelivery.service';
 import { supabase } from '../lib/supabase/client';
+import { resolveUploadDefaults } from '../lib/uploadDefaults';
 import '../styles/clientGalleryTheme.css';
 import '../styles/collectionDashboardTheme.css';
 import './CreateCollection.css';
@@ -86,6 +87,7 @@ const CreateCollection = () => {
                 }
             }
 
+            const prefs = resolveUploadDefaults(null);
             const collectionData = {
                 photographer_id: user.id,
                 name,
@@ -102,8 +104,8 @@ const CreateCollection = () => {
                 cover_style: 'photo',
                 guest_delivery_enabled: guestDeliveryEnabled,
                 cover_layout: 'novel',
-                show_filenames: localStorage.getItem('filename_display') === 'show',
-                language: localStorage.getItem('default_language') || 'english',
+                show_filenames: prefs.filenameDisplay === 'show',
+                language: prefs.defaultLanguage || 'english',
                 ...(folderId ? { folder_id: folderId } : {}),
                 ...presetSettings,
             };

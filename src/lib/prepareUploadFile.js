@@ -64,8 +64,18 @@ function canvasToJpegFile(canvas, quality, baseName, lastModified) {
 }
 
 function applySharpening(ctx, outW, outH) {
-  const sharpeningLevel = localStorage.getItem('sharpening_level');
-  if (sharpeningLevel !== 'high') return;
+  let sharpeningLevel = 'none';
+  try {
+    sharpeningLevel = localStorage.getItem('sharpening_level') || 'none';
+    if (localStorage.getItem('sharpen_for_web') === 'false') {
+      sharpeningLevel = 'none';
+    } else if (localStorage.getItem('sharpen_for_web') === 'true' && sharpeningLevel === 'none') {
+      sharpeningLevel = 'high';
+    }
+  } catch {
+    /* ignore */
+  }
+  if (sharpeningLevel !== 'high' && sharpeningLevel !== 'optimal') return;
   try {
     const imageData = ctx.getImageData(0, 0, outW, outH);
     const data = imageData.data;

@@ -7,6 +7,11 @@ import { extractRawPreviewBlob } from '../lib/rawImagePreview';
 import { hasRawDisplayPreview, isRawMedia, resolveMediaUrl, toThumbDerivativeUrl } from '../lib/photoDisplayUrl';
 import { generateCollectionSlug } from '../lib/collectionSlug';
 import { DELIVERY_R2_MODULE } from '../lib/deliveryIds';
+import {
+  resolveUploadDefaults,
+  webMaxEdgeForQuality,
+  uploadMaxEdgeForQuality,
+} from '../lib/uploadDefaults';
 import { storageService } from './storage.service';
 import {
   isIncompleteUploadPhoto,
@@ -19,6 +24,20 @@ import {
   normalizeFocalForDb,
   normalizeFocalPercent,
 } from '../lib/focalPoint.js';
+
+function getUploadVariantOptions() {
+  const defaults = resolveUploadDefaults(null);
+  return {
+    webMaxEdge: webMaxEdgeForQuality(defaults.webDisplayQuality),
+    thumbMaxEdge: 400,
+    thumbQuality: 0.6,
+  };
+}
+
+function getOriginalUploadMaxEdge() {
+  const defaults = resolveUploadDefaults(null);
+  return uploadMaxEdgeForQuality(defaults.uploadQuality);
+}
 
 /** Columns needed for dashboard grid (avoids heavy nested * payload). */
 const DASHBOARD_PHOTO_FIELDS = `
@@ -1128,7 +1147,7 @@ export const galleryService = {
     if (!isVideo && !isRaw) {
       const [dim, variants] = await Promise.all([
         getImageDimensionsFast(file).catch(() => ({ width: null, height: null })),
-        compressImageVariants(file, { webMaxEdge: 2048, thumbMaxEdge: 400, thumbQuality: 0.6 }).catch(
+        compressImageVariants(file, getUploadVariantOptions()).catch(
           () => ({ webFile: file, thumbFile: file })
         ),
       ]);
@@ -1151,11 +1170,9 @@ export const galleryService = {
       thumbnailBlob = meta.thumbnailBlob;
       if (thumbnailBlob) {
         const previewFile = new File([thumbnailBlob], 'preview.jpg', { type: 'image/jpeg' });
-        const variants = await compressImageVariants(previewFile, {
-          webMaxEdge: 2048,
-          thumbMaxEdge: 400,
-          thumbQuality: 0.6,
-        }).catch(() => ({ webFile: previewFile, thumbFile: previewFile }));
+        const variants = await compressImageVariants(previewFile, getUploadVariantOptions()).catch(
+          () => ({ webFile: previewFile, thumbFile: previewFile })
+        );
         webFile = variants.webFile;
         thumbFile = variants.thumbFile;
       }
@@ -1212,8 +1229,8 @@ export const galleryService = {
           web_storage_path: webStoragePath,
           thumbnail_storage_path: thumbnailStoragePath,
           size_bytes: file.size,
-          width: dimensions.width,
-          height: dimensions.height,
+          width: Number.isFinite(dimensions.width) ? dimensions.width : null,
+          height: Number.isFinite(dimensions.height) ? dimensions.height : null,
           media_type: mediaType,
           position: index,
           status: 'ready',
@@ -1222,7 +1239,13 @@ export const galleryService = {
       .select()
       .single();
 
-    if (dbError) throw dbError;
+    if (dbError) {
+      throw new Error(
+        [dbError.message, dbError.details, dbError.hint, dbError.code]
+          .filter(Boolean)
+          .join(' — ') || 'Photo database insert failed'
+      );
+    }
 
     if (onInserted) {
       onInserted(photoData);
@@ -1357,10 +1380,9 @@ export const galleryService = {
     } = uploadContext;
 
     let originalFile = file;
-    const uploadQuality = localStorage.getItem('upload_quality') || 'original';
-    if (!isVideo && !isRaw && uploadQuality !== 'original') {
-      const edge = uploadQuality === 'high' ? 3600 : 2048;
-      originalFile = await compressImageForUpload(file, { maxEdge: edge }).catch(() => file);
+    const uploadEdge = getOriginalUploadMaxEdge();
+    if (!isVideo && !isRaw && uploadEdge) {
+      originalFile = await compressImageForUpload(file, { maxEdge: uploadEdge }).catch(() => file);
     }
 
     const uploadBody =
@@ -1586,7 +1608,7 @@ export const galleryService = {
     if (!isVideo && !isRaw) {
       const [dim, variants] = await Promise.all([
         getImageDimensionsFast(file).catch(() => ({ width: null, height: null })),
-        compressImageVariants(file, { webMaxEdge: 2048, thumbMaxEdge: 400, thumbQuality: 0.6 }).catch(
+        compressImageVariants(file, getUploadVariantOptions()).catch(
           () => ({ webFile: file, thumbFile: file })
         ),
       ]);
@@ -1603,11 +1625,9 @@ export const galleryService = {
       thumbnailBlob = meta.thumbnailBlob;
       if (thumbnailBlob) {
         const previewFile = new File([thumbnailBlob], 'preview.jpg', { type: 'image/jpeg' });
-        const variants = await compressImageVariants(previewFile, {
-          webMaxEdge: 2048,
-          thumbMaxEdge: 400,
-          thumbQuality: 0.6,
-        }).catch(() => ({ webFile: previewFile, thumbFile: previewFile }));
+        const variants = await compressImageVariants(previewFile, getUploadVariantOptions()).catch(
+          () => ({ webFile: previewFile, thumbFile: previewFile })
+        );
         webFile = variants.webFile;
         thumbFile = variants.thumbFile;
       }
@@ -1621,10 +1641,9 @@ export const galleryService = {
     let thumbnailStoragePath = null;
 
     let originalFile = file;
-    const uploadQuality = localStorage.getItem('upload_quality') || 'original';
-    if (!isVideo && !isRaw && uploadQuality !== 'original') {
-      const edge = uploadQuality === 'high' ? 3600 : 2048;
-      originalFile = await compressImageForUpload(file, { maxEdge: edge }).catch(() => file);
+    const uploadEdge = getOriginalUploadMaxEdge();
+    if (!isVideo && !isRaw && uploadEdge) {
+      originalFile = await compressImageForUpload(file, { maxEdge: uploadEdge }).catch(() => file);
     }
 
     const uploadBody =
@@ -1678,7 +1697,13 @@ export const galleryService = {
       .select()
       .single();
 
-    if (dbError) throw dbError;
+    if (dbError) {
+      throw new Error(
+        [dbError.message, dbError.details, dbError.hint, dbError.code]
+          .filter(Boolean)
+          .join(' — ') || 'Photo database update failed'
+      );
+    }
 
     if (isVideo && thumbnailBlob) {
       const thumbnailPathVideo = `${basePath}/thumb/${fileNameJpg}`;

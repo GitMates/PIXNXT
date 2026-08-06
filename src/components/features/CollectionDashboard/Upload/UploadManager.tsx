@@ -9,6 +9,7 @@ import {
   Film,
   Loader2,
   Check,
+  AlertCircle,
 } from 'lucide-react';
 import type { UploadWidgetState } from './uploadTypes';
 import {
@@ -42,6 +43,14 @@ export type UploadManagerProps = {
   onToggleDetails: () => void;
   onViewCompleted?: () => void;
 };
+
+function fileRowPercent(file: UploadWidgetState['files'][number]) {
+  if (file.status === 'completed') return 100;
+  if (file.status === 'error') return 0;
+  const total = uploadTotalBytes(file);
+  if (!total) return Math.min(100, Math.max(0, file.progress || 0));
+  return Math.min(100, Math.round((uploadBytesDone(file) / total) * 100));
+}
 
 export const UploadManager: React.FC<UploadManagerProps> = ({
   state,
@@ -85,9 +94,10 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
         const instantSpeed = bytesDiff > 0 ? bytesDiff / timeDiff : 0;
 
         if (instantSpeed > 0) {
-          const smoothed = lastValidSpeedRef.current > 0
-            ? lastValidSpeedRef.current * 0.4 + instantSpeed * 0.6
-            : instantSpeed;
+          const smoothed =
+            lastValidSpeedRef.current > 0
+              ? lastValidSpeedRef.current * 0.4 + instantSpeed * 0.6
+              : instantSpeed;
           lastValidSpeedRef.current = smoothed;
           setSpeed(smoothed);
         } else if (lastValidSpeedRef.current > 0) {
@@ -133,69 +143,126 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
   const detailsTabsAndList = (
     <div className="upload-batch-details">
       <div className="upload-panel-tabs" role="tablist">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={state.activeTab === 'uploading'}
-          className={`upload-panel-tab ${state.activeTab === 'uploading' ? 'active' : ''}`}
-          onClick={() => onTabChange('uploading')}
-        >
-          Uploading
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={state.activeTab === 'complete'}
-          className={`upload-panel-tab ${state.activeTab === 'complete' ? 'active' : ''}`}
-          onClick={() => onTabChange('complete')}
-        >
-          Complete
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={state.activeTab === 'failed'}
-          className={`upload-panel-tab ${state.activeTab === 'failed' ? 'active' : ''}`}
-          onClick={() => onTabChange('failed')}
-        >
-          Failed
-        </button>
+        {(
+          [
+            { id: 'uploading' as const, label: 'Uploading', count: counts.uploading },
+            { id: 'complete' as const, label: 'Complete', count: counts.complete },
+            { id: 'failed' as const, label: 'Failed', count: counts.failed },
+          ] as const
+        ).map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={state.activeTab === tab.id}
+            className={`upload-panel-tab${state.activeTab === tab.id ? ' active' : ''}${
+              tab.id === 'failed' && tab.count > 0 ? ' has-failures' : ''
+            }`}
+            onClick={() => onTabChange(tab.id)}
+          >
+            {tab.label}
+            {tab.count > 0 ? <span className="upload-panel-tab-count">{tab.count}</span> : null}
+          </button>
+        ))}
       </div>
 
       <div className="upload-panel-list">
         {activeFiles.length === 0 ? (
           <p className="upload-panel-empty">No files in this tab.</p>
         ) : (
-          activeFiles.map((file) => (
-            <div key={file.id} className="upload-panel-row upload-panel-row--stacked">
-              <div className="upload-panel-row-main">
-                <span
-                  className={`upload-panel-row-name ${
-                    file.status === 'error'
-                      ? 'is-error'
-                      : file.status === 'completed'
-                        ? 'is-done'
-                        : ''
-                  }`}
-                  title={file.name}
-                >
-                  {file.name}
-                </span>
-                <span className="upload-panel-row-progress">
-                  {file.status === 'error'
-                    ? 'Failed'
-                    : file.status === 'uploading' && formattedSpeed
-                    ? `${formatUploadMb(uploadBytesDone(file))}/${formatUploadMb(uploadTotalBytes(file))} • ${formattedSpeed}`
-                    : `${formatUploadMb(uploadBytesDone(file))}/${formatUploadMb(uploadTotalBytes(file))}`}
-                </span>
+          activeFiles.map((file) => {
+            const pct = fileRowPercent(file);
+            const isActive = file.status === 'uploading' || file.status === 'processing';
+            return (
+              <div
+                key={file.id}
+                className={`upload-panel-row${
+                  file.status === 'error'
+                    ? ' is-error'
+                    : file.status === 'completed'
+                      ? ' is-done'
+                      : ''
+                }`}
+              >
+                <div className="upload-panel-row-thumb" aria-hidden>
+                  {file.previewUrl ? (
+                    file.mediaKind === 'video' ? (
+                      <video src={file.previewUrl} muted playsInline preload="metadata" />
+                    ) : (
+                      <img src={file.previewUrl} alt="" />
+                    )
+                  ) : file.mediaKind === 'video' ? (
+                    <Film size={16} strokeWidth={1.75} />
+                  ) : (
+                    <ImageIcon size={16} strokeWidth={1.75} />
+                  )}
+                </div>
+
+                <div className="upload-panel-row-body">
+                  <div className="upload-panel-row-top">
+                    <span className="upload-panel-row-name" title={file.name}>
+                      {file.name}
+                    </span>
+                    <span className="upload-panel-row-meta">
+                      {file.status === 'error' ? (
+                        'Failed'
+                      ) : file.status === 'completed' ? (
+                        'Done'
+                      ) : file.status === 'waiting' ? (
+                        isPaused ? 'Paused' : 'Queued'
+                      ) : file.status === 'processing' ? (
+                        file.progress < 5 ? 'Optimizing…' : 'Finishing…'
+                      ) : (
+                        <>
+                          {formatUploadMb(uploadBytesDone(file))}
+                          <span className="upload-panel-row-meta-sep">/</span>
+                          {formatUploadMb(uploadTotalBytes(file))}
+                          {isActive && formattedSpeed ? (
+                            <>
+                              <span className="upload-panel-row-meta-sep">·</span>
+                              {formattedSpeed}
+                            </>
+                          ) : null}
+                        </>
+                      )}
+                    </span>
+                  </div>
+
+                  {file.status !== 'error' ? (
+                    <div
+                      className={`upload-panel-row-bar${isActive ? ' is-active' : ''}`}
+                      role="progressbar"
+                      aria-valuenow={pct}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                    >
+                      <div
+                        className="upload-panel-row-bar-fill"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  ) : null}
+
+                  {file.status === 'error' && file.errorMessage ? (
+                    <p className="upload-panel-row-error" title={file.errorMessage}>
+                      <AlertCircle size={13} strokeWidth={2.25} aria-hidden />
+                      <span>{file.errorMessage}</span>
+                    </p>
+                  ) : null}
+                </div>
+
+                <div className="upload-panel-row-trail" aria-hidden>
+                  {file.status === 'completed' ? (
+                    <CheckCircle2 size={18} strokeWidth={2} />
+                  ) : file.status === 'error' ? (
+                    <X size={16} strokeWidth={2.25} />
+                  ) : isActive ? (
+                    <Loader2 size={16} strokeWidth={2} className="upload-fab-spin" />
+                  ) : null}
+                </div>
               </div>
-              {file.status === 'error' && file.errorMessage && (
-                <p className="upload-panel-row-error" title={file.errorMessage}>
-                  {file.errorMessage}
-                </p>
-              )}
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>
@@ -226,7 +293,7 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
               {inProgressCount > 0 && (
                 <p className="upload-widget-mini-sub">
                   {formatUploadMb(doneBytes)} / {formatUploadMb(totalBytes)}
-                  {formattedSpeed ? ` • ${formattedSpeed}` : ''}
+                  {formattedSpeed ? ` · ${formattedSpeed}` : ''}
                 </p>
               )}
             </div>
@@ -318,11 +385,11 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
       <header className="upload-panel-header">
         <h2 className="upload-panel-title">
           {inProgressCount > 0 ? (
-            <Loader2 size={26} strokeWidth={1.75} className="upload-fab-spin" />
+            <Loader2 size={22} strokeWidth={2} className="upload-fab-spin" />
           ) : isAllComplete ? (
-            <CheckCircle2 size={26} strokeWidth={1.75} />
+            <CheckCircle2 size={22} strokeWidth={2} />
           ) : (
-            <CloudUpload size={26} strokeWidth={1.25} />
+            <CloudUpload size={22} strokeWidth={1.75} />
           )}
           Uploads
         </h2>
@@ -334,7 +401,7 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
             aria-label="Minimize uploads panel"
           >
             <span className="upload-panel-hide-icon" aria-hidden>
-              <ChevronDown size={14} strokeWidth={2} />
+              <ChevronDown size={14} strokeWidth={2.25} />
             </span>
             Minimize
           </button>
@@ -397,21 +464,36 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
               <span className="upload-batch-percent">{overallPercent}%</span>
             </div>
 
-            <div className="upload-batch-bar" role="progressbar" aria-valuenow={overallPercent} aria-valuemin={0} aria-valuemax={100}>
+            <div
+              className="upload-batch-bar"
+              role="progressbar"
+              aria-valuenow={overallPercent}
+              aria-valuemin={0}
+              aria-valuemax={100}
+            >
               <div className="upload-batch-bar-fill" style={{ width: `${overallPercent}%` }} />
             </div>
 
             <div className="upload-batch-meta">
               <div className="upload-batch-meta-left">
                 <span className="upload-batch-count">
-                  {completedCount} / {totalCount}
-                  {totalBytes > 0 && (
-                    <span className="upload-batch-size-info" style={{ marginLeft: 6, fontWeight: 400, color: '#666' }}>
-                      • {formatUploadMb(doneBytes)} / {formatUploadMb(totalBytes)}
-                      {formattedSpeed ? ` • ${formattedSpeed}` : ''}
-                    </span>
-                  )}
+                  {completedCount}
+                  <span className="upload-batch-count-sep">/</span>
+                  {totalCount}
                 </span>
+                {totalBytes > 0 ? (
+                  <span className="upload-batch-size-info">
+                    {formatUploadMb(doneBytes)}
+                    <span className="upload-batch-count-sep">/</span>
+                    {formatUploadMb(totalBytes)}
+                    {formattedSpeed ? (
+                      <>
+                        <span className="upload-batch-dot">·</span>
+                        {formattedSpeed}
+                      </>
+                    ) : null}
+                  </span>
+                ) : null}
               </div>
               <div className="upload-batch-meta-actions">
                 {inProgressCount > 0 && (

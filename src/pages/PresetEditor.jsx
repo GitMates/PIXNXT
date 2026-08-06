@@ -7,6 +7,13 @@ import './PresetEditor.css';
 import './CollectionDashboard.css';
 import { galleryService } from '../services/gallery.service';
 import { galleryGridStyleLabel } from '../lib/galleryGridStyle';
+import {
+  COVER_STYLES,
+  TYPOGRAPHY_OPTIONS,
+  COLOR_PALETTES,
+} from '../constants/designOptions';
+
+const PRESET_LIST_PATH = '/settings/delivery-templates';
 
 const TABS = [
   { id: 'general', label: 'General', icon: Wrench },
@@ -82,6 +89,9 @@ export default function PresetEditor() {
             if (next.showOnShowcase === undefined && next.showOnHomepage !== undefined) {
               next.showOnShowcase = next.showOnHomepage;
             }
+            // Legacy keys from older presets
+            if (!next.typography && next.font) next.typography = next.font;
+            if (!next.colorTheme && next.color) next.colorTheme = next.color;
             return next;
           });
         }
@@ -116,7 +126,7 @@ export default function PresetEditor() {
         .eq('id', id);
         
       if (error) throw error;
-      navigate('/settings/presets');
+      navigate(PRESET_LIST_PATH);
     } catch (err) {
       console.error('Error saving preset:', err);
       alert('Failed to save preset.');
@@ -137,7 +147,7 @@ export default function PresetEditor() {
     <div className="preset-editor-container">
       <div className="preset-editor-topbar">
         <div className="topbar-left">
-          <button className="topbar-close-btn" onClick={() => navigate('/settings/presets')}>
+          <button className="topbar-close-btn" onClick={() => navigate(PRESET_LIST_PATH)} aria-label="Close">
             <X size={20} />
           </button>
           <h2 className="topbar-title">{preset.name}</h2>
@@ -315,263 +325,302 @@ export default function PresetEditor() {
           )}
 
           {activeTab === 'design' && (
-            <div className="tab-content design-tab" style={{ display: 'flex', gap: '32px' }}>
-              <div className="design-sidebar" style={{ width: '200px', flexShrink: 0 }}>
-                <h4 style={{ fontSize: '12px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Design</h4>
+            <div className="pe-design">
+              <nav className="pe-design-pills" aria-label="Design sections">
                 {[
                   { id: 'cover', label: 'Cover' },
                   { id: 'typography', label: 'Typography' },
                   { id: 'color', label: 'Color' },
                   { id: 'grid', label: 'Grid' },
-                ].map(tab => (
-                  <div
+                ].map((tab) => (
+                  <button
+                    type="button"
                     key={tab.id}
-                    className={`design-tab-item ${activeDesignTab === tab.id ? 'active' : ''}`}
+                    className={`pe-design-pill ${activeDesignTab === tab.id ? 'active' : ''}`}
                     onClick={() => setActiveDesignTab(tab.id)}
-                    style={{ 
-                      padding: '8px 12px', 
-                      cursor: 'pointer', 
-                      borderRadius: '6px', 
-                      backgroundColor: activeDesignTab === tab.id ? '#f3f4f6' : 'transparent', 
-                      fontWeight: activeDesignTab === tab.id ? '500' : 'normal',
-                      color: activeDesignTab === tab.id ? '#111827' : '#4b5563',
-                      marginBottom: '4px' 
-                    }}
                   >
                     {tab.label}
-                  </div>
+                  </button>
                 ))}
-              </div>
-              <div className="design-content" style={{ flex: 1 }}>
+              </nav>
+
+              <div className="pe-design-pane">
                 {activeDesignTab === 'cover' && (
-                  <div className="form-group">
-                    <label>Cover</label>
-                    <div className="cd-cover-grid" style={{ marginTop: '16px' }}>
-                      {COVER_STYLES.map(style => (
-                        <div
+                  <section className="pe-design-section">
+                    <div className="pe-design-section-head">
+                      <h4 className="pe-design-section-title">Cover</h4>
+                      <p className="pe-design-section-desc">
+                        Choose how the delivery cover title and photo sit together.
+                      </p>
+                    </div>
+                    <div className="pe-cover-grid">
+                      {COVER_STYLES.map((style) => (
+                        <button
+                          type="button"
                           key={style.id}
-                          className={`cd-cover-card ${settings.coverStyle === style.id ? 'active' : ''}`}
-                          onClick={() => setSettings({...settings, coverStyle: style.id})}
+                          className={`pe-cover-card ${settings.coverStyle === style.id ? 'active' : ''}`}
+                          onClick={() => setSettings({ ...settings, coverStyle: style.id })}
                         >
-                          <div className="cd-cover-card-preview">
+                          <div className="pe-cover-preview">
                             <div className={`preview-box style-${style.id}`}>
                               <div className="preview-content">
-                                <div className="preview-image" style={{ backgroundImage: `url(https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=300&q=80)` }}></div>
+                                <div className="preview-image" />
                                 <div className="preview-title">TITLE</div>
                               </div>
                             </div>
                           </div>
-                          <span className="cd-cover-card-name" style={{ textTransform: 'capitalize' }}>{style.name}</span>
-                        </div>
+                          <span className="pe-card-label">{style.name}</span>
+                        </button>
                       ))}
                     </div>
-                  </div>
+                  </section>
                 )}
 
-            {activeDesignTab === 'typography' && (
-              <div className="form-group form-group-spaced">
-                <label>Typography</label>
-                <div className="cd-typography-grid" style={{ marginTop: '16px' }}>
-                  {TYPOGRAPHY_OPTIONS.map(option => (
-                    <div
-                      key={option.id}
-                      className={`cd-typography-card ${settings.typography === option.id ? 'active' : ''}`}
-                      onClick={() => setSettings({...settings, typography: option.id})}
-                    >
-                      <div className={`cd-typography-preview-box font-preview-${option.id}`}>
-                        <div className="sample-text">{option.sample}</div>
-                        <div className="desc-text">{option.desc}</div>
-                      </div>
-                      <span className="cd-typography-name">{option.name}</span>
+                {activeDesignTab === 'typography' && (
+                  <section className="pe-design-section">
+                    <div className="pe-design-section-head">
+                      <h4 className="pe-design-section-title">Typography</h4>
+                      <p className="pe-design-section-desc">
+                        Font used for titles and gallery text on the public delivery.
+                      </p>
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
+                    <div className="pe-type-grid">
+                      {TYPOGRAPHY_OPTIONS.map((option) => (
+                        <button
+                          type="button"
+                          key={option.id}
+                          className={`pe-type-card ${settings.typography === option.id ? 'active' : ''}`}
+                          onClick={() =>
+                            setSettings({ ...settings, typography: option.id, font: option.id })
+                          }
+                        >
+                          <div className={`pe-type-preview font-preview-${option.id}`}>
+                            <span className="sample-text">{option.sample}</span>
+                            <span className="desc-text">{option.desc}</span>
+                          </div>
+                          <span className="pe-card-label">{option.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                )}
 
-            {activeDesignTab === 'color' && (
-              <div className="form-group form-group-spaced">
-                <label>Color</label>
-                <div className="cd-color-grid" style={{ marginTop: '16px' }}>
-                  {COLOR_PALETTES.map(palette => (
-                    <div
-                      key={palette.id}
-                      className={`cd-color-card ${settings.colorTheme === palette.id ? 'active' : ''}`}
-                      onClick={() => setSettings({...settings, colorTheme: palette.id})}
-                    >
-                      <div className="cd-color-preview-box">
-                        {palette.colors.map((color, i) => (
-                          <div key={i} className="color-swatch" style={{ backgroundColor: color }}></div>
+                {activeDesignTab === 'color' && (
+                  <section className="pe-design-section">
+                    <div className="pe-design-section-head">
+                      <h4 className="pe-design-section-title">Color</h4>
+                      <p className="pe-design-section-desc">
+                        Background and accent palette for the delivery gallery.
+                      </p>
+                    </div>
+                    <div className="pe-color-grid">
+                      {COLOR_PALETTES.map((palette) => (
+                        <button
+                          type="button"
+                          key={palette.id}
+                          className={`pe-color-card ${settings.colorTheme === palette.id ? 'active' : ''}`}
+                          onClick={() =>
+                            setSettings({
+                              ...settings,
+                              colorTheme: palette.id,
+                              color: palette.id,
+                            })
+                          }
+                        >
+                          <div
+                            className="pe-color-preview"
+                            style={{ backgroundColor: palette.colors[1] || palette.colors[0] }}
+                          >
+                            {palette.colors.map((color, i) => (
+                              <span
+                                key={i}
+                                className="pe-color-swatch"
+                                style={{ backgroundColor: color }}
+                              />
+                            ))}
+                          </div>
+                          <span className="pe-card-label">{palette.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {activeDesignTab === 'grid' && (
+                  <section className="pe-design-section">
+                    <div className="pe-design-section-head">
+                      <h4 className="pe-design-section-title">Grid</h4>
+                      <p className="pe-design-section-desc">
+                        How photos arrange, size, and navigate inside the gallery.
+                      </p>
+                    </div>
+
+                    <div className="pe-grid-block">
+                      <span className="pe-grid-label">Grid style</span>
+                      <div className="pe-grid-options">
+                        {[
+                          {
+                            id: 'vertical',
+                            label: galleryGridStyleLabel('vertical'),
+                            icon: (
+                              <svg width="40" height="40" viewBox="0 0 40 40" fill="currentColor" aria-hidden>
+                                <rect x="8" y="8" width="10" height="10" rx="1" />
+                                <rect x="8" y="22" width="10" height="10" rx="1" />
+                                <rect x="22" y="8" width="10" height="24" rx="1" />
+                              </svg>
+                            ),
+                          },
+                          {
+                            id: 'horizontal',
+                            label: galleryGridStyleLabel('horizontal'),
+                            icon: (
+                              <svg width="40" height="40" viewBox="0 0 40 40" fill="currentColor" aria-hidden>
+                                <rect x="8" y="8" width="24" height="10" rx="1" />
+                                <rect x="8" y="22" width="10" height="10" rx="1" />
+                                <rect x="22" y="22" width="10" height="10" rx="1" />
+                              </svg>
+                            ),
+                          },
+                        ].map((opt) => (
+                          <button
+                            type="button"
+                            key={opt.id}
+                            className={`pe-grid-card ${settings.gridStyle === opt.id ? 'active' : ''}`}
+                            onClick={() => setSettings({ ...settings, gridStyle: opt.id })}
+                          >
+                            <span className="pe-grid-icon">{opt.icon}</span>
+                            <span className="pe-card-label">{opt.label}</span>
+                          </button>
                         ))}
                       </div>
-                      <span className="cd-color-name">{palette.name}</span>
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
 
-            {activeDesignTab === 'grid' && (
-              <div className="cd-grid-settings-pane-content" style={{ marginTop: '16px' }}>
-                {/* Grid Style */}
-                <div className="grid-setting-section">
-                  <label className="grid-section-label">Grid Style</label>
-                  <div className="grid-option-cards">
-                    <div className="grid-option-container">
-                      <div
-                        className={`grid-option-card ${settings.gridStyle === 'vertical' ? 'active' : ''}`}
-                        onClick={() => setSettings({...settings, gridStyle: 'vertical'})}
-                      >
-                        <div className="grid-card-icon">
-                          <svg width="40" height="40" viewBox="0 0 40 40" fill="currentColor">
-                            <rect x="8" y="8" width="10" height="10" />
-                            <rect x="8" y="22" width="10" height="10" />
-                            <rect x="22" y="8" width="10" height="24" />
-                          </svg>
-                        </div>
+                    <div className="pe-grid-block">
+                      <span className="pe-grid-label">Thumbnail size</span>
+                      <div className="pe-grid-options">
+                        {[
+                          {
+                            id: 'regular',
+                            label: 'Regular',
+                            icon: (
+                              <svg width="40" height="40" viewBox="0 0 40 40" fill="currentColor" aria-hidden>
+                                <rect x="8" y="11" width="6" height="8" rx="0.5" />
+                                <rect x="17" y="11" width="6" height="8" rx="0.5" />
+                                <rect x="26" y="11" width="6" height="8" rx="0.5" />
+                                <rect x="8" y="21" width="6" height="8" rx="0.5" />
+                                <rect x="17" y="21" width="6" height="8" rx="0.5" />
+                                <rect x="26" y="21" width="6" height="8" rx="0.5" />
+                              </svg>
+                            ),
+                          },
+                          {
+                            id: 'large',
+                            label: 'Large',
+                            icon: (
+                              <svg width="40" height="40" viewBox="0 0 40 40" fill="currentColor" aria-hidden>
+                                <rect x="10" y="10" width="8" height="8" rx="0.5" />
+                                <rect x="22" y="10" width="8" height="8" rx="0.5" />
+                                <rect x="10" y="22" width="8" height="8" rx="0.5" />
+                                <rect x="22" y="22" width="8" height="8" rx="0.5" />
+                              </svg>
+                            ),
+                          },
+                        ].map((opt) => (
+                          <button
+                            type="button"
+                            key={opt.id}
+                            className={`pe-grid-card ${settings.thumbnailSize === opt.id ? 'active' : ''}`}
+                            onClick={() => setSettings({ ...settings, thumbnailSize: opt.id })}
+                          >
+                            <span className="pe-grid-icon">{opt.icon}</span>
+                            <span className="pe-card-label">{opt.label}</span>
+                          </button>
+                        ))}
                       </div>
-                      <span className="card-label">{galleryGridStyleLabel('vertical')}</span>
                     </div>
-                    <div className="grid-option-container">
-                      <div
-                        className={`grid-option-card ${settings.gridStyle === 'horizontal' ? 'active' : ''}`}
-                        onClick={() => setSettings({...settings, gridStyle: 'horizontal'})}
-                      >
-                        <div className="grid-card-icon">
-                          <svg width="40" height="40" viewBox="0 0 40 40" fill="currentColor">
-                            <rect x="8" y="8" width="24" height="10" />
-                            <rect x="8" y="22" width="10" height="10" />
-                            <rect x="22" y="22" width="10" height="10" />
-                          </svg>
-                        </div>
-                      </div>
-                      <span className="card-label">{galleryGridStyleLabel('horizontal')}</span>
-                    </div>
-                  </div>
-                </div>
 
-                {/* Thumbnail Size */}
-                <div className="grid-setting-section">
-                  <label className="grid-section-label">Thumbnail Size</label>
-                  <div className="grid-option-cards">
-                    <div className="grid-option-container">
-                      <div
-                        className={`grid-option-card ${settings.thumbnailSize === 'regular' ? 'active' : ''}`}
-                        onClick={() => setSettings({...settings, thumbnailSize: 'regular'})}
-                      >
-                        <div className="grid-card-icon">
-                          <svg width="40" height="40" viewBox="0 0 40 40" fill="currentColor">
-                            <rect x="8" y="11" width="6" height="8" />
-                            <rect x="17" y="11" width="6" height="8" />
-                            <rect x="26" y="11" width="6" height="8" />
-                            <rect x="8" y="21" width="6" height="8" />
-                            <rect x="17" y="21" width="6" height="8" />
-                            <rect x="26" y="21" width="6" height="8" />
-                          </svg>
-                        </div>
+                    <div className="pe-grid-block">
+                      <span className="pe-grid-label">Grid spacing</span>
+                      <div className="pe-grid-options">
+                        {[
+                          {
+                            id: 'regular',
+                            label: 'Regular',
+                            icon: (
+                              <svg width="40" height="40" viewBox="0 0 40 40" fill="currentColor" aria-hidden>
+                                <rect x="11" y="11" width="6" height="6" rx="0.5" />
+                                <rect x="23" y="11" width="6" height="6" rx="0.5" />
+                                <rect x="11" y="23" width="6" height="6" rx="0.5" />
+                                <rect x="23" y="23" width="6" height="6" rx="0.5" />
+                              </svg>
+                            ),
+                          },
+                          {
+                            id: 'large',
+                            label: 'Large',
+                            icon: (
+                              <svg width="40" height="40" viewBox="0 0 40 40" fill="currentColor" aria-hidden>
+                                <rect x="14" y="14" width="12" height="12" rx="0.5" />
+                              </svg>
+                            ),
+                          },
+                        ].map((opt) => (
+                          <button
+                            type="button"
+                            key={opt.id}
+                            className={`pe-grid-card ${settings.gridSpacing === opt.id ? 'active' : ''}`}
+                            onClick={() => setSettings({ ...settings, gridSpacing: opt.id })}
+                          >
+                            <span className="pe-grid-icon">{opt.icon}</span>
+                            <span className="pe-card-label">{opt.label}</span>
+                          </button>
+                        ))}
                       </div>
-                      <span className="card-label">Regular</span>
                     </div>
-                    <div className="grid-option-container">
-                      <div
-                        className={`grid-option-card ${settings.thumbnailSize === 'large' ? 'active' : ''}`}
-                        onClick={() => setSettings({...settings, thumbnailSize: 'large'})}
-                      >
-                        <div className="grid-card-icon">
-                          <svg width="40" height="40" viewBox="0 0 40 40" fill="currentColor">
-                            <rect x="10" y="10" width="8" height="8" />
-                            <rect x="22" y="10" width="8" height="8" />
-                            <rect x="10" y="22" width="8" height="8" />
-                            <rect x="22" y="22" width="8" height="8" />
-                          </svg>
-                        </div>
-                      </div>
-                      <span className="card-label">Large</span>
-                    </div>
-                  </div>
-                </div>
 
-                {/* Grid Spacing */}
-                <div className="grid-setting-section">
-                  <label className="grid-section-label">Grid Spacing</label>
-                  <div className="grid-option-cards">
-                    <div className="grid-option-container">
-                      <div
-                        className={`grid-option-card ${settings.gridSpacing === 'regular' ? 'active' : ''}`}
-                        onClick={() => setSettings({...settings, gridSpacing: 'regular'})}
-                      >
-                        <div className="grid-card-icon">
-                          <svg width="40" height="40" viewBox="0 0 40 40" fill="currentColor">
-                            <rect x="11" y="11" width="6" height="6" />
-                            <rect x="23" y="11" width="6" height="6" />
-                            <rect x="11" y="23" width="6" height="6" />
-                            <rect x="23" y="23" width="6" height="6" />
-                          </svg>
-                        </div>
+                    <div className="pe-grid-block">
+                      <span className="pe-grid-label">Navigation style</span>
+                      <div className="pe-grid-options">
+                        <button
+                          type="button"
+                          className={`pe-grid-card ${settings.navigationStyle === 'icon' ? 'active' : ''}`}
+                          onClick={() => setSettings({ ...settings, navigationStyle: 'icon' })}
+                        >
+                          <span className="pe-grid-icon">
+                            <span className="pe-nav-thumb pe-nav-thumb--icon" />
+                          </span>
+                          <span className="pe-card-label">Icon only</span>
+                        </button>
+                        <button
+                          type="button"
+                          className={`pe-grid-card ${
+                            settings.navigationStyle === 'text' ||
+                            settings.navigationStyle === 'icon_text'
+                              ? 'active'
+                              : ''
+                          }`}
+                          onClick={() => setSettings({ ...settings, navigationStyle: 'text' })}
+                        >
+                          <span className="pe-grid-icon">
+                            <span className="pe-nav-thumb pe-nav-thumb--text">A</span>
+                          </span>
+                          <span className="pe-card-label">Icon &amp; text</span>
+                        </button>
                       </div>
-                      <span className="card-label">Regular</span>
                     </div>
-                    <div className="grid-option-container">
-                      <div
-                        className={`grid-option-card ${settings.gridSpacing === 'large' ? 'active' : ''}`}
-                        onClick={() => setSettings({...settings, gridSpacing: 'large'})}
-                      >
-                        <div className="grid-card-icon">
-                          <svg width="40" height="40" viewBox="0 0 40 40" fill="currentColor">
-                            <rect x="14" y="14" width="12" height="12" />
-                          </svg>
-                        </div>
-                      </div>
-                      <span className="card-label">Large</span>
-                    </div>
-                  </div>
-                </div>
+                  </section>
+                )}
 
-                {/* Navigation Style */}
-                <div className="grid-setting-section">
-                  <label className="grid-section-label">Navigation Style</label>
-                  <div className="grid-option-cards">
-                    <div className="grid-option-container">
-                      <div
-                        className={`grid-option-card ${settings.navigationStyle === 'icon' ? 'active' : ''}`}
-                        onClick={() => setSettings({...settings, navigationStyle: 'icon'})}
-                      >
-                        <div className="grid-card-icon">
-                          <div className="icon-only-thumb">
-                            <div className="thumb-box-rounded"></div>
-                          </div>
-                        </div>
-                      </div>
-                      <span className="card-label">Icon Only</span>
-                    </div>
-                    <div className="grid-option-container">
-                      <div
-                        className={`grid-option-card ${(settings.navigationStyle === 'text' || settings.navigationStyle === 'icon_text') ? 'active' : ''}`}
-                        onClick={() => setSettings({...settings, navigationStyle: 'text'})}
-                      >
-                        <div className="grid-card-icon">
-                          <div className="icon-text-thumb">
-                            <div className="thumb-box-a">A</div>
-                          </div>
-                        </div>
-                      </div>
-                      <span className="card-label">Icon & Text</span>
-                    </div>
-                  </div>
+                <div className="design-nav-row">
+                  <button type="button" className="action-link" onClick={() => setActiveTab('general')}>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '4px' }}><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                    Back
+                  </button>
+                  <button type="button" className="action-link" onClick={() => setActiveTab('privacy')}>
+                    Next
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: '4px' }}><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                  </button>
                 </div>
-              </div>
-            )}
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '48px' }}>
-                <button className="action-link" onClick={() => setActiveTab('general')} style={{ color: '#374151', fontSize: '14px' }}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '4px' }}><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-                  Back
-                </button>
-                <button className="action-link" onClick={() => setActiveTab('privacy')} style={{ color: '#374151', fontSize: '14px' }}>
-                  Next 
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: '4px' }}><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
-                </button>
-              </div>
               </div>
             </div>
           )}

@@ -56,6 +56,20 @@ function isUploadCancelled(err) {
   return err instanceof Error && /Upload cancelled/i.test(err.message);
 }
 
+/** Normalize Supabase PostgREST / R2 / unknown throws into a user-visible string. */
+function uploadErrorMessage(err) {
+  if (err instanceof Error && err.message) return err.message;
+  if (err && typeof err === 'object') {
+    const msg = err.message || err.error_description || err.error || err.details;
+    if (msg) {
+      const code = err.code ? ` (${err.code})` : '';
+      return `${msg}${code}`;
+    }
+  }
+  if (typeof err === 'string' && err.trim()) return err;
+  return 'Upload failed. Check your connection and try again.';
+}
+
 function getUploadPhase(uf, originalContextById) {
   const uploadContext = uf.uploadContext || originalContextById.get(uf.id);
   if (uploadContext || (uf.progress ?? 0) >= 25) return 'original';
@@ -232,8 +246,7 @@ export function UploadQueueProvider({ children }) {
           return;
         }
         console.error('Derivative upload failed:', err);
-        const message =
-          err instanceof Error ? err.message : 'Upload failed. Check your connection and try again.';
+        const message = uploadErrorMessage(err);
         handleStorageLimitError(message);
         safePatch({ status: 'error', progress: 0, errorMessage: message });
       } finally {
@@ -300,8 +313,7 @@ export function UploadQueueProvider({ children }) {
           return;
         }
         console.error('Original upload failed:', err);
-        const message =
-          err instanceof Error ? err.message : 'Upload failed. Check your connection and try again.';
+        const message = uploadErrorMessage(err);
         handleStorageLimitError(message);
         safePatch({ status: 'error', progress: 0, errorMessage: message });
       } finally {

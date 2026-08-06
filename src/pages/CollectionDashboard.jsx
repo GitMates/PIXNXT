@@ -30,6 +30,7 @@ import {
 import { exportFavoriteListExcel } from '../lib/favoriteListExport';
 import { openSpaPath } from '../lib/spaNavigation';
 import { openShareByEmail, openWhatsAppShare, getCollectionShareUrl, getQrCodeImageUrl } from '../lib/shareCollection';
+import { resolveUploadDefaults, syncUploadDefaultsToLocalStorage } from '../lib/uploadDefaults';
 import { CollectionQrModal, CollectionDuplicateModal } from '../components/features/ClientGallery/CollectionShareModals';
 import { GuestDeliveryQrModal } from '../components/features/CollectionDashboard/GuestDeliveryQrModal';
 import '../components/features/CollectionDashboard/GuestDeliveryQrModal.css';
@@ -132,7 +133,10 @@ const CollectionDashboard = () => {
             .eq('id', user.id)
             .single()
             .then(({ data }) => {
-                if (data) setProfile(data);
+                if (data) {
+                    setProfile(data);
+                    syncUploadDefaultsToLocalStorage(data);
+                }
             })
             .catch((err) => console.error('Error loading photographer profile:', err));
     }, [user?.id]);
@@ -179,7 +183,7 @@ const CollectionDashboard = () => {
     const [activePhotoMenu, setActivePhotoMenu] = useState(null);
     const [showGridSettings, setShowGridSettings] = useState(false);
     const [gridSize, setGridSize] = useState('small');
-    const [showFilename, setShowFilename] = useState(() => localStorage.getItem('filename_display') === 'show');
+    const [showFilename, setShowFilename] = useState(() => resolveUploadDefaults(null).filenameDisplay === 'show');
     const [showMoreDropdown, setShowMoreDropdown] = useState(false);
     const [photoMenu, setPhotoMenu] = useState(null);
     const [showRenameModal, setShowRenameModal] = useState(false);
@@ -3346,7 +3350,7 @@ const CollectionDashboard = () => {
     }, [activeActivityMenu, favoriteDetailPhotoMenuPhotoId, favoriteActivitySortMenuOpen]);
 
     const processSelectedUploadFiles = (fileList, snapshot) => {
-        const rawSupportEnabled = localStorage.getItem('raw_photo_support') === 'true';
+        const rawSupportEnabled = resolveUploadDefaults(null).rawPhotoSupport;
         let filesToProcess = Array.from(fileList || []);
         
         if (!rawSupportEnabled) {
@@ -4654,9 +4658,6 @@ const CollectionDashboard = () => {
                                                 <p className="cd-modal-drop-text">Drag photos and videos here to upload</p>
                                                 <p className="cd-modal-drop-browse">or <span className="cd-browse-link" onClick={handleModalBrowse}>Browse files</span></p>
                                             </div>
-                                        </div>
-                                        <div className="cd-modal-footer">
-                                            <span className="cd-modal-switch">Switch to classic uploader</span>
                                         </div>
                                     </>
                                 ) : (
