@@ -10,7 +10,7 @@ import {
 } from '../../../lib/customDomain';
 import { customDomainService } from '../../../services/customDomain.service';
 
-export function CustomDomainPanel({ profile, updateProfile }) {
+export function CustomDomainPanel({ profile, updateProfile, compact = false }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalStep, setModalStep] = useState('instructions');
   const [domainDraft, setDomainDraft] = useState('');
@@ -117,97 +117,152 @@ export function CustomDomainPanel({ profile, updateProfile }) {
 
   return (
     <>
-      <div className="set-section">
-        <h3 className="set-section-title">Domain</h3>
-        <div className="set-custom-domain-field neu-inset cg-field-shell">
-          <input className="set-input" type="text" readOnly value={defaultHost} />
-        </div>
-        <p className="set-help-text">
-          Every delivery you create is reachable at these addresses. Change the first part by editing your
-          studio handle in{' '}
-          <Link to="/account/profile" className="set-link-teal">
-            Account
-          </Link>
-          .
-        </p>
-      </div>
+      {compact ? (
+        <>
+          <div className="si-domain-field">
+            <input
+              className="si-domain-input"
+              type="text"
+              readOnly={Boolean(connectedDomain)}
+              placeholder={fieldPlaceholder}
+              value={fieldValue}
+              onClick={!connectedDomain ? openModal : undefined}
+            />
+          </div>
 
-      <div className="set-section set-section--custom-domain">
-        <div className="set-section-header">
-          <h3 className="set-section-title">Custom Domain</h3>
-        </div>
-
-        <div className="set-custom-domain-field neu-inset cg-field-shell">
-          <input
-            className="set-input"
-            type="text"
-            readOnly={Boolean(connectedDomain)}
-            placeholder={fieldPlaceholder}
-            value={fieldValue}
-            onClick={!connectedDomain ? openModal : undefined}
-          />
-        </div>
-
-        {!connectedDomain && (
-          <>
-            <p className="set-help-text">
-              Use your own subdomain for client galleries (e.g. gallery.yourdomain.com). We recommend a
-              subdomain so your main website is not affected.
-            </p>
-            <button type="button" className="set-add-domain-btn" onClick={openModal}>
+          {connectedDomain ? (
+            <div className="si-domain-status">
+              <span
+                className={`si-domain-dot ${isVerified ? 'si-domain-dot--ok' : 'si-domain-dot--pending'}`}
+                aria-hidden
+              />
+              <span className="type-status">
+                {isVerified ? 'Verified · SSL active' : 'Pending DNS verification'}
+              </span>
+              <div className="si-domain-status-actions">
+                {isPending ? (
+                  <button type="button" className="si-domain-link" disabled={busy} onClick={handleRecheck}>
+                    {busy ? 'Checking…' : 'Verify'}
+                  </button>
+                ) : null}
+                <button type="button" className="si-domain-link" disabled={busy} onClick={openModal}>
+                  Change
+                </button>
+                <button
+                  type="button"
+                  className="si-domain-link si-domain-link--danger"
+                  disabled={busy}
+                  onClick={handleRemove}
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button type="button" className="si-domain-add" onClick={openModal}>
               + Add custom domain
             </button>
-          </>
-        )}
+          )}
 
-        {connectedDomain && (
-          <div className="set-domain-connected">
-            <div className="set-domain-connected-row">
-              <span
-                className={`set-domain-badge ${
-                  isVerified ? 'set-domain-badge--verified' : 'set-domain-badge--pending'
-                }`}
-              >
-                {isVerified ? 'Connected' : 'Pending DNS'}
-              </span>
+          {info && <p className="set-domain-info">{info}</p>}
+          {error && !modalOpen && <p className="set-domain-error">{error}</p>}
+        </>
+      ) : (
+        <>
+          <div className="set-section">
+            <h3 className="set-section-title">Domain</h3>
+            <div className="set-custom-domain-field neu-inset cg-field-shell">
+              <input className="set-input" type="text" readOnly value={defaultHost} />
             </div>
-            {isVerified ? (
-              <p className="set-help-text">
-                Your galleries are available at{' '}
-                <a
-                  href={`https://${connectedDomain}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="set-link-teal"
-                >
-                  https://{connectedDomain}
-                </a>
-                . SSL certificates may take up to 24 hours after connecting.
-              </p>
-            ) : (
-              <p className="set-help-text">
-                Add the CNAME record in the setup guide, then verify DNS. Propagation can take up to 48 hours.
-              </p>
-            )}
-            <div className="set-domain-actions">
-              {isPending && (
-                <button type="button" className="set-btn-secondary" disabled={busy} onClick={handleRecheck}>
-                  {busy ? 'Checking…' : 'Verify DNS'}
-                </button>
-              )}
-              <button type="button" className="set-btn-ghost" disabled={busy} onClick={openModal}>
-                Change domain
-              </button>
-              <button type="button" className="set-btn-danger" disabled={busy} onClick={handleRemove}>
-                Remove
-              </button>
-            </div>
+            <p className="set-help-text">
+              Every delivery you create is reachable at these addresses. Change the first part by editing your
+              studio handle in{' '}
+              <Link to="/account/profile" className="set-link-teal">
+                Account
+              </Link>
+              .
+            </p>
           </div>
-        )}
 
-        {info && <p className="set-domain-info">{info}</p>}
-        {error && !modalOpen && <p className="set-domain-error">{error}</p>}
-      </div>
+          <div className="set-section set-section--custom-domain">
+            <div className="set-section-header">
+              <h3 className="set-section-title">Custom Domain</h3>
+            </div>
+
+            <div className="set-custom-domain-field neu-inset cg-field-shell">
+              <input
+                className="set-input"
+                type="text"
+                readOnly={Boolean(connectedDomain)}
+                placeholder={fieldPlaceholder}
+                value={fieldValue}
+                onClick={!connectedDomain ? openModal : undefined}
+              />
+            </div>
+
+            {!connectedDomain && (
+              <>
+                <p className="set-help-text">
+                  Use your own subdomain for client galleries (e.g. gallery.yourdomain.com). We recommend a
+                  subdomain so your main website is not affected.
+                </p>
+                <button type="button" className="set-add-domain-btn" onClick={openModal}>
+                  + Add custom domain
+                </button>
+              </>
+            )}
+
+            {connectedDomain && (
+              <div className="set-domain-connected">
+                <div className="set-domain-connected-row">
+                  <span
+                    className={`set-domain-badge ${
+                      isVerified ? 'set-domain-badge--verified' : 'set-domain-badge--pending'
+                    }`}
+                  >
+                    {isVerified ? 'Connected' : 'Pending DNS'}
+                  </span>
+                </div>
+                {isVerified ? (
+                  <p className="set-help-text">
+                    Your galleries are available at{' '}
+                    <a
+                      href={`https://${connectedDomain}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="set-link-teal"
+                    >
+                      https://{connectedDomain}
+                    </a>
+                    . SSL certificates may take up to 24 hours after connecting.
+                  </p>
+                ) : (
+                  <p className="set-help-text">
+                    Add the CNAME record in the setup guide, then verify DNS. Propagation can take up to 48
+                    hours.
+                  </p>
+                )}
+                <div className="set-domain-actions">
+                  {isPending && (
+                    <button type="button" className="set-btn-secondary" disabled={busy} onClick={handleRecheck}>
+                      {busy ? 'Checking…' : 'Verify DNS'}
+                    </button>
+                  )}
+                  <button type="button" className="set-btn-ghost" disabled={busy} onClick={openModal}>
+                    Change domain
+                  </button>
+                  <button type="button" className="set-btn-danger" disabled={busy} onClick={handleRemove}>
+                    Remove
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {info && <p className="set-domain-info">{info}</p>}
+            {error && !modalOpen && <p className="set-domain-error">{error}</p>}
+          </div>
+        </>
+      )}
 
       {modalOpen && (
         <div className="set-modal-overlay" onClick={closeModal} role="presentation">

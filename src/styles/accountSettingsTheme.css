@@ -511,3 +511,329 @@
 .acct-shell .mg-profile-dropdown-item:hover {
   background: #f4f3f0;
 }
+
+/* ── Studio settings shell (exact match to Studio identity mock) ── */
+.theme-mono.cg-shell.studio-shell {
+  display: flex;
+  min-height: 100vh;
+  background: #F8F7F4;
+  color: #1C1917;
+  font-family: var(--font-sans, 'Plus Jakarta Sans', system-ui, sans-serif);
+}
+
+.studio-shell__aside {
+  width: 248px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 20px 14px 16px;
+  background: #F5F3ED;
+  border-right: 1px solid #E5E2DC;
+  min-height: 100vh;
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  height: 100vh;
+  box-sizing: border-box;
+}
+
+.studio-shell__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin: 0 0 22px;
+  padding: 4px 6px;
+  border: none;
+  background: none;
+  color: #8C827A;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.studio-shell__back:hover {
+  color: #1C1917;
+}
+
+.studio-shell__brand {
+  padding: 0 8px 20px;
+}
+
+.studio-shell__brand-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #8C827A;
+  margin-bottom: 10px;
+}
+
+.studio-shell__studio-name {
+  margin: 0;
+  font-family: var(--font-display, 'Fraunces', Georgia, serif);
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: #1C1917;
+  line-height: 1.25;
+}
+
+.studio-shell__studio-handle {
+  margin: 5px 0 0;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #8C827A;
+}
+
+.studio-shell__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 12px;
+}
+
+.studio-shell__nav-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #8C827A;
+  padding: 4px 12px 8px;
+}
+
+.studio-shell__nav-label--spaced {
+  margin-top: 18px;
+}
+
+.studio-shell__nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: #5C5650;
+  font-size: 13.5px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.studio-shell__nav-item:hover {
+  background: #EFECE6;
+  color: #1C1917;
+}
+
+.studio-shell__nav-item.active {
+  background: #FFFFFF;
+  color: #1C1917;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.studio-shell__nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: #C46A3A;
+}
+
+.studio-shell__nav-icon {
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.studio-shell__nav-item.active .studio-shell__nav-icon {
+  color: #C46A3A;
+  opacity: 1;
+}
+
+.studio-shell__aside-footer {
+  margin-top: auto;
+  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.studio-shell__theme {
+  background: #EFECE6;
+  padding: 3px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.studio-shell__theme .sb-appearance-btn {
+  flex: 1;
+  padding: 6px 6px;
+  text-align: center;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #736C65;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+
+.studio-shell__theme .sb-appearance-btn:hover {
+  color: #1A1A1A;
+}
+
+.studio-shell__theme .sb-appearance-btn--active {
+  background: #FFFFFF;
+  color: #1A1A1A;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.studio-shell__storage {
+  margin: 0 !important;
+}
+
+.studio-shell__signout {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  color: #2C2825;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: background 0.15s ease;
+}
+
+.studio-shell__signout:hover {
+  background: #EFECE6;
+}
+
+.studio-shell__signout-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.studio-shell__signout-label {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #1C1917;
+  line-height: 1.2;
+}
+
+.studio-shell__signout-email {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #8C827A;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.studio-shell__main {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  background: #F8F7F4;
+  padding: 36px 44px 80px;
+}
+
+.studio-shell__content {
+  max-width: 680px;
+}
+
+.studio-shell .si-panel {
+  margin-top: 4px;
+  gap: 2.25rem;
+}
+
+.studio-shell .si-page-title {
+  /* role class .type-page-title supplies Fraunces */
+  margin: 0;
+}
+
+.studio-shell .si-page-lead {
+  margin-top: 8px;
+}
+
+.studio-shell .si-heading-2 {
+  font-family: var(--font-sans);
+  font-size: var(--t-title, 1rem);
+  font-weight: 700;
+  color: var(--ink, #1d1916);
+  letter-spacing: -0.01em;
+}
+
+.studio-shell .si-body-muted {
+  font-family: var(--font-sans);
+  font-size: var(--t-body, 0.875rem);
+  color: var(--ink-muted, #857f7b);
+  line-height: 1.55;
+}
+
+.studio-shell .si-link {
+  color: var(--accent-text, #a86c3c);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.studio-shell .si-info-banner {
+  background: #ffffff;
+  border: 1px solid #e5e2dc;
+}
+
+.studio-shell .si-info-banner__text strong {
+  color: var(--ink, #1d1916);
+  font-weight: 700;
+}
+
+.studio-shell .si-overline,
+.studio-shell .type-group-label {
+  font-family: var(--font-sans);
+}
+
+.studio-shell .acct-lead {
+  color: var(--ink-muted, #857f7b);
+}
+
+@media (max-width: 900px) {
+  .theme-mono.cg-shell.studio-shell {
+    flex-direction: column;
+  }
+
+  .studio-shell__aside {
+    width: 100%;
+    height: auto;
+    position: relative;
+    border-right: none;
+    border-bottom: 1px solid #E5E2DC;
+  }
+
+  .studio-shell__main {
+    padding: 28px 20px 64px;
+  }
+}

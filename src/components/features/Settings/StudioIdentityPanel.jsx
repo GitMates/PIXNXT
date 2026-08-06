@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { storageService } from '../../../services/storage.service';
 import { CustomDomainPanel } from './CustomDomainPanel';
+import { supabase } from '../../../lib/supabase/client';
 import '../../../pages/Settings.css';
 
 /* ── helpers ────────────────────────────────────────────────────── */
@@ -17,7 +18,7 @@ function getSlug(profile) {
 
 function getGalleryHost() {
     const host = window.location.host;
-    if (host.includes('localhost')) return 'pixnxt.in';
+    if (host.includes('localhost') || host.includes('127.0.0.1')) return 'pixnxt.com';
     if (host.endsWith('.vercel.app')) return host;
     return host.replace(/^(www\.)/i, '');
 }
@@ -58,9 +59,39 @@ export default function StudioIdentityPanel({ profile, updateProfile }) {
     const logoInputRef = useRef(null);
     const coverLogoInputRef = useRef(null);
     const faviconInputRef = useRef(null);
+    const [sampleDeliveries, setSampleDeliveries] = useState({ gallery: '', proof: '' });
 
     const slug = useMemo(() => getSlug(profile), [profile]);
     const baseHost = useMemo(() => getGalleryHost(), []);
+
+    useEffect(() => {
+        if (!profile?.id) return;
+        let cancelled = false;
+        (async () => {
+            try {
+                const { data } = await supabase
+                    .from('deliveries')
+                    .select('name, slug')
+                    .eq('photographer_id', profile.id)
+                    .order('updated_at', { ascending: false })
+                    .limit(4);
+                if (cancelled || !data?.length) return;
+                const toSlug = (d) =>
+                    d.slug ||
+                    d.name?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') ||
+                    '';
+                setSampleDeliveries({
+                    gallery: toSlug(data[0]) || '',
+                    proof: toSlug(data[1] || data[0]) || '',
+                });
+            } catch {
+                /* ignore */
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [profile?.id]);
 
     useEffect(() => {
         if (profile?.hide_branding !== undefined && profile?.hide_branding !== null) {
@@ -192,33 +223,57 @@ export default function StudioIdentityPanel({ profile, updateProfile }) {
 
     return (
         <div className="si-panel">
+            <div className="si-info-banner">
+                <span className="si-info-banner__icon" aria-hidden>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="3" width="7" height="7" rx="1" />
+                        <rect x="14" y="3" width="7" height="7" rx="1" />
+                        <rect x="3" y="14" width="7" height="7" rx="1" />
+                        <rect x="14" y="14" width="7" height="7" rx="1" />
+                    </svg>
+                </span>
+                <p className="si-info-banner__text">
+                    Applies to <strong>Client Gallery</strong>, <strong>Album Proofer</strong>,{' '}
+                    <strong>Mobile Gallery</strong> and <strong>Print Lab</strong>. A change here lands
+                    on a proof, a print order and a guest gallery at the same time.
+                </p>
+            </div>
+
             {/* ════════════════════════════════════════════════════════
                 ADDRESSES
                ════════════════════════════════════════════════════════ */}
             <section className="si-section">
-                <span className="si-overline">ADDRESSES</span>
+            <span className="si-overline type-group-label">ADDRESSES</span>
 
                 <h2 className="si-heading-2">Your addresses</h2>
                 <p className="si-body-muted">
                     Every delivery you create is reachable at these addresses. Change
                     the first part by editing your studio handle in{' '}
-                    <Link to="/account/account" className="si-link">Account</Link>.
+                    <Link to="/account/account" className="si-link">Your account</Link>.
                 </p>
 
                 {slug && (
                     <div className="si-address-cards">
-                        {/* Client Gallery row */}
                         <div className="si-address-card">
                             <span className="si-address-url">
-                                {slug}.{baseHost}/g/
+                                <span className="si-address-url__host">
+                                    {slug}.{baseHost}/g/
+                                </span>
+                                <span className="si-address-url__slug">
+                                    {sampleDeliveries.gallery || 'your-delivery'}
+                                </span>
                             </span>
                             <span className="si-address-badge">CLIENT GALLERY</span>
                         </div>
 
-                        {/* Album Proofer row */}
                         <div className="si-address-card">
                             <span className="si-address-url">
-                                {slug}.{baseHost}/proof/
+                                <span className="si-address-url__host">
+                                    {slug}.{baseHost}/proof/
+                                </span>
+                                <span className="si-address-url__slug">
+                                    {sampleDeliveries.proof || 'your-album'}
+                                </span>
                             </span>
                             <span className="si-address-badge">ALBUM PROOFER</span>
                         </div>
@@ -230,22 +285,22 @@ export default function StudioIdentityPanel({ profile, updateProfile }) {
             <section className="si-section">
                 <h2 className="si-heading-2">Custom domain</h2>
                 <p className="si-body-muted">
-                    Use your own domain instead. All four modules move with it — one
+                    Use your own domain instead. All modules move with it — one
                     certificate, one DNS record, every link.
                 </p>
-                <CustomDomainPanel profile={profile} updateProfile={updateProfile} />
+                <CustomDomainPanel profile={profile} updateProfile={updateProfile} compact />
             </section>
 
             <hr className="si-divider" />
 
             {/* ════════════════════════════════════════════════════════
-                MARKS
+                LOGO
                ════════════════════════════════════════════════════════ */}
             <section className="si-section">
-                <span className="si-overline">MARKS</span>
+            <span className="si-overline type-group-label">LOGO</span>
 
                 <p className="si-body-muted">
-                    The main mark replaces your studio name in headers. The cover mark
+                    The main logo replaces your studio name in headers. The cover logo
                     sits over photographs, so a light version with a transparent background
                     reads best.
                 </p>
@@ -262,7 +317,7 @@ export default function StudioIdentityPanel({ profile, updateProfile }) {
                         )}
                     </div>
                     <div className="si-mark-info">
-                        <strong className="si-mark-title">LOGO</strong>
+                        <strong className="si-mark-title">Logo</strong>
                         <span className="si-mark-desc">
                             Shown in headers on a light background. PNG or SVG.
                         </span>
@@ -299,7 +354,7 @@ export default function StudioIdentityPanel({ profile, updateProfile }) {
 
                 {/* ── COVER LOGO row ────────────────────────────── */}
                 <div className="si-mark-row">
-                    <div className="si-mark-thumb si-mark-thumb--dark" onClick={() => coverLogoInputRef.current?.click()}>
+                    <div className="si-mark-thumb si-mark-thumb--cover" onClick={() => coverLogoInputRef.current?.click()}>
                         {uploadingCoverLogo ? (
                             <span className="si-mark-uploading">Uploading…</span>
                         ) : profile?.cover_logo_url ? (
@@ -309,7 +364,7 @@ export default function StudioIdentityPanel({ profile, updateProfile }) {
                         )}
                     </div>
                     <div className="si-mark-info">
-                        <strong className="si-mark-title">COVER LOGO</strong>
+                        <strong className="si-mark-title">Cover logo</strong>
                         <span className="si-mark-desc">
                             Sits over photographs. A light version with a transparent
                             background reads best.
@@ -357,7 +412,7 @@ export default function StudioIdentityPanel({ profile, updateProfile }) {
                         )}
                     </div>
                     <div className="si-mark-info">
-                        <strong className="si-mark-title">Site icon</strong>
+                        <strong className="si-mark-title">Favicon</strong>
                         <span className="si-mark-desc">
                             Square image, 32 px or larger. Shows in browser tabs and on a
                             guest&apos;s home screen.
@@ -400,7 +455,7 @@ export default function StudioIdentityPanel({ profile, updateProfile }) {
                 PIXNXT BRANDING
                ════════════════════════════════════════════════════════ */}
             <section className="si-section">
-                <span className="si-overline">PIXNXT BRANDING</span>
+            <span className="si-overline type-group-label">PIXNXT BRANDING</span>
 
                 <div className="si-branding-row">
                     <div className="si-branding-text">

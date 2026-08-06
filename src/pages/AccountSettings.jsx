@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { Home, FileText, CreditCard, User, ChevronLeft, LogOut } from 'lucide-react';
 import { galleryService } from '../services/gallery.service';
 import { useAuth } from '../hooks/useAuth';
 import { getUserDisplayLabel, getUserInitial } from '../lib/userInitials';
@@ -9,12 +10,16 @@ import AccountTopbarIcons from '../components/account/AccountTopbarIcons';
 import { ClientGallerySubpageTabs } from '../components/features/ClientGallery/ClientGalleryPageShell';
 import StudioIdentityPanel from '../components/features/Settings/StudioIdentityPanel';
 import LegalConsentPanel from '../components/features/Settings/LegalConsentPanel';
+import { getThemeMode, setThemeMode, THEME_CHANGE_EVENT } from '../lib/appearanceTheme';
+import { userStorageService } from '../services/userStorage.service';
+import { cn } from '../lib/utils';
 import brandPng from '../assets/icons/client gallery.png';
 import smartAlbumPng from '../assets/icons/smart album.png';
 import dashboardPng from '../assets/icons/dashboard.png';
 import '../components/portal/portal.css';
 import '../styles/clientGalleryTheme.css';
 import '../styles/accountSettingsTheme.css';
+import '../components/SidebarLayout.css';
 import '../pages/mobile-gallery/MobileGallery.css';
 
 const ACCOUNT_TABS = [
@@ -25,6 +30,22 @@ const ACCOUNT_TABS = [
     { id: 'billing', label: 'Billing' },
     { id: 'advanced', label: 'Advanced Settings' },
     { id: 'refer', label: 'Refer a Friend' },
+];
+
+/** Tabs that use the Studio settings shell (image 1). */
+const STUDIO_SHELL_TABS = new Set([
+    'studio-identity',
+    'legal-consent',
+    'billing',
+    'account',
+    'profile',
+]);
+
+const STUDIO_NAV = [
+    { id: 'studio-identity', label: 'Studio identity', icon: Home, section: 'STUDIO' },
+    { id: 'legal-consent', label: 'Legal & consent', icon: FileText, section: 'STUDIO' },
+    { id: 'billing', label: 'Plan & billing', icon: CreditCard, section: 'STUDIO' },
+    { id: 'account', label: 'Your account', icon: User, section: 'YOU' },
 ];
 
 const getDynamicShowcaseUrl = (slug) => {
@@ -50,17 +71,92 @@ export default function AccountSettings() {
     const navigate = useNavigate();
     const { user, logout } = useAuth();
     const activeTab = tab || 'profile';
+    const useStudioShell = STUDIO_SHELL_TABS.has(activeTab);
     const [showDropdown, setShowDropdown] = useState(false);
     const dropdownRef = useRef(null);
     const [toastMessage, setToastMessage] = useState('');
+    const [studioProfile, setStudioProfile] = useState(null);
+    const [themeMode, setThemeModeState] = useState(() => getThemeMode());
+    const [usedBytes, setUsedBytes] = useState(() =>
+        userStorageService.getCachedStorageBytes(user?.id),
+    );
 
-    const showToast = (msg) => {
+    const showToast = useCallback((msg) => {
         setToastMessage(msg);
         setTimeout(() => setToastMessage(''), 3000);
-    };
+    }, []);
 
     const userInitial = getUserInitial(user);
-    const businessName = getUserDisplayLabel(user);
+    const businessName = useMemo(() => {
+        return (
+            studioProfile?.business_name ||
+            studioProfile?.display_name ||
+            getUserDisplayLabel(user) ||
+            'Studio'
+        );
+    }, [studioProfile, user]);
+
+    const studioHandle = useMemo(() => {
+        const slug =
+            studioProfile?.slug ||
+            studioProfile?.display_name?.toLowerCase().replace(/[^a-z0-9]/g, '') ||
+            user?.email?.split('@')[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') ||
+            '';
+        return slug;
+    }, [studioProfile, user]);
+
+    const maxBytes = useMemo(() => {
+        const gb = Number(studioProfile?.storage_limit_gb);
+        if (gb && gb > 0) return gb * 1024 * 1024 * 1024;
+        return 100 * 1024 * 1024 * 1024;
+    }, [studioProfile]);
+
+    const storagePct = useMemo(() => {
+        if (!maxBytes) return 0;
+        return Math.min(100, Math.round((usedBytes / maxBytes) * 100));
+    }, [usedBytes, maxBytes]);
+
+    const formatStorageDisplay = (used, max) => {
+        if (!used || used <= 0) {
+            const maxGb = max && max > 0 ? (max / (1024 * 1024 * 1024)).toFixed(0) : 100;
+            return `0 / ${maxGb} GB`;
+        }
+        const gb = 1024 * 1024 * 1024;
+        if (max >= gb) {
+            const usedGb = (used / gb).toFixed(used / gb < 1 ? 1 : 0);
+            const maxGb = (max / gb).toFixed(0);
+            return `${usedGb} / ${maxGb} GB`;
+        }
+        const usedMb = (used / (1024 * 1024)).toFixed(0);
+        const maxMb = (max / (1024 * 1024)).toFixed(0);
+        return `${usedMb} / ${maxMb} MB`;
+    };
+
+    useEffect(() => {
+        if (!user?.id || !useStudioShell) return;
+        let cancelled = false;
+        (async () => {
+            try {
+                const data = await galleryService.getPhotographerProfile(user.id);
+                if (!cancelled) setStudioProfile(data || null);
+            } catch (err) {
+                console.error(err);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [user?.id, useStudioShell]);
+
+    useEffect(() => {
+        if (!user?.id || !useStudioShell) return;
+        userStorageService
+            .calculateUserStorageBytes(user, studioProfile)
+            .then((bytes) => {
+                if (typeof bytes === 'number' && bytes >= 0) setUsedBytes(bytes);
+            })
+            .catch(() => {});
+    }, [user, studioProfile, useStudioShell]);
 
     useEffect(() => {
         function handleClickOutside(event) {
@@ -71,6 +167,176 @@ export default function AccountSettings() {
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
+
+    useEffect(() => {
+        const onTheme = () => setThemeModeState(getThemeMode());
+        window.addEventListener(THEME_CHANGE_EVENT, onTheme);
+        return () => window.removeEventListener(THEME_CHANGE_EVENT, onTheme);
+    }, []);
+
+    const handleThemeModeChange = (mode) => {
+        setThemeMode(mode);
+        setThemeModeState(mode);
+    };
+
+    const handleSignOut = async () => {
+        try {
+            await logout();
+            navigate('/');
+        } catch (err) {
+            console.error('Logout failed', err);
+        }
+    };
+
+    const renderTabContent = () => (
+        <>
+            {activeTab === 'profile' && <ProfileTab user={user} showToast={showToast} />}
+            {activeTab === 'legal-consent' && <LegalConsentTab showToast={showToast} />}
+            {activeTab === 'studio-identity' && (
+                <StudioIdentityTab user={user} showToast={showToast} embedded />
+            )}
+            {activeTab === 'account' && <AccountTab user={user} showToast={showToast} />}
+            {activeTab === 'billing' && <BillingTab user={user} showToast={showToast} />}
+            {activeTab === 'advanced' && <AdvancedTab user={user} showToast={showToast} />}
+            {activeTab === 'refer' && <ReferTab user={user} showToast={showToast} />}
+        </>
+    );
+
+    const toastEl = toastMessage ? (
+        <div className="acct-toast">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+            </svg>
+            {toastMessage}
+        </div>
+    ) : null;
+
+    if (useStudioShell) {
+        const studioItems = STUDIO_NAV.filter((i) => i.section === 'STUDIO');
+        const youItems = STUDIO_NAV.filter((i) => i.section === 'YOU');
+        const isNavActive = (id) => {
+            if (id === 'account') {
+                return activeTab === 'account' || activeTab === 'profile';
+            }
+            return activeTab === id;
+        };
+
+        return (
+            <div className="theme-mono cg-shell studio-shell">
+                <aside className="studio-shell__aside">
+                    <button
+                        type="button"
+                        className="studio-shell__back"
+                        onClick={() => navigate('/client-gallery')}
+                    >
+                        <ChevronLeft size={15} strokeWidth={2} />
+                        Back to Client Gallery
+                    </button>
+
+                    <div className="studio-shell__brand">
+                        <span className="studio-shell__brand-label type-group-label">STUDIO</span>
+                        <h1 className="studio-shell__studio-name type-section-title">{businessName}</h1>
+                        {studioHandle ? (
+                            <p className="studio-shell__studio-handle type-meta">{studioHandle}</p>
+                        ) : null}
+                    </div>
+
+                    <nav className="studio-shell__nav" aria-label="Studio settings">
+                        <span className="studio-shell__nav-label">STUDIO</span>
+                        {studioItems.map((item) => {
+                            const Icon = item.icon;
+                            const active = isNavActive(item.id);
+                            return (
+                                <button
+                                    key={item.id}
+                                    type="button"
+                                    className={cn('studio-shell__nav-item', active && 'active')}
+                                    onClick={() => navigate(`/account/${item.id}`)}
+                                >
+                                    <Icon size={17} strokeWidth={1.75} className="studio-shell__nav-icon" />
+                                    <span>{item.label}</span>
+                                </button>
+                            );
+                        })}
+
+                        <span className="studio-shell__nav-label studio-shell__nav-label--spaced">YOU</span>
+                        {youItems.map((item) => {
+                            const Icon = item.icon;
+                            const active = isNavActive(item.id);
+                            return (
+                                <button
+                                    key={item.id}
+                                    type="button"
+                                    className={cn('studio-shell__nav-item', active && 'active')}
+                                    onClick={() => navigate(`/account/${item.id}`)}
+                                >
+                                    <Icon size={17} strokeWidth={1.75} className="studio-shell__nav-icon" />
+                                    <span>{item.label}</span>
+                                </button>
+                            );
+                        })}
+                    </nav>
+
+                    <div className="studio-shell__aside-footer">
+                        <div className="sb-appearance-track studio-shell__theme" role="group" aria-label="Appearance">
+                            {[
+                                { id: 'light', label: 'Light' },
+                                { id: 'auto', label: 'Auto' },
+                                { id: 'dark', label: 'Dark' },
+                            ].map(({ id, label }) => (
+                                <button
+                                    key={id}
+                                    type="button"
+                                    className={cn(
+                                        'sb-appearance-btn',
+                                        themeMode === id && 'sb-appearance-btn--active',
+                                    )}
+                                    aria-pressed={themeMode === id}
+                                    onClick={() => handleThemeModeChange(id)}
+                                >
+                                    {label}
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="studio-shell__storage sb-storage">
+                            <div className="flex items-center justify-between gap-2">
+                                <span className="sb-storage__label">STORAGE</span>
+                                <span className="sb-storage__meta">
+                                    {formatStorageDisplay(usedBytes, maxBytes)}
+                                </span>
+                            </div>
+                            <div className="sb-storage__bar">
+                                <div
+                                    className="sb-storage__bar-fill"
+                                    style={{ width: `${storagePct}%` }}
+                                />
+                            </div>
+                        </div>
+
+                        <button
+                            type="button"
+                            className="studio-shell__signout"
+                            onClick={handleSignOut}
+                        >
+                            <LogOut size={16} strokeWidth={1.75} />
+                            <span className="studio-shell__signout-text">
+                                <span className="studio-shell__signout-label">Sign out</span>
+                                {user?.email ? (
+                                    <span className="studio-shell__signout-email">{user.email}</span>
+                                ) : null}
+                            </span>
+                        </button>
+                    </div>
+                </aside>
+
+                <main className="studio-shell__main">
+                    <div className="studio-shell__content">{renderTabContent()}</div>
+                </main>
+                {toastEl}
+            </div>
+        );
+    }
 
     return (
         <div className="theme-mono cg-shell acct-shell w-full min-h-screen">
@@ -158,28 +424,9 @@ export default function AccountSettings() {
             </nav>
 
             <main className="acct-main">
-                <div className="acct-content">
-                    {activeTab === 'profile' && <ProfileTab user={user} showToast={showToast} />}
-                    {activeTab === 'legal-consent' && (
-                        <LegalConsentTab showToast={showToast} />
-                    )}
-                    {activeTab === 'studio-identity' && (
-                        <StudioIdentityTab user={user} showToast={showToast} />
-                    )}
-                    {activeTab === 'account' && <AccountTab user={user} showToast={showToast} />}
-                    {activeTab === 'billing' && <BillingTab user={user} showToast={showToast} />}
-                    {activeTab === 'advanced' && <AdvancedTab user={user} showToast={showToast} />}
-                    {activeTab === 'refer' && <ReferTab user={user} showToast={showToast} />}
-                </div>
+                <div className="acct-content">{renderTabContent()}</div>
             </main>
-            {toastMessage && (
-                <div className="acct-toast">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                    {toastMessage}
-                </div>
-            )}
+            {toastEl}
         </div>
     );
 }
@@ -276,17 +523,18 @@ function InlineField({ label, name, value, type = 'text', placeholder = '', hint
 function LegalConsentTab({ showToast }) {
     return (
         <div>
-            <h1 className="cg-page-title text-3xl font-medium mb-2" style={{ fontFamily: 'inherit' }}>Legal &amp; consent</h1>
-            <p className="acct-lead mb-8">
-                One set of documents across everything the studio delivers. The obligation follows you,
-                not a product — which is the entire reason these are here and not in Client Gallery.
+            <h1 className="type-page-title si-page-title">Legal &amp; consent</h1>
+            <p className="type-lede si-page-lead">
+                One set of documents across everything the studio delivers.
             </p>
-            <LegalConsentPanel showToast={showToast} />
+            <div style={{ marginTop: 28 }}>
+                <LegalConsentPanel showToast={showToast} />
+            </div>
         </div>
     );
 }
 
-function StudioIdentityTab({ user, showToast }) {
+function StudioIdentityTab({ user, showToast, embedded = false }) {
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
 
@@ -326,12 +574,9 @@ function StudioIdentityTab({ user, showToast }) {
     }
 
     return (
-        <div>
-            <h1 className="cg-page-title text-3xl font-medium mb-2" style={{ fontFamily: 'inherit' }}>Studio identity</h1>
-            <p className="acct-lead mb-8">
-                Your marks and addresses. Every module draws from here, so a logo change lands on a
-                proof, a print order and a guest gallery at the same time.
-            </p>
+        <div className={embedded ? 'si-page' : undefined}>
+            <h1 className="type-page-title si-page-title">Studio identity</h1>
+            <p className="type-lede si-page-lead">Your marks and addresses.</p>
             <StudioIdentityPanel profile={profile} updateProfile={updateProfile} />
         </div>
     );
