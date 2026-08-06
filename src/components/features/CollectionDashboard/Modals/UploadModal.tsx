@@ -75,9 +75,6 @@ export const UploadModal: React.FC<UploadModalProps> = ({
                 <p className="cd-modal-drop-browse">or <span className="cd-browse-link" onClick={onBrowse}>Browse files</span></p>
               </div>
             </div>
-            <div className="cd-modal-footer">
-              <span className="cd-modal-switch">Switch to classic uploader</span>
-            </div>
           </>
         ) : (
           <div className="cd-modal-embed">

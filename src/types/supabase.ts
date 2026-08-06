@@ -1104,6 +1104,7 @@ export type Database = {
           default_language: string
           display_name: string
           email: string
+          filename_display: string
           ga_tracking_id: string | null
           showcase_enabled: boolean
           showcase_password: string | null
@@ -1113,6 +1114,9 @@ export type Database = {
           logo_storage_path: string | null
           logo_url: string | null
           plan: Database["public"]["Enums"]["plan_tier"]
+          raw_photo_support: boolean
+          sharpen_for_web: boolean
+          sharpening_level: string
           show_address: boolean | null
           show_bio: boolean | null
           show_email: boolean | null
@@ -1121,10 +1125,12 @@ export type Database = {
           show_website: boolean | null
           storage_used_bytes: number
           updated_at: string
+          upload_quality: string
           watermark_opacity: number
           watermark_position: Database["public"]["Enums"]["watermark_position"]
           watermark_storage_path: string | null
           watermark_url: string | null
+          web_display_quality: string
         }
         Insert: {
           avatar_url?: string | null
@@ -1134,6 +1140,7 @@ export type Database = {
           default_language?: string
           display_name?: string
           email: string
+          filename_display?: string
           ga_tracking_id?: string | null
           showcase_enabled?: boolean
           showcase_password?: string | null
@@ -1143,6 +1150,9 @@ export type Database = {
           logo_storage_path?: string | null
           logo_url?: string | null
           plan?: Database["public"]["Enums"]["plan_tier"]
+          raw_photo_support?: boolean
+          sharpen_for_web?: boolean
+          sharpening_level?: string
           show_address?: boolean | null
           show_bio?: boolean | null
           show_email?: boolean | null
@@ -1151,10 +1161,12 @@ export type Database = {
           show_website?: boolean | null
           storage_used_bytes?: number
           updated_at?: string
+          upload_quality?: string
           watermark_opacity?: number
           watermark_position?: Database["public"]["Enums"]["watermark_position"]
           watermark_storage_path?: string | null
           watermark_url?: string | null
+          web_display_quality?: string
         }
         Update: {
           avatar_url?: string | null
@@ -1164,6 +1176,7 @@ export type Database = {
           default_language?: string
           display_name?: string
           email?: string
+          filename_display?: string
           ga_tracking_id?: string | null
           showcase_enabled?: boolean
           showcase_password?: string | null
@@ -1173,6 +1186,9 @@ export type Database = {
           logo_storage_path?: string | null
           logo_url?: string | null
           plan?: Database["public"]["Enums"]["plan_tier"]
+          raw_photo_support?: boolean
+          sharpen_for_web?: boolean
+          sharpening_level?: string
           show_address?: boolean | null
           show_bio?: boolean | null
           show_email?: boolean | null
@@ -1181,10 +1197,12 @@ export type Database = {
           show_website?: boolean | null
           storage_used_bytes?: number
           updated_at?: string
+          upload_quality?: string
           watermark_opacity?: number
           watermark_position?: Database["public"]["Enums"]["watermark_position"]
           watermark_storage_path?: string | null
           watermark_url?: string | null
+          web_display_quality?: string
         }
         Relationships: []
       }

@@ -22,6 +22,7 @@ import {
 import ClientGalleryNotifications from './features/ClientGallery/ClientGalleryNotifications';
 import { userStorageService } from '../services/userStorage.service';
 import { getThemeMode, setThemeMode, THEME_CHANGE_EVENT } from '../lib/appearanceTheme';
+import { syncUploadDefaultsToLocalStorage } from '../lib/uploadDefaults';
 import brandPng from '../assets/icons/client gallery.png';
 import smartAlbumPng from '../assets/icons/smart album.png';
 import dashboardPng from '../assets/icons/dashboard.png';
@@ -126,7 +127,9 @@ const SidebarLayout = ({
         const cached = localStorage.getItem(`photographer_profile_${user.id}`);
         if (cached) {
             try {
-                setProfile(JSON.parse(cached));
+                const parsed = JSON.parse(cached);
+                setProfile(parsed);
+                syncUploadDefaultsToLocalStorage(parsed);
             } catch (e) {
                 console.warn('Failed to parse cached photographer profile:', e);
             }
@@ -141,6 +144,7 @@ const SidebarLayout = ({
                 if (data) {
                     setProfile(data);
                     localStorage.setItem(`photographer_profile_${user.id}`, JSON.stringify(data));
+                    syncUploadDefaultsToLocalStorage(data);
                 }
             })
             .catch((err) => console.error('Error loading photographer profile:', err));
