@@ -17,8 +17,7 @@ const pending = new Map();
 
 const TEX_W = 1024;
 
-function loadImage(src) {
-    const url = getProxiedMediaFetchUrl(src);
+function loadImageOnce(url) {
     const cached = imageCache.get(url);
     if (cached) return Promise.resolve(cached);
 
@@ -40,6 +39,23 @@ function loadImage(src) {
     });
     pending.set(url, promise);
     return promise;
+}
+
+/** Prefer direct R2 URL (CORS enabled for pixnxt.in); proxy only as fallback. */
+function loadImage(src) {
+    if (!src || typeof src !== 'string') {
+        return Promise.reject(new Error('Missing image src'));
+    }
+    if (src.startsWith('blob:') || src.startsWith('data:')) {
+        return loadImageOnce(src);
+    }
+    return loadImageOnce(src).catch(() => {
+        const proxied = getProxiedMediaFetchUrl(src);
+        if (!proxied || proxied === src) {
+            return Promise.reject(new Error('Image failed to load'));
+        }
+        return loadImageOnce(proxied);
+    });
 }
 
 /** object-fit: cover — source rect in image pixels */

@@ -9,8 +9,7 @@ const dataUrlCache = new Map();
 /** Cap decode size so huge print wraps (e.g. 12×44) don't stall the cover editor. */
 const MAX_DECODE_EDGE = 2400;
 
-function loadImage(src) {
-    const url = getProxiedMediaFetchUrl(src);
+function loadImageOnce(url) {
     const cached = imageCache.get(url);
     if (cached) return Promise.resolve(cached);
 
@@ -35,6 +34,29 @@ function loadImage(src) {
     });
     pending.set(url, promise);
     return promise;
+}
+
+/**
+ * Decode wrap bitmaps for canvas slicing.
+ * Prefer the direct R2 URL (bucket CORS allows pixnxt.in). Fall back to the
+ * same-origin media proxy only when direct load fails — /api/r2-media is 404 on
+ * some production deploys and was blanking cover BACK|SPINE|FRONT panels.
+ */
+function loadImage(src) {
+    if (!src || typeof src !== 'string') {
+        return Promise.reject(new Error('Missing wrap image src'));
+    }
+    if (src.startsWith('blob:') || src.startsWith('data:')) {
+        return loadImageOnce(src);
+    }
+
+    return loadImageOnce(src).catch(() => {
+        const proxied = getProxiedMediaFetchUrl(src);
+        if (!proxied || proxied === src) {
+            return Promise.reject(new Error('Wrap image failed to load'));
+        }
+        return loadImageOnce(proxied);
+    });
 }
 
 function segmentCacheKey(src, layout, side, transform, width, height) {
@@ -168,7 +190,11 @@ export function clearWrapImageCache(src = null) {
         pending.clear();
         return;
     }
-    const url = getProxiedMediaFetchUrl(src);
-    imageCache.delete(url);
-    pending.delete(url);
+    imageCache.delete(src);
+    pending.delete(src);
+    const proxied = getProxiedMediaFetchUrl(src);
+    if (proxied && proxied !== src) {
+        imageCache.delete(proxied);
+        pending.delete(proxied);
+    }
 }

@@ -19,10 +19,12 @@ export default function BookWrapSpineImage({
 }) {
     const hostRef = useRef(null);
     const [segmentUrl, setSegmentUrl] = useState(null);
+    const [canvasFailed, setCanvasFailed] = useState(false);
     const useCanvasSlice = Boolean(
         layout?.hasSpine &&
             side &&
             src &&
+            !canvasFailed &&
             !String(src).startsWith('blob:') &&
             !String(src).startsWith('data:')
     );
@@ -30,8 +32,15 @@ export default function BookWrapSpineImage({
     useEffect(() => {
         // Drop stale canvas slices so the background/CSS crop shows while decoding.
         setSegmentUrl(null);
+        setCanvasFailed(false);
 
-        if (!useCanvasSlice) {
+        if (
+            !layout?.hasSpine ||
+            !side ||
+            !src ||
+            String(src).startsWith('blob:') ||
+            String(src).startsWith('data:')
+        ) {
             return undefined;
         }
 
@@ -51,9 +60,19 @@ export default function BookWrapSpineImage({
             if (width < 1 || height < 1) return;
             const renderW = Math.max(4, Math.round(width));
             const renderH = Math.max(4, Math.round(height));
-            renderWrapSegmentDataUrl(src, layout, side, transform, renderW, renderH).then((url) => {
-                if (!cancelled && url) setSegmentUrl(url);
-            });
+            renderWrapSegmentDataUrl(src, layout, side, transform, renderW, renderH)
+                .then((url) => {
+                    if (cancelled) return;
+                    if (url) {
+                        setSegmentUrl(url);
+                        setCanvasFailed(false);
+                    } else {
+                        setCanvasFailed(true);
+                    }
+                })
+                .catch(() => {
+                    if (!cancelled) setCanvasFailed(true);
+                });
         };
 
         const schedule = () => {
@@ -73,7 +92,6 @@ export default function BookWrapSpineImage({
             window.removeEventListener('resize', schedule);
         };
     }, [
-        useCanvasSlice,
         src,
         side,
         transform,
@@ -99,27 +117,27 @@ export default function BookWrapSpineImage({
           }`
         : `ab-book-wrap-cover-img ab-book-wrap-cover-img--${side}`;
 
-    if (useCanvasSlice) {
-        // Canvas slice ready — use it for all sides (including spine).
-        if (segmentUrl) {
-            return (
-                <img
-                    ref={hostRef}
-                    src={segmentUrl}
-                    alt=""
-                    className={`${sideClass} ab-book-wrap-segment-img${className ? ` ${className}` : ''}`}
-                    draggable={false}
-                    style={{
-                        display: 'block',
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'fill',
-                    }}
-                />
-            );
-        }
+    if (useCanvasSlice && segmentUrl) {
+        return (
+            <img
+                ref={hostRef}
+                src={segmentUrl}
+                alt=""
+                className={`${sideClass} ab-book-wrap-segment-img${className ? ` ${className}` : ''}`}
+                draggable={false}
+                style={{
+                    display: 'block',
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'fill',
+                }}
+            />
+        );
+    }
 
-        // Pre-canvas fallback: background-image strip crop (works for all sides).
+    // Pre-canvas / canvas-failed: prefer CSS strip crop with the direct asset URL,
+    // then plain <img> crop — never depend on /api/r2-media for display.
+    if (layout?.hasSpine && side) {
         const bg = bookWrapCoverBackgroundStyle(src, layout, side, transform);
         if (bg) {
             return (
@@ -136,21 +154,6 @@ export default function BookWrapSpineImage({
                 />
             );
         }
-
-        // Last resort: img with CSS crop.
-        const style = bookWrapCoverImageStyle(layout, side, transform, { panoramic });
-        return (
-            <img
-                ref={hostRef}
-                src={src}
-                alt=""
-                className={`${sideClass} ab-book-wrap-segment-img${
-                    className ? ` ${className}` : ''
-                }`}
-                draggable={false}
-                style={style}
-            />
-        );
     }
 
     const style = bookWrapCoverImageStyle(layout, side, transform, { panoramic });

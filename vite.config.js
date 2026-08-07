@@ -40,23 +40,44 @@ export default defineConfig(({ mode }) => {
             target: r2Public,
             changeOrigin: true,
             rewrite: (p) => {
-              const sub = p.replace(/^\/api\/r2-media\/?/, '')
-              if (!sub) return '/'
-              const qIdx = sub.indexOf('?')
-              const pathPart = qIdx >= 0 ? sub.slice(0, qIdx) : sub
-              const query = qIdx >= 0 ? sub.slice(qIdx) : ''
+              // Support /api/r2-media?path=users/... and /api/r2-media/users/...
+              const url = new URL(p, 'http://localhost');
+              const pathQuery = url.searchParams.get('path');
+              if (pathQuery) {
+                url.searchParams.delete('path');
+                const extra = url.searchParams.toString();
+                const encoded = String(pathQuery)
+                  .replace(/^\//, '')
+                  .split('/')
+                  .filter(Boolean)
+                  .map((seg) => {
+                    try {
+                      return encodeURIComponent(decodeURIComponent(seg));
+                    } catch {
+                      return encodeURIComponent(seg);
+                    }
+                  })
+                  .join('/');
+                return `/${encoded}${extra ? `?${extra}` : ''}`;
+              }
+
+              const sub = p.replace(/^\/api\/r2-media\/?/, '');
+              if (!sub) return '/';
+              const qIdx = sub.indexOf('?');
+              const pathPart = qIdx >= 0 ? sub.slice(0, qIdx) : sub;
+              const query = qIdx >= 0 ? sub.slice(qIdx) : '';
               const encoded = pathPart
                 .split('/')
                 .filter(Boolean)
                 .map((seg) => {
                   try {
-                    return encodeURIComponent(decodeURIComponent(seg))
+                    return encodeURIComponent(decodeURIComponent(seg));
                   } catch {
-                    return encodeURIComponent(seg)
+                    return encodeURIComponent(seg);
                   }
                 })
-                .join('/')
-              return `/${encoded}${query}`
+                .join('/');
+              return `/${encoded}${query}`;
             },
           },
         },
