@@ -1835,9 +1835,10 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: #ccc;
+    background-color: var(--toggle-track-off);
     border-radius: 22px;
     transition: 0.3s;
+    box-shadow: var(--toggle-track-inset);
 }
 
 .cd-toggle-slider::before {
@@ -1847,13 +1848,15 @@
     width: 16px;
     left: 3px;
     bottom: 3px;
-    background-color: #ffffff;
+    background-color: var(--toggle-thumb);
     border-radius: 50%;
     transition: 0.3s;
+    box-shadow: var(--toggle-thumb-shadow);
 }
 
 .cd-toggle input:checked+.cd-toggle-slider {
-    background-color: #111111;
+    background-color: var(--toggle-track-on);
+    box-shadow: none;
 }
 
 .cd-toggle input:checked+.cd-toggle-slider::before {

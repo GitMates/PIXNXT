@@ -1,20 +1,26 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { Home, FileText, CreditCard, User, ChevronLeft, LogOut } from 'lucide-react';
 import { galleryService } from '../services/gallery.service';
 import { useAuth } from '../hooks/useAuth';
 import { getUserDisplayLabel, getUserInitial } from '../lib/userInitials';
-import { storageService } from '../services/storage.service';
 import { supabase } from '../lib/supabase/client';
 import AccountTopbarIcons from '../components/account/AccountTopbarIcons';
 import { ClientGallerySubpageTabs } from '../components/features/ClientGallery/ClientGalleryPageShell';
 import StudioIdentityPanel from '../components/features/Settings/StudioIdentityPanel';
 import LegalConsentPanel from '../components/features/Settings/LegalConsentPanel';
+import PlanBillingPanel from '../components/features/Settings/PlanBillingPanel';
+import YourAccountPanel from '../components/features/Settings/YourAccountPanel';
+import { getThemeMode, setThemeMode, THEME_CHANGE_EVENT } from '../lib/appearanceTheme';
+import { userStorageService } from '../services/userStorage.service';
+import { cn } from '../lib/utils';
 import brandPng from '../assets/icons/client gallery.png';
 import smartAlbumPng from '../assets/icons/smart album.png';
 import dashboardPng from '../assets/icons/dashboard.png';
 import '../components/portal/portal.css';
 import '../styles/clientGalleryTheme.css';
 import '../styles/accountSettingsTheme.css';
+import '../components/SidebarLayout.css';
 import '../pages/mobile-gallery/MobileGallery.css';
 
 const ACCOUNT_TABS = [
@@ -25,6 +31,22 @@ const ACCOUNT_TABS = [
     { id: 'billing', label: 'Billing' },
     { id: 'advanced', label: 'Advanced Settings' },
     { id: 'refer', label: 'Refer a Friend' },
+];
+
+/** Tabs that use the Studio settings shell (image 1). */
+const STUDIO_SHELL_TABS = new Set([
+    'studio-identity',
+    'legal-consent',
+    'billing',
+    'account',
+    'profile',
+]);
+
+const STUDIO_NAV = [
+    { id: 'studio-identity', label: 'Studio identity', icon: Home, section: 'STUDIO' },
+    { id: 'legal-consent', label: 'Legal & consent', icon: FileText, section: 'STUDIO' },
+    { id: 'billing', label: 'Plan & billing', icon: CreditCard, section: 'STUDIO' },
+    { id: 'account', label: 'Your account', icon: User, section: 'YOU' },
 ];
 
 const getDynamicShowcaseUrl = (slug) => {
@@ -49,18 +71,99 @@ export default function AccountSettings() {
     const { tab } = useParams();
     const navigate = useNavigate();
     const { user, logout } = useAuth();
-    const activeTab = tab || 'profile';
+    const activeTab = tab || 'account';
+    const useStudioShell = STUDIO_SHELL_TABS.has(activeTab);
     const [showDropdown, setShowDropdown] = useState(false);
     const dropdownRef = useRef(null);
     const [toastMessage, setToastMessage] = useState('');
+    const [studioProfile, setStudioProfile] = useState(null);
+    const [themeMode, setThemeModeState] = useState(() => getThemeMode());
+    const [usedBytes, setUsedBytes] = useState(() =>
+        userStorageService.getCachedStorageBytes(user?.id),
+    );
 
-    const showToast = (msg) => {
+    useEffect(() => {
+        if (activeTab === 'profile') {
+            navigate('/account/account', { replace: true });
+        }
+    }, [activeTab, navigate]);
+
+    const showToast = useCallback((msg) => {
         setToastMessage(msg);
         setTimeout(() => setToastMessage(''), 3000);
-    };
+    }, []);
 
     const userInitial = getUserInitial(user);
-    const businessName = getUserDisplayLabel(user);
+    const businessName = useMemo(() => {
+        return (
+            studioProfile?.business_name ||
+            studioProfile?.display_name ||
+            getUserDisplayLabel(user) ||
+            'Studio'
+        );
+    }, [studioProfile, user]);
+
+    const studioHandle = useMemo(() => {
+        const slug =
+            studioProfile?.slug ||
+            studioProfile?.display_name?.toLowerCase().replace(/[^a-z0-9]/g, '') ||
+            user?.email?.split('@')[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') ||
+            '';
+        return slug;
+    }, [studioProfile, user]);
+
+    const maxBytes = useMemo(() => {
+        const gb = Number(studioProfile?.storage_limit_gb);
+        if (gb && gb > 0) return gb * 1024 * 1024 * 1024;
+        return 100 * 1024 * 1024 * 1024;
+    }, [studioProfile]);
+
+    const storagePct = useMemo(() => {
+        if (!maxBytes) return 0;
+        return Math.min(100, Math.round((usedBytes / maxBytes) * 100));
+    }, [usedBytes, maxBytes]);
+
+    const formatStorageDisplay = (used, max) => {
+        if (!used || used <= 0) {
+            const maxGb = max && max > 0 ? (max / (1024 * 1024 * 1024)).toFixed(0) : 100;
+            return `0 / ${maxGb} GB`;
+        }
+        const gb = 1024 * 1024 * 1024;
+        if (max >= gb) {
+            const usedGb = (used / gb).toFixed(used / gb < 1 ? 1 : 0);
+            const maxGb = (max / gb).toFixed(0);
+            return `${usedGb} / ${maxGb} GB`;
+        }
+        const usedMb = (used / (1024 * 1024)).toFixed(0);
+        const maxMb = (max / (1024 * 1024)).toFixed(0);
+        return `${usedMb} / ${maxMb} MB`;
+    };
+
+    useEffect(() => {
+        if (!user?.id || !useStudioShell) return;
+        let cancelled = false;
+        (async () => {
+            try {
+                const data = await galleryService.getPhotographerProfile(user.id);
+                if (!cancelled) setStudioProfile(data || null);
+            } catch (err) {
+                console.error(err);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [user?.id, useStudioShell]);
+
+    useEffect(() => {
+        if (!user?.id || !useStudioShell) return;
+        userStorageService
+            .calculateUserStorageBytes(user, studioProfile)
+            .then((bytes) => {
+                if (typeof bytes === 'number' && bytes >= 0) setUsedBytes(bytes);
+            })
+            .catch(() => {});
+    }, [user, studioProfile, useStudioShell]);
 
     useEffect(() => {
         function handleClickOutside(event) {
@@ -71,6 +174,179 @@ export default function AccountSettings() {
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
+
+    useEffect(() => {
+        const onTheme = () => setThemeModeState(getThemeMode());
+        window.addEventListener(THEME_CHANGE_EVENT, onTheme);
+        return () => window.removeEventListener(THEME_CHANGE_EVENT, onTheme);
+    }, []);
+
+    const handleThemeModeChange = (mode) => {
+        setThemeMode(mode);
+        setThemeModeState(mode);
+    };
+
+    const handleSignOut = async () => {
+        try {
+            await logout();
+            navigate('/');
+        } catch (err) {
+            console.error('Logout failed', err);
+        }
+    };
+
+    const renderTabContent = () => (
+        <>
+            {(activeTab === 'profile' || activeTab === 'account') && (
+                <YourAccountTab user={user} showToast={showToast} />
+            )}
+            {activeTab === 'legal-consent' && (
+                <LegalConsentTab showToast={showToast} studioName={businessName} />
+            )}
+            {activeTab === 'studio-identity' && (
+                <StudioIdentityTab user={user} showToast={showToast} embedded />
+            )}
+            {activeTab === 'billing' && <BillingTab />}
+            {activeTab === 'advanced' && <AdvancedTab user={user} showToast={showToast} />}
+            {activeTab === 'refer' && <ReferTab user={user} showToast={showToast} />}
+        </>
+    );
+
+    const toastEl = toastMessage ? (
+        <div className="acct-toast">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+            </svg>
+            {toastMessage}
+        </div>
+    ) : null;
+
+    if (useStudioShell) {
+        const studioItems = STUDIO_NAV.filter((i) => i.section === 'STUDIO');
+        const youItems = STUDIO_NAV.filter((i) => i.section === 'YOU');
+        const isNavActive = (id) => {
+            if (id === 'account') {
+                return activeTab === 'account' || activeTab === 'profile';
+            }
+            return activeTab === id;
+        };
+
+        return (
+            <div className="theme-mono cg-shell studio-shell">
+                <aside className="studio-shell__aside">
+                    <button
+                        type="button"
+                        className="studio-shell__back"
+                        onClick={() => navigate('/client-gallery')}
+                    >
+                        <ChevronLeft size={15} strokeWidth={2} />
+                        Back to Client Gallery
+                    </button>
+
+                    <div className="studio-shell__brand">
+                        <span className="studio-shell__brand-label type-group-label">STUDIO</span>
+                        <h1 className="studio-shell__studio-name type-section-title">{businessName}</h1>
+                        {studioHandle ? (
+                            <p className="studio-shell__studio-handle type-meta">{studioHandle}</p>
+                        ) : null}
+                    </div>
+
+                    <nav className="studio-shell__nav" aria-label="Studio settings">
+                        <span className="studio-shell__nav-label">STUDIO</span>
+                        {studioItems.map((item) => {
+                            const Icon = item.icon;
+                            const active = isNavActive(item.id);
+                            return (
+                                <button
+                                    key={item.id}
+                                    type="button"
+                                    className={cn('studio-shell__nav-item', active && 'active')}
+                                    onClick={() => navigate(`/account/${item.id}`)}
+                                >
+                                    <Icon size={17} strokeWidth={1.75} className="studio-shell__nav-icon" />
+                                    <span>{item.label}</span>
+                                </button>
+                            );
+                        })}
+
+                        <span className="studio-shell__nav-label studio-shell__nav-label--spaced">YOU</span>
+                        {youItems.map((item) => {
+                            const Icon = item.icon;
+                            const active = isNavActive(item.id);
+                            return (
+                                <button
+                                    key={item.id}
+                                    type="button"
+                                    className={cn('studio-shell__nav-item', active && 'active')}
+                                    onClick={() => navigate(`/account/${item.id}`)}
+                                >
+                                    <Icon size={17} strokeWidth={1.75} className="studio-shell__nav-icon" />
+                                    <span>{item.label}</span>
+                                </button>
+                            );
+                        })}
+                    </nav>
+
+                    <div className="studio-shell__aside-footer">
+                        <div className="sb-appearance-track studio-shell__theme" role="group" aria-label="Appearance">
+                            {[
+                                { id: 'light', label: 'Light' },
+                                { id: 'auto', label: 'Auto' },
+                                { id: 'dark', label: 'Dark' },
+                            ].map(({ id, label }) => (
+                                <button
+                                    key={id}
+                                    type="button"
+                                    className={cn(
+                                        'sb-appearance-btn',
+                                        themeMode === id && 'sb-appearance-btn--active',
+                                    )}
+                                    aria-pressed={themeMode === id}
+                                    onClick={() => handleThemeModeChange(id)}
+                                >
+                                    {label}
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="studio-shell__storage sb-storage">
+                            <div className="flex items-center justify-between gap-2">
+                                <span className="sb-storage__label">STORAGE</span>
+                                <span className="sb-storage__meta">
+                                    {formatStorageDisplay(usedBytes, maxBytes)}
+                                </span>
+                            </div>
+                            <div className="sb-storage__bar">
+                                <div
+                                    className="sb-storage__bar-fill"
+                                    style={{ width: `${storagePct}%` }}
+                                />
+                            </div>
+                        </div>
+
+                        <button
+                            type="button"
+                            className="studio-shell__signout"
+                            onClick={handleSignOut}
+                        >
+                            <LogOut size={16} strokeWidth={1.75} />
+                            <span className="studio-shell__signout-text">
+                                <span className="studio-shell__signout-label">Sign out</span>
+                                {user?.email ? (
+                                    <span className="studio-shell__signout-email">{user.email}</span>
+                                ) : null}
+                            </span>
+                        </button>
+                    </div>
+                </aside>
+
+                <main className="studio-shell__main">
+                    <div className="studio-shell__content">{renderTabContent()}</div>
+                </main>
+                {toastEl}
+            </div>
+        );
+    }
 
     return (
         <div className="theme-mono cg-shell acct-shell w-full min-h-screen">
@@ -158,135 +434,28 @@ export default function AccountSettings() {
             </nav>
 
             <main className="acct-main">
-                <div className="acct-content">
-                    {activeTab === 'profile' && <ProfileTab user={user} showToast={showToast} />}
-                    {activeTab === 'legal-consent' && (
-                        <LegalConsentTab showToast={showToast} />
-                    )}
-                    {activeTab === 'studio-identity' && (
-                        <StudioIdentityTab user={user} showToast={showToast} />
-                    )}
-                    {activeTab === 'account' && <AccountTab user={user} showToast={showToast} />}
-                    {activeTab === 'billing' && <BillingTab user={user} showToast={showToast} />}
-                    {activeTab === 'advanced' && <AdvancedTab user={user} showToast={showToast} />}
-                    {activeTab === 'refer' && <ReferTab user={user} showToast={showToast} />}
-                </div>
+                <div className="acct-content">{renderTabContent()}</div>
             </main>
-            {toastMessage && (
-                <div className="acct-toast">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                    {toastMessage}
-                </div>
-            )}
+            {toastEl}
         </div>
     );
 }
 
-/* ── Inline editable field with Save / Cancel ───────────────── */
-function InlineField({ label, name, value, type = 'text', placeholder = '', hint, rows, maxLength, onSave }) {
-    const [dirty, setDirty] = React.useState(false);
-    const [original, setOriginal] = React.useState(value);
-    const [current, setCurrent] = React.useState(value);
-    const [saving, setSaving] = React.useState(false);
-
-    // Only sync from DB on the very first non-empty load.
-    // Never reset while the user is actively editing.
-    const loadedRef = React.useRef(false);
-    React.useEffect(() => {
-        if (!loadedRef.current && value !== '') {
-            loadedRef.current = true;
-            setCurrent(value);
-            setOriginal(value);
-            setDirty(false);
-        }
-    }, [value]);
-
-    const handleLocalChange = (e) => {
-        const v = e.target.value;
-        setCurrent(v);
-        setDirty(v !== original);
-    };
-
-    const handleSave = async () => {
-        setSaving(true);
-        await onSave(name, current);
-        setOriginal(current);
-        setDirty(false);
-        setSaving(false);
-    };
-
-    const handleCancel = () => {
-        setCurrent(original);
-        setDirty(false);
-    };
-
+function LegalConsentTab({ showToast, studioName }) {
     return (
-        <div className="acct-field">
-            <label className="acct-field-label">{label}</label>
-            <div className={`acct-field-row${rows ? ' acct-field-row--top' : ''}`}>
-                <div
-                    className={`neu-inset acct-field-shell${rows ? ' cg-field-shell-textarea acct-field-shell--textarea' : ' cg-field-shell'}${dirty ? ' acct-field-shell--dirty' : ''}`}
-                >
-                    {rows ? (
-                        <textarea
-                            name={name}
-                            value={current}
-                            onChange={handleLocalChange}
-                            rows={rows}
-                            maxLength={maxLength}
-                            placeholder={placeholder}
-                            className="acct-field-textarea"
-                        />
-                    ) : (
-                        <input
-                            type={type}
-                            name={name}
-                            value={current}
-                            onChange={handleLocalChange}
-                            placeholder={placeholder}
-                            className="acct-field-input"
-                        />
-                    )}
-                </div>
-
-                {dirty && (
-                    <div className={`acct-field-actions${rows ? ' pt-1' : ''}`}>
-                        <button type="button" className="acct-btn-text" onClick={handleCancel}>
-                            Cancel
-                        </button>
-                        <button
-                            type="button"
-                            className="neu-pill acct-btn-save"
-                            onClick={handleSave}
-                            disabled={saving}
-                        >
-                            {saving ? 'Saving…' : 'Save'}
-                        </button>
-                    </div>
-                )}
-            </div>
-            {maxLength && <div className="w-full text-left text-[14px] text-[#71717A] mt-1">{current.length} / {maxLength}</div>}
-            {hint && <p className="acct-field-help mt-2">{hint}</p>}
-        </div>
-    );
-}
-
-function LegalConsentTab({ showToast }) {
-    return (
-        <div>
-            <h1 className="cg-page-title text-3xl font-medium mb-2" style={{ fontFamily: 'inherit' }}>Legal &amp; consent</h1>
-            <p className="acct-lead mb-8">
-                One set of documents across everything the studio delivers. The obligation follows you,
-                not a product — which is the entire reason these are here and not in Client Gallery.
+        <div className="lc-page">
+            <h1 className="type-page-title si-page-title lc-page-title">
+                Legal <span className="lc-amp" aria-hidden="true">&amp;</span> consent
+            </h1>
+            <p className="type-lede si-page-lead lc-page-lead">
+                One set of documents across everything you deliver.
             </p>
-            <LegalConsentPanel showToast={showToast} />
+            <LegalConsentPanel showToast={showToast} studioName={studioName} />
         </div>
     );
 }
 
-function StudioIdentityTab({ user, showToast }) {
+function StudioIdentityTab({ user, showToast, embedded = false }) {
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
 
@@ -326,1592 +495,34 @@ function StudioIdentityTab({ user, showToast }) {
     }
 
     return (
-        <div>
-            <h1 className="cg-page-title text-3xl font-medium mb-2" style={{ fontFamily: 'inherit' }}>Studio identity</h1>
-            <p className="acct-lead mb-8">
-                Your marks and addresses. Every module draws from here, so a logo change lands on a
-                proof, a print order and a guest gallery at the same time.
-            </p>
+        <div className={embedded ? 'si-page' : undefined}>
+            <h1 className="type-page-title si-page-title">Studio identity</h1>
+            <p className="type-lede si-page-lead">Your marks and addresses.</p>
             <StudioIdentityPanel profile={profile} updateProfile={updateProfile} />
         </div>
     );
 }
 
-function ProfileTab({ user, showToast }) {
-    const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
-    const [uploadingIcon, setUploadingIcon] = useState(false);
-    const fileInputRef = useRef(null);
-
-    const [formData, setFormData] = useState({
-        profile_icon_url: '',
-        business_name: '',
-        first_name: '',
-        last_name: '',
-        contact_email: '',
-        phone: '',
-        website: '',
-        biography: '',
-        business_country: '',
-        address_line_1: '',
-        address_line_2: '',
-        state_province: '',
-        city: '',
-        zip_postal_code: '',
-        time_zone: '(GMT-08:00) Pacific Time (US & Canada)',
-        preferred_date_format: 'MM/DD/YYYY',
-        social_facebook: '',
-        social_x_twitter: '',
-        social_instagram: '',
-        social_tiktok: '',
-        social_pinterest: '',
-        social_youtube: '',
-        social_vimeo: '',
-        social_linkedin: ''
-    });
-
-    useEffect(() => {
-        if (!user?.id) return;
-        
-        galleryService.getPhotographerProfile(user.id)
-            .then(data => {
-                if (data) {
-                    setFormData(prev => ({
-                        ...prev,
-                        profile_icon_url: data.profile_icon_url || '',
-                        business_name: data.business_name || '',
-                        first_name: data.first_name || '',
-                        last_name: data.last_name || '',
-                        contact_email: data.contact_email || '',
-                        phone: data.phone || '',
-                        website: data.website || '',
-                        biography: data.biography || data.bio || '',
-                        business_country: data.business_country || '',
-                        address_line_1: data.address_line_1 || '',
-                        address_line_2: data.address_line_2 || '',
-                        state_province: data.state_province || '',
-                        city: data.city || '',
-                        zip_postal_code: data.zip_postal_code || '',
-                        time_zone: data.time_zone || '(GMT-08:00) Pacific Time (US & Canada)',
-                        preferred_date_format: data.preferred_date_format || 'MM/DD/YYYY',
-                        social_facebook: data.social_facebook || '',
-                        social_x_twitter: data.social_x_twitter || '',
-                        social_instagram: data.social_instagram || '',
-                        social_tiktok: data.social_tiktok || '',
-                        social_pinterest: data.social_pinterest || '',
-                        social_youtube: data.social_youtube || '',
-                        social_vimeo: data.social_vimeo || '',
-                        social_linkedin: data.social_linkedin || ''
-                    }));
-                }
-            })
-            .catch(err => console.error("Error fetching profile:", err))
-            .finally(() => setLoading(false));
-    }, [user]);
-
-    const handleChange = (name, value) => {
-        setFormData(prev => ({ ...prev, [name]: value }));
-    };
-
-    const handleAutoSave = async (fieldName, value) => {
-        if (!user?.id) return;
-        setSaving(true);
-        try {
-            await galleryService.updatePhotographerProfile(user.id, { [fieldName]: value });
-            showToast('Changes saved successfully!');
-        } catch (err) {
-            console.error("Failed to auto-save profile field:", fieldName, err);
-        }
-        setSaving(false);
-    };
-
-    const handleIconClick = () => {
-        fileInputRef.current?.click();
-    };
-
-    const handleIconChange = async (e) => {
-        const file = e.target.files?.[0];
-        if (!file || !user?.id) return;
-
-        setUploadingIcon(true);
-        try {
-            const ext = file.name.split('.').pop() || 'png';
-            const path = `photographers/${user.id}/profile_icon_${Date.now()}.${ext}`;
-            const uploadResult = await storageService.upload(path, file);
-            const imageUrl = uploadResult.url;
-            
-            setFormData(prev => ({ ...prev, profile_icon_url: imageUrl }));
-            await handleAutoSave('profile_icon_url', imageUrl);
-        } catch (err) {
-            console.error("Error uploading profile icon:", err);
-            alert("Failed to upload profile icon. Please try again.");
-        } finally {
-            setUploadingIcon(false);
-        }
-    };
-
-    const handleRemoveIcon = async (e) => {
-        e.stopPropagation();
-        if (!user?.id) return;
-        
-        setUploadingIcon(true);
-        try {
-            setFormData(prev => ({ ...prev, profile_icon_url: '' }));
-            await handleAutoSave('profile_icon_url', '');
-        } catch (err) {
-            console.error("Error removing profile icon:", err);
-        } finally {
-            setUploadingIcon(false);
-        }
-    };
-
-    if (loading) {
-        return <div className="acct-loading">Loading profile...</div>;
-    }
-
+function YourAccountTab({ user, showToast }) {
     return (
-        <div className="flex flex-col gap-12 pb-20 relative">
-            <div>
-                <h1 className="cg-page-title text-3xl font-medium mb-8 pb-6 border-b border-[#ECEAE6]">Profile</h1>
-                
-                {/* Business Details */}
-                <h2 className="acct-section-label mb-6">Business Details</h2>
-                
-                <div className="flex flex-col gap-8 w-full">
-                    <div>
-                        <label className="acct-field-label">Profile Icon</label>
-                        <div 
-                            className="profile-upload-box" 
-                            onClick={handleIconClick}
-                        >
-                            <input 
-                                type="file" 
-                                ref={fileInputRef} 
-                                onChange={handleIconChange} 
-                                style={{ display: 'none' }} 
-                                accept="image/*" 
-                            />
-                            {uploadingIcon ? (
-                                <div className="profile-upload-spinner"></div>
-                            ) : formData.profile_icon_url ? (
-                                <>
-                                    <img src={formData.profile_icon_url} alt="Profile Icon" className="w-full h-full object-cover" />
-                                    <div className="profile-upload-overlay">
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="mb-1"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2 2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-                                        Change
-                                    </div>
-                                    <button 
-                                        className="profile-upload-remove-btn" 
-                                        onClick={handleRemoveIcon}
-                                        title="Remove Icon"
-                                    >
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                                    </button>
-                                </>
-                            ) : (
-                                <div className="profile-upload-inner">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                                </div>
-                            )}
-                        </div>
-                        <p className="acct-field-help leading-relaxed">Your profile icon is a center cropped square icon shown on your galleries, showcase<br/>and applicable places. Tip: make your image a square image before uploading.</p>
-                    </div>
-
-                    <InlineField
-                        label="Business Name"
-                        name="business_name"
-                        value={formData.business_name}
-                        onChange={handleChange}
-                        onSave={handleAutoSave}
-                        hint="Your business name is shown on your showcase, deliveries, email notifications and more."
-                    />
-
-                    <InlineField
-                        label="First Name"
-                        name="first_name"
-                        value={formData.first_name}
-                        placeholder="Your first name"
-                        onChange={handleChange}
-                        onSave={handleAutoSave}
-                        hint="Your first name is shown on your Studio Manager documents including contract signatures."
-                    />
-
-                    <InlineField
-                        label="Last Name"
-                        name="last_name"
-                        value={formData.last_name}
-                        onChange={handleChange}
-                        onSave={handleAutoSave}
-                        hint="Your last name is shown on your Studio Manager documents including contract signatures."
-                    />
-
-                    <InlineField
-                        label="Contact Email"
-                        name="contact_email"
-                        type="email"
-                        value={formData.contact_email}
-                        onChange={handleChange}
-                        onSave={handleAutoSave}
-                        hint="This email is shown publicly to your clients. This is not your account login email."
-                    />
-
-                    <InlineField
-                        label="Phone"
-                        name="phone"
-                        value={formData.phone}
-                        onChange={handleChange}
-                        onSave={handleAutoSave}
-                    />
-
-                    <InlineField
-                        label="Website"
-                        name="website"
-                        value={formData.website}
-                        placeholder="https://"
-                        onChange={handleChange}
-                        onSave={handleAutoSave}
-                        hint="Your client will find links back to your website in many places throughout Pixieset. It is important that you enter a valid website."
-                    />
-
-                    <InlineField
-                        label="Biography"
-                        name="biography"
-                        value={formData.biography}
-                        placeholder="Optional. Max 500 characters."
-                        rows={4}
-                        maxLength={500}
-                        onChange={handleChange}
-                        onSave={handleAutoSave}
-                    />
-                </div>
-            </div>
-
-            {/* Business Address */}
-            <div className="mt-2">
-                <h2 className="acct-section-label mb-4">BUSINESS ADDRESS</h2>
-                
-                <div className="flex flex-col gap-6 w-full">
-                    <div>
-                        <label className="acct-field-label">Business Country</label>
-                        <select 
-                            name="business_country"
-                            value={formData.business_country}
-                            onChange={(e) => { handleChange('business_country', e.target.value); handleAutoSave('business_country', e.target.value); }}
-                            className="w-full acct-input"
-                        >
-                            <option value="">Select a country</option>
-                            <option value="US">United States</option>
-                            <option value="CA">Canada</option>
-                            <option value="UK">United Kingdom</option>
-                            <option value="AU">Australia</option>
-                            <option value="IN">India</option>
-                        </select>
-                    </div>
-
-                    <InlineField
-                        label="Address Line 1"
-                        name="address_line_1"
-                        value={formData.address_line_1}
-                        placeholder="Street Address"
-                        onSave={handleAutoSave}
-                    />
-
-                    <InlineField
-                        label="Address Line 2"
-                        name="address_line_2"
-                        value={formData.address_line_2}
-                        placeholder="Unit / Apartment Number"
-                        onSave={handleAutoSave}
-                    />
-
-                    <InlineField
-                        label="State / Province"
-                        name="state_province"
-                        value={formData.state_province}
-                        placeholder="State / Province"
-                        onSave={handleAutoSave}
-                    />
-
-                    <InlineField
-                        label="City"
-                        name="city"
-                        value={formData.city}
-                        placeholder="City"
-                        onSave={handleAutoSave}
-                    />
-
-                    <InlineField
-                        label="Zip / Postal Code"
-                        name="zip_postal_code"
-                        value={formData.zip_postal_code}
-                        placeholder="Zip / Postal"
-                        onSave={handleAutoSave}
-                    />
-                </div>
-            </div>
-
-            {/* Standards & Formats */}
-            <div className="mt-2">
-                <h2 className="text-[14px] font-bold text-[#999] tracking-[0.1em] uppercase mb-6">STANDARDS & FORMATS</h2>
-                
-                <div className="flex flex-col gap-6 w-full">
-                    <div>
-                        <label className="acct-field-label">Time Zone</label>
-                        <select 
-                            name="time_zone"
-                            value={formData.time_zone}
-                            onChange={(e) => { handleChange('time_zone', e.target.value); handleAutoSave('time_zone', e.target.value); }}
-                            className="w-full acct-input"
-                        >
-                            <option value="(GMT-08:00) Pacific Time (US & Canada)">(GMT-08:00) Pacific Time (US & Canada)</option>
-                            <option value="(GMT-05:00) Eastern Time (US & Canada)">(GMT-05:00) Eastern Time (US & Canada)</option>
-                            <option value="(GMT+00:00) London">(GMT+00:00) London</option>
-                            <option value="(GMT+05:30) Asia, Kolkata">(GMT+05:30) Asia, Kolkata</option>
-                            <option value="(GMT+05:30) India Standard Time">(GMT+05:30) India Standard Time</option>
-                        </select>
-                    </div>
-                    
-                    <div>
-                        <label className="acct-field-label">Preferred Date Format</label>
-                        <select 
-                            name="preferred_date_format"
-                            value={formData.preferred_date_format}
-                            onChange={(e) => { handleChange('preferred_date_format', e.target.value); handleAutoSave('preferred_date_format', e.target.value); }}
-                            className="w-full acct-input"
-                        >
-                            <option value="mm/dd/yyyy">mm/dd/yyyy</option>
-                            <option value="dd/mm/yyyy">dd/mm/yyyy</option>
-                            <option value="yyyy/mm/dd">yyyy/mm/dd</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-
-            {/* Social */}
-            <div className="mt-2">
-                <h2 className="text-[14px] font-bold text-[#999] tracking-[0.1em] uppercase mb-6">SOCIAL</h2>
-                
-                <div className="flex flex-col gap-6 w-full">
-                    {[
-                        { 
-                            label: 'Facebook', 
-                            name: 'social_facebook',
-                            icon: (
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="text-[#111]"><path d="M9 8h-3v4h3v12h5v-12h3.642l.358-4h-4v-1.667c0-.955.192-1.333 1.115-1.333h2.885v-5h-3.808c-3.596 0-5.192 1.583-5.192 4.615v3.385z"/></svg>
-                            )
-                        },
-                        { 
-                            label: 'X (formerly Twitter)', 
-                            name: 'social_x_twitter',
-                            icon: (
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="text-[#111]"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-                            )
-                        },
-                        { 
-                            label: 'Instagram', 
-                            name: 'social_instagram',
-                            icon: (
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="text-[#111]"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
-                            )
-                        },
-                        { 
-                            label: 'TikTok', 
-                            name: 'social_tiktok',
-                            icon: (
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="text-[#111]"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .8.11v-3.5a6.8 6.8 0 0 0-1.23-.1 6.35 6.35 0 0 0-6.1 6.3 6.27 6.27 0 0 0 6.1 6.25 6.27 6.27 0 0 0 6.1-6.25V7.95a10.6 10.6 0 0 0 4.45 1.01V5.51a8.38 8.38 0 0 1-4.21-1.18z"/></svg>
-                            )
-                        },
-                        { 
-                            label: 'Pinterest', 
-                            name: 'social_pinterest',
-                            icon: (
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="text-[#111]"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.08 3.16 9.43 7.63 11.17-.1-.95-.19-2.4.04-3.44.22-.94 1.4-6 1.4-6s-.36-.72-.36-1.78c0-1.67.97-2.91 2.17-2.91 1.02 0 1.52.77 1.52 1.69 0 1.03-.66 2.57-1 4-.28 1.19.6 2.17 1.78 2.17 2.13 0 3.77-2.25 3.77-5.5 0-2.87-2.06-4.88-5.01-4.88-3.41 0-5.42 2.56-5.42 5.21 0 1.03.4 2.14.89 2.74.1.12.11.23.08.35l-.33 1.35c-.05.22-.17.27-.4.16-1.5-.7-2.44-2.89-2.44-4.65 0-3.79 2.75-7.26 7.93-7.26 4.16 0 7.4 2.97 7.4 6.93 0 4.14-2.61 7.46-6.23 7.46-1.22 0-2.36-.63-2.75-1.38l-.75 2.85c-.27 1.04-1 2.35-1.49 3.15C9.57 23.81 10.76 24 12 24c6.63 0 12-5.37 12-12S18.63 0 12 0z"/></svg>
-                            )
-                        },
-                        { 
-                            label: 'YouTube', 
-                            name: 'social_youtube',
-                            icon: (
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="text-[#111]"><path d="M23.498 6.163a3.003 3.003 0 0 0-2.11-2.11C19.518 3.545 12 3.545 12 3.545s-7.518 0-9.388.508a3.003 3.003 0 0 0-2.11 2.11C0 8.033 0 12 0 12s0 3.967.502 5.837a3.003 3.003 0 0 0 2.11 2.11c1.87.508 9.388.508 9.388.508s7.518 0 9.388-.508a3.003 3.003 0 0 0 2.11-2.11C24 15.967 24 12 24 12s0-3.967-.502-5.837zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
-                            )
-                        },
-                        { 
-                            label: 'Vimeo', 
-                            name: 'social_vimeo',
-                            icon: (
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="text-[#111]"><path d="M22.396 7.158c-.092 2.037-1.514 4.824-4.264 8.363-2.85 3.69-5.26 5.534-7.234 5.534-1.22 0-2.257-1.123-3.112-3.37L5.03 8.96c-.642-2.385-1.33-3.578-2.064-3.578-.152 0-.68.322-1.586.966l-.95-.1.21-.99c.974-.853 1.93-1.7 2.87-2.54 1.285-1.077 2.215-1.65 2.793-1.723 1.343-.16 2.17.765 2.476 2.784.336 2.222.565 3.6.69 4.13.396 2.382.793 3.573 1.19 3.573.304 0 .762-.486 1.374-1.46.61-.97 1.258-2.072 1.942-3.298.672-1.218.992-2.116.96-2.697-.062-.83-.544-1.246-1.444-1.246-.427 0-.915.09-1.462.274 1.198-3.924 3.473-5.787 6.827-5.59 2.478.143 3.64 1.545 3.486 4.2z"/></svg>
-                            )
-                        },
-                        { 
-                            label: 'LinkedIn', 
-                            name: 'social_linkedin',
-                            icon: (
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="text-[#111]"><path d="M4.98 3.5c0 1.381-1.11 2.5-2.48 2.5s-2.48-1.119-2.48-2.5c0-1.38 1.11-2.5 2.48-2.5s2.48 1.12 2.48 2.5zm.02 4.5h-5v16h5v-16zm7.982 0h-4.968v16h4.969v-8.399c0-4.67 6.029-5.052 6.029 0v8.399h4.988v-10.131c0-7.88-8.922-7.593-11.018-3.714v-2.155z"/></svg>
-                            )
-                        }
-                    ].map(social => (
-                        <div key={social.name}>
-                            <label className="flex items-center gap-2 text-[17px] font-bold text-[#111] mb-2">
-                                <span className="flex items-center w-[18px] h-[18px] justify-center">{social.icon}</span>
-                                <span>{social.label}</span>
-                            </label>
-                            <input 
-                                type="text" 
-                                name={social.name}
-                                value={formData[social.name]}
-                                onChange={handleChange}
-                                onBlur={(e) => handleAutoSave(social.name, e.target.value)}
-                                placeholder="e.g. mydomain.com"
-                                className="w-full acct-input"
-                            />
-                        </div>
-                    ))}
-                </div>
-            </div>
+        <div className="ya-page">
+            <h1 className="type-page-title si-page-title ya-page-title">Your account</h1>
+            <p className="type-lede si-page-lead ya-page-lead">
+                Your sign-in, your devices, what you get told.
+            </p>
+            <YourAccountPanel user={user} showToast={showToast} />
         </div>
     );
 }
 
-function AccountTab({ user, showToast }) {
-    const navigate = useNavigate();
-    const { logout } = useAuth();
-    const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
-    
-    // Modals
-    const [showUsernameModal, setShowUsernameModal] = useState(false);
-    const [showEmailModal, setShowEmailModal] = useState(false);
-    const [showPasswordModal, setShowPasswordModal] = useState(false);
-    const [showDeleteModal, setShowDeleteModal] = useState(false);
-    
-    // Forms
-    const [modalUsername, setModalUsername] = useState('');
-    const [passwordForm, setPasswordForm] = useState({ newPassword: '', confirmPassword: '' });
-    const [passwordError, setPasswordError] = useState('');
-    const [passwordSaving, setPasswordSaving] = useState(false);
-    const [deleteConfirmEmail, setDeleteConfirmEmail] = useState('');
-    const [deleteError, setDeleteError] = useState('');
-    const [deleteSaving, setDeleteSaving] = useState(false);
-
-    const fallbackSlug = user?.email ? user.email.split('@')[0] : 'poojz';
-
-    const [formData, setFormData] = useState({
-        showcase_slug: fallbackSlug,
-        email: user?.email || 'poojaelango03@gmail.com',
-        two_factor_enabled: false,
-        google_connected: true,
-        apple_connected: false,
-        login_password_set: false,
-        active_sessions: []
-    });
-
-    // Load dynamic data on mount
-    useEffect(() => {
-        if (!user?.id) return;
-        
-        galleryService.getPhotographerProfile(user.id)
-            .then(async data => {
-                if (data) {
-                    let sessions = data.active_sessions || [];
-                    const needsRedetect = sessions.length === 0 ||
-                        (sessions.length > 0 && sessions[0].device === 'Windows 10, Chrome 148');
-
-                    if (needsRedetect) {
-                        // Detect browser name + version
-                        const getBrowserInfo = () => {
-                            const ua = navigator.userAgent;
-                            let name = 'Browser';
-                            let version = '';
-                            if (ua.includes('Edg/')) {
-                                name = 'Edge';
-                                version = ua.match(/Edg\/([\d]+)/)?.[1] || '';
-                            } else if (ua.includes('Chrome/')) {
-                                name = 'Chrome';
-                                version = ua.match(/Chrome\/([\d]+)/)?.[1] || '';
-                            } else if (ua.includes('Firefox/')) {
-                                name = 'Firefox';
-                                version = ua.match(/Firefox\/([\d]+)/)?.[1] || '';
-                            } else if (ua.includes('Safari/') && !ua.includes('Chrome')) {
-                                name = 'Safari';
-                                version = ua.match(/Version\/([\d]+)/)?.[1] || '';
-                            }
-                            return version ? `${name} ${version}` : name;
-                        };
-
-                        // Detect OS — use high-entropy hints for Windows 11 vs 10
-                        const getOSName = async () => {
-                            const ua = navigator.userAgent;
-                            if (ua.includes('iPhone') || ua.includes('iPad')) return 'iOS';
-                            if (ua.includes('Android')) return 'Android';
-                            if (ua.includes('Macintosh') || ua.includes('Mac OS X')) return 'macOS';
-                            if (ua.includes('Linux')) return 'Linux';
-
-                            // Windows: UA always reports "Windows NT 10.0" for both Win10 and Win11
-                            // Use userAgentData high-entropy hints (Chrome/Edge 90+)
-                            if (navigator.userAgentData?.getHighEntropyValues) {
-                                try {
-                                    const hints = await navigator.userAgentData.getHighEntropyValues(['platformVersion']);
-                                    const major = parseInt(hints.platformVersion?.split('.')?.[0] || '0', 10);
-                                    if (major >= 13) return 'Windows 11';
-                                    if (major > 0) return 'Windows 10';
-                                } catch (_) { /* fallback */ }
-                            }
-                            return 'Windows';
-                        };
-
-                        const browser = getBrowserInfo();
-                        const os = await getOSName();
-
-                        sessions = [{
-                            id: sessions[0]?.id || (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2)),
-                            device: `${os}, ${browser}`,
-                            lastActive: 'Current session',
-                            ip: sessions[0]?.ip || '—'
-                        }];
-                        galleryService.updatePhotographerProfile(user.id, { active_sessions: sessions })
-                            .catch(err => console.error("Error updating session:", err));
-                    }
-
-                    setFormData(prev => ({
-                        ...prev,
-                        showcase_slug: data.showcase_slug || data.username || fallbackSlug,
-                        email: data.contact_email || user?.email || 'poojaelango03@gmail.com',
-                        two_factor_enabled: data.two_factor_enabled || false,
-                        google_connected: data.google_connected !== undefined ? data.google_connected : true,
-                        apple_connected: data.apple_connected || false,
-                        login_password_set: data.login_password_set || false,
-                        active_sessions: sessions
-                    }));
-                }
-            })
-            .catch(err => console.error("Error fetching account details:", err))
-            .finally(() => setLoading(false));
-    }, [user]);
-
-    // Live IP detection
-    useEffect(() => {
-        if (!user?.id) return;
-        fetch('https://api.ipify.org?format=json')
-            .then(res => res.json())
-            .then(data => {
-                if (data.ip) {
-                    setFormData(prev => {
-                        const updated = { ...prev };
-                        if (updated.active_sessions && updated.active_sessions.length > 0) {
-                            updated.active_sessions = updated.active_sessions.map((s, idx) => 
-                                idx === 0 ? { ...s, ip: data.ip } : s
-                            );
-                            galleryService.updatePhotographerProfile(user.id, { active_sessions: updated.active_sessions })
-                                .catch(err => console.error("Error saving session IP:", err));
-                        }
-                        return updated;
-                    });
-                }
-            })
-            .catch(() => {});
-    }, [user]);
-
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
-    };
-
-    const handleAutoSave = async (fieldName, value) => {
-        if (!user?.id) return;
-        showToast('Changes saved successfully!');
-        setSaving(true);
-        try {
-            await galleryService.updatePhotographerProfile(user.id, { [fieldName]: value });
-        } catch (err) {
-            console.error("Failed to auto-save account field:", fieldName, err);
-        }
-        setSaving(false);
-    };
-
-    const toggle2FA = async () => {
-        const newValue = !formData.two_factor_enabled;
-        setFormData(prev => ({ ...prev, two_factor_enabled: newValue }));
-        showToast(`Two-factor authentication ${newValue ? 'enabled' : 'disabled'}`);
-        try {
-            await galleryService.updatePhotographerProfile(user.id, { two_factor_enabled: newValue });
-        } catch (err) {
-            console.error("Failed to toggle 2FA:", err);
-        }
-    };
-
-    const handleSetPassword = async (e) => {
-        e.preventDefault();
-        setPasswordError('');
-        if (!passwordForm.newPassword) {
-            setPasswordError('Password cannot be empty.');
-            return;
-        }
-        if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-            setPasswordError('Passwords do not match.');
-            return;
-        }
-        setPasswordSaving(true);
-        try {
-            const { error: authError } = await supabase.auth.updateUser({ password: passwordForm.newPassword });
-            if (authError) throw authError;
-
-            await galleryService.updatePhotographerProfile(user.id, { login_password_set: true });
-            setFormData(prev => ({ ...prev, login_password_set: true }));
-            setShowPasswordModal(false);
-            setPasswordForm({ newPassword: '', confirmPassword: '' });
-            showToast('Password updated successfully!');
-        } catch (err) {
-            console.error("Error setting password:", err);
-            setPasswordError(err.message || 'Failed to update password.');
-        } finally {
-            setPasswordSaving(false);
-        }
-    };
-
-    const handleDeleteAccount = async (e) => {
-        e.preventDefault();
-        setDeleteError('');
-        if (deleteConfirmEmail.toLowerCase() !== formData.email.toLowerCase()) {
-            setDeleteError('Email does not match.');
-            return;
-        }
-        setDeleteSaving(true);
-        try {
-            // Delete photographer record
-            const { error: dbError } = await supabase
-                .from('photographers')
-                .delete()
-                .eq('id', user.id);
-            if (dbError) throw dbError;
-
-            // Log out user
-            await logout();
-            navigate('/auth');
-        } catch (err) {
-            console.error("Error deleting account:", err);
-            setDeleteError(err.message || 'Failed to delete account.');
-        } finally {
-            setDeleteSaving(false);
-        }
-    };
-
-    const revokeSession = async (sessionId) => {
-        const updated = formData.active_sessions.filter(s => s.id !== sessionId);
-        setFormData(prev => ({ ...prev, active_sessions: updated }));
-        await handleAutoSave('active_sessions', updated);
-        showToast('Session terminated successfully.');
-    };
-
-    if (loading) {
-        return <div className="py-8 text-[#888]">Loading account...</div>;
-    }
-
+function BillingTab() {
     return (
-        <div className="flex flex-col gap-12 pb-20 relative">
-            <div>
-                <h1 className="cg-page-title text-3xl font-medium mb-8 pb-6 border-b border-[#ECEAE6]">Account</h1>
-                
-                {/* Account Info */}
-                <h2 className="acct-section-label mb-6">ACCOUNT INFO</h2>
-                
-                <div className="flex flex-col gap-8 w-full">
-                    {/* Username */}
-                    <div>
-                        <label className="acct-field-label">Username</label>
-                        <div className="w-full bg-[#f9f9f9] border border-[#f1f1f1] px-4 py-3 flex justify-between items-center group transition-colors hover:border-[#ddd]">
-                            <span className="text-[17px] text-[#111]">{formData.showcase_slug}</span>
-                            <svg 
-                                width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1A1A1A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" 
-                                className="cursor-pointer opacity-80 hover:opacity-100 flex-shrink-0 ml-2"
-                                onClick={() => {
-                                    setModalUsername(formData.showcase_slug);
-                                    setShowUsernameModal(true);
-                                }}
-                            >
-                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                            </svg>
-                        </div>
-                        <p className="text-[15px] text-[#888] mt-2">
-                            Your Showcase will be at{' '}
-                            <a 
-                                href={getDynamicShowcaseUrl(formData.showcase_slug)} 
-                                target="_blank" 
-                                rel="noopener noreferrer" 
-                                className="text-[#1A1A1A] hover:underline font-medium"
-                            >
-                                {getDynamicShowcaseUrl(formData.showcase_slug)}
-                            </a>
-                        </p>
-                    </div>
-
-                    {/* Account Email */}
-                    <div>
-                        <label className="acct-field-label">Account Email</label>
-                        
-                        <div className="bg-[#fff9e6] border border-[#ffecb3] p-4 flex gap-3 mb-4 rounded-[2px]">
-                            <div className="mt-0.5">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="#333" className="text-white">
-                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
-                                </svg>
-                            </div>
-                            <div className="text-[15px] text-[#333] font-medium leading-relaxed">
-                                Your email address has not been verified. To keep your account safe and secure, we've sent an email to verify your email address and activate your account. <span className="text-[#1A1A1A] cursor-pointer hover:underline">Resend confirmation email.</span>
-                            </div>
-                        </div>
-
-                        <div className="w-full bg-[#f9f9f9] border border-[#f1f1f1] px-4 py-3 flex justify-between items-center group transition-colors hover:border-[#ddd]">
-                            <span className="text-[17px] text-[#111]">{formData.email}</span>
-                            <svg 
-                                width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1A1A1A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" 
-                                className="cursor-pointer opacity-80 hover:opacity-100 flex-shrink-0 ml-2"
-                                onClick={() => setShowEmailModal(true)}
-                            >
-                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                            </svg>
-                        </div>
-                        <p className="text-[15px] text-[#888] mt-2">You will receive important notifications at this email, and your client will see this email where applicable.</p>
-                    </div>
-
-                    {/* Account Password */}
-                    <div>
-                        <label className="acct-field-label">Account Password</label>
-                        <div className="w-full border border-[#f1f1f1] p-2 flex justify-between items-center bg-white">
-                            <span className={`text-[17px] px-2 ${formData.login_password_set ? 'text-[#111]' : 'text-[#999]'}`}>
-                                {formData.login_password_set ? 'Password set' : 'No Password set'}
-                            </span>
-                            <button 
-                                onClick={() => setShowPasswordModal(true)}
-                                className="bg-[#f5f5f5] hover:bg-[#ebebeb] text-[#333] text-[16px] font-medium px-4 py-2 transition-colors rounded-[2px]"
-                            >
-                                {formData.login_password_set ? 'Change Password' : 'Set a Password'}
-                            </button>
-                        </div>
-                        <p className="text-[15px] text-[#888] mt-2">
-                            {formData.login_password_set 
-                                ? 'Your password is set, you can use it to log in alongside your social connections.' 
-                                : "Your password is not set, once you create it you'll be able to log in using it as well."}
-                        </p>
-                    </div>
-
-                    {/* Social Login */}
-                    <div>
-                        <label className="acct-field-label">Social Login</label>
-                        <div className="border border-[#f1f1f1] bg-white flex flex-col">
-                            {/* Google */}
-                            <div className="flex justify-between items-center p-3 border-b border-[#f1f1f1]">
-                                <div className="flex items-center gap-4 px-2">
-                                    <svg width="22" height="22" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                                        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                                        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-                                        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-                                    </svg>
-                                    <span className="text-[17px] font-bold text-[#111]">Google</span>
-                                    <span className="text-[16px] text-[#999]">{formData.google_connected ? 'Connected' : 'Not connected'}</span>
-                                </div>
-                                <button 
-                                    className="bg-[#f5f5f5] hover:bg-[#ebebeb] text-[#333] text-[16px] font-medium px-4 py-2 transition-colors rounded-[2px] min-w-[120px]"
-                                    onClick={async () => {
-                                        const newValue = !formData.google_connected;
-                                        setFormData(prev => ({ ...prev, google_connected: newValue }));
-                                        await handleAutoSave('google_connected', newValue);
-                                        showToast(`Google integration ${newValue ? 'connected' : 'disconnected'}`);
-                                    }}
-                                >
-                                    {formData.google_connected ? 'Disconnect' : 'Connect'}
-                                </button>
-                            </div>
-                            
-                            {/* Apple */}
-                            <div className="flex justify-between items-center p-3">
-                                <div className="flex items-center gap-4 px-2">
-                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="#000000" xmlns="http://www.w3.org/2000/svg">
-                                        <path d="M17.05 13.92c-.023-1.944 1.583-2.894 1.656-2.94-1.258-1.841-3.21-2.091-3.922-2.115-1.66-.17-3.242 1.002-4.088 1.002-.858 0-2.164-1.01-3.56-1.01-1.83 0-3.524 1.066-4.464 2.716-1.905 3.303-.487 8.2 1.365 10.876.908 1.31 1.977 2.775 3.407 2.723 1.385-.05 1.907-.893 3.525-.893 1.606 0 2.096.893 3.537.868 1.488-.025 2.417-1.318 3.313-2.636 1.037-1.517 1.464-2.983 1.484-3.058-.032-.014-2.222-.853-2.253-5.533zM15.467 4.966c.773-.935 1.293-2.235 1.15-3.533-1.11.045-2.455.74-3.25 1.67-.714.832-1.336 2.155-1.173 3.432 1.238.096 2.5-.66 3.273-1.569z"/>
-                                    </svg>
-                                    <span className="text-[17px] font-bold text-[#111]">Apple</span>
-                                    <span className="text-[16px] text-[#999]">{formData.apple_connected ? 'Connected' : 'Not connected'}</span>
-                                </div>
-                                <button 
-                                    className="bg-[#f5f5f5] hover:bg-[#ebebeb] text-[#333] text-[16px] font-medium px-4 py-2 transition-colors rounded-[2px] min-w-[120px]"
-                                    onClick={async () => {
-                                        const newValue = !formData.apple_connected;
-                                        setFormData(prev => ({ ...prev, apple_connected: newValue }));
-                                        await handleAutoSave('apple_connected', newValue);
-                                        showToast(`Apple integration ${newValue ? 'connected' : 'disconnected'}`);
-                                    }}
-                                >
-                                    {formData.apple_connected ? 'Disconnect' : 'Connect'}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Account Security */}
-                <div className="mt-14">
-                    <h2 className="acct-section-label mb-6">ACCOUNT SECURITY</h2>
-                    
-                    <div className="flex flex-col gap-10 w-full">
-                        {/* Two-Factor Authentication */}
-                        <div>
-                            <h3 className="text-[17px] font-bold text-[#111] mb-4">Two-Factor Authentication</h3>
-                            <div className="flex items-center gap-3 mb-4">
-                                <button 
-                                    className={`w-[48px] h-[24px] rounded-full relative transition-colors ${formData.two_factor_enabled ? 'bg-[#1A1A1A]' : 'bg-[#e0e0e0]'}`}
-                                    onClick={toggle2FA}
-                                >
-                                    <div className={`absolute top-1 left-1 w-[16px] h-[16px] rounded-full bg-white transition-transform ${formData.two_factor_enabled ? 'translate-x-[24px]' : 'translate-x-0'}`}></div>
-                                </button>
-                                <span className={`text-[16px] ${formData.two_factor_enabled ? 'text-[#1A1A1A]' : 'text-[#999]'}`}>
-                                    {formData.two_factor_enabled ? 'Enabled' : 'Disabled'}
-                                </span>
-                            </div>
-                            <p className="text-[15px] text-[#888] leading-relaxed">
-                                Two-factor authentication adds an extra layer of protection by requiring a verification code when you log in to your account with an email address and password. <span className="text-[#1A1A1A] cursor-pointer hover:underline">Learn more</span>
-                            </p>
-                        </div>
-
-                        {/* Your Devices / Browsers */}
-                        <div>
-                            <h3 className="text-[17px] font-bold text-[#111] mb-6">Your Devices / Browsers</h3>
-                            <div className="w-full">
-                                <div className="flex items-center border-b border-[#f1f1f1] pb-3 text-[15px] font-bold text-[#111]">
-                                    <div className="w-[40%]">Device</div>
-                                    <div className="w-[30%]">Last Active</div>
-                                    <div className="w-[30%]">IP Address</div>
-                                </div>
-                                
-                                {formData.active_sessions.map((session, idx) => (
-                                    <div key={session.id || idx} className="flex items-center border-b border-[#f1f1f1] py-4 text-[16px] group">
-                                        <div className="w-[40%] text-[#333]">{session.device}</div>
-                                        <div className={`w-[30%] ${idx === 0 ? 'text-[#1A1A1A]' : 'text-[#666]'}`}>
-                                            {idx === 0 ? 'Current session' : session.lastActive}
-                                        </div>
-                                        <div className="w-[30%] text-[#666] flex justify-between items-center">
-                                            {session.ip}
-                                            {idx > 0 && (
-                                                <svg 
-                                                    width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" 
-                                                    className="cursor-pointer hover:stroke-[#ff4d4f] opacity-0 group-hover:opacity-100 transition-opacity"
-                                                    onClick={() => revokeSession(session.id)}
-                                                >
-                                                    <line x1="18" y1="6" x2="6" y2="18"></line>
-                                                    <line x1="6" y1="6" x2="18" y2="18"></line>
-                                                </svg>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Manage Account */}
-                <div className="mt-14">
-                    <h2 className="acct-section-label mb-6">MANAGE ACCOUNT</h2>
-                    <p className="text-[16px] text-[#888] leading-relaxed">
-                        Please understand that by deleting your account, all photos, deliveries, mobile apps and other account data will be permanently deleted. Yes, <span onClick={() => setShowDeleteModal(true)} className="text-[#1A1A1A] cursor-pointer hover:underline">delete</span> my account.
-                    </p>
-                </div>
-            </div>
-
-            {/* Set/Change Password Modal */}
-            {showPasswordModal && (
-                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[1000] animate-[cgFadeIn_0.2s_ease]">
-                    <form onSubmit={handleSetPassword} className="bg-white w-[500px] shadow-lg flex flex-col">
-                        <div className="px-8 py-6 border-b border-[#f1f1f1]">
-                            <h2 className="text-[15px] font-bold text-[#333] tracking-[0.1em] uppercase">
-                                {formData.login_password_set ? 'CHANGE PASSWORD' : 'SET A PASSWORD'}
-                            </h2>
-                        </div>
-                        
-                        <div className="p-8 flex flex-col gap-6">
-                            {passwordError && (
-                                <div className="text-[15px] text-red-500 bg-red-50 border border-red-200 px-4 py-3 rounded-[2px]">
-                                    {passwordError}
-                                </div>
-                            )}
-                            <div>
-                                <label className="acct-field-label">New Password</label>
-                                <input 
-                                    type="password" 
-                                    required
-                                    value={passwordForm.newPassword}
-                                    onChange={(e) => setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
-                                    className="w-full acct-input"
-                                />
-                            </div>
-                            <div>
-                                <label className="acct-field-label">Confirm Password</label>
-                                <input 
-                                    type="password" 
-                                    required
-                                    value={passwordForm.confirmPassword}
-                                    onChange={(e) => setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                                    className="w-full acct-input"
-                                />
-                            </div>
-                        </div>
-                        
-                        <div className="px-8 py-5 flex justify-end items-center gap-4 border-t border-[#f1f1f1] bg-[#fafafa]">
-                            <button 
-                                type="button"
-                                className="text-[16px] text-[#666] font-medium hover:text-[#111] transition-colors"
-                                onClick={() => {
-                                    setShowPasswordModal(false);
-                                    setPasswordForm({ newPassword: '', confirmPassword: '' });
-                                    setPasswordError('');
-                                }}
-                            >
-                                Cancel
-                            </button>
-                            <button 
-                                type="submit"
-                                disabled={passwordSaving}
-                                className="neu-pill acct-btn-primary text-[16px] font-medium px-6 py-2 transition-colors disabled:opacity-50"
-                            >
-                                {passwordSaving ? 'Saving...' : 'Save'}
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            )}
-
-            {/* Delete Account Modal */}
-            {showDeleteModal && (
-                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[1000] animate-[cgFadeIn_0.2s_ease]">
-                    <form onSubmit={handleDeleteAccount} className="bg-white w-[500px] shadow-lg flex flex-col">
-                        <div className="px-8 py-6 border-b border-[#f1f1f1]">
-                            <h2 className="text-[15px] font-bold text-[#ff4d4f] tracking-[0.1em] uppercase">DELETE ACCOUNT</h2>
-                        </div>
-                        
-                        <div className="p-8 flex flex-col gap-6">
-                            <div className="text-[16px] text-[#333] bg-red-50 border border-red-200 px-4 py-3 rounded-[2px] leading-relaxed">
-                                <strong>Warning:</strong> Deleting your account will permanently delete all of your photos, deliveries, client galleries, mobile apps, and other related data. This action is completely irreversible.
-                            </div>
-                            {deleteError && (
-                                <div className="text-[15px] text-red-500 bg-red-50 border border-red-200 px-4 py-3 rounded-[2px]">
-                                    {deleteError}
-                                </div>
-                            )}
-                            <div>
-                                <label className="acct-field-label">
-                                    To confirm, type your account email: <strong className="select-all text-[#1A1A1A]">{formData.email}</strong>
-                                </label>
-                                <input 
-                                    type="text" 
-                                    required
-                                    value={deleteConfirmEmail}
-                                    onChange={(e) => setDeleteConfirmEmail(e.target.value)}
-                                    placeholder={formData.email}
-                                    className="w-full border border-[#ddd] px-4 py-2.5 text-[17px] text-[#111] focus:outline-none focus:border-[#ff4d4f] transition-colors"
-                                />
-                            </div>
-                        </div>
-                        
-                        <div className="px-8 py-5 flex justify-end items-center gap-4 border-t border-[#f1f1f1] bg-[#fafafa]">
-                            <button 
-                                type="button"
-                                className="text-[16px] text-[#666] font-medium hover:text-[#111] transition-colors"
-                                onClick={() => {
-                                    setShowDeleteModal(false);
-                                    setDeleteConfirmEmail('');
-                                    setDeleteError('');
-                                }}
-                            >
-                                Cancel
-                            </button>
-                            <button 
-                                type="submit"
-                                disabled={deleteSaving}
-                                className="bg-[#ff4d4f] hover:bg-[#d9363e] text-white text-[16px] font-medium px-6 py-2 transition-colors rounded-[2px] disabled:opacity-50"
-                            >
-                                {deleteSaving ? 'Deleting...' : 'Delete Account'}
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            )}
-
-            {/* Edit Username Modal */}
-            {showUsernameModal && (
-                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[1000] animate-[cgFadeIn_0.2s_ease]">
-                    <div className="bg-white w-[500px] shadow-lg flex flex-col">
-                        <div className="px-8 py-6 border-b border-[#f1f1f1]">
-                            <h2 className="text-[15px] font-bold text-[#333] tracking-[0.1em] uppercase">EDIT USERNAME</h2>
-                        </div>
-                        
-                        <div className="p-8">
-                            <div className="flex gap-3 mb-6">
-                                <div className="mt-0.5">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="#ff4d4f" className="text-white">
-                                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
-                                    </svg>
-                                </div>
-                                <div className="text-[16px] text-[#333] leading-relaxed">
-                                    Your username is directly tied to your Pixieset URL (e.g. https://yourusername.pixieset.com). If you change your username, your URLs for existing galleries, portfolio website, and booking site will be immediately changed as well.
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <label className="acct-field-label">New Username</label>
-                                <input 
-                                    type="text" 
-                                    value={modalUsername}
-                                    onChange={(e) => setModalUsername(e.target.value)}
-                                    className="w-full acct-input"
-                                />
-                            </div>
-                        </div>
-                        
-                        <div className="px-8 py-5 flex justify-end items-center gap-4 border-t border-[#f1f1f1] bg-[#fafafa]">
-                            <button 
-                                className="text-[16px] text-[#666] font-medium hover:text-[#111] transition-colors"
-                                onClick={() => setShowUsernameModal(false)}
-                            >
-                                Cancel
-                            </button>
-                            <button 
-                                className="neu-pill acct-btn-primary text-[16px] font-medium px-6 py-2 transition-colors"
-                                onClick={async () => {
-                                    setFormData(prev => ({ ...prev, showcase_slug: modalUsername }));
-                                    setShowUsernameModal(false);
-                                    await handleAutoSave('showcase_slug', modalUsername);
-                                    window.dispatchEvent(new CustomEvent('pixnxt:username-changed', { detail: { slug: modalUsername } }));
-                                }}
-                            >
-                                Save
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Edit Email Modal */}
-            {showEmailModal && (
-                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[1000] animate-[cgFadeIn_0.2s_ease]">
-                    <div className="bg-white w-[500px] shadow-lg flex flex-col">
-                        <div className="px-8 py-6 border-b border-[#f1f1f1]">
-                            <h2 className="text-[15px] font-bold text-[#333] tracking-[0.1em] uppercase">EDIT ACCOUNT EMAIL</h2>
-                        </div>
-                        
-                        <div className="p-8">
-                            {formData.google_connected ? (
-                                <div className="flex gap-3">
-                                    <div className="mt-0.5">
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="#ff4d4f" className="text-white">
-                                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
-                                        </svg>
-                                    </div>
-                                    <div className="text-[16px] text-[#333] leading-relaxed">
-                                        Your Pixieset account is connected to your Google account. To update your email, you must first disconnect your Google account.
-                                    </div>
-                                </div>
-                            ) : (
-                                <div>
-                                    <label className="acct-field-label">New Account Email</label>
-                                    <input 
-                                        type="email" 
-                                        value={formData.email}
-                                        onChange={handleChange}
-                                        name="email"
-                                        className="w-full acct-input"
-                                    />
-                                    <p className="text-[15px] text-[#888] mt-2">Updating your email will require re-verification.</p>
-                                </div>
-                            )}
-                        </div>
-                        
-                        <div className="px-8 py-5 flex justify-end items-center gap-4 border-t border-[#f1f1f1] bg-[#fafafa]">
-                            {formData.google_connected ? (
-                                <button 
-                                    className="text-[16px] text-[#666] font-medium hover:text-[#111] transition-colors"
-                                    onClick={() => setShowEmailModal(false)}
-                                >
-                                    Close
-                                </button>
-                            ) : (
-                                <>
-                                    <button 
-                                        className="text-[16px] text-[#666] font-medium hover:text-[#111] transition-colors"
-                                        onClick={() => setShowEmailModal(false)}
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button 
-                                        className="neu-pill acct-btn-primary text-[16px] font-medium px-6 py-2 transition-colors"
-                                        onClick={async () => {
-                                            setShowEmailModal(false);
-                                            await handleAutoSave('contact_email', formData.email);
-                                        }}
-                                    >
-                                        Save
-                                    </button>
-                                </>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-}
-
-function BillingTab({ user, showToast }) {
-    const [card, setCard] = useState(null);
-    const [showCardModal, setShowCardModal] = useState(false);
-    const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-    const [selectedUpgradeProduct, setSelectedUpgradeProduct] = useState('');
-    const [savingCard, setSavingCard] = useState(false);
-    
-    // Modal Form State
-    const [cardName, setCardName] = useState('');
-    const [cardNumber, setCardNumber] = useState('');
-    const [cardExpiry, setCardExpiry] = useState('');
-    const [cardCvc, setCardCvc] = useState('');
-
-    // Dynamic Storage State
-    const [storageUsedBytes, setStorageUsedBytes] = useState(0);
-    const [loadingStorage, setLoadingStorage] = useState(true);
-
-    useEffect(() => {
-        if (!user?.id) return;
-        
-        // Fetch real collection details to calculate photo storage size dynamically
-        galleryService.getCollections(user.id)
-            .then(collections => {
-                const totalBytes = (collections || []).reduce((acc, c) => acc + (c.storage_bytes || 0), 0);
-                setStorageUsedBytes(totalBytes);
-            })
-            .catch(err => console.error("Error loading storage size:", err))
-            .finally(() => setLoadingStorage(false));
-
-        // Load card from localStorage
-        const stored = localStorage.getItem(`pixnxt_card_${user.id}`);
-        if (stored) {
-            try {
-                setCard(JSON.parse(stored));
-            } catch (e) {
-                console.error("Error parsing stored card:", e);
-            }
-        }
-    }, [user]);
-
-    const formatStorageText = (bytes) => {
-        if (!bytes || bytes <= 0) return "0 MB used";
-        const mb = bytes / (1024 * 1024);
-        if (mb < 0.1) {
-            return `${(bytes / 1024).toFixed(0)} KB used`;
-        }
-        if (mb < 1024) {
-            return `${mb.toFixed(1)} MB used`;
-        }
-        const gb = mb / 1024;
-        return `${gb.toFixed(2)} GB used`;
-    };
-
-    const handleSaveCard = (e) => {
-        e.preventDefault();
-        if (!cardName || !cardNumber || !cardExpiry || !cardCvc) {
-            alert("Please fill in all card details.");
-            return;
-        }
-
-        setSavingCard(true);
-        setTimeout(() => {
-            const last4 = cardNumber.replace(/\s+/g, '').slice(-4);
-            const firstDigit = cardNumber.charAt(0);
-            let brand = 'Visa';
-            if (firstDigit === '5') brand = 'Mastercard';
-            else if (firstDigit === '3') brand = 'American Express';
-            else if (firstDigit === '6') brand = 'Discover';
-
-            const newCard = {
-                name: cardName,
-                last4,
-                expiry: cardExpiry,
-                brand
-            };
-
-            setCard(newCard);
-            if (user?.id) {
-                localStorage.setItem(`pixnxt_card_${user.id}`, JSON.stringify(newCard));
-            }
-            setSavingCard(false);
-            setShowCardModal(false);
-            showToast('Credit card updated successfully!');
-            
-            // Reset form
-            setCardName('');
-            setCardNumber('');
-            setCardExpiry('');
-            setCardCvc('');
-        }, 800);
-    };
-
-    const handleRemoveCard = () => {
-        if (window.confirm("Are you sure you want to remove this credit card?")) {
-            setCard(null);
-            if (user?.id) {
-                localStorage.removeItem(`pixnxt_card_${user.id}`);
-            }
-            showToast('Credit card removed successfully.');
-        }
-    };
-
-    const formatCardNumber = (value) => {
-        const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
-        const matches = v.match(/\d{4,16}/g);
-        const match = (matches && matches[0]) || '';
-        const parts = [];
-
-        for (let i = 0, len = match.length; i < len; i += 4) {
-            parts.push(match.substring(i, i + 4));
-        }
-
-        if (parts.length > 0) {
-            return parts.join(' ');
-        } else {
-            return v;
-        }
-    };
-
-    const formatExpiry = (value) => {
-        const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
-        if (v.length >= 2) {
-            return `${v.slice(0, 2)}/${v.slice(2, 4)}`;
-        }
-        return v;
-    };
-
-    return (
-        <div className="flex flex-col gap-10 pb-20 text-[#111]">
-            {/* Header */}
-            <div>
-                <h1 className="cg-page-title text-3xl font-medium mb-2">Billing</h1>
-            </div>
-
-            {/* Current Subscriptions */}
-            <div className="acct-card p-8">
-                <h2 className="text-[19px] font-medium text-[#222] mb-6">Current Subscriptions</h2>
-                
-                <div className="w-full">
-                    {/* Table Header */}
-                    <div className="grid grid-cols-[1.5fr_1fr_2.5fr_1.2fr] pb-3 border-b border-[#f1f1f1] text-[13px] font-bold text-[#888] uppercase tracking-wider">
-                        <div>Product</div>
-                        <div>Plan</div>
-                        <div>Details</div>
-                        <div className="text-right">Action</div>
-                    </div>
-
-                    {/* Row 1: Client Gallery */}
-                    <div className="grid grid-cols-[1.5fr_1fr_2.5fr_1.2fr] py-5 border-b border-[#f1f1f1] items-center text-[16px]">
-                        <div className="flex items-center gap-3.5">
-                            <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 bg-[#F4F3F0]">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1A1A1A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                            </div>
-                            <span className="font-medium text-[#222]">Client Gallery</span>
-                        </div>
-                        <div className="text-[#444] font-medium">Free</div>
-                        <div className="text-[#666] leading-relaxed text-[15px] flex flex-col gap-0.5">
-                            <div>• 3 GB photo ({formatStorageText(storageUsedBytes)})</div>
-                            <div>• 15% Store commission</div>
-                            <div>• Limited mobile apps</div>
-                        </div>
-                        <div className="text-right">
-                            <button 
-                                onClick={() => { setSelectedUpgradeProduct('Client Gallery'); setShowUpgradeModal(true); }}
-                                className="neu-pill acct-btn-primary text-[15px] font-medium px-5 py-2 transition-colors"
-                            >
-                                Upgrade
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Row 2: Website */}
-                    <div className="grid grid-cols-[1.5fr_1fr_2.5fr_1.2fr] py-5 border-b border-[#f1f1f1] items-center text-[16px]">
-                        <div className="flex items-center gap-3.5">
-                            <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 bg-[#e3f2fd]">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1976d2" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
-                            </div>
-                            <span className="font-medium text-[#222]">Website</span>
-                        </div>
-                        <div className="text-[#444] font-medium">Free</div>
-                        <div className="text-[#666] leading-relaxed text-[15px] flex flex-col gap-0.5">
-                            <div>• Limited pages, photos and blog posts</div>
-                        </div>
-                        <div className="text-right">
-                            <button 
-                                onClick={() => { setSelectedUpgradeProduct('Website'); setShowUpgradeModal(true); }}
-                                className="neu-pill acct-btn-primary text-[15px] font-medium px-5 py-2 transition-colors"
-                            >
-                                Upgrade
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Row 3: Studio Manager */}
-                    <div className="grid grid-cols-[1.5fr_1fr_2.5fr_1.2fr] py-5 items-center text-[16px]">
-                        <div className="flex items-center gap-3.5">
-                            <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 bg-[#e8f5e9]">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2e7d32" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
-                            </div>
-                            <span className="font-medium text-[#222]">Studio Manager</span>
-                        </div>
-                        <div className="text-[#444] font-medium">Free</div>
-                        <div className="text-[#666] leading-relaxed text-[15px] flex flex-col gap-0.5">
-                            <div>• Unlimited invoices</div>
-                            <div>• 3 contracts, 3 questionnaires, 3 quotes</div>
-                            <div>• 1 session type and 1 payment link</div>
-                            <div>• Limited document and booking options</div>
-                        </div>
-                        <div className="text-right">
-                            <button 
-                                onClick={() => { setSelectedUpgradeProduct('Studio Manager'); setShowUpgradeModal(true); }}
-                                className="neu-pill acct-btn-primary text-[15px] font-medium px-5 py-2 transition-colors"
-                            >
-                                Upgrade
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* The Pixnxt Suite Promo Card */}
-            <div className="acct-card p-8 flex flex-col md:flex-row items-center justify-between gap-8 bg-[#F9F9F7]">
-                <div className="flex flex-col md:flex-row items-center gap-8">
-                    {/* Multi Badges Circle */}
-                    <div className="flex -space-x-3 items-center">
-                        <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#1A1A1A] text-white shadow-md border-2 border-white z-5"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg></div>
-                        <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#3498db] text-white shadow-md border-2 border-white z-4"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line></svg></div>
-                        <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#2ecc71] text-white shadow-md border-2 border-white z-3"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path></svg></div>
-                        <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#e74c3c] text-white shadow-md border-2 border-white z-2"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg></div>
-                        <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#f1c40f] text-white shadow-md border-2 border-white z-1"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg></div>
-                    </div>
-                    
-                    <div className="flex flex-col gap-1 text-center md:text-left">
-                        <span className="text-[15px] font-bold text-[#1A1A1A] uppercase tracking-wider">The Pixnxt Suite</span>
-                        <h3 className="text-[20px] font-bold text-[#222]">All essential apps. One simple plan.</h3>
-                        <p className="text-[15px] text-[#666] max-w-[500px] leading-relaxed">Everything you need - Website, Client Gallery, Studio Manager, Store, Mobile Gallery App - in one package at a great price.</p>
-                    </div>
-                </div>
-                
-                <div className="flex flex-col items-center md:items-end gap-3 shrink-0">
-                    <div className="flex flex-col items-center md:items-end">
-                        <span className="text-[22px] font-bold text-[#222]">From $28/month</span>
-                        <span className="text-[14px] font-medium text-[#ff4d4f] bg-[#fff1f0] px-2 py-0.5 rounded-[2px] mt-0.5">Up to 37% OFF</span>
-                    </div>
-                    <button 
-                        onClick={() => { setSelectedUpgradeProduct('The Pixnxt Suite'); setShowUpgradeModal(true); }}
-                        className="acct-btn-outline text-[15px] font-semibold px-6 py-2.5 transition-all"
-                    >
-                        SEE PRICING
-                    </button>
-                </div>
-            </div>
-
-            {/* Credit Card Section */}
-            <div className="acct-card p-8">
-                <h2 className="text-[19px] font-medium text-[#222] mb-4">Credit Card</h2>
-                
-                {card ? (
-                    <div className="flex items-center justify-between border border-[#F4F3F0] bg-[#fcfdfe] p-5 rounded-[4px]">
-                        <div className="flex items-center gap-4">
-                            {/* Card Brand Badge */}
-                            <div className="w-14 h-9 border border-[#eaeaea] bg-white rounded-[4px] flex items-center justify-center font-bold text-[15px] text-[#444] shadow-sm tracking-wide">
-                                {card.brand}
-                            </div>
-                            <div className="flex flex-col gap-0.5">
-                                <span className="text-[17px] font-medium text-[#222]">{card.brand} ending in {card.last4}</span>
-                                <span className="text-[14px] text-[#666]">Expires {card.expiry} • Cardholder: {card.name}</span>
-                            </div>
-                        </div>
-                        <button 
-                            onClick={handleRemoveCard}
-                            className="text-[15px] font-semibold text-[#ff4d4f] hover:text-[#d32f2f] hover:bg-[#fff1f0] px-4 py-2 transition-all rounded-[2px]"
-                        >
-                            Remove Card
-                        </button>
-                    </div>
-                ) : (
-                    <div className="flex flex-col items-start gap-4">
-                        <p className="text-[16px] text-[#666]">You do not have a credit card on your account.</p>
-                        <button 
-                            onClick={() => setShowCardModal(true)}
-                            className="bg-[#f0f0f0] hover:bg-[#e4e4e4] text-[#444] hover:text-[#111] text-[15px] font-medium px-5 py-2.5 transition-colors rounded-[2px] border border-[#dcdcdc]"
-                        >
-                            Add Credit Card
-                        </button>
-                    </div>
-                )}
-            </div>
-
-            {/* Card Modal */}
-            {showCardModal && (
-                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[1000] animate-[cgFadeIn_0.2s_ease]">
-                    <div className="bg-white w-[480px] shadow-2xl flex flex-col rounded-[4px] overflow-hidden">
-                        <div className="px-8 py-6 border-b border-[#f1f1f1] flex justify-between items-center">
-                            <h2 className="text-[16px] font-bold text-[#333] tracking-[0.1em] uppercase">Add Credit Card</h2>
-                            <button onClick={() => setShowCardModal(false)} className="text-[#888] hover:text-[#111] transition-colors">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                            </button>
-                        </div>
-                        
-                        <form onSubmit={handleSaveCard} className="p-8 flex flex-col gap-5">
-                            <div>
-                                <label className="block text-[15px] font-bold text-[#333] mb-2 uppercase tracking-wide">Cardholder Name</label>
-                                <input 
-                                    type="text" 
-                                    required
-                                    placeholder="e.g. John Doe"
-                                    value={cardName}
-                                    onChange={(e) => setCardName(e.target.value)}
-                                    className="w-full acct-input"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-[15px] font-bold text-[#333] mb-2 uppercase tracking-wide">Card Number</label>
-                                <div className="relative flex items-center">
-                                    <input 
-                                        type="text" 
-                                        required
-                                        maxLength="19"
-                                        placeholder="0000 0000 0000 0000"
-                                        value={cardNumber}
-                                        onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
-                                        className="w-full acct-input tracking-wider pl-4 pr-12"
-                                    />
-                                    {/* Brand Detection Icon */}
-                                    <div className="absolute right-4 text-[13px] font-bold text-[#888]">
-                                        {cardNumber.charAt(0) === '4' ? 'VISA' : cardNumber.charAt(0) === '5' ? 'MC' : cardNumber.charAt(0) === '3' ? 'AMEX' : 'CARD'}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-[15px] font-bold text-[#333] mb-2 uppercase tracking-wide">Expiration</label>
-                                    <input 
-                                        type="text" 
-                                        required
-                                        maxLength="5"
-                                        placeholder="MM/YY"
-                                        value={cardExpiry}
-                                        onChange={(e) => setCardExpiry(formatExpiry(e.target.value))}
-                                        className="w-full acct-input text-center"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-[15px] font-bold text-[#333] mb-2 uppercase tracking-wide">CVC</label>
-                                    <input 
-                                        type="password" 
-                                        required
-                                        maxLength="4"
-                                        placeholder="•••"
-                                        value={cardCvc}
-                                        onChange={(e) => setCardCvc(e.target.value.replace(/[^0-9]/g, ''))}
-                                        className="w-full acct-input text-center"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="mt-4 flex justify-end gap-3.5">
-                                <button 
-                                    type="button"
-                                    className="text-[16px] text-[#666] font-medium hover:text-[#111] px-4 py-2 transition-colors"
-                                    onClick={() => setShowCardModal(false)}
-                                >
-                                    Cancel
-                                </button>
-                                <button 
-                                    type="submit"
-                                    disabled={savingCard}
-                                    className="neu-pill acct-btn-primary text-[16px] font-medium px-6 py-2 transition-colors min-w-[100px] flex items-center justify-center"
-                                >
-                                    {savingCard ? 'Saving...' : 'Save Card'}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
-
-            {/* Upgrade Modal */}
-            {showUpgradeModal && (
-                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[1000] animate-[cgFadeIn_0.2s_ease]">
-                    <div className="bg-white w-[540px] shadow-2xl flex flex-col rounded-[4px] overflow-hidden">
-                        <div className="px-8 py-6 border-b border-[#f1f1f1] flex justify-between items-center">
-                            <h2 className="text-[16px] font-bold text-[#333] tracking-[0.1em] uppercase">Upgrade {selectedUpgradeProduct}</h2>
-                            <button onClick={() => setShowUpgradeModal(false)} className="text-[#888] hover:text-[#111] transition-colors">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                            </button>
-                        </div>
-                        
-                        <div className="p-8 flex flex-col gap-6">
-                            <div className="text-[17px] text-[#444] leading-relaxed">
-                                You are about to upgrade your plan for <span className="font-semibold text-[#111]">{selectedUpgradeProduct}</span>. Choose the billing frequency below:
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="border-2 border-[#1A1A1A] bg-[#F4F3F0]/20 p-5 rounded-[4px] flex flex-col gap-2 relative cursor-pointer">
-                                    <div className="absolute top-3 right-3 w-4 h-4 rounded-full bg-[#1A1A1A] flex items-center justify-center">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                                    </div>
-                                    <span className="text-[14px] font-bold text-[#1A1A1A] uppercase tracking-wide">Yearly Plan</span>
-                                    <span className="text-[24px] font-bold text-[#222]">$28<span className="text-[16px] font-normal text-[#666]">/mo</span></span>
-                                    <span className="text-[14px] text-[#2ecc71] font-semibold">Save 37% ($168 billed annually)</span>
-                                </div>
-                                <div className="border border-[#ddd] hover:border-[#aaa] p-5 rounded-[4px] flex flex-col gap-2 cursor-pointer transition-colors">
-                                    <span className="text-[14px] font-bold text-[#666] uppercase tracking-wide">Monthly Plan</span>
-                                    <span className="text-[24px] font-bold text-[#222]">$45<span className="text-[16px] font-normal text-[#666]">/mo</span></span>
-                                    <span className="text-[14px] text-[#888]">Billed monthly, cancel anytime</span>
-                                </div>
-                            </div>
-
-                            {card ? (
-                                <div className="border border-[#eaeaea] bg-[#fafafa] p-4 rounded-[4px] flex items-center gap-3.5">
-                                    <div className="w-10 h-7 border border-[#ddd] bg-white rounded-[2px] flex items-center justify-center font-bold text-[13px] text-[#444]">
-                                        {card.brand}
-                                    </div>
-                                    <span className="text-[15px] text-[#555]">Will be charged to <span className="font-semibold text-[#222]">{card.brand} ending in {card.last4}</span></span>
-                                </div>
-                            ) : (
-                                <div className="border border-[#ffccc7] bg-[#fff2f0] p-4 rounded-[4px] flex items-center gap-3 text-[#ff4d4f] text-[15px]">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
-                                    <span>Please add a credit card to your account to complete the upgrade.</span>
-                                </div>
-                            )}
-
-                            <div className="mt-4 flex justify-end gap-3.5">
-                                <button 
-                                    className="text-[16px] text-[#666] font-medium hover:text-[#111] px-4 py-2 transition-colors"
-                                    onClick={() => setShowUpgradeModal(false)}
-                                >
-                                    Cancel
-                                </button>
-                                <button 
-                                    onClick={() => {
-                                        if (!card) {
-                                            setShowUpgradeModal(false);
-                                            setShowCardModal(true);
-                                        } else {
-                                            showToast(`Upgraded ${selectedUpgradeProduct} successfully!`);
-                                            setShowUpgradeModal(false);
-                                        }
-                                    }}
-                                    className="neu-pill acct-btn-primary text-[16px] font-medium px-6 py-2 transition-colors"
-                                >
-                                    {card ? 'Complete Upgrade' : 'Add Card & Upgrade'}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
+        <div className="pb-page">
+            <h1 className="type-page-title si-page-title pb-page-title">Plan &amp; billing</h1>
+            <p className="type-lede si-page-lead pb-page-lead">
+                Next invoice 1 September · ₹1,499 plus usage
+            </p>
+            <PlanBillingPanel />
         </div>
     );
 }

@@ -273,29 +273,31 @@
 .toggle-switch {
   width: 44px;
   height: 24px;
-  background: #e5e2dc;
+  background: var(--toggle-track-off);
   border-radius: 30px;
   border: none;
   cursor: pointer;
   position: relative;
   padding: 0;
   transition: background-color 0.2s;
+  box-shadow: var(--toggle-track-inset);
 }
 
 .toggle-switch.on {
-  background: #c46a3a;
+  background: var(--toggle-track-on);
+  box-shadow: none;
 }
 
 .toggle-handle {
   width: 18px;
   height: 18px;
-  background: #fff;
+  background: var(--toggle-thumb);
   border-radius: 50%;
   position: absolute;
   top: 3px;
   left: 3px;
   transition: left 0.2s;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--toggle-thumb-shadow);
 }
 
 .toggle-switch.on .toggle-handle {

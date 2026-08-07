@@ -1718,17 +1718,19 @@
 .mg-settings-toggle {
   width: 48px;
   height: 26px;
-  background: #ddd;
+  background: var(--toggle-track-off);
   border-radius: 30px;
   border: none;
   cursor: pointer;
   position: relative;
   transition: background 0.2s;
   padding: 0;
+  box-shadow: var(--toggle-track-inset);
 }
 
 .mg-settings-toggle--on {
-  background: #1A1A1A;
+  background: var(--toggle-track-on);
+  box-shadow: none;
 }
 
 .mg-settings-toggle:disabled {
@@ -1742,10 +1744,10 @@
   left: 3px;
   width: 20px;
   height: 20px;
-  background: #fff;
+  background: var(--toggle-thumb);
   border-radius: 50%;
   transition: transform 0.2s;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--toggle-thumb-shadow);
 }
 
 .mg-settings-toggle--on .mg-settings-toggle-handle {

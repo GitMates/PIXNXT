@@ -108,16 +108,17 @@
     width: 44px;
     height: 24px;
     border-radius: 12px;
-    border: 1px solid #ccc;
-    background: #e5e5e5;
+    border: none;
+    background: var(--toggle-track-off);
     cursor: pointer;
     padding: 0;
     transition: background 0.2s;
+    box-shadow: var(--toggle-track-inset);
 }
 
 .cc-toggle--on {
-    background: #222;
-    border-color: #222;
+    background: var(--toggle-track-on);
+    box-shadow: none;
 }
 
 .cc-toggle-thumb {
@@ -127,7 +128,8 @@
     width: 18px;
     height: 18px;
     border-radius: 50%;
-    background: #fff;
+    background: var(--toggle-thumb);
+    box-shadow: var(--toggle-thumb-shadow);
     transition: transform 0.2s;
 }
 

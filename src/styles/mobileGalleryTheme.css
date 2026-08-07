@@ -344,12 +344,12 @@
 /* Toggles */
 .theme-mono.mg-theme .mg-toggle.on .mg-toggle-track,
 .theme-mono.mg-theme .mg-settings-toggle.on {
-  background: var(--mg-accent);
+  background: var(--toggle-track-on);
 }
 
 .theme-mono.mg-theme .mg-toggle.off .mg-toggle-track,
 .theme-mono.mg-theme .mg-settings-toggle.off {
-  background: #d4d4d8;
+  background: var(--toggle-track-off);
 }
 
 /* Context menu */
@@ -692,7 +692,8 @@
 }
 
 .theme-mono.mg-theme .mg-settings-toggle-row .cd-toggle input:checked + .cd-toggle-slider {
-  background-color: var(--mg-accent) !important;
+  background-color: var(--toggle-track-on) !important;
+  box-shadow: none !important;
 }
 
 /* Share page */

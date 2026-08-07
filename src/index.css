@@ -3,6 +3,7 @@
 @import './styles/typography.css';
 @import './styles/galleryColorThemes.css';
 @import './styles/appearanceDarkTheme.css';
+@import './styles/appearanceLightTheme.css';
 
 /* Legacy EB Garamond kept only if an older surface still references it by name */
 @font-face {

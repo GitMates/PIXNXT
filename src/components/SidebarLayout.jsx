@@ -5,10 +5,11 @@ import {
     Bell,
     Home,
     ChevronDown,
+    ChevronUp,
     User,
     CreditCard,
-    UserPlus,
     LogOut,
+    FileText,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { getUserDisplayLabel, getUserInitial } from '../lib/userInitials';
@@ -244,58 +245,74 @@ const SidebarLayout = ({
     };
 
     const renderProfileDropdown = (positionClasses) => {
-        const isProfileActive = location.pathname.startsWith('/account/profile') || location.pathname === '/account' || (!location.pathname.startsWith('/account/billing') && !location.pathname.startsWith('/account/team'));
+        const pathName = location.pathname;
+        const go = (to) => {
+            navigate(to);
+            setShowProfileDropdown(false);
+        };
 
         return (
-            <div className={cn("sb-profile-menu absolute", positionClasses)}>
-                {/* STUDIO SECTION */}
+            <div className={cn('sb-profile-menu absolute', positionClasses)} role="menu">
                 <span className="sb-profile-menu__section-title">STUDIO</span>
-
                 <div className="flex flex-col gap-0.5">
                     <button
                         type="button"
-                        onClick={() => { navigate('/account/profile'); setShowProfileDropdown(false); }}
+                        role="menuitem"
+                        onClick={() => go('/account/studio-identity')}
                         className={cn(
-                            "sb-profile-menu__item",
-                            isProfileActive && "sb-profile-menu__item--active"
+                            'sb-profile-menu__item',
+                            pathName.startsWith('/account/studio-identity') && 'sb-profile-menu__item--active',
                         )}
                     >
-                        <User className="size-4 shrink-0 text-[#2C2825]" strokeWidth={1.75} />
-                        <span>Profile</span>
+                        <Home className="size-4 shrink-0" strokeWidth={1.75} />
+                        <span>Studio identity</span>
                     </button>
-
                     <button
                         type="button"
-                        onClick={() => { navigate('/account/billing'); setShowProfileDropdown(false); }}
+                        role="menuitem"
+                        onClick={() => go('/account/legal-consent')}
                         className={cn(
-                            "sb-profile-menu__item",
-                            location.pathname.startsWith('/account/billing') && "sb-profile-menu__item--active"
+                            'sb-profile-menu__item',
+                            pathName.startsWith('/account/legal-consent') && 'sb-profile-menu__item--active',
                         )}
                     >
-                        <CreditCard className="size-4 shrink-0 text-[#2C2825]" strokeWidth={1.75} />
+                        <FileText className="size-4 shrink-0" strokeWidth={1.75} />
+                        <span>Legal &amp; consent</span>
+                    </button>
+                    <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => go('/account/billing')}
+                        className={cn(
+                            'sb-profile-menu__item',
+                            pathName.startsWith('/account/billing') && 'sb-profile-menu__item--active',
+                        )}
+                    >
+                        <CreditCard className="size-4 shrink-0" strokeWidth={1.75} />
                         <span>Plan &amp; billing</span>
-                    </button>
-
-                    <button
-                        type="button"
-                        onClick={() => { navigate('/account/team'); setShowProfileDropdown(false); }}
-                        className={cn(
-                            "sb-profile-menu__item",
-                            location.pathname.startsWith('/account/team') && "sb-profile-menu__item--active"
-                        )}
-                    >
-                        <UserPlus className="size-4 shrink-0 text-[#2C2825]" strokeWidth={1.75} />
-                        <span>Team</span>
                     </button>
                 </div>
 
-                {/* DIVIDER 1 */}
                 <div className="sb-profile-menu__divider" />
 
-                {/* APPEARANCE SECTION */}
-                <span className="sb-profile-menu__section-title">APPEARANCE</span>
+                <span className="sb-profile-menu__section-title">YOU</span>
+                <div className="flex flex-col gap-0.5">
+                    <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => go('/account/account')}
+                        className={cn(
+                            'sb-profile-menu__item',
+                            (pathName.startsWith('/account/account') || pathName.startsWith('/account/profile')) &&
+                                'sb-profile-menu__item--active',
+                        )}
+                    >
+                        <User className="size-4 shrink-0" strokeWidth={1.75} />
+                        <span>Your account</span>
+                    </button>
+                </div>
 
-                <div className="sb-appearance-track" role="group" aria-label="Appearance">
+                <div className="sb-appearance-track sb-appearance-track--menu" role="group" aria-label="Appearance">
                     {[
                         { id: 'light', label: 'Light' },
                         { id: 'auto', label: 'Auto' },
@@ -306,10 +323,7 @@ const SidebarLayout = ({
                             <button
                                 key={id}
                                 type="button"
-                                className={cn(
-                                    "sb-appearance-btn",
-                                    isActive && "sb-appearance-btn--active"
-                                )}
+                                className={cn('sb-appearance-btn', isActive && 'sb-appearance-btn--active')}
                                 aria-pressed={isActive}
                                 onClick={() => handleThemeModeChange(id)}
                             >
@@ -319,12 +333,11 @@ const SidebarLayout = ({
                     })}
                 </div>
 
-                {/* DIVIDER 2 */}
                 <div className="sb-profile-menu__divider" />
 
-                {/* SIGN OUT */}
                 <button
                     type="button"
+                    role="menuitem"
                     onClick={async () => {
                         try {
                             await logout();
@@ -335,7 +348,7 @@ const SidebarLayout = ({
                     }}
                     className="sb-profile-menu__item"
                 >
-                    <LogOut className="size-4 shrink-0 text-[#2C2825]" strokeWidth={1.75} />
+                    <LogOut className="size-4 shrink-0" strokeWidth={1.75} />
                     <span>Sign out</span>
                 </button>
             </div>
@@ -560,7 +573,7 @@ const SidebarLayout = ({
                                 <span className="sb-profile-btn__name">{userDisplayLabel}</span>
                                 <span className="sb-profile-btn__role">Studio owner</span>
                             </span>
-                            <ChevronDown className={cn('size-4 shrink-0 text-[#8C827A] transition-transform duration-200', showProfileDropdown && 'rotate-180')} />
+                            <ChevronUp className={cn('size-4 shrink-0 text-[#8C827A] transition-transform duration-200', !showProfileDropdown && 'rotate-180')} />
                         </button>
                     </div>
                 </div>

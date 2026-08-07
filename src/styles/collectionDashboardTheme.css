@@ -527,7 +527,8 @@
 
 /* Toggles */
 .theme-mono.cd-dashboard-shell .cd-toggle input:checked + .cd-toggle-slider {
-  background-color: var(--cd-foreground) !important;
+  background-color: var(--toggle-track-on) !important;
+  box-shadow: none !important;
 }
 
 .theme-mono.cd-dashboard-shell .toggle-state-label {
