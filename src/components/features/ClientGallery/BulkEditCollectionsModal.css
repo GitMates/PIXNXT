@@ -166,12 +166,14 @@
     padding: 0;
     border: none;
     border-radius: 12px;
-    background: #d1d5db;
+    background: var(--toggle-track-off);
     cursor: pointer;
+    box-shadow: var(--toggle-track-inset);
 }
 
 .bec-toggle--on {
-    background: #20b2aa;
+    background: var(--toggle-track-on);
+    box-shadow: none;
 }
 
 .bec-toggle-knob {
@@ -181,8 +183,8 @@
     width: 18px;
     height: 18px;
     border-radius: 50%;
-    background: #fff;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    background: var(--toggle-thumb);
+    box-shadow: var(--toggle-thumb-shadow);
     transition: transform 0.2s;
 }
 

@@ -1,0 +1,90 @@
+/**
+ * Light-theme toggle overrides — grey off track, terracotta on, white thumb.
+ * Mirrors appearanceDarkTheme.css; tokens live in typography.css (:root).
+ */
+
+/* ── Track OFF ─────────────────────────────────────────── */
+body:not(.dark-theme) .set-toggle:not(.on),
+body:not(.dark-theme) .set-toggle.off,
+body:not(.dark-theme) .si-toggle:not(.si-toggle--on),
+body:not(.dark-theme) .lc-toggle:not(.lc-toggle--on),
+body:not(.dark-theme) .settings-toggle:not(.settings-toggle--on),
+body:not(.dark-theme) .ya-toggle:not(.ya-toggle--on),
+body:not(.dark-theme) .cd-toggle-slider,
+body:not(.dark-theme) .cf-toggle-slider,
+body:not(.dark-theme) .cc-toggle:not(.cc-toggle--on),
+body:not(.dark-theme) .toggle-switch:not(.on),
+body:not(.dark-theme) .sc-toggle.off,
+body:not(.dark-theme) .mg-settings-toggle:not(.mg-settings-toggle--on),
+body:not(.dark-theme) .mg-toggle.off .mg-toggle-track,
+body:not(.dark-theme) .mg-settings-toggle.off,
+body:not(.dark-theme) .theme-mono .sa-proofer-toggle--off,
+body:not(.dark-theme) .ae-settings-toggle--off,
+body:not(.dark-theme) .ae-share-toggle--off,
+body:not(.dark-theme) .ae-cover-spine-toggle:not(.ae-cover-spine-toggle--on),
+body:not(.dark-theme) .eam-toggle:not(.eam-toggle--on),
+body:not(.dark-theme) .bec-toggle:not(.bec-toggle--on),
+body:not(.dark-theme) .ecm-toggle:not(.ecm-toggle--on) {
+  background: var(--toggle-track-off) !important;
+  background-color: var(--toggle-track-off) !important;
+  border-color: transparent !important;
+  box-shadow: var(--toggle-track-inset) !important;
+}
+
+/* ── Track ON ──────────────────────────────────────────── */
+body:not(.dark-theme) .set-toggle.on,
+body:not(.dark-theme) .si-toggle--on,
+body:not(.dark-theme) .lc-toggle--on,
+body:not(.dark-theme) .settings-toggle--on,
+body:not(.dark-theme) .ya-toggle--on,
+body:not(.dark-theme) .cd-toggle input:checked + .cd-toggle-slider,
+body:not(.dark-theme) .cf-toggle input:checked + .cf-toggle-slider,
+body:not(.dark-theme) .cc-toggle--on,
+body:not(.dark-theme) .toggle-switch.on,
+body:not(.dark-theme) .sc-toggle.on,
+body:not(.dark-theme) .mg-settings-toggle--on,
+body:not(.dark-theme) .mg-toggle.on .mg-toggle-track,
+body:not(.dark-theme) .mg-settings-toggle.on,
+body:not(.dark-theme) .theme-mono .sa-proofer-toggle--on,
+body:not(.dark-theme) .ae-settings-toggle--on,
+body:not(.dark-theme) .ae-share-toggle--on,
+body:not(.dark-theme) .ae-cover-spine-toggle--on,
+body:not(.dark-theme) .eam-toggle--on,
+body:not(.dark-theme) .bec-toggle--on,
+body:not(.dark-theme) .ecm-toggle--on,
+body:not(.dark-theme) .cg-style-2 .set-toggle.on,
+body:not(.dark-theme) .acct-shell .acct-toggle-on {
+  background: var(--toggle-track-on) !important;
+  background-color: var(--toggle-track-on) !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Keep semantic green only for explicit "ok" proofer toggles */
+body:not(.dark-theme) .theme-mono .sa-proofer-toggle--ok.sa-proofer-toggle--on {
+  background: #2d8a5c !important;
+}
+
+/* ── Thumb / knob / handle ─────────────────────────────── */
+body:not(.dark-theme) .set-toggle-handle,
+body:not(.dark-theme) .si-toggle-thumb,
+body:not(.dark-theme) .lc-toggle-thumb,
+body:not(.dark-theme) .settings-toggle-thumb,
+body:not(.dark-theme) .ya-toggle__thumb,
+body:not(.dark-theme) .cd-toggle-slider::before,
+body:not(.dark-theme) .cf-toggle-slider::before,
+body:not(.dark-theme) .cc-toggle-thumb,
+body:not(.dark-theme) .toggle-handle,
+body:not(.dark-theme) .sc-toggle-handle,
+body:not(.dark-theme) .mg-settings-toggle-handle,
+body:not(.dark-theme) .theme-mono .sa-proofer-toggle__knob,
+body:not(.dark-theme) .ae-settings-toggle__knob,
+body:not(.dark-theme) .ae-share-toggle__knob,
+body:not(.dark-theme) .ae-cover-spine-toggle__knob,
+body:not(.dark-theme) .eam-toggle__knob,
+body:not(.dark-theme) .bec-toggle-knob,
+body:not(.dark-theme) .ecm-toggle-knob {
+  background: var(--toggle-thumb) !important;
+  background-color: var(--toggle-thumb) !important;
+  box-shadow: var(--toggle-thumb-shadow) !important;
+}

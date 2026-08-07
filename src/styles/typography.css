@@ -107,6 +107,13 @@
   --status-approved: var(--ok-fg);
   --status-draft: var(--idle-fg);
   --status-paused: var(--idle-fg);
+
+  /* Toggle switch — light theme (grey off · terracotta on · white thumb) */
+  --toggle-track-off: #d4d0cb;
+  --toggle-track-on: #bf6d2f;
+  --toggle-thumb: #ffffff;
+  --toggle-thumb-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  --toggle-track-inset: inset 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
 /* Dark tokens: body.dark-theme — see styles/appearanceDarkTheme.css */

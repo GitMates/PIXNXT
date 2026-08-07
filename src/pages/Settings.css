@@ -168,28 +168,30 @@
 .set-toggle {
     width: 48px;
     height: 26px;
-    background-color: #e0e0e0;
+    background-color: var(--toggle-track-off);
     border-radius: 30px;
     position: relative;
     border: none;
     cursor: pointer;
     transition: background-color 0.2s;
+    box-shadow: var(--toggle-track-inset);
 }
 
 .set-toggle.on {
-    background-color: #1a1a1a;
+    background-color: var(--toggle-track-on);
+    box-shadow: none;
 }
 
 .set-toggle-handle {
     width: 20px;
     height: 20px;
-    background-color: #fff;
+    background-color: var(--toggle-thumb);
     border-radius: 50%;
     position: absolute;
     top: 3px;
     left: 3px;
     transition: left 0.2s, box-shadow 0.2s;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+    box-shadow: var(--toggle-thumb-shadow);
 }
 
 .set-toggle.on .set-toggle-handle {
@@ -587,11 +589,13 @@
 }
 
 .cg-style-2 .set-toggle.on {
-    background-color: #1a1a1a !important;
+    background-color: var(--toggle-track-on) !important;
+    box-shadow: none !important;
 }
 
 .cg-style-2 .set-toggle.off {
-    background-color: #d4d4d8 !important;
+    background-color: var(--toggle-track-off) !important;
+    box-shadow: var(--toggle-track-inset) !important;
 }
 
 /* ── Toast ──────────────────────────────────────────────── */
@@ -1247,29 +1251,31 @@
 .si-toggle {
   width: 46px;
   height: 26px;
-  background: #e5e5ea;
+  background: var(--toggle-track-off);
   border-radius: 30px;
   border: none;
   cursor: pointer;
   position: relative;
   transition: background-color 0.2s;
   padding: 0;
+  box-shadow: var(--toggle-track-inset);
 }
 
 .si-toggle--on {
-  background: #1a1a1a;
+  background: var(--toggle-track-on);
+  box-shadow: none;
 }
 
 .si-toggle-thumb {
   width: 20px;
   height: 20px;
-  background: #ffffff;
+  background: var(--toggle-thumb);
   border-radius: 50%;
   position: absolute;
   top: 3px;
   left: 3px;
   transition: left 0.2s;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  box-shadow: var(--toggle-thumb-shadow);
 }
 
 .si-toggle--on .si-toggle-thumb {
@@ -1514,7 +1520,7 @@
 .lc-toggle {
   width: 44px;
   height: 26px;
-  background: #e5e2dc;
+  background: var(--toggle-track-off);
   border-radius: 30px;
   border: none;
   cursor: pointer;
@@ -1523,22 +1529,24 @@
   padding: 0;
   flex-shrink: 0;
   margin-top: 1px;
+  box-shadow: var(--toggle-track-inset);
 }
 
 .lc-toggle--on {
-  background: #c46a3a;
+  background: var(--toggle-track-on);
+  box-shadow: none;
 }
 
 .lc-toggle-thumb {
   width: 20px;
   height: 20px;
-  background: #ffffff;
+  background: var(--toggle-thumb);
   border-radius: 50%;
   position: absolute;
   top: 3px;
   left: 3px;
   transition: left 0.2s;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--toggle-thumb-shadow);
 }
 
 .lc-toggle--on .lc-toggle-thumb {
@@ -2072,29 +2080,31 @@
 .settings-toggle {
   width: 44px;
   height: 24px;
-  background: #e5e5ea;
+  background: var(--toggle-track-off);
   border-radius: 30px;
   border: none;
   cursor: pointer;
   position: relative;
   transition: background-color 0.2s;
   padding: 0;
+  box-shadow: var(--toggle-track-inset);
 }
 
 .settings-toggle--on {
-  background: #c46a3a;
+  background: var(--toggle-track-on);
+  box-shadow: none;
 }
 
 .settings-toggle-thumb {
   width: 18px;
   height: 18px;
-  background: #ffffff;
+  background: var(--toggle-thumb);
   border-radius: 50%;
   position: absolute;
   top: 3px;
   left: 3px;
   transition: left 0.2s;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  box-shadow: var(--toggle-thumb-shadow);
 }
 
 .settings-toggle--on .settings-toggle-thumb {
@@ -3998,7 +4008,7 @@
   --ya-toggle-pad: 4px;
   width: var(--ya-toggle-w);
   height: var(--ya-toggle-h);
-  background: #d4d0ca;
+  background: var(--toggle-track-off);
   border-radius: 999px;
   border: none;
   cursor: pointer;
@@ -4007,27 +4017,28 @@
   padding: 0;
   flex-shrink: 0;
   margin-top: 2px;
+  box-shadow: var(--toggle-track-inset);
 }
 
 .ya-toggle--on {
-  background: #d08544;
+  background: var(--toggle-track-on);
+  box-shadow: none;
 }
 
 .ya-toggle__thumb {
   width: var(--ya-toggle-thumb);
   height: var(--ya-toggle-thumb);
-  background: #141210;
+  background: var(--toggle-thumb);
   border-radius: 50%;
   position: absolute;
   top: var(--ya-toggle-pad);
   left: var(--ya-toggle-pad);
-  transition: left 0.2s ease, background-color 0.2s ease;
-  box-shadow: none;
+  transition: left 0.2s ease;
+  box-shadow: var(--toggle-thumb-shadow);
 }
 
 .ya-toggle--on .ya-toggle__thumb {
   left: calc(var(--ya-toggle-w) - var(--ya-toggle-thumb) - var(--ya-toggle-pad));
-  background: #141210;
 }
 
 .ya-notify-list {

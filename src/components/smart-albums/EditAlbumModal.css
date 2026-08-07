@@ -314,13 +314,15 @@
   border: none;
   border-radius: 999px;
   padding: 0;
-  background: #d6d3ce;
+  background: var(--toggle-track-off);
   cursor: pointer;
   transition: background 0.2s ease;
+  box-shadow: var(--toggle-track-inset);
 }
 
 .eam-toggle--on {
-  background: #bf7b47;
+  background: var(--toggle-track-on);
+  box-shadow: none;
 }
 
 .eam-toggle--disabled {
@@ -335,8 +337,8 @@
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.14);
+  background: var(--toggle-thumb);
+  box-shadow: var(--toggle-thumb-shadow);
   transition: transform 0.2s ease;
 }
 

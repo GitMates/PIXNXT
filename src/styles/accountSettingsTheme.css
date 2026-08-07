@@ -449,7 +449,8 @@
 
 /* ── Toggle switches ────────────────────────────────────── */
 .acct-shell .acct-toggle-on {
-  background: #1a1a1a !important;
+  background: var(--toggle-track-on) !important;
+  box-shadow: none !important;
 }
 
 /* ── Teal legacy sweep (inline styles / tailwind remnants) */
@@ -516,8 +517,8 @@
 .theme-mono.cg-shell.studio-shell {
   display: flex;
   min-height: 100vh;
-  background: #F8F7F4;
-  color: #1C1917;
+  background: var(--canvas, #f7f6f2);
+  color: var(--ink, #1d1916);
   font-family: var(--font-sans, 'Plus Jakarta Sans', system-ui, sans-serif);
 }
 
@@ -527,8 +528,8 @@
   display: flex;
   flex-direction: column;
   padding: 20px 14px 16px;
-  background: #F5F3ED;
-  border-right: 1px solid #E5E2DC;
+  background: #f5f3ed;
+  border-right: 1px solid var(--border, #e5e2dc);
   min-height: 100vh;
   position: sticky;
   top: 0;
@@ -650,7 +651,7 @@
   bottom: 8px;
   width: 3px;
   border-radius: 0 3px 3px 0;
-  background: #C46A3A;
+  background: var(--accent, #bf7b47);
 }
 
 .studio-shell__nav-icon {
@@ -659,7 +660,7 @@
 }
 
 .studio-shell__nav-item.active .studio-shell__nav-icon {
-  color: #C46A3A;
+  color: var(--accent, #bf7b47);
   opacity: 1;
 }
 
@@ -757,7 +758,7 @@
   flex: 1;
   min-width: 0;
   overflow-y: auto;
-  background: #F8F7F4;
+  background: var(--canvas, #f7f6f2);
   padding: 36px 44px 80px;
 }
 

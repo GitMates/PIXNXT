@@ -29,7 +29,7 @@
   --ae-cover-section: oklch(0.68 0.01 70);
   --ae-cover-neu-light: oklch(1 0.004 85 / 0.92);
   --ae-cover-neu-dark: oklch(0.42 0.012 70 / 0.11);
-  --ae-cover-toggle-on: #10b981;
+  --ae-cover-toggle-on: var(--toggle-track-on);
 
   padding: 18px 20px 24px;
   min-height: 0;
@@ -99,13 +99,14 @@
   border-radius: 999px;
   padding: 0;
   cursor: pointer;
-  background: oklch(0.88 0.007 82);
-  box-shadow: inset 1px 1px 3px oklch(0.42 0.012 70 / 0.08);
+  background: var(--toggle-track-off);
+  box-shadow: var(--toggle-track-inset);
   transition: background 0.2s ease;
 }
 
 .ae-cover-spine-toggle--on {
   background: var(--ae-cover-toggle-on);
+  box-shadow: none;
 }
 
 .ae-cover-spine-toggle__knob {
@@ -115,8 +116,8 @@
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 1px 3px oklch(0.4 0.01 70 / 0.18);
+  background: var(--toggle-thumb);
+  box-shadow: var(--toggle-thumb-shadow);
   transition: transform 0.2s ease;
 }
 

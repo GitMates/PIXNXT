@@ -835,6 +835,7 @@ PIXNXT follows Pixieset's core design philosophy which is central to its success
 
 - **Typography:** Fraunces (display) + Plus Jakarta Sans (interface) — see Typography System below
 - **Color Palette (Album Proofer):** see [Album Proofer Design System](#album-proofer-design-system) below — cream canvas, white surfaces, charcoal ink, burnt-orange accent. No sky blue / cyan in product chrome.
+- **Studio / Proofer Light UI:** see [Studio & Album Proofer Light UI](#studio--album-proofer-light-ui) — fonts, canvas, cards, wizard, settings radios.
 - **Studio Settings Dark UI:** see [Studio Settings Dark UI](#studio-settings-dark-ui) — warm charcoal shell, terracotta select, cream primary buttons, dark appearance track.
 - **Photo Display:** Dark-on-light for portfolio, light-on-dark for gallery viewer mode
 - **Spacing:** Generous padding, grid-based layouts
@@ -875,6 +876,77 @@ Canonical tokens in `src/styles/typography.css`. Cursor rule: `.cursor/rules/alb
 **Revision requested is amber, not red.** It is the single most common healthy state in this module — a client engaging with the proof is the product working. Colouring it red trains the photographer to feel a jolt of failure every time a client does exactly what you asked them to do.
 
 Blank-cover leather swatches must not include sky blue / turquoise (default: `cream`).
+
+### Studio & Album Proofer Light UI
+
+Light mode is the default product chrome. Tokens live in `src/styles/typography.css`. Screens: Create Album wizard, Albums empty state, Proofer Settings, Studio settings shell (Your account / Legal / Billing / Identity).
+
+#### Fonts (strict)
+
+| Role | Family | Weight | Where |
+|---|---|---|---|
+| **Display** | **Fraunces** (`--font-display`) | 400–500 | Page title once (`NEW ALBUM`, `Your account`, `Your first album proof`), wizard card headline, section heads (`Album details`), italic hints / placeholders only |
+| **Interface** | **Plus Jakarta Sans** (`--font-sans`) | 400 / 500 / 600 / 700 | Everything else — kickers, step labels, field labels (`ALBUM NAME`), inputs, buttons, nav, upload copy, links (`Replace`, `Add more`) |
+
+Do **not** set `font-family: var(--font-display)` on the page root or on buttons/labels. Wizard root uses `--font-sans`; only named display elements opt into Fraunces.
+
+#### Canvas & surfaces
+
+| Part | Token / Hex | Notes |
+|---|---|---|
+| Page ground | `--canvas` `#f7f6f2` | Wizard, albums list, studio shell main, settings page — **not** `#F8F7F4` / `#faf8f4` drift |
+| Cards / panels | `--surface` `#ffffff` | Wizard card, radio cards, info banners |
+| Inputs / sunk wells | `--surface-sunk` `#f0efeb` | Album name, event date, cover row, filmstrip tile bg |
+| Hairline borders | `--border` `#e5e2dc` | Cards, aside divider |
+| Sidebar (studio) | `#f5f3ed` | Slightly warmer than canvas |
+| Titles / ink | `--ink` `#1d1916` | Charcoal — primary CTAs use this fill + white text |
+| Body | `--ink-body` `#44403c` | |
+| Muted / labels | `--ink-muted` `#857f7b` | Overlines, step text, field labels |
+| Accent mark | `--accent` `#bf7b47` | Selected radio border/dot, filmstrip ring, upload hover, nav rail |
+| Accent text / links | `--accent-text` `#a86c3c` | `Replace`, `Add more`, `Clear all` — **not** `#c45c26` |
+| Selected radio wash | `#fdf6f0` | Soft terracotta tint behind selected “What they get” card |
+| Success | `--ok-fg` `#597f5d` | Saved status |
+
+No purple / lavender upload chrome. Upload wells stay cream→white gradient or `--surface-sunk`; accent on hover is terracotta only.
+
+#### Create Album wizard
+
+| Element | Spec |
+|---|---|
+| Page | `.sa-create-wizard-page` · canvas `#f7f6f2` · sans root |
+| Title `NEW ALBUM` | Fraunces · uppercase · tracking ~0.16em · `#1d1916` |
+| Step label | Jakarta · uppercase · muted |
+| Kicker `ALBUM PROOFER SETUP` | Jakarta · uppercase · muted |
+| Card headline | Fraunces · sentence case · weight 500 |
+| Section head + italic hint | Fraunces (hint italic muted) |
+| Field labels | Jakarta · uppercase · muted |
+| Inputs | Sunk `#f0efeb` · Jakarta value · Fraunces italic placeholder |
+| Primary CTA | Charcoal `#1d1916` · white text · Jakarta · radius ~10px |
+| Ghost Cancel / Back | Transparent · muted Jakarta |
+| Upload card | Dashed `#d4cfc6` · cream/white fill · icon well sunk · accent hover `#bf7b47` |
+| Filmstrip selected | Border + ring `--accent` `#bf7b47` |
+
+Files: `src/pages/smart-albums/CreateAlbum.css`, `CreateAlbum.jsx`.
+
+#### Albums empty state & Proofer settings
+
+| Screen | File | Notes |
+|---|---|---|
+| Empty “Your first album proof” | `SmartAlbumsListProofer.css` | Fraunces title · charcoal primary pill · ghost outline |
+| Settings “What they get” | `SmartAlbumProoferSettings.css` | Page `--sa-set-page: #f7f6f2` · selected radio soft `#fdf6f0` + accent border |
+
+#### Studio settings shell (light)
+
+| Part | Spec |
+|---|---|
+| Shell / main | `#f7f6f2` |
+| Aside | `#f5f3ed` · border `#e5e2dc` |
+| Active nav | White pill · rail + icon `--accent` `#bf7b47` |
+| Appearance track | Cream `#EFECE6` · active white pill · charcoal text |
+| Page titles | Fraunces via `.type-page-title` |
+| Form UI | Jakarta · white inputs · charcoal primary where used |
+
+Files: `src/styles/accountSettingsTheme.css`, `src/pages/Settings.css`, `AccountSettings.jsx`.
 
 ### Settings toggle (Studio settings / Your account)
 

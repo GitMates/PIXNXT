@@ -556,11 +556,12 @@
 }
 
 .ae-share-toggle--on {
-  background: #34c759;
+  background: var(--toggle-track-on);
 }
 
 .ae-share-toggle--off {
-  background: oklch(0.88 0.007 82);
+  background: var(--toggle-track-off);
+  box-shadow: var(--toggle-track-inset);
 }
 
 .ae-share-toggle__knob {
@@ -570,8 +571,8 @@
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 1px 3px oklch(0.4 0.01 70 / 0.18);
+  background: var(--toggle-thumb);
+  box-shadow: var(--toggle-thumb-shadow);
   transition: transform 0.2s ease;
 }
 

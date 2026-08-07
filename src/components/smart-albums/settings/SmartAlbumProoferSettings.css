@@ -6,12 +6,12 @@
   --sa-set-accent-soft: #fdf6f0;
   --sa-set-accent-border: #d4a07a;
   --sa-set-ink: #1d1916;
-  --sa-set-body: #5c5651;
-  --sa-set-muted: #8a847e;
-  --sa-set-line: #e6e1da;
+  --sa-set-body: #44403c;
+  --sa-set-muted: #857f7b;
+  --sa-set-line: #e5e2dc;
   --sa-set-surface: #ffffff;
-  --sa-set-page: #faf8f4;
-  --sa-set-ok: #5a8a5e;
+  --sa-set-page: #f7f6f2;
+  --sa-set-ok: #597f5d;
 
   flex: 1;
   min-height: 100%;
@@ -379,7 +379,8 @@
 }
 
 .theme-mono .sa-proofer-toggle--on {
-  background: var(--sa-set-accent);
+  background: var(--toggle-track-on);
+  box-shadow: none;
 }
 
 .theme-mono .sa-proofer-toggle--ok.sa-proofer-toggle--on {
@@ -387,7 +388,8 @@
 }
 
 .theme-mono .sa-proofer-toggle--off {
-  background: #d4d0cb;
+  background: var(--toggle-track-off);
+  box-shadow: var(--toggle-track-inset);
 }
 
 .theme-mono .sa-proofer-toggle__knob {
@@ -397,8 +399,8 @@
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.14);
+  background: var(--toggle-thumb);
+  box-shadow: var(--toggle-thumb-shadow);
   transition: transform 0.2s ease;
 }
 
