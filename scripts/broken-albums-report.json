@@ -1,0 +1,25 @@
+{
+  "generatedAt": "2026-08-07T17:28:22.416Z",
+  "report": [
+    {
+      "id": "840ed58e-76b2-49b9-b086-63cc2d4f7bfa",
+      "name": "Kellie x Fahim - Album 2",
+      "photographer_id": "8e222e35-3f29-4867-8672-165fb9209769",
+      "repaired": true,
+      "collectionCount": 32,
+      "pageCount": 31,
+      "warning": null
+    },
+    {
+      "id": "94147c4a-6d3f-4ddd-9380-e190e98af36c",
+      "name": "Kellie X Fahim (Album1)",
+      "photographer_id": "8e222e35-3f29-4867-8672-165fb9209769",
+      "repaired": true,
+      "collectionCount": 35,
+      "pageCount": 35,
+      "warning": null
+    }
+  ],
+  "brokenCount": 2,
+  "total": 7
+}

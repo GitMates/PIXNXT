@@ -184,7 +184,9 @@ export function buildAlbumPreviewSnapshot(
     const collection = getAlbumCollection(albumId).map((item, index) => ({
         id: item.id,
         name: item.name || 'Photo',
-        dataUrl: item.dataUrl || null,
+        dataUrl:
+            item.dataUrl ||
+            (item.storagePath ? storageService.getPublicUrl(item.storagePath) : null),
         storagePath: item.storagePath || null,
         size_bytes: Number(item.size_bytes) || 0,
         sortOrder:
@@ -198,6 +200,26 @@ export function buildAlbumPreviewSnapshot(
     Object.keys(localPages).forEach((key) => {
         if (key === '__revision') return;
         pages[key] = resolvePageValue(albumId, localPages[key]);
+    });
+
+    // Final pass: never emit id-only placements when the catalog still has the item.
+    Object.keys(pages).forEach((key) => {
+        const stored = pages[key];
+        if (!stored || typeof stored !== 'object' || !stored.collectionItemId) return;
+        if (stored.storagePath && stored.dataUrl) return;
+        const item = collection.find((entry) => entry.id === stored.collectionItemId);
+        if (!item) return;
+        pages[key] = {
+            collectionItemId: stored.collectionItemId,
+            ...(item.storagePath ? { storagePath: item.storagePath } : {}),
+            ...(item.dataUrl || item.storagePath
+                ? {
+                      dataUrl:
+                          item.dataUrl ||
+                          (item.storagePath ? storageService.getPublicUrl(item.storagePath) : null),
+                  }
+                : {}),
+        };
     });
 
     const { transforms, transform_revision } = serializeTransformsForSnapshot(albumId);
