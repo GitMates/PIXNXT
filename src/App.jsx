@@ -59,6 +59,11 @@ function MobileGalleryViewRedirect() {
   return <Navigate to={`/m/${slug}/pwa`} replace />;
 }
 
+function ShowcasePortfolioRoute() {
+  const { slug } = useParams();
+  return <CollectionList slug={slug} />;
+}
+
 function MobileGalleryPublicRoutes() {
   return (
     <Routes>
@@ -165,6 +170,7 @@ function App() {
     location.pathname.startsWith('/m/') ||
     location.pathname.startsWith('/e/') ||
     location.pathname.startsWith('/album-preview/') ||
+    location.pathname.startsWith('/p/') ||
     location.pathname.startsWith('/admin') ||
     location.pathname.startsWith('/printstore') ||
     location.pathname.startsWith('/store') ||
@@ -287,6 +293,7 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route path="/p/:slug" element={<ShowcasePortfolioRoute />} />
           <Route path="/deliveries" element={<CollectionList />} />
           <Route
             path="/collections/*"

@@ -7,18 +7,13 @@ import {
     removeSwapMark,
 } from './albumSwapMarks';
 import EditorSpreadMessageCompose from './EditorSpreadMessageCompose';
+import SpreadVersionHistory from './SpreadVersionHistory';
 import AlbumPreviewSpreadFeed from './AlbumPreviewSpreadFeed';
 import { buildSpreadFeedbackFeed } from './spreadFeedbackFeed';
 import { hasCommentAttachment } from './albumCommentAttachments';
-import CollectionSortableGrid from './CollectionSortableGrid';
 import CoverLeatherColorPicker from './CoverLeatherColorPicker';
 import CoverPhotoUploader from './CoverPhotoUploader';
-import {
-    resolveCollectionSpreadLabel,
-    resolveCollectionThumbLayout,
-} from './collectionThumbLayout';
-import { getLockedCollectionIndices } from './albumCollection';
-import { formatAlbumGridSizeDisplay, parseGridSizeAspect } from './albumGridSize';
+import { formatAlbumGridSizeDisplay } from './albumGridSize';
 import {
     getImageReplacements,
     IMAGE_REPLACEMENTS_CHANGED_EVENT,
@@ -37,7 +32,6 @@ import '../../pages/smart-albums/AlbumViewer.css';
 import './AlbumCoverPanel.css';
 
 const NAV_BASE = [
-    { id: 'collections', label: 'Spreads' },
     { id: 'pin', label: 'Comments' },
     { id: 'cover', label: 'Cover', requiresCovers: true },
     { id: 'comments', label: 'Settings' },
@@ -68,7 +62,6 @@ export default function AlbumEditorSidebar({
     onPanelChange,
     album,
     totalPages,
-    collectionItems = [],
     onUploadForCurrentSpread,
     onOpenPicker,
     onClearAllPhotos,
@@ -95,7 +88,6 @@ export default function AlbumEditorSidebar({
     photographerName = 'Photographer',
     onNavigateToPin = null,
     onNavigateToSwapSlotKey = null,
-    onReorderCollectionItem = null,
     proofSeenTick = 0,
     showCoverSpine = true,
     onShowCoverSpineChange = null,
@@ -104,10 +96,12 @@ export default function AlbumEditorSidebar({
     onUploadCoverFile = null,
     onRemoveCoverPhotos = null,
     workspaceRevision = 0,
+    onRestoreImageReplacement = null,
+    onRemoveImageReplacement = null,
 }) {
     const [imageReplacements, setImageReplacements] = useState([]);
     const [localCoverText, setLocalCoverText] = useState(coverTextMessage);
-    const [showAllFeedback, setShowAllFeedback] = useState(false);
+    const [feedbackFilter, setFeedbackFilter] = useState('all'); // all | this | done
 
     const hasCoverPhoto = useMemo(() => {
         void workspaceRevision;
@@ -120,6 +114,13 @@ export default function AlbumEditorSidebar({
 
     void proofSeenTick;
     const swapsEnabled = album?.messages_enabled !== false;
+    const showAllFeedback = feedbackFilter === 'all';
+    const showDoneOnly = feedbackFilter === 'done';
+    const clientVisibleName =
+        album?.client_contact_name ||
+        album?.client_name ||
+        album?.share_guest_name ||
+        'Client';
 
     const spreadOpts = useMemo(
         () => ({ ...getAlbumSpreadOptions(album), totalPages }),
@@ -142,29 +143,6 @@ export default function AlbumEditorSidebar({
             window.removeEventListener(IMAGE_REPLACEMENTS_CHANGED_EVENT, onReplacementsChanged);
     }, [albumId]);
 
-    const collectionThumbLayouts = useMemo(
-        () =>
-            collectionItems.map((_, index) =>
-                resolveCollectionThumbLayout(index, collectionItems, album, totalPages)
-            ),
-        [collectionItems, album, totalPages]
-    );
-    const collectionSpreadLabels = useMemo(
-        () =>
-            collectionItems.map((_, index) =>
-                resolveCollectionSpreadLabel(index, collectionItems, album, totalPages)
-            ),
-        [collectionItems, album, totalPages]
-    );
-    const collectionThumbAspect = useMemo(() => {
-        const pageAspect = parseGridSizeAspect(album?.grid_size || 'square');
-        return 2 * pageAspect;
-    }, [album?.grid_size]);
-    const lockedCollectionIndices = useMemo(
-        () => getLockedCollectionIndices(collectionItems, album),
-        [collectionItems, album]
-    );
-
     const currentSpreadIndex = useMemo(() => {
         const left =
             gridSelection?.leftPage ??
@@ -173,7 +151,7 @@ export default function AlbumEditorSidebar({
     }, [gridSelection?.leftPage, bookPage, spreadOpts, totalPages]);
 
     useEffect(() => {
-        setShowAllFeedback(false);
+        setFeedbackFilter('this');
     }, [currentSpreadIndex]);
 
     const visiblePhotoPins = useMemo(
@@ -274,25 +252,62 @@ export default function AlbumEditorSidebar({
         );
     }, [spreadCommentsBySpread, currentSpreadIndex, showAllFeedback]);
 
-    const visibleSpreadFeed = useMemo(
-        () =>
-            buildSpreadFeedbackFeed({
-                photographerMessages: visibleSentMessages,
-                clientMessages: visibleClientMessages,
-                photoPins: visiblePhotoPins,
-                swapMarks: visibleSwapMarks,
-                imageReplacements: visibleImageReplacements,
-                includeSwaps: swapsEnabled,
-            }),
-        [
-            visibleSentMessages,
-            visibleClientMessages,
-            visiblePhotoPins,
-            visibleSwapMarks,
-            visibleImageReplacements,
-            swapsEnabled,
-        ]
-    );
+    const visibleSpreadFeed = useMemo(() => {
+        const feed = buildSpreadFeedbackFeed({
+            photographerMessages: visibleSentMessages,
+            clientMessages: visibleClientMessages,
+            photoPins: visiblePhotoPins,
+            swapMarks: visibleSwapMarks,
+            imageReplacements: visibleImageReplacements,
+            includeSwaps: swapsEnabled,
+        });
+        if (!showDoneOnly) return feed;
+        return feed.filter((item) => {
+            const row = item?.comment || item?.data || item;
+            return Boolean(row?.resolved || row?.done || item?.resolved);
+        });
+    }, [
+        visibleSentMessages,
+        visibleClientMessages,
+        visiblePhotoPins,
+        visibleSwapMarks,
+        visibleImageReplacements,
+        swapsEnabled,
+        showDoneOnly,
+    ]);
+
+    const doneFeedCount = useMemo(() => {
+        const all = buildSpreadFeedbackFeed({
+            photographerMessages: Object.values(spreadCommentsBySpread || {})
+                .flat()
+                .filter((c) => c.author_type === 'photographer' && String(c.body || '').trim()),
+            clientMessages: Object.values(spreadCommentsBySpread || {})
+                .flat()
+                .filter(
+                    (c) =>
+                        c.author_type === 'client' &&
+                        (String(c.body || '').trim() || hasCommentAttachment(c))
+                ),
+            photoPins: (photoPins || []).map((pin) => ({
+                ...pin,
+                spreadIndex: pageToSpreadIndex(pin.pageNum, spreadOpts),
+            })),
+            swapMarks: swapsEnabled ? swapMarks || [] : [],
+            imageReplacements,
+            includeSwaps: swapsEnabled,
+        });
+        return all.filter((item) => {
+            const row = item?.comment || item?.data || item;
+            return Boolean(row?.resolved || row?.done || item?.resolved);
+        }).length;
+    }, [
+        spreadCommentsBySpread,
+        photoPins,
+        swapMarks,
+        imageReplacements,
+        swapsEnabled,
+        spreadOpts,
+    ]);
 
     const currentSpreadFeedCount = useMemo(() => {
         const pins = (photoPins || []).filter(
@@ -327,6 +342,24 @@ export default function AlbumEditorSidebar({
         currentSpreadIndex,
         spreadOpts,
     ]);
+
+    const currentSpreadReplacements = useMemo(
+        () =>
+            imageReplacements.filter(
+                (replacement) => replacement.spreadIndex === currentSpreadIndex
+            ),
+        [imageReplacements, currentSpreadIndex]
+    );
+
+    const handleNewVersionUpload = useCallback(async () => {
+        if (!onUploadForCurrentSpread) return;
+        try {
+            const files = await pickImageFiles({ multiple: false });
+            if (files?.length) await onUploadForCurrentSpread(files);
+        } catch (e) {
+            console.warn(e);
+        }
+    }, [onUploadForCurrentSpread]);
 
     const spreadPanelCount = currentSpreadFeedCount;
 
@@ -420,8 +453,6 @@ export default function AlbumEditorSidebar({
         );
     };
 
-    const albumSpreadMeta = `${totalPages} pages · ${pagesPerSpread}-page spreads`;
-
     return (
         <aside className="ae-sidebar">
             <nav className="ae-nav-rail ae-nav-rail--tabs" aria-label="Editor tools">
@@ -453,29 +484,49 @@ export default function AlbumEditorSidebar({
 
                 {activePanel === 'pin' && (
                     <div className="ae-panel-pin-layout">
-                        <div className="ae-panel-pin-subheader">
-                            <span className="ae-panel-pin-subheader__spread">
-                                {showAllFeedback ? 'All spreads' : currentSpreadLabel}
-                            </span>
+                        <div className="ae-panel-pin-filters" role="tablist" aria-label="Feedback filters">
                             <button
                                 type="button"
-                                className={`ae-panel-pin-subheader__all${
-                                    showAllFeedback ? ' ae-panel-pin-subheader__all--active' : ''
+                                role="tab"
+                                aria-selected={feedbackFilter === 'all'}
+                                className={`ae-panel-pin-filter${
+                                    feedbackFilter === 'all' ? ' ae-panel-pin-filter--active' : ''
                                 }`}
-                                onClick={() => setShowAllFeedback((v) => !v)}
-                                aria-pressed={showAllFeedback}
+                                onClick={() => setFeedbackFilter('all')}
                             >
-                                {showAllFeedback
-                                    ? `This spread (${currentSpreadFeedCount})`
-                                    : `All feedback (${albumFeedbackCount})`}
+                                All spreads {albumFeedbackCount}
+                            </button>
+                            <button
+                                type="button"
+                                role="tab"
+                                aria-selected={feedbackFilter === 'this'}
+                                className={`ae-panel-pin-filter${
+                                    feedbackFilter === 'this' ? ' ae-panel-pin-filter--active' : ''
+                                }`}
+                                onClick={() => setFeedbackFilter('this')}
+                            >
+                                This spread {currentSpreadFeedCount}
+                            </button>
+                            <button
+                                type="button"
+                                role="tab"
+                                aria-selected={feedbackFilter === 'done'}
+                                className={`ae-panel-pin-filter${
+                                    feedbackFilter === 'done' ? ' ae-panel-pin-filter--active' : ''
+                                }`}
+                                onClick={() => setFeedbackFilter('done')}
+                            >
+                                Done {doneFeedCount}
                             </button>
                         </div>
                         <div className="ae-panel-pin-body">
                             {visibleSpreadFeed.length === 0 ? (
                                 <p className="av-preview-sidebar-text ae-swap-marks-empty">
-                                    {showAllFeedback
-                                        ? 'No comments, swap requests, or photo changes in this album yet.'
-                                        : 'No comments, swap requests, or photo changes on this spread yet.'}
+                                    {feedbackFilter === 'done'
+                                        ? 'No completed feedback yet.'
+                                        : feedbackFilter === 'all'
+                                          ? 'No comments, swap requests, or photo changes in this album yet.'
+                                          : 'No comments, swap requests, or photo changes on this spread yet.'}
                                 </p>
                             ) : (
                                 <div className="av-preview-sidebar-comments ae-panel-proof-feed">
@@ -492,44 +543,44 @@ export default function AlbumEditorSidebar({
                                         onNavigateToPin={onNavigateToPin}
                                         onNavigateToSlotKey={onNavigateToSwapSlotKey}
                                         onRemoveSwap={(id) => removeSwapMark(albumId, id)}
-                                        onRemoveReplacement={(id) =>
-                                            removeImageReplacement(albumId, id)
-                                        }
+                                        onRemoveReplacement={(id) => {
+                                            if (onRemoveImageReplacement) {
+                                                onRemoveImageReplacement(id);
+                                            } else {
+                                                removeImageReplacement(albumId, id);
+                                            }
+                                        }}
                                     />
                                 </div>
                             )}
                         </div>
                         {gridSelection?.mode !== 'cover' ? (
                             <div className="ae-panel-pin-footer">
+                                <SpreadVersionHistory
+                                    albumId={albumId}
+                                    replacements={currentSpreadReplacements}
+                                    onNewVersion={handleNewVersionUpload}
+                                    onRestore={onRestoreImageReplacement}
+                                    onDelete={(row) => {
+                                        if (!row?.id) return;
+                                        if (onRemoveImageReplacement) {
+                                            onRemoveImageReplacement(row.id);
+                                        } else {
+                                            removeImageReplacement(albumId, row.id);
+                                        }
+                                    }}
+                                />
                                 <EditorSpreadMessageCompose
                                     albumId={albumId}
                                     spreadIndex={currentSpreadIndex}
                                     authorName={photographerName}
                                     disabled={!albumId}
+                                    visibleToName={clientVisibleName}
+                                    spreadLabel={`SPREAD ${String(currentSpreadIndex + 1).padStart(2, '0')}`}
                                 />
-                                {renderSpreadUploadActions(false)}
                             </div>
                         ) : null}
                     </div>
-                )}
-
-                {activePanel === 'collections' && (
-                    <>
-                        <h3 className="ae-panel-title">Spreads</h3>
-                        <div className="ae-panel-status-row">
-                            <span className="ae-panel-status-meta">{albumSpreadMeta}</span>
-                        </div>
-                        {collectionItems.length > 0 && (
-                            <CollectionSortableGrid
-                                items={collectionItems}
-                                lockedIndices={lockedCollectionIndices}
-                                collectionThumbLayouts={collectionThumbLayouts}
-                                collectionSpreadLabels={collectionSpreadLabels}
-                                collectionThumbAspect={collectionThumbAspect}
-                                onReorder={onReorderCollectionItem}
-                            />
-                        )}
-                    </>
                 )}
 
                 {activePanel === 'grid' && (

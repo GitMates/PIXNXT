@@ -1316,12 +1316,61 @@ export const smartAlbumsService = {
 
   async syncAlbumPreviewData(photographerId, albumId) {
     const album = await this.getAlbum(photographerId, albumId);
+    const existingPreview =
+      album?.preview_data && typeof album.preview_data === 'object'
+        ? album.preview_data
+        : null;
     const previewData = buildAlbumPreviewSnapshot(albumId, {
       album,
       coverColorPreset: getAlbumCoverColor(albumId),
       spineBounds: getAlbumSpineBoundsOverride(albumId),
     });
     if (!previewData) return null;
+
+    const localCollection = Array.isArray(previewData.collection) ? previewData.collection : [];
+    const cloudCollection = Array.isArray(existingPreview?.collection)
+      ? existingPreview.collection
+      : [];
+    // Never wipe a populated cloud catalog with an empty/partial local snapshot
+    // (common race: open album before R2 hydrate finishes).
+    if (localCollection.length === 0 && cloudCollection.length > 0) {
+      previewData.collection = cloudCollection;
+      previewData.storage_bytes =
+        Number(existingPreview.storage_bytes) ||
+        cloudCollection.reduce((sum, item) => sum + (Number(item.size_bytes) || 0), 0);
+    } else if (
+      localCollection.length > 0 &&
+      cloudCollection.length > localCollection.length * 2
+    ) {
+      // Local is suspiciously thin vs cloud — merge rather than replace.
+      const byId = new Map();
+      const byPath = new Map();
+      for (const item of [...cloudCollection, ...localCollection]) {
+        if (!item) continue;
+        if (item.id) byId.set(item.id, item);
+        if (item.storagePath) byPath.set(item.storagePath, item);
+      }
+      const merged = [];
+      const seen = new Set();
+      for (const item of [...byId.values(), ...byPath.values()]) {
+        const key = item.id || item.storagePath;
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        merged.push(item);
+      }
+      previewData.collection = merged;
+      previewData.storage_bytes = merged.reduce(
+        (sum, item) => sum + (Number(item.size_bytes) || 0),
+        0
+      );
+    }
+
+    const localPageKeys = Object.keys(previewData.pages || {}).filter((k) => k !== '__revision');
+    const cloudPageKeys = Object.keys(existingPreview?.pages || {});
+    if (localPageKeys.length === 0 && cloudPageKeys.length > 0) {
+      previewData.pages = existingPreview.pages;
+      if (existingPreview.revision != null) previewData.revision = existingPreview.revision;
+    }
 
     const { data, error } = await updateAlbumRowResilient(photographerId, albumId, {
       preview_data: previewData,

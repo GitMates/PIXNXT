@@ -513,6 +513,20 @@ function BookArcballControls({ orbitDragRef, enabled = true }) {
     );
 }
 
+function WebGLContextGuard({ onLost }) {
+    const gl = useThree((state) => state.gl);
+    useEffect(() => {
+        const canvas = gl.domElement;
+        const handleLost = (event) => {
+            event.preventDefault();
+            onLost?.();
+        };
+        canvas.addEventListener('webglcontextlost', handleLost);
+        return () => canvas.removeEventListener('webglcontextlost', handleLost);
+    }, [gl, onLost]);
+    return null;
+}
+
 export default function BookScene({
     album,
     totalPages,
@@ -526,6 +540,14 @@ export default function BookScene({
     const orbitDragRef = useRef(false);
     const [showContactShadow, setShowContactShadow] = useState(true);
     const [introActive, setIntroActive] = useState(playIntroAnimation);
+    const [canvasReady, setCanvasReady] = useState(false);
+    const [webglError, setWebglError] = useState(false);
+
+    // Defer Canvas mount — avoids React StrictMode double-init losing the WebGL context.
+    useEffect(() => {
+        const frame = requestAnimationFrame(() => setCanvasReady(true));
+        return () => cancelAnimationFrame(frame);
+    }, []);
     const fallbackDims = useMemo(() => getBook3dDimensions(album), [album]);
     const bookHeight = pageWorldDims?.height ?? fallbackDims.height;
     const shadowY = -(bookHeight / 2 + 0.2);
@@ -539,6 +561,10 @@ export default function BookScene({
         requestAnimationFrame(() => setShowContactShadow(true));
     }, []);
 
+    if (webglError) {
+        throw new Error('WebGL context unavailable');
+    }
+
     return (
         <div
             className={`ab-book-scene ab-book-scene--orbit${
@@ -546,6 +572,9 @@ export default function BookScene({
             }`}
             ref={sceneWrapRef}
         >
+            {!canvasReady || webglError ? (
+                <div className="ab-book-scene__boot" aria-hidden="true" />
+            ) : (
             <Canvas
                 shadows={false}
                 dpr={[1, 1.5]}
@@ -562,6 +591,7 @@ export default function BookScene({
                     toneMappingExposure: 1,
                 }}
             >
+                <WebGLContextGuard onLost={() => setWebglError(true)} />
                 <color attach="background" args={['#efefef']} />
 
                 <ambientLight intensity={0.72} />
@@ -606,6 +636,7 @@ export default function BookScene({
                     />
                 ) : null}
             </Canvas>
+            )}
         </div>
     );
 }

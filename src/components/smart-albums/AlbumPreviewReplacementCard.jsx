@@ -1,234 +1,92 @@
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import React, { useMemo } from 'react';
+import { formatRelativeTime } from '../../lib/relativeTime';
 import { formatCommentTime } from '../../services/smartAlbumComments.service';
 import {
     getReplacementCurrentVersion,
-    getReplacementVersion,
     resolveReplacementPreviewUrl,
     sortSpreadReplacements,
 } from './albumImageReplacements';
 
-function ReplacementImagePreviewPopup({ anchorRef, albumId, url, storagePath, onClose }) {
-    const popupRef = useRef(null);
-    const [failed, setFailed] = useState(false);
-    const [useStorageFallback, setUseStorageFallback] = useState(false);
-    const [position, setPosition] = useState(null);
-    const resolvedUrl = resolveReplacementPreviewUrl(
-        albumId,
-        useStorageFallback ? null : url,
-        useStorageFallback || !url ? storagePath : null
-    );
-
-    useEffect(() => {
-        setFailed(false);
-        setUseStorageFallback(false);
-    }, [url, storagePath]);
-
-    const updatePosition = useCallback(() => {
-        const anchor = anchorRef?.current;
-        if (!anchor) return;
-
-        const rect = anchor.getBoundingClientRect();
-        const popupWidth = popupRef.current?.offsetWidth ?? 300;
-        const popupHeight = popupRef.current?.offsetHeight ?? 220;
-        const margin = 12;
-        const gap = 10;
-
-        let left = rect.left - gap;
-        let top = rect.top + rect.height / 2;
-        let placement = 'left';
-
-        if (left - popupWidth < margin) {
-            left = rect.right + gap;
-            placement = 'right';
-        }
-
-        if (top - popupHeight / 2 < margin) {
-            top = margin + popupHeight / 2;
-        } else if (top + popupHeight / 2 > window.innerHeight - margin) {
-            top = window.innerHeight - margin - popupHeight / 2;
-        }
-
-        setPosition({ left, top, placement });
-    }, [anchorRef]);
-
-    useLayoutEffect(() => {
-        const anchor = anchorRef?.current;
-        if (!anchor) return;
-
-        const rect = anchor.getBoundingClientRect();
-        setPosition({
-            left: rect.left - 10,
-            top: rect.top + rect.height / 2,
-            placement: 'left',
-        });
-
-        const raf = window.requestAnimationFrame(updatePosition);
-        window.addEventListener('resize', updatePosition);
-        window.addEventListener('scroll', updatePosition, true);
-        return () => {
-            window.cancelAnimationFrame(raf);
-            window.removeEventListener('resize', updatePosition);
-            window.removeEventListener('scroll', updatePosition, true);
-        };
-    }, [updatePosition, resolvedUrl, failed]);
-
-    useEffect(() => {
-        const onKeyDown = (e) => {
-            if (e.key === 'Escape') onClose?.();
-        };
-        window.addEventListener('keydown', onKeyDown);
-        return () => window.removeEventListener('keydown', onKeyDown);
-    }, [onClose]);
-
-    if (!position) return null;
-
-    const transform =
-        position.placement === 'left'
-            ? 'translate(-100%, -50%)'
-            : 'translate(0, -50%)';
-
-    return createPortal(
-        <>
-            <button
-                type="button"
-                className="av-replacement-preview-backdrop"
-                aria-label="Close image preview"
-                onClick={() => onClose?.()}
-            />
-            <div
-                ref={popupRef}
-                className={`av-replacement-preview-popup av-replacement-preview-popup--${position.placement}`}
-                style={{
-                    left: `${position.left}px`,
-                    top: `${position.top}px`,
-                    transform,
-                }}
-                role="dialog"
-                aria-label="Previous image preview"
-                onClick={(e) => e.stopPropagation()}
-            >
-                <div className="av-replacement-preview-popup-bubble">
-                    {!resolvedUrl || failed ? (
-                        <div className="av-replacement-preview-popup-missing">
-                            Original photo unavailable
-                        </div>
-                    ) : (
-                        <img
-                            className="av-replacement-preview-popup-image"
-                            src={resolvedUrl}
-                            alt="Previous photo"
-                            draggable={false}
-                            onLoad={updatePosition}
-                            onError={() => {
-                                if (!useStorageFallback && storagePath && url) {
-                                    setUseStorageFallback(true);
-                                    return;
-                                }
-                                setFailed(true);
-                            }}
-                        />
-                    )}
-                </div>
-            </div>
-        </>,
-        document.body
+function Shot({ albumId, url, storagePath, tag }) {
+    const src = resolveReplacementPreviewUrl(albumId, url, storagePath);
+    return (
+        <span className="quiet-proof-card__version-shot">
+            {src ? (
+                <img src={src} alt="" draggable={false} />
+            ) : (
+                <span className="quiet-proof-card__version-shot-ph" />
+            )}
+            {tag ? <span className="quiet-proof-card__version-shot-tag">{tag}</span> : null}
+        </span>
     );
 }
 
-export default function AlbumPreviewReplacementCard({ albumId, replacements, replacement }) {
-    const rows = sortSpreadReplacements(
-        replacements?.length ? replacements : replacement ? [replacement] : []
+/** Feed card for photo version changes (Quiet Proof style). */
+export default function AlbumPreviewReplacementCard({
+    albumId,
+    replacements,
+    replacement,
+    authorName = 'Photographer',
+    spreadLabel = null,
+}) {
+    const rows = useMemo(
+        () =>
+            sortSpreadReplacements(
+                replacements?.length ? replacements : replacement ? [replacement] : []
+            ),
+        [replacements, replacement]
     );
-    const previewBtnRefs = useRef({});
-    const [openPreviewVersion, setOpenPreviewVersion] = useState(null);
 
     if (!rows.length) return null;
 
     const latest = rows[rows.length - 1];
     const currentVersion = getReplacementCurrentVersion(latest);
-    const currentAtLabel = latest.createdAt ? formatCommentTime(latest.createdAt) : null;
-    const openRow = rows.find((row) => getReplacementVersion(row) === openPreviewVersion);
+    const createdAt = latest.createdAt;
+    const timeLabel = formatRelativeTime(createdAt) || formatCommentTime(createdAt);
+    const spreadIdx =
+        latest.spreadIndex != null ? Number(latest.spreadIndex) : null;
+    const spreadText =
+        spreadLabel ||
+        (Number.isFinite(spreadIdx)
+            ? `Spread ${String(spreadIdx + 1).padStart(2, '0')}`
+            : null);
 
     return (
-        <>
-            {rows.map((row) => {
-                const version = getReplacementVersion(row);
-                const becameCurrentRow =
-                    version > 1
-                        ? rows.find((entry) => getReplacementVersion(entry) === version - 1)
-                        : null;
-                const atLabel = becameCurrentRow?.createdAt
-                    ? formatCommentTime(becameCurrentRow.createdAt)
-                    : null;
-                return (
-                    <article key={row.id} className="av-preview-sidebar-replacement">
-                        <div className="av-preview-sidebar-replacement-pair">
-                            <div className="av-preview-sidebar-replacement-update">
-                                <p className="av-preview-sidebar-replacement-update-label">
-                                    Version {version}
-                                </p>
-                                <button
-                                    ref={(node) => {
-                                        previewBtnRefs.current[version] = node;
-                                    }}
-                                    type="button"
-                                    className="av-preview-sidebar-replacement-preview-btn"
-                                    onClick={() =>
-                                        setOpenPreviewVersion((active) =>
-                                            active === version ? null : version
-                                        )
-                                    }
-                                    aria-expanded={openPreviewVersion === version}
-                                >
-                                    Preview
-                                </button>
-                            </div>
-                            {atLabel ? (
-                                <time
-                                    className="av-preview-sidebar-replacement-time"
-                                    dateTime={becameCurrentRow.createdAt}
-                                >
-                                    {atLabel}
-                                </time>
-                            ) : null}
-                        </div>
-                    </article>
-                );
-            })}
-            <article className="av-preview-sidebar-replacement">
-                <div className="av-preview-sidebar-replacement-pair">
-                    <div className="av-preview-sidebar-replacement-current">
-                        <p className="av-preview-sidebar-replacement-update-label">
-                            Version {currentVersion}
-                        </p>
-                        <span className="av-preview-sidebar-replacement-current-badge">
-                            Current
+        <article className="quiet-proof-card">
+            <header className="quiet-proof-card__head">
+                <div className="quiet-proof-card__title-row">
+                    <div className="quiet-proof-card__name-wrap">
+                        <span className="quiet-proof-card__name">{authorName}</span>
+                        <span className="quiet-proof-card__badge quiet-proof-card__badge--photographer">
+                            Photographer
                         </span>
                     </div>
-                    {currentAtLabel ? (
-                        <time
-                            className="av-preview-sidebar-replacement-time"
-                            dateTime={latest.createdAt}
-                        >
-                            {currentAtLabel}
+                    {timeLabel ? (
+                        <time className="quiet-proof-card__time" dateTime={createdAt || undefined}>
+                            {timeLabel}
                         </time>
                     ) : null}
                 </div>
-            </article>
-            {openPreviewVersion != null && openRow ? (
-                <ReplacementImagePreviewPopup
-                    anchorRef={{
-                        get current() {
-                            return previewBtnRefs.current[openPreviewVersion];
-                        },
-                    }}
-                    albumId={albumId}
-                    url={openRow.previousUrl}
-                    storagePath={openRow.previousStoragePath}
-                    onClose={() => setOpenPreviewVersion(null)}
-                />
-            ) : null}
-        </>
+                <p className="quiet-proof-card__activity">
+                    <span className="quiet-proof-card__activity-dot" aria-hidden />
+                    New version · v{currentVersion}
+                    {spreadText ? ` · ${spreadText}` : ''}
+                </p>
+            </header>
+            <div className="quiet-proof-card__body">
+                <div className="quiet-proof-card__version-pair" aria-label="Version change">
+                    <Shot
+                        albumId={albumId}
+                        url={latest.previousUrl}
+                        storagePath={latest.previousStoragePath}
+                        tag={`v${currentVersion - 1}`}
+                    />
+                    <span className="quiet-proof-card__version-arrow" aria-hidden>
+                        →
+                    </span>
+                    <Shot albumId={albumId} url={latest.newUrl} tag={`v${currentVersion}`} />
+                </div>
+            </div>
+        </article>
     );
 }

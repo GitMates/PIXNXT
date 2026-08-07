@@ -10,6 +10,7 @@ import {
     syncUploadDefaultsToLocalStorage,
     planAllowsRaw,
 } from '../lib/uploadDefaults';
+import { buildShowcaseUrl } from '../lib/showcaseUrl';
 import './Settings.css';
 import './ClientGallery.css';
 
@@ -967,12 +968,7 @@ const ShowcasePageTab = ({ profile, updateProfile }) => {
     });
     const [saveStatus, setSaveStatus] = useState('');
 
-    const host = window.location.host;
-    const baseHost = (host.includes('localhost') || host.includes('127.0.0.1'))
-        ? 'karakovan.in'
-        : host.replace(/^(www\.|[a-zA-Z0-9-]+\.)/i, '');
-    const showcaseSlug = (profile?.showcase_slug || profile?.slug || 'karakovan').toLowerCase();
-    const showcaseUrl = `photos.${showcaseSlug}.${baseHost}`;
+    const showcaseUrl = buildShowcaseUrl(profile, null);
 
     const handlePublishToggle = async () => {
         const next = !publishShowcase;
@@ -1005,7 +1001,7 @@ const ShowcasePageTab = ({ profile, updateProfile }) => {
                 <div className="si-branding-text">
                     <strong className="settings-field-title" style={{ fontSize: '15px' }}>Publish Showcase</strong>
                     <p className="settings-right-desc" style={{ marginTop: '2px', fontSize: '13.5px' }}>
-                        Live at <a href={`https://${showcaseUrl}`} target="_blank" rel="noreferrer" style={{ color: '#c46a3a', textDecoration: 'underline' }}>{showcaseUrl}</a>. Turn off and the address returns nothing.
+                        Live at <a href={showcaseUrl} target="_blank" rel="noreferrer" style={{ color: '#c46a3a', textDecoration: 'underline' }}>{showcaseUrl.replace(/^https?:\/\//, '')}</a>. Turn off and the address returns nothing.
                     </p>
                 </div>
                 <button

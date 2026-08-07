@@ -15,6 +15,7 @@ import {
 } from './book3dPageCanvas';
 import { isBlankCoverAlbum } from './book3dTextures';
 import { isWebGLAvailable } from './webglSupport';
+import Book3DErrorBoundary from './Book3DErrorBoundary';
 import '../AlbumBook.css';
 import './BookCover3DView.css';
 
@@ -119,29 +120,31 @@ export default function BookCover3DView({
     }
 
     return (
-        <div className="ab-book-cover-3d-shell" ref={shellRef}>
-            <div className="ab-book-cover-3d-measure ab-root ab-root--preview" aria-hidden="true">
-                <div className="ab-book-stage">
-                    <div className="ab-book-stage-inner" ref={stageRef} />
+        <Book3DErrorBoundary album={album} showSamples={showSamples} onCoverOpen={onCoverOpen}>
+            <div className="ab-book-cover-3d-shell" ref={shellRef}>
+                <div className="ab-book-cover-3d-measure ab-root ab-root--preview" aria-hidden="true">
+                    <div className="ab-book-stage">
+                        <div className="ab-book-stage-inner" ref={stageRef} />
+                    </div>
                 </div>
-            </div>
 
-            <div className="ab-book-cover-3d ab-root ab-root--preview">
-                <div className="ab-book-stage">
-                    <div className="ab-book-cover-3d-stage">
-                        <BookScene
-                            key={`${album?.id ?? 'album'}-3d-cover`}
-                            album={album}
-                            totalPages={totalPages}
-                            showSamples={showSamples}
-                            pageWorldDims={resolvedPageWorldDims}
-                            onCoverOpen={onCoverOpen}
-                            playIntroAnimation={playIntroAnimation}
-                            onIntroComplete={onCoverIntroComplete}
-                        />
+                <div className="ab-book-cover-3d ab-root ab-root--preview">
+                    <div className="ab-book-stage">
+                        <div className="ab-book-cover-3d-stage">
+                            <BookScene
+                                key={`${album?.id ?? 'album'}-3d-cover`}
+                                album={album}
+                                totalPages={totalPages}
+                                showSamples={showSamples}
+                                pageWorldDims={resolvedPageWorldDims}
+                                onCoverOpen={onCoverOpen}
+                                playIntroAnimation={playIntroAnimation}
+                                onIntroComplete={onCoverIntroComplete}
+                            />
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
+        </Book3DErrorBoundary>
     );
 }

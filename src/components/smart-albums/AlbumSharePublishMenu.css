@@ -812,12 +812,12 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  height: 28px;
-  padding: 0;
-  border-radius: 0;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
   background: transparent;
   font-family: var(--font-sans);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -831,11 +831,13 @@
 }
 
 .ae-publish-badge--live {
-  color: var(--ok-fg, #597f5d);
+  color: #3d6b42;
+  background: #e5f0e6;
 }
 
 .ae-publish-badge--paused {
   color: var(--warn-fg, #997735);
+  background: #f5efe4;
 }
 
 .ae-btn-share--primary {

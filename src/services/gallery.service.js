@@ -218,23 +218,6 @@ export const galleryService = {
     return attachMissingListCovers(mapped);
   },
 
-  /**
-   * Fetch published deliveries for a public showcase portfolio
-   */
-  async getPublicCollections(photographerId) {
-    if (!photographerId) return [];
-    const { data, error } = await supabase
-      .from('deliveries')
-      .select('*')
-      .eq('photographer_id', photographerId)
-      .eq('status', 'published')
-      .neq('show_on_showcase', false)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data;
-  },
-
   /** Starred collections for the dashboard Starred page. */
   async getStarredCollections(photographerId) {
     if (!photographerId) return [];
@@ -518,10 +501,11 @@ export const galleryService = {
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    return data.map(c => ({
+    const mapped = (data || []).map((c) => ({
       ...c,
-      photo_count: c.photos?.[0]?.count || 0
+      photo_count: c.photos?.[0]?.count || 0,
     }));
+    return attachMissingListCovers(mapped);
   },
 
   /**

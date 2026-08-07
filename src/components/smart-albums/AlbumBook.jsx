@@ -49,15 +49,20 @@ import {
     slotsMatch,
     getSlotLabel,
     SWAP_MARKS_CHANGED_EVENT,
+    SWAP_MARKS_SEEN_CHANGED_EVENT,
     hydrateSwapMarks,
+    isSwapMarkUnseen,
+    parseSlotKey,
 } from './albumSwapMarks';
 import {
     addPhotoPin,
     getPhotoPins,
     getPinsForSlot,
     PHOTO_PINS_CHANGED_EVENT,
+    PHOTO_PINS_SEEN_CHANGED_EVENT,
     removePhotoPin,
     hydratePhotoPins,
+    isPhotoPinUnseen,
 } from './albumPhotoPins';
 import {
     albumHadClientFeedbackBefore,
@@ -78,6 +83,11 @@ import BookWrapSpineImage from './BookWrapSpineImage';
 import OverviewLeatherCover from './OverviewLeatherCover';
 import OverviewSortableGrid from './OverviewSortableGrid';
 import AlbumFocusView from './AlbumFocusView';
+import {
+    getImageReplacements,
+    getReplacementCurrentVersion,
+    IMAGE_REPLACEMENTS_CHANGED_EVENT,
+} from './albumImageReplacements';
 
 const FLIP_TIME_MS = 900;
 const FLIP_CORNER = 'bottom';
@@ -406,10 +416,103 @@ const AlbumBook = ({
     const { left: leftNum, right: rightNum } = getSpreadPages(spreadIndex, totalPages, spreadOpts);
 
     const counterLabel = useMemo(() => {
-        const label = formatOverviewSpreadLabel(spreadIndex, totalPages, spreadOpts);
-        if (!label) return `${spreadIndex + 1}/${totalSpreads}`;
-        return `${label}/${totalSpreads}`;
-    }, [spreadIndex, totalPages, totalSpreads, spreadOpts]);
+        const n = String(spreadIndex + 1).padStart(2, '0');
+        const total = String(totalSpreads).padStart(2, '0');
+        return `${n} / ${total}`;
+    }, [spreadIndex, totalSpreads]);
+
+    const spreadMetaLabel = useMemo(() => {
+        const n = String(spreadIndex + 1).padStart(2, '0');
+        return `SPREAD ${n}`;
+    }, [spreadIndex]);
+
+    const [imageReplacements, setImageReplacements] = useState(() =>
+        album?.id ? getImageReplacements(album.id) : []
+    );
+
+    useEffect(() => {
+        if (!album?.id) {
+            setImageReplacements([]);
+            return undefined;
+        }
+        const load = () => setImageReplacements(getImageReplacements(album.id));
+        load();
+        const onChanged = (e) => {
+            if (e.detail?.albumId && e.detail.albumId !== album.id) return;
+            load();
+        };
+        window.addEventListener(IMAGE_REPLACEMENTS_CHANGED_EVENT, onChanged);
+        return () => window.removeEventListener(IMAGE_REPLACEMENTS_CHANGED_EVENT, onChanged);
+    }, [album?.id]);
+
+    const currentSpreadVersion = useMemo(() => {
+        let max = 0;
+        for (const row of imageReplacements) {
+            if (row.spreadIndex !== spreadIndex) continue;
+            const ver = getReplacementCurrentVersion(row);
+            if (ver > max) max = ver;
+        }
+        return max > 1 ? max : 0;
+    }, [imageReplacements, spreadIndex]);
+
+    const needActionCount = useMemo(() => {
+        let count = 0;
+        if (spreadCommentsBySpread) {
+            count += Object.values(spreadCommentsBySpread).reduce((sum, rows) => {
+                if (!Array.isArray(rows)) return sum;
+                return sum + rows.filter((c) => c && !c.resolved && !c.done).length;
+            }, 0);
+        }
+        if (photoPins && album?.id) {
+            count += photoPins.filter((pin) => isPhotoPinUnseen(album.id, pin)).length;
+        }
+        if (swapMarks && album?.id) {
+            count += swapMarks.filter((mark) => isSwapMarkUnseen(album.id, mark)).length;
+        }
+        return count;
+    }, [spreadCommentsBySpread, photoPins, swapMarks, album?.id]);
+
+    const needActionSpreadIndices = useMemo(() => {
+        const indices = new Set();
+        if (spreadCommentsBySpread) {
+            Object.keys(spreadCommentsBySpread).forEach((k) => {
+                const idx = Number(k);
+                if (Number.isFinite(idx)) {
+                    const rows = spreadCommentsBySpread[idx];
+                    if (Array.isArray(rows) && rows.some((c) => c && !c.resolved && !c.done)) {
+                        indices.add(idx);
+                    }
+                }
+            });
+        }
+        if (photoPins && album?.id) {
+            photoPins.forEach((pin) => {
+                if (isPhotoPinUnseen(album.id, pin)) {
+                    const idx = pin.spreadIndex != null 
+                        ? pin.spreadIndex 
+                        : pageToSpreadIndex(pin.pageNum, { ...spreadOpts, totalPages });
+                    if (Number.isFinite(idx)) {
+                        indices.add(idx);
+                    }
+                }
+            });
+        }
+        if (swapMarks && album?.id) {
+            swapMarks.forEach((mark) => {
+                if (isSwapMarkUnseen(album.id, mark)) {
+                    const idx = Number.isFinite(mark.spreadA)
+                        ? mark.spreadA
+                        : Number.isFinite(mark.spreadB)
+                        ? mark.spreadB
+                        : (mark.a ? pageToSpreadIndex(parseSlotKey(mark.a).pageNum, { ...spreadOpts, totalPages }) : 0);
+                    if (Number.isFinite(idx)) {
+                        indices.add(idx);
+                    }
+                }
+            });
+        }
+        return Array.from(indices).sort((a, b) => a - b);
+    }, [spreadCommentsBySpread, photoPins, swapMarks, album?.id, totalPages, spreadOpts]);
 
     const pageRangeLabel = useMemo(() => {
         if (rightNum < totalPages) return `${leftNum}–${rightNum}`;
@@ -646,6 +749,30 @@ const AlbumBook = ({
             });
         },
         [totalPages, spreadOpts, onPageChange, spreadMagnify.reset]
+    );
+
+    const goToNeedAction = useCallback(
+        (dir) => {
+            if (!needActionSpreadIndices.length) return;
+            const cur = needActionSpreadIndices.indexOf(spreadIndex);
+            let next;
+            if (dir > 0) {
+                next =
+                    cur < 0
+                        ? needActionSpreadIndices[0]
+                        : needActionSpreadIndices[(cur + 1) % needActionSpreadIndices.length];
+            } else {
+                next =
+                    cur < 0
+                        ? needActionSpreadIndices[needActionSpreadIndices.length - 1]
+                        : needActionSpreadIndices[
+                              (cur - 1 + needActionSpreadIndices.length) %
+                                  needActionSpreadIndices.length
+                          ];
+            }
+            goToPage(spreadIndexToPage(next, { ...spreadOpts, totalPages }));
+        },
+        [needActionSpreadIndices, spreadIndex, spreadOpts, totalPages, goToPage]
     );
 
     const canDragOverviewSpreads = Boolean(editable && onReorderOverviewSpread && !pageCountBusy);
@@ -1203,7 +1330,11 @@ const AlbumBook = ({
             setSwapMarks(getSwapMarks(album.id));
         };
         window.addEventListener(SWAP_MARKS_CHANGED_EVENT, onSwapMarksChanged);
-        return () => window.removeEventListener(SWAP_MARKS_CHANGED_EVENT, onSwapMarksChanged);
+        window.addEventListener(SWAP_MARKS_SEEN_CHANGED_EVENT, onSwapMarksChanged);
+        return () => {
+            window.removeEventListener(SWAP_MARKS_CHANGED_EVENT, onSwapMarksChanged);
+            window.removeEventListener(SWAP_MARKS_SEEN_CHANGED_EVENT, onSwapMarksChanged);
+        };
     }, [album?.id]);
 
     useEffect(() => {
@@ -1217,7 +1348,11 @@ const AlbumBook = ({
             setPhotoPins(getPhotoPins(album.id));
         };
         window.addEventListener(PHOTO_PINS_CHANGED_EVENT, onPinsChanged);
-        return () => window.removeEventListener(PHOTO_PINS_CHANGED_EVENT, onPinsChanged);
+        window.addEventListener(PHOTO_PINS_SEEN_CHANGED_EVENT, onPinsChanged);
+        return () => {
+            window.removeEventListener(PHOTO_PINS_CHANGED_EVENT, onPinsChanged);
+            window.removeEventListener(PHOTO_PINS_SEEN_CHANGED_EVENT, onPinsChanged);
+        };
     }, [album?.id]);
 
     const handleActivatePinMode = useCallback(() => {
@@ -1923,72 +2058,107 @@ const AlbumBook = ({
                 </div>
                 </div>
                 </div>
+                <div className="ab-spread-meta">
+                    <span className="ab-spread-meta-label">{spreadMetaLabel}</span>
+                    {currentSpreadVersion > 0 ? (
+                        <span className="ab-spread-meta-version" aria-label={`Version ${currentSpreadVersion}`}>
+                            v{currentSpreadVersion}
+                        </span>
+                    ) : null}
+                </div>
                 <div className="ab-spread-controls ab-spread-controls--toolbar">
-                    <button
-                        type="button"
-                        className="ab-control-icon ab-control-icon--button"
-                        aria-label="Zoom out"
-                        disabled={!spreadMagnify.canZoomOut}
-                        onClick={spreadMagnify.zoomOut}
-                    >
-                        <svg width="20" height="20" viewBox="0 0 28 28" fill="none" aria-hidden>
-                            <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.8" />
-                            <path d="M16 16l5.5 5.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                            <path d="M8 11h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                        </svg>
-                    </button>
-                    <span className="ab-zoom-level" aria-live="polite">
-                        {zoomPercentLabel}
-                    </span>
-                    <button
-                        type="button"
-                        className="ab-control-icon ab-control-icon--button"
-                        aria-label="Zoom in"
-                        disabled={!spreadMagnify.canZoomIn}
-                        onClick={spreadMagnify.zoomIn}
-                    >
-                        <svg width="20" height="20" viewBox="0 0 28 28" fill="none" aria-hidden>
-                            <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.8" />
-                            <path d="M16 16l5.5 5.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                            <path d="M8 11h6M11 8v6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                        </svg>
-                    </button>
+                    <div className="ab-toolbar-group">
+                        <button
+                            type="button"
+                            className="ab-control-icon ab-control-icon--button"
+                            aria-label="Zoom out"
+                            disabled={!spreadMagnify.canZoomOut}
+                            onClick={spreadMagnify.zoomOut}
+                        >
+                            <svg width="20" height="20" viewBox="0 0 28 28" fill="none" aria-hidden>
+                                <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.8" />
+                                <path d="M16 16l5.5 5.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                                <path d="M8 11h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                            </svg>
+                        </button>
+                        <span className="ab-zoom-level" aria-live="polite">
+                            {zoomPercentLabel}
+                        </span>
+                        <button
+                            type="button"
+                            className="ab-control-icon ab-control-icon--button"
+                            aria-label="Zoom in"
+                            disabled={!spreadMagnify.canZoomIn}
+                            onClick={spreadMagnify.zoomIn}
+                        >
+                            <svg width="20" height="20" viewBox="0 0 28 28" fill="none" aria-hidden>
+                                <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.8" />
+                                <path d="M16 16l5.5 5.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                                <path d="M8 11h6M11 8v6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                            </svg>
+                        </button>
+                    </div>
                     <span className="ab-spread-controls-divider" aria-hidden />
-                    <button
-                        type="button"
-                        className="ab-control-icon ab-control-icon--button"
-                        aria-label="Show spread full screen"
-                        onClick={openFocusView}
+                    <div className="ab-toolbar-group">
+                        <button
+                            type="button"
+                            className="ab-control-icon ab-control-icon--button"
+                            aria-label="Show spread full screen"
+                            onClick={openFocusView}
+                        >
+                            <svg width="18" height="18" viewBox="0 0 28 28" fill="none" aria-hidden>
+                                <path
+                                    d="M11 5H5v6M17 5h6v6M23 17v6h-6M11 23H5v-6"
+                                    stroke="currentColor"
+                                    strokeWidth="1.8"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                />
+                            </svg>
+                        </button>
+                        <button
+                            type="button"
+                            className="ab-control-icon ab-control-icon--button"
+                            aria-label="Show page overview"
+                            onClick={openOverview}
+                        >
+                            <svg width="18" height="18" viewBox="0 0 28 28" fill="none" aria-hidden>
+                                <rect x="4" y="4" width="8" height="8" rx="1.2" stroke="currentColor" strokeWidth="1.8" />
+                                <rect x="16" y="4" width="8" height="8" rx="1.2" stroke="currentColor" strokeWidth="1.8" />
+                                <rect x="4" y="16" width="8" height="8" rx="1.2" stroke="currentColor" strokeWidth="1.8" />
+                                <rect x="16" y="16" width="8" height="8" rx="1.2" stroke="currentColor" strokeWidth="1.8" />
+                            </svg>
+                        </button>
+                    </div>
+                    <span className="ab-spread-controls-divider" aria-hidden />
+                    <div
+                        className={`ab-need-action${needActionCount === 0 ? ' ab-need-action--clear' : ''}`}
+                        role="group"
+                        aria-label="Items needing action"
                     >
-                        <svg width="18" height="18" viewBox="0 0 28 28" fill="none" aria-hidden>
-                            <path
-                                d="M11 5H5v6M17 5h6v6M23 17v6h-6M11 23H5v-6"
-                                stroke="currentColor"
-                                strokeWidth="1.8"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                            />
-                            <path
-                                d="M5.8 5.8l6.2 6.2M22.2 5.8l-6.2 6.2M22.2 22.2l-6.2-6.2M5.8 22.2l6.2-6.2"
-                                stroke="currentColor"
-                                strokeWidth="1.5"
-                                strokeLinecap="round"
-                            />
-                        </svg>
-                    </button>
-                    <button
-                        type="button"
-                        className="ab-control-icon ab-control-icon--button"
-                        aria-label="Show page overview"
-                        onClick={openOverview}
-                    >
-                        <svg width="18" height="18" viewBox="0 0 28 28" fill="none" aria-hidden>
-                            <rect x="4" y="4" width="8" height="8" rx="1.2" stroke="currentColor" strokeWidth="1.8" />
-                            <rect x="16" y="4" width="8" height="8" rx="1.2" stroke="currentColor" strokeWidth="1.8" />
-                            <rect x="4" y="16" width="8" height="8" rx="1.2" stroke="currentColor" strokeWidth="1.8" />
-                            <rect x="16" y="16" width="8" height="8" rx="1.2" stroke="currentColor" strokeWidth="1.8" />
-                        </svg>
-                    </button>
+                        <span className="ab-need-action-label">
+                            {needActionCount > 0 ? `${needActionCount} need action` : 'All clear'}
+                        </span>
+                        <button
+                            type="button"
+                            className="ab-need-action-nav"
+                            aria-label="Previous item needing action"
+                            disabled={needActionCount === 0}
+                            onClick={() => goToNeedAction(-1)}
+                        >
+                            ‹
+                        </button>
+                        <button
+                            type="button"
+                            className="ab-need-action-nav"
+                            aria-label="Next item needing action"
+                            disabled={needActionCount === 0}
+                            onClick={() => goToNeedAction(1)}
+                        >
+                            ›
+                        </button>
+                    </div>
+                    <span className="ab-spread-controls-divider" aria-hidden />
                     <span className="ab-page-counter" title={`Pages ${pageRangeLabel}`}>
                         {counterLabel}
                     </span>

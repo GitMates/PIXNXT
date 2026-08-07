@@ -1,6 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { getAlbumPhotoRevision } from '../../components/smart-albums/albumPagePhotos';
+import {
+    getAlbumPhotoRevision,
+    healOrphanCollectionPlacements,
+    mergeRemotePreviewPagesIntoLocal,
+} from '../../components/smart-albums/albumPagePhotos';
+import { loadAlbumAssetsFromCloud } from '../../components/smart-albums/albumCollection';
 import { hydrateAlbumPreviewData, clearAlbumPreviewDataCache, normalizeAlbumForClientPreview } from '../../components/smart-albums/albumPreviewData';
 import AlbumPreviewAccessGate from '../../components/smart-albums/AlbumPreviewAccessGate';
 import { smartAlbumCommentsService } from '../../services/smartAlbumComments.service';
@@ -116,13 +121,7 @@ export default function PublicAlbumPreview() {
                 }
                 applyShareFields(data);
             } catch (e) {
-                console.error(e);
-                if (!cancelled) {
-                    applyShareFields({
-                        share_link_enabled: false,
-                        share_link_paused_at: null,
-                    });
-                }
+                console.warn('Share link poll failed:', e?.message || e);
             }
         };
 
@@ -159,8 +158,30 @@ export default function PublicAlbumPreview() {
     useEffect(() => {
         if (album?.preview_data) {
             hydrateAlbumPreviewData(albumId, album.preview_data);
+            mergeRemotePreviewPagesIntoLocal(albumId);
         }
     }, [albumId, album?.preview_data]);
+
+    // Client share links have no localStorage — hydrate collection + placements from cloud/R2.
+    useEffect(() => {
+        if (!album?.id || !album?.photographer_id) return undefined;
+
+        let cancelled = false;
+        (async () => {
+            try {
+                await loadAlbumAssetsFromCloud(album.id, album.photographer_id);
+                if (cancelled) return;
+                healOrphanCollectionPlacements(album.id);
+                setPhotoRevision(getAlbumPhotoRevision(album.id) || 0);
+            } catch (error) {
+                console.warn('Could not hydrate public album assets:', error?.message || error);
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [album?.id, album?.photographer_id]);
 
     useEffect(() => {
         return () => {

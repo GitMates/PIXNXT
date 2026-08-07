@@ -1,5 +1,6 @@
-import React, { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import AlbumBook from '../../components/smart-albums/AlbumBook';
+import AlbumHybrid3DPreview from '../../components/smart-albums/3d/AlbumHybrid3DPreview';
 import { useAlbumWrapAspect, withAlbumWrapAspect } from '../../components/smart-albums/useAlbumWrapAspect';
 import {
     pageToSpreadIndex,
@@ -52,10 +53,6 @@ import { hydrateAlbumClientFeedback } from '../../components/smart-albums/hydrat
 import { canClientLeaveFeedback } from '../../components/smart-albums/albumProoferPreview';
 import AlbumPreviewGuestNamePrompt from '../../components/smart-albums/AlbumPreviewGuestNamePrompt';
 import './AlbumViewer.css';
-
-const AlbumHybrid3DPreview = lazy(
-    () => import('../../components/smart-albums/3d/AlbumHybrid3DPreview')
-);
 
 function albumPasswordUnlockKey(albumId) {
     return `pixnxt.albumPasswordUnlocked.${albumId}`;
@@ -719,8 +716,9 @@ export default function AlbumPreview({
                             <Suspense
                                 fallback={
                                     <div
-                                        className="av-preview-book-deferred"
+                                        className="av-preview-book-deferred av-preview-book-deferred--loading"
                                         aria-busy="true"
+                                        aria-label="Loading 3D album cover"
                                     />
                                 }
                             >

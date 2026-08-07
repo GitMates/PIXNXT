@@ -41,6 +41,7 @@ import {
     getSlotPlacementCollectionItemId,
     getSpreadPlacementCollectionItemId,
     getSpreadPhotoOverride,
+    healOrphanCollectionPlacements,
     migrateBackCoverUsesBookWrap,
     migrateEndHalfSpreadToLeftPage,
     migrateFrontCoverToFullSpread,
@@ -120,6 +121,11 @@ import { AppToast, useAppToast } from '../../components/ui/AppToast';
 import {
     captureSlotImageBeforeReplace,
     captureSlotImageBeforeReplaceAsync,
+    getImageReplacements,
+    getReplacementCurrentVersion,
+    getReplacementVersion,
+    IMAGE_REPLACEMENTS_CHANGED_EVENT,
+    removeImageReplacement,
     trackSpreadImageReplacement,
 } from '../../components/smart-albums/albumImageReplacements';
 import AlbumEditorSettingsPanel from '../../components/smart-albums/AlbumEditorSettingsPanel';
@@ -129,12 +135,14 @@ import {
     parseSlotKey,
     SWAP_MARKS_CHANGED_EVENT,
     SWAP_MARKS_SEEN_CHANGED_EVENT,
+    isSwapMarkUnseen,
 } from '../../components/smart-albums/albumSwapMarks';
 import {
     getPhotoPins,
     markPhotoPinsSeen,
     PHOTO_PINS_CHANGED_EVENT,
     PHOTO_PINS_SEEN_CHANGED_EVENT,
+    isPhotoPinUnseen,
 } from '../../components/smart-albums/albumPhotoPins';
 import {
     COMMENTS_CHANGED_EVENT,
@@ -319,13 +327,13 @@ export default function AlbumEditor({
         try {
             const panel = new URLSearchParams(window.location.search).get('panel');
             if (panel === 'cover') return 'cover';
-            if (panel && ['collections', 'pin', 'comments', 'grid', 'edit', 'pages'].includes(panel)) {
+            if (panel && ['pin', 'comments', 'grid', 'edit', 'pages'].includes(panel)) {
                 return panel;
             }
         } catch {
             /* ignore */
         }
-        return 'collections';
+        return 'pin';
     });
     const { toast, showToast, clearToast } = useAppToast(4000);
     const [spreadCommentsBySpread, setSpreadCommentsBySpread] = useState({});
@@ -351,6 +359,9 @@ export default function AlbumEditor({
     const [showCoverSpine, setShowCoverSpine] = useState(true);
     const [publishBusy, setPublishBusy] = useState(false);
     const [swapMarks, setSwapMarks] = useState(() => getSwapMarks(albumId));
+    const [imageReplacements, setImageReplacements] = useState(() =>
+        albumId ? getImageReplacements(albumId) : []
+    );
     const [photoPins, setPhotoPins] = useState(() => getPhotoPins(albumId));
     const [proofSeenTick, setProofSeenTick] = useState(0);
     const shareRef = useRef(null);
@@ -425,6 +436,89 @@ export default function AlbumEditor({
             `${workspaceTick}:${photoRevision}:${photoLayoutRev}:${transformRevision}:${collectionRevision}`,
         [workspaceTick, photoRevision, photoLayoutRev, transformRevision, collectionRevision]
     );
+
+    const lastSavedAtLabel = useMemo(() => {
+        const raw = album?.updated_at || album?.updatedAt;
+        if (!raw) return '';
+        const d = new Date(raw);
+        if (Number.isNaN(d.getTime())) return '';
+        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+    }, [album?.updated_at, album?.updatedAt, layoutRevision]);
+
+    useEffect(() => {
+        if (!albumId) {
+            setImageReplacements([]);
+            return undefined;
+        }
+        const load = () => setImageReplacements(getImageReplacements(albumId));
+        load();
+        const onChanged = (e) => {
+            if (e.detail?.albumId && e.detail.albumId !== albumId) return;
+            load();
+        };
+        window.addEventListener(IMAGE_REPLACEMENTS_CHANGED_EVENT, onChanged);
+        return () => window.removeEventListener(IMAGE_REPLACEMENTS_CHANGED_EVENT, onChanged);
+    }, [albumId]);
+
+    const filmstripCommentSpreads = useMemo(() => {
+        const set = new Set();
+        Object.entries(spreadCommentsBySpread || {}).forEach(([key, rows]) => {
+            const idx = Number(key);
+            if (!Number.isFinite(idx)) return;
+            if (Array.isArray(rows) && rows.some((c) => c && !c.resolved && !c.done)) {
+                set.add(idx);
+            }
+        });
+        (photoPins || []).forEach((pin) => {
+            if (isPhotoPinUnseen(albumId, pin)) {
+                const idx = pin.spreadIndex != null 
+                    ? pin.spreadIndex 
+                    : pageToSpreadIndex(pin.pageNum, { ...spreadOpts, totalPages });
+                if (Number.isFinite(idx)) {
+                    set.add(idx);
+                }
+            }
+        });
+        return set;
+    }, [spreadCommentsBySpread, photoPins, albumId, spreadOpts, totalPages]);
+
+    const filmstripSwapSpreads = useMemo(() => {
+        const set = new Set();
+        (swapMarks || []).forEach((mark) => {
+            if (isSwapMarkUnseen(albumId, mark)) {
+                const a = parseSlotKey(mark.a);
+                const b = parseSlotKey(mark.b);
+                if (a) set.add(pageToSpreadIndex(a.pageNum, { ...spreadOpts, totalPages }));
+                else if (b) set.add(pageToSpreadIndex(b.pageNum, { ...spreadOpts, totalPages }));
+            }
+        });
+        return set;
+    }, [swapMarks, albumId, spreadOpts, totalPages]);
+
+    const filmstripVersionBySpread = useMemo(() => {
+        const map = {};
+        (imageReplacements || []).forEach((row) => {
+            const idx = row.spreadIndex;
+            if (idx == null) return;
+            const ver = getReplacementCurrentVersion(row);
+            if (!map[idx] || ver > map[idx]) map[idx] = ver;
+        });
+        return map;
+    }, [imageReplacements]);
+
+    const filmstripTipBySpread = useMemo(() => {
+        const base = String(album?.name || 'Album')
+            .replace(/[^\w\s-]+/g, '')
+            .trim()
+            .replace(/\s+/g, '_');
+        const tips = {};
+        for (let i = 0; i < 200; i += 1) {
+            const n = String(i + 1).padStart(2, '0');
+            const ver = filmstripVersionBySpread[i] || 1;
+            tips[i] = `${base || 'Album'}_PROOFING_${n}.jpg · v${ver}`;
+        }
+        return tips;
+    }, [album?.name, filmstripVersionBySpread]);
 
     const wrapAspect = useAlbumWrapAspect(album, albumId, layoutRevision);
 
@@ -744,6 +838,7 @@ export default function AlbumEditor({
         (async () => {
             const result = await loadAlbumAssetsFromCloud(albumId, user.id);
             if (cancelled || !result.loaded) return;
+            healOrphanCollectionPlacements(albumId);
             setCollectionRevision(getAlbumCollectionRevision(albumId));
             onPhotosUploaded?.();
             setTransformRevision(getTransformRevision(albumId));
@@ -814,7 +909,7 @@ export default function AlbumEditor({
 
     useEffect(() => {
         const panel = searchParams.get('panel');
-        const validPanels = ['collections', 'cover', 'pin', 'comments', 'grid', 'edit', 'pages'];
+        const validPanels = ['cover', 'pin', 'comments', 'grid', 'edit', 'pages'];
         if (panel === 'swap') {
             setActivePanel('pin');
         } else if (panel && validPanels.includes(panel)) {
@@ -1004,14 +1099,17 @@ export default function AlbumEditor({
     );
 
     const placeCollectionItemOnSlot = useCallback(
-        (slot, itemId, replacementBefore = null) => {
+        (slot, itemId, replacementBefore = null, options = {}) => {
             if (!slot || !itemId) return false;
+            const skipTrack = Boolean(options?.skipTrack);
             const before =
-                replacementBefore ??
-                captureSlotImageBeforeReplace(albumId, slot, album, totalPages);
+                skipTrack
+                    ? null
+                    : replacementBefore ??
+                      captureSlotImageBeforeReplace(albumId, slot, album, totalPages);
 
             const trackReplacement = (placed) => {
-                if (placed && before) {
+                if (placed && before && !skipTrack) {
                     trackSpreadImageReplacement(albumId, slot, itemId, {
                         album,
                         totalPages,
@@ -1084,6 +1182,44 @@ export default function AlbumEditor({
             );
         },
         [album, albumId, totalPages, spreadCtx, spreadOpts]
+    );
+
+    const handleRestoreImageReplacement = useCallback(
+        (row) => {
+            if (!albumId || !row) return;
+            const itemId = row.previousItemId;
+            if (!itemId) {
+                showToast('Original photo is no longer available to restore.', {
+                    variant: 'info',
+                    duration: 4000,
+                });
+                return;
+            }
+            const slot = {
+                pageNum: row.pageNum,
+                cellId: row.cellId ?? 0,
+                whole: Boolean(row.whole),
+                label: row.slotLabel,
+            };
+            const placed = placeCollectionItemOnSlot(slot, itemId, null, { skipTrack: true });
+            if (!placed) {
+                showToast('Could not restore that version.', {
+                    variant: 'error',
+                    duration: 4000,
+                });
+                return;
+            }
+            const version = getReplacementVersion(row);
+            const toRemove = getImageReplacements(albumId).filter(
+                (entry) =>
+                    entry.spreadIndex === row.spreadIndex &&
+                    getReplacementVersion(entry) >= version
+            );
+            toRemove.forEach((entry) => removeImageReplacement(albumId, entry.id));
+            bumpWorkspace();
+            showToast(`Restored v${version}.`, { variant: 'success', duration: 3000 });
+        },
+        [albumId, placeCollectionItemOnSlot, showToast, bumpWorkspace]
     );
 
     const handleSlotActivate = useCallback(
@@ -2151,7 +2287,7 @@ export default function AlbumEditor({
     const handlePanelChange = useCallback(
         (panelId) => {
             if (panelId === 'cover' && !albumHasCoverSpreads(album)) {
-                setActivePanel('collections');
+                setActivePanel('pin');
                 return;
             }
             setActivePanel(panelId);
@@ -2213,7 +2349,11 @@ export default function AlbumEditor({
             if (e.detail?.albumId === albumId) loadSpreadComments();
         };
         window.addEventListener(COMMENTS_CHANGED_EVENT, onChanged);
-        return () => window.removeEventListener(COMMENTS_CHANGED_EVENT, onChanged);
+        window.addEventListener(COMMENTS_SEEN_CHANGED_EVENT, onChanged);
+        return () => {
+            window.removeEventListener(COMMENTS_CHANGED_EVENT, onChanged);
+            window.removeEventListener(COMMENTS_SEEN_CHANGED_EVENT, onChanged);
+        };
     }, [albumId, loadSpreadComments]);
 
     const pickerSubtitle =
@@ -2241,6 +2381,10 @@ export default function AlbumEditor({
                         onPublish={handlePublishToggle}
                         publishBusy={publishBusy}
                     />
+                    <span className="ae-topbar-saved" aria-live="polite">
+                        All changes saved
+                        {lastSavedAtLabel ? ` · ${lastSavedAtLabel}` : ''}
+                    </span>
                 </div>
                 <div className="ae-topbar-right">
                     <AlbumEditorNotifications
@@ -2252,7 +2396,7 @@ export default function AlbumEditor({
                     />
                     <button
                         type="button"
-                        className="ae-btn-toolbar ae-btn-toolbar--inset"
+                        className="ae-btn-toolbar ae-btn-toolbar--inset ae-btn-preview"
                         disabled={shareMode === 'paused'}
                         title={
                             shareMode === 'paused'
@@ -2269,6 +2413,21 @@ export default function AlbumEditor({
                             openSmartAlbumPreview(albumId, bookPage);
                         }}
                     >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden
+                        >
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                            <circle cx="12" cy="12" r="3" />
+                        </svg>
                         Preview
                     </button>
                     <div className="ae-share-wrap" ref={shareRef}>
@@ -2373,6 +2532,10 @@ export default function AlbumEditor({
                             photoRevision={layoutRevision}
                             onReorderSpread={handleReorderOverviewSpread}
                             disabled={pageCountBusy || spreadEdit}
+                            commentSpreads={filmstripCommentSpreads}
+                            swapSpreads={filmstripSwapSpreads}
+                            versionBySpread={filmstripVersionBySpread}
+                            tipBySpread={filmstripTipBySpread}
                             onSelectSpread={(_spreadIndex, page) => {
                                 const clamped = Math.max(
                                     0,
@@ -2438,6 +2601,12 @@ export default function AlbumEditor({
                     onUploadCoverFile={handleUploadCoverFile}
                     onRemoveCoverPhotos={handleRemoveCoverPhotos}
                     workspaceRevision={layoutRevision}
+                    onRestoreImageReplacement={handleRestoreImageReplacement}
+                    onRemoveImageReplacement={(id) => {
+                        if (!id) return;
+                        removeImageReplacement(albumId, id);
+                        bumpWorkspace();
+                    }}
                 />
             </div>
 

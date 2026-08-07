@@ -6,6 +6,8 @@ export default function EditorSpreadMessageCompose({
     spreadIndex,
     authorName = 'Photographer',
     disabled = false,
+    visibleToName = 'Client',
+    spreadLabel = null,
 }) {
     const [draft, setDraft] = useState('');
     const [posting, setPosting] = useState(false);
@@ -39,13 +41,17 @@ export default function EditorSpreadMessageCompose({
         handlePost();
     };
 
+    const spreadNum =
+        spreadLabel ||
+        (spreadIndex != null ? `SPREAD ${String(spreadIndex + 1).padStart(2, '0')}` : 'SPREAD');
+
     return (
         <div className="ae-spread-message-compose">
             <div className="ae-spread-message-compose-box">
                 <textarea
                     className="ae-spread-message-compose-input"
                     rows={1}
-                    placeholder="Add a note to this photo…"
+                    placeholder={`Add a note to ${spreadNum}…`}
                     value={draft}
                     disabled={disabled || posting}
                     onChange={(e) => setDraft(e.target.value)}
@@ -61,6 +67,9 @@ export default function EditorSpreadMessageCompose({
                     {posting ? 'Posting…' : 'Post'}
                 </button>
             </div>
+            <p className="ae-spread-message-compose-visible">
+                VISIBLE TO {String(visibleToName || 'Client').toUpperCase()} · {spreadNum}
+            </p>
         </div>
     );
 }
