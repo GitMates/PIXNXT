@@ -22,7 +22,7 @@ import {
 import {
     albumHasBlankCovers,
     albumUsesBookWrap,
-    formatSpreadDisplayLabel,
+    formatBookSpreadMetaLabel,
     getAlbumSpreadOptions,
     isWholeSpreadLayout,
     pageToSpreadIndex,
@@ -380,12 +380,9 @@ export default function AlbumEditorSidebar({
         return pinCount + swapCount + clientCount;
     }, [photoPins, swapMarks, swapsEnabled, spreadCommentsBySpread]);
 
-    const currentSpreadLabel = useMemo(
-        () =>
-            formatSpreadDisplayLabel(currentSpreadIndex, {
-                hasCovers: Boolean(spreadOpts.hasCovers),
-            }),
-        [currentSpreadIndex, spreadOpts.hasCovers]
+    const currentSpreadMetaLabel = useMemo(
+        () => formatBookSpreadMetaLabel(currentSpreadIndex, totalPages, spreadOpts),
+        [currentSpreadIndex, totalPages, spreadOpts]
     );
 
     const navItems = NAV_BASE.filter(
@@ -578,7 +575,7 @@ export default function AlbumEditorSidebar({
                                     authorName={photographerName}
                                     disabled={!albumId}
                                     visibleToName={clientVisibleName}
-                                    spreadLabel={`SPREAD ${String(currentSpreadIndex + 1).padStart(2, '0')}`}
+                                    spreadLabel={currentSpreadMetaLabel}
                                 />
                             </div>
                         ) : null}

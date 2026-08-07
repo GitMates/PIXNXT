@@ -13,27 +13,24 @@ import {
     remapSpreadIndexAfterOverviewReorder,
 } from './albumSpreadReorder';
 
-const STORAGE_KEY = 'pixnxt_album_image_replacements';
+import {
+    ALBUM_REPLACEMENTS_KEY,
+    readLocalStorageJson,
+    writeLocalStorageJson,
+} from '../../lib/albumLocalStorage';
+
+const STORAGE_KEY = ALBUM_REPLACEMENTS_KEY;
 const REVIEW_SNAPSHOT_MAX_WIDTH = 960;
 const REVIEW_SNAPSHOT_JPEG_QUALITY = 0.82;
 
 export const IMAGE_REPLACEMENTS_CHANGED_EVENT = 'pixnxt-album-image-replacements-changed';
 
 function readAll() {
-    try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        return raw ? JSON.parse(raw) : {};
-    } catch {
-        return {};
-    }
+    return readLocalStorageJson(STORAGE_KEY, {});
 }
 
-function writeAll(data) {
-    try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    } catch {
-        /* ignore */
-    }
+function writeAll(data, preferAlbumId = null) {
+    writeLocalStorageJson(STORAGE_KEY, data, { preferAlbumId, compact: true });
 }
 
 function notify(albumId) {
@@ -266,15 +263,9 @@ export function captureSlotImageBeforeReplace(albumId, slot, album, totalPages) 
     };
 }
 
-/** Async snapshot — stores a data URL so review summary keeps the before photo after R2 replace. */
+/** Keep the live URL — do not embed base64 snapshots (they exhaust localStorage quota). */
 export async function captureSlotImageBeforeReplaceAsync(albumId, slot, album, totalPages) {
-    const captured = captureSlotImageBeforeReplace(albumId, slot, album, totalPages);
-    if (!captured?.previousUrl) return captured;
-    const snapshotUrl = await snapshotImageUrlForReview(captured.previousUrl);
-    return {
-        ...captured,
-        previousUrl: snapshotUrl || captured.previousUrl,
-    };
+    return captureSlotImageBeforeReplace(albumId, slot, album, totalPages);
 }
 
 function backfillReplacementVersions(rows) {

@@ -10,27 +10,64 @@ import {
 } from './albumPreviewData';
 import { loadCollectionItemDimensions, loadImageDimensionsFromFile } from './albumGridSize';
 import { previewNeedsAssetRepair, repairAlbumPreviewFromServer } from '../../lib/repairAlbumPreview';
+import {
+    ALBUM_COLLECTIONS_KEY,
+    isInlineDataUrl,
+    readLocalStorageJson,
+    writeLocalStorageJson,
+} from '../../lib/albumLocalStorage';
 
-const STORAGE_KEY = 'pixnxt_album_collections';
+const STORAGE_KEY = ALBUM_COLLECTIONS_KEY;
 export const ALBUM_COLLECTION_CHANGED_EVENT = 'pixnxt-album-collection-changed';
 const ALBUM_PATH_CACHE = new Map();
 const PHOTOGRAPHER_PATH_CACHE = new Map();
 
 function readAll() {
-    try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        return raw ? JSON.parse(raw) : {};
-    } catch {
-        return {};
-    }
+    return readLocalStorageJson(STORAGE_KEY, {});
 }
 
-function writeAll(data) {
-    try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    } catch (e) {
-        console.warn('Could not save album collection', e);
+function writeAll(data, preferAlbumId = null) {
+    let prefer = preferAlbumId;
+    if (!prefer && data && typeof data === 'object') {
+        let best = null;
+        let bestRev = -1;
+        for (const [id, bucket] of Object.entries(data)) {
+            const rev = Number(bucket?.__revision) || 0;
+            if (rev >= bestRev) {
+                bestRev = rev;
+                best = id;
+            }
+        }
+        prefer = best;
     }
+    const ok = writeLocalStorageJson(STORAGE_KEY, data, {
+        preferAlbumId: prefer,
+        compact: true,
+    });
+    if (!ok) console.warn('Could not save album collection');
+    return ok;
+}
+
+/** localStorage must stay small — drop base64; R2 path is enough to rebuild display URLs. */
+function compactCollectionItemForLocalStorage(item) {
+    if (!item || typeof item !== 'object') return item;
+    const next = { ...item };
+    if (next.storagePath) {
+        delete next.dataUrl;
+        return next;
+    }
+    if (isInlineDataUrl(next.dataUrl)) {
+        delete next.dataUrl;
+    }
+    return next;
+}
+
+function compactCollectionBucketForLocalStorage(bucket) {
+    if (!bucket || typeof bucket !== 'object') return bucket;
+    return {
+        ...bucket,
+        items: (bucket.items || []).map(compactCollectionItemForLocalStorage),
+    };
 }
 
 function nextId() {
@@ -268,13 +305,14 @@ function sortCollectionItems(items) {
 }
 
 function persistCollectionBucket(all, albumId, bucket) {
+    const compacted = compactCollectionBucketForLocalStorage(bucket);
     const nextBucket = {
-        ...bucket,
-        items: sortCollectionItems(bucket.items || []),
+        ...compacted,
+        items: sortCollectionItems(compacted.items || []),
         __revision: (bucket.__revision || 0) + 1,
     };
     all[albumId] = nextBucket;
-    writeAll(all);
+    writeAll(all, albumId);
     if (typeof window !== 'undefined') {
         window.dispatchEvent(
             new CustomEvent(ALBUM_COLLECTION_CHANGED_EVENT, { detail: { albumId } })
@@ -361,7 +399,8 @@ export function markCollectionItemAsCoverWrap(albumId, itemId) {
         }
         if (isCoverWrapCollectionItem(item)) {
             changed = true;
-            const { role, ...rest } = item;
+            const rest = { ...item };
+            delete rest.role;
             return rest;
         }
         return item;
@@ -1270,8 +1309,9 @@ export async function deleteAlbumCollectionAssets(albumId) {
 
     if (bucket) {
         delete all[albumId];
-        writeAll(all);
+        writeAll(all, albumId);
     }
 
     return paths.length;
 }
+

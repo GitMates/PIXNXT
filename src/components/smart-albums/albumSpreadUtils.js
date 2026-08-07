@@ -69,6 +69,20 @@ export function formatSpreadDisplayLabel(spreadIndex, opts = {}) {
     return `Spread ${idx + 1}`;
 }
 
+/**
+ * Meta label under the book / in comments compose (COVER, SPREAD 01, BACK).
+ * Must match filmstrip numbering — cover is never "SPREAD 01".
+ */
+export function formatBookSpreadMetaLabel(spreadIndex, totalPages, opts = {}) {
+    const idx = Number(spreadIndex);
+    if (!Number.isFinite(idx)) return 'SPREAD';
+    const spreadOpts = normalizeSpreadOpts(opts);
+    if (spreadOpts.hasCovers && idx <= 0) return 'COVER';
+    if (isEndHalfSpreadIndex(idx, totalPages, spreadOpts)) return 'BACK';
+    if (spreadOpts.hasCovers) return `SPREAD ${String(idx).padStart(2, '0')}`;
+    return `SPREAD ${String(idx + 1).padStart(2, '0')}`;
+}
+
 /** Label under a spread thumbnail in page overview (Cover, 1…n, Back). */
 export function formatOverviewSpreadLabel(spreadIndex, totalPages, opts = {}) {
     const idx = Number(spreadIndex);
@@ -288,7 +302,8 @@ export function isManualWholeSpreadPlacement(leftPage, totalPages, album, opts =
     if (totalPages != null && isCoverInsidePage(leftPage, totalPages, spreadOpts)) return false;
     if (isEndHalfSpreadLeftPage(leftPage, totalPages, spreadOpts)) return false;
     if (isPreBackHalfSpreadLeftPage(leftPage, totalPages, spreadOpts)) return false;
-    if (albumHasBlankCovers(album) && isInsideCoverSpreadLeft(leftPage, totalPages, spreadOpts)) {
+    // Inside-cover spread (pages 2|3): left stays blank; never allow a panoramic wrap here.
+    if (isInsideCoverSpreadLeft(leftPage, totalPages, spreadOpts)) {
         return false;
     }
     return true;
@@ -499,9 +514,11 @@ export function isAutoPlacePhotoPage(pageNum, totalPages, opts = {}) {
         (!isWholeSpreadLayout(gridLayout) ||
             (isWholeSpreadLayout(gridLayout) && spreadOpts.blankCovers));
     if (!spreadOpts.hasCovers) return true;
+    // Pre-back right is never a photo slot (any layout).
+    if (isPreBackHalfSpreadRightPage(pageNum, totalPages, spreadOpts)) return false;
+    if (getPreBackSpreadPageRole(pageNum, totalPages, spreadOpts) === 'half-blank') return false;
     if (twoPageHalves) {
         if (isInsideCoverLeftPage(pageNum, spreadOpts)) return false;
-        if (getPreBackSpreadPageRole(pageNum, totalPages, spreadOpts) === 'half-blank') return false;
     }
     const { left: endLeft } = getEndSpreadPageIndices(totalPages);
     if (pageNum >= endLeft) return false;
@@ -526,6 +543,11 @@ export function enumerateWholeSpreadBlankCoverPlacements(
     if (n === 0 || totalPages < 4) return [];
 
     const { left: endLeft } = getEndSpreadPageIndices(totalPages);
+    const preBack = getPreBackHalfSpreadInfo(totalPages, {
+        showCover: true,
+        hasCovers: true,
+        blankCovers: true,
+    });
     const slots = [];
     let spreadLeft = 2;
 
@@ -555,6 +577,12 @@ export function enumerateWholeSpreadBlankCoverPlacements(
         }
 
         if (spreadLeft >= endLeft) break;
+        // Never span a panoramic onto the disabled pre-back right page.
+        if (preBack && spreadLeft === preBack.left) {
+            slots.push({ type: 'page', pageNum: spreadLeft });
+            spreadLeft += 2;
+            continue;
+        }
         slots.push({
             type: 'spread',
             leftPage: spreadLeft,
@@ -730,8 +758,38 @@ export function enumerateCoverAlbumPlacements(photoCount, totalPages, { gridLayo
         return enumerateCoverTwoPagePlacements(n, totalPages, { blankCovers });
     }
 
-    const spreadOpts = { showCover: true, hasCovers: true, totalPages };
+    // Blank-cover whole-spread uses enumerateWholeSpreadBlankCoverPlacements at apply-time.
+    // Keep a simple book-wrap-free page/spread list here for thumbnails only.
+    if (blankCovers) {
+        const { left: endLeft } = getEndSpreadPageIndices(totalPages);
+        const preBack = getPreBackHalfSpreadInfo(totalPages, {
+            showCover: true,
+            hasCovers: true,
+            blankCovers: true,
+        });
+        const slots = [{ type: 'page', pageNum: 3 }];
+        for (let i = 1; i < n; i += 1) {
+            const leftPage = 4 + (i - 1) * 2;
+            if (leftPage >= endLeft) break;
+            if (preBack && leftPage === preBack.left) {
+                slots.push({ type: 'page', pageNum: leftPage });
+                continue;
+            }
+            slots.push({
+                type: 'spread',
+                leftPage,
+                rightPage: Math.min(leftPage + 1, totalPages - 1),
+            });
+        }
+        return slots;
+    }
+
     const { left: endLeft } = getEndSpreadPageIndices(totalPages);
+    const preBack = getPreBackHalfSpreadInfo(totalPages, {
+        showCover: true,
+        hasCovers: true,
+        blankCovers,
+    });
     const slots = [];
     for (let i = 0; i < n; i += 1) {
         if (i === 0) {
@@ -742,8 +800,19 @@ export function enumerateCoverAlbumPlacements(photoCount, totalPages, { gridLayo
             });
             continue;
         }
-        const leftPage = 2 + (i - 1) * 2;
+        // Second photo → page 3 only (inside-cover left / page 2 stays blank).
+        if (i === 1) {
+            slots.push({ type: 'page', pageNum: 3 });
+            continue;
+        }
+        // Further photos fill whole spreads starting at page 4.
+        const leftPage = 4 + (i - 2) * 2;
         if (leftPage >= endLeft) break;
+        // Pre-back: left page only — right stays disabled.
+        if (preBack && leftPage === preBack.left) {
+            slots.push({ type: 'page', pageNum: leftPage });
+            continue;
+        }
         slots.push({
             type: 'spread',
             leftPage,

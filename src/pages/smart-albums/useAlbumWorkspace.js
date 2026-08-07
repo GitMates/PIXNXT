@@ -132,6 +132,8 @@ export function useAlbumWorkspace() {
                         }
                         migrateInsideCoverSpreadToPageTwo(albumId, pages, data);
                         migrateInsideCoverSpreadTransform(albumId);
+                        migratePreBackHalfSpreadToLeftPage(albumId, pages, data);
+                        migrateEndHalfSpreadToLeftPage(albumId, pages, data);
                     }
                     if (albumSpreadOpts.hasCovers) {
                         const { left: endLeft } = getEndSpreadPageIndices(pages);

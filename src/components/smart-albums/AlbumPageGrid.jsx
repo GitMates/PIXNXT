@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import { getAlbumLayoutPhotoCount } from './albumCollection';
-import { getGridSlotPhoto, getPagePhotoOverride, hasGridSlotPhoto } from './albumPagePhotos';
+import { getGridSlotPhoto, getPagePhotoOverride, getSpreadPhotoOverride, hasGridSlotPhoto } from './albumPagePhotos';
 import {
     getPagePhotoTransform,
     getSpreadPhotoTransform,
     photoTransformStyle,
 } from './albumPageTransforms';
-import { getSpreadPhotoOverride } from './albumPagePhotos';
 import { getSampleImageForPage } from './sampleAlbumImages';
 import { getProofCellPhotoIndex, getSpreadLeftPageIndex } from './albumSpreadGrid';
 import {
@@ -15,7 +14,6 @@ import {
     isFrontCoverSpreadLeft,
     isInsideCoverSpreadLeft,
     isPreBackHalfSpreadLeftPage,
-    isWholeSpreadLayout,
     spreadNumberFromLeftPage,
 } from './albumSpreadUtils';
 import EditableGridPhoto from './EditableGridPhoto';
@@ -143,11 +141,7 @@ export default function AlbumPageGrid({
     const spreadCtx = { ...spreadOpts, totalPages };
     const spreadLeft = getSpreadLeftPageIndex(pageNum, spreadCtx);
     const endHalfSpreadLeft = isEndHalfSpreadLeftPage(spreadLeft, totalPages, spreadOpts);
-    const isWholeSpreadAlbum = isWholeSpreadLayout(album?.grid_layout);
-    const spreadWholePhoto = Boolean(albumId && getSpreadPhotoOverride(albumId, spreadLeft));
-    const insideCoverSpread =
-        isInsideCoverSpreadLeft(spreadLeft, totalPages, spreadOpts) &&
-        (!isWholeSpreadAlbum || !spreadWholePhoto);
+    const insideCoverSpread = isInsideCoverSpreadLeft(spreadLeft, totalPages, spreadOpts);
     const preBackHalfSpread = isPreBackHalfSpreadLeftPage(spreadLeft, totalPages, spreadOpts);
     const frontCoverSpread = isFrontCoverSpreadLeft(spreadLeft, spreadOpts);
     const inSelectedSpread =

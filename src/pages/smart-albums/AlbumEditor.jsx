@@ -708,10 +708,13 @@ export default function AlbumEditor({
             if (albumUsesBookWrap(album) && migrateBackCoverUsesBookWrap(albumId, totalPages, album)) {
                 changed = true;
             }
-            if (!wholeSpreadAlbum && migrateInsideCoverSpreadToPageTwo(albumId, totalPages, album)) {
+            if (migrateInsideCoverSpreadToPageTwo(albumId, totalPages, album)) {
                 changed = true;
             }
-            if (!wholeSpreadAlbum && migrateInsideCoverSpreadTransform(albumId)) {
+            if (migrateInsideCoverSpreadTransform(albumId)) {
+                changed = true;
+            }
+            if (migratePreBackHalfSpreadToLeftPage(albumId, totalPages, album)) {
                 changed = true;
             }
             const { left: endLeft } = getEndSpreadPageIndices(totalPages);

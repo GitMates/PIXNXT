@@ -17,6 +17,7 @@ import {
     isEndHalfSpreadLeftPage,
     isInsideCoverSpreadLeft,
     isPreBackHalfSpreadLeftPage,
+    isPreBackHalfSpreadRightPage,
     isWholeSpreadLayout,
     normalizeSpreadOpts,
 } from './albumSpreadUtils';
@@ -50,26 +51,46 @@ import {
     getRemotePreviewData,
     hydrateAlbumPreviewData,
 } from './albumPreviewData';
+import {
+    ALBUM_PHOTOS_KEY,
+    isInlineDataUrl,
+    readLocalStorageJson,
+    writeLocalStorageJson,
+} from '../../lib/albumLocalStorage';
 
-const STORAGE_KEY = 'pixnxt_album_page_photos';
+const STORAGE_KEY = ALBUM_PHOTOS_KEY;
 
 function readAll() {
-    try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        return raw ? JSON.parse(raw) : {};
-    } catch {
-        return {};
-    }
+    return readLocalStorageJson(STORAGE_KEY, {});
 }
 
-function writeAll(data) {
-    try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-        return true;
-    } catch (e) {
-        console.warn('Could not save album photos', e);
-        return false;
+function writeAll(data, preferAlbumId = null) {
+    let prefer = preferAlbumId;
+    if (!prefer && data && typeof data === 'object') {
+        let best = null;
+        let bestRev = -1;
+        for (const [id, bucket] of Object.entries(data)) {
+            const rev = Number(bucket?.__revision) || 0;
+            if (rev >= bestRev) {
+                bestRev = rev;
+                best = id;
+            }
+        }
+        prefer = best;
     }
+    const ok = writeLocalStorageJson(STORAGE_KEY, data, {
+        preferAlbumId: prefer,
+        compact: true,
+    });
+    if (!ok) console.warn('Could not save album photos');
+    return ok;
+}
+
+/** Persist only durable refs — never base64 data: blobs (they exhaust the ~5MB quota). */
+function lightweightPlacementUrl(url, storagePath) {
+    if (storagePath) return null;
+    if (!url || isInlineDataUrl(url)) return null;
+    return url;
 }
 
 function spreadStorageKey(leftPage) {
@@ -94,10 +115,12 @@ function placementFromCollectionItem(albumId, collectionItemId) {
         getRemoteCollectionItem(albumId, collectionItemId);
     if (!item) return { collectionItemId };
     const storagePath = item.storagePath || null;
-    const dataUrl =
+    const dataUrl = lightweightPlacementUrl(
         item.dataUrl ||
-        (storagePath ? storageService.getPublicUrl(storagePath) : null) ||
-        null;
+            (storagePath ? storageService.getPublicUrl(storagePath) : null) ||
+            null,
+        storagePath
+    );
     return {
         collectionItemId,
         ...(storagePath ? { storagePath } : {}),
@@ -736,11 +759,11 @@ export function resolveCoverImageSrc(album, { showSamples = false } = {}) {
 
 /**
  * Inside-cover spread must use page 3 only (right half; page 2 stays blank).
- * Moves legacy spread:1 / page-2 placements to page 3.
+ * Moves legacy spread:1 / spread:2 / page-2 placements to page 3 — including
+ * whole-spread albums that wrongly stored a panoramic on spread:2.
  */
 export function migrateInsideCoverSpreadToPageTwo(albumId, totalPages, albumMeta = null) {
     if (!albumId || totalPages == null || totalPages < 4) return false;
-    if (isWholeSpreadLayout(albumMeta?.grid_layout)) return false;
     if (!isCoverInsidePage(1, totalPages)) return false;
 
     const all = readAll();
@@ -753,7 +776,17 @@ export function migrateInsideCoverSpreadToPageTwo(albumId, totalPages, albumMeta
     const pageTwoStored = album['2'];
     const source = spreadStored ?? pageTwoStored;
     if (source == null) return false;
-    if (album['3'] != null && album['3'] === source) return false;
+    if (album['3'] != null && album['3'] === source) {
+        // Still clear the left/spread keys so page 2 cannot resurrect a photo.
+        const next = { ...album };
+        delete next['2'];
+        delete next['1'];
+        delete next[spreadKey];
+        delete next[spreadKey2];
+        next.__revision = (next.__revision || 0) + 1;
+        all[albumId] = next;
+        return writeAll(all);
+    }
 
     const next = { ...album };
     if (next['3'] == null) {
@@ -809,20 +842,26 @@ export function getGridSlotPhoto(
         if (spreadSrc) return { src: spreadSrc, panoramic: null };
         return { src: null, panoramic: null };
     }
-    if (!wholeSpread && totalPages != null && isPreBackHalfSpreadLeftPage(spreadLeftPage, totalPages, opts)) {
+    // Pre-back: photo on left only — right stays disabled even with a legacy spread: key.
+    if (totalPages != null && isPreBackHalfSpreadLeftPage(spreadLeftPage, totalPages, opts)) {
+        if (isPreBackHalfSpreadRightPage(pageNum, totalPages, opts)) {
+            return { src: null, panoramic: null };
+        }
         const pageSrc = getPagePhotoOverride(albumId, pageNum);
         if (pageSrc) return { src: pageSrc, panoramic: null };
         const spreadSrc = getSpreadPhotoOverride(albumId, spreadLeftPage);
         if (spreadSrc) return { src: spreadSrc, panoramic: null };
         return { src: null, panoramic: null };
     }
-    if (!wholeSpread && totalPages != null && isInsideCoverSpreadLeft(spreadLeftPage, totalPages, opts)) {
+    // Inside-cover left is always empty — even if a whole-spread photo sits on spread:2.
+    if (totalPages != null && isInsideCoverSpreadLeft(spreadLeftPage, totalPages, opts)) {
         if (pageNum <= 2) {
             return { src: null, panoramic: null };
         }
         const pageSrc =
             getPagePhotoOverride(albumId, 3) ?? getPagePhotoOverride(albumId, pageNum);
         if (pageSrc) return { src: pageSrc, panoramic: null };
+        // Legacy: show the old panoramic only on the right page, never both halves.
         const spreadSrc = getSpreadPhotoOverride(albumId, spreadLeftPage);
         if (spreadSrc) return { src: spreadSrc, panoramic: null };
         return { src: null, panoramic: null };
@@ -880,12 +919,13 @@ export function hasGridSlotPhoto(
         if (getSpreadPhotoOverride(albumId, spreadLeftPage)) return true;
         return false;
     }
-    if (!wholeSpread && totalPages != null && isPreBackHalfSpreadLeftPage(spreadLeftPage, totalPages, opts)) {
+    if (totalPages != null && isPreBackHalfSpreadLeftPage(spreadLeftPage, totalPages, opts)) {
+        if (isPreBackHalfSpreadRightPage(pageNum, totalPages, opts)) return false;
         if (getPagePhotoOverride(albumId, pageNum)) return true;
         if (getSpreadPhotoOverride(albumId, spreadLeftPage)) return true;
         return false;
     }
-    if (!wholeSpread && totalPages != null && isInsideCoverSpreadLeft(spreadLeftPage, totalPages, opts)) {
+    if (totalPages != null && isInsideCoverSpreadLeft(spreadLeftPage, totalPages, opts)) {
         if (pageNum <= 2) return false;
         return Boolean(
             getPagePhotoOverride(albumId, 3) ||
@@ -1006,16 +1046,15 @@ export function healOrphanCollectionPlacements(albumId) {
     const assignByIndex = (stored, index) => {
         const item = sortedCollection[Math.min(index, sortedCollection.length - 1)];
         if (!item?.id) return stored;
+        const dataUrl = lightweightPlacementUrl(
+            item.dataUrl ||
+                (item.storagePath ? storageService.getPublicUrl(item.storagePath) : null),
+            item.storagePath
+        );
         const next = {
             collectionItemId: item.id,
             ...(item.storagePath ? { storagePath: item.storagePath } : {}),
-            ...(item.dataUrl || item.storagePath
-                ? {
-                      dataUrl:
-                          item.dataUrl ||
-                          (item.storagePath ? storageService.getPublicUrl(item.storagePath) : null),
-                  }
-                : {}),
+            ...(dataUrl ? { dataUrl } : {}),
         };
         if (
             next.collectionItemId !== stored.collectionItemId ||
@@ -1268,9 +1307,34 @@ export function setPagePhotoFromCollectionItem(
     albumId,
     pageNum,
     collectionItemId,
-    { clearSpreadForLeft } = {}
+    { clearSpreadForLeft, hasCovers, totalPages, spreadOpts } = {}
 ) {
     if (!albumId || pageNum == null || !collectionItemId) return false;
+    // Page 2 is the disabled inside-cover left — only redirect when covers are known on.
+    if (pageNum === 2 && hasCovers === true) {
+        return setPagePhotoFromCollectionItem(albumId, 3, collectionItemId, {
+            clearSpreadForLeft: clearSpreadForLeft ?? 2,
+            hasCovers,
+            totalPages,
+            spreadOpts,
+        });
+    }
+    // Pre-back right leaf is always disabled — place on the left page instead.
+    if (totalPages != null) {
+        const opts = { ...normalizeSpreadOpts(spreadOpts), totalPages, hasCovers: hasCovers ?? spreadOpts?.hasCovers };
+        if (isPreBackHalfSpreadRightPage(pageNum, totalPages, opts)) {
+            const info = getPreBackHalfSpreadInfo(totalPages, opts);
+            if (info) {
+                return setPagePhotoFromCollectionItem(albumId, info.left, collectionItemId, {
+                    clearSpreadForLeft: info.left,
+                    hasCovers,
+                    totalPages,
+                    spreadOpts,
+                });
+            }
+            return false;
+        }
+    }
     const all = readAll();
     const album = { ...(all[albumId] || {}) };
     if (clearSpreadForLeft != null) {
@@ -1485,6 +1549,12 @@ export function setSpreadPhoto(
     if (totalPages != null && isEndHalfSpreadLeftPage(leftPage, totalPages, opts)) {
         return setPagePhotoFromDataUrl(albumId, leftPage, dataUrl, { clearSpreadForLeft: leftPage });
     }
+    if (totalPages != null && isPreBackHalfSpreadLeftPage(leftPage, totalPages, opts)) {
+        return setPagePhotoFromDataUrl(albumId, leftPage, dataUrl, { clearSpreadForLeft: leftPage });
+    }
+    if (totalPages != null && isInsideCoverSpreadLeft(leftPage, totalPages, opts)) {
+        return setPagePhotoFromDataUrl(albumId, 3, dataUrl, { clearSpreadForLeft: leftPage });
+    }
     const all = readAll();
     const album = { ...(all[albumId] || {}) };
     album[spreadStorageKey(leftPage)] = dataUrl;
@@ -1504,6 +1574,24 @@ export function setSpreadPhotoFromCollectionItem(
 ) {
     if (!albumId || leftPage == null || !collectionItemId) return false;
     const opts = { ...normalizeSpreadOpts(spreadOpts), totalPages };
+    // Inside-cover spread cannot hold a panoramic — place on page 3 (right) only.
+    if (totalPages != null && isInsideCoverSpreadLeft(leftPage, totalPages, opts)) {
+        return setPagePhotoFromCollectionItem(albumId, 3, collectionItemId, {
+            clearSpreadForLeft: leftPage,
+            hasCovers: true,
+            totalPages,
+            spreadOpts,
+        });
+    }
+    // Pre-back spread: left photo only — never a panoramic across the disabled right.
+    if (totalPages != null && isPreBackHalfSpreadLeftPage(leftPage, totalPages, opts)) {
+        return setPagePhotoFromCollectionItem(albumId, leftPage, collectionItemId, {
+            clearSpreadForLeft: leftPage,
+            hasCovers: opts.hasCovers,
+            totalPages,
+            spreadOpts,
+        });
+    }
     if (
         totalPages != null &&
         isEndHalfSpreadLeftPage(leftPage, totalPages, opts) &&
@@ -1511,6 +1599,8 @@ export function setSpreadPhotoFromCollectionItem(
     ) {
         return setPagePhotoFromCollectionItem(albumId, leftPage, collectionItemId, {
             clearSpreadForLeft: leftPage,
+            totalPages,
+            spreadOpts,
         });
     }
     const all = readAll();
@@ -1639,9 +1729,13 @@ export async function applyCollectionOrderToPages(albumId, album, { itemIds } = 
         migrateFrontCoverToFullSpread(albumId);
         migrateBackCoverUsesBookWrap(albumId, totalPages, album);
         migrateEndHalfSpreadToLeftPage(albumId, totalPages, album);
+        migratePreBackHalfSpreadToLeftPage(albumId, totalPages, album);
         syncCoverWrapRoleFromSpread(albumId);
     } else if (wholeSpread) {
         migrateWholeSpreadPagePhotosToSpreadKeys(albumId, totalPages, album);
+        migratePreBackHalfSpreadToLeftPage(albumId, totalPages, album);
+    } else if (spreadOpts.hasCovers) {
+        migratePreBackHalfSpreadToLeftPage(albumId, totalPages, album);
     }
 
     return placed;
@@ -1731,11 +1825,20 @@ export function autoPlaceCollectionItems(
                         ...spreadOpts,
                         totalPages,
                     }),
+                    hasCovers: useCovers,
+                    totalPages,
+                    spreadOpts,
                 })
             ) {
                 placed += 1;
             }
         }
+        migratePreBackHalfSpreadToLeftPage(albumId, totalPages, {
+            has_covers: useCovers,
+            blank_covers: blankCovers,
+            page_count: totalPages,
+            grid_layout: gridLayout,
+        });
         return placed;
     }
 
@@ -1776,11 +1879,20 @@ export function autoPlaceCollectionItems(
                         ...spreadOpts,
                         totalPages,
                     }),
+                    hasCovers: useCovers,
+                    totalPages,
+                    spreadOpts,
                 })
             ) {
                 placed += 1;
             }
         }
+        migratePreBackHalfSpreadToLeftPage(albumId, totalPages, {
+            has_covers: useCovers,
+            blank_covers: false,
+            page_count: totalPages,
+            grid_layout: gridLayout,
+        });
         return placed;
     }
 

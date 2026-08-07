@@ -247,7 +247,25 @@
   }
 }
 
-/* Half cover clipping for dynamic width strip */
+.ae-spread-filmstrip__thumb--cover-wrap {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.ae-spread-filmstrip__thumb--cover-wrap .ae-spread-filmstrip__wrap-img,
+.ae-spread-filmstrip__thumb--cover-wrap .ab-book-wrap-cover-img {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  object-fit: cover !important;
+}
+
+/* Half cover clipping for dynamic width strip (fallback without spine layout) */
 .ae-spread-filmstrip__thumb--cover-half {
   position: relative;
   display: block;

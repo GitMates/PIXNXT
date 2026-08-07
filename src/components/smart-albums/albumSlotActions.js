@@ -9,26 +9,26 @@ import {
     getPagePhotoOverride,
     getSpreadPhotoOverride,
 } from './albumPagePhotos';
+import {
+    ALBUM_PHOTOS_KEY,
+    ALBUM_TRANSFORMS_KEY,
+    readLocalStorageJson,
+    writeLocalStorageJson,
+} from '../../lib/albumLocalStorage';
 
-const STORAGE_KEY = 'pixnxt_album_page_photos';
+const STORAGE_KEY = ALBUM_PHOTOS_KEY;
 
 function readAll() {
-    try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        return raw ? JSON.parse(raw) : {};
-    } catch {
-        return {};
-    }
+    return readLocalStorageJson(STORAGE_KEY, {});
 }
 
-function writeAll(data) {
-    try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-        return true;
-    } catch (e) {
-        console.warn('Could not save album photos', e);
-        return false;
-    }
+function writeAll(data, preferAlbumId = null) {
+    const ok = writeLocalStorageJson(STORAGE_KEY, data, {
+        preferAlbumId,
+        compact: true,
+    });
+    if (!ok) console.warn('Could not save album photos');
+    return ok;
 }
 
 function spreadStorageKey(leftPage) {
@@ -222,14 +222,7 @@ export function clearSpreadPhotos(
 }
 
 function readTransformPair(albumId, descA, descB) {
-    const transforms = (() => {
-        try {
-            const raw = localStorage.getItem('pixnxt_album_page_transforms');
-            return raw ? JSON.parse(raw) : {};
-        } catch {
-            return {};
-        }
-    })();
+    const transforms = readLocalStorageJson(ALBUM_TRANSFORMS_KEY, {});
     const album = transforms[albumId] || {};
     const keyA = descA.kind === 'spread' ? spreadStorageKey(descA.spreadLeft) : descA.key;
     const keyB = descB.kind === 'spread' ? spreadStorageKey(descB.spreadLeft) : descB.key;
@@ -251,11 +244,10 @@ function writeTransformPair(albumId, albumT, allT, keyA, keyB, valA, valB) {
     else delete next[keyB];
     next.__revision = (next.__revision || 0) + 1;
     allT[albumId] = next;
-    try {
-        localStorage.setItem('pixnxt_album_page_transforms', JSON.stringify(allT));
-    } catch {
-        /* ignore */
-    }
+    writeLocalStorageJson(ALBUM_TRANSFORMS_KEY, allT, {
+        preferAlbumId: albumId,
+        compact: true,
+    });
 }
 
 /** Swap placed photos (and pan/zoom) between two slots. */

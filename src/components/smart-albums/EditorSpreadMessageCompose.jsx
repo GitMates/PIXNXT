@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { smartAlbumCommentsService } from '../../services/smartAlbumComments.service';
+import { formatBookSpreadMetaLabel } from './albumSpreadUtils';
 
 export default function EditorSpreadMessageCompose({
     albumId,
@@ -8,6 +9,8 @@ export default function EditorSpreadMessageCompose({
     disabled = false,
     visibleToName = 'Client',
     spreadLabel = null,
+    totalPages = 0,
+    hasCovers = true,
 }) {
     const [draft, setDraft] = useState('');
     const [posting, setPosting] = useState(false);
@@ -43,7 +46,9 @@ export default function EditorSpreadMessageCompose({
 
     const spreadNum =
         spreadLabel ||
-        (spreadIndex != null ? `SPREAD ${String(spreadIndex + 1).padStart(2, '0')}` : 'SPREAD');
+        (spreadIndex != null
+            ? formatBookSpreadMetaLabel(spreadIndex, totalPages, { hasCovers })
+            : 'SPREAD');
 
     return (
         <div className="ae-spread-message-compose">

@@ -6,6 +6,10 @@ import {
     getTotalSpreads,
     isDraggableOverviewSpread,
     isEndHalfSpreadIndex,
+    isInsideCoverLeftPage,
+    isInsideCoverSpreadLeft,
+    isPreBackHalfSpreadLeftPage,
+    isPreBackHalfSpreadRightPage,
     isWholeSpreadLayout,
     pageToSpreadIndex,
     spreadIndexToPage,
@@ -14,6 +18,7 @@ import {
 import { getSpreadLeftPageIndex } from './albumSpreadGrid';
 import {
     getGridSlotPhoto,
+    getInsideCoverRightPhotoSrc,
     getPagePhotoOverride,
     getSpreadPhotoOverride,
     resolveCoverImageSrc,
@@ -21,6 +26,10 @@ import {
 import { buildOverviewSpreadReorderPlan } from './albumSpreadReorder';
 import OverviewLeatherCover from './OverviewLeatherCover';
 import { parseGridSizeAspect } from './albumGridSize';
+import BookWrapSpineImage from './BookWrapSpineImage';
+import { getBookWrapSpineLayout } from './bookWrapSpine';
+import { getSpreadPhotoTransform } from './albumPageTransforms';
+import { SPINE_BOUNDS_CHANGED_EVENT } from './albumSpineSettings';
 import './AlbumSpreadFilmstrip.css';
 
 const STRIP_GAP_PX = 10;
@@ -77,12 +86,24 @@ function getFilmstripPageImage(album, pageNum, totalPages) {
     if (pageNum === 0 && spreadOpts.hasCovers) {
         return resolveCoverImageSrc(album, { showSamples: false });
     }
+    if (isInsideCoverLeftPage(pageNum, spreadOpts)) {
+        return null;
+    }
+    if (isPreBackHalfSpreadRightPage(pageNum, totalPages, spreadOpts)) {
+        return null;
+    }
+    if (spreadOpts.hasCovers && pageNum === 3) {
+        return getInsideCoverRightPhotoSrc(albumId, { showSamples: false });
+    }
     const directSrc = getPagePhotoOverride(albumId, pageNum);
     if (directSrc) return directSrc;
     const spreadLeft = getSpreadLeftPageIndex(pageNum, { ...spreadOpts, totalPages });
     const cellId = pageNum === spreadLeft ? 1 : 2;
     const slot = getGridSlotPhoto(albumId, pageNum, cellId, spreadLeft, totalPages, {
-        wholeSpread: isWholeSpreadLayout(album?.grid_layout),
+        wholeSpread:
+            isWholeSpreadLayout(album?.grid_layout) &&
+            !isInsideCoverSpreadLeft(spreadLeft, totalPages, spreadOpts) &&
+            !isPreBackHalfSpreadLeftPage(spreadLeft, totalPages, spreadOpts),
         spreadOpts,
     });
     return slot.src || null;
@@ -92,7 +113,12 @@ export function resolveFilmstripVisual(album, spreadIndex, totalPages, spreadOpt
     const { left, right } = getSpreadPages(spreadIndex, totalPages, spreadOpts);
     const isCover = spreadOpts.hasCovers && spreadIndex === 0;
     const isEndSpread = isEndHalfSpreadIndex(spreadIndex, totalPages, spreadOpts);
-    const spreadSrc = !isCover && !isEndSpread ? getSpreadPhotoOverride(album?.id, left) : null;
+    const isInsideCover = isInsideCoverSpreadLeft(left, totalPages, spreadOpts);
+    const isPreBack = isPreBackHalfSpreadLeftPage(left, totalPages, spreadOpts);
+    const spreadSrc =
+        !isCover && !isEndSpread && !isInsideCover && !isPreBack
+            ? getSpreadPhotoOverride(album?.id, left)
+            : null;
     const coverSrc =
         isCover || isEndSpread
             ? getSpreadPhotoOverride(album?.id, 0) ||
@@ -100,7 +126,7 @@ export function resolveFilmstripVisual(album, spreadIndex, totalPages, spreadOpt
             : null;
     const leftSrc = getFilmstripPageImage(album, left, totalPages);
     const rightSrc =
-        right !== left ? getFilmstripPageImage(album, right, totalPages) : null;
+        right !== left && !isPreBack ? getFilmstripPageImage(album, right, totalPages) : null;
 
     return {
         isCover,
@@ -119,7 +145,7 @@ export function resolveFilmstripVisual(album, spreadIndex, totalPages, spreadOpt
     };
 }
 
-export function FilmstripThumb({ visual, album }) {
+export function FilmstripThumb({ visual, album, wrapLayout = null, coverTransform = null }) {
     const {
         isCover,
         isEndSpread,
@@ -137,9 +163,23 @@ export function FilmstripThumb({ visual, album }) {
 
     if (isCover || isEndSpread) {
         const src = coverSrc || leftSrc || rightSrc;
+        if (src && wrapLayout) {
+            return (
+                <span className="ae-spread-filmstrip__thumb--cover-wrap">
+                    <BookWrapSpineImage
+                        src={src}
+                        side={isCover ? 'front' : 'back'}
+                        layout={wrapLayout}
+                        transform={coverTransform}
+                        className="ae-spread-filmstrip__wrap-img"
+                    />
+                </span>
+            );
+        }
         if (src) {
-            const sideClass = isCover 
-                ? 'ae-spread-filmstrip__thumb--cover-half--front' 
+            // Fallback when spine layout is unavailable — still prefer a single-panel fit.
+            const sideClass = isCover
+                ? 'ae-spread-filmstrip__thumb--cover-half--front'
                 : 'ae-spread-filmstrip__thumb--cover-half--back';
             return (
                 <span className={`ae-spread-filmstrip__thumb--cover-half ${sideClass}`}>
@@ -196,6 +236,33 @@ export default function AlbumSpreadFilmstrip({
     const scrollVelocityRef = useRef(0);
     const [drag, setDrag] = useState(null);
     const [optimisticVisuals, setOptimisticVisuals] = useState(null);
+    const [spineBoundsTick, setSpineBoundsTick] = useState(0);
+
+    useEffect(() => {
+        if (!album?.id) return undefined;
+        const onSpine = (e) => {
+            if (e.detail?.albumId === album.id) setSpineBoundsTick((t) => t + 1);
+        };
+        window.addEventListener(SPINE_BOUNDS_CHANGED_EVENT, onSpine);
+        return () => window.removeEventListener(SPINE_BOUNDS_CHANGED_EVENT, onSpine);
+    }, [album?.id]);
+
+    const wrapLayout = useMemo(() => {
+        void spineBoundsTick;
+        if (album?.has_covers !== true) return null;
+        if (albumHasBlankCovers(album) && !getSpreadPhotoOverride(album?.id, 0)) {
+            return null;
+        }
+        return getBookWrapSpineLayout(album);
+    }, [album, spineBoundsTick]);
+
+    const coverTransform = useMemo(() => {
+        void photoRevision;
+        if (!album?.id || album?.has_covers !== true) {
+            return { x: 0, y: 0, scaleX: 1, scaleY: 1 };
+        }
+        return getSpreadPhotoTransform(album.id, 0);
+    }, [album?.id, album?.has_covers, photoRevision]);
 
     const spreadCtx = useMemo(
         () => getSpreadContext(album, totalPages),
@@ -533,7 +600,12 @@ export default function AlbumSpreadFilmstrip({
                                 }}
                             >
                                 <span className="ae-spread-filmstrip__thumb" style={{ aspectRatio: String(tileAspect) }}>
-                                    <FilmstripThumb visual={visual} album={album} />
+                                    <FilmstripThumb
+                                        visual={visual}
+                                        album={album}
+                                        wrapLayout={wrapLayout}
+                                        coverTransform={coverTransform}
+                                    />
                                     <div className="ae-spread-filmstrip__dots">
                                         {hasComment ? (
                                             <span className="ae-spread-filmstrip__dot ae-spread-filmstrip__dot--comment" aria-hidden />

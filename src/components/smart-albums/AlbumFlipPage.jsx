@@ -302,22 +302,23 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     const src = getPageImageSrc(album, pageNum, showSamples, coverLayoutOpts);
     const isFrontCoverPage = false;
 
-    if (useHalfSpreadLayout) {
-        if (
-            preBackSpreadRole === 'half-blank' ||
-            isPreBackHalfSpreadRightPage(pageNum, totalPages, spreadOpts)
-        ) {
-            return (
-                <div
-                    className="ab-flip-page ab-flip-page--half-blank ab-flip-page--pre-back-blank"
-                    ref={ref}
-                    data-density="hard"
-                >
-                    <div className="ab-page-empty" aria-hidden />
-                </div>
-            );
-        }
+    // Pre-back right is always disabled — even if a whole-spread photo was stored on this spread.
+    if (
+        preBackSpreadRole === 'half-blank' ||
+        isPreBackHalfSpreadRightPage(pageNum, totalPages, spreadOpts)
+    ) {
+        return (
+            <div
+                className="ab-flip-page ab-flip-page--half-blank ab-flip-page--pre-back-blank"
+                ref={ref}
+                data-density="hard"
+            >
+                <div className="ab-page-empty" aria-hidden />
+            </div>
+        );
+    }
 
+    if (useHalfSpreadLayout) {
         if (endSpreadRole === 'half-blank') {
             return (
                 <div
@@ -348,18 +349,18 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
         );
     }
 
-    if (useHalfSpreadLayout) {
-        if (isInsideCoverLeftPage(pageNum, spreadOpts)) {
-            return (
-                <div
-                    className="ab-flip-page ab-flip-page--half-blank ab-flip-page--inside-cover-blank"
-                    ref={ref}
-                    data-density="hard"
-                >
-                    <div className="ab-page-empty" aria-hidden />
-                </div>
-            );
-        }
+    // Inside-cover left (page 2) is always disabled — even when a whole-spread photo
+    // was incorrectly stored on spread:2 (that used to paint a panoramic left half).
+    if (isInsideCoverLeftPage(pageNum, coverLayoutOpts)) {
+        return (
+            <div
+                className="ab-flip-page ab-flip-page--half-blank ab-flip-page--inside-cover-blank"
+                ref={ref}
+                data-density="hard"
+            >
+                <div className="ab-page-empty" aria-hidden />
+            </div>
+        );
     }
 
     const isFrontCoverRightPage = coverLayoutOpts.hasCovers && pageNum === 1;
