@@ -389,6 +389,63 @@ async function insertAlbumRowResilient(row) {
 
 async function updateAlbumRowResilient(photographerId, albumId, patch) {
   let payload = { ...patch, updated_at: new Date().toISOString() };
+
+  // Hard gate: never persist a preview_data blob that orphans page placements.
+  // This catches publish/settings/background sync paths that bypass syncAlbumPreviewData.
+  if (payload.preview_data && typeof payload.preview_data === 'object') {
+    let existingPreview = null;
+    try {
+      const { data: existingRow } = await supabase
+        .from('album_proofer_albums')
+        .select('preview_data')
+        .eq('photographer_id', photographerId)
+        .eq('id', albumId)
+        .maybeSingle();
+      existingPreview =
+        existingRow?.preview_data && typeof existingRow.preview_data === 'object'
+          ? existingRow.preview_data
+          : null;
+    } catch {
+      existingPreview = null;
+    }
+
+    const { previewData, shouldSkipWrite } = protectPreviewSnapshot(
+      payload.preview_data,
+      existingPreview
+    );
+
+    if (shouldSkipWrite || !previewData) {
+      console.warn(
+        '[album-proofer] blocked unsafe preview_data write (would orphan photos)',
+        albumId
+      );
+      delete payload.preview_data;
+      // Keep cover if the patch only wanted status/settings; drop cover derived from bad snapshot.
+      if (patch.cover_image_url !== undefined && !existingPreview?.cover_url) {
+        delete payload.cover_image_url;
+      } else if (existingPreview?.cover_url && patch.cover_image_url != null) {
+        // Prefer keeping a previously good cover over a null from an empty snapshot.
+        if (!patch.cover_image_url) {
+          payload.cover_image_url = existingPreview.cover_url;
+        }
+      }
+    } else {
+      payload.preview_data = previewData;
+      if (payload.cover_image_url === undefined && previewData.cover_url) {
+        payload.cover_image_url = previewData.cover_url;
+      }
+      if (payload.storage_bytes == null && previewData.storage_bytes != null) {
+        payload.storage_bytes = previewData.storage_bytes;
+      }
+    }
+
+    // Nothing left to write besides updated_at — bail early.
+    const keys = Object.keys(payload).filter((k) => k !== 'updated_at');
+    if (keys.length === 0) {
+      return { data: null, error: null };
+    }
+  }
+
   const droppable = OPTIONAL_ALBUM_INSERT_COLUMNS.filter((col) => col in payload);
   let attempts = 0;
   const maxAttempts = droppable.length + 2;
@@ -1345,8 +1402,19 @@ export const smartAlbumsService = {
     const freshAlbum = album || (await this.getAlbum(photographerId, albumId));
     if (!freshAlbum) return null;
 
-    const previewData = patchAlbumPreviewProoferAccess(albumId, freshAlbum);
-    if (!previewData) return null;
+    const existingPreview =
+      freshAlbum?.preview_data && typeof freshAlbum.preview_data === 'object'
+        ? freshAlbum.preview_data
+        : null;
+    const patched = patchAlbumPreviewProoferAccess(albumId, freshAlbum);
+    if (!patched) return null;
+
+    const { previewData, shouldSkipWrite } = protectPreviewSnapshot(patched, existingPreview);
+    if (shouldSkipWrite || !previewData) {
+      // Still keep in-memory access flags, but never wipe the photo catalog on disk.
+      hydrateAlbumPreviewData(albumId, existingPreview || patched);
+      return existingPreview || patched;
+    }
 
     const { data, error } = await updateAlbumRowResilient(photographerId, albumId, {
       preview_data: previewData,
