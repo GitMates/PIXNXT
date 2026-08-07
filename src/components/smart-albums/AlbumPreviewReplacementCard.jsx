@@ -6,6 +6,7 @@ import {
     resolveReplacementPreviewUrl,
     sortSpreadReplacements,
 } from './albumImageReplacements';
+import SpreadVersionHistory from './SpreadVersionHistory';
 
 function Shot({ albumId, url, storagePath, tag }) {
     const src = resolveReplacementPreviewUrl(albumId, url, storagePath);
@@ -28,6 +29,9 @@ export default function AlbumPreviewReplacementCard({
     replacement,
     authorName = 'Photographer',
     spreadLabel = null,
+    onNewVersion = null,
+    onRestore = null,
+    onDelete = null,
 }) {
     const rows = useMemo(
         () =>
@@ -50,6 +54,12 @@ export default function AlbumPreviewReplacementCard({
         (Number.isFinite(spreadIdx)
             ? `Spread ${String(spreadIdx + 1).padStart(2, '0')}`
             : null);
+
+    const description =
+        latest.note ||
+        (latest.slotLabel
+            ? `Uploaded a new version of this spread \u2014 ${latest.slotLabel.toLowerCase()}.`
+            : 'Uploaded a new version of this spread.');
 
     return (
         <article className="quiet-proof-card">
@@ -74,6 +84,7 @@ export default function AlbumPreviewReplacementCard({
                 </p>
             </header>
             <div className="quiet-proof-card__body">
+                <p className="quiet-proof-card__text">{description}</p>
                 <div className="quiet-proof-card__version-pair" aria-label="Version change">
                     <Shot
                         albumId={albumId}
@@ -87,6 +98,14 @@ export default function AlbumPreviewReplacementCard({
                     <Shot albumId={albumId} url={latest.newUrl} tag={`v${currentVersion}`} />
                 </div>
             </div>
+            <SpreadVersionHistory
+                albumId={albumId}
+                replacements={rows}
+                onNewVersion={onNewVersion}
+                onRestore={onRestore}
+                onDelete={onDelete}
+            />
         </article>
     );
 }
+
