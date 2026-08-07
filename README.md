@@ -835,6 +835,7 @@ PIXNXT follows Pixieset's core design philosophy which is central to its success
 
 - **Typography:** Fraunces (display) + Plus Jakarta Sans (interface) — see Typography System below
 - **Color Palette (Album Proofer):** see [Album Proofer Design System](#album-proofer-design-system) below — cream canvas, white surfaces, charcoal ink, burnt-orange accent. No sky blue / cyan in product chrome.
+- **Studio Settings Dark UI:** see [Studio Settings Dark UI](#studio-settings-dark-ui) — warm charcoal shell, terracotta select, cream primary buttons, dark appearance track.
 - **Photo Display:** Dark-on-light for portfolio, light-on-dark for gallery viewer mode
 - **Spacing:** Generous padding, grid-based layouts
 
@@ -874,6 +875,171 @@ Canonical tokens in `src/styles/typography.css`. Cursor rule: `.cursor/rules/alb
 **Revision requested is amber, not red.** It is the single most common healthy state in this module — a client engaging with the proof is the product working. Colouring it red trains the photographer to feel a jolt of failure every time a client does exactly what you asked them to do.
 
 Blank-cover leather swatches must not include sky blue / turquoise (default: `cream`).
+
+### Settings toggle (Studio settings / Your account)
+
+Canonical classes: `.ya-toggle` / `.ya-toggle--on` / `.ya-toggle__thumb` in `src/pages/Settings.css`. Dark overrides live in `src/styles/appearanceDarkTheme.css` under `body.dark-theme`.
+
+Use this control for boolean prefs in Studio settings (notifications, two-step verification, cookie banner parity). Do **not** invent a second switch style.
+
+| Part | Spec |
+|---|---|
+| **Shape** | Pill track · circular thumb · flat (no border, no drop shadow) |
+| **Size** | Track `46×28px` · thumb `20px` · inset `4px` from track edge |
+| **ON track** | Warm terracotta `#d08544` (aligned with `--accent` family) |
+| **OFF track (light)** | Soft stone `#d4d0ca` |
+| **OFF track (dark)** | Charcoal `#3b3937` |
+| **Thumb** | Near-black `#141210` / `#0a0908` in dark — **never white** on product chrome toggles |
+| **Motion** | `background-color` + thumb `left` · `0.2s ease` |
+| **Markup** | `<button type="button" class="ya-toggle [ya-toggle--on]" aria-pressed="…"><span class="ya-toggle__thumb" /></button>` |
+
+Appearance chrome (`Light` / `Auto` / `Dark`) is separate: `src/lib/appearanceTheme.js` toggles `body.dark-theme`. Marketing `/` and event `/e/*` stay light.
+
+### Studio Settings Dark UI
+
+Source of truth for overrides: `src/styles/appearanceDarkTheme.css` under `body.dark-theme`. Shell layout: `.theme-mono.cg-shell.studio-shell` in `src/styles/accountSettingsTheme.css`. Applies to **Studio identity**, **Legal & consent**, **Plan & billing**, and **Your account**.
+
+#### Global dark tokens (`body.dark-theme`)
+
+| Token | Hex | Use |
+|---|---|---|
+| `--canvas` / `--bg` | `#0f0f0f` | App ground (Album Proofer / shared) |
+| `--surface` | `#1a1a1a` | Cards, panels |
+| `--surface-sunk` | `#141414` | Inputs, wells |
+| `--ink` | `#ffffff` | Titles |
+| `--ink-body` | `#c8c4be` | Body |
+| `--ink-muted` | `#a89f94` | Secondary |
+| `--border` / `--box-line` | `#333333` | Dividers, chrome lines |
+| `--accent` | `#d08552` / `#d08544` | Marks, selected rings, ON toggles |
+| `--accent-text` | `#e4a06a` | Links, warn-leaning accents |
+| `--ok-fg` | `#6bbf8a` | Set / Active / success |
+| `--warn-fg` | `#f5a623` / `#e4a06a` | Not set / amber states |
+| `--idle-fg` | `#8a8a8a` | Idle / muted chrome |
+| `--stop-fg` | `#c47a72` | Destructive only |
+
+#### Studio shell surfaces
+
+| Part | Hex | Notes |
+|---|---|---|
+| Main canvas | `#24231f` | Warm charcoal (not pure black) |
+| Sidebar | `#1c1b19` | Slightly darker than main |
+| Sidebar border | `#33322e` | Hairline |
+| Sunk panels / info banners | `#161410` | Darker than canvas |
+| Cards / pay rows / plan card | `#1c1b19` | Lifted surface |
+| Radio unselected card | `#252320` | Border `#363432` |
+| Overlines / muted | `#a89f94` | `DOCUMENTS`, `THIS MONTH`, leads |
+| Titles / primary text | `#f6f5f0` | Off-white cream |
+
+#### Active nav (sidebar)
+
+| Part | Spec |
+|---|---|
+| Pill background | `#2c2b27` |
+| Text | `#f6f5f0` |
+| Icon + left rail | Terracotta `#d08544` |
+| Rail | `::before` · ~2–3px |
+
+#### Appearance switcher (`Light` / `Auto` / `Dark`)
+
+Classes: `.sb-appearance-track` / `.studio-shell__theme` + `.sb-appearance-btn` / `.sb-appearance-btn--active`.
+
+| Part | Hex |
+|---|---|
+| Track (dark) | `#121110` — **never** the light cream `#EFECE6` |
+| Inactive label | `#918c86` |
+| Active pill | `#2a2926` fill · `#3f3e3a` border · `#ffffff` text |
+| Active hover | Same as active (do not drop to transparent) |
+
+**Specificity note:** Light styles under `.theme-mono.cg-shell .sb-appearance-track` beat a short `body.dark-theme .studio-shell__theme` rule. Dark overrides must include `.theme-mono.cg-shell` so the cream track cannot leak into dark mode.
+
+#### Primary save buttons (`Save TOS`, `Save Privacy Policy`, Change plan, etc.)
+
+Classes: `.lc-btn--dark`, `.pb-btn--dark`, `.ya-btn--dark`.
+
+**Legal save buttons** (`.lc-btn--dark` — Save TOS / Save Privacy Policy / Save wording):
+
+| State | Background | Text | Border |
+|---|---|---|---|
+| Default | `#121110` | `#f6f5f0` | `#3f3e3a` |
+| Hover | `#2a2926` | `#ffffff` | `#5a5852` |
+
+Pill shape (`border-radius: 999px`). Match the dark appearance-track active pill language — not cream-on-dark.
+
+**Other primary dark buttons** (`.pb-btn--dark`, `.ya-btn--dark`) may stay cream-inverted (`#f6f5f0` on charcoal) unless a screen mock specifies otherwise.
+
+#### Outline / ghost buttons (`Edit terms`, `Change`, `Remove`)
+
+| State | Spec |
+|---|---|
+| Default | Transparent fill · border `#4a4842` · text `#f6f5f0` |
+| Hover | Fill `#2a2926` · border `#5a5852` |
+
+#### Legal & consent — radio select cards
+
+Classes: `.lc-radio-card` / `.lc-radio-card--active` / `.lc-radio-circle` / `.lc-radio-dot`.
+
+| State | Background | Border | Radio |
+|---|---|---|---|
+| Unselected | `#252320` | `#363432` | Ring `#5a5852` |
+| Hover (unselected only) | `#2a2825` | `#4a4842` | — |
+| **Selected** | `#403226` (warm amber wash) | `#d08544` | Ring + dot `#d08544` |
+| Selected + hover | **Same as selected** | Same | Same |
+
+**Hover rule:** Use `:not(.lc-radio-card--active):hover` for unselected hover. Always declare `.lc-radio-card--active:hover` with the selected colors — otherwise `:hover` outranks `--active` and the terracotta ring disappears.
+
+#### Consent preview
+
+| Part | Spec |
+|---|---|
+| Box | `#161410` · border `#2a2926` |
+| Label `PREVIEW — WHAT THE GUEST SEES` | `#d08544` |
+| Checkbox on | Fill + border `#d08544` · white check |
+| Accent words (`Required.` / `Optional.`) | `.lc-tick-accent` → `#d08544` |
+
+#### Rich text editor (Save TOS / Privacy Policy fields)
+
+Classes: `.lc-editor-wrapper` · `.set-rte-box.cg-field-shell-textarea.neu-inset` · `.set-rte-toolbar` · `.set-rte-content`.
+
+Light neumorphic cream from `.theme-mono .set-rte-box…neu-inset` must **not** show in dark mode. Override with `.theme-mono` in the selector.
+
+| Part | Hex |
+|---|---|
+| Wrapper | `#1c1b19` · border `#33322e` |
+| Editor shell | `#12110f` · border `#33322e` · no inset shadow |
+| Toolbar | `#1c1b19` · divider `#33322e` |
+| Toolbar icons | `#a89f94` · hover text `#f6f5f0` |
+| Content text | `#f6f5f0` |
+| Placeholder | `#6e6a66` |
+| Links in content | `#e4a06a` |
+
+#### Status badges
+
+| State | Text | Dot |
+|---|---|---|
+| Set | `#6bbf8a` | `#6bbf8a` |
+| Not set | `#e4a06a` | `#d08544` |
+
+#### Plan & billing meters
+
+| Meter | Fill |
+|---|---|
+| Storage / WhatsApp (normal) | `#f6f5f0` on track `#3a3934` |
+| Guest Delivery overage | Full bar `#d08544` (hide dual-tone over-seg in dark) |
+| Running total card | Left rail `3px solid #d08544` |
+| Pay “Active” | `#6bbf8a` text + dot |
+
+#### Toggle (cookie notice, notifications, etc.)
+
+Use canonical `.ya-toggle` (see above). Dark ON track `#d08544`, OFF `#3b3937`, thumb near-black — never white.
+
+#### Files to edit
+
+| Concern | File |
+|---|---|
+| All dark overrides | `src/styles/appearanceDarkTheme.css` |
+| Light Studio shell | `src/styles/accountSettingsTheme.css` |
+| Legal / billing / account component CSS | `src/pages/Settings.css` |
+| Appearance mode logic | `src/lib/appearanceTheme.js` |
 
 ### Client Gallery UI Template (implemented)
 

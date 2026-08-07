@@ -150,8 +150,20 @@ export default function LegalConsentPanel({ showToast, studioName: studioNamePro
     const retentionLabel =
         RETENTION_OPTIONS.find((o) => o.value === faceRetention)?.label || '90 days';
 
-    const defaultPreviewText = `Use my selfie to find and send my photos from this event. ${studioName} keeps it for ${retentionLabel}, then deletes it. Required.`;
-    const defaultMarketingText = `${studioName} may contact me about future shoots. Optional.`;
+    const renderPreviewRequired = () => (
+        <>
+            Use my selfie to find and send my photos from this event. {studioName} keeps it for{' '}
+            {retentionLabel}, then deletes it.{' '}
+            <span className="lc-tick-accent">Required.</span>
+        </>
+    );
+
+    const renderPreviewOptional = () => (
+        <>
+            {studioName} may contact me about future shoots.{' '}
+            <span className="lc-tick-accent">Optional.</span>
+        </>
+    );
 
     return (
         <div className="lc-panel">
@@ -290,12 +302,12 @@ export default function LegalConsentPanel({ showToast, studioName: studioNamePro
                         </div>
                         <button
                             type="button"
-                            className={`lc-toggle ${cookieToggle ? 'lc-toggle--on' : ''}`}
+                            className={`ya-toggle ${cookieToggle ? 'ya-toggle--on' : ''}`}
                             onClick={handleCookieToggle}
                             aria-pressed={cookieToggle}
                             aria-label="Cookie notice"
                         >
-                            <span className="lc-toggle-thumb" />
+                            <span className="ya-toggle__thumb" />
                         </button>
                     </div>
                 </div>
@@ -388,14 +400,14 @@ export default function LegalConsentPanel({ showToast, studioName: studioNamePro
                                 <span className="lc-checkbox-custom" />
                                 <span className="lc-tick-text">
                                     {noticeType === 'standard'
-                                        ? defaultPreviewText
-                                        : faceConsent || defaultPreviewText}
+                                        ? renderPreviewRequired()
+                                        : faceConsent || renderPreviewRequired()}
                                 </span>
                             </label>
                             <label className="lc-preview-tick">
                                 <input type="checkbox" disabled className="lc-checkbox" />
                                 <span className="lc-checkbox-custom" />
-                                <span className="lc-tick-text">{defaultMarketingText}</span>
+                                <span className="lc-tick-text">{renderPreviewOptional()}</span>
                             </label>
                         </div>
                         <p className="lc-preview-footnote">
