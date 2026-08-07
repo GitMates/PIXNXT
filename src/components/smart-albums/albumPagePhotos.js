@@ -108,19 +108,15 @@ function placementFromCollectionItem(albumId, collectionItemId) {
 function resolveStoredPhoto(albumId, stored) {
     if (!stored) return null;
     if (typeof stored === 'string') return stored;
-    // Prefer live collection item over embedded dataUrl so cover/photo replace updates propagate.
+    // Prefer durable storagePath — truncated r2_ ids used to collide and resolve to image #1.
+    if (stored.storagePath) {
+        return storageService.getPublicUrl(stored.storagePath);
+    }
     if (stored.collectionItemId) {
         const live = resolveCollectionItemUrl(albumId, stored.collectionItemId);
         if (live) return live;
-        // Fallback: placement still carries a path/URL after a wiped collection catalog.
-        if (stored.storagePath) {
-            return storageService.getPublicUrl(stored.storagePath);
-        }
         if (stored.dataUrl) return stored.dataUrl;
         return null;
-    }
-    if (stored.storagePath) {
-        return storageService.getPublicUrl(stored.storagePath);
     }
     if (stored.dataUrl) return stored.dataUrl;
     return null;
@@ -130,14 +126,15 @@ function resolveRemotePagePhoto(albumId, key) {
     const remote = getRemotePagePhoto(albumId, key);
     if (!remote) return null;
     if (typeof remote === 'string') return remote;
+    if (remote.storagePath) {
+        return storageService.getPublicUrl(remote.storagePath);
+    }
     if (remote.collectionItemId) {
         const live = resolveCollectionItemUrl(albumId, remote.collectionItemId);
         if (live) return live;
-        if (remote.storagePath) return storageService.getPublicUrl(remote.storagePath);
         if (remote.dataUrl) return remote.dataUrl;
         return null;
     }
-    if (remote.storagePath) return storageService.getPublicUrl(remote.storagePath);
     if (remote.dataUrl) return remote.dataUrl;
     return null;
 }
@@ -915,8 +912,8 @@ export function getAlbumPhotoRevision(albumId) {
 
 /**
  * When placements reference missing collection ids (e.g. c_* after R2 rebuilt as r2_*),
- * remap orphans onto the recovered collection in first-seen → sortOrder order.
- * Only runs when ZERO referenced ids resolve (avoids partial remaps).
+ * remap orphans onto the recovered collection in page-key order → sortOrder.
+ * Also fixes collapsed legacy ids (every page shared one truncated r2_ id → image #1).
  */
 export function healOrphanCollectionPlacements(albumId) {
     if (!albumId) return false;
@@ -929,19 +926,28 @@ export function healOrphanCollectionPlacements(albumId) {
     const remote = getRemotePreviewData(albumId);
     const remotePages = remote?.pages ? { ...remote.pages } : {};
 
-    const keys = new Set([
-        ...Object.keys(localAlbum).filter((k) => k !== '__revision'),
-        ...Object.keys(remotePages),
-    ]);
+    const keys = [
+        ...new Set([
+            ...Object.keys(localAlbum).filter((k) => k !== '__revision'),
+            ...Object.keys(remotePages),
+        ]),
+    ].sort((a, b) => {
+        const na = Number(String(a).replace(/^spread:/i, ''));
+        const nb = Number(String(b).replace(/^spread:/i, ''));
+        if (Number.isFinite(na) && Number.isFinite(nb) && na !== nb) return na - nb;
+        return String(a).localeCompare(String(b));
+    });
 
     const orphanOrder = [];
     const orphanSeen = new Set();
     let resolvedCount = 0;
     let orphanPlacementCount = 0;
+    const placementKeys = [];
 
     for (const key of keys) {
         const stored = localAlbum[key] ?? remotePages[key];
         if (!stored || typeof stored !== 'object' || !stored.collectionItemId) continue;
+        placementKeys.push(key);
         const id = stored.collectionItemId;
         if (knownIds.has(id)) {
             resolvedCount += 1;
@@ -954,7 +960,34 @@ export function healOrphanCollectionPlacements(albumId) {
         }
     }
 
-    if (orphanPlacementCount === 0 || resolvedCount > 0 || orphanOrder.length === 0) {
+    const uniqueResolvedIds = new Set(
+        placementKeys
+            .map((key) => (localAlbum[key] ?? remotePages[key])?.collectionItemId)
+            .filter((id) => id && knownIds.has(id))
+    );
+    const collapsedKnownIds =
+        resolvedCount > 1 &&
+        uniqueResolvedIds.size === 1 &&
+        collection.length > 1;
+    const duplicateCollectionIds = (() => {
+        const seen = new Set();
+        for (const item of collection) {
+            if (!item?.id) continue;
+            if (seen.has(item.id)) return true;
+            seen.add(item.id);
+        }
+        return false;
+    })();
+    const collapsedOrphans =
+        orphanPlacementCount > 1 && orphanOrder.length === 1 && collection.length > 1;
+
+    const shouldHealByOrder =
+        collapsedKnownIds ||
+        duplicateCollectionIds ||
+        collapsedOrphans ||
+        (orphanPlacementCount > 0 && resolvedCount === 0 && orphanOrder.length > 0);
+
+    if (!shouldHealByOrder) {
         return false;
     }
 
@@ -962,31 +995,21 @@ export function healOrphanCollectionPlacements(albumId) {
         const ao = typeof a.sortOrder === 'number' ? a.sortOrder : 0;
         const bo = typeof b.sortOrder === 'number' ? b.sortOrder : 0;
         if (ao !== bo) return ao - bo;
-        return String(a.id || '').localeCompare(String(b.id || ''));
+        const ka = String(a.storagePath || a.id || '');
+        const kb = String(b.storagePath || b.id || '');
+        return ka.localeCompare(kb);
     });
 
     if (sortedCollection.length === 0) return false;
 
-    const idMap = new Map();
-    orphanOrder.forEach((oldId, index) => {
-        if (index >= sortedCollection.length) return;
-        const target = sortedCollection[index];
-        if (target?.id) idMap.set(oldId, target.id);
-    });
-
-    if (idMap.size === 0) return false;
-
     let changed = false;
-    const remapStored = (stored) => {
-        if (!stored || typeof stored !== 'object' || !stored.collectionItemId) return stored;
-        const nextId = idMap.get(stored.collectionItemId);
-        if (!nextId || nextId === stored.collectionItemId) return stored;
-        changed = true;
-        const item = collection.find((entry) => entry.id === nextId);
-        return {
-            collectionItemId: nextId,
-            ...(item?.storagePath ? { storagePath: item.storagePath } : {}),
-            ...(item?.dataUrl || item?.storagePath
+    const assignByIndex = (stored, index) => {
+        const item = sortedCollection[Math.min(index, sortedCollection.length - 1)];
+        if (!item?.id) return stored;
+        const next = {
+            collectionItemId: item.id,
+            ...(item.storagePath ? { storagePath: item.storagePath } : {}),
+            ...(item.dataUrl || item.storagePath
                 ? {
                       dataUrl:
                           item.dataUrl ||
@@ -994,16 +1017,62 @@ export function healOrphanCollectionPlacements(albumId) {
                   }
                 : {}),
         };
+        if (
+            next.collectionItemId !== stored.collectionItemId ||
+            next.storagePath !== stored.storagePath ||
+            next.dataUrl !== stored.dataUrl
+        ) {
+            changed = true;
+        }
+        return next;
     };
 
-    for (const key of keys) {
-        if (localAlbum[key] != null) {
-            localAlbum[key] = remapStored(localAlbum[key]);
-        } else if (remotePages[key] != null) {
-            localAlbum[key] = remapStored(remotePages[key]);
-        }
-        if (remotePages[key] != null) {
-            remotePages[key] = remapStored(remotePages[key]);
+    if (collapsedKnownIds || duplicateCollectionIds || collapsedOrphans) {
+        placementKeys.forEach((key, index) => {
+            const stored = localAlbum[key] ?? remotePages[key];
+            const next = assignByIndex(stored, index);
+            localAlbum[key] = next;
+            if (remotePages[key] != null || remote) remotePages[key] = next;
+        });
+    } else {
+        const idMap = new Map();
+        orphanOrder.forEach((oldId, index) => {
+            if (index >= sortedCollection.length) return;
+            const target = sortedCollection[index];
+            if (target?.id) idMap.set(oldId, target.id);
+        });
+        if (idMap.size === 0) return false;
+
+        const remapStored = (stored) => {
+            if (!stored || typeof stored !== 'object' || !stored.collectionItemId) return stored;
+            const nextId = idMap.get(stored.collectionItemId);
+            if (!nextId || nextId === stored.collectionItemId) return stored;
+            changed = true;
+            const item = collection.find((entry) => entry.id === nextId);
+            return {
+                collectionItemId: nextId,
+                ...(item?.storagePath ? { storagePath: item.storagePath } : {}),
+                ...(item?.dataUrl || item?.storagePath
+                    ? {
+                          dataUrl:
+                              item.dataUrl ||
+                              (item.storagePath
+                                  ? storageService.getPublicUrl(item.storagePath)
+                                  : null),
+                      }
+                    : {}),
+            };
+        };
+
+        for (const key of keys) {
+            if (localAlbum[key] != null) {
+                localAlbum[key] = remapStored(localAlbum[key]);
+            } else if (remotePages[key] != null) {
+                localAlbum[key] = remapStored(remotePages[key]);
+            }
+            if (remotePages[key] != null) {
+                remotePages[key] = remapStored(remotePages[key]);
+            }
         }
     }
 
@@ -1030,7 +1099,16 @@ export function embedPlacementStorageFallbacks(albumId) {
     if (!albumId) return false;
     const collection = getAlbumCollection(albumId);
     if (!collection.length) return false;
-    const byId = new Map(collection.map((item) => [item.id, item]));
+    const byId = new Map();
+    const idCounts = new Map();
+    for (const item of collection) {
+        if (!item?.id) continue;
+        idCounts.set(item.id, (idCounts.get(item.id) || 0) + 1);
+        if (!byId.has(item.id)) byId.set(item.id, item);
+    }
+    const byPath = new Map(
+        collection.filter((item) => item?.storagePath).map((item) => [item.storagePath, item])
+    );
 
     const all = readAll();
     const localAlbum = { ...(all[albumId] || {}) };
@@ -1044,8 +1122,11 @@ export function embedPlacementStorageFallbacks(albumId) {
     let changed = false;
     const enrich = (stored) => {
         if (!stored || typeof stored !== 'object' || !stored.collectionItemId) return stored;
-        if (stored.storagePath && stored.dataUrl) return stored;
-        const item = byId.get(stored.collectionItemId);
+        const idUnique = (idCounts.get(stored.collectionItemId) || 0) === 1;
+        if (stored.storagePath && stored.dataUrl && idUnique) return stored;
+        const item =
+            (stored.storagePath && byPath.get(stored.storagePath)) ||
+            (idUnique ? byId.get(stored.collectionItemId) : null);
         if (!item) return stored;
         const storagePath = item.storagePath || stored.storagePath || null;
         const dataUrl =
@@ -1054,13 +1135,14 @@ export function embedPlacementStorageFallbacks(albumId) {
             (storagePath ? storageService.getPublicUrl(storagePath) : null);
         if (
             storagePath === stored.storagePath &&
-            dataUrl === stored.dataUrl
+            dataUrl === stored.dataUrl &&
+            item.id === stored.collectionItemId
         ) {
             return stored;
         }
         changed = true;
         return {
-            collectionItemId: stored.collectionItemId,
+            collectionItemId: item.id || stored.collectionItemId,
             ...(storagePath ? { storagePath } : {}),
             ...(dataUrl ? { dataUrl } : {}),
         };

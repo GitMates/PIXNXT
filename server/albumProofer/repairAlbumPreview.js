@@ -67,12 +67,19 @@ function isLikelyAlbumImageKey(key) {
   return false;
 }
 
+/** Basename-stable id — truncating the full path caused every spread to share one id. */
+function stableItemIdFromPath(storagePath) {
+  const base = String(storagePath || '').split('/').pop() || 'photo';
+  return `r2_${safeSegment(base, 'photo').slice(0, 80)}`;
+}
+
 function collectionItemFromKey(key, index, size, publicUrl) {
   const sortKey = storagePathSortKey(key);
-  const sortOrder = sortKey ? sortKey[0] * 100000 + sortKey[1] : index;
+  // Avoid timestamp*100000 — exceeds Number.MAX_SAFE_INTEGER and collapses sort order.
+  const sortOrder = sortKey ? sortKey[1] : index;
   const base = String(key).split('/').pop() || 'Photo';
   return {
-    id: `r2_${safeSegment(key).slice(0, 48)}`,
+    id: stableItemIdFromPath(key),
     name: base.replace(/^\d+-\d+-/, '') || 'Photo',
     dataUrl: `${publicUrl}/${key}`,
     storagePath: key,
@@ -192,55 +199,100 @@ function pagesNeedCatalog(pages = {}) {
   });
 }
 
+function collectionHasDuplicateIds(collection = []) {
+  const seen = new Set();
+  for (const item of collection) {
+    const id = item?.id;
+    if (!id) continue;
+    if (seen.has(id)) return true;
+    seen.add(id);
+  }
+  return false;
+}
+
+function sortPageKeys(keys = []) {
+  return [...keys].sort((a, b) => {
+    const na = Number(String(a).replace(/^spread:/i, ''));
+    const nb = Number(String(b).replace(/^spread:/i, ''));
+    if (Number.isFinite(na) && Number.isFinite(nb) && na !== nb) return na - nb;
+    return String(a).localeCompare(String(b));
+  });
+}
+
+function pagesShareCollapsedIds(pages = {}, collection = []) {
+  const pageEntries = Object.values(pages).filter(
+    (stored) => stored && typeof stored === 'object' && stored.collectionItemId
+  );
+  if (pageEntries.length <= 1 || collection.length <= 1) return false;
+  const uniqueIds = new Set(pageEntries.map((p) => p.collectionItemId));
+  if (uniqueIds.size < Math.min(pageEntries.length, collection.length)) return true;
+  const uniquePaths = new Set(pageEntries.map((p) => p.storagePath).filter(Boolean));
+  if (uniquePaths.size === 1 && collection.length > 1) return true;
+  return false;
+}
+
+/**
+ * Map page placements onto recovered R2 collection items.
+ * Always bind by sorted page order when ids collided / collapsed (legacy truncated r2_ ids).
+ */
 function remapPagesToCollection(pages = {}, collection = []) {
   if (!collection.length) return { pages, remapped: 0 };
 
-  const known = new Set(collection.map((item) => item.id).filter(Boolean));
-  const orphanOrder = [];
-  const orphanSeen = new Set();
-  let resolved = 0;
+  const pageKeys = sortPageKeys(
+    Object.keys(pages).filter((key) => {
+      const stored = pages[key];
+      return stored && typeof stored === 'object' && stored.collectionItemId;
+    })
+  );
 
-  for (const key of Object.keys(pages)) {
-    const stored = pages[key];
-    if (!stored || typeof stored !== 'object' || !stored.collectionItemId) continue;
-    if (known.has(stored.collectionItemId)) {
-      resolved += 1;
-      continue;
-    }
-    if (!orphanSeen.has(stored.collectionItemId)) {
-      orphanSeen.add(stored.collectionItemId);
-      orphanOrder.push(stored.collectionItemId);
-    }
-  }
-
-  const idMap = new Map();
-  if (resolved === 0 && orphanOrder.length > 0) {
-    orphanOrder.forEach((oldId, index) => {
-      if (collection[index]?.id) idMap.set(oldId, collection[index].id);
-    });
-  }
+  const byPath = new Map(
+    collection.filter((item) => item?.storagePath).map((item) => [item.storagePath, item])
+  );
+  const forceByOrder =
+    collectionHasDuplicateIds(collection) ||
+    pagesShareCollapsedIds(pages, collection) ||
+    pagesNeedCatalog(pages);
 
   let remapped = 0;
-  const next = {};
-  for (const key of Object.keys(pages)) {
+  const next = { ...pages };
+
+  if (forceByOrder) {
+    pageKeys.forEach((key, index) => {
+      const item = collection[Math.min(index, collection.length - 1)];
+      if (!item) return;
+      remapped += 1;
+      next[key] = {
+        collectionItemId: item.id,
+        ...(item.storagePath ? { storagePath: item.storagePath } : {}),
+        ...(item.dataUrl ? { dataUrl: item.dataUrl } : {}),
+      };
+    });
+    return { pages: next, remapped };
+  }
+
+  for (const key of pageKeys) {
     const stored = pages[key];
-    if (!stored || typeof stored !== 'object' || !stored.collectionItemId) {
+    const item =
+      (stored.storagePath && byPath.get(stored.storagePath)) ||
+      collection.find((entry) => entry.id === stored.collectionItemId) ||
+      null;
+    if (!item) {
       next[key] = stored;
       continue;
     }
-    const newId = idMap.get(stored.collectionItemId) || stored.collectionItemId;
-    const item = collection.find((entry) => entry.id === newId);
-    if (newId !== stored.collectionItemId || (item && (!stored.storagePath || !stored.dataUrl))) {
+    if (
+      item.id !== stored.collectionItemId ||
+      item.storagePath !== stored.storagePath ||
+      (!stored.dataUrl && item.dataUrl)
+    ) {
       remapped += 1;
     }
     next[key] = {
-      collectionItemId: newId,
-      ...(item?.storagePath || stored.storagePath
-        ? { storagePath: item?.storagePath || stored.storagePath }
+      collectionItemId: item.id,
+      ...(item.storagePath || stored.storagePath
+        ? { storagePath: item.storagePath || stored.storagePath }
         : {}),
-      ...(item?.dataUrl || stored.dataUrl
-        ? { dataUrl: item?.dataUrl || stored.dataUrl }
-        : {}),
+      ...(item.dataUrl || stored.dataUrl ? { dataUrl: item.dataUrl || stored.dataUrl } : {}),
     };
   }
 
@@ -248,11 +300,22 @@ function remapPagesToCollection(pages = {}, collection = []) {
 }
 
 function deriveCoverUrl(pages, collection) {
-  const spread0 = pages['spread:0'];
-  if (spread0?.dataUrl) return spread0.dataUrl;
-  if (pages['0']?.dataUrl) return pages['0'].dataUrl;
-  if (pages['1']?.dataUrl) return pages['1'].dataUrl;
-  return collection[0]?.dataUrl || null;
+  const pick = (stored) => {
+    if (!stored || typeof stored !== 'object') return null;
+    if (stored.dataUrl) return stored.dataUrl;
+    if (stored.storagePath) {
+      const match = collection.find((item) => item.storagePath === stored.storagePath);
+      return match?.dataUrl || null;
+    }
+    return null;
+  };
+  return (
+    pick(pages['spread:0']) ||
+    pick(pages['0']) ||
+    pick(pages['1']) ||
+    collection[0]?.dataUrl ||
+    null
+  );
 }
 
 function albumPreviewNeedsRepair(preview) {
@@ -264,6 +327,8 @@ function albumPreviewNeedsRepair(preview) {
   if (pageKeys.length === 0 && collection.length === 0) return false;
   if (pageKeys.length > 0 && collection.length === 0) return true;
   if (pageKeys.length > 0 && !hasPaths) return true;
+  if (collectionHasDuplicateIds(collection)) return true;
+  if (pagesShareCollapsedIds(pages, collection)) return true;
   return pagesNeedCatalog(pages);
 }
 
@@ -414,7 +479,9 @@ async function repairAlbumRow(album, { persist, db }) {
   const needsRepair =
     existingCollection.length === 0 ||
     !existingCollection.some((item) => item?.storagePath) ||
-    pagesNeedCatalog(existingPages);
+    pagesNeedCatalog(existingPages) ||
+    collectionHasDuplicateIds(existingCollection) ||
+    pagesShareCollapsedIds(existingPages, existingCollection);
 
   if (!needsRepair) {
     return {

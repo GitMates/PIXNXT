@@ -48,6 +48,24 @@ export function previewNeedsAssetRepair(previewData) {
   const hasPaths = collection.some((item) => item?.storagePath);
   if (collection.length === 0) return Object.keys(pages).length > 0;
   if (!hasPaths) return true;
+
+  const seenIds = new Set();
+  for (const item of collection) {
+    if (!item?.id) continue;
+    if (seenIds.has(item.id)) return true;
+    seenIds.add(item.id);
+  }
+
+  const pageEntries = Object.values(pages).filter(
+    (stored) => stored && typeof stored === 'object' && stored.collectionItemId
+  );
+  if (pageEntries.length > 1 && collection.length > 1) {
+    const uniqueIds = new Set(pageEntries.map((p) => p.collectionItemId));
+    if (uniqueIds.size < Math.min(pageEntries.length, collection.length)) return true;
+    const uniquePaths = new Set(pageEntries.map((p) => p.storagePath).filter(Boolean));
+    if (uniquePaths.size === 1) return true;
+  }
+
   return Object.keys(pages).some((key) => {
     const stored = pages[key];
     return (
@@ -70,6 +88,24 @@ export function isPreviewSnapshotHealthy(previewData, { requireCollectionIfPages
   if (requireCollectionIfPages && collection.length === 0) return false;
   const hasPaths = collection.some((item) => item?.storagePath);
   if (!hasPaths && collection.length > 0) return false;
+
+  const seenIds = new Set();
+  for (const item of collection) {
+    if (!item?.id) continue;
+    if (seenIds.has(item.id)) return false;
+    seenIds.add(item.id);
+  }
+
+  const pageEntries = Object.values(pages).filter(
+    (stored) => stored && typeof stored === 'object' && stored.collectionItemId
+  );
+  if (pageEntries.length > 1 && collection.length > 1) {
+    const uniqueIds = new Set(pageEntries.map((p) => p.collectionItemId));
+    if (uniqueIds.size < Math.min(pageEntries.length, collection.length)) return false;
+    const uniquePaths = new Set(pageEntries.map((p) => p.storagePath).filter(Boolean));
+    if (uniquePaths.size === 1) return false;
+  }
+
   return !pageKeys.some((key) => {
     const stored = pages[key];
     if (!stored || typeof stored !== 'object') return false;

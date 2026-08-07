@@ -465,8 +465,14 @@ export function getAlbumCollectionRevision(albumId) {
     return Array.isArray(remote?.collection) ? remote.collection.length : 0;
 }
 
+/**
+ * Stable id from the object basename (includes timestamp + sequence), not the full path.
+ * Truncating the full path at 48 chars collided every file in an album onto one id.
+ */
 function stableItemIdFromPath(storagePath) {
-    return `r2_${safeSegment(storagePath).slice(0, 48)}`;
+    const base = String(storagePath || '').split('/').pop() || 'photo';
+    const seg = safeSegment(base, 'photo').slice(0, 80);
+    return `r2_${seg}`;
 }
 
 function displayNameFromStoragePath(storagePath) {
@@ -476,14 +482,15 @@ function displayNameFromStoragePath(storagePath) {
 
 function collectionItemFromR2Key(key, index, sizeBytes = 0) {
     const sortKey = storagePathSortKey(key);
-    const sortOrder = sortKey ? sortKey[0] * 100000 + sortKey[1] : index;
+    // Do not pack timestamp*100000 — exceeds Number.MAX_SAFE_INTEGER and collapses order.
+    const sortOrder = sortKey ? sortKey[1] : index;
     return {
         id: stableItemIdFromPath(key),
         name: displayNameFromStoragePath(key),
         dataUrl: storageService.getPublicUrl(key),
         storagePath: key,
         sortOrder,
-        createdAt: sortOrder,
+        createdAt: sortKey ? sortKey[0] : Date.now(),
         ...(sizeBytes > 0 ? { size_bytes: sizeBytes } : {}),
     };
 }
@@ -504,10 +511,16 @@ function mergeCloudCollectionToLocal(albumId, cloudItems, revision = 0) {
     let added = 0;
     for (const item of cloudItems) {
         if (item.storagePath && knownPaths.has(item.storagePath)) continue;
-        if (knownIds.has(item.id)) continue;
-        bucket.items.push(item);
-        if (item.storagePath) knownPaths.add(item.storagePath);
-        knownIds.add(item.id);
+        let next = item;
+        if (knownIds.has(item.id)) {
+            // Legacy truncated ids collide — keep the file under a basename-stable id.
+            const uniqueId = stableItemIdFromPath(item.storagePath || item.id);
+            if (knownIds.has(uniqueId) && uniqueId === item.id) continue;
+            next = { ...item, id: uniqueId };
+        }
+        bucket.items.push(next);
+        if (next.storagePath) knownPaths.add(next.storagePath);
+        knownIds.add(next.id);
         added += 1;
     }
 
