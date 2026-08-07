@@ -179,12 +179,19 @@ export const storageService = {
   },
 
   getPublicUrl(path) {
+    if (path == null || path === '') return path;
+    const trimmed = String(path).trim();
+    if (!trimmed) return trimmed;
+    // Already absolute / inlined — never double-prefix (causes R2 400/404).
+    if (/^(https?:|data:|blob:)/i.test(trimmed)) return trimmed;
     if (!R2_PUBLIC_URL) {
       console.warn('VITE_R2_PUBLIC_URL is not defined');
-      return path;
+      return trimmed;
     }
     const baseUrl = R2_PUBLIC_URL.endsWith('/') ? R2_PUBLIC_URL : `${R2_PUBLIC_URL}/`;
-    return `${baseUrl}${path}`;
+    const key = trimmed.replace(/^\//, '');
+    if (key.startsWith(baseUrl)) return key;
+    return `${baseUrl}${key}`;
   },
 
   /** Returns true when an object exists at `path` in R2. */

@@ -159,11 +159,9 @@ function isLikelyAlbumImageKey(key) {
     return false;
 }
 
-async function getPhotographerPathFolder(photographerId) {
-    if (!photographerId) return 'photographer';
-    if (PHOTOGRAPHER_PATH_CACHE.has(photographerId)) {
-        return PHOTOGRAPHER_PATH_CACHE.get(photographerId);
-    }
+async function getPhotographerPathFolderVariants(photographerId) {
+    if (!photographerId) return ['photographer'];
+    const variants = new Set();
     try {
         const { data } = await supabase
             .from('photographers')
@@ -171,15 +169,34 @@ async function getPhotographerPathFolder(photographerId) {
             .eq('id', photographerId)
             .maybeSingle();
         const emailPrefix = String(data?.email || '').split('@')[0];
-        const folder = safeSegment(
-            data?.display_name || emailPrefix || photographerId,
-            'photographer'
-        );
-        PHOTOGRAPHER_PATH_CACHE.set(photographerId, folder);
-        return folder;
+        const fromEmail = emailPrefix ? safeSegment(emailPrefix, '') : '';
+        const fromName = data?.display_name ? safeSegment(data.display_name, '') : '';
+        // Prefer email for primary cache (stable); keep display-name + collapsed forms for legacy paths.
+        const primary = fromEmail || fromName || safeSegment(photographerId, 'photographer');
+        PHOTOGRAPHER_PATH_CACHE.set(photographerId, primary);
+        variants.add(primary);
+        if (fromName) variants.add(fromName);
+        if (fromEmail) variants.add(fromEmail);
+        // Legacy: display names sometimes uploaded without separators (karakovanphotography).
+        if (fromName) variants.add(fromName.replace(/-/g, ''));
+        if (fromEmail) variants.add(fromEmail.replace(/-/g, ''));
+        variants.add(safeSegment(photographerId, 'photographer'));
     } catch {
-        return safeSegment(photographerId, 'photographer');
+        variants.add(safeSegment(photographerId, 'photographer'));
     }
+    variants.delete('');
+    return [...variants];
+}
+
+async function getPhotographerPathFolder(photographerId) {
+    if (!photographerId) return 'photographer';
+    if (PHOTOGRAPHER_PATH_CACHE.has(photographerId)) {
+        return PHOTOGRAPHER_PATH_CACHE.get(photographerId);
+    }
+    const variants = await getPhotographerPathFolderVariants(photographerId);
+    const folder = variants[0] || 'photographer';
+    PHOTOGRAPHER_PATH_CACHE.set(photographerId, folder);
+    return folder;
 }
 
 async function uploadCollectionImage({
@@ -505,16 +522,18 @@ function mergeCloudCollectionToLocal(albumId, cloudItems, revision = 0) {
 }
 
 async function listR2CollectionItems(albumId, photographerId) {
-    const [photographerFolder, albumFolders] = await Promise.all([
-        getPhotographerPathFolder(photographerId),
+    const [photographerFolders, albumFolders] = await Promise.all([
+        getPhotographerPathFolderVariants(photographerId),
         getAlbumPathFolderVariants(albumId),
     ]);
     // New uploads use album-proofer/; keep listing legacy smart-album/ for existing assets.
-    // Try both name__id and legacy name_id folder segments.
+    // Try email + display-name folder variants and both name__id / name_id album folders.
     const prefixes = [];
-    for (const module of ['album-proofer', 'smart-album']) {
-        for (const albumFolder of albumFolders) {
-            prefixes.push(['users', photographerFolder, module, albumFolder, ''].join('/'));
+    for (const photographerFolder of photographerFolders) {
+        for (const module of ['album-proofer', 'smart-album']) {
+            for (const albumFolder of albumFolders) {
+                prefixes.push(['users', photographerFolder, module, albumFolder, ''].join('/'));
+            }
         }
     }
     try {
@@ -529,13 +548,29 @@ async function listR2CollectionItems(albumId, photographerId) {
             }
         }
 
-        // Last-resort: scan module roots for any key containing this album id.
+        // Last-resort: scan module roots under each photographer folder for this album id.
+        if (objects.length === 0 && albumId) {
+            for (const photographerFolder of photographerFolders) {
+                for (const module of ['album-proofer', 'smart-album']) {
+                    const rootPrefix = ['users', photographerFolder, module, ''].join('/');
+                    const listed = await storageService.listByPrefix(rootPrefix, { maxKeys: 2000 });
+                    for (const obj of listed) {
+                        if (!obj?.key || seen.has(obj.key)) continue;
+                        if (!obj.key.includes(albumId)) continue;
+                        seen.add(obj.key);
+                        objects.push(obj);
+                    }
+                }
+            }
+        }
+
+        // Absolute last-resort: photographer folder renamed — scan users/*/module for album id.
         if (objects.length === 0 && albumId) {
             for (const module of ['album-proofer', 'smart-album']) {
-                const rootPrefix = ['users', photographerFolder, module, ''].join('/');
-                const listed = await storageService.listByPrefix(rootPrefix, { maxKeys: 2000 });
+                const listed = await storageService.listByPrefix(`users/`, { maxKeys: 5000 });
                 for (const obj of listed) {
                     if (!obj?.key || seen.has(obj.key)) continue;
+                    if (!obj.key.includes(`/${module}/`)) continue;
                     if (!obj.key.includes(albumId)) continue;
                     seen.add(obj.key);
                     objects.push(obj);

@@ -711,6 +711,82 @@ async function syncLocalAlbumAssetsToSupabase(photographerId) {
       spineBounds: getAlbumSpineBoundsOverride(albumId),
     });
     if (!previewData) continue;
+
+    // Load cloud snapshot first so an empty local catalog cannot wipe R2-backed collection.
+    let existingPreview = null;
+    try {
+      const { data } = await supabase
+        .from('album_proofer_albums')
+        .select('preview_data')
+        .eq('id', albumId)
+        .eq('photographer_id', photographerId)
+        .maybeSingle();
+      existingPreview =
+        data?.preview_data && typeof data.preview_data === 'object' ? data.preview_data : null;
+    } catch {
+      existingPreview = null;
+    }
+
+    const localCollection = Array.isArray(previewData.collection) ? previewData.collection : [];
+    const cloudCollection = Array.isArray(existingPreview?.collection)
+      ? existingPreview.collection
+      : [];
+    if (localCollection.length === 0 && cloudCollection.length > 0) {
+      previewData.collection = cloudCollection;
+      previewData.storage_bytes =
+        Number(existingPreview.storage_bytes) ||
+        cloudCollection.reduce((sum, item) => sum + (Number(item.size_bytes) || 0), 0);
+    } else if (
+      localCollection.length > 0 &&
+      cloudCollection.length > localCollection.length * 2
+    ) {
+      const byId = new Map();
+      const byPath = new Map();
+      for (const item of [...cloudCollection, ...localCollection]) {
+        if (!item) continue;
+        if (item.id) byId.set(item.id, item);
+        if (item.storagePath) byPath.set(item.storagePath, item);
+      }
+      const merged = [];
+      const seen = new Set();
+      for (const item of [...byId.values(), ...byPath.values()]) {
+        const key = item.id || item.storagePath;
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        merged.push(item);
+      }
+      previewData.collection = merged;
+      previewData.storage_bytes = merged.reduce(
+        (sum, item) => sum + (Number(item.size_bytes) || 0),
+        0
+      );
+    }
+
+    // Never publish pages-only snapshots that orphan every placement.
+    const pageKeys = Object.keys(previewData.pages || {});
+    const collectionLen = previewData.collection?.length ?? 0;
+    const pagesNeedCatalog = pageKeys.some((key) => {
+      const stored = previewData.pages[key];
+      return (
+        stored &&
+        typeof stored === 'object' &&
+        stored.collectionItemId &&
+        !stored.storagePath &&
+        !stored.dataUrl
+      );
+    });
+    if (pagesNeedCatalog && collectionLen === 0) {
+      // Skip — would lock in a broken catalog. R2 recovery + syncAlbumPreviewData repairs this.
+      continue;
+    }
+
+    const localPageKeys = pageKeys.filter((k) => k !== '__revision');
+    const cloudPageKeys = Object.keys(existingPreview?.pages || {});
+    if (localPageKeys.length === 0 && cloudPageKeys.length > 0) {
+      previewData.pages = existingPreview.pages;
+      if (existingPreview.revision != null) previewData.revision = existingPreview.revision;
+    }
+
     const hasAssets =
       previewData.cover_url ||
       (previewData.collection?.length ?? 0) > 0 ||
@@ -1370,6 +1446,31 @@ export const smartAlbumsService = {
     if (localPageKeys.length === 0 && cloudPageKeys.length > 0) {
       previewData.pages = existingPreview.pages;
       if (existingPreview.revision != null) previewData.revision = existingPreview.revision;
+    }
+
+    // Refuse to persist id-only placements with an empty collection (wipes display on every device).
+    const collectionLen = previewData.collection?.length ?? 0;
+    const pagesNeedCatalog = Object.keys(previewData.pages || {}).some((key) => {
+      const stored = previewData.pages[key];
+      return (
+        stored &&
+        typeof stored === 'object' &&
+        stored.collectionItemId &&
+        !stored.storagePath &&
+        !stored.dataUrl
+      );
+    });
+    if (pagesNeedCatalog && collectionLen === 0) {
+      console.warn(
+        'syncAlbumPreviewData: refusing empty collection while pages reference collectionItemIds',
+        albumId
+      );
+      if (cloudCollection.length > 0) {
+        previewData.collection = cloudCollection;
+      } else {
+        hydrateAlbumPreviewData(albumId, previewData);
+        return previewData;
+      }
     }
 
     const { data, error } = await updateAlbumRowResilient(photographerId, albumId, {
