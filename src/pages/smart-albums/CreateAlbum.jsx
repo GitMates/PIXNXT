@@ -27,6 +27,7 @@ import {
 } from './createAlbumPreviewThumbs';
 import { resolveCreateUploadPreviewLayout } from './createAlbumPreviewLayout';
 import { isImageFile, isPdfFile } from '../../lib/pdfToImages';
+import { repairAlbumPreviewFromServer } from '../../lib/repairAlbumPreview';
 import {
     filesFromDataTransfer,
     filesFromInput,
@@ -1331,7 +1332,35 @@ const CreateAlbum = () => {
             });
 
             const { user: syncUser } = await ensureAuthSession();
-            await smartAlbumsService.syncAlbumPreviewData(syncUser.id, album.id);
+            let synced = await smartAlbumsService.syncAlbumPreviewData(syncUser.id, album.id);
+
+            // Never leave create in an orphaned state — repair + re-sync if catalog is incomplete.
+            const uploadedSomething = (photoFiles?.length || 0) > 0 || Boolean(coverFile);
+            if (
+                uploadedSomething &&
+                (!synced?.collection?.length ||
+                    !Array.isArray(synced.collection) ||
+                    !synced.collection.some((item) => item?.storagePath))
+            ) {
+                try {
+                    const repair = await repairAlbumPreviewFromServer(album.id);
+                    if (repair?.preview_data) {
+                        synced = await smartAlbumsService.syncAlbumPreviewData(syncUser.id, album.id);
+                    }
+                } catch (repairErr) {
+                    console.warn('Post-create album repair failed:', repairErr?.message || repairErr);
+                }
+            }
+
+            if (
+                uploadedSomething &&
+                (!synced?.collection?.length ||
+                    !synced.collection.some((item) => item?.storagePath))
+            ) {
+                throw new Error(
+                    'Photos uploaded but album catalog failed to save. Please try again — your files are in storage.'
+                );
+            }
 
             navigate(`/album-proofer/album/${album.id}`, {
                 state: { syncCollectionOrder: true },

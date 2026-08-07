@@ -9,6 +9,7 @@ import {
     hydrateAlbumPreviewData,
 } from './albumPreviewData';
 import { loadCollectionItemDimensions, loadImageDimensionsFromFile } from './albumGridSize';
+import { previewNeedsAssetRepair, repairAlbumPreviewFromServer } from '../../lib/repairAlbumPreview';
 
 const STORAGE_KEY = 'pixnxt_album_collections';
 export const ALBUM_COLLECTION_CHANGED_EVENT = 'pixnxt-album-collection-changed';
@@ -607,6 +608,7 @@ export async function loadAlbumAssetsFromCloud(albumId, photographerId) {
     }
 
     let previewData = null;
+    let repairedFromServer = false;
 
     try {
         let { data, error } = await supabase
@@ -639,6 +641,19 @@ export async function loadAlbumAssetsFromCloud(albumId, photographerId) {
         console.warn('Could not load album preview_data:', error?.message || error);
     }
 
+    // Server-side R2 rebuild (no browser CORS). Fixes wiped collection catalogs permanently.
+    if (previewNeedsAssetRepair(previewData)) {
+        try {
+            const repair = await repairAlbumPreviewFromServer(albumId);
+            if (repair?.preview_data && (repair.repaired || repair.collectionCount > 0)) {
+                previewData = repair.preview_data;
+                repairedFromServer = Boolean(repair.repaired);
+            }
+        } catch (error) {
+            console.warn('Server album preview repair failed:', error?.message || error);
+        }
+    }
+
     if (previewData) {
         hydrateAlbumPreviewData(albumId, previewData);
     }
@@ -646,8 +661,7 @@ export async function loadAlbumAssetsFromCloud(albumId, photographerId) {
     let collection = Array.isArray(previewData?.collection) ? [...previewData.collection] : [];
     const collectionHasPaths = collection.some((item) => item?.storagePath);
 
-    // Always try R2 when snapshot is empty OR items lack storagePath (stale/wiped catalog).
-    // Also merge R2 objects so extensionless / legacy-folder assets resurface.
+    // Browser R2 list as secondary fallback (may fail under CORS).
     const shouldListR2 = collection.length === 0 || !collectionHasPaths;
     let r2Collection = [];
     if (shouldListR2) {
@@ -663,7 +677,6 @@ export async function loadAlbumAssetsFromCloud(albumId, photographerId) {
             });
         }
     } else {
-        // Supplement: pick up any R2 objects missing from the snapshot (best-effort).
         try {
             r2Collection = await listR2CollectionItems(albumId, photographerId);
             if (r2Collection.length > 0) {
@@ -691,7 +704,8 @@ export async function loadAlbumAssetsFromCloud(albumId, photographerId) {
         collection: getAlbumCollection(albumId),
         loaded: Boolean(previewData || collection.length > 0),
         merged,
-        recoveredFromR2: r2Collection.length > 0,
+        recoveredFromR2: r2Collection.length > 0 || repairedFromServer,
+        repairedFromServer,
     };
 }
 

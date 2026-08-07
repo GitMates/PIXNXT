@@ -11,9 +11,11 @@ import {
   hydrateAlbumPreviewData,
   patchAlbumPreviewProoferAccess,
 } from '../components/smart-albums/albumPreviewData';
+import { protectPreviewSnapshot } from '../components/smart-albums/albumPreviewGuard';
 import { getAlbumCoverColor } from '../components/smart-albums/albumCoverColor';
 import { getAlbumSpineBoundsOverride } from '../components/smart-albums/albumSpineSettings';
 import { duplicateAlbumAssets } from '../components/smart-albums/albumDuplicate';
+import { repairAlbumPreviewFromServer, previewNeedsAssetRepair, repairAllMyAlbumPreviewsFromServer } from '../lib/repairAlbumPreview';
 
 
 
@@ -26,6 +28,20 @@ const SETTINGS_OVR_KEY = 'pixnxt_smart_album_settings_ovr';
 const PAGECOUNT_OVR_KEY = 'pixnxt_smart_album_pagecount_ovr';
 
 const GRID_SETTINGS_OVR_KEY = 'pixnxt_smart_album_grid_settings_ovr';
+
+const REPAIRED_CATALOG_SESSION = new Set();
+
+async function repairBrokenAlbumsForPhotographerInBackground(photographerId) {
+  if (!photographerId || REPAIRED_CATALOG_SESSION.has(photographerId)) return null;
+  REPAIRED_CATALOG_SESSION.add(photographerId);
+  try {
+    return await repairAllMyAlbumPreviewsFromServer();
+  } catch (err) {
+    // Allow retry later in the session if the API was temporarily unavailable.
+    REPAIRED_CATALOG_SESSION.delete(photographerId);
+    throw err;
+  }
+}
 
 
 
@@ -373,6 +389,63 @@ async function insertAlbumRowResilient(row) {
 
 async function updateAlbumRowResilient(photographerId, albumId, patch) {
   let payload = { ...patch, updated_at: new Date().toISOString() };
+
+  // Hard gate: never persist a preview_data blob that orphans page placements.
+  // This catches publish/settings/background sync paths that bypass syncAlbumPreviewData.
+  if (payload.preview_data && typeof payload.preview_data === 'object') {
+    let existingPreview = null;
+    try {
+      const { data: existingRow } = await supabase
+        .from('album_proofer_albums')
+        .select('preview_data')
+        .eq('photographer_id', photographerId)
+        .eq('id', albumId)
+        .maybeSingle();
+      existingPreview =
+        existingRow?.preview_data && typeof existingRow.preview_data === 'object'
+          ? existingRow.preview_data
+          : null;
+    } catch {
+      existingPreview = null;
+    }
+
+    const { previewData, shouldSkipWrite } = protectPreviewSnapshot(
+      payload.preview_data,
+      existingPreview
+    );
+
+    if (shouldSkipWrite || !previewData) {
+      console.warn(
+        '[album-proofer] blocked unsafe preview_data write (would orphan photos)',
+        albumId
+      );
+      delete payload.preview_data;
+      // Keep cover if the patch only wanted status/settings; drop cover derived from bad snapshot.
+      if (patch.cover_image_url !== undefined && !existingPreview?.cover_url) {
+        delete payload.cover_image_url;
+      } else if (existingPreview?.cover_url && patch.cover_image_url != null) {
+        // Prefer keeping a previously good cover over a null from an empty snapshot.
+        if (!patch.cover_image_url) {
+          payload.cover_image_url = existingPreview.cover_url;
+        }
+      }
+    } else {
+      payload.preview_data = previewData;
+      if (payload.cover_image_url === undefined && previewData.cover_url) {
+        payload.cover_image_url = previewData.cover_url;
+      }
+      if (payload.storage_bytes == null && previewData.storage_bytes != null) {
+        payload.storage_bytes = previewData.storage_bytes;
+      }
+    }
+
+    // Nothing left to write besides updated_at — bail early.
+    const keys = Object.keys(payload).filter((k) => k !== 'updated_at');
+    if (keys.length === 0) {
+      return { data: null, error: null };
+    }
+  }
+
   const droppable = OPTIONAL_ALBUM_INSERT_COLUMNS.filter((col) => col in payload);
   let attempts = 0;
   const maxAttempts = droppable.length + 2;
@@ -699,7 +772,7 @@ async function syncLocalAlbumAssetsToSupabase(photographerId) {
 
   for (const albumId of albumIds) {
     const gridOvr = readGridSettingsOverrides(photographerId)[albumId];
-    const previewData = buildAlbumPreviewSnapshot(albumId, {
+    const localSnapshot = buildAlbumPreviewSnapshot(albumId, {
       album: gridOvr
         ? {
             has_covers: gridOvr.has_covers !== false,
@@ -710,9 +783,8 @@ async function syncLocalAlbumAssetsToSupabase(photographerId) {
       coverColorPreset: getAlbumCoverColor(albumId),
       spineBounds: getAlbumSpineBoundsOverride(albumId),
     });
-    if (!previewData) continue;
+    if (!localSnapshot) continue;
 
-    // Load cloud snapshot first so an empty local catalog cannot wipe R2-backed collection.
     let existingPreview = null;
     try {
       const { data } = await supabase
@@ -727,65 +799,20 @@ async function syncLocalAlbumAssetsToSupabase(photographerId) {
       existingPreview = null;
     }
 
-    const localCollection = Array.isArray(previewData.collection) ? previewData.collection : [];
-    const cloudCollection = Array.isArray(existingPreview?.collection)
-      ? existingPreview.collection
-      : [];
-    if (localCollection.length === 0 && cloudCollection.length > 0) {
-      previewData.collection = cloudCollection;
-      previewData.storage_bytes =
-        Number(existingPreview.storage_bytes) ||
-        cloudCollection.reduce((sum, item) => sum + (Number(item.size_bytes) || 0), 0);
-    } else if (
-      localCollection.length > 0 &&
-      cloudCollection.length > localCollection.length * 2
-    ) {
-      const byId = new Map();
-      const byPath = new Map();
-      for (const item of [...cloudCollection, ...localCollection]) {
-        if (!item) continue;
-        if (item.id) byId.set(item.id, item);
-        if (item.storagePath) byPath.set(item.storagePath, item);
+    if (previewNeedsAssetRepair(existingPreview) || previewNeedsAssetRepair(localSnapshot)) {
+      try {
+        const repair = await repairAlbumPreviewFromServer(albumId);
+        if (repair?.preview_data && repair.repaired) {
+          existingPreview = repair.preview_data;
+          hydrateAlbumPreviewData(albumId, repair.preview_data);
+        }
+      } catch (err) {
+        console.warn('Background album repair failed:', albumId, err?.message || err);
       }
-      const merged = [];
-      const seen = new Set();
-      for (const item of [...byId.values(), ...byPath.values()]) {
-        const key = item.id || item.storagePath;
-        if (!key || seen.has(key)) continue;
-        seen.add(key);
-        merged.push(item);
-      }
-      previewData.collection = merged;
-      previewData.storage_bytes = merged.reduce(
-        (sum, item) => sum + (Number(item.size_bytes) || 0),
-        0
-      );
     }
 
-    // Never publish pages-only snapshots that orphan every placement.
-    const pageKeys = Object.keys(previewData.pages || {});
-    const collectionLen = previewData.collection?.length ?? 0;
-    const pagesNeedCatalog = pageKeys.some((key) => {
-      const stored = previewData.pages[key];
-      return (
-        stored &&
-        typeof stored === 'object' &&
-        stored.collectionItemId &&
-        !stored.storagePath &&
-        !stored.dataUrl
-      );
-    });
-    if (pagesNeedCatalog && collectionLen === 0) {
-      // Skip — would lock in a broken catalog. R2 recovery + syncAlbumPreviewData repairs this.
-      continue;
-    }
-
-    const localPageKeys = pageKeys.filter((k) => k !== '__revision');
-    const cloudPageKeys = Object.keys(existingPreview?.pages || {});
-    if (localPageKeys.length === 0 && cloudPageKeys.length > 0) {
-      previewData.pages = existingPreview.pages;
-      if (existingPreview.revision != null) previewData.revision = existingPreview.revision;
-    }
+    const { previewData, shouldSkipWrite } = protectPreviewSnapshot(localSnapshot, existingPreview);
+    if (!previewData || shouldSkipWrite) continue;
 
     const hasAssets =
       previewData.cover_url ||
@@ -957,6 +984,9 @@ export const smartAlbumsService = {
           void syncLocalAlbumAssetsToSupabase(photographerId).catch((e) => {
             console.warn('Background album asset sync failed:', e?.message || e);
           });
+          void repairBrokenAlbumsForPhotographerInBackground(photographerId).catch((e) => {
+            console.warn('Background album catalog repair failed:', e?.message || e);
+          });
           return mergeAlbumRows(synced, photographerId);
         }
       }
@@ -986,6 +1016,11 @@ export const smartAlbumsService = {
 
     void syncLocalAlbumAssetsToSupabase(photographerId).catch((e) => {
       console.warn('Background album asset sync failed:', e?.message || e);
+    });
+
+    // One-shot per session: rebuild any wiped collections for this photographer from R2.
+    void repairBrokenAlbumsForPhotographerInBackground(photographerId).catch((e) => {
+      console.warn('Background album catalog repair failed:', e?.message || e);
     });
 
     return mergeAlbumRows(synced, photographerId);
@@ -1244,19 +1279,18 @@ export const smartAlbumsService = {
 
     if (patch.status === 'published') {
       const album = await this.getAlbum(photographerId, albumId);
-      const previewData = buildAlbumPreviewSnapshot(albumId, {
-        album: {
-          ...album,
-          ...(patch.share_link_enabled !== undefined
-            ? { share_link_enabled: patch.share_link_enabled }
-            : {}),
-        },
-        coverColorPreset: getAlbumCoverColor(albumId),
-        spineBounds: getAlbumSpineBoundsOverride(albumId),
-      });
-      if (previewData) {
-        payload.preview_data = previewData;
-        payload.cover_image_url = previewData.cover_url || null;
+      // Always go through protected sync — never write a raw local snapshot on publish
+      // (that previously wiped collection while keeping orphan collectionItemId pages).
+      if (previewNeedsAssetRepair(album?.preview_data)) {
+        try {
+          await repairAlbumPreviewFromServer(albumId);
+        } catch (err) {
+          console.warn('Repair before publish failed:', err?.message || err);
+        }
+      }
+      const syncedPreview = await this.syncAlbumPreviewData(photographerId, albumId);
+      if (syncedPreview) {
+        payload.cover_image_url = syncedPreview.cover_url || null;
       }
       if (!album?.published_at) {
         payload.published_at = new Date().toISOString();
@@ -1368,8 +1402,19 @@ export const smartAlbumsService = {
     const freshAlbum = album || (await this.getAlbum(photographerId, albumId));
     if (!freshAlbum) return null;
 
-    const previewData = patchAlbumPreviewProoferAccess(albumId, freshAlbum);
-    if (!previewData) return null;
+    const existingPreview =
+      freshAlbum?.preview_data && typeof freshAlbum.preview_data === 'object'
+        ? freshAlbum.preview_data
+        : null;
+    const patched = patchAlbumPreviewProoferAccess(albumId, freshAlbum);
+    if (!patched) return null;
+
+    const { previewData, shouldSkipWrite } = protectPreviewSnapshot(patched, existingPreview);
+    if (shouldSkipWrite || !previewData) {
+      // Still keep in-memory access flags, but never wipe the photo catalog on disk.
+      hydrateAlbumPreviewData(albumId, existingPreview || patched);
+      return existingPreview || patched;
+    }
 
     const { data, error } = await updateAlbumRowResilient(photographerId, albumId, {
       preview_data: previewData,
@@ -1396,86 +1441,50 @@ export const smartAlbumsService = {
       album?.preview_data && typeof album.preview_data === 'object'
         ? album.preview_data
         : null;
-    const previewData = buildAlbumPreviewSnapshot(albumId, {
-      album,
+
+    if (previewNeedsAssetRepair(existingPreview)) {
+      try {
+        const repair = await repairAlbumPreviewFromServer(albumId);
+        if (repair?.preview_data && repair.repaired) {
+          hydrateAlbumPreviewData(albumId, repair.preview_data);
+        }
+      } catch (err) {
+        console.warn('Repair during syncAlbumPreviewData failed:', err?.message || err);
+      }
+    }
+
+    const freshAlbum = await this.getAlbum(photographerId, albumId);
+    const cloudPreview =
+      freshAlbum?.preview_data && typeof freshAlbum.preview_data === 'object'
+        ? freshAlbum.preview_data
+        : existingPreview;
+
+    const localSnapshot = buildAlbumPreviewSnapshot(albumId, {
+      album: freshAlbum || album,
       coverColorPreset: getAlbumCoverColor(albumId),
       spineBounds: getAlbumSpineBoundsOverride(albumId),
     });
+    if (!localSnapshot) return null;
+
+    const { previewData, shouldSkipWrite } = protectPreviewSnapshot(localSnapshot, cloudPreview);
     if (!previewData) return null;
 
-    const localCollection = Array.isArray(previewData.collection) ? previewData.collection : [];
-    const cloudCollection = Array.isArray(existingPreview?.collection)
-      ? existingPreview.collection
-      : [];
-    // Never wipe a populated cloud catalog with an empty/partial local snapshot
-    // (common race: open album before R2 hydrate finishes).
-    if (localCollection.length === 0 && cloudCollection.length > 0) {
-      previewData.collection = cloudCollection;
-      previewData.storage_bytes =
-        Number(existingPreview.storage_bytes) ||
-        cloudCollection.reduce((sum, item) => sum + (Number(item.size_bytes) || 0), 0);
-    } else if (
-      localCollection.length > 0 &&
-      cloudCollection.length > localCollection.length * 2
-    ) {
-      // Local is suspiciously thin vs cloud — merge rather than replace.
-      const byId = new Map();
-      const byPath = new Map();
-      for (const item of [...cloudCollection, ...localCollection]) {
-        if (!item) continue;
-        if (item.id) byId.set(item.id, item);
-        if (item.storagePath) byPath.set(item.storagePath, item);
-      }
-      const merged = [];
-      const seen = new Set();
-      for (const item of [...byId.values(), ...byPath.values()]) {
-        const key = item.id || item.storagePath;
-        if (!key || seen.has(key)) continue;
-        seen.add(key);
-        merged.push(item);
-      }
-      previewData.collection = merged;
-      previewData.storage_bytes = merged.reduce(
-        (sum, item) => sum + (Number(item.size_bytes) || 0),
-        0
-      );
-    }
-
-    const localPageKeys = Object.keys(previewData.pages || {}).filter((k) => k !== '__revision');
-    const cloudPageKeys = Object.keys(existingPreview?.pages || {});
-    if (localPageKeys.length === 0 && cloudPageKeys.length > 0) {
-      previewData.pages = existingPreview.pages;
-      if (existingPreview.revision != null) previewData.revision = existingPreview.revision;
-    }
-
-    // Refuse to persist id-only placements with an empty collection (wipes display on every device).
-    const collectionLen = previewData.collection?.length ?? 0;
-    const pagesNeedCatalog = Object.keys(previewData.pages || {}).some((key) => {
-      const stored = previewData.pages[key];
-      return (
-        stored &&
-        typeof stored === 'object' &&
-        stored.collectionItemId &&
-        !stored.storagePath &&
-        !stored.dataUrl
-      );
-    });
-    if (pagesNeedCatalog && collectionLen === 0) {
+    if (shouldSkipWrite) {
       console.warn(
         'syncAlbumPreviewData: refusing empty collection while pages reference collectionItemIds',
         albumId
       );
-      if (cloudCollection.length > 0) {
-        previewData.collection = cloudCollection;
-      } else {
-        hydrateAlbumPreviewData(albumId, previewData);
-        return previewData;
-      }
+      hydrateAlbumPreviewData(albumId, cloudPreview || previewData);
+      return cloudPreview || previewData;
     }
 
     const { data, error } = await updateAlbumRowResilient(photographerId, albumId, {
       preview_data: previewData,
       cover_image_url: previewData.cover_url || null,
+      storage_bytes:
+        Number(previewData.storage_bytes) ||
+        getAlbumCollectionStorageBytes(albumId) ||
+        null,
     });
 
     if (error && shouldUseLocalStore(error)) {
