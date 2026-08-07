@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
     getAlbumPhotoRevision,
     healOrphanCollectionPlacements,
+    embedPlacementStorageFallbacks,
     mergeRemotePreviewPagesIntoLocal,
 } from '../../components/smart-albums/albumPagePhotos';
 import { loadAlbumAssetsFromCloud } from '../../components/smart-albums/albumCollection';
@@ -172,6 +173,7 @@ export default function PublicAlbumPreview() {
                 await loadAlbumAssetsFromCloud(album.id, album.photographer_id);
                 if (cancelled) return;
                 healOrphanCollectionPlacements(album.id);
+                embedPlacementStorageFallbacks(album.id);
                 setPhotoRevision(getAlbumPhotoRevision(album.id) || 0);
             } catch (error) {
                 console.warn('Could not hydrate public album assets:', error?.message || error);

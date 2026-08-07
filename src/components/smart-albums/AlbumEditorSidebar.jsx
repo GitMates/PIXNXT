@@ -550,6 +550,8 @@ export default function AlbumEditorSidebar({
                                                 removeImageReplacement(albumId, id);
                                             }
                                         }}
+                                        onNewVersion={handleNewVersionUpload}
+                                        onRestoreReplacement={onRestoreImageReplacement}
                                     />
                                 </div>
                             )}

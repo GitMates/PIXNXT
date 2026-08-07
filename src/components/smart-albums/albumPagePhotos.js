@@ -86,6 +86,25 @@ function resolveCollectionItemUrl(albumId, collectionItemId) {
     return getCollectionItemDisplayUrl(item, { cacheBust });
 }
 
+/** Placement payload: id for live lookup + storagePath so display survives a wiped collection catalog. */
+function placementFromCollectionItem(albumId, collectionItemId) {
+    if (!collectionItemId) return null;
+    const item =
+        getCollectionItem(albumId, collectionItemId) ??
+        getRemoteCollectionItem(albumId, collectionItemId);
+    if (!item) return { collectionItemId };
+    const storagePath = item.storagePath || null;
+    const dataUrl =
+        item.dataUrl ||
+        (storagePath ? storageService.getPublicUrl(storagePath) : null) ||
+        null;
+    return {
+        collectionItemId,
+        ...(storagePath ? { storagePath } : {}),
+        ...(dataUrl ? { dataUrl } : {}),
+    };
+}
+
 function resolveStoredPhoto(albumId, stored) {
     if (!stored) return null;
     if (typeof stored === 'string') return stored;
@@ -1006,6 +1025,73 @@ export function healOrphanCollectionPlacements(albumId) {
     return true;
 }
 
+/** Embed storagePath/dataUrl onto id-only placements so sync survives an empty collection catalog. */
+export function embedPlacementStorageFallbacks(albumId) {
+    if (!albumId) return false;
+    const collection = getAlbumCollection(albumId);
+    if (!collection.length) return false;
+    const byId = new Map(collection.map((item) => [item.id, item]));
+
+    const all = readAll();
+    const localAlbum = { ...(all[albumId] || {}) };
+    const remote = getRemotePreviewData(albumId);
+    const remotePages = remote?.pages ? { ...remote.pages } : {};
+    const keys = new Set([
+        ...Object.keys(localAlbum).filter((k) => k !== '__revision'),
+        ...Object.keys(remotePages),
+    ]);
+
+    let changed = false;
+    const enrich = (stored) => {
+        if (!stored || typeof stored !== 'object' || !stored.collectionItemId) return stored;
+        if (stored.storagePath && stored.dataUrl) return stored;
+        const item = byId.get(stored.collectionItemId);
+        if (!item) return stored;
+        const storagePath = item.storagePath || stored.storagePath || null;
+        const dataUrl =
+            item.dataUrl ||
+            stored.dataUrl ||
+            (storagePath ? storageService.getPublicUrl(storagePath) : null);
+        if (
+            storagePath === stored.storagePath &&
+            dataUrl === stored.dataUrl
+        ) {
+            return stored;
+        }
+        changed = true;
+        return {
+            collectionItemId: stored.collectionItemId,
+            ...(storagePath ? { storagePath } : {}),
+            ...(dataUrl ? { dataUrl } : {}),
+        };
+    };
+
+    for (const key of keys) {
+        if (localAlbum[key] != null) {
+            localAlbum[key] = enrich(localAlbum[key]);
+        } else if (remotePages[key] != null) {
+            localAlbum[key] = enrich(remotePages[key]);
+        }
+        if (remotePages[key] != null) {
+            remotePages[key] = enrich(remotePages[key]);
+        }
+    }
+
+    if (!changed) return false;
+
+    localAlbum.__revision = (localAlbum.__revision || 0) + 1;
+    all[albumId] = localAlbum;
+    writeAll(all);
+    if (remote) {
+        hydrateAlbumPreviewData(albumId, {
+            ...remote,
+            pages: remotePages,
+            revision: (remote.revision || 0) + 1,
+        });
+    }
+    return true;
+}
+
 /** First available image for album list cards (cover, collection, or placed pages). */
 export function getAlbumListThumbnailUrl(albumId) {
     if (!albumId) return null;
@@ -1108,7 +1194,7 @@ export function setPagePhotoFromCollectionItem(
     if (clearSpreadForLeft != null) {
         delete album[spreadStorageKey(clearSpreadForLeft)];
     }
-    album[String(pageNum)] = { collectionItemId };
+    album[String(pageNum)] = placementFromCollectionItem(albumId, collectionItemId);
     album.__revision = (album.__revision || 0) + 1;
     all[albumId] = album;
     return writeAll(all);
@@ -1239,12 +1325,28 @@ export function removeCollectionItemsOnDeletedSpread(albumId, removeAt, count) {
 }
 
 /** Remove all placed photos from album pages (collection is unchanged). */
-function remapPageStoredValue(stored, idMap) {
+function remapPageStoredValue(stored, idMap, albumId = null) {
     if (stored == null) return stored;
     if (typeof stored === 'string') return stored;
     if (typeof stored === 'object' && stored.collectionItemId) {
-        const newId = idMap.get(stored.collectionItemId);
-        return newId ? { collectionItemId: newId } : { collectionItemId: stored.collectionItemId };
+        const newId = idMap.get(stored.collectionItemId) || stored.collectionItemId;
+        if (albumId) {
+            const placement = placementFromCollectionItem(albumId, newId);
+            if (placement) {
+                return {
+                    ...placement,
+                    ...(stored.storagePath && !placement.storagePath
+                        ? { storagePath: stored.storagePath }
+                        : {}),
+                    ...(stored.dataUrl && !placement.dataUrl ? { dataUrl: stored.dataUrl } : {}),
+                };
+            }
+        }
+        return {
+            collectionItemId: newId,
+            ...(stored.storagePath ? { storagePath: stored.storagePath } : {}),
+            ...(stored.dataUrl ? { dataUrl: stored.dataUrl } : {}),
+        };
     }
     if (typeof stored === 'object') return { ...stored };
     return stored;
@@ -1268,7 +1370,7 @@ export function copyAlbumPagePhotos(sourceAlbumId, targetAlbumId, idMap = new Ma
     for (const key of keys) {
         const stored = local[key] ?? remote?.pages?.[key];
         if (stored == null) continue;
-        target[key] = remapPageStoredValue(stored, idMap);
+        target[key] = remapPageStoredValue(stored, idMap, targetAlbumId);
     }
 
     all[targetAlbumId] = target;
@@ -1331,8 +1433,9 @@ export function setSpreadPhotoFromCollectionItem(
     }
     const all = readAll();
     const album = { ...(all[albumId] || {}) };
-    // Always store id-only — never embed a frozen dataUrl that can stale on replace.
-    album[spreadStorageKey(leftPage)] = { collectionItemId };
+    // Prefer live collectionItemId for replaces; keep storagePath as durable fallback.
+    const placement = placementFromCollectionItem(albumId, collectionItemId);
+    album[spreadStorageKey(leftPage)] = placement;
     delete album[String(leftPage)];
     if (rightPage != null) delete album[String(rightPage)];
     album.__revision = (album.__revision || 0) + 1;
@@ -1343,7 +1446,7 @@ export function setSpreadPhotoFromCollectionItem(
     const remote = getRemotePreviewData(albumId);
     if (remote?.pages) {
         const pages = { ...remote.pages };
-        pages[spreadStorageKey(leftPage)] = { collectionItemId };
+        pages[spreadStorageKey(leftPage)] = placement;
         delete pages[String(leftPage)];
         if (rightPage != null) delete pages[String(rightPage)];
         hydrateAlbumPreviewData(albumId, {

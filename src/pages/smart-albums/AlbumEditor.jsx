@@ -42,6 +42,7 @@ import {
     getSpreadPlacementCollectionItemId,
     getSpreadPhotoOverride,
     healOrphanCollectionPlacements,
+    embedPlacementStorageFallbacks,
     migrateBackCoverUsesBookWrap,
     migrateEndHalfSpreadToLeftPage,
     migrateFrontCoverToFullSpread,
@@ -838,10 +839,23 @@ export default function AlbumEditor({
         (async () => {
             const result = await loadAlbumAssetsFromCloud(albumId, user.id);
             if (cancelled || !result.loaded) return;
-            healOrphanCollectionPlacements(albumId);
+            const healed = healOrphanCollectionPlacements(albumId);
+            const embedded = embedPlacementStorageFallbacks(albumId);
+            // Persist recovered R2 catalog so other devices / reloads keep showing photos.
+            if (result.recoveredFromR2 || healed || embedded || result.merged) {
+                try {
+                    await smartAlbumsService.syncAlbumPreviewData(user.id, albumId);
+                } catch (err) {
+                    console.warn('Could not persist recovered album assets:', err?.message || err);
+                }
+            }
             setCollectionRevision(getAlbumCollectionRevision(albumId));
             onPhotosUploaded?.();
             setTransformRevision(getTransformRevision(albumId));
+            if (healed || embedded || result.recoveredFromR2) {
+                scheduleWorkspaceRefresh();
+                bumpWorkspaceRef.current?.();
+            }
         })();
 
         return () => {
