@@ -4,6 +4,7 @@ import { serializeImageReplacementsForSnapshot } from './albumImageReplacements'
 import { readAlbumTransformBucket } from './albumPageTransforms';
 import { smartAlbumProoferSettingsService } from '../../services/smartAlbumProoferSettings.service';
 import { mergeAlbumClientFlagsFromProoferAccess } from './albumProoferPreview';
+import { storageService } from '../../services/storage.service';
 
 const PHOTOS_KEY = 'pixnxt_album_page_photos';
 const COVER_TEXT_KEY = 'pixnxt_album_cover_text';
@@ -34,10 +35,13 @@ function readLocalPhotos(albumId) {
 function resolveStoredUrl(stored, collection) {
     if (!stored) return null;
     if (typeof stored === 'string') return stored;
-    if (stored.dataUrl) return stored.dataUrl;
     if (stored.collectionItemId) {
-        return collection.find((item) => item.id === stored.collectionItemId)?.dataUrl ?? null;
+        const item = collection.find((entry) => entry.id === stored.collectionItemId);
+        if (item?.dataUrl) return item.dataUrl;
+        if (item?.storagePath) return storageService.getPublicUrl(item.storagePath);
     }
+    if (stored.dataUrl) return stored.dataUrl;
+    if (stored.storagePath) return storageService.getPublicUrl(stored.storagePath);
     return null;
 }
 
@@ -122,12 +126,27 @@ function resolvePageValue(albumId, stored) {
     // Prefer live collection item so cover/photo replace does not re-embed a stale URL.
     if (stored.collectionItemId) {
         const item = getAlbumCollection(albumId).find((i) => i.id === stored.collectionItemId);
-        if (item?.dataUrl) {
-            return { dataUrl: item.dataUrl, collectionItemId: stored.collectionItemId };
+        if (item) {
+            // Keep storagePath so display survives a wiped collection catalog.
+            return {
+                collectionItemId: stored.collectionItemId,
+                ...(item.storagePath ? { storagePath: item.storagePath } : {}),
+                ...(item.dataUrl ? { dataUrl: item.dataUrl } : {}),
+            };
         }
-        return { collectionItemId: stored.collectionItemId };
+        // Preserve previously embedded path/url when the item is temporarily missing.
+        return {
+            collectionItemId: stored.collectionItemId,
+            ...(stored.storagePath ? { storagePath: stored.storagePath } : {}),
+            ...(stored.dataUrl ? { dataUrl: stored.dataUrl } : {}),
+        };
     }
-    if (stored.dataUrl) return stored.dataUrl;
+    if (stored.storagePath || stored.dataUrl) {
+        return {
+            ...(stored.storagePath ? { storagePath: stored.storagePath } : {}),
+            ...(stored.dataUrl ? { dataUrl: stored.dataUrl } : {}),
+        };
+    }
     return stored;
 }
 

@@ -91,7 +91,17 @@ function resolveStoredPhoto(albumId, stored) {
     if (typeof stored === 'string') return stored;
     // Prefer live collection item over embedded dataUrl so cover/photo replace updates propagate.
     if (stored.collectionItemId) {
-        return resolveCollectionItemUrl(albumId, stored.collectionItemId);
+        const live = resolveCollectionItemUrl(albumId, stored.collectionItemId);
+        if (live) return live;
+        // Fallback: placement still carries a path/URL after a wiped collection catalog.
+        if (stored.storagePath) {
+            return storageService.getPublicUrl(stored.storagePath);
+        }
+        if (stored.dataUrl) return stored.dataUrl;
+        return null;
+    }
+    if (stored.storagePath) {
+        return storageService.getPublicUrl(stored.storagePath);
     }
     if (stored.dataUrl) return stored.dataUrl;
     return null;
@@ -102,8 +112,13 @@ function resolveRemotePagePhoto(albumId, key) {
     if (!remote) return null;
     if (typeof remote === 'string') return remote;
     if (remote.collectionItemId) {
-        return resolveCollectionItemUrl(albumId, remote.collectionItemId);
+        const live = resolveCollectionItemUrl(albumId, remote.collectionItemId);
+        if (live) return live;
+        if (remote.storagePath) return storageService.getPublicUrl(remote.storagePath);
+        if (remote.dataUrl) return remote.dataUrl;
+        return null;
     }
+    if (remote.storagePath) return storageService.getPublicUrl(remote.storagePath);
     if (remote.dataUrl) return remote.dataUrl;
     return null;
 }
@@ -879,6 +894,118 @@ export function getAlbumPhotoRevision(albumId) {
     return getRemotePreviewData(albumId)?.revision ?? 0;
 }
 
+/**
+ * When placements reference missing collection ids (e.g. c_* after R2 rebuilt as r2_*),
+ * remap orphans onto the recovered collection in first-seen → sortOrder order.
+ * Only runs when ZERO referenced ids resolve (avoids partial remaps).
+ */
+export function healOrphanCollectionPlacements(albumId) {
+    if (!albumId) return false;
+
+    const collection = getAlbumCollection(albumId);
+    if (!collection.length) return false;
+
+    const knownIds = new Set(collection.map((item) => item.id).filter(Boolean));
+    const localAlbum = { ...(readAll()[albumId] || {}) };
+    const remote = getRemotePreviewData(albumId);
+    const remotePages = remote?.pages ? { ...remote.pages } : {};
+
+    const keys = new Set([
+        ...Object.keys(localAlbum).filter((k) => k !== '__revision'),
+        ...Object.keys(remotePages),
+    ]);
+
+    const orphanOrder = [];
+    const orphanSeen = new Set();
+    let resolvedCount = 0;
+    let orphanPlacementCount = 0;
+
+    for (const key of keys) {
+        const stored = localAlbum[key] ?? remotePages[key];
+        if (!stored || typeof stored !== 'object' || !stored.collectionItemId) continue;
+        const id = stored.collectionItemId;
+        if (knownIds.has(id)) {
+            resolvedCount += 1;
+            continue;
+        }
+        orphanPlacementCount += 1;
+        if (!orphanSeen.has(id)) {
+            orphanSeen.add(id);
+            orphanOrder.push(id);
+        }
+    }
+
+    if (orphanPlacementCount === 0 || resolvedCount > 0 || orphanOrder.length === 0) {
+        return false;
+    }
+
+    const sortedCollection = [...collection].sort((a, b) => {
+        const ao = typeof a.sortOrder === 'number' ? a.sortOrder : 0;
+        const bo = typeof b.sortOrder === 'number' ? b.sortOrder : 0;
+        if (ao !== bo) return ao - bo;
+        return String(a.id || '').localeCompare(String(b.id || ''));
+    });
+
+    if (sortedCollection.length === 0) return false;
+
+    const idMap = new Map();
+    orphanOrder.forEach((oldId, index) => {
+        if (index >= sortedCollection.length) return;
+        const target = sortedCollection[index];
+        if (target?.id) idMap.set(oldId, target.id);
+    });
+
+    if (idMap.size === 0) return false;
+
+    let changed = false;
+    const remapStored = (stored) => {
+        if (!stored || typeof stored !== 'object' || !stored.collectionItemId) return stored;
+        const nextId = idMap.get(stored.collectionItemId);
+        if (!nextId || nextId === stored.collectionItemId) return stored;
+        changed = true;
+        const item = collection.find((entry) => entry.id === nextId);
+        return {
+            collectionItemId: nextId,
+            ...(item?.storagePath ? { storagePath: item.storagePath } : {}),
+            ...(item?.dataUrl || item?.storagePath
+                ? {
+                      dataUrl:
+                          item.dataUrl ||
+                          (item.storagePath ? storageService.getPublicUrl(item.storagePath) : null),
+                  }
+                : {}),
+        };
+    };
+
+    for (const key of keys) {
+        if (localAlbum[key] != null) {
+            localAlbum[key] = remapStored(localAlbum[key]);
+        } else if (remotePages[key] != null) {
+            localAlbum[key] = remapStored(remotePages[key]);
+        }
+        if (remotePages[key] != null) {
+            remotePages[key] = remapStored(remotePages[key]);
+        }
+    }
+
+    if (!changed) return false;
+
+    localAlbum.__revision = (localAlbum.__revision || 0) + 1;
+    const all = readAll();
+    all[albumId] = localAlbum;
+    writeAll(all);
+
+    if (remote) {
+        hydrateAlbumPreviewData(albumId, {
+            ...remote,
+            pages: remotePages,
+            revision: (remote.revision || 0) + 1,
+        });
+    }
+
+    return true;
+}
+
 /** First available image for album list cards (cover, collection, or placed pages). */
 export function getAlbumListThumbnailUrl(albumId) {
     if (!albumId) return null;
@@ -887,7 +1014,10 @@ export function getAlbumListThumbnailUrl(albumId) {
     if (coverSrc) return coverSrc;
 
     const collection = getAlbumCollection(albumId);
-    if (collection[0]?.dataUrl) return collection[0].dataUrl;
+    if (collection[0]) {
+        const url = getCollectionItemDisplayUrl(collection[0]);
+        if (url) return url;
+    }
 
     const stored = readAll()[albumId] || {};
     const keys = Object.keys(stored).filter((k) => k !== '__revision');

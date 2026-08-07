@@ -49,24 +49,6 @@ const STUDIO_NAV = [
     { id: 'account', label: 'Your account', icon: User, section: 'YOU' },
 ];
 
-const getDynamicShowcaseUrl = (slug) => {
-    if (!slug) return '';
-    const host = window.location.host;
-    const protocol = window.location.protocol;
-    
-    if (host.includes('localhost') || host.includes('127.0.0.1')) {
-        const baseHost = host.replace(/^[a-zA-Z0-9-]+\.localhost/, 'localhost');
-        return `${protocol}//${slug.toLowerCase()}.${baseHost}/`;
-    }
-    
-    if (host.endsWith('.vercel.app')) {
-        return `${protocol}//${host}/p/${slug.toLowerCase()}`;
-    }
-    
-    const hostWithoutSubdomain = host.replace(/^(www\.|[a-zA-Z0-9-]+\.)/i, '');
-    return `${protocol}//${slug.toLowerCase()}.${hostWithoutSubdomain}/`;
-};
-
 export default function AccountSettings() {
     const { tab } = useParams();
     const navigate = useNavigate();

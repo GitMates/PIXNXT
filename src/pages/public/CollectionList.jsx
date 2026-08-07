@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { galleryService } from '../../services/gallery.service';
 import { useNavigate } from 'react-router-dom';
 import { sortCollections } from '../../utils/sortCollections';
+import { CollectionCardCover } from '../../components/features/ClientGallery/CollectionCardCover';
+import { getCollectionCardCoverSrc } from '../../lib/photoDisplayUrl';
 
 const ITEMS_PER_PAGE = 12;
 
@@ -419,11 +421,12 @@ const CollectionList = ({ slug }) => {
                 >
                   {/* Cover image */}
                   <div style={{ aspectRatio:'4/3', overflow:'hidden', background:'#f5f5f5', position:'relative' }}>
-                    {(col.cover_url || col.cover) ? (
-                      <img
-                        src={col.cover_url || col.cover}
+                    {getCollectionCardCoverSrc(col) ? (
+                      <CollectionCardCover
+                        collection={col}
                         alt={col.name}
                         className="pxn-card-img"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                       />
                     ) : (
                       <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', background:'#f5f5f5' }}>

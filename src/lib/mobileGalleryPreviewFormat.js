@@ -1,5 +1,7 @@
 import { getAppInstallLink } from './mobileGalleryInstall';
 
+import { buildShowcaseUrl } from './showcaseUrl';
+
 export function formatPreviewEventDate(dateStr) {
   if (!dateStr) return '';
   const d = new Date(`${dateStr}T12:00:00`);
@@ -34,21 +36,7 @@ export function getWallpaperUrl(app, photos, coverOverride) {
 }
 
 export function buildPreviewShowcaseUrl(profile, user) {
-  const slug = (profile?.showcase_slug || user?.email?.split('@')[0] || 'gallery').toLowerCase();
-  const host = window.location.host;
-  const protocol = window.location.protocol;
-
-  if (host.includes('localhost') || host.includes('127.0.0.1')) {
-    const baseHost = host.replace(/^[a-zA-Z0-9-]+\.localhost/, 'localhost');
-    return `${protocol}//${slug}.${baseHost}/`;
-  }
-
-  if (host.endsWith('.vercel.app')) {
-    return `${protocol}//${host}/p/${slug}`;
-  }
-
-  const hostWithoutSubdomain = host.replace(/^(www\.|[a-zA-Z0-9-]+\.)/i, '');
-  return `${protocol}//${slug}.${hostWithoutSubdomain}/`;
+  return buildShowcaseUrl(profile, user);
 }
 
 export function getPreviewWebsiteLink(profile, user) {

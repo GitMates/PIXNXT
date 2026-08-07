@@ -84,6 +84,12 @@ function formatSuggestionDate(eventDate) {
     return parsed.toLocaleDateString();
 }
 
+function sortPreviewSlotsByFileName(slots) {
+    return [...slots].sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+    );
+}
+
 async function detectCreateAlbumGridSizes(coverFile, photoFiles, gridLayout) {
     const innerGrid = photoFiles.length
         ? await detectGridSizesFromFiles(photoFiles, {
@@ -289,10 +295,15 @@ const CreateAlbum = () => {
     const { toast, showToast, clearToast } = useAppToast(4500);
     const [name, setName] = useState('');
     const [date, setDate] = useState('');
+    const [clientName, setClientName] = useState('');
     const [galleryCollections, setGalleryCollections] = useState([]);
     const [nameSuggestOpen, setNameSuggestOpen] = useState(false);
-    const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
+    const [activeNameSuggestionIndex, setActiveNameSuggestionIndex] = useState(-1);
     const nameAutocompleteRef = useRef(null);
+    const [clientSuggestOpen, setClientSuggestOpen] = useState(false);
+    const [activeClientSuggestionIndex, setActiveClientSuggestionIndex] = useState(-1);
+    const clientAutocompleteRef = useRef(null);
+    const [spreadOrderMode, setSpreadOrderMode] = useState('selected');
     const [coverFile, setCoverFile] = useState(null);
     const [coverPreview, setCoverPreview] = useState(null);
     const [coverDropActive, setCoverDropActive] = useState(false);
@@ -313,8 +324,6 @@ const CreateAlbum = () => {
     const [createProgress, setCreateProgress] = useState(null);
     const [error, setError] = useState(null);
     const [wizardStep, setWizardStep] = useState(1);
-    const [createPageLayout, setCreatePageLayout] = useState('single');
-    const [selectedSpreadIndex, setSelectedSpreadIndex] = useState(0);
     const coverInputRef = useRef(null);
     const photosInputRef = useRef(null);
     const filmstripRef = useRef(null);
@@ -362,7 +371,11 @@ const CreateAlbum = () => {
         const onDocDown = (e) => {
             if (!nameAutocompleteRef.current?.contains(e.target)) {
                 setNameSuggestOpen(false);
-                setActiveSuggestionIndex(-1);
+                setActiveNameSuggestionIndex(-1);
+            }
+            if (!clientAutocompleteRef.current?.contains(e.target)) {
+                setClientSuggestOpen(false);
+                setActiveClientSuggestionIndex(-1);
             }
         };
         document.addEventListener('mousedown', onDocDown);
@@ -383,14 +396,17 @@ const CreateAlbum = () => {
     const handleNameChange = useCallback((e) => {
         setName(e.target.value);
         setNameSuggestOpen(true);
-        setActiveSuggestionIndex(-1);
-    }, []);
+        setActiveNameSuggestionIndex(-1);
+        if (error) setError(null);
+    }, [error]);
 
-    const handleSelectCollectionSuggestion = useCallback((collection) => {
+    const handleSelectNameSuggestion = useCallback((collection) => {
         setName(collection?.name || '');
-        setDate(collectionEventDateValue(collection?.event_date));
+        if (collection?.event_date) {
+            setDate(collectionEventDateValue(collection.event_date));
+        }
         setNameSuggestOpen(false);
-        setActiveSuggestionIndex(-1);
+        setActiveNameSuggestionIndex(-1);
         if (typeof document !== 'undefined') {
             const el = document.getElementById('album-name');
             if (el) el.blur();
@@ -403,7 +419,7 @@ const CreateAlbum = () => {
 
             if (e.key === 'ArrowDown') {
                 e.preventDefault();
-                setActiveSuggestionIndex((prev) =>
+                setActiveNameSuggestionIndex((prev) =>
                     prev < nameSuggestions.length - 1 ? prev + 1 : 0
                 );
                 return;
@@ -411,32 +427,112 @@ const CreateAlbum = () => {
 
             if (e.key === 'ArrowUp') {
                 e.preventDefault();
-                setActiveSuggestionIndex((prev) =>
+                setActiveNameSuggestionIndex((prev) =>
                     prev > 0 ? prev - 1 : nameSuggestions.length - 1
                 );
                 return;
             }
 
-            if (e.key === 'Enter' && activeSuggestionIndex >= 0) {
+            if (e.key === 'Enter' && activeNameSuggestionIndex >= 0) {
                 e.preventDefault();
-                const selected = nameSuggestions[activeSuggestionIndex];
-                if (selected) handleSelectCollectionSuggestion(selected);
+                const selected = nameSuggestions[activeNameSuggestionIndex];
+                if (selected) handleSelectNameSuggestion(selected);
                 return;
             }
 
             if (e.key === 'Escape') {
                 setNameSuggestOpen(false);
-                setActiveSuggestionIndex(-1);
+                setActiveNameSuggestionIndex(-1);
             }
         },
         [
             showNameSuggestions,
             nameSuggestions,
-            activeSuggestionIndex,
-            handleSelectCollectionSuggestion,
+            activeNameSuggestionIndex,
+            handleSelectNameSuggestion,
         ]
     );
 
+    const clientSuggestions = useMemo(() => {
+        const query = normalizeGallerySearchQuery(clientName);
+        if (!query || !galleryCollections.length) return [];
+        return galleryCollections
+            .filter((collection) => collectionMatchesGallerySearch(collection, query))
+            .slice(0, 8);
+    }, [clientName, galleryCollections]);
+
+    const showClientSuggestions =
+        clientSuggestOpen && clientName.trim().length > 0 && clientSuggestions.length > 0;
+
+    const handleClientChange = useCallback((e) => {
+        setClientName(e.target.value);
+        setClientSuggestOpen(true);
+        setActiveClientSuggestionIndex(-1);
+    }, []);
+
+    const handleSelectClientSuggestion = useCallback((collection) => {
+        setClientName(collection?.name || '');
+        if (!date && collection?.event_date) {
+            setDate(collectionEventDateValue(collection.event_date));
+        }
+        setClientSuggestOpen(false);
+        setActiveClientSuggestionIndex(-1);
+        if (typeof document !== 'undefined') {
+            const el = document.getElementById('album-client');
+            if (el) el.blur();
+        }
+    }, [date]);
+
+    const handleClientKeyDown = useCallback(
+        (e) => {
+            if (!showClientSuggestions) return;
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                setActiveClientSuggestionIndex((prev) =>
+                    prev < clientSuggestions.length - 1 ? prev + 1 : 0
+                );
+                return;
+            }
+
+            if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                setActiveClientSuggestionIndex((prev) =>
+                    prev > 0 ? prev - 1 : clientSuggestions.length - 1
+                );
+                return;
+            }
+
+            if (e.key === 'Enter' && activeClientSuggestionIndex >= 0) {
+                e.preventDefault();
+                const selected = clientSuggestions[activeClientSuggestionIndex];
+                if (selected) handleSelectClientSuggestion(selected);
+                return;
+            }
+
+            if (e.key === 'Escape') {
+                setClientSuggestOpen(false);
+                setActiveClientSuggestionIndex(-1);
+            }
+        },
+        [
+            showClientSuggestions,
+            clientSuggestions,
+            activeClientSuggestionIndex,
+            handleSelectClientSuggestion,
+        ]
+    );
+
+    const orderedPreviewSlots = useMemo(() => {
+        if (spreadOrderMode === 'filename') {
+            return sortPreviewSlotsByFileName(previewSlots);
+        }
+        return previewSlots;
+    }, [previewSlots, spreadOrderMode]);
+
+    const albumTitleLabel = name.trim() || 'your album';
+    const canContinue = Boolean(name.trim());
+    const canCreate = previewSlots.length > 0 && !isSubmitting;
     const blankCovers = true;
     const includeCoverSpreads = true;
     const hasCoverImage = Boolean(coverFile);
@@ -732,18 +828,6 @@ const CreateAlbum = () => {
     }, [photoFiles, coverFile, gridLayoutForDetection]);
 
     const analyzingUploads = photoCountBusy || gridSizeBusy;
-    const animatePreviewCards = previewSlots.length <= 12;
-
-    useEffect(() => {
-        if (previewSlots.length === 0) {
-            setSelectedSpreadIndex(0);
-            return;
-        }
-        setSelectedSpreadIndex((prev) => Math.min(prev, previewSlots.length - 1));
-    }, [previewSlots.length]);
-
-    const selectedSpread = previewSlots[selectedSpreadIndex] || null;
-    const selectedSpreadLayout = previewSpreadLayouts[selectedSpreadIndex] || null;
 
     const formatUploadSize = useCallback((bytes) => {
         const n = Number(bytes) || 0;
@@ -755,7 +839,6 @@ const CreateAlbum = () => {
     const handleContinueToUploads = useCallback(async (e) => {
         e?.preventDefault?.();
         if (!name.trim()) {
-            setError('Please enter an album name to continue.');
             return;
         }
         setIsSubmitting(true);
@@ -782,7 +865,6 @@ const CreateAlbum = () => {
         }
     }, [name, user?.id]);
 
-
     const handleBackToDetails = useCallback(() => {
         setWizardStep(1);
         setError(null);
@@ -791,26 +873,22 @@ const CreateAlbum = () => {
 
     const applyPhotoFiles = useCallback((files) => {
         if (!files?.length) return;
-        const sorted = [...files].sort((a, b) =>
-            a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
-        );
         setPhotoFiles((prev) => {
-            if (!prev.length) return sorted;
-            // Check for duplicate filenames
+            if (!prev.length) return [...files];
             const existingNames = new Set(prev.map((f) => f.name.toLowerCase()));
-            const duplicates = sorted.filter((f) => existingNames.has(f.name.toLowerCase()));
+            const duplicates = files.filter((f) => existingNames.has(f.name.toLowerCase()));
             if (duplicates.length) {
                 const names = duplicates.map((f) => f.name).join(', ');
                 setTimeout(() => {
-                    showToast(
-                        `Duplicate image(s) skipped: ${names}`,
-                        { variant: 'success', duration: 5000 }
-                    );
+                    showToast(`Duplicate image(s) skipped: ${names}`, {
+                        variant: 'success',
+                        duration: 5000,
+                    });
                 }, 0);
-                const newOnly = sorted.filter((f) => !existingNames.has(f.name.toLowerCase()));
+                const newOnly = files.filter((f) => !existingNames.has(f.name.toLowerCase()));
                 return newOnly.length ? [...prev, ...newOnly] : prev;
             }
-            return [...prev, ...sorted];
+            return [...prev, ...files];
         });
     }, [showToast]);
 
@@ -973,10 +1051,9 @@ const CreateAlbum = () => {
                 Math.abs(deltaX) < FILMSTRIP_DRAG_THRESHOLD_PX &&
                 overIndex === fromIndex
             ) {
-                setSelectedSpreadIndex(fromIndex);
+                // tap — keep order
             } else if (fromIndex !== overIndex) {
                 setPreviewSlots((prev) => moveItemInOrder(prev, fromIndex, overIndex));
-                setSelectedSpreadIndex(overIndex);
             }
 
             setFilmstripDrag(null);
@@ -1049,6 +1126,11 @@ const CreateAlbum = () => {
             setProgress(null);
             return;
         }
+        if (!previewSlots.length) {
+            return;
+        }
+
+        const slotsForCreate = orderedPreviewSlots;
 
         setIsSubmitting(true);
         setError(null);
@@ -1114,6 +1196,13 @@ const CreateAlbum = () => {
                 has_covers: includeCoverSpreads,
                 blank_covers: blankCovers,
             });
+
+            const trimmedClient = clientName.trim();
+            if (trimmedClient) {
+                await smartAlbumsService.updateAlbumClientSettings(activeUser.id, album.id, {
+                    client_contact_name: trimmedClient,
+                });
+            }
 
             if (coverFile || photoFiles.length > 0) {
                 const uploadAlbumMeta = {
@@ -1192,7 +1281,7 @@ const CreateAlbum = () => {
                 const orderedItemIds = collectionItemIdsForPreviewSlots(
                     photoFiles,
                     added,
-                    previewSlots
+                    slotsForCreate
                 );
                 const effectivePhotoCount = Math.max(
                     photoCount,
@@ -1265,22 +1354,22 @@ const CreateAlbum = () => {
         <div className="cc-page sa-create-page sa-create-wizard-page">
             <main className="cc-main sa-create-main sa-create-wizard-main">
                 <div className="sa-create-wizard">
-
-
-                    <h1 className="sa-wizard-title">NEW ALBUM</h1>
-
-                    <div className="sa-wizard-progress" aria-hidden>
-                        <div className="sa-wizard-progress-track">
+                    <div className="sa-wizard-header">
+                        <div className="sa-wizard-header-row">
+                            <h1 className="sa-wizard-title">New album</h1>
+                            <span className="sa-wizard-step-label">
+                                {wizardStep === 1
+                                    ? 'STEP 1 OF 2  ALBUM DETAILS'
+                                    : 'STEP 2 OF 2  UPLOAD SPREADS'}
+                            </span>
+                        </div>
+                        <div className="sa-wizard-progress-line" aria-hidden>
                             <span
-                                className="sa-wizard-progress-fill"
-                                style={{ width: wizardStep === 1 ? '32%' : '100%' }}
+                                className={`sa-wizard-progress-accent${
+                                    wizardStep === 2 ? ' sa-wizard-progress-accent--full' : ''
+                                }`}
                             />
                         </div>
-                        <span className="sa-wizard-progress-label">
-                            {wizardStep === 1
-                                ? 'STEP 1 OF 2 — ALBUM DETAILS'
-                                : 'STEP 2 OF 2 — UPLOAD SPREADS'}
-                        </span>
                     </div>
 
                     {error && (
@@ -1317,116 +1406,200 @@ const CreateAlbum = () => {
                             onChange={handlePhotoChange}
                         />
                         {wizardStep === 1 ? (
-                            <section className="sa-wizard-card">
-                                <div className="sa-wizard-card-intro">
-                                    <span className="sa-create-kicker">ALBUM PROOFER SETUP</span>
-                                    <h2>Design the album before you start editing.</h2>
-                                </div>
-
-                                <div className="sa-wizard-fields">
-                                    <div className="sa-wizard-section-head">
-                                        <span>Album details</span>
-                                        <small>Name and event date</small>
+                            <section className="sa-wizard-card sa-wizard-card--step1">
+                                <div className="sa-wizard-card-body">
+                                    <div className="sa-wizard-card-intro">
+                                        <span className="sa-create-kicker">ALBUM PROOFER SETUP</span>
+                                        <h2>Name the album and set the event date.</h2>
+                                        <p className="sa-wizard-card-lead">
+                                            You&apos;ll upload the spreads next. Nothing is shared with the client until
+                                            you publish.
+                                        </p>
                                     </div>
 
-                                    <div className="sa-form-row">
-                                        <div className="cc-form-group">
-                                            <label className="cc-label" htmlFor="album-name">
-                                                ALBUM NAME
-                                            </label>
-                                            <div
-                                                className={`sa-name-autocomplete${showNameSuggestions ? ' sa-name-autocomplete--open' : ''}`}
-                                                ref={nameAutocompleteRef}
-                                            >
-                                                <input
-                                                    id="album-name"
-                                                    type="text"
-                                                    className="cc-input"
-                                                    placeholder="e.g. Wedding of Sarah & James"
-                                                    value={name}
-                                                    onChange={handleNameChange}
-                                                    onFocus={() => setNameSuggestOpen(true)}
-                                                    onKeyDown={handleNameKeyDown}
-                                                    autoComplete="off"
-                                                    aria-autocomplete="list"
-                                                    aria-expanded={showNameSuggestions}
-                                                    aria-controls="album-name-suggestions"
-                                                    required
+                                    <div className="sa-wizard-fields sa-wizard-fields--step1">
+                                        <div className="sa-wizard-fields-row">
+                                            <div className="cc-form-group">
+                                                <label className="cc-label" htmlFor="album-name">
+                                                    ALBUM NAME <span className="sa-label-required">*</span>
+                                                </label>
+                                                <div
+                                                    className={`sa-name-autocomplete${showNameSuggestions ? ' sa-name-autocomplete--open' : ''}`}
+                                                    ref={nameAutocompleteRef}
+                                                >
+                                                    <input
+                                                        id="album-name"
+                                                        type="text"
+                                                        className="cc-input"
+                                                        placeholder="Wedding of Sarah & James"
+                                                        value={name}
+                                                        onChange={handleNameChange}
+                                                        onFocus={() => setNameSuggestOpen(true)}
+                                                        onKeyDown={handleNameKeyDown}
+                                                        autoComplete="off"
+                                                        aria-autocomplete="list"
+                                                        aria-expanded={showNameSuggestions}
+                                                        aria-controls="album-name-suggestions"
+                                                        required
+                                                    />
+                                                    {showNameSuggestions ? (
+                                                        <div
+                                                            id="album-name-suggestions"
+                                                            className="sa-name-suggest-menu"
+                                                            role="listbox"
+                                                            aria-label="Matching gallery deliveries"
+                                                        >
+                                                            {nameSuggestions.map((collection, index) => {
+                                                                const isActive = index === activeNameSuggestionIndex;
+                                                                return (
+                                                                    <button
+                                                                        key={collection.id}
+                                                                        type="button"
+                                                                        className={`sa-name-suggest-option${isActive ? ' sa-name-suggest-option--active' : ''}`}
+                                                                        role="option"
+                                                                        aria-selected={isActive}
+                                                                        onMouseDown={(e) => e.preventDefault()}
+                                                                        onClick={() =>
+                                                                            handleSelectNameSuggestion(collection)
+                                                                        }
+                                                                    >
+                                                                        <span className="sa-name-suggest-title">
+                                                                            {collection.name}
+                                                                        </span>
+                                                                        <span className="sa-name-suggest-meta">
+                                                                            {formatSuggestionDate(collection.event_date)}
+                                                                        </span>
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    ) : null}
+                                                </div>
+                                            </div>
+
+                                            <div className="cc-form-group">
+                                                <div className="sa-field-label-row">
+                                                    <label className="cc-label" htmlFor="album-event-date">
+                                                        EVENT DATE
+                                                    </label>
+                                                    <span className="sa-field-optional">Optional</span>
+                                                </div>
+                                                <DatePicker
+                                                    value={date}
+                                                    onChange={setDate}
+                                                    placeholder="dd-mm-yyyy"
+                                                    displayFormat="dd-mm-yyyy"
+                                                    showQuickSearch={false}
+                                                    className="sa-wizard-datepicker"
                                                 />
-                                                {showNameSuggestions ? (
-                                                    <div
-                                                        id="album-name-suggestions"
-                                                        className="sa-name-suggest-menu"
-                                                        role="listbox"
-                                                        aria-label="Client gallery deliveries"
-                                                    >
-                                                        {nameSuggestions.map((collection, index) => {
-                                                            const isActive = index === activeSuggestionIndex;
-                                                            return (
-                                                                <button
-                                                                    key={collection.id}
-                                                                    type="button"
-                                                                    className={`sa-name-suggest-option${isActive ? ' sa-name-suggest-option--active' : ''}`}
-                                                                    role="option"
-                                                                    aria-selected={isActive}
-                                                                    onMouseDown={(e) => e.preventDefault()}
-                                                                    onClick={() =>
-                                                                        handleSelectCollectionSuggestion(collection)
-                                                                    }
-                                                                >
-                                                                    <span className="sa-name-suggest-title">
-                                                                        {collection.name}
-                                                                    </span>
-                                                                    <span className="sa-name-suggest-meta">
-                                                                        {formatSuggestionDate(collection.event_date)}
-                                                                    </span>
-                                                                </button>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                ) : null}
                                             </div>
                                         </div>
 
                                         <div className="cc-form-group">
-                                            <label className="cc-label">EVENT DATE</label>
-                                            <DatePicker
-                                                value={date}
-                                                onChange={setDate}
-                                                placeholder="Select event date"
+                                            <div className="sa-field-label-row">
+                                                <label className="cc-label" htmlFor="album-client">
+                                                    CLIENT
+                                                </label>
+                                                <span className="sa-field-optional">Optional</span>
+                                            </div>
+                                        <div
+                                            className={`sa-name-autocomplete${showClientSuggestions ? ' sa-name-autocomplete--open' : ''}`}
+                                            ref={clientAutocompleteRef}
+                                        >
+                                            <input
+                                                id="album-client"
+                                                type="text"
+                                                className="cc-input"
+                                                placeholder="Search a client, or type a new name"
+                                                value={clientName}
+                                                onChange={handleClientChange}
+                                                onFocus={() => setClientSuggestOpen(true)}
+                                                onKeyDown={handleClientKeyDown}
+                                                autoComplete="off"
+                                                aria-autocomplete="list"
+                                                aria-expanded={showClientSuggestions}
+                                                aria-controls="album-client-suggestions"
                                             />
+                                            {showClientSuggestions ? (
+                                                <div
+                                                    id="album-client-suggestions"
+                                                    className="sa-name-suggest-menu"
+                                                    role="listbox"
+                                                    aria-label="Client gallery deliveries"
+                                                >
+                                                    {clientSuggestions.map((collection, index) => {
+                                                        const isActive = index === activeClientSuggestionIndex;
+                                                        return (
+                                                            <button
+                                                                key={collection.id}
+                                                                type="button"
+                                                                className={`sa-name-suggest-option${isActive ? ' sa-name-suggest-option--active' : ''}`}
+                                                                role="option"
+                                                                aria-selected={isActive}
+                                                                onMouseDown={(e) => e.preventDefault()}
+                                                                onClick={() =>
+                                                                    handleSelectClientSuggestion(collection)
+                                                                }
+                                                            >
+                                                                <span className="sa-name-suggest-title">
+                                                                    {collection.name}
+                                                                </span>
+                                                                <span className="sa-name-suggest-meta">
+                                                                    {formatSuggestionDate(collection.event_date)}
+                                                                </span>
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            ) : null}
+                                        </div>
+                                            <p className="sa-field-help">
+                                                Attaching a client now means the proofing link, comments and swap requests
+                                                all land against the right person. You can add one later.
+                                            </p>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="sa-wizard-actions">
-                                    <button type="submit" className="cc-submit-btn">
-                                        Continue
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="cc-cancel-btn"
-                                        onClick={() => navigate('/album-proofer')}
-                                    >
-                                        Cancel
-                                    </button>
+                                <div className="sa-wizard-footer">
+                                    <div className="sa-wizard-actions">
+                                        <button
+                                            type="submit"
+                                            className="cc-submit-btn"
+                                            disabled={!canContinue || isSubmitting}
+                                        >
+                                            Continue →
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="cc-cancel-btn"
+                                            onClick={() => navigate('/album-proofer')}
+                                        >
+                                            Cancel
+                                        </button>
+                                    </div>
+                                    {!canContinue ? (
+                                        <p className="sa-wizard-hint">An album name is required.</p>
+                                    ) : null}
                                 </div>
                             </section>
                         ) : (
-                            <section
-                                className={`sa-wizard-card sa-wizard-card--step2${
-                                    createPageLayout === 'split' ? ' sa-wizard-card--split' : ''
-                                }`}
-                            >
+                            <section className="sa-wizard-card sa-wizard-card--step2">
+                                <div className="sa-wizard-card-body">
                                 <div className="sa-wizard-card-intro">
                                     <span className="sa-create-kicker">ALBUM PROOFER SETUP</span>
-                                    <h2>Now bring the spreads to life.</h2>
+                                    <h2>Upload the spreads for {albumTitleLabel}.</h2>
+                                    <p className="sa-wizard-card-lead">
+                                        Each file becomes one spread, in the order shown below. Drag to reorder before
+                                        you create — or after, in the editor.
+                                    </p>
                                 </div>
 
-                                <div className="sa-wizard-step2-grid">
+                                <div className="sa-wizard-step2-body">
                                     <div className="sa-wizard-cover-block">
                                         <div className="sa-wizard-section-head">
                                             <span>Album cover</span>
+                                            <small>Optional</small>
                                         </div>
 
                                         {!coverPreview ? (
@@ -1442,7 +1615,7 @@ const CreateAlbum = () => {
                                                 onDragLeave={() => setCoverDropActive(false)}
                                                 onDrop={handleCoverDrop}
                                             >
-                                                <span className="sa-upload-icon">
+                                                <span className="sa-upload-icon" aria-hidden>
                                                     <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                                                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                                                         <polyline points="17 8 12 3 7 8" />
@@ -1450,8 +1623,8 @@ const CreateAlbum = () => {
                                                     </svg>
                                                 </span>
                                                 <div className="sa-upload-card-info">
-                                                    <strong>Choose cover image or PDF</strong>
-                                                    <small>One wide image for back, spine, and front · optional</small>
+                                                    <strong>Choose a cover image or PDF</strong>
+                                                    <small>One wide file covering back, spine and front.</small>
                                                 </div>
                                             </label>
                                         ) : (
@@ -1467,27 +1640,39 @@ const CreateAlbum = () => {
                                                     <strong title={coverPreview.name}>{coverPreview.name}</strong>
                                                     <span>
                                                         {formatUploadSize(coverPreview.size)}
-                                                        {coverPreview.thumbReady ? ' — uploaded' : ' — processing…'}
+                                                        {' · '}
+                                                        {coverPreview.thumbReady
+                                                            ? 'back, spine and front'
+                                                            : 'processing…'}
                                                     </span>
                                                 </div>
-                                                <button
-                                                    type="button"
-                                                    className="sa-cover-replace"
-                                                    onClick={() => coverInputRef.current?.click()}
-                                                >
-                                                    Replace
-                                                </button>
+                                                <div className="sa-cover-row-actions">
+                                                    <button
+                                                        type="button"
+                                                        className="sa-cover-action"
+                                                        onClick={() => coverInputRef.current?.click()}
+                                                    >
+                                                        Replace
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className="sa-cover-action"
+                                                        onClick={handleRemoveCover}
+                                                    >
+                                                        Remove
+                                                    </button>
+                                                </div>
                                             </div>
                                         )}
                                     </div>
 
                                     <div className="sa-wizard-spreads-block">
                                         <div className="sa-wizard-section-head">
-                                            <span>Design spreads</span>
+                                            <span>Spreads</span>
                                             <small>
                                                 {previewSlots.length > 0
-                                                    ? `${previewSlots.length} uploaded`
-                                                    : 'Upload photos or PDF'}
+                                                    ? `${previewSlots.length} selected`
+                                                    : 'Required'}
                                             </small>
                                         </div>
 
@@ -1504,7 +1689,7 @@ const CreateAlbum = () => {
                                                 onDragLeave={() => setUploadDropActive(false)}
                                                 onDrop={handleUploadDrop}
                                             >
-                                                <span className="sa-upload-icon">
+                                                <span className="sa-upload-icon" aria-hidden>
                                                     <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                                                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                                                         <polyline points="17 8 12 3 7 8" />
@@ -1512,134 +1697,58 @@ const CreateAlbum = () => {
                                                     </svg>
                                                 </span>
                                                 <div className="sa-upload-card-info">
-                                                    <strong>Choose photos or PDF</strong>
-                                                    <small>JPG, PNG, WEBP, or PDF · drag from folder to keep pick order</small>
+                                                    <strong>Choose photos or a PDF</strong>
+                                                    <small>
+                                                        JPG, PNG, WEBP or PDF — a multi-page PDF becomes one spread
+                                                        per page.
+                                                    </small>
                                                 </div>
                                             </label>
                                         ) : (
-                                            <div className="sa-spreads-review">
-                                                <div className="sa-spread-hero">
-                                                    <button
-                                                        type="button"
-                                                        className="sa-spread-nav sa-spread-nav--prev"
-                                                        disabled={selectedSpreadIndex <= 0}
-                                                        onClick={() =>
-                                                            setSelectedSpreadIndex((i) => Math.max(0, i - 1))
-                                                        }
-                                                    />
-                                                    <div className="sa-spread-hero-frame">
-                                                        {selectedSpread ? (
-                                                            <UploadPreviewCard
-                                                                preview={{ ...selectedSpread, index: selectedSpreadIndex }}
-                                                                index={selectedSpreadIndex}
-                                                                spreadLayout={selectedSpreadLayout}
-                                                                spreadAspect={previewSpreadAspect}
-                                                                onRemove={handleRemovePreview}
-                                                                animateIn={false}
-                                                                onDragStart={handlePreviewDragStart}
-                                                                onDragOver={handlePreviewDragOver}
-                                                                onDrop={handlePreviewDrop}
-                                                                onDragEnd={handlePreviewDragEnd}
-                                                                isDragOver={dragOverIndex === selectedSpreadIndex}
-                                                            />
-                                                        ) : null}
-                                                    </div>
-                                                    <button
-                                                        type="button"
-                                                        className="sa-spread-nav sa-spread-nav--next"
-                                                        aria-label="Next spread"
-                                                        disabled={selectedSpreadIndex >= previewSlots.length - 1}
-                                                        onClick={() =>
-                                                            setSelectedSpreadIndex((i) =>
-                                                                Math.min(previewSlots.length - 1, i + 1)
-                                                            )
-                                                        }
-                                                    />
-                                                </div>
-                                                <p className="sa-spread-hero-caption">
-                                                    Spread{' '}
-                                                    {String(selectedSpreadIndex + 1).padStart(2, '0')} of{' '}
-                                                    {String(previewSlots.length).padStart(2, '0')}
-                                                </p>
-
-                                                <p className="sa-filmstrip-hint">
-                                                    Scroll the filmstrip to review, drag a tile to reorder
-                                                </p>
-
-                                                <div
-                                                    className={`sa-filmstrip${analyzingUploads ? ' sa-filmstrip--analyzing' : ''}${
-                                                        filmstripDrag ? ' sa-filmstrip--dragging' : ''
-                                                    }`}
-                                                    ref={filmstripRef}
+                                            <div className="sa-spreads-panel">
+                                                <label
+                                                    className="sa-upload-card sa-upload-card--add-more"
+                                                    htmlFor="album-photos"
                                                 >
-                                                    {previewSlots.map((preview, index) => {
-                                                        const isDragging =
-                                                            filmstripDrag?.fromIndex === index;
-                                                        const transform = getFilmstripTileTransform(
-                                                            index,
-                                                            filmstripDrag
-                                                        );
-                                                        return (
-                                                        <div
-                                                            key={preview.id || index}
-                                                            ref={(el) => {
-                                                                filmstripTileRefs.current[index] = el;
-                                                            }}
-                                                            role="button"
-                                                            tabIndex={0}
-                                                            className={`sa-filmstrip-tile${
-                                                                index === selectedSpreadIndex
-                                                                    ? ' sa-filmstrip-tile--active'
-                                                                    : ''
-                                                            }${isDragging ? ' sa-filmstrip-tile--dragging' : ''}`}
-                                                            style={transform ? { transform } : undefined}
-                                                            onPointerDown={(e) =>
-                                                                handleFilmstripPointerDown(e, index)
-                                                            }
-                                                            onKeyDown={(e) => {
-                                                                if (e.key === 'Enter' || e.key === ' ') {
-                                                                    e.preventDefault();
-                                                                    setSelectedSpreadIndex(index);
-                                                                }
-                                                            }}
-                                                        >
-                                                            <span className="sa-filmstrip-num">
-                                                                {String(index + 1).padStart(2, '0')}
-                                                            </span>
-                                                            {preview.url ? (
-                                                                <img src={preview.url} alt="" draggable={false} />
-                                                            ) : (
-                                                                <span className="sa-filmstrip-ph" />
-                                                            )}
-                                                            <button
-                                                                type="button"
-                                                                className="sa-filmstrip-tile-remove"
-                                                                onPointerDown={(e) => e.stopPropagation()}
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    e.preventDefault();
-                                                                    handleRemovePreview(preview);
-                                                                }}
-                                                                aria-label={`Delete image ${index + 1}`}
-                                                                title="Delete image"
-                                                            >
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                                                                    <line x1="18" y1="6" x2="6" y2="18" />
-                                                                    <line x1="6" y1="6" x2="18" y2="18" />
-                                                                </svg>
-                                                            </button>
-                                                        </div>
-                                                        );
-                                                    })}
-                                                </div>
+                                                    <span className="sa-upload-icon" aria-hidden>
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                                            <polyline points="17 8 12 3 7 8" />
+                                                            <line x1="12" y1="3" x2="12" y2="15" />
+                                                        </svg>
+                                                    </span>
+                                                    <div className="sa-upload-card-info">
+                                                        <strong>Add more spreads</strong>
+                                                        <small>
+                                                            JPG, PNG, WEBP or PDF — a multi-page PDF becomes one
+                                                            spread per page.
+                                                        </small>
+                                                    </div>
+                                                </label>
 
-                                                <div className="sa-spreads-toolbar">
+                                                <div className="sa-spreads-order-bar">
+                                                    <span className="sa-spreads-order-label">Order by</span>
                                                     <button
                                                         type="button"
-                                                        className="sa-upload-more"
-                                                        onClick={() => photosInputRef.current?.click()}
+                                                        className={`sa-spreads-order-btn${
+                                                            spreadOrderMode === 'filename'
+                                                                ? ' sa-spreads-order-btn--active'
+                                                                : ''
+                                                        }`}
+                                                        onClick={() => setSpreadOrderMode('filename')}
                                                     >
-                                                        Add more
+                                                        File name
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className={`sa-spreads-order-btn${
+                                                            spreadOrderMode === 'selected'
+                                                                ? ' sa-spreads-order-btn--active'
+                                                                : ''
+                                                        }`}
+                                                        onClick={() => setSpreadOrderMode('selected')}
+                                                    >
+                                                        As selected
                                                     </button>
                                                     <button
                                                         type="button"
@@ -1649,14 +1758,71 @@ const CreateAlbum = () => {
                                                     >
                                                         Clear all
                                                     </button>
-                                                    {!analyzingUploads && displayPhotoCount > 0 && layoutPreview && (
-                                                        <span className="sa-upload-detected-size">
-                                                            Page count: {layoutPreview.pageCount} pages ·{' '}
-                                                            {layoutPreview.totalSpreads} spread
-                                                            {layoutPreview.totalSpreads === 1 ? '' : 's'}
-                                                        </span>
-                                                    )}
                                                 </div>
+
+                                                <div
+                                                    className={`sa-spread-grid${
+                                                        analyzingUploads ? ' sa-spread-grid--analyzing' : ''
+                                                    }`}
+                                                >
+                                                    {orderedPreviewSlots.map((preview) => {
+                                                        const slotIndex = previewSlots.indexOf(preview);
+                                                        return (
+                                                            <div
+                                                                key={preview.id || slotIndex}
+                                                                className={`sa-spread-grid-tile${
+                                                                    dragOverIndex === slotIndex
+                                                                        ? ' sa-spread-grid-tile--drag-over'
+                                                                        : ''
+                                                                }`}
+                                                                draggable={spreadOrderMode === 'selected'}
+                                                                onDragStart={() => {
+                                                                    dragFromIndexRef.current = slotIndex;
+                                                                }}
+                                                                onDragOver={(e) => {
+                                                                    e.preventDefault();
+                                                                    setDragOverIndex(slotIndex);
+                                                                }}
+                                                                onDrop={(e) => {
+                                                                    e.preventDefault();
+                                                                    handlePreviewDrop(slotIndex);
+                                                                    setSpreadOrderMode('selected');
+                                                                }}
+                                                                onDragEnd={handlePreviewDragEnd}
+                                                            >
+                                                                <span className="sa-spread-grid-num">
+                                                                    {String(
+                                                                        orderedPreviewSlots.indexOf(preview) + 1
+                                                                    ).padStart(2, '0')}
+                                                                </span>
+                                                                {preview.url ? (
+                                                                    <img src={preview.url} alt="" draggable={false} />
+                                                                ) : (
+                                                                    <span className="sa-spread-grid-ph" />
+                                                                )}
+                                                                <button
+                                                                    type="button"
+                                                                    className="sa-spread-grid-remove"
+                                                                    onClick={() => handleRemovePreview(preview)}
+                                                                    aria-label={`Remove spread ${slotIndex + 1}`}
+                                                                >
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                                                        <line x1="18" y1="6" x2="6" y2="18" />
+                                                                        <line x1="6" y1="6" x2="18" y2="18" />
+                                                                    </svg>
+                                                                </button>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+
+                                                <p className="sa-spreads-footnote">
+                                                    Creates <strong>{previewSlots.length}</strong> spread
+                                                    {previewSlots.length === 1 ? '' : 's'}
+                                                    {hasCoverImage ? ' and a cover' : ''}. The first and last spreads
+                                                    stay fixed once the album is created — everything between them can
+                                                    be reordered at any time.
+                                                </p>
                                             </div>
                                         )}
                                     </div>
@@ -1699,18 +1865,29 @@ const CreateAlbum = () => {
                                     </div>
                                 )}
 
-                                <div className="sa-wizard-actions">
-                                    <button type="submit" className="cc-submit-btn" disabled={isSubmitting}>
-                                        {isSubmitting ? 'Creating...' : 'Create album'}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="cc-cancel-btn"
-                                        onClick={handleBackToDetails}
-                                        disabled={isSubmitting}
-                                    >
-                                        Back
-                                    </button>
+                                </div>
+
+                                <div className="sa-wizard-footer">
+                                    <div className="sa-wizard-actions">
+                                        <button
+                                            type="submit"
+                                            className="cc-submit-btn"
+                                            disabled={!canCreate}
+                                        >
+                                            {isSubmitting ? 'Creating…' : 'Create album'}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="cc-cancel-btn"
+                                            onClick={handleBackToDetails}
+                                            disabled={isSubmitting}
+                                        >
+                                            Back
+                                        </button>
+                                    </div>
+                                    {!canCreate && !isSubmitting ? (
+                                        <p className="sa-wizard-hint">Add at least one spread.</p>
+                                    ) : null}
                                 </div>
                             </section>
                         )}

@@ -111,12 +111,52 @@ async function getAlbumPathFolder(albumId) {
             .select('id, name')
             .eq('id', albumId)
             .maybeSingle();
+        // New uploads use name__albumId. Legacy R2 folders used a single underscore.
         const folder = `${safeSegment(data?.name, 'album')}__${albumId}`;
         ALBUM_PATH_CACHE.set(albumId, folder);
         return folder;
     } catch {
         return `album__${albumId}`;
     }
+}
+
+/** Folder name variants to scan when recovering assets from R2. */
+async function getAlbumPathFolderVariants(albumId) {
+    if (!albumId) return ['album'];
+    const primary = await getAlbumPathFolder(albumId);
+    const variants = new Set([primary]);
+
+    // Legacy single-underscore folders: name_albumId
+    if (primary.includes(`__${albumId}`)) {
+        variants.add(primary.replace(`__${albumId}`, `_${albumId}`));
+    }
+    variants.add(`album__${albumId}`);
+    variants.add(`album_${albumId}`);
+
+    try {
+        const { data } = await supabase
+            .from('album_proofer_albums')
+            .select('name')
+            .eq('id', albumId)
+            .maybeSingle();
+        const nameSeg = safeSegment(data?.name, 'album');
+        variants.add(`${nameSeg}__${albumId}`);
+        variants.add(`${nameSeg}_${albumId}`);
+    } catch {
+        /* ignore */
+    }
+
+    return [...variants];
+}
+
+/** Accept extensionless upload keys (`{ts}-{n}-{name}`) and normal image extensions. */
+function isLikelyAlbumImageKey(key) {
+    const base = String(key || '').split('/').pop() || '';
+    if (!base || base.endsWith('/')) return false;
+    if (/\.(jpe?g|png|webp|gif|heic|heif|tiff?)$/i.test(base)) return true;
+    // Uploads strip extensions via safeSegment — still image/jpeg in R2.
+    if (/^\d+-\d+-/.test(base)) return true;
+    return false;
 }
 
 async function getPhotographerPathFolder(photographerId) {
@@ -313,14 +353,72 @@ export function markCollectionItemAsCoverWrap(albumId, itemId) {
     return true;
 }
 
+function mergeCollectionItemLists(primary = [], secondary = []) {
+    const byId = new Map();
+    const byPath = new Map();
+
+    const upsert = (item) => {
+        if (!item || typeof item !== 'object') return;
+        const id = item.id;
+        const path = item.storagePath || null;
+        const existing =
+            (id && byId.get(id)) ||
+            (path && byPath.get(path)) ||
+            null;
+
+        if (!existing) {
+            const next = { ...item };
+            if (id) byId.set(id, next);
+            if (path) byPath.set(path, next);
+            return;
+        }
+
+        // Prefer the copy that still has an R2 path / fresher public URL.
+        const merged = {
+            ...existing,
+            ...item,
+            id: existing.id || item.id,
+            storagePath: item.storagePath || existing.storagePath || null,
+            dataUrl: item.storagePath
+                ? storageService.getPublicUrl(item.storagePath)
+                : item.dataUrl || existing.dataUrl || null,
+            size_bytes: Number(item.size_bytes) || Number(existing.size_bytes) || 0,
+            sortOrder:
+                typeof item.sortOrder === 'number'
+                    ? item.sortOrder
+                    : existing.sortOrder,
+            name: item.name || existing.name,
+        };
+        if (merged.id) byId.set(merged.id, merged);
+        if (merged.storagePath) byPath.set(merged.storagePath, merged);
+        if (existing.id && existing.id !== merged.id) byId.delete(existing.id);
+    };
+
+    primary.forEach(upsert);
+    secondary.forEach(upsert);
+
+    const seen = new Set();
+    const out = [];
+    for (const item of byId.values()) {
+        if (seen.has(item.id)) continue;
+        seen.add(item.id);
+        out.push(item);
+    }
+    return sortCollectionItems(out);
+}
+
 export function getAlbumCollection(albumId) {
     if (!albumId) return [];
     const list = readAll()[albumId];
     const localItems = Array.isArray(list?.items) ? list.items : [];
-    if (localItems.length > 0) return sortCollectionItems(localItems);
-
     const remote = getRemotePreviewData(albumId);
-    return sortCollectionItems(Array.isArray(remote?.collection) ? remote.collection : []);
+    const remoteItems = Array.isArray(remote?.collection) ? remote.collection : [];
+
+    if (localItems.length > 0 && remoteItems.length > 0) {
+        return mergeCollectionItemLists(localItems, remoteItems);
+    }
+    if (localItems.length > 0) return sortCollectionItems(localItems);
+    return sortCollectionItems(remoteItems);
 }
 
 export function sumCollectionStorageBytes(items) {
@@ -407,14 +505,18 @@ function mergeCloudCollectionToLocal(albumId, cloudItems, revision = 0) {
 }
 
 async function listR2CollectionItems(albumId, photographerId) {
-    const [photographerFolder, albumFolder] = await Promise.all([
+    const [photographerFolder, albumFolders] = await Promise.all([
         getPhotographerPathFolder(photographerId),
-        getAlbumPathFolder(albumId),
+        getAlbumPathFolderVariants(albumId),
     ]);
     // New uploads use album-proofer/; keep listing legacy smart-album/ for existing assets.
-    const prefixes = ['album-proofer', 'smart-album'].map((module) =>
-        ['users', photographerFolder, module, albumFolder, ''].join('/')
-    );
+    // Try both name__id and legacy name_id folder segments.
+    const prefixes = [];
+    for (const module of ['album-proofer', 'smart-album']) {
+        for (const albumFolder of albumFolders) {
+            prefixes.push(['users', photographerFolder, module, albumFolder, ''].join('/'));
+        }
+    }
     try {
         const seen = new Set();
         const objects = [];
@@ -426,8 +528,23 @@ async function listR2CollectionItems(albumId, photographerId) {
                 objects.push(obj);
             }
         }
+
+        // Last-resort: scan module roots for any key containing this album id.
+        if (objects.length === 0 && albumId) {
+            for (const module of ['album-proofer', 'smart-album']) {
+                const rootPrefix = ['users', photographerFolder, module, ''].join('/');
+                const listed = await storageService.listByPrefix(rootPrefix, { maxKeys: 2000 });
+                for (const obj of listed) {
+                    if (!obj?.key || seen.has(obj.key)) continue;
+                    if (!obj.key.includes(albumId)) continue;
+                    seen.add(obj.key);
+                    objects.push(obj);
+                }
+            }
+        }
+
         return objects
-            .filter(({ key }) => /\.(jpe?g|png|webp|gif)$/i.test(key))
+            .filter(({ key }) => isLikelyAlbumImageKey(key))
             .sort((a, b) => {
                 const ka = storagePathSortKey(a.key);
                 const kb = storagePathSortKey(b.key);
@@ -492,21 +609,40 @@ export async function loadAlbumAssetsFromCloud(albumId, photographerId) {
     }
 
     let collection = Array.isArray(previewData?.collection) ? [...previewData.collection] : [];
+    const collectionHasPaths = collection.some((item) => item?.storagePath);
 
-    if (collection.length === 0) {
-        collection = await listR2CollectionItems(albumId, photographerId);
-        if (collection.length > 0 && previewData) {
+    // Always try R2 when snapshot is empty OR items lack storagePath (stale/wiped catalog).
+    // Also merge R2 objects so extensionless / legacy-folder assets resurface.
+    const shouldListR2 = collection.length === 0 || !collectionHasPaths;
+    let r2Collection = [];
+    if (shouldListR2) {
+        r2Collection = await listR2CollectionItems(albumId, photographerId);
+        if (r2Collection.length > 0) {
+            collection = mergeCollectionItemLists(collection, r2Collection);
             hydrateAlbumPreviewData(albumId, {
-                ...previewData,
-                collection,
-            });
-        } else if (collection.length > 0) {
-            hydrateAlbumPreviewData(albumId, {
-                version: 1,
+                version: previewData?.version || 1,
+                ...(previewData || {}),
                 collection,
                 pages: previewData?.pages || {},
-                revision: collection.length,
+                revision: previewData?.revision ?? collection.length,
             });
+        }
+    } else {
+        // Supplement: pick up any R2 objects missing from the snapshot (best-effort).
+        try {
+            r2Collection = await listR2CollectionItems(albumId, photographerId);
+            if (r2Collection.length > 0) {
+                const before = collection.length;
+                collection = mergeCollectionItemLists(collection, r2Collection);
+                if (collection.length > before) {
+                    hydrateAlbumPreviewData(albumId, {
+                        ...(previewData || { version: 1, pages: {} }),
+                        collection,
+                    });
+                }
+            }
+        } catch {
+            /* soft-fail */
         }
     }
 
@@ -520,6 +656,7 @@ export async function loadAlbumAssetsFromCloud(albumId, photographerId) {
         collection: getAlbumCollection(albumId),
         loaded: Boolean(previewData || collection.length > 0),
         merged,
+        recoveredFromR2: r2Collection.length > 0,
     };
 }
 

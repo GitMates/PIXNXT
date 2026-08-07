@@ -4,30 +4,15 @@ import { ClientGalleryPageShell } from '../components/features/ClientGallery/Cli
 import { ClientGallerySelect } from '../components/features/ClientGallery/ClientGallerySelect';
 import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
+import { CollectionCardCover } from '../components/features/ClientGallery/CollectionCardCover';
+import { getCollectionCardCoverSrc } from '../lib/photoDisplayUrl';
+import { buildShowcaseUrl } from '../lib/showcaseUrl';
 import './Showcase.css';
 import './ClientGallery.css';
 import imageIconPlaceholder from '../assets/icons/image icon.png';
 
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
-
-const buildShowcaseUrl = (profile, user) => {
-    const slug = (profile?.showcase_slug || user?.email?.split('@')[0] || 'poojz').toLowerCase();
-    const host = window.location.host; // includes port
-    const protocol = window.location.protocol;
-    
-    if (host.includes('localhost') || host.includes('127.0.0.1')) {
-        const baseHost = host.replace(/^[a-zA-Z0-9-]+\.localhost/, 'localhost');
-        return `${protocol}//${slug}.${baseHost}/`;
-    }
-    
-    if (host.endsWith('.vercel.app')) {
-        return `${protocol}//${host}/p/${slug}`;
-    }
-    
-    const hostWithoutSubdomain = host.replace(/^(www\.|[a-zA-Z0-9-]+\.)/i, '');
-    return `${protocol}//${slug}.${hostWithoutSubdomain}/`;
-};
 
 const formatEventDate = (dateStr) => {
     if (!dateStr) return '';
@@ -570,8 +555,12 @@ const Showcase = () => {
                                                 return (
                                                     <div key={col.id || i} className="sc-mockup-item">
                                                         <div className="sc-mockup-img">
-                                                            {col.cover_photo_url || col.cover_image ? (
-                                                                <img src={col.cover_photo_url || col.cover_image} alt={col.name} />
+                                                            {getCollectionCardCoverSrc(col) ? (
+                                                                <CollectionCardCover
+                                                                    collection={col}
+                                                                    alt={col.name}
+                                                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                                />
                                                             ) : (
                                                                 <div className="sc-mockup-img-placeholder" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                                                     <img src={imageIconPlaceholder} alt="Placeholder Icon" className="sc-mockup-placeholder-icon" style={{ width: '15px', height: '15px', mixBlendMode: 'multiply' }} />

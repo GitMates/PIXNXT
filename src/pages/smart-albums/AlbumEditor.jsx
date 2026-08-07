@@ -41,6 +41,7 @@ import {
     getSlotPlacementCollectionItemId,
     getSpreadPlacementCollectionItemId,
     getSpreadPhotoOverride,
+    healOrphanCollectionPlacements,
     migrateBackCoverUsesBookWrap,
     migrateEndHalfSpreadToLeftPage,
     migrateFrontCoverToFullSpread,
@@ -744,6 +745,7 @@ export default function AlbumEditor({
         (async () => {
             const result = await loadAlbumAssetsFromCloud(albumId, user.id);
             if (cancelled || !result.loaded) return;
+            healOrphanCollectionPlacements(albumId);
             setCollectionRevision(getAlbumCollectionRevision(albumId));
             onPhotosUploaded?.();
             setTransformRevision(getTransformRevision(albumId));

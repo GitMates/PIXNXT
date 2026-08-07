@@ -10,6 +10,7 @@ const DatePicker = ({
   className,
   disablePastDates = false,
   showQuickSearch = true,
+  displayFormat = null,
 }) => {
   const parseDateLocal = (dateStr) => {
     if (!dateStr || typeof dateStr !== 'string' || dateStr === "Invalid Date") {
@@ -179,8 +180,13 @@ const DatePicker = ({
     if (!value) return "";
     const d = parseDateLocal(value);
     if (!d || isNaN(d.getTime())) return "Invalid Date";
+    if (displayFormat === 'dd-mm-yyyy') {
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      return `${day}-${month}-${d.getFullYear()}`;
+    }
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  }, [value]);
+  }, [value, displayFormat]);
 
   const safeViewDate = (viewDate && !isNaN(viewDate.getTime())) ? viewDate : new Date();
 
@@ -218,6 +224,33 @@ const DatePicker = ({
             <div className="calendar-grid">
               {renderCalendar()}
             </div>
+
+            {!showQuickSearch ? (
+              <div className="dp-calendar-footer">
+                <button
+                  type="button"
+                  className="dp-calendar-footer-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onChange('');
+                    setIsOpen(false);
+                  }}
+                >
+                  Clear
+                </button>
+                <button
+                  type="button"
+                  className="dp-calendar-footer-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onChange(formatDate(today));
+                    setIsOpen(false);
+                  }}
+                >
+                  Today
+                </button>
+              </div>
+            ) : null}
           </div>
 
           {showQuickSearch && (
