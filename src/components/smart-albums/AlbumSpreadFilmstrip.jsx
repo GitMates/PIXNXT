@@ -20,6 +20,7 @@ import {
 } from './albumPagePhotos';
 import { buildOverviewSpreadReorderPlan } from './albumSpreadReorder';
 import OverviewLeatherCover from './OverviewLeatherCover';
+import { parseGridSizeAspect } from './albumGridSize';
 import './AlbumSpreadFilmstrip.css';
 
 const STRIP_GAP_PX = 10;
@@ -87,7 +88,7 @@ function getFilmstripPageImage(album, pageNum, totalPages) {
     return slot.src || null;
 }
 
-function resolveFilmstripVisual(album, spreadIndex, totalPages, spreadOpts) {
+export function resolveFilmstripVisual(album, spreadIndex, totalPages, spreadOpts) {
     const { left, right } = getSpreadPages(spreadIndex, totalPages, spreadOpts);
     const isCover = spreadOpts.hasCovers && spreadIndex === 0;
     const isEndSpread = isEndHalfSpreadIndex(spreadIndex, totalPages, spreadOpts);
@@ -118,7 +119,7 @@ function resolveFilmstripVisual(album, spreadIndex, totalPages, spreadOpts) {
     };
 }
 
-function FilmstripThumb({ visual, album }) {
+export function FilmstripThumb({ visual, album }) {
     const {
         isCover,
         isEndSpread,
@@ -137,7 +138,14 @@ function FilmstripThumb({ visual, album }) {
     if (isCover || isEndSpread) {
         const src = coverSrc || leftSrc || rightSrc;
         if (src) {
-            return <img src={src} alt="" draggable={false} />;
+            const sideClass = isCover 
+                ? 'ae-spread-filmstrip__thumb--cover-half--front' 
+                : 'ae-spread-filmstrip__thumb--cover-half--back';
+            return (
+                <span className={`ae-spread-filmstrip__thumb--cover-half ${sideClass}`}>
+                    <img src={src} alt="" draggable={false} />
+                </span>
+            );
         }
         if (useLeather || albumHasBlankCovers(album)) {
             return <OverviewLeatherCover album={album} showTitle={isCover} />;
@@ -177,6 +185,10 @@ export default function AlbumSpreadFilmstrip({
     onReorderSpread,
     photoRevision = 0,
     disabled = false,
+    commentSpreads = null,
+    swapSpreads = null,
+    versionBySpread = null,
+    tipBySpread = null,
 }) {
     const stripRef = useRef(null);
     const wrapRefs = useRef([]);
@@ -197,6 +209,11 @@ export default function AlbumSpreadFilmstrip({
         () => pageToSpreadIndex(bookPage, spreadCtx),
         [bookPage, spreadCtx]
     );
+    const pageAspect = useMemo(
+        () => parseGridSizeAspect(album?.grid_size || 'square'),
+        [album?.grid_size]
+    );
+    const spreadAspect = pageAspect * 2;
 
     const lockedIndices = useMemo(() => {
         const locked = new Set();
@@ -457,6 +474,23 @@ export default function AlbumSpreadFilmstrip({
                     const isDragging = drag?.fromIndex === spreadIndex;
                     const transform = getWrapTransform(spreadIndex, drag, lockedIndices);
                     const draggable = canDrag && !isLocked;
+                    const hasComment = Boolean(
+                        commentSpreads &&
+                            (commentSpreads instanceof Set
+                                ? commentSpreads.has(spreadIndex)
+                                : commentSpreads.includes?.(spreadIndex))
+                    );
+                    const hasSwap = Boolean(
+                        swapSpreads &&
+                            (swapSpreads instanceof Set
+                                ? swapSpreads.has(spreadIndex)
+                                : swapSpreads.includes?.(spreadIndex))
+                    );
+                    const version = versionBySpread?.[spreadIndex];
+                    const tip = tipBySpread?.[spreadIndex];
+                    const isCover = spreadCtx.hasCovers && spreadIndex === 0;
+                    const isEndSpread = isEndHalfSpreadIndex(spreadIndex, totalPages, spreadCtx);
+                    const tileAspect = (isCover || isEndSpread) ? pageAspect : spreadAspect;
 
                     return (
                         <div
@@ -481,10 +515,12 @@ export default function AlbumSpreadFilmstrip({
                                     draggable ? ' ae-spread-filmstrip__tile--draggable' : ''
                                 }`}
                                 aria-current={active ? 'true' : undefined}
+                                title={tip || undefined}
                                 aria-label={
-                                    label
+                                    tip ||
+                                    (label
                                         ? `${label}${draggable ? '. Drag to reorder' : ''}`
-                                        : `Spread ${spreadIndex + 1}`
+                                        : `Spread ${spreadIndex + 1}`)
                                 }
                                 onClick={(e) => {
                                     // Draggable tiles navigate on pointer-up (click vs drag).
@@ -496,10 +532,35 @@ export default function AlbumSpreadFilmstrip({
                                     onSelectSpread?.(spreadIndex, page);
                                 }}
                             >
-                                <span className="ae-spread-filmstrip__thumb">
+                                <span className="ae-spread-filmstrip__thumb" style={{ aspectRatio: String(tileAspect) }}>
                                     <FilmstripThumb visual={visual} album={album} />
+                                    <div className="ae-spread-filmstrip__dots">
+                                        {hasComment ? (
+                                            <span className="ae-spread-filmstrip__dot ae-spread-filmstrip__dot--comment" aria-hidden />
+                                        ) : null}
+                                        {hasSwap ? (
+                                            <span className="ae-spread-filmstrip__dot ae-spread-filmstrip__dot--swap" aria-hidden />
+                                        ) : null}
+                                    </div>
+                                    {version ? (
+                                        <span className="ae-spread-filmstrip__badge">
+                                            v{version}
+                                        </span>
+                                    ) : null}
                                 </span>
-                                <span className="ae-spread-filmstrip__num">{label}</span>
+                                <span className="ae-spread-filmstrip__num">
+                                    {spreadCtx.hasCovers || visual.isCover
+                                        ? (spreadIndex === 0 ? 'COVER' : String(spreadIndex).padStart(2, '0'))
+                                        : String(spreadIndex + 1).padStart(2, '0')}
+                                    {isLocked && !visual.isCover ? (
+                                        <span className="ae-spread-filmstrip__lock" style={{ marginLeft: '4px', opacity: 0.7, display: 'inline-flex', alignItems: 'center' }}>
+                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                                                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                                            </svg>
+                                        </span>
+                                    ) : null}
+                                </span>
                             </button>
                         </div>
                     );

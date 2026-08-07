@@ -4,17 +4,20 @@ import {
     formatSpreadDisplayLabel,
     getAlbumSpreadOptions,
     pageToSpreadIndex,
+    isEndHalfSpreadIndex,
 } from './albumSpreadUtils';
-import { MessageSquare, ArrowLeftRight } from 'lucide-react';
+import { MessageSquare, ArrowLeftRight, Check } from 'lucide-react';
 import {
     getNotificationPage,
     getNotificationPanel,
     getNotificationTypeLabel,
     listAlbumNotificationsForAlbum,
     NOTIFICATION_REFRESH_EVENTS,
+    markAllAlbumProofItemsSeen,
 } from '../../services/albumNotifications';
 import { formatCommentDateTime } from '../../services/smartAlbumComments.service';
-import ProofPanelStats from './ProofPanelStats';
+import { resolveFilmstripVisual, FilmstripThumb } from './AlbumSpreadFilmstrip';
+import { parseGridSizeAspect } from './albumGridSize';
 
 function getNotificationLocationLabel(item, album, totalPages) {
     const spreadOpts = { ...getAlbumSpreadOptions(album), totalPages };
@@ -29,7 +32,7 @@ function getNotificationLocationLabel(item, album, totalPages) {
 }
 
 const PANEL_ID = 'ae-notifications-panel';
-const PANEL_WIDTH = 320;
+const PANEL_WIDTH = 380;
 const PANEL_MARGIN = 12;
 const PANEL_GAP = 8;
 
@@ -58,10 +61,20 @@ export default function AlbumEditorNotifications({
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(false);
     const [panelStyle, setPanelStyle] = useState(null);
+    const [filter, setFilter] = useState('all');
     const rootRef = useRef(null);
     const triggerRef = useRef(null);
 
     const unreadCount = useMemo(() => items.filter((item) => item.isUnread).length, [items]);
+    const swapsCount = useMemo(() => items.filter(item => item.type === 'swap').length, [items]);
+    const commentsCount = useMemo(() => items.filter(item => item.type === 'photo_comment' || item.type === 'spread_comment' || item.type === 'client_reply').length, [items]);
+
+    const pageAspect = useMemo(
+        () => parseGridSizeAspect(album?.grid_size || 'square'),
+        [album?.grid_size]
+    );
+    const spreadAspect = pageAspect * 2;
+    const spreadOpts = useMemo(() => getAlbumSpreadOptions(album), [album]);
 
     const updatePanelPosition = useCallback(() => {
         if (!triggerRef.current) return;
@@ -173,6 +186,23 @@ export default function AlbumEditorNotifications({
         onSelectNotification?.({ item, page, panel });
     };
 
+    const formatCommentTimeOnly = (dateString) => {
+        if (!dateString) return '';
+        try {
+            const d = new Date(dateString);
+            return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+        } catch {
+            return '';
+        }
+    };
+
+    const filteredItems = items.filter(item => {
+        if (filter === 'unread') return item.isUnread;
+        if (filter === 'swaps') return item.type === 'swap';
+        if (filter === 'comments') return item.type === 'photo_comment' || item.type === 'spread_comment' || item.type === 'client_reply';
+        return true;
+    });
+
     const panelContent = (
         <div
             id={PANEL_ID}
@@ -180,73 +210,151 @@ export default function AlbumEditorNotifications({
             role="menu"
             style={panelStyle ?? undefined}
         >
-            <div className="ae-notifications-header">All page notifications</div>
-            <div className="ae-notifications-stats">
-                <ProofPanelStats
-                    unresolved={unreadCount}
-                    total={items.length}
-                    totalLabel="Total comment"
-                    compact
-                />
+            <div className="ae-notifications-header">
+                <span className="ae-notifications-title">Activity</span>
+                {unreadCount > 0 && (
+                    <span className="ae-notifications-unread-badge">{unreadCount} UNREAD</span>
+                )}
+                <button
+                    type="button"
+                    className="ae-notifications-mark-read"
+                    onClick={async () => {
+                        await markAllAlbumProofItemsSeen(album);
+                        refresh();
+                    }}
+                >
+                    Mark all read
+                </button>
             </div>
+            
+            <div className="ae-notifications-filters">
+                <button
+                    type="button"
+                    className={`ae-notifications-filter-btn${filter === 'all' ? ' ae-notifications-filter-btn--active' : ''}`}
+                    onClick={() => setFilter('all')}
+                >
+                    All {items.length}
+                </button>
+                <button
+                    type="button"
+                    className={`ae-notifications-filter-btn${filter === 'unread' ? ' ae-notifications-filter-btn--active' : ''}`}
+                    onClick={() => setFilter('unread')}
+                >
+                    Unread {unreadCount}
+                </button>
+                <button
+                    type="button"
+                    className={`ae-notifications-filter-btn${filter === 'swaps' ? ' ae-notifications-filter-btn--active' : ''}`}
+                    onClick={() => setFilter('swaps')}
+                >
+                    Swaps {swapsCount}
+                </button>
+                <button
+                    type="button"
+                    className={`ae-notifications-filter-btn${filter === 'comments' ? ' ae-notifications-filter-btn--active' : ''}`}
+                    onClick={() => setFilter('comments')}
+                >
+                    Comments {commentsCount}
+                </button>
+            </div>
+
             <div className="ae-notifications-scroll">
                 {loading ? (
                     <div className="ae-notifications-empty">Loading…</div>
-                ) : items.length === 0 ? (
+                ) : filteredItems.length === 0 ? (
                     <div className="ae-notifications-empty">No notifications</div>
                 ) : (
-                    <ul className="ae-notifications-list">
-                        {items.map((item) => (
-                            <li key={item.id}>
-                                <button
-                                    type="button"
-                                    className={`ae-notifications-item${
-                                        item.isUnread ? ' ae-notifications-item--unread' : ''
-                                    }`}
-                                    role="menuitem"
-                                    onClick={() => handleSelect(item)}
-                                >
-                                    <div className="ae-notifications-item-icon-container">
-                                        {item.type === 'swap' ? (
-                                            <ArrowLeftRight size={16} />
-                                        ) : (
-                                            <MessageSquare size={16} />
-                                        )}
-                                    </div>
-                                    <div className="ae-notifications-item-content">
-                                        <span className="ae-notifications-item-top">
-                                            <span className="ae-notifications-item-type">
-                                                {getNotificationTypeLabel(item.type)}
-                                            </span>
-                                            <span className="ae-notifications-item-meta">
-                                                {!item.isUnread ? (
-                                                    <span className="ae-notifications-item-status">
-                                                        Resolved
+                    <>
+                        <div className="ae-notifications-section-title">TODAY</div>
+                        <ul className="ae-notifications-list">
+                            {filteredItems.map((item) => {
+                                const locLabel = getNotificationLocationLabel(item, album, totalPages);
+                                const tagText = locLabel === 'Cover' 
+                                    ? 'COVER' 
+                                    : locLabel === 'Album' 
+                                    ? 'ALBUM' 
+                                    : locLabel.toUpperCase();
+                                
+                                const spreadIndex = item.spreadIndex ?? (item.pageNum != null ? pageToSpreadIndex(item.pageNum, { ...spreadOpts, totalPages }) : null);
+                                const hasThumbnail = spreadIndex != null;
+                                const isCover = spreadOpts.hasCovers && spreadIndex === 0;
+                                const isEndSpread = isEndHalfSpreadIndex(spreadIndex, totalPages, spreadOpts);
+                                const tileAspect = (isCover || isEndSpread) ? pageAspect : spreadAspect;
+                                const visual = hasThumbnail ? resolveFilmstripVisual(album, spreadIndex, totalPages, spreadOpts) : null;
+
+                                let iconClass = 'comment';
+                                let iconElement = <MessageSquare size={14} />;
+                                if (item.type === 'swap') {
+                                    iconClass = 'swap';
+                                    iconElement = <ArrowLeftRight size={14} />;
+                                } else if (item.type === 'changes_submitted' || item.type === 'album_approved') {
+                                    iconClass = 'tick';
+                                    iconElement = <Check size={14} />;
+                                }
+
+                                return (
+                                    <li key={item.id}>
+                                        <button
+                                            type="button"
+                                            className={`ae-notifications-item${
+                                                item.isUnread ? ' ae-notifications-item--unread' : ''
+                                            }`}
+                                            role="menuitem"
+                                            onClick={() => handleSelect(item)}
+                                        >
+                                            <div className="ae-notifications-item-left-area">
+                                                {item.isUnread && <span className="ae-notifications-item-unread-dot" />}
+                                                <div className={`ae-notifications-item-icon-container ae-notifications-item-icon-container--${iconClass}`}>
+                                                    {iconElement}
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="ae-notifications-item-content">
+                                                <div className="ae-notifications-item-top">
+                                                    <span className="ae-notifications-item-title-row">
+                                                        <span className="ae-notifications-item-title">
+                                                            {getNotificationTypeLabel(item.type)}
+                                                        </span>
+                                                        <span className="ae-notifications-item-tag">
+                                                            {tagText}
+                                                        </span>
                                                     </span>
-                                                ) : null}
-                                                <span className="ae-notifications-item-location">
-                                                    {getNotificationLocationLabel(
-                                                        item,
-                                                        album,
-                                                        totalPages
+                                                    {item.createdAt && (
+                                                        <span className="ae-notifications-item-time">
+                                                            {formatCommentTimeOnly(item.createdAt)}
+                                                        </span>
                                                     )}
+                                                </div>
+                                                <span className="ae-notifications-item-preview">
+                                                    {item.preview}
                                                 </span>
-                                                {item.createdAt && (
-                                                    <span className="ae-notifications-item-time">
-                                                        {formatCommentDateTime(item.createdAt)}
-                                                    </span>
-                                                )}
-                                            </span>
-                                        </span>
-                                        <span className="ae-notifications-item-preview">
-                                            {item.preview}
-                                        </span>
-                                    </div>
-                                </button>
-                            </li>
-                        ))}
-                    </ul>
+                                            </div>
+
+                                            {hasThumbnail && visual && (
+                                                <div className="ae-notifications-item-thumbnail" style={{ aspectRatio: String(tileAspect) }}>
+                                                    <FilmstripThumb visual={visual} album={album} />
+                                                </div>
+                                            )}
+                                        </button>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    </>
                 )}
+            </div>
+            
+            <div className="ae-notifications-footer">
+                <button
+                    type="button"
+                    className="ae-notifications-footer-btn"
+                    onClick={() => {
+                        setOpen(false);
+                        onSelectNotification?.({ item: null, page: bookPage, panel: 'pin' });
+                    }}
+                >
+                    Open Comments panel
+                </button>
             </div>
         </div>
     );

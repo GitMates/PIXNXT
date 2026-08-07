@@ -205,6 +205,7 @@ function QuietProofCard({
     authorName,
     createdAt,
     badge = null,
+    activityLabel = null,
     children,
     replies = [],
     replyOpen = false,
@@ -247,6 +248,12 @@ function QuietProofCard({
                         </time>
                     ) : null}
                 </div>
+                {activityLabel ? (
+                    <p className="quiet-proof-card__activity">
+                        <span className="quiet-proof-card__activity-dot" aria-hidden />
+                        {activityLabel}
+                    </p>
+                ) : null}
             </header>
 
             <div
@@ -503,6 +510,7 @@ function QuietProofFeed({
                             authorName={businessName || comment.author_name || 'You'}
                             createdAt={comment.updated_at || comment.created_at}
                             badge="Photographer"
+                            activityLabel={`Comment · Spread ${String((comment.spread_index ?? 0) + 1).padStart(2, '0')}`}
                             unseen={false}
                             showMarkDone={false}
                             {...replyPropsFor(item)}
@@ -523,6 +531,7 @@ function QuietProofFeed({
                             authorName={comment.author_name || clientName}
                             createdAt={comment.updated_at || comment.created_at}
                             badge={getClientCommentBadgeLabel(comment)}
+                            activityLabel={`Comment · Spread ${String((comment.spread_index ?? 0) + 1).padStart(2, '0')}`}
                             unseen={unseen}
                             showMarkDone={!clientViewer}
                             onMarkDone={() => markCommentsSeen(albumId, [comment])}
@@ -557,6 +566,7 @@ function QuietProofFeed({
                             authorName={pin.authorName || pin.author_name || clientName}
                             createdAt={pin.createdAt}
                             badge={`Pin ${ordinal}`}
+                            activityLabel={`Comment · Spread ${String((pin.spreadIndex ?? 0) + 1).padStart(2, '0')}`}
                             unseen={unseen}
                             showMarkDone={!clientViewer}
                             onMarkDone={() => markPhotoPinsSeen(albumId, [pin])}
@@ -570,23 +580,23 @@ function QuietProofFeed({
 
                 if (item.kind === 'image-replacement-stack') {
                     return (
-                        <div key={item.id} className="quiet-proof-feed__system">
-                            <AlbumPreviewReplacementCard
-                                albumId={albumId}
-                                replacements={item.replacements}
-                            />
-                        </div>
+                        <AlbumPreviewReplacementCard
+                            key={item.id}
+                            albumId={albumId}
+                            replacements={item.replacements}
+                            authorName={businessName || 'Photographer'}
+                        />
                     );
                 }
 
                 if (item.kind === 'image-replacement') {
                     return (
-                        <div key={item.id} className="quiet-proof-feed__system">
-                            <AlbumPreviewReplacementCard
-                                albumId={albumId}
-                                replacement={item.replacement}
-                            />
-                        </div>
+                        <AlbumPreviewReplacementCard
+                            key={item.id}
+                            albumId={albumId}
+                            replacement={item.replacement}
+                            authorName={businessName || 'Photographer'}
+                        />
                     );
                 }
 
@@ -647,6 +657,7 @@ function QuietProofFeed({
                         authorName={swapItem.authorName || clientName}
                         createdAt={swapItem.createdAt}
                         badge="Swap"
+                        activityLabel={`Swap request · Spread ${String((Number.isFinite(spreadA) ? spreadA : 0) + 1).padStart(2, '0')}`}
                         unseen={swapUnseen}
                         showMarkDone={!clientViewer}
                         onMarkDone={() => markSwapMarksSeen(albumId, [swapItem])}
@@ -757,7 +768,6 @@ export default function AlbumPreviewSpreadFeed({
 }) {
     void seenTick;
     void spreadOpts;
-    void onRemoveReplacement;
     if (!feed.length) return null;
 
     if (proofMode) {
@@ -979,9 +989,10 @@ export default function AlbumPreviewSpreadFeed({
                         <React.Fragment key={item.id}>
                             {dateDivider}
                             <div className="av-chat-row av-chat-row--system">
-                                <AlbumPreviewReplacementCard
+                <AlbumPreviewReplacementCard
                                     albumId={albumId}
                                     replacements={item.replacements}
+                                    authorName={businessName || 'Photographer'}
                                 />
                             </div>
                         </React.Fragment>
@@ -993,9 +1004,10 @@ export default function AlbumPreviewSpreadFeed({
                         <React.Fragment key={item.id}>
                             {dateDivider}
                             <div className="av-chat-row av-chat-row--system">
-                                <AlbumPreviewReplacementCard
+                <AlbumPreviewReplacementCard
                                     albumId={albumId}
                                     replacement={item.replacement}
+                                    authorName={businessName || 'Photographer'}
                                 />
                             </div>
                         </React.Fragment>

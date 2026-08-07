@@ -3,22 +3,22 @@
 .ae-spread-filmstrip {
   flex-shrink: 0;
   width: 100%;
-  padding: 10px 16px 14px;
+  padding: 16px 20px 20px;
   box-sizing: border-box;
-  background: transparent;
-  border-top: 1px solid rgba(28, 25, 23, 0.06);
+  background: #e0dad0; /* Curated sand background matching reference */
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 .ae-spread-filmstrip__track {
   display: flex;
   align-items: flex-end;
-  gap: 10px;
+  gap: 16px; /* Wider, more premium spacing */
   overflow-x: auto;
-  padding: 4px 2px 8px;
+  padding: 8px 4px 16px;
   scroll-snap-type: x proximity;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
-  scrollbar-color: rgba(28, 25, 23, 0.28) transparent;
+  scrollbar-color: rgba(28, 25, 23, 0.2) transparent;
 }
 
 .ae-spread-filmstrip__track--dragging {
@@ -54,18 +54,18 @@
 .ae-spread-filmstrip__tile {
   appearance: none;
   position: relative;
-  display: block;
-  width: 148px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: auto; /* Dynamic width */
   height: auto;
-  aspect-ratio: 2 / 1;
   padding: 0;
-  border: 2px solid transparent;
-  border-radius: 10px;
-  background: #efeee9;
-  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  overflow: visible;
   cursor: pointer;
   scroll-snap-align: start;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 
 .ae-spread-filmstrip__tile--draggable {
@@ -74,28 +74,30 @@
 
 .ae-spread-filmstrip__wrap--dragging .ae-spread-filmstrip__tile--draggable {
   cursor: grabbing;
-  border-color: #8e44ad;
+}
+
+.ae-spread-filmstrip__wrap--dragging .ae-spread-filmstrip__thumb {
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16);
 }
 
-.ae-spread-filmstrip__tile:hover {
-  border-color: rgba(28, 25, 23, 0.18);
+.ae-spread-filmstrip__tile--active .ae-spread-filmstrip__thumb {
+  box-shadow: none;
 }
 
-.ae-spread-filmstrip__tile--active {
-  border-color: #c45c26;
-  box-shadow: 0 0 0 1px #c45c26;
-}
-
-.ae-spread-filmstrip__wrap--dragging .ae-spread-filmstrip__tile--active {
-  border-color: #8e44ad;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16);
+.ae-spread-filmstrip__tile--active::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -10px;
+  height: 3px;
+  border-radius: 999px;
+  background: #ab6229;
 }
 
 .ae-spread-filmstrip__tile--cover,
 .ae-spread-filmstrip__tile--back {
-  width: 74px;
-  aspect-ratio: 1 / 1;
+  width: auto; /* Dynamic width */
 }
 
 .ae-spread-filmstrip__tile--locked {
@@ -107,11 +109,13 @@
   display: flex;
   align-items: stretch;
   justify-content: center;
-  width: 100%;
-  height: 100%;
+  height: 74px; /* Fixed height so tracks align perfectly */
+  width: auto; /* Dynamic width based on inline aspect ratio */
   overflow: hidden;
-  border-radius: 8px;
-  background: #e8e6e0;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.12); /* Clean thin grey border */
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .ae-spread-filmstrip__thumb .ab-overview-leather-cover {
@@ -142,7 +146,7 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  background: #e8e6e0;
+  background: #fff;
 }
 
 .ae-spread-filmstrip__page + .ae-spread-filmstrip__page {
@@ -166,17 +170,62 @@
 }
 
 .ae-spread-filmstrip__num {
-  position: absolute;
-  left: 5px;
-  bottom: 4px;
-  z-index: 1;
+  display: block;
+  margin-top: 6px;
+  text-align: center;
   font-family: var(--font-sans);
-  font-size: var(--t-label, 0.625rem);
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 600;
   letter-spacing: 0.04em;
-  color: #fff;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+  color: #44403c;
   pointer-events: none;
+}
+
+.ae-spread-filmstrip__tile--active .ae-spread-filmstrip__num {
+  font-weight: 800;
+  color: #1c1917;
+}
+
+.ae-spread-filmstrip__dots {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 2;
+}
+
+.ae-spread-filmstrip__dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.95);
+  transition: all 0.2s ease;
+}
+
+.ae-spread-filmstrip__dot--comment {
+  background: #a76f40 !important; /* Brown/copper color */
+}
+
+.ae-spread-filmstrip__dot--swap {
+  background: #d9a752 !important; /* Gold/yellow color */
+}
+
+.ae-spread-filmstrip__badge {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  z-index: 2;
+  padding: 3px 8px 3px 6px;
+  border-top-right-radius: 8px;
+  background: #ffffff;
+  color: #44403c;
+  font-size: 11px;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  line-height: 1.2;
+  box-shadow: 1px -1px 2px rgba(0, 0, 0, 0.05);
 }
 
 @media (max-width: 768px) {
@@ -185,11 +234,41 @@
   }
 
   .ae-spread-filmstrip__tile {
-    width: 120px;
+    width: auto;
   }
 
   .ae-spread-filmstrip__tile--cover,
   .ae-spread-filmstrip__tile--back {
-    width: 60px;
+    width: auto;
   }
+
+  .ae-spread-filmstrip__thumb {
+    height: 60px;
+  }
+}
+
+/* Half cover clipping for dynamic width strip */
+.ae-spread-filmstrip__thumb--cover-half {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.ae-spread-filmstrip__thumb--cover-half img {
+  position: absolute;
+  top: 0;
+  height: 100% !important;
+  width: 200% !important;
+  max-width: none !important;
+  object-fit: cover !important;
+}
+
+.ae-spread-filmstrip__thumb--cover-half--front img {
+  right: 0; /* Shows the right half (front cover) */
+}
+
+.ae-spread-filmstrip__thumb--cover-half--back img {
+  left: 0; /* Shows the left half (back cover) */
 }

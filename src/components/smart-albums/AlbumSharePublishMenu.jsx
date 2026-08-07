@@ -141,7 +141,7 @@ function buildDefaultShareMessage(album, displayUrl, { pin = '', maxFreeSwaps = 
     const swaps = Number(maxFreeSwaps);
     if (Number.isFinite(swaps) && swaps > 0) {
         lines.push(
-            `Tap any spread to comment or ask for a photo swap. Your package includes ${swaps} swaps.`
+            `Tap any spread to comment or ask for a photo swap.`
         );
     } else {
         lines.push('Tap any spread to comment or ask for a photo swap.');
@@ -925,7 +925,7 @@ export function AlbumPublishStatusBadge({ album, onPublish, publishBusy }) {
         <div className="ae-publish-status">
             <span className="ae-publish-badge ae-publish-badge--live">
                 <span className="ae-publish-badge__dot" aria-hidden />
-                Published
+                PUBLISHED
             </span>
         </div>
     );
