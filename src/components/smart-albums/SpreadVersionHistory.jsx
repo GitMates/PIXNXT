@@ -19,8 +19,18 @@ function formatHistoryWhen(iso) {
     return `${day} ${mon} ${time}`;
 }
 
-function VersionThumb({ albumId, url, storagePath, current = false }) {
-    const src = resolveReplacementPreviewUrl(albumId, url, storagePath);
+function VersionThumb({
+    albumId,
+    url,
+    storagePath,
+    itemId = null,
+    preferLive = false,
+    current = false,
+}) {
+    const src = resolveReplacementPreviewUrl(albumId, url, storagePath, {
+        itemId,
+        preferLive,
+    });
     return (
         <span
             className={`ae-version-history__thumb${
@@ -61,7 +71,9 @@ export default function SpreadVersionHistory({
 
     const latest = rows.length ? rows[rows.length - 1] : null;
     const currentVersion = latest ? getReplacementCurrentVersion(latest) : 1;
-    const livePreviewUrl = latest?.newUrl || currentPreviewUrl || null;
+    // Prefer the live spread preview for "current" so thumbs match the flipbook after
+    // an in-place replace (stored newUrl can still point at the prior file).
+    const livePreviewUrl = currentPreviewUrl || latest?.newUrl || null;
 
     const historyEntries = useMemo(() => {
         if (!latest) {
@@ -73,6 +85,8 @@ export default function SpreadVersionHistory({
                     current: true,
                     url: livePreviewUrl,
                     storagePath: null,
+                    itemId: null,
+                    preferLive: false,
                     createdAt: null,
                     row: null,
                 },
@@ -83,8 +97,10 @@ export default function SpreadVersionHistory({
                 key: `current-${currentVersion}`,
                 version: currentVersion,
                 current: true,
-                url: latest.newUrl || livePreviewUrl,
-                storagePath: null,
+                url: livePreviewUrl || latest.newUrl,
+                storagePath: latest.newStoragePath || null,
+                itemId: latest.newItemId || null,
+                preferLive: true,
                 createdAt: latest.createdAt,
                 row: null,
             },
@@ -96,8 +112,11 @@ export default function SpreadVersionHistory({
                 key: row.id || `v-${version}`,
                 version,
                 current: false,
+                // Frozen prior snapshot only — never resolve via live collection id.
                 url: row.previousUrl,
                 storagePath: row.previousStoragePath,
+                itemId: null,
+                preferLive: false,
                 createdAt: row.createdAt,
                 row,
             });
@@ -153,6 +172,8 @@ export default function SpreadVersionHistory({
                                 albumId={albumId}
                                 url={entry.url}
                                 storagePath={entry.storagePath}
+                                itemId={entry.itemId}
+                                preferLive={entry.preferLive}
                                 current={entry.current}
                             />
                             <div className="ae-version-history__meta">

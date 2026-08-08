@@ -119,12 +119,34 @@ export async function snapshotImageUrlForReview(url) {
     }
 }
 
-export function resolveReplacementPreviewUrl(albumId, url, storagePath = null) {
-    void albumId;
+/**
+ * Resolve a version-history thumb URL.
+ * Pass preferLive + itemId for the *current* version so in-place file replaces
+ * always show the live collection file (stored newUrl can lag behind).
+ * Historical versions must use frozen previousUrl / previousStoragePath only —
+ * prefer storagePath so a mistaken previousUrl alias to the new file cannot win.
+ */
+export function resolveReplacementPreviewUrl(
+    albumId,
+    url,
+    storagePath = null,
+    { itemId = null, preferLive = false } = {}
+) {
     if (url?.startsWith('data:')) return url;
-    if (storagePath) return storageService.getPublicUrl(storagePath);
+    if (preferLive && itemId) {
+        const live = resolveItemUrl(albumId, itemId);
+        if (live) return live;
+    }
+    if (!preferLive && storagePath) {
+        return storageService.getPublicUrl(storagePath);
+    }
     if (url) return url;
+    if (storagePath) return storageService.getPublicUrl(storagePath);
     return null;
+}
+
+function stripUrlCacheToken(url) {
+    return typeof url === 'string' ? url.split('?')[0] : url;
 }
 
 function getSlotImageUrl(albumId, slot, album, totalPages, itemId = null) {
@@ -218,6 +240,8 @@ function buildReplacementRecord(
         previousItemId,
         previousUrl,
         previousStoragePath = null,
+        newUrl: newUrlOverride = null,
+        newStoragePath: newStoragePathOverride = null,
         force = false,
         spreadIndex: spreadIndexOverride = null,
     }
@@ -232,32 +256,35 @@ function buildReplacementRecord(
         previousUrl ||
         (prevStoragePath ? storageService.getPublicUrl(prevStoragePath) : null) ||
         null;
+    const newStoragePath =
+        newStoragePathOverride || newItem?.storagePath || null;
     const newUrl =
-        (newItem ? getCollectionItemDisplayUrl(newItem) : null) ?? resolveItemUrl(albumId, newItemId);
-    const newStoragePath = newItem?.storagePath ?? null;
+        newUrlOverride ||
+        (newStoragePath ? storageService.getPublicUrl(newStoragePath) : null) ||
+        (newItem ? getCollectionItemDisplayUrl(newItem) : null) ||
+        resolveItemUrl(albumId, newItemId);
 
-    if (!newUrl) return null;
+    if (!newUrl && !newStoragePath) return null;
     if (!force && !prevUrl && !prevStoragePath && !prevId) return null;
 
     // Skip only when the file truly did not change (never skip an explicit New version).
-    const stripCache = (url) => (typeof url === 'string' ? url.split('?')[0] : url);
     const samePath =
         Boolean(prevStoragePath && newStoragePath && prevStoragePath === newStoragePath);
     const sameUrl = Boolean(
-        prevUrl && newUrl && stripCache(prevUrl) === stripCache(newUrl)
+        prevUrl && newUrl && stripUrlCacheToken(prevUrl) === stripUrlCacheToken(newUrl)
     );
     if (!force) {
         if (samePath && sameUrl) return null;
         if (!prevStoragePath && !prevId && sameUrl) return null;
     }
 
+    // Never alias previous → new (that made v1/v2 thumbs identical). Prefer a real
+    // prior URL/path; allow force rows with only new when there was no prior photo.
     const resolvedPrevUrl =
         prevUrl ||
         (prevStoragePath ? storageService.getPublicUrl(prevStoragePath) : null) ||
-        // Explicit New version with no prior URL still needs a history thumb — use new as
-        // placeholder so the row persists (matches Spread 05 history UX).
-        (force ? newUrl : null);
-    if (!resolvedPrevUrl && !prevId && !force) return null;
+        null;
+    if (!resolvedPrevUrl && !prevStoragePath && !prevId && !force) return null;
 
     const spreadLeft =
         slot.spreadLeft ??
@@ -288,9 +315,10 @@ function buildReplacementRecord(
         whole,
         previousItemId: prevId,
         previousStoragePath: prevStoragePath,
-        previousUrl: resolvedPrevUrl || prevUrl || null,
+        previousUrl: resolvedPrevUrl,
         newItemId,
-        newUrl,
+        newStoragePath,
+        newUrl: newUrl || (newStoragePath ? storageService.getPublicUrl(newStoragePath) : null),
         createdAt: new Date().toISOString(),
     };
 }
@@ -305,17 +333,22 @@ export function captureSlotImageBeforeReplace(albumId, slot, album, totalPages) 
         album,
     });
     const previousItem = previousItemId ? getCollectionItem(albumId, previousItemId) : null;
+    // Freeze the storage path string NOW — after in-place replace the live item points
+    // at the new file, so history must not re-resolve via collection id.
     const previousStoragePath = previousItem?.storagePath ?? null;
     const previousUrl =
         (previousStoragePath ? storageService.getPublicUrl(previousStoragePath) : null) ||
-        getCollectionItemDisplayUrl(previousItem) ||
+        (previousItem ? getCollectionItemDisplayUrl(previousItem) : null) ||
         getSlotImageUrl(albumId, slot, album, totalPages, previousItemId) ||
         null;
     if (!previousItemId && !previousUrl && !previousStoragePath) return null;
     return {
         previousItemId: previousItemId || null,
         previousStoragePath: previousStoragePath || null,
-        previousUrl,
+        // Always store a path-derived URL when possible (no cache-bust query).
+        previousUrl: previousStoragePath
+            ? storageService.getPublicUrl(previousStoragePath)
+            : previousUrl,
     };
 }
 
@@ -421,16 +454,22 @@ export function trackSpreadImageReplacement(
         previousItemId = null,
         previousUrl = null,
         previousStoragePath = null,
+        newUrl = null,
+        newStoragePath = null,
         force = false,
         spreadIndex = null,
     } = {}
 ) {
     if (!albumId || !slot || !newItemId) return null;
     const spreadOpts = getSpreadContext(album, totalPages);
+    // Only fall back to live slot lookup when the caller did not capture "before"
+    // (and never when force/new-version already replaced the item in place).
     const prevId =
         previousItemId != null
             ? previousItemId
-            : resolveSlotCollectionItemId(albumId, slot, { totalPages, spreadOpts, album });
+            : force
+              ? null
+              : resolveSlotCollectionItemId(albumId, slot, { totalPages, spreadOpts, album });
     // Never re-read the live collection item for the "before" URL — in-place replace
     // already updated that item to the new file by the time we track.
     const prevStoragePath = previousStoragePath || null;
@@ -446,6 +485,8 @@ export function trackSpreadImageReplacement(
         previousItemId: prevId,
         previousUrl: prevUrl,
         previousStoragePath: prevStoragePath,
+        newUrl,
+        newStoragePath,
         force,
         spreadIndex,
     });
@@ -491,6 +532,7 @@ export function serializeImageReplacementsForSnapshot(albumId) {
         previousStoragePath: row.previousStoragePath ?? null,
         previousUrl: row.previousUrl,
         newItemId: row.newItemId,
+        newStoragePath: row.newStoragePath ?? null,
         newUrl: row.newUrl,
         version: row.version ?? null,
         createdAt: row.createdAt,

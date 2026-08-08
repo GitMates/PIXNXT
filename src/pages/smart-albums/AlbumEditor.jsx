@@ -1139,6 +1139,7 @@ export default function AlbumEditor({
                         previousItemId: before.previousItemId,
                         previousUrl: before.previousUrl,
                         previousStoragePath: before.previousStoragePath,
+                        newStoragePath: getCollectionItem(albumId, itemId)?.storagePath || null,
                     });
                 }
                 if (placed) {
@@ -1878,6 +1879,7 @@ export default function AlbumEditor({
                 const before = {
                     previousItemId: captured?.previousItemId || null,
                     previousStoragePath: captured?.previousStoragePath || null,
+                    // previewBeforeUrl is snapshotted before replace — safe to keep as frozen string.
                     previousUrl: captured?.previousUrl || previewBeforeUrl || null,
                 };
                 const hasBefore =
@@ -1913,8 +1915,12 @@ export default function AlbumEditor({
                             album,
                             totalPages,
                             previousItemId: before.previousItemId,
-                            previousUrl: before.previousUrl || previewBeforeUrl,
+                            previousUrl: before.previousUrl,
                             previousStoragePath: before.previousStoragePath,
+                            newStoragePath: replacementItem.storagePath || null,
+                            newUrl: replacementItem.storagePath
+                                ? null
+                                : replacementItem.dataUrl || null,
                             force: Boolean(asNewVersion),
                             spreadIndex: versionSpreadIndex,
                         });

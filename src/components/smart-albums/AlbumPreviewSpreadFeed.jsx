@@ -393,9 +393,6 @@ function QuietProofFeed({
     onNavigateToSlotKey,
     onRemoveSwap,
     onJumpToSpread,
-    onNewVersion = null,
-    onRestoreReplacement = null,
-    onRemoveReplacement = null,
 }) {
     void photoRevision;
     const clientName =
@@ -588,12 +585,6 @@ function QuietProofFeed({
                             albumId={albumId}
                             replacements={item.replacements}
                             authorName={businessName || 'Photographer'}
-                            onNewVersion={onNewVersion}
-                            onRestore={onRestoreReplacement}
-                            onDelete={(row) => {
-                                if (!row?.id) return;
-                                onRemoveReplacement?.(row.id);
-                            }}
                         />
                     );
                 }
@@ -605,12 +596,6 @@ function QuietProofFeed({
                             albumId={albumId}
                             replacement={item.replacement}
                             authorName={businessName || 'Photographer'}
-                            onNewVersion={onNewVersion}
-                            onRestore={onRestoreReplacement}
-                            onDelete={(row) => {
-                                if (!row?.id) return;
-                                onRemoveReplacement?.(row.id);
-                            }}
                         />
                     );
                 }
@@ -785,6 +770,9 @@ export default function AlbumPreviewSpreadFeed({
 }) {
     void seenTick;
     void spreadOpts;
+    void onRemoveReplacement;
+    void onNewVersion;
+    void onRestoreReplacement;
     if (!feed.length) return null;
 
     if (proofMode) {
@@ -801,9 +789,6 @@ export default function AlbumPreviewSpreadFeed({
                 onNavigateToSlotKey={onNavigateToSlotKey}
                 onRemoveSwap={onRemoveSwap}
                 onJumpToSpread={onJumpToSpread}
-                onNewVersion={onNewVersion}
-                onRestoreReplacement={onRestoreReplacement}
-                onRemoveReplacement={onRemoveReplacement}
             />
         );
     }
@@ -1013,9 +998,6 @@ export default function AlbumPreviewSpreadFeed({
                                     albumId={albumId}
                                     replacements={item.replacements}
                                     authorName={businessName || 'Photographer'}
-                                    onNewVersion={onNewVersion}
-                                    onRestore={onRestoreReplacement}
-                                    onDelete={onRemoveReplacement}
                                 />
                             </div>
                         </React.Fragment>
@@ -1031,9 +1013,6 @@ export default function AlbumPreviewSpreadFeed({
                                     albumId={albumId}
                                     replacement={item.replacement}
                                     authorName={businessName || 'Photographer'}
-                                    onNewVersion={onNewVersion}
-                                    onRestore={onRestoreReplacement}
-                                    onDelete={onRemoveReplacement}
                                 />
                             </div>
                         </React.Fragment>
