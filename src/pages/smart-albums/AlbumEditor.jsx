@@ -379,6 +379,8 @@ export default function AlbumEditor({
     const slotMenuRef = useRef(null);
     const bumpWorkspaceRef = useRef(null);
     const prevLayoutPhotoCountRef = useRef(null);
+    /** Block auto page-count growth while New version / slot replace adds a collection item. */
+    const suppressCollectionPageGrowthRef = useRef(false);
     const albumRef = useRef(album);
     albumRef.current = album;
     const [slotMenu, setSlotMenu] = useState(null);
@@ -571,6 +573,9 @@ export default function AlbumEditor({
     const ensurePageCountForCollection = useCallback(async () => {
         const albumNow = albumRef.current;
         if (!albumId || !albumNow || !user?.id) return albumNow;
+        // Slot replace / New version may add a collection item for the current spread
+        // without needing more album pages — never insert spreads in that window.
+        if (suppressCollectionPageGrowthRef.current) return albumNow;
         syncCoverWrapRoleFromSpread(albumId);
         const photoCount = getAlbumLayoutPhotoCount(albumId, albumNow);
         const prevPhotoCount = prevLayoutPhotoCountRef.current;
@@ -639,6 +644,7 @@ export default function AlbumEditor({
     /** Grow page count when collection grows; shrink only when photos are removed (not manual spread edits). */
     useEffect(() => {
         if (!albumId || !album || !user?.id) return;
+        if (suppressCollectionPageGrowthRef.current) return;
         void ensurePageCountForCollection();
     }, [
         albumId,
@@ -649,6 +655,20 @@ export default function AlbumEditor({
         ensurePageCountForCollection,
         user?.id,
     ]);
+
+    const beginSuppressCollectionPageGrowth = useCallback(() => {
+        suppressCollectionPageGrowthRef.current = true;
+    }, []);
+
+    const endSuppressCollectionPageGrowth = useCallback(() => {
+        const albumNow = albumRef.current;
+        if (albumId && albumNow) {
+            // Baseline to the post-replace count so clearing the flag cannot
+            // look like "collection grew" and insert blank spreads.
+            prevLayoutPhotoCountRef.current = getAlbumLayoutPhotoCount(albumId, albumNow);
+        }
+        suppressCollectionPageGrowthRef.current = false;
+    }, [albumId]);
 
     const syncCollectionOrderToSpreads = useCallback(async () => {
         if (!albumId || !album || !user?.id) return 0;
@@ -1383,6 +1403,9 @@ export default function AlbumEditor({
                 coverWrap,
                 album,
                 compressionTarget,
+                // New version / slot replace must never import every PDF page into the
+                // collection — that grows collectionCount and auto-inserts blank spreads.
+                maxItems: 1,
             });
             const replacementItem = added[0] || added.duplicateItems?.[0];
             if (previousItemId && replacementItem?.id && previousItemId !== replacementItem.id) {
@@ -1400,6 +1423,7 @@ export default function AlbumEditor({
         async (files, slot) => {
             if (!slot || files.length === 0) return;
             setUploading(true);
+            beginSuppressCollectionPageGrowth();
             showToast('Uploading photo…', { variant: 'info', duration: 0 });
             try {
                 const isCoverSlot =
@@ -1468,18 +1492,22 @@ export default function AlbumEditor({
                 console.error(err);
                 showToast('Upload failed. Try again.', { variant: 'error', duration: 4000 });
             } finally {
+                endSuppressCollectionPageGrowth();
                 setUploading(false);
             }
         },
         [
             album,
             albumId,
+            beginSuppressCollectionPageGrowth,
+            endSuppressCollectionPageGrowth,
             placeCollectionItemOnSlot,
             resolveSpreadReplacementItem,
             scheduleWorkspaceRefresh,
             showToast,
             totalPages,
             keepCoverEditorActive,
+            user?.id,
         ]
     );
 
@@ -1849,6 +1877,7 @@ export default function AlbumEditor({
             }
 
             setUploading(true);
+            beginSuppressCollectionPageGrowth();
             if (files.some((f) => isPdfFile(f))) {
                 showToast('Converting PDF pages to images…', { variant: 'info', duration: 0 });
             } else {
@@ -1969,14 +1998,17 @@ export default function AlbumEditor({
                 console.error(err);
                 showToast('Upload failed. Try again.', { variant: 'error', duration: 4000 });
             } finally {
+                endSuppressCollectionPageGrowth();
                 setUploading(false);
             }
         },
         [
             album,
             albumId,
+            beginSuppressCollectionPageGrowth,
             bookPage,
             bumpWorkspace,
+            endSuppressCollectionPageGrowth,
             gridEditSet,
             gridSelection,
             placeCollectionItemOnSlot,

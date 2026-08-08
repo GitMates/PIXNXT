@@ -771,6 +771,8 @@ export async function addFilesToAlbumCollection(
         coverWrap = false,
         album = null,
         compressionTarget = null,
+        /** Cap how many images are imported (e.g. 1 for New version / slot replace). */
+        maxItems = null,
     } = {}
 ) {
     if (!albumId || !files?.length) return [];
@@ -784,7 +786,7 @@ export async function addFilesToAlbumCollection(
         total: files.length,
     });
 
-    const [workItems, pathContext] = await Promise.all([
+    const [workItemsRaw, pathContext] = await Promise.all([
         buildCollectionWorkItems(files),
         Promise.all([
             getPhotographerPathFolder(photographerId),
@@ -794,6 +796,11 @@ export async function addFilesToAlbumCollection(
             albumFolder,
         })),
     ]);
+
+    const workItems =
+        Number.isFinite(maxItems) && maxItems > 0
+            ? workItemsRaw.slice(0, maxItems)
+            : workItemsRaw;
 
     const added = [];
     const batchUploadTs = Date.now();
