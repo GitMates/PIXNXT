@@ -25,12 +25,27 @@ const REVIEW_SNAPSHOT_JPEG_QUALITY = 0.82;
 
 export const IMAGE_REPLACEMENTS_CHANGED_EVENT = 'pixnxt-album-image-replacements-changed';
 
+/** Survives localStorage quota failures so version UI still updates after New version. */
+const MEMORY_REPLACEMENTS = new Map();
+
+function normalizeReplacementBucket(bucket) {
+    if (Array.isArray(bucket)) return bucket.filter(Boolean);
+    if (bucket && typeof bucket === 'object') {
+        return Object.values(bucket).filter(
+            (row) => row && typeof row === 'object' && (row.id || row.newUrl || row.previousUrl)
+        );
+    }
+    return [];
+}
+
 function readAll() {
     return readLocalStorageJson(STORAGE_KEY, {});
 }
 
 function writeAll(data, preferAlbumId = null) {
-    writeLocalStorageJson(STORAGE_KEY, data, { preferAlbumId, compact: true });
+    const ok = writeLocalStorageJson(STORAGE_KEY, data, { preferAlbumId, compact: true });
+    if (!ok) console.warn('Could not save image replacements');
+    return ok;
 }
 
 function notify(albumId) {
@@ -197,22 +212,52 @@ function buildReplacementRecord(
     albumId,
     slot,
     newItemId,
-    { album, totalPages, previousItemId, previousUrl, previousStoragePath = null }
+    {
+        album,
+        totalPages,
+        previousItemId,
+        previousUrl,
+        previousStoragePath = null,
+        force = false,
+        spreadIndex: spreadIndexOverride = null,
+    }
 ) {
     const spreadOpts = getSpreadContext(album, totalPages);
-    const prevId =
-        previousItemId ??
-        resolveSlotCollectionItemId(albumId, slot, { totalPages, spreadOpts, album });
-    const prevItem = prevId ? getCollectionItem(albumId, prevId) : null;
-    const prevStoragePath = previousStoragePath ?? prevItem?.storagePath ?? null;
+    const prevId = previousItemId || null;
+    const newItem = getCollectionItem(albumId, newItemId);
+    // Never read the live collection item for "before" fields — in-place replace already
+    // updated that row to the new file by the time we record history.
+    const prevStoragePath = previousStoragePath || null;
     const prevUrl =
-        previousUrl ??
-        (prevItem ? getCollectionItemDisplayUrl(prevItem) : null) ??
-        getSlotImageUrl(albumId, slot, album, totalPages, prevId);
-    const newUrl = resolveItemUrl(albumId, newItemId);
+        previousUrl ||
+        (prevStoragePath ? storageService.getPublicUrl(prevStoragePath) : null) ||
+        null;
+    const newUrl =
+        (newItem ? getCollectionItemDisplayUrl(newItem) : null) ?? resolveItemUrl(albumId, newItemId);
+    const newStoragePath = newItem?.storagePath ?? null;
 
-    if (!prevUrl || !newUrl) return null;
-    if (prevUrl === newUrl) return null;
+    if (!newUrl) return null;
+    if (!force && !prevUrl && !prevStoragePath && !prevId) return null;
+
+    // Skip only when the file truly did not change (never skip an explicit New version).
+    const stripCache = (url) => (typeof url === 'string' ? url.split('?')[0] : url);
+    const samePath =
+        Boolean(prevStoragePath && newStoragePath && prevStoragePath === newStoragePath);
+    const sameUrl = Boolean(
+        prevUrl && newUrl && stripCache(prevUrl) === stripCache(newUrl)
+    );
+    if (!force) {
+        if (samePath && sameUrl) return null;
+        if (!prevStoragePath && !prevId && sameUrl) return null;
+    }
+
+    const resolvedPrevUrl =
+        prevUrl ||
+        (prevStoragePath ? storageService.getPublicUrl(prevStoragePath) : null) ||
+        // Explicit New version with no prior URL still needs a history thumb — use new as
+        // placeholder so the row persists (matches Spread 05 history UX).
+        (force ? newUrl : null);
+    if (!resolvedPrevUrl && !prevId && !force) return null;
 
     const spreadLeft =
         slot.spreadLeft ??
@@ -223,18 +268,27 @@ function buildReplacementRecord(
     const slotLabel =
         slot.label ||
         getSlotLabel(slot.pageNum, slot.cellId ?? 0, whole, totalPages, album);
+    const spreadIndex =
+        spreadIndexOverride != null && Number.isFinite(Number(spreadIndexOverride))
+            ? Number(spreadIndexOverride)
+            : pageToSpreadIndex(spreadLeft, { ...spreadOpts, totalPages });
 
     return {
         id: `repl-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
         slotKey: makeSlotKey(slot.pageNum, slot.cellId ?? 0),
         slotLabel,
-        spreadIndex: pageToSpreadIndex(spreadLeft, { ...spreadOpts, totalPages }),
+        note: whole
+            ? 'Uploaded a new version'
+            : slotLabel
+              ? `Updated ${String(slotLabel).replace(/^Spread\s+\d+\s·\s/i, '').toLowerCase()} frame`
+              : 'Uploaded a new version',
+        spreadIndex,
         pageNum: slot.pageNum,
         cellId: slot.cellId ?? 0,
         whole,
-        previousItemId: prevId || null,
-        previousStoragePath: prevStoragePath || null,
-        previousUrl: prevUrl,
+        previousItemId: prevId,
+        previousStoragePath: prevStoragePath,
+        previousUrl: resolvedPrevUrl || prevUrl || null,
         newItemId,
         newUrl,
         createdAt: new Date().toISOString(),
@@ -253,13 +307,15 @@ export function captureSlotImageBeforeReplace(albumId, slot, album, totalPages) 
     const previousItem = previousItemId ? getCollectionItem(albumId, previousItemId) : null;
     const previousStoragePath = previousItem?.storagePath ?? null;
     const previousUrl =
-        getCollectionItemDisplayUrl(previousItem) ??
-        getSlotImageUrl(albumId, slot, album, totalPages, previousItemId);
-    if (!previousItemId && !previousUrl) return null;
+        (previousStoragePath ? storageService.getPublicUrl(previousStoragePath) : null) ||
+        getCollectionItemDisplayUrl(previousItem) ||
+        getSlotImageUrl(albumId, slot, album, totalPages, previousItemId) ||
+        null;
+    if (!previousItemId && !previousUrl && !previousStoragePath) return null;
     return {
         previousItemId: previousItemId || null,
-        previousStoragePath,
-        previousUrl: previousUrl || null,
+        previousStoragePath: previousStoragePath || null,
+        previousUrl,
     };
 }
 
@@ -292,15 +348,18 @@ function backfillReplacementVersions(rows) {
 
 export function getImageReplacements(albumId) {
     if (!albumId) return [];
-    const local = readAll()[albumId];
-    if (Array.isArray(local)) {
-        return backfillReplacementVersions(local).sort(
-            (a, b) =>
-                new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
-        );
-    }
-    const remote = getRemotePreviewData(albumId)?.image_replacements;
-    return backfillReplacementVersions(remote || []).sort(
+    const memory = normalizeReplacementBucket(MEMORY_REPLACEMENTS.get(albumId));
+    const local = normalizeReplacementBucket(readAll()[albumId]);
+    const remote = normalizeReplacementBucket(
+        getRemotePreviewData(albumId)?.image_replacements
+    );
+
+    // Prefer the richest source (memory survives quota failures; local is durable).
+    let rows = local;
+    if (memory.length >= rows.length) rows = memory;
+    if (!rows.length && remote.length) rows = remote;
+
+    return backfillReplacementVersions(rows).sort(
         (a, b) =>
             new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
     );
@@ -309,23 +368,44 @@ export function getImageReplacements(albumId) {
 export function addImageReplacement(albumId, record) {
     if (!albumId || !record) return null;
     const all = readAll();
-    const bucket = [...(all[albumId] || [])];
-    const duplicate = bucket.find(
+    const bucket = [
+        ...normalizeReplacementBucket(all[albumId]),
+        ...normalizeReplacementBucket(MEMORY_REPLACEMENTS.get(albumId)).filter(
+            (row) =>
+                !normalizeReplacementBucket(all[albumId]).some((existing) => existing.id === row.id)
+        ),
+    ];
+    // Deduplicate by id while merging memory + local
+    const byId = new Map();
+    for (const row of bucket) {
+        if (row?.id) byId.set(row.id, row);
+    }
+    const merged = [...byId.values()];
+
+    const duplicate = merged.find(
         (row) =>
             row.slotKey === record.slotKey &&
             row.previousUrl === record.previousUrl &&
             row.newUrl === record.newUrl
     );
-    if (duplicate) return duplicate;
+    if (duplicate) {
+        MEMORY_REPLACEMENTS.set(albumId, merged);
+        return duplicate;
+    }
 
     const entry = {
         ...record,
-        version: nextReplacementVersion(bucket, record.spreadIndex),
+        spreadIndex: Number(record.spreadIndex),
+        version: nextReplacementVersion(merged, Number(record.spreadIndex)),
     };
-    bucket.push(entry);
-    all[albumId] = bucket;
-    writeAll(all);
-    patchRemotePreviewImageReplacements(albumId, bucket);
+    merged.push(entry);
+    all[albumId] = merged;
+    MEMORY_REPLACEMENTS.set(albumId, merged);
+    const wrote = writeAll(all, albumId);
+    if (!wrote) {
+        console.warn('Image replacement not persisted (storage full) — keeping in memory');
+    }
+    patchRemotePreviewImageReplacements(albumId, merged);
     notify(albumId);
     return entry;
 }
@@ -341,20 +421,24 @@ export function trackSpreadImageReplacement(
         previousItemId = null,
         previousUrl = null,
         previousStoragePath = null,
+        force = false,
+        spreadIndex = null,
     } = {}
 ) {
     if (!albumId || !slot || !newItemId) return null;
     const spreadOpts = getSpreadContext(album, totalPages);
     const prevId =
-        previousItemId ??
-        resolveSlotCollectionItemId(albumId, slot, { totalPages, spreadOpts, album });
-    const prevItem = prevId ? getCollectionItem(albumId, prevId) : null;
+        previousItemId != null
+            ? previousItemId
+            : resolveSlotCollectionItemId(albumId, slot, { totalPages, spreadOpts, album });
+    // Never re-read the live collection item for the "before" URL — in-place replace
+    // already updated that item to the new file by the time we track.
+    const prevStoragePath = previousStoragePath || null;
     const prevUrl =
-        previousUrl ??
-        (prevItem ? getCollectionItemDisplayUrl(prevItem) : null) ??
-        getSlotImageUrl(albumId, slot, album, totalPages, prevId);
-    const prevStoragePath = previousStoragePath ?? prevItem?.storagePath ?? null;
-    if (!prevId && !prevUrl) return null;
+        previousUrl ||
+        (prevStoragePath ? storageService.getPublicUrl(prevStoragePath) : null) ||
+        null;
+    if (!force && !prevId && !prevUrl && !prevStoragePath) return null;
 
     const record = buildReplacementRecord(albumId, slot, newItemId, {
         album,
@@ -362,6 +446,8 @@ export function trackSpreadImageReplacement(
         previousItemId: prevId,
         previousUrl: prevUrl,
         previousStoragePath: prevStoragePath,
+        force,
+        spreadIndex,
     });
     if (!record) return null;
     return addImageReplacement(albumId, record);
@@ -370,18 +456,23 @@ export function trackSpreadImageReplacement(
 export function removeImageReplacement(albumId, replacementId) {
     if (!albumId || !replacementId) return false;
     const all = readAll();
-    let bucket = all[albumId];
-    if (!Array.isArray(bucket) || bucket.length === 0) {
+    const fromLocal = normalizeReplacementBucket(all[albumId]);
+    const fromMemory = normalizeReplacementBucket(MEMORY_REPLACEMENTS.get(albumId));
+    const byId = new Map();
+    for (const row of [...fromLocal, ...fromMemory]) {
+        if (row?.id) byId.set(row.id, row);
+    }
+    let bucket = [...byId.values()];
+    if (!bucket.length) {
         const remote = getRemotePreviewData(albumId)?.image_replacements;
-        bucket = Array.isArray(remote) ? [...remote] : [];
-    } else {
-        bucket = [...bucket];
+        bucket = normalizeReplacementBucket(remote);
     }
     if (!bucket.length) return false;
     const next = bucket.filter((row) => row.id !== replacementId);
     if (next.length === bucket.length) return false;
     all[albumId] = next;
-    writeAll(all);
+    MEMORY_REPLACEMENTS.set(albumId, next);
+    writeAll(all, albumId);
     patchRemotePreviewImageReplacements(albumId, next);
     notify(albumId);
     return true;
@@ -463,7 +554,7 @@ export function reorderImageReplacementsForOverview(
     if (!changed) return false;
 
     all[albumId] = next;
-    writeAll(all);
+    writeAll(all, albumId);
     patchRemotePreviewImageReplacements(albumId, next);
     notify(albumId);
     return true;

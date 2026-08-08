@@ -672,7 +672,7 @@ export default function AlbumPreviewFeedbackSidebar({
                 </div>
             </div>
 
-            {currentSpreadReplacements.length > 0 && (
+            {(currentSpreadReplacements.length > 0 || onNewVersion) && (
                 <div className="av-feedback-sidebar__history-wrapper" style={{ padding: '0 20px 10px' }}>
                     <SpreadVersionHistory
                         albumId={albumId}

@@ -38,6 +38,7 @@ import {
     clearAllAlbumPagePhotos,
     clearCollectionItemPlacements,
     getAlbumPhotoRevision,
+    getPagePhotoOverride,
     getSlotPlacementCollectionItemId,
     getSpreadPlacementCollectionItemId,
     getSpreadPhotoOverride,
@@ -61,6 +62,7 @@ import {
     setSpreadPhoto,
     setSpreadPhotoFromCollectionItem,
     spreadHasWholeSpreadPhoto,
+    syncCollectionItemPlacements,
     syncCollectionOrderToPlacements,
     syncCoverWrapRoleFromSpread,
 } from '../../components/smart-albums/albumPagePhotos';
@@ -192,9 +194,9 @@ function slotFromCurrentSpread(
     album,
     albumId
 ) {
-    if (!gridSelection) return null;
-
-    if (gridSelection.mode === 'cover') {
+    // Derive from the visible book page when nothing is explicitly selected
+    // (Comments panel / New version should still target the current spread).
+    if (gridSelection?.mode === 'cover') {
         return {
             pageNum: 0,
             cellId: 0,
@@ -204,8 +206,9 @@ function slotFromCurrentSpread(
     }
 
     const left =
-        gridSelection.leftPage ??
+        gridSelection?.leftPage ??
         getSpreadLeftForBookPage(bookPage, totalPages, spreadOpts);
+    if (left == null || Number.isNaN(left)) return null;
     const rightPage = Math.min(left + 1, Math.max(0, totalPages - 1));
 
     if (isEndHalfSpreadLeftPage(left, totalPages, spreadOpts)) {
@@ -219,7 +222,7 @@ function slotFromCurrentSpread(
         };
     }
 
-    if (albumHasBlankCovers(album)) {
+    if (albumHasBlankCovers(album) || albumHasCoverSpreads(album)) {
         if (isInsideCoverSpreadLeft(left, totalPages, spreadOpts)) {
             return {
                 pageNum: 3,
@@ -244,7 +247,7 @@ function slotFromCurrentSpread(
     const wantsWholeSpread =
         manualWhole &&
         (gridEditSet === 'whole' ||
-            gridSelection.mode === 'spread' ||
+            gridSelection?.mode === 'spread' ||
             isWholeSpreadLayout(album?.grid_layout));
 
     if (wantsWholeSpread) {
@@ -279,7 +282,7 @@ function slotFromCurrentSpread(
         }
     }
 
-    const cellId = gridSelection.cellId || 1;
+    const cellId = gridSelection?.cellId || 1;
     return {
         pageNum: cellId === 2 ? rightPage : left,
         cellId,
@@ -353,6 +356,8 @@ export default function AlbumEditor({
         getAlbumPhotoRevision(albumId) || 0
     );
     const [workspaceTick, setWorkspaceTick] = useState(0);
+    /** Remount flipbook when spread photo bytes change (page-flip ignores child updates). */
+    const [photoContentEpoch, setPhotoContentEpoch] = useState(0);
     const [pickerOpen, setPickerOpen] = useState(false);
     const [pageCountBusy, setPageCountBusy] = useState(false);
     const [showShareMenu, setShowShareMenu] = useState(false);
@@ -499,8 +504,8 @@ export default function AlbumEditor({
     const filmstripVersionBySpread = useMemo(() => {
         const map = {};
         (imageReplacements || []).forEach((row) => {
-            const idx = row.spreadIndex;
-            if (idx == null) return;
+            const idx = Number(row.spreadIndex);
+            if (!Number.isFinite(idx)) return;
             const ver = getReplacementCurrentVersion(row);
             if (!map[idx] || ver > map[idx]) map[idx] = ver;
         });
@@ -1126,8 +1131,9 @@ export default function AlbumEditor({
                       captureSlotImageBeforeReplace(albumId, slot, album, totalPages);
 
             const trackReplacement = (placed) => {
+                let tracked = null;
                 if (placed && before && !skipTrack) {
-                    trackSpreadImageReplacement(albumId, slot, itemId, {
+                    tracked = trackSpreadImageReplacement(albumId, slot, itemId, {
                         album,
                         totalPages,
                         previousItemId: before.previousItemId,
@@ -1138,7 +1144,7 @@ export default function AlbumEditor({
                 if (placed) {
                     syncCollectionOrderToPlacements(albumId);
                 }
-                return placed;
+                return { placed, tracked };
             };
 
             if (
@@ -1160,16 +1166,16 @@ export default function AlbumEditor({
                     }
                     markCollectionItemAsCoverWrap(albumId, itemId);
                 }
-                return trackReplacement(placed);
+                return trackReplacement(placed).placed;
             }
             if (slot.pageNum === 0) {
-                return trackReplacement(setPagePhotoFromCollectionItem(albumId, 0, itemId));
+                return trackReplacement(setPagePhotoFromCollectionItem(albumId, 0, itemId)).placed;
             }
             const left = slot.spreadLeft ?? getSpreadLeftForBookPage(slot.pageNum, totalPages, spreadOpts);
-            const useWholeSpread =
-                Boolean(slot.whole) &&
-                (isManualWholeSpreadPlacement(left, totalPages, album, spreadOpts) ||
-                    spreadHasWholeSpreadPhoto(albumId, left));
+            // Honor explicit whole-spread slots (New version / restore). Do not require an
+            // existing spread: photo — otherwise replaces write a page key while the UI still
+            // reads a stale remote spread: image and version history never appears to update.
+            const useWholeSpread = Boolean(slot.whole);
             if (useWholeSpread) {
                 const right = getSpreadRightPageIndex(left, totalPages);
                 return trackReplacement(
@@ -1177,14 +1183,14 @@ export default function AlbumEditor({
                         totalPages,
                         spreadOpts: { ...spreadOpts, gridLayout: album?.grid_layout },
                     })
-                );
+                ).placed;
             }
             if (isEndHalfSpreadLeftPage(left, totalPages, spreadOpts)) {
                 return trackReplacement(
                     setPagePhotoFromCollectionItem(albumId, left, itemId, {
                         clearSpreadForLeft: left,
                     })
-                );
+                ).placed;
             }
             const photoIndex = getProofCellPhotoIndex(
                 slot.pageNum,
@@ -1196,7 +1202,7 @@ export default function AlbumEditor({
                 setPagePhotoFromCollectionItem(albumId, photoIndex, itemId, {
                     clearSpreadForLeft: left,
                 })
-            );
+            ).placed;
         },
         [album, albumId, totalPages, spreadCtx, spreadOpts]
     );
@@ -1362,7 +1368,12 @@ export default function AlbumEditor({
                     compressionTarget,
                     retainPreviousStorage,
                 });
-                if (replaced) return replaced;
+                if (replaced) {
+                    // Keep every placement pointing at this item on the new storagePath,
+                    // otherwise the UI keeps rendering the pre-replace URL.
+                    syncCollectionItemPlacements(albumId, previousItemId);
+                    return replaced;
+                }
             }
 
             const added = await addFilesToAlbumCollection(albumId, files.slice(0, 1), {
@@ -1411,7 +1422,9 @@ export default function AlbumEditor({
                     return;
                 }
                 if (placeCollectionItemOnSlot(slot, replacementItem.id, before)) {
+                    // Version history is recorded inside placeCollectionItemOnSlot when `before` is set.
                     scheduleWorkspaceRefresh();
+                    setPhotoContentEpoch((n) => n + 1);
                     if (isCoverSlot) {
                         // Drop any orphaned cover-wrap items left behind by older upload paths.
                         const keepId = replacementItem.id;
@@ -1779,8 +1792,9 @@ export default function AlbumEditor({
     };
 
     const handleUploadForCurrentSpread = useCallback(
-        async (files) => {
-            const slot = slotFromCurrentSpread(
+        async (files, options = {}) => {
+            const asNewVersion = Boolean(options?.asNewVersion);
+            let slot = slotFromCurrentSpread(
                 gridSelection,
                 gridEditSet,
                 bookPage,
@@ -1798,6 +1812,41 @@ export default function AlbumEditor({
             }
             if (!files?.length) return;
 
+            // New version is always a whole-spread replace so version history + flipbook
+            // update the same spread: key the UI reads (not a single grid cell).
+            if (asNewVersion && gridSelection?.mode !== 'cover') {
+                const left =
+                    slot.spreadLeft ??
+                    getSpreadLeftForBookPage(bookPage, totalPages, spreadOpts);
+                slot = {
+                    pageNum: left,
+                    cellId: 1,
+                    spreadLeft: left,
+                    whole: true,
+                    label: 'Whole spread',
+                };
+            } else if (
+                !slot.whole &&
+                albumId &&
+                spreadHasWholeSpreadPhoto(
+                    albumId,
+                    slot.spreadLeft ??
+                        getSpreadLeftForBookPage(bookPage, totalPages, spreadOpts)
+                )
+            ) {
+                const left =
+                    slot.spreadLeft ??
+                    getSpreadLeftForBookPage(bookPage, totalPages, spreadOpts);
+                slot = {
+                    ...slot,
+                    pageNum: left,
+                    cellId: 1,
+                    spreadLeft: left,
+                    whole: true,
+                    label: slot.label || 'Whole spread',
+                };
+            }
+
             setUploading(true);
             if (files.some((f) => isPdfFile(f))) {
                 showToast('Converting PDF pages to images…', { variant: 'info', duration: 0 });
@@ -1808,12 +1857,34 @@ export default function AlbumEditor({
             try {
                 const isCoverSlot =
                     albumHasCoverSpreads(album) && gridSelection?.mode === 'cover';
-                const before = await captureSlotImageBeforeReplaceAsync(
+                const left =
+                    slot.spreadLeft ??
+                    getSpreadLeftForBookPage(bookPage, totalPages, spreadOpts);
+                const right = Math.min(left + 1, Math.max(0, totalPages - 1));
+                // Snapshot the visible preview BEFORE any in-place file replace. Capture via
+                // collection id alone can miss page-only placements; without this, the photo
+                // updates but version history stays on synthetic v1.
+                const previewBeforeUrl =
+                    getSpreadPhotoOverride(albumId, left) ||
+                    getPagePhotoOverride(albumId, left) ||
+                    (right !== left ? getPagePhotoOverride(albumId, right) : null) ||
+                    null;
+                const captured = await captureSlotImageBeforeReplaceAsync(
                     albumId,
                     slot,
                     album,
                     totalPages
                 );
+                const before = {
+                    previousItemId: captured?.previousItemId || null,
+                    previousStoragePath: captured?.previousStoragePath || null,
+                    previousUrl: captured?.previousUrl || previewBeforeUrl || null,
+                };
+                const hasBefore =
+                    Boolean(before.previousItemId) ||
+                    Boolean(before.previousUrl) ||
+                    Boolean(before.previousStoragePath);
+
                 const replacementItem = await resolveSpreadReplacementItem(files, slot, {
                     coverWrap: isCoverSlot,
                 });
@@ -1824,9 +1895,41 @@ export default function AlbumEditor({
                     });
                     return;
                 }
-                if (placeCollectionItemOnSlot(slot, replacementItem.id, before)) {
+                // For New version, place without internal track then record history explicitly
+                // so a missed `before` inside placeCollectionItemOnSlot cannot drop v2/v3.
+                const placed = placeCollectionItemOnSlot(
+                    slot,
+                    replacementItem.id,
+                    hasBefore ? before : null,
+                    asNewVersion ? { skipTrack: true } : undefined
+                );
+                if (placed) {
+                    const versionSpreadIndex = pageToSpreadIndex(left, {
+                        ...spreadOpts,
+                        totalPages,
+                    });
+                    if (asNewVersion || hasBefore) {
+                        trackSpreadImageReplacement(albumId, slot, replacementItem.id, {
+                            album,
+                            totalPages,
+                            previousItemId: before.previousItemId,
+                            previousUrl: before.previousUrl || previewBeforeUrl,
+                            previousStoragePath: before.previousStoragePath,
+                            force: Boolean(asNewVersion),
+                            spreadIndex: versionSpreadIndex,
+                        });
+                    }
                     setCollectionRevision(getAlbumCollectionRevision(albumId));
-                    scheduleWorkspaceRefresh();
+                    // Remount flipbook immediately (layoutRevision includes this tick).
+                    setPhotoContentEpoch((n) => n + 1);
+                    bumpWorkspace();
+                    if (user?.id && (asNewVersion || isCoverSlot)) {
+                        try {
+                            await smartAlbumsService.syncAlbumPreviewData(user.id, albumId);
+                        } catch (err) {
+                            console.warn('Could not sync album preview after upload:', err);
+                        }
+                    }
                     if (isCoverSlot) {
                         clearWrapSegmentCache();
                         clearWrapImageCache();
@@ -1835,13 +1938,6 @@ export default function AlbumEditor({
                             setAlbumCoverText(albumId, '');
                         }
                         keepCoverEditorActive();
-                        if (user?.id) {
-                            try {
-                                await smartAlbumsService.syncAlbumPreviewData(user.id, albumId);
-                            } catch (err) {
-                                console.warn('Could not sync album preview after cover upload:', err);
-                            }
-                        }
                     }
                     showToast(
                         isCoverSlot
@@ -1874,15 +1970,16 @@ export default function AlbumEditor({
             album,
             albumId,
             bookPage,
+            bumpWorkspace,
             gridEditSet,
             gridSelection,
             placeCollectionItemOnSlot,
             resolveSpreadReplacementItem,
-            scheduleWorkspaceRefresh,
             showToast,
             spreadOpts,
             totalPages,
             keepCoverEditorActive,
+            user?.id,
         ]
     );
 
@@ -2533,6 +2630,7 @@ export default function AlbumEditor({
                                 }}
                                 transformRevision={transformRevision}
                                 photoRevision={layoutRevision}
+                                photoContentEpoch={photoContentEpoch}
                                 showGridComments={showGridComments}
                                 spreadCommentsBySpread={spreadCommentsBySpread}
                                 swapMarkMode

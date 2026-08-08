@@ -233,6 +233,8 @@ const AlbumBook = ({
     onTransformChange,
     transformRevision = 0,
     photoRevision = 0,
+    /** Bump only when spread photo bytes change — remounts HTMLFlipBook (stale page-flip DOM). */
+    photoContentEpoch = 0,
     canAddPages = false,
     onAddPages,
     onDeleteSpread,
@@ -390,9 +392,9 @@ const AlbumBook = ({
     const flipBookMountKey = useMemo(
         () =>
             stableDims
-                ? `${flipBookStructuralKey}-${stableDims.width}x${stableDims.height}`
-                : flipBookStructuralKey,
-        [flipBookStructuralKey, stableDims]
+                ? `${flipBookStructuralKey}-${stableDims.width}x${stableDims.height}-c${photoContentEpoch}`
+                : `${flipBookStructuralKey}-c${photoContentEpoch}`,
+        [flipBookStructuralKey, stableDims, photoContentEpoch]
     );
 
     useEffect(() => {
@@ -452,7 +454,7 @@ const AlbumBook = ({
     const currentSpreadVersion = useMemo(() => {
         let max = 0;
         for (const row of imageReplacements) {
-            if (row.spreadIndex !== spreadIndex) continue;
+            if (Number(row.spreadIndex) !== Number(spreadIndex)) continue;
             const ver = getReplacementCurrentVersion(row);
             if (ver > max) max = ver;
         }
@@ -2037,7 +2039,7 @@ const AlbumBook = ({
                         showCover={false}
                         showPageCorners={clickToFlip}
                         disableFlipByClick
-                        startPage={storagePageToFlipbookIndex(initialPage, totalPages, spreadOpts)}
+                        startPage={storagePageToFlipbookIndex(pageIndex, totalPages, spreadOpts)}
                         clickEventForward={false}
                         onFlip={handleFlip}
                         onChangeState={handleChangeState}

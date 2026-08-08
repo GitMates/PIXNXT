@@ -131,15 +131,19 @@ function placementFromCollectionItem(albumId, collectionItemId) {
 function resolveStoredPhoto(albumId, stored) {
     if (!stored) return null;
     if (typeof stored === 'string') return stored;
-    // Prefer durable storagePath — truncated r2_ ids used to collide and resolve to image #1.
-    if (stored.storagePath) {
-        return storageService.getPublicUrl(stored.storagePath);
-    }
+    // Prefer live collection lookup (cache-busted) so in-place file replaces show immediately.
+    // Fall back to stored storagePath only when the collection item is gone.
     if (stored.collectionItemId) {
         const live = resolveCollectionItemUrl(albumId, stored.collectionItemId);
         if (live) return live;
-        if (stored.dataUrl) return stored.dataUrl;
-        return null;
+    }
+    if (stored.storagePath) {
+        const cacheBust = getAlbumCollectionRevision(albumId);
+        const url = storageService.getPublicUrl(stored.storagePath);
+        if (!url) return stored.dataUrl || null;
+        if (cacheBust == null) return url;
+        const token = encodeURIComponent(String(cacheBust));
+        return url.includes('?') ? `${url}&v=${token}` : `${url}?v=${token}`;
     }
     if (stored.dataUrl) return stored.dataUrl;
     return null;
@@ -149,14 +153,17 @@ function resolveRemotePagePhoto(albumId, key) {
     const remote = getRemotePagePhoto(albumId, key);
     if (!remote) return null;
     if (typeof remote === 'string') return remote;
-    if (remote.storagePath) {
-        return storageService.getPublicUrl(remote.storagePath);
-    }
     if (remote.collectionItemId) {
         const live = resolveCollectionItemUrl(albumId, remote.collectionItemId);
         if (live) return live;
-        if (remote.dataUrl) return remote.dataUrl;
-        return null;
+    }
+    if (remote.storagePath) {
+        const cacheBust = getAlbumCollectionRevision(albumId);
+        const url = storageService.getPublicUrl(remote.storagePath);
+        if (!url) return remote.dataUrl || null;
+        if (cacheBust == null) return url;
+        const token = encodeURIComponent(String(cacheBust));
+        return url.includes('?') ? `${url}&v=${token}` : `${url}?v=${token}`;
     }
     if (remote.dataUrl) return remote.dataUrl;
     return null;
@@ -633,6 +640,75 @@ export function getSlotPlacementCollectionItemId(albumId, slot) {
     const pageItemId = getPagePlacementCollectionItemId(albumId, slot.pageNum);
     if (pageItemId) return pageItemId;
     return getSpreadPlacementCollectionItemId(albumId, left);
+}
+
+/**
+ * After an in-place collection file replace, rewrite every placement that still
+ * points at the old storagePath so the flipbook / filmstrip show the new file.
+ */
+export function syncCollectionItemPlacements(albumId, collectionItemId) {
+    if (!albumId || !collectionItemId) return false;
+    const item =
+        getCollectionItem(albumId, collectionItemId) ??
+        getRemoteCollectionItem(albumId, collectionItemId);
+    if (!item) return false;
+
+    const nextPlacement = placementFromCollectionItem(albumId, collectionItemId);
+    if (!nextPlacement) return false;
+
+    const all = readAll();
+    const album = { ...(all[albumId] || {}) };
+    let changed = false;
+
+    for (const key of Object.keys(album)) {
+        if (key === '__revision') continue;
+        const stored = album[key];
+        if (!stored || typeof stored !== 'object') continue;
+        if (stored.collectionItemId !== collectionItemId) continue;
+        if (
+            stored.storagePath === nextPlacement.storagePath &&
+            stored.dataUrl === nextPlacement.dataUrl
+        ) {
+            continue;
+        }
+        album[key] = { ...stored, ...nextPlacement };
+        changed = true;
+    }
+
+    if (changed) {
+        album.__revision = (album.__revision || 0) + 1;
+        all[albumId] = album;
+        writeAll(all);
+    }
+
+    const remote = getRemotePreviewData(albumId);
+    if (remote?.pages) {
+        const pages = { ...remote.pages };
+        let remoteChanged = false;
+        for (const key of Object.keys(pages)) {
+            const stored = pages[key];
+            if (!stored || typeof stored !== 'object') continue;
+            if (stored.collectionItemId !== collectionItemId) continue;
+            if (
+                stored.storagePath === nextPlacement.storagePath &&
+                stored.dataUrl === nextPlacement.dataUrl
+            ) {
+                continue;
+            }
+            pages[key] = { ...stored, ...nextPlacement };
+            remoteChanged = true;
+        }
+        if (remoteChanged) {
+            hydrateAlbumPreviewData(albumId, {
+                ...remote,
+                pages,
+                revision: (remote.revision || 0) + 1,
+            });
+            changed = true;
+        }
+    }
+
+    return changed;
 }
 
 export function pageHasPlacedPhoto(albumId, pageNum) {
