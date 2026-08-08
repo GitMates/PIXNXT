@@ -6,6 +6,7 @@ import {
     resolveReplacementPreviewUrl,
     sortSpreadReplacements,
 } from './albumImageReplacements';
+import { formatSpreadDisplayLabel } from './albumSpreadUtils';
 
 function Shot({ albumId, url, storagePath, itemId = null, preferLive = false, tag }) {
     const src = resolveReplacementPreviewUrl(albumId, url, storagePath, {
@@ -31,6 +32,7 @@ export default function AlbumPreviewReplacementCard({
     replacement,
     authorName = 'Photographer',
     spreadLabel = null,
+    hasCovers = false,
     currentPreviewUrl = null,
 }) {
     const rows = useMemo(
@@ -49,10 +51,11 @@ export default function AlbumPreviewReplacementCard({
     const timeLabel = formatRelativeTime(createdAt) || formatCommentTime(createdAt);
     const spreadIdx =
         latest.spreadIndex != null ? Number(latest.spreadIndex) : null;
+    // Use the same cover-aware numbering as the book ("SPREAD 10"), not spreadIndex+1.
     const spreadText =
         spreadLabel ||
         (Number.isFinite(spreadIdx)
-            ? `Spread ${String(spreadIdx + 1).padStart(2, '0')}`
+            ? formatSpreadDisplayLabel(spreadIdx, { hasCovers })
             : null);
 
     const description =

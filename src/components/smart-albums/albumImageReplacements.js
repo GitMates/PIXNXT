@@ -12,21 +12,27 @@ import {
     remapPageForSpreadMove,
     remapSpreadIndexAfterOverviewReorder,
 } from './albumSpreadReorder';
+import { ALBUM_REPLACEMENTS_KEY, readLocalStorageJson } from '../../lib/albumLocalStorage';
 
-import {
-    ALBUM_REPLACEMENTS_KEY,
-    readLocalStorageJson,
-    writeLocalStorageJson,
-} from '../../lib/albumLocalStorage';
-
-const STORAGE_KEY = ALBUM_REPLACEMENTS_KEY;
 const REVIEW_SNAPSHOT_MAX_WIDTH = 960;
 const REVIEW_SNAPSHOT_JPEG_QUALITY = 0.82;
 
 export const IMAGE_REPLACEMENTS_CHANGED_EVENT = 'pixnxt-album-image-replacements-changed';
 
-/** Survives localStorage quota failures so version UI still updates after New version. */
+/** Working copy until preview_data is hydrated / DB write completes. */
 const MEMORY_REPLACEMENTS = new Map();
+
+/** Set from AlbumEditor so version history can write to Supabase. */
+let persistPhotographerId = null;
+const migratedFromLocal = new Set();
+
+/**
+ * Bind the signed-in photographer so image_replacements persist to
+ * album_proofer_albums.preview_data (not localStorage).
+ */
+export function configureImageReplacementsPersistence(photographerId) {
+    persistPhotographerId = photographerId || null;
+}
 
 function normalizeReplacementBucket(bucket) {
     if (Array.isArray(bucket)) return bucket.filter(Boolean);
@@ -38,14 +44,90 @@ function normalizeReplacementBucket(bucket) {
     return [];
 }
 
-function readAll() {
-    return readLocalStorageJson(STORAGE_KEY, {});
+/** One-time lift of legacy localStorage rows into memory (then local key is cleared). */
+function migrateLegacyLocalReplacements(albumId) {
+    if (!albumId || migratedFromLocal.has(albumId)) return [];
+    migratedFromLocal.add(albumId);
+    try {
+        const all = readLocalStorageJson(ALBUM_REPLACEMENTS_KEY, {});
+        const rows = normalizeReplacementBucket(all[albumId]);
+        if (!rows.length) return [];
+        // Drop legacy local copy — database / preview cache is source of truth.
+        const next = { ...all };
+        delete next[albumId];
+        try {
+            localStorage.setItem(ALBUM_REPLACEMENTS_KEY, JSON.stringify(next));
+        } catch {
+            try {
+                localStorage.removeItem(ALBUM_REPLACEMENTS_KEY);
+            } catch {
+                /* ignore */
+            }
+        }
+        return rows;
+    } catch {
+        return [];
+    }
 }
 
-function writeAll(data, preferAlbumId = null) {
-    const ok = writeLocalStorageJson(STORAGE_KEY, data, { preferAlbumId, compact: true });
-    if (!ok) console.warn('Could not save image replacements');
-    return ok;
+function readWorkingReplacements(albumId) {
+    const memory = normalizeReplacementBucket(MEMORY_REPLACEMENTS.get(albumId));
+    const remote = normalizeReplacementBucket(
+        getRemotePreviewData(albumId)?.image_replacements
+    );
+    const legacy = migrateLegacyLocalReplacements(albumId);
+
+    // Prefer the richest in-memory/DB-hydrated set; migrate legacy only when empty.
+    let rows = remote;
+    if (memory.length >= rows.length) rows = memory;
+    if (!rows.length && legacy.length) rows = legacy;
+    return rows;
+}
+
+function commitReplacements(albumId, rows) {
+    const list = Array.isArray(rows) ? rows : [];
+    MEMORY_REPLACEMENTS.set(albumId, list);
+    patchRemotePreviewImageReplacements(albumId, list);
+    notify(albumId);
+    void persistReplacementsToDatabase(albumId, list);
+}
+
+async function persistReplacementsToDatabase(albumId, rows) {
+    const photographerId = persistPhotographerId;
+    if (!photographerId || !albumId) {
+        console.warn(
+            '[image-replacements] skipped DB write (no photographerId) — set configureImageReplacementsPersistence'
+        );
+        return;
+    }
+    try {
+        // Dynamic import avoids a circular module graph with smartAlbums.service.
+        const { smartAlbumsService } = await import('../../services/smartAlbums.service');
+        await smartAlbumsService.patchAlbumImageReplacements(
+            photographerId,
+            albumId,
+            rows.map((row) => ({
+                id: row.id,
+                slotKey: row.slotKey,
+                slotLabel: row.slotLabel,
+                note: row.note ?? null,
+                spreadIndex: row.spreadIndex,
+                pageNum: row.pageNum,
+                cellId: row.cellId,
+                whole: Boolean(row.whole),
+                previousItemId: row.previousItemId ?? null,
+                previousStoragePath: row.previousStoragePath ?? null,
+                previousUrl: row.previousUrl,
+                newItemId: row.newItemId,
+                newStoragePath: row.newStoragePath ?? null,
+                newUrl: row.newUrl,
+                version: row.version ?? null,
+                createdAt: row.createdAt,
+            }))
+        );
+    } catch (err) {
+        console.warn('[image-replacements] DB persist failed:', err?.message || err);
+    }
 }
 
 function notify(albumId) {
@@ -381,18 +463,7 @@ function backfillReplacementVersions(rows) {
 
 export function getImageReplacements(albumId) {
     if (!albumId) return [];
-    const memory = normalizeReplacementBucket(MEMORY_REPLACEMENTS.get(albumId));
-    const local = normalizeReplacementBucket(readAll()[albumId]);
-    const remote = normalizeReplacementBucket(
-        getRemotePreviewData(albumId)?.image_replacements
-    );
-
-    // Prefer the richest source (memory survives quota failures; local is durable).
-    let rows = local;
-    if (memory.length >= rows.length) rows = memory;
-    if (!rows.length && remote.length) rows = remote;
-
-    return backfillReplacementVersions(rows).sort(
+    return backfillReplacementVersions(readWorkingReplacements(albumId)).sort(
         (a, b) =>
             new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
     );
@@ -400,20 +471,7 @@ export function getImageReplacements(albumId) {
 
 export function addImageReplacement(albumId, record) {
     if (!albumId || !record) return null;
-    const all = readAll();
-    const bucket = [
-        ...normalizeReplacementBucket(all[albumId]),
-        ...normalizeReplacementBucket(MEMORY_REPLACEMENTS.get(albumId)).filter(
-            (row) =>
-                !normalizeReplacementBucket(all[albumId]).some((existing) => existing.id === row.id)
-        ),
-    ];
-    // Deduplicate by id while merging memory + local
-    const byId = new Map();
-    for (const row of bucket) {
-        if (row?.id) byId.set(row.id, row);
-    }
-    const merged = [...byId.values()];
+    const merged = [...readWorkingReplacements(albumId)];
 
     const duplicate = merged.find(
         (row) =>
@@ -422,7 +480,7 @@ export function addImageReplacement(albumId, record) {
             row.newUrl === record.newUrl
     );
     if (duplicate) {
-        MEMORY_REPLACEMENTS.set(albumId, merged);
+        commitReplacements(albumId, merged);
         return duplicate;
     }
 
@@ -432,14 +490,7 @@ export function addImageReplacement(albumId, record) {
         version: nextReplacementVersion(merged, Number(record.spreadIndex)),
     };
     merged.push(entry);
-    all[albumId] = merged;
-    MEMORY_REPLACEMENTS.set(albumId, merged);
-    const wrote = writeAll(all, albumId);
-    if (!wrote) {
-        console.warn('Image replacement not persisted (storage full) — keeping in memory');
-    }
-    patchRemotePreviewImageReplacements(albumId, merged);
-    notify(albumId);
+    commitReplacements(albumId, merged);
     return entry;
 }
 
@@ -496,26 +547,11 @@ export function trackSpreadImageReplacement(
 
 export function removeImageReplacement(albumId, replacementId) {
     if (!albumId || !replacementId) return false;
-    const all = readAll();
-    const fromLocal = normalizeReplacementBucket(all[albumId]);
-    const fromMemory = normalizeReplacementBucket(MEMORY_REPLACEMENTS.get(albumId));
-    const byId = new Map();
-    for (const row of [...fromLocal, ...fromMemory]) {
-        if (row?.id) byId.set(row.id, row);
-    }
-    let bucket = [...byId.values()];
-    if (!bucket.length) {
-        const remote = getRemotePreviewData(albumId)?.image_replacements;
-        bucket = normalizeReplacementBucket(remote);
-    }
+    const bucket = readWorkingReplacements(albumId);
     if (!bucket.length) return false;
     const next = bucket.filter((row) => row.id !== replacementId);
     if (next.length === bucket.length) return false;
-    all[albumId] = next;
-    MEMORY_REPLACEMENTS.set(albumId, next);
-    writeAll(all, albumId);
-    patchRemotePreviewImageReplacements(albumId, next);
-    notify(albumId);
+    commitReplacements(albumId, next);
     return true;
 }
 
@@ -549,9 +585,8 @@ export function reorderImageReplacementsForOverview(
 ) {
     if (!albumId || !draggable?.length) return false;
 
-    const all = readAll();
-    const bucket = all[albumId];
-    if (!Array.isArray(bucket) || !bucket.length) return false;
+    const bucket = readWorkingReplacements(albumId);
+    if (!bucket.length) return false;
 
     let changed = false;
     const next = bucket.map((row) => {
@@ -595,9 +630,6 @@ export function reorderImageReplacementsForOverview(
 
     if (!changed) return false;
 
-    all[albumId] = next;
-    writeAll(all, albumId);
-    patchRemotePreviewImageReplacements(albumId, next);
-    notify(albumId);
+    commitReplacements(albumId, next);
     return true;
 }

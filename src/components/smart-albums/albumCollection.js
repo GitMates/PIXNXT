@@ -430,25 +430,45 @@ function mergeCollectionItemLists(primary = [], secondary = []) {
             return;
         }
 
-        // Prefer the copy that still has an R2 path / fresher public URL.
+        // Prefer the fresher R2 object. Primary is upserted first (local), so when
+        // both lack replacedAt, keep existing — never let a stale remote path
+        // overwrite a just-replaced local storagePath (New version looked unchanged).
+        const existingTs = Number(existing.replacedAt) || 0;
+        const incomingTs = Number(item.replacedAt) || 0;
+        const preferIncomingPath =
+            Boolean(item.storagePath) &&
+            (!existing.storagePath || incomingTs > existingTs);
+        const storagePath = preferIncomingPath
+            ? item.storagePath
+            : existing.storagePath || item.storagePath || null;
+
         const merged = {
             ...existing,
             ...item,
             id: existing.id || item.id,
-            storagePath: item.storagePath || existing.storagePath || null,
-            dataUrl: item.storagePath
-                ? storageService.getPublicUrl(item.storagePath)
+            storagePath,
+            dataUrl: storagePath
+                ? storageService.getPublicUrl(storagePath)
                 : item.dataUrl || existing.dataUrl || null,
-            size_bytes: Number(item.size_bytes) || Number(existing.size_bytes) || 0,
+            size_bytes: Number(
+                preferIncomingPath ? item.size_bytes : existing.size_bytes || item.size_bytes
+            ) || 0,
             sortOrder:
-                typeof item.sortOrder === 'number'
-                    ? item.sortOrder
-                    : existing.sortOrder,
+                typeof existing.sortOrder === 'number'
+                    ? existing.sortOrder
+                    : item.sortOrder,
             name: item.name || existing.name,
+            replacedAt:
+                existingTs || incomingTs
+                    ? Math.max(existingTs, incomingTs)
+                    : existing.replacedAt || item.replacedAt,
         };
         if (merged.id) byId.set(merged.id, merged);
         if (merged.storagePath) byPath.set(merged.storagePath, merged);
         if (existing.id && existing.id !== merged.id) byId.delete(existing.id);
+        if (existing.storagePath && existing.storagePath !== merged.storagePath) {
+            byPath.delete(existing.storagePath);
+        }
     };
 
     primary.forEach(upsert);
@@ -1190,26 +1210,48 @@ export async function replaceCollectionItemFile(
     });
 
     const oldPath = item.storagePath;
+    const nextItem = {
+        ...item,
+        id: itemId,
+        name: file.name || item.name || 'Photo',
+        dataUrl: uploaded.url,
+        storagePath: uploaded.path,
+        contentHash: undefined,
+        size_bytes: Number(prepared?.size) || 0,
+        replacedAt: Date.now(),
+    };
+    if (width > 0 && height > 0) {
+        nextItem.width = width;
+        nextItem.height = height;
+    }
+
     const all = readAll();
     const bucket = { ...(all[albumId] || {}) };
-    bucket.items = (bucket.items || []).map((entry) => {
-        if (entry.id !== itemId) return entry;
-        const next = {
-            ...entry,
-            name: file.name || entry.name || 'Photo',
-            dataUrl: uploaded.url,
-            storagePath: uploaded.path,
-            contentHash: undefined,
-            size_bytes: Number(prepared?.size) || 0,
-            replacedAt: Date.now(),
-        };
-        if (width > 0 && height > 0) {
-            next.width = width;
-            next.height = height;
-        }
-        return next;
-    });
+    const localItems = [...(bucket.items || [])];
+    const localIdx = localItems.findIndex((entry) => entry.id === itemId);
+    // Item may exist only in the remote preview catalog — still persist locally so
+    // merge + flipbook see the new R2 path (otherwise New version uploads to R2
+    // but the UI keeps rendering the stale remote storagePath).
+    if (localIdx >= 0) {
+        localItems[localIdx] = { ...localItems[localIdx], ...nextItem };
+    } else {
+        localItems.push(nextItem);
+    }
+    bucket.items = localItems;
     persistCollectionBucket(all, albumId, bucket);
+
+    const remote = getRemotePreviewData(albumId);
+    if (remote?.collection?.length) {
+        const collection = remote.collection.map((entry) =>
+            entry?.id === itemId ? { ...entry, ...nextItem } : entry
+        );
+        const hadId = remote.collection.some((entry) => entry?.id === itemId);
+        hydrateAlbumPreviewData(albumId, {
+            ...remote,
+            collection: hadId ? collection : [...collection, nextItem],
+            revision: (remote.revision || 0) + 1,
+        });
+    }
 
     if (oldPath && oldPath !== uploaded.path && !retainPreviousStorage) {
         try {
@@ -1231,7 +1273,22 @@ export async function deleteCollectionItemAsset(albumId, itemId, { retainStorage
         await storageService.delete(item.storagePath);
     }
 
-    return removeCollectionItem(albumId, itemId);
+    const removedLocal = removeCollectionItem(albumId, itemId);
+
+    // Also drop from the in-memory preview catalog — otherwise merge keeps the
+    // remote row, collectionCount grows, and New version inserts blank spreads.
+    const remote = getRemotePreviewData(albumId);
+    let removedRemote = false;
+    if (remote?.collection?.some((entry) => entry?.id === itemId)) {
+        hydrateAlbumPreviewData(albumId, {
+            ...remote,
+            collection: remote.collection.filter((entry) => entry?.id !== itemId),
+            revision: (remote.revision || 0) + 1,
+        });
+        removedRemote = true;
+    }
+
+    return removedLocal || removedRemote;
 }
 
 /**

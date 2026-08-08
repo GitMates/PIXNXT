@@ -8,6 +8,7 @@ import { clearAlbumTransforms } from '../components/smart-albums/albumPageTransf
 import {
   buildAlbumPreviewSnapshot,
   getAlbumIdsWithLocalAssets,
+  getRemotePreviewData,
   hydrateAlbumPreviewData,
   patchAlbumPreviewProoferAccess,
 } from '../components/smart-albums/albumPreviewData';
@@ -1243,6 +1244,51 @@ export const smartAlbumsService = {
     const album = await this.getAlbum(photographerId, albumId);
     if (!album) throw new Error('Album not found');
     return { ...album, page_count: count };
+  },
+
+  /**
+   * Persist image version history on album.preview_data.image_replacements (database).
+   * Prefer this over localStorage so versions are inspectable in Supabase.
+   */
+  async patchAlbumImageReplacements(photographerId, albumId, replacements) {
+    if (!photographerId || !albumId) return null;
+    const rows = Array.isArray(replacements) ? replacements : [];
+
+    const album = await this.getAlbum(photographerId, albumId);
+    const existing =
+      album?.preview_data && typeof album.preview_data === 'object'
+        ? album.preview_data
+        : getRemotePreviewData(albumId) || {};
+
+    const previewData = {
+      ...existing,
+      image_replacements: rows,
+      updated_at: new Date().toISOString(),
+      revision: (Number(existing.revision) || 0) + 1,
+    };
+
+    hydrateAlbumPreviewData(albumId, previewData);
+
+    const { data, error } = await updateAlbumRowResilient(photographerId, albumId, {
+      preview_data: previewData,
+    });
+
+    if (error && shouldUseLocalStore(error)) {
+      console.warn(
+        'patchAlbumImageReplacements: DB unavailable — kept in preview cache only',
+        error.message
+      );
+      return previewData;
+    }
+
+    if (error) {
+      console.warn('patchAlbumImageReplacements:', error.message);
+      return previewData;
+    }
+
+    const synced = data?.preview_data ?? previewData;
+    hydrateAlbumPreviewData(albumId, synced);
+    return synced;
   },
 
   /**
