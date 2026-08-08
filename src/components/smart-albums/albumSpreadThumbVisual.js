@@ -3,11 +3,16 @@ import {
     getSpreadContext,
     getSpreadPages,
     isEndHalfSpreadIndex,
+    isInsideCoverLeftPage,
+    isInsideCoverSpreadLeft,
+    isPreBackHalfSpreadLeftPage,
+    isPreBackHalfSpreadRightPage,
     isWholeSpreadLayout,
 } from './albumSpreadUtils';
 import { getSpreadLeftPageIndex } from './albumSpreadGrid';
 import {
     getGridSlotPhoto,
+    getInsideCoverRightPhotoSrc,
     getPagePhotoOverride,
     getSpreadPhotoOverride,
     resolveCoverImageSrc,
@@ -20,15 +25,31 @@ function getSpreadPageImage(album, pageNum, totalPages) {
     if (pageNum === 0 && spreadOpts.hasCovers) {
         return resolveCoverImageSrc(album, { showSamples: false });
     }
+    if (isInsideCoverLeftPage(pageNum, spreadOpts)) {
+        return null;
+    }
+    if (isInsideCoverRightPageSafe(pageNum, spreadOpts)) {
+        return getInsideCoverRightPhotoSrc(albumId, { showSamples: false });
+    }
+    if (isPreBackHalfSpreadRightPage(pageNum, totalPages, spreadOpts)) {
+        return null;
+    }
     const directSrc = getPagePhotoOverride(albumId, pageNum);
     if (directSrc) return directSrc;
     const spreadLeft = getSpreadLeftPageIndex(pageNum, { ...spreadOpts, totalPages });
     const cellId = pageNum === spreadLeft ? 1 : 2;
     const slot = getGridSlotPhoto(albumId, pageNum, cellId, spreadLeft, totalPages, {
-        wholeSpread: isWholeSpreadLayout(album?.grid_layout),
+        wholeSpread:
+            isWholeSpreadLayout(album?.grid_layout) &&
+            !isInsideCoverSpreadLeft(spreadLeft, totalPages, spreadOpts) &&
+            !isPreBackHalfSpreadLeftPage(spreadLeft, totalPages, spreadOpts),
         spreadOpts,
     });
     return slot.src || null;
+}
+
+function isInsideCoverRightPageSafe(pageNum, spreadOpts) {
+    return spreadOpts?.hasCovers === true && pageNum === 3;
 }
 
 /** Live spread thumb visual — same source as the editor filmstrip. */
@@ -37,14 +58,20 @@ export function resolveSpreadThumbVisual(album, spreadIndex, totalPages) {
     const { left, right } = getSpreadPages(spreadIndex, totalPages, spreadOpts);
     const isCover = spreadOpts.hasCovers && spreadIndex === 0;
     const isEndSpread = isEndHalfSpreadIndex(spreadIndex, totalPages, spreadOpts);
-    const spreadSrc = !isCover && !isEndSpread ? getSpreadPhotoOverride(album?.id, left) : null;
+    const isInsideCover = isInsideCoverSpreadLeft(left, totalPages, spreadOpts);
+    const isPreBack = isPreBackHalfSpreadLeftPage(left, totalPages, spreadOpts);
+    const spreadSrc =
+        !isCover && !isEndSpread && !isInsideCover && !isPreBack
+            ? getSpreadPhotoOverride(album?.id, left)
+            : null;
     const coverSrc =
         isCover || isEndSpread
             ? getSpreadPhotoOverride(album?.id, 0) ||
               resolveCoverImageSrc(album, { showSamples: false })
             : null;
     const leftSrc = getSpreadPageImage(album, left, totalPages);
-    const rightSrc = right !== left ? getSpreadPageImage(album, right, totalPages) : null;
+    const rightSrc =
+        right !== left && !isPreBack ? getSpreadPageImage(album, right, totalPages) : null;
 
     return {
         leftPage: left,

@@ -27,8 +27,8 @@
   height: 22px;
   padding: 0 7px;
   border-radius: 999px;
-  background: #ebe8e3;
-  color: #44403c;
+  background: #ede9fe;
+  color: #5b21b6;
   font-family: var(--font-sans);
   font-size: 11px;
   font-weight: 700;
@@ -102,8 +102,8 @@
 
 .ae-version-history__thumb {
   flex-shrink: 0;
-  width: 56px;
-  height: 32px;
+  width: 72px;
+  height: 40px;
   border-radius: 4px;
   overflow: hidden;
   background: #e8e6e0;
@@ -118,8 +118,10 @@
 .ae-version-history__thumb img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  /* Spreads are wide diptychs — contain keeps both pages legible */
+  object-fit: contain;
   display: block;
+  background: #e8e6e0;
 }
 
 .ae-version-history__thumb-ph {

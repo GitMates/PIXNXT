@@ -1,6 +1,11 @@
 import { getRemotePreviewData } from './albumPreviewData';
+import {
+    ALBUM_TRANSFORMS_KEY,
+    readLocalStorageJson,
+    writeLocalStorageJson,
+} from '../../lib/albumLocalStorage';
 
-const STORAGE_KEY = 'pixnxt_album_page_transforms';
+const STORAGE_KEY = ALBUM_TRANSFORMS_KEY;
 
 const DEFAULT = { x: 0, y: 0, scaleX: 1, scaleY: 1 };
 
@@ -35,20 +40,15 @@ export function photoTransformStyle(transform, { panoramic = null } = {}) {
 }
 
 function readAll() {
-    try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        return raw ? JSON.parse(raw) : {};
-    } catch {
-        return {};
-    }
+    return readLocalStorageJson(STORAGE_KEY, {});
 }
 
-function writeAll(data) {
-    try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    } catch (e) {
-        console.warn('Could not save page transforms', e);
-    }
+function writeAll(data, preferAlbumId = null) {
+    const ok = writeLocalStorageJson(STORAGE_KEY, data, {
+        preferAlbumId,
+        compact: true,
+    });
+    if (!ok) console.warn('Could not save page transforms');
 }
 
 function spreadTransformKey(leftPage) {
@@ -220,6 +220,6 @@ export function writeAlbumTransformBucket(albumId, bucket) {
     if (!albumId) return false;
     const all = readAll();
     all[albumId] = bucket;
-    writeAll(all);
+    writeAll(all, albumId);
     return true;
 }

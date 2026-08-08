@@ -24,6 +24,7 @@ import {
     isPreBackHalfSpreadIndex,
     isWholeSpreadLayout,
     formatOverviewSpreadLabel,
+    formatBookSpreadMetaLabel,
     normalizeStoragePageIndex,
     pageToSpreadIndex,
     spreadIndexToPage,
@@ -75,7 +76,7 @@ import './AlbumPhotoPins.css';
 import { parseGridSizeAspect } from './albumGridSize';
 import { AlbumBookPageContext } from './AlbumBookPageContext';
 import { installSafePageFlip } from './pageFlipSafe';
-import { albumHasBlankCovers, albumUsesBookWrap } from './albumSpreadUtils';
+import { albumHasBlankCovers } from './albumSpreadUtils';
 import { getBookWrapSpineLayout } from './bookWrapSpine';
 import { SPINE_BOUNDS_CHANGED_EVENT } from './albumSpineSettings';
 import { getSpreadPhotoTransform } from './albumPageTransforms';
@@ -182,7 +183,10 @@ function resolveOverviewSpreadVisual(album, overviewSpreadIndex, totalPages, spr
     const isEndSpread = isEndHalfSpreadIndex(overviewSpreadIndex, totalPages, spreadOpts);
     const isInsideCover = isInsideCoverSpreadLeft(left, totalPages, spreadOpts);
     const isPreBack = isPreBackHalfSpreadIndex(overviewSpreadIndex, totalPages, spreadOpts);
-    const spreadSrc = !isCover && !isEndSpread ? getSpreadPhotoOverride(album?.id, left) : null;
+    const spreadSrc =
+        !isCover && !isEndSpread && !isInsideCover && !isPreBack
+            ? getSpreadPhotoOverride(album?.id, left)
+            : null;
     const bookWrapSrc =
         isCover || isEndSpread
             ? getSpreadPhotoOverride(album?.id, 0) || resolveCoverImageSrc(album, { showSamples })
@@ -229,6 +233,8 @@ const AlbumBook = ({
     onTransformChange,
     transformRevision = 0,
     photoRevision = 0,
+    /** Bump only when spread photo bytes change — remounts HTMLFlipBook (stale page-flip DOM). */
+    photoContentEpoch = 0,
     canAddPages = false,
     onAddPages,
     onDeleteSpread,
@@ -314,7 +320,7 @@ const AlbumBook = ({
         if (albumHasBlankCovers(album) && !getSpreadPhotoOverride(album?.id, 0)) {
             return null;
         }
-        if (!albumUsesBookWrap(album) && !albumHasBlankCovers(album)) return null;
+        // Prefer spine-aware wrap whenever covers are on — matches AlbumFlipPage / filmstrip.
         return getBookWrapSpineLayout(album);
     }, [album, spineBoundsTick]);
     const coverTransform = useMemo(() => {
@@ -386,9 +392,9 @@ const AlbumBook = ({
     const flipBookMountKey = useMemo(
         () =>
             stableDims
-                ? `${flipBookStructuralKey}-${stableDims.width}x${stableDims.height}`
-                : flipBookStructuralKey,
-        [flipBookStructuralKey, stableDims]
+                ? `${flipBookStructuralKey}-${stableDims.width}x${stableDims.height}-c${photoContentEpoch}`
+                : `${flipBookStructuralKey}-c${photoContentEpoch}`,
+        [flipBookStructuralKey, stableDims, photoContentEpoch]
     );
 
     useEffect(() => {
@@ -421,10 +427,10 @@ const AlbumBook = ({
         return `${n} / ${total}`;
     }, [spreadIndex, totalSpreads]);
 
-    const spreadMetaLabel = useMemo(() => {
-        const n = String(spreadIndex + 1).padStart(2, '0');
-        return `SPREAD ${n}`;
-    }, [spreadIndex]);
+    const spreadMetaLabel = useMemo(
+        () => formatBookSpreadMetaLabel(spreadIndex, totalPages, spreadOpts),
+        [spreadIndex, totalPages, spreadOpts]
+    );
 
     const [imageReplacements, setImageReplacements] = useState(() =>
         album?.id ? getImageReplacements(album.id) : []
@@ -448,7 +454,7 @@ const AlbumBook = ({
     const currentSpreadVersion = useMemo(() => {
         let max = 0;
         for (const row of imageReplacements) {
-            if (row.spreadIndex !== spreadIndex) continue;
+            if (Number(row.spreadIndex) !== Number(spreadIndex)) continue;
             const ver = getReplacementCurrentVersion(row);
             if (ver > max) max = ver;
         }
@@ -2033,7 +2039,7 @@ const AlbumBook = ({
                         showCover={false}
                         showPageCorners={clickToFlip}
                         disableFlipByClick
-                        startPage={storagePageToFlipbookIndex(initialPage, totalPages, spreadOpts)}
+                        startPage={storagePageToFlipbookIndex(pageIndex, totalPages, spreadOpts)}
                         clickEventForward={false}
                         onFlip={handleFlip}
                         onChangeState={handleChangeState}

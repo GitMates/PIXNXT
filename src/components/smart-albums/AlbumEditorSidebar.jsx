@@ -15,19 +15,25 @@ import CoverLeatherColorPicker from './CoverLeatherColorPicker';
 import CoverPhotoUploader from './CoverPhotoUploader';
 import { formatAlbumGridSizeDisplay } from './albumGridSize';
 import {
-    getImageReplacements,
-    IMAGE_REPLACEMENTS_CHANGED_EVENT,
-    removeImageReplacement,
-} from './albumImageReplacements';
-import {
     albumHasBlankCovers,
     albumUsesBookWrap,
-    formatSpreadDisplayLabel,
+    formatBookSpreadMetaLabel,
     getAlbumSpreadOptions,
+    getSpreadPages,
     isWholeSpreadLayout,
     pageToSpreadIndex,
 } from './albumSpreadUtils';
-import { resolveCoverImageSrc } from './albumPagePhotos';
+import {
+    getPagePhotoOverride,
+    getSpreadPhotoOverride,
+    resolveCoverImageSrc,
+} from './albumPagePhotos';
+import {
+    getImageReplacements,
+    IMAGE_REPLACEMENTS_CHANGED_EVENT,
+    removeImageReplacement,
+    sortSpreadReplacements,
+} from './albumImageReplacements';
 import '../../pages/smart-albums/AlbumViewer.css';
 import './AlbumCoverPanel.css';
 
@@ -101,7 +107,7 @@ export default function AlbumEditorSidebar({
 }) {
     const [imageReplacements, setImageReplacements] = useState([]);
     const [localCoverText, setLocalCoverText] = useState(coverTextMessage);
-    const [feedbackFilter, setFeedbackFilter] = useState('all'); // all | this | done
+    const [feedbackFilter, setFeedbackFilter] = useState('this'); // this | done | all
 
     const hasCoverPhoto = useMemo(() => {
         void workspaceRevision;
@@ -217,7 +223,8 @@ export default function AlbumEditorSidebar({
             showAllFeedback
                 ? imageReplacements
                 : imageReplacements.filter(
-                      (replacement) => replacement.spreadIndex === currentSpreadIndex
+                      (replacement) =>
+                          Number(replacement.spreadIndex) === Number(currentSpreadIndex)
                   ),
         [imageReplacements, currentSpreadIndex, showAllFeedback]
     );
@@ -330,7 +337,8 @@ export default function AlbumEditorSidebar({
                     (String(c.body || '').trim() || hasCommentAttachment(c)))
         ).length;
         const replacements = imageReplacements.filter(
-            (replacement) => replacement.spreadIndex === currentSpreadIndex
+            (replacement) =>
+                Number(replacement.spreadIndex) === Number(currentSpreadIndex)
         ).length;
         return pins + swaps + messages + replacements;
     }, [
@@ -346,20 +354,55 @@ export default function AlbumEditorSidebar({
     const currentSpreadReplacements = useMemo(
         () =>
             imageReplacements.filter(
-                (replacement) => replacement.spreadIndex === currentSpreadIndex
+                (replacement) =>
+                    Number(replacement.spreadIndex) === Number(currentSpreadIndex)
             ),
         [imageReplacements, currentSpreadIndex]
     );
 
+    const currentSpreadPreviewUrl = useMemo(() => {
+        void workspaceRevision;
+        if (!albumId) return null;
+        const sorted = sortSpreadReplacements(currentSpreadReplacements);
+        const latest = sorted.length ? sorted[sorted.length - 1] : null;
+        if (latest?.newUrl) return latest.newUrl;
+        if (currentSpreadIndex <= 0 && spreadOpts.hasCovers) {
+            return resolveCoverImageSrc(album, { showSamples: false });
+        }
+        const { left, right } = getSpreadPages(currentSpreadIndex, totalPages, spreadOpts);
+        return (
+            getSpreadPhotoOverride(albumId, left) ||
+            getPagePhotoOverride(albumId, left) ||
+            (right !== left ? getPagePhotoOverride(albumId, right) : null) ||
+            null
+        );
+    }, [
+        album,
+        albumId,
+        currentSpreadIndex,
+        currentSpreadReplacements,
+        spreadOpts,
+        totalPages,
+        workspaceRevision,
+    ]);
+
+    const [versionExpandToken, setVersionExpandToken] = useState(0);
+
     const handleNewVersionUpload = useCallback(async () => {
         if (!onUploadForCurrentSpread) return;
         try {
-            const files = await pickImageFiles({ multiple: false });
-            if (files?.length) await onUploadForCurrentSpread(files);
+            const files = await pickImageFiles({
+                multiple: false,
+                accept: 'image/jpeg,image/png,image/webp,image/jpg,.jpg,.jpeg,.png,.webp',
+            });
+            if (!files?.length) return;
+            await onUploadForCurrentSpread(files, { asNewVersion: true });
+            setImageReplacements(getImageReplacements(albumId));
+            setVersionExpandToken((n) => n + 1);
         } catch (e) {
             console.warn(e);
         }
-    }, [onUploadForCurrentSpread]);
+    }, [onUploadForCurrentSpread, albumId]);
 
     const spreadPanelCount = currentSpreadFeedCount;
 
@@ -380,12 +423,9 @@ export default function AlbumEditorSidebar({
         return pinCount + swapCount + clientCount;
     }, [photoPins, swapMarks, swapsEnabled, spreadCommentsBySpread]);
 
-    const currentSpreadLabel = useMemo(
-        () =>
-            formatSpreadDisplayLabel(currentSpreadIndex, {
-                hasCovers: Boolean(spreadOpts.hasCovers),
-            }),
-        [currentSpreadIndex, spreadOpts.hasCovers]
+    const currentSpreadMetaLabel = useMemo(
+        () => formatBookSpreadMetaLabel(currentSpreadIndex, totalPages, spreadOpts),
+        [currentSpreadIndex, totalPages, spreadOpts]
     );
 
     const navItems = NAV_BASE.filter(
@@ -395,7 +435,7 @@ export default function AlbumEditorSidebar({
     const openSpreadUploadPicker = useCallback(() => {
         pickImageFiles({
             onPick: (files) => {
-                if (files.length) onUploadForCurrentSpread?.(files);
+                if (files.length) onUploadForCurrentSpread?.(files, { asNewVersion: true });
             },
         });
     }, [onUploadForCurrentSpread]);
@@ -488,17 +528,6 @@ export default function AlbumEditorSidebar({
                             <button
                                 type="button"
                                 role="tab"
-                                aria-selected={feedbackFilter === 'all'}
-                                className={`ae-panel-pin-filter${
-                                    feedbackFilter === 'all' ? ' ae-panel-pin-filter--active' : ''
-                                }`}
-                                onClick={() => setFeedbackFilter('all')}
-                            >
-                                All spreads {albumFeedbackCount}
-                            </button>
-                            <button
-                                type="button"
-                                role="tab"
                                 aria-selected={feedbackFilter === 'this'}
                                 className={`ae-panel-pin-filter${
                                     feedbackFilter === 'this' ? ' ae-panel-pin-filter--active' : ''
@@ -517,6 +546,17 @@ export default function AlbumEditorSidebar({
                                 onClick={() => setFeedbackFilter('done')}
                             >
                                 Done {doneFeedCount}
+                            </button>
+                            <button
+                                type="button"
+                                role="tab"
+                                aria-selected={feedbackFilter === 'all'}
+                                className={`ae-panel-pin-filter${
+                                    feedbackFilter === 'all' ? ' ae-panel-pin-filter--active' : ''
+                                }`}
+                                onClick={() => setFeedbackFilter('all')}
+                            >
+                                All spreads {albumFeedbackCount}
                             </button>
                         </div>
                         <div className="ae-panel-pin-body">
@@ -561,6 +601,8 @@ export default function AlbumEditorSidebar({
                                 <SpreadVersionHistory
                                     albumId={albumId}
                                     replacements={currentSpreadReplacements}
+                                    currentPreviewUrl={currentSpreadPreviewUrl}
+                                    forceExpandToken={versionExpandToken}
                                     onNewVersion={handleNewVersionUpload}
                                     onRestore={onRestoreImageReplacement}
                                     onDelete={(row) => {
@@ -578,7 +620,7 @@ export default function AlbumEditorSidebar({
                                     authorName={photographerName}
                                     disabled={!albumId}
                                     visibleToName={clientVisibleName}
-                                    spreadLabel={`SPREAD ${String(currentSpreadIndex + 1).padStart(2, '0')}`}
+                                    spreadLabel={currentSpreadMetaLabel}
                                 />
                             </div>
                         ) : null}

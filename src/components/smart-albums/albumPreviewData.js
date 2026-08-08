@@ -35,13 +35,13 @@ function readLocalPhotos(albumId) {
 function resolveStoredUrl(stored, collection) {
     if (!stored) return null;
     if (typeof stored === 'string') return stored;
+    if (stored.storagePath) return storageService.getPublicUrl(stored.storagePath);
     if (stored.collectionItemId) {
         const item = collection.find((entry) => entry.id === stored.collectionItemId);
-        if (item?.dataUrl) return item.dataUrl;
         if (item?.storagePath) return storageService.getPublicUrl(item.storagePath);
+        if (item?.dataUrl) return item.dataUrl;
     }
     if (stored.dataUrl) return stored.dataUrl;
-    if (stored.storagePath) return storageService.getPublicUrl(stored.storagePath);
     return null;
 }
 
@@ -57,6 +57,7 @@ export function deriveCoverUrlFromSnapshot(snapshot) {
     if (cover) return cover;
 
     if (collection[0]?.dataUrl) return collection[0].dataUrl;
+    if (collection[0]?.storagePath) return storageService.getPublicUrl(collection[0].storagePath);
 
     const pageNums = Object.keys(pages)
         .filter((k) => !k.startsWith('spread:'))
@@ -98,6 +99,7 @@ export function deriveFrontCoverUrlFromSnapshot(snapshot, { blankCovers = false 
     if (onPageOne) return onPageOne;
 
     if (collection[0]?.dataUrl) return collection[0].dataUrl;
+    if (collection[0]?.storagePath) return storageService.getPublicUrl(collection[0].storagePath);
 
     return null;
 }

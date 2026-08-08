@@ -6,10 +6,12 @@ import {
     resolveReplacementPreviewUrl,
     sortSpreadReplacements,
 } from './albumImageReplacements';
-import SpreadVersionHistory from './SpreadVersionHistory';
 
-function Shot({ albumId, url, storagePath, tag }) {
-    const src = resolveReplacementPreviewUrl(albumId, url, storagePath);
+function Shot({ albumId, url, storagePath, itemId = null, preferLive = false, tag }) {
+    const src = resolveReplacementPreviewUrl(albumId, url, storagePath, {
+        itemId,
+        preferLive,
+    });
     return (
         <span className="quiet-proof-card__version-shot">
             {src ? (
@@ -29,9 +31,7 @@ export default function AlbumPreviewReplacementCard({
     replacement,
     authorName = 'Photographer',
     spreadLabel = null,
-    onNewVersion = null,
-    onRestore = null,
-    onDelete = null,
+    currentPreviewUrl = null,
 }) {
     const rows = useMemo(
         () =>
@@ -60,6 +60,8 @@ export default function AlbumPreviewReplacementCard({
         (latest.slotLabel
             ? `Uploaded a new version of this spread \u2014 ${latest.slotLabel.toLowerCase()}.`
             : 'Uploaded a new version of this spread.');
+
+    const currentUrl = currentPreviewUrl || latest.newUrl;
 
     return (
         <article className="quiet-proof-card">
@@ -90,22 +92,21 @@ export default function AlbumPreviewReplacementCard({
                         albumId={albumId}
                         url={latest.previousUrl}
                         storagePath={latest.previousStoragePath}
-                        tag={`v${currentVersion - 1}`}
+                        tag={`v${Math.max(1, currentVersion - 1)}`}
                     />
                     <span className="quiet-proof-card__version-arrow" aria-hidden>
                         →
                     </span>
-                    <Shot albumId={albumId} url={latest.newUrl} tag={`v${currentVersion}`} />
+                    <Shot
+                        albumId={albumId}
+                        url={currentUrl}
+                        storagePath={latest.newStoragePath}
+                        itemId={latest.newItemId}
+                        preferLive
+                        tag={`v${currentVersion}`}
+                    />
                 </div>
             </div>
-            <SpreadVersionHistory
-                albumId={albumId}
-                replacements={rows}
-                onNewVersion={onNewVersion}
-                onRestore={onRestore}
-                onDelete={onDelete}
-            />
         </article>
     );
 }
-

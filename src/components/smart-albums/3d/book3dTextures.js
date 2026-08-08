@@ -148,7 +148,6 @@ function configureTexture(tex, slot, layout, side, { mirrorX = false, pageAspect
 }
 
 function loadConfiguredTexture(src, config) {
-    const url = getProxiedMediaFetchUrl(src);
     const key = textureCacheKey(src, {
         panoramic: config.slot?.panoramic,
         layout: config.layout,
@@ -163,30 +162,38 @@ function loadConfiguredTexture(src, config) {
     const pending = pendingLoads.get(key);
     if (pending) return pending;
 
-    const promise = new Promise((resolve, reject) => {
-        const loader = new THREE.TextureLoader();
-        loader.setCrossOrigin('anonymous');
-        loader.load(
-            url,
-            (loadedTex) => {
-                const tex = loadedTex.clone();
-                configureTexture(tex, config.slot, config.layout, config.side, {
-                    mirrorX: config.mirrorX,
-                    pageAspect: config.pageAspect,
-                    backFace: config.backFace,
-                });
-                finalizeTexture(tex);
-                textureCache.set(key, tex);
-                pendingLoads.delete(key);
-                resolve(tex);
-            },
-            undefined,
-            (err) => {
-                pendingLoads.delete(key);
-                reject(err);
+    const loadUrl = (url) =>
+        new Promise((resolve, reject) => {
+            const loader = new THREE.TextureLoader();
+            loader.setCrossOrigin('anonymous');
+            loader.load(url, resolve, undefined, reject);
+        });
+
+    // Prefer direct R2 URL — /api/r2-media 404s on some production deploys and blanked covers.
+    const promise = loadUrl(src)
+        .catch(() => {
+            const proxied = getProxiedMediaFetchUrl(src);
+            if (!proxied || proxied === src) {
+                return Promise.reject(new Error('3D texture failed to load'));
             }
-        );
-    });
+            return loadUrl(proxied);
+        })
+        .then((loadedTex) => {
+            const tex = loadedTex.clone();
+            configureTexture(tex, config.slot, config.layout, config.side, {
+                mirrorX: config.mirrorX,
+                pageAspect: config.pageAspect,
+                backFace: config.backFace,
+            });
+            finalizeTexture(tex);
+            textureCache.set(key, tex);
+            pendingLoads.delete(key);
+            return tex;
+        })
+        .catch((err) => {
+            pendingLoads.delete(key);
+            throw err;
+        });
 
     pendingLoads.set(key, promise);
     return promise;

@@ -1,3 +1,8 @@
+import {
+    readLocalStorageJson,
+    writeLocalStorageJson,
+} from '../../lib/albumLocalStorage';
+
 const PHOTOS_KEY = 'pixnxt_album_page_photos';
 const TRANSFORMS_KEY = 'pixnxt_album_page_transforms';
 
@@ -8,20 +13,11 @@ export const MAX_ALBUM_PAGES = 99;
 export const PAGES_PER_SPREAD = 2;
 
 function readJson(key) {
-    try {
-        const raw = localStorage.getItem(key);
-        return raw ? JSON.parse(raw) : {};
-    } catch {
-        return {};
-    }
+    return readLocalStorageJson(key, {});
 }
 
-function writeJson(key, data) {
-    try {
-        localStorage.setItem(key, JSON.stringify(data));
-    } catch (e) {
-        console.warn('Could not save album storage', key, e);
-    }
+function writeJson(key, data, preferAlbumId = null) {
+    writeLocalStorageJson(key, data, { preferAlbumId, compact: true });
 }
 
 function isPageKey(key) {
@@ -155,13 +151,13 @@ export function insertAlbumStoragePages(albumId, insertAt, count) {
     const photosAll = readJson(PHOTOS_KEY);
     if (photosAll[albumId]) {
         photosAll[albumId] = spliceBucketPages(photosAll[albumId], insertAt, count);
-        writeJson(PHOTOS_KEY, photosAll);
+        writeJson(PHOTOS_KEY, photosAll, albumId);
     }
 
     const transformsAll = readJson(TRANSFORMS_KEY);
     if (transformsAll[albumId]) {
         transformsAll[albumId] = spliceBucketPages(transformsAll[albumId], insertAt, count);
-        writeJson(TRANSFORMS_KEY, transformsAll);
+        writeJson(TRANSFORMS_KEY, transformsAll, albumId);
     }
 }
 
@@ -178,7 +174,7 @@ export function rescueMisplacedAlbumStorageBeforeSpreadRemove(albumId, removeAt,
         );
         if (changed) {
             photosAll[albumId] = bucket;
-            writeJson(PHOTOS_KEY, photosAll);
+            writeJson(PHOTOS_KEY, photosAll, albumId);
         }
     }
 
@@ -191,7 +187,7 @@ export function rescueMisplacedAlbumStorageBeforeSpreadRemove(albumId, removeAt,
         );
         if (changed) {
             transformsAll[albumId] = bucket;
-            writeJson(TRANSFORMS_KEY, transformsAll);
+            writeJson(TRANSFORMS_KEY, transformsAll, albumId);
         }
     }
 }
@@ -222,7 +218,7 @@ export function purgeAlbumPageRange(albumId, removeAt, count) {
         }
         album.__revision = (album.__revision || 0) + 1;
         photosAll[albumId] = album;
-        writeJson(PHOTOS_KEY, photosAll);
+        writeJson(PHOTOS_KEY, photosAll, albumId);
     }
 
     const transformsAll = readJson(TRANSFORMS_KEY);
@@ -233,7 +229,7 @@ export function purgeAlbumPageRange(albumId, removeAt, count) {
         }
         bucket.__revision = (bucket.__revision || 0) + 1;
         transformsAll[albumId] = bucket;
-        writeJson(TRANSFORMS_KEY, transformsAll);
+        writeJson(TRANSFORMS_KEY, transformsAll, albumId);
     }
 }
 
@@ -255,12 +251,12 @@ export function pruneAlbumStorageForPageCount(albumId, newTotalPages) {
     const photosAll = readJson(PHOTOS_KEY);
     if (photosAll[albumId]) {
         photosAll[albumId] = pruneBucket(photosAll[albumId], newTotalPages);
-        writeJson(PHOTOS_KEY, photosAll);
+        writeJson(PHOTOS_KEY, photosAll, albumId);
     }
 
     const transformsAll = readJson(TRANSFORMS_KEY);
     if (transformsAll[albumId]) {
         transformsAll[albumId] = pruneBucket(transformsAll[albumId], newTotalPages);
-        writeJson(TRANSFORMS_KEY, transformsAll);
+        writeJson(TRANSFORMS_KEY, transformsAll, albumId);
     }
 }

@@ -68,9 +68,7 @@ export function resolveAlbumGridSlot(
     const endHalfSpreadLeft = isEndHalfSpreadLeftPage(spreadLeft, totalPages, spreadOpts);
     const isWholeSpreadAlbum = isWholeSpreadLayout(album?.grid_layout);
     const spreadWholePhoto = Boolean(albumId && getSpreadPhotoOverride(albumId, spreadLeft));
-    const insideCoverSpread =
-        isInsideCoverSpreadLeft(spreadLeft, totalPages, spreadOpts) &&
-        (!isWholeSpreadAlbum || !spreadWholePhoto);
+    const insideCoverSpread = isInsideCoverSpreadLeft(spreadLeft, totalPages, spreadOpts);
     const preBackHalfSpread = isPreBackHalfSpreadLeftPage(spreadLeft, totalPages, spreadOpts);
     const frontCoverSpread = isFrontCoverSpreadLeft(spreadLeft, spreadOpts);
     const wholePlacement =
@@ -80,7 +78,6 @@ export function resolveAlbumGridSlot(
         !preBackHalfSpread &&
         !frontCoverSpread;
     const wholeSpread = wholePlacement;
-
     let cellId = null;
     if (isProofLeftGridPage(pageNum, spreadCtx) && !endHalfSpreadLeft) {
         cellId = 1;
@@ -89,6 +86,10 @@ export function resolveAlbumGridSlot(
     }
 
     if (!cellId) {
+        return { src: null, panoramic: null };
+    }
+
+    if (insideCoverSpread && isInsideCoverLeftPage(pageNum, spreadOpts)) {
         return { src: null, panoramic: null };
     }
 
@@ -148,19 +149,22 @@ export function resolveAlbumPageSlot(
     const spreadWholePhoto = Boolean(albumId && getSpreadPhotoOverride(albumId, spreadLeftForPage));
     const useHalfSpreadLayout = !isWholeSpreadAlbum || !spreadWholePhoto;
 
+    // Pre-back right is always empty (never a panoramic right half).
+    if (
+        preBackSpreadRole === 'half-blank' ||
+        isPreBackHalfSpreadRightPage(pageNum, totalPages, spreadOpts)
+    ) {
+        return { src: null, panoramic: null };
+    }
+
     if (useHalfSpreadLayout) {
-        if (
-            preBackSpreadRole === 'half-blank' ||
-            isPreBackHalfSpreadRightPage(pageNum, totalPages, spreadOpts)
-        ) {
-            return { src: null, panoramic: null };
-        }
         if (endSpreadRole === 'half-blank') {
             return { src: null, panoramic: null };
         }
-        if (isInsideCoverLeftPage(pageNum, spreadOpts)) {
-            return { src: null, panoramic: null };
-        }
+    }
+
+    if (isInsideCoverLeftPage(pageNum, spreadOpts)) {
+        return { src: null, panoramic: null };
     }
 
     if (spreadOpts.hasCovers && pageNum === 1) {

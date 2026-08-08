@@ -130,8 +130,8 @@
 
 .quiet-proof-card__version-shot {
   position: relative;
-  width: 72px;
-  height: 42px;
+  width: 88px;
+  height: 48px;
   border-radius: 6px;
   overflow: hidden;
   background: #e8e6e0;
@@ -142,8 +142,9 @@
 .quiet-proof-card__version-shot img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
+  background: #e8e6e0;
 }
 
 .quiet-proof-card__version-shot-ph {

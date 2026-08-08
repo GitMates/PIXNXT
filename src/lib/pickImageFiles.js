@@ -7,7 +7,11 @@ import { filesFromInput } from './uploadFileOrder';
  * Important (Windows): do NOT cancel on the first window focus after the dialog closes —
  * Chrome often fires focus before the change event populates input.files for large images.
  *
+ * Returns a Promise that resolves to File[] (empty when cancelled). Callbacks still work.
+ * Call `promise.cancel()` to abort (same as the old return cleanup function).
+ *
  * @param {{ multiple?: boolean, accept?: string, onPick?: (files: File[]) => void, onCancel?: () => void }} options
+ * @returns {Promise<File[]> & { cancel: () => void }}
  */
 export function pickImageFiles({ multiple = false, accept, onPick, onCancel } = {}) {
     const input = document.createElement('input');
@@ -19,6 +23,11 @@ export function pickImageFiles({ multiple = false, accept, onPick, onCancel } = 
 
     let settled = false;
     let cancelTimer = null;
+    let resolvePromise = null;
+
+    const promise = new Promise((resolve) => {
+        resolvePromise = resolve;
+    });
 
     const cleanup = () => {
         input.removeEventListener('change', onChange);
@@ -34,8 +43,10 @@ export function pickImageFiles({ multiple = false, accept, onPick, onCancel } = 
         if (settled) return;
         settled = true;
         cleanup();
-        if (files?.length) onPick?.(files);
+        const list = files?.length ? files : [];
+        if (list.length) onPick?.(list);
         else onCancel?.();
+        resolvePromise?.(list);
     };
 
     const onChange = () => finish(filesFromInput(input.files));
@@ -66,5 +77,6 @@ export function pickImageFiles({ multiple = false, accept, onPick, onCancel } = 
 
     input.click();
 
-    return () => finish([]);
+    promise.cancel = () => finish([]);
+    return promise;
 }

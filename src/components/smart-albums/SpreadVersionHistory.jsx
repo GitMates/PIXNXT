@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
     getReplacementCurrentVersion,
     getReplacementVersion,
@@ -19,8 +19,18 @@ function formatHistoryWhen(iso) {
     return `${day} ${mon} ${time}`;
 }
 
-function VersionThumb({ albumId, url, storagePath, current = false }) {
-    const src = resolveReplacementPreviewUrl(albumId, url, storagePath);
+function VersionThumb({
+    albumId,
+    url,
+    storagePath,
+    itemId = null,
+    preferLive = false,
+    current = false,
+}) {
+    const src = resolveReplacementPreviewUrl(albumId, url, storagePath, {
+        itemId,
+        preferLive,
+    });
     return (
         <span
             className={`ae-version-history__thumb${
@@ -38,29 +48,59 @@ function VersionThumb({ albumId, url, storagePath, current = false }) {
 
 /**
  * Collapsed bar + expandable version list above the note compose (matches editor mock).
+ * Always shows at least v1 when the spread has a preview or onNewVersion is available,
+ * so photographers can upload the first "New version" without a prior replacement row.
  */
 export default function SpreadVersionHistory({
     albumId,
     replacements = [],
+    currentPreviewUrl = null,
     onNewVersion = null,
     onRestore = null,
     onDelete = null,
+    forceExpandToken = 0,
 }) {
     const [expanded, setExpanded] = useState(false);
     const rows = useMemo(() => sortSpreadReplacements(replacements), [replacements]);
 
+    useEffect(() => {
+        if (forceExpandToken > 0 && rows.length > 0) {
+            setExpanded(true);
+        }
+    }, [forceExpandToken, rows.length]);
+
     const latest = rows.length ? rows[rows.length - 1] : null;
     const currentVersion = latest ? getReplacementCurrentVersion(latest) : 1;
+    // Prefer the live spread preview for "current" so thumbs match the flipbook after
+    // an in-place replace (stored newUrl can still point at the prior file).
+    const livePreviewUrl = currentPreviewUrl || latest?.newUrl || null;
 
     const historyEntries = useMemo(() => {
-        if (!latest) return [];
+        if (!latest) {
+            if (!livePreviewUrl && !onNewVersion) return [];
+            return [
+                {
+                    key: 'baseline-v1',
+                    version: 1,
+                    current: true,
+                    url: livePreviewUrl,
+                    storagePath: null,
+                    itemId: null,
+                    preferLive: false,
+                    createdAt: null,
+                    row: null,
+                },
+            ];
+        }
         const entries = [
             {
                 key: `current-${currentVersion}`,
                 version: currentVersion,
                 current: true,
-                url: latest.newUrl,
-                storagePath: null,
+                url: livePreviewUrl || latest.newUrl,
+                storagePath: latest.newStoragePath || null,
+                itemId: latest.newItemId || null,
+                preferLive: true,
                 createdAt: latest.createdAt,
                 row: null,
             },
@@ -72,21 +112,26 @@ export default function SpreadVersionHistory({
                 key: row.id || `v-${version}`,
                 version,
                 current: false,
+                // Frozen prior snapshot only — never resolve via live collection id.
                 url: row.previousUrl,
                 storagePath: row.previousStoragePath,
+                itemId: null,
+                preferLive: false,
                 createdAt: row.createdAt,
                 row,
             });
         }
         return entries;
-    }, [rows, latest, currentVersion]);
+    }, [rows, latest, currentVersion, livePreviewUrl, onNewVersion]);
 
-    if (!rows.length || !latest) return null;
+    // Nothing to show until there is a photo or a way to upload a version.
+    if (!rows.length && !livePreviewUrl && !onNewVersion) return null;
 
-    const summary =
-        latest.slotLabel ||
-        latest.note ||
-        (latest.whole ? 'Updated spread photo' : 'Updated photo');
+    const summary = latest
+        ? latest.note ||
+          latest.slotLabel ||
+          (latest.whole ? 'Updated spread photo' : 'Updated photo')
+        : 'Original photos';
     const truncated =
         summary.length > 28 ? `${summary.slice(0, 26).trimEnd()}…` : summary;
 
@@ -103,7 +148,9 @@ export default function SpreadVersionHistory({
                         className="ae-version-history__link"
                         onClick={() => setExpanded((v) => !v)}
                     >
-                        {expanded ? 'Hide history' : `History (${historyEntries.length})`}
+                        {expanded
+                            ? 'Hide history'
+                            : `History (${Math.max(1, historyEntries.length)})`}
                     </button>
                     {onNewVersion ? (
                         <button
@@ -125,6 +172,8 @@ export default function SpreadVersionHistory({
                                 albumId={albumId}
                                 url={entry.url}
                                 storagePath={entry.storagePath}
+                                itemId={entry.itemId}
+                                preferLive={entry.preferLive}
                                 current={entry.current}
                             />
                             <div className="ae-version-history__meta">

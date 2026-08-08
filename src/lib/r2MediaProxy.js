@@ -5,30 +5,24 @@ export const R2_MEDIA_PROXY_PREFIX = '/api/r2-media/';
 
 /**
  * Rewrite a public R2 URL to the app proxy (dev: Vite proxy, prod: Vercel serverless).
- * Display URLs stay direct; only download fetches use the proxy.
+ * Prefer direct R2 URLs for canvas/CSS when the bucket already sends CORS for pixnxt.in.
+ * /api/r2-media/[...path] has been 404 on production and blanked book-wrap covers —
+ * keep this helper for ZIP/Drive downloads and as a canvas load fallback.
  */
-function encodeProxyPath(pathAndQuery) {
-  const qIdx = pathAndQuery.indexOf('?');
-  const pathPart = qIdx >= 0 ? pathAndQuery.slice(0, qIdx) : pathAndQuery;
-  const query = qIdx >= 0 ? pathAndQuery.slice(qIdx) : '';
-  const encoded = pathPart
-    .split('/')
-    .filter((seg) => seg.length > 0)
-    .map((seg) => {
-      try {
-        return encodeURIComponent(decodeURIComponent(seg));
-      } catch {
-        return encodeURIComponent(seg);
-      }
-    })
-    .join('/');
-  return `${encoded}${query}`;
-}
-
 function toProxyUrl(pathAndQuery) {
   const normalized = pathAndQuery.replace(/^\//, '');
   if (!normalized) return '';
-  return `${R2_MEDIA_PROXY_PREFIX}${encodeProxyPath(normalized)}`;
+  // Query form is more reliable than /api/r2-media/[...path] on Vite+Vercel.
+  const qIdx = normalized.indexOf('?');
+  const pathPart = qIdx >= 0 ? normalized.slice(0, qIdx) : normalized;
+  const extraQuery = qIdx >= 0 ? normalized.slice(qIdx + 1) : '';
+  const params = new URLSearchParams();
+  params.set('path', pathPart);
+  if (extraQuery) {
+    const extra = new URLSearchParams(extraQuery);
+    extra.forEach((value, key) => params.set(key, value));
+  }
+  return `/api/r2-media?${params.toString()}`;
 }
 
 export function getProxiedMediaFetchUrl(url) {
@@ -36,7 +30,9 @@ export function getProxiedMediaFetchUrl(url) {
   const trimmed = url.trim();
   if (!trimmed) return trimmed;
 
-  if (trimmed.startsWith(R2_MEDIA_PROXY_PREFIX)) return trimmed;
+  if (trimmed.startsWith(R2_MEDIA_PROXY_PREFIX) || trimmed.startsWith('/api/r2-media?')) {
+    return trimmed;
+  }
 
   const base = R2_PUBLIC_URL ? R2_PUBLIC_URL.replace(/\/+$/, '') : '';
   if (!base) return trimmed;
@@ -52,4 +48,35 @@ export function getProxiedMediaFetchUrl(url) {
   }
 
   return trimmed;
+}
+
+/** Direct public URL for <img> / CSS backgrounds (never the media proxy). */
+export function getDisplayMediaUrl(url) {
+  if (!url || typeof url !== 'string') return url;
+  const trimmed = url.trim();
+  if (!trimmed) return trimmed;
+  if (trimmed.startsWith('/api/r2-media?')) {
+    try {
+      const params = new URL(trimmed, 'https://www.pixnxt.in').searchParams;
+      const path = params.get('path');
+      const base = R2_PUBLIC_URL ? R2_PUBLIC_URL.replace(/\/+$/, '') : '';
+      if (path && base) return `${base}/${path.replace(/^\//, '')}`;
+    } catch {
+      /* fall through */
+    }
+  }
+  if (!trimmed.startsWith(R2_MEDIA_PROXY_PREFIX)) return trimmed;
+
+  const base = R2_PUBLIC_URL ? R2_PUBLIC_URL.replace(/\/+$/, '') : '';
+  if (!base) return trimmed;
+  const rest = trimmed.slice(R2_MEDIA_PROXY_PREFIX.length).replace(/^\//, '');
+  if (!rest) return trimmed;
+  try {
+    return `${base}/${rest
+      .split('/')
+      .map((seg) => decodeURIComponent(seg))
+      .join('/')}`;
+  } catch {
+    return `${base}/${rest}`;
+  }
 }

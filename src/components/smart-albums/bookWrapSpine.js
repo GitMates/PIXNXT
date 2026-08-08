@@ -1,4 +1,3 @@
-import { getProxiedMediaFetchUrl } from '../../lib/r2MediaProxy';
 import {
     blankCoverWrapAspect,
     computeSpineWidthUnits,
@@ -239,11 +238,12 @@ export function bookWrapSpinePanelStyle(src, layout, transform) {
     const segW = end - start;
     if (!(segW > 0)) return null;
 
-    const url = getProxiedMediaFetchUrl(src);
+    // CSS backgrounds do not need the media proxy (and /api/r2-media 404s on some deploys).
+    const url = src;
     const base = photoTransformStyle(transform);
     return {
         ...base,
-        backgroundImage: `url(${url})`,
+        backgroundImage: `url(${JSON.stringify(url)})`,
         backgroundSize: `${100 / segW}% 100%`,
         backgroundPosition: `${(-start / segW) * 100}% center`,
         backgroundRepeat: 'no-repeat',
@@ -439,6 +439,7 @@ export function bookWrapCoverImageStyle(layout, side, transform, { panoramic = n
 /**
  * Background-image strip crop — same math as spine panels.
  * Prefer this for the pre-canvas fallback so object-fit:cover never blanks/duplicates covers.
+ * Uses the direct asset URL (not /api/r2-media) so covers still paint when the proxy is missing.
  */
 export function bookWrapCoverBackgroundStyle(src, layout, side, transform) {
     if (!src || !layout || !side) return null;
@@ -446,7 +447,7 @@ export function bookWrapCoverBackgroundStyle(src, layout, side, transform) {
     const segW = end - start;
     if (!(segW > 0.0001)) return null;
 
-    const url = getProxiedMediaFetchUrl(src);
+    const url = src;
     const base = photoTransformStyle(transform);
     return {
         ...base,
