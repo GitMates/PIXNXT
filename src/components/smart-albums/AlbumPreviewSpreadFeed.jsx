@@ -585,6 +585,7 @@ function QuietProofFeed({
                             albumId={albumId}
                             replacements={item.replacements}
                             authorName={businessName || 'Photographer'}
+                            hasCovers={Boolean(album?.has_covers)}
                         />
                     );
                 }
@@ -596,6 +597,7 @@ function QuietProofFeed({
                             albumId={albumId}
                             replacement={item.replacement}
                             authorName={businessName || 'Photographer'}
+                            hasCovers={Boolean(album?.has_covers)}
                         />
                     );
                 }
@@ -998,6 +1000,7 @@ export default function AlbumPreviewSpreadFeed({
                                     albumId={albumId}
                                     replacements={item.replacements}
                                     authorName={businessName || 'Photographer'}
+                                    hasCovers={Boolean(album?.has_covers)}
                                 />
                             </div>
                         </React.Fragment>
@@ -1013,6 +1016,7 @@ export default function AlbumPreviewSpreadFeed({
                                     albumId={albumId}
                                     replacement={item.replacement}
                                     authorName={businessName || 'Photographer'}
+                                    hasCovers={Boolean(album?.has_covers)}
                                 />
                             </div>
                         </React.Fragment>

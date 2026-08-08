@@ -124,6 +124,7 @@ import { AppToast, useAppToast } from '../../components/ui/AppToast';
 import {
     captureSlotImageBeforeReplace,
     captureSlotImageBeforeReplaceAsync,
+    configureImageReplacementsPersistence,
     getImageReplacements,
     getReplacementCurrentVersion,
     getReplacementVersion,
@@ -370,6 +371,10 @@ export default function AlbumEditor({
     );
     const [photoPins, setPhotoPins] = useState(() => getPhotoPins(albumId));
     const [proofSeenTick, setProofSeenTick] = useState(0);
+
+    useEffect(() => {
+        configureImageReplacementsPersistence(user?.id ?? album?.photographer_id ?? null);
+    }, [user?.id, album?.photographer_id]);
     const shareRef = useRef(null);
     const collectionSyncRef = useRef(false);
     /** Skip post-delete photo migrations (React Strict Mode runs effects twice). */
@@ -1384,17 +1389,22 @@ export default function AlbumEditor({
             const retainPreviousStorage = !coverWrap;
 
             if (previousItemId && file && !isPdfFile(file) && (isImageFile(file) || (await probeImageFile(file)))) {
+                const beforePath =
+                    getCollectionItem(albumId, previousItemId)?.storagePath || null;
                 const replaced = await replaceCollectionItemFile(albumId, previousItemId, file, {
                     photographerId,
                     compressionTarget,
                     retainPreviousStorage,
                 });
-                if (replaced) {
+                const afterPath = replaced?.storagePath || null;
+                if (replaced && afterPath && afterPath !== beforePath) {
                     // Keep every placement pointing at this item on the new storagePath,
                     // otherwise the UI keeps rendering the pre-replace URL.
                     syncCollectionItemPlacements(albumId, previousItemId);
                     return replaced;
                 }
+                // Replace reported success but path did not change (stale remote-only row).
+                // Fall through to add+swap so the spread actually updates.
             }
 
             const added = await addFilesToAlbumCollection(albumId, files.slice(0, 1), {

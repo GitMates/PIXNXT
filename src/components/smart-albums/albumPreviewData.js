@@ -349,14 +349,20 @@ export function getRemotePreviewData(albumId) {
     return REMOTE_CACHE.get(albumId) || null;
 }
 
-/** Keep in-memory preview replacement list aligned with local edits (e.g. dismiss in Review Summary). */
+/** Keep in-memory preview replacement list aligned with DB (source of truth). */
 export function patchRemotePreviewImageReplacements(albumId, replacements) {
     if (!albumId) return;
-    const remote = REMOTE_CACHE.get(albumId);
-    if (!remote) return;
+    const remote = REMOTE_CACHE.get(albumId) || {
+        version: 2,
+        pages: {},
+        collection: [],
+        revision: 0,
+    };
     REMOTE_CACHE.set(albumId, {
         ...remote,
         image_replacements: Array.isArray(replacements) ? replacements : [],
+        revision: (Number(remote.revision) || 0) + 1,
+        updated_at: new Date().toISOString(),
     });
 }
 
