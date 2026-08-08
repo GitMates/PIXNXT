@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import BookScene from './BookScene';
 import useAlbumBookLayoutDims from '../useAlbumBookLayoutDims';
 import {
@@ -16,7 +16,6 @@ import {
 import { isBlankCoverAlbum } from './book3dTextures';
 import { isWebGLAvailable } from './webglSupport';
 import Book3DErrorBoundary from './Book3DErrorBoundary';
-import Book3DCoverFallback from './Book3DCoverFallback';
 import '../AlbumBook.css';
 import './BookCover3DView.css';
 
@@ -28,25 +27,10 @@ export default function BookCover3DView({
     onCoverOpen,
     playIntroAnimation = false,
     onCoverIntroComplete,
-    on3DUnavailable,
 }) {
     const shellRef = useRef(null);
     const stageRef = useRef(null);
-    const [webglSupported] = useState(() => isWebGLAvailable());
-    const unavailableNotifiedRef = useRef(false);
-
-    const notifyUnavailable = (error) => {
-        if (unavailableNotifiedRef.current) return;
-        unavailableNotifiedRef.current = true;
-        on3DUnavailable?.(error);
-    };
-
-    useEffect(() => {
-        if (!webglSupported) {
-            notifyUnavailable(new Error('WebGL unavailable'));
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- notify once when probe fails
-    }, [webglSupported]);
+    const [webglSupported, setWebglSupported] = useState(() => isWebGLAvailable());
 
     const layoutStructuralKey = useMemo(
         () =>
@@ -113,22 +97,30 @@ export default function BookCover3DView({
 
     if (!webglSupported) {
         return (
-            <Book3DCoverFallback
-                album={album}
-                showSamples={showSamples}
-                onCoverOpen={onCoverOpen}
-                message="3D preview unavailable — tap to open album"
-            />
+            <div className="ab-book-cover-3d-shell" ref={shellRef} onClick={onCoverOpen}>
+                <div className="ab-book-cover-3d ab-root ab-root--preview">
+                    <div className="ab-book-stage">
+                        <div className="ab-book-cover-3d-stage ab-book-scene--openable" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {resolveBookWrapSpreadSrc(album, { showSamples }) ? (
+                                <img
+                                    src={resolveBookWrapSpreadSrc(album, { showSamples })}
+                                    alt="Album Cover"
+                                    style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain', borderRadius: '4px', boxShadow: '0 10px 30px rgba(0,0,0,0.15)' }}
+                                />
+                            ) : (
+                                <div style={{ padding: '2rem', background: '#333', color: '#fff', borderRadius: '8px' }}>
+                                    {resolveFrontCoverDisplayText(album, album?.id) || 'Click to Open Album'}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
         );
     }
 
     return (
-        <Book3DErrorBoundary
-            album={album}
-            showSamples={showSamples}
-            onCoverOpen={onCoverOpen}
-            on3DUnavailable={notifyUnavailable}
-        >
+        <Book3DErrorBoundary album={album} showSamples={showSamples} onCoverOpen={onCoverOpen}>
             <div className="ab-book-cover-3d-shell" ref={shellRef}>
                 <div className="ab-book-cover-3d-measure ab-root ab-root--preview" aria-hidden="true">
                     <div className="ab-book-stage">
@@ -148,7 +140,6 @@ export default function BookCover3DView({
                                 onCoverOpen={onCoverOpen}
                                 playIntroAnimation={playIntroAnimation}
                                 onIntroComplete={onCoverIntroComplete}
-                                onFatalWebglError={notifyUnavailable}
                             />
                         </div>
                     </div>

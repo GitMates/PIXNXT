@@ -115,12 +115,6 @@ export default function AlbumHybrid3DPreview({
         setCoverIntroPending(false);
     }, []);
 
-    const handle3DUnavailable = useCallback(() => {
-        // Unblock open-book CTA — intro never finishes if Canvas never mounts.
-        coverIntroDoneRef.current = true;
-        setCoverIntroPending(false);
-    }, []);
-
     const openBook = useCallback(() => {
         if (openingRef.current || closingRef.current || phase !== 'cover') return;
         openingRef.current = true;
@@ -273,7 +267,6 @@ export default function AlbumHybrid3DPreview({
                     onCoverOpen={phase === 'cover' && !playCoverIntro ? openBook : undefined}
                     playIntroAnimation={playCoverIntro}
                     onCoverIntroComplete={handleCoverIntroComplete}
-                    on3DUnavailable={handle3DUnavailable}
                 />
             </div>
 

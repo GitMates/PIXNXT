@@ -8,12 +8,6 @@ import {
     BOOK_SCENE_CAMERA_FOV,
 } from '../albumBookDimensions';
 import { getBook3dDimensions } from './book3dTextures';
-import {
-    BOOK3D_GL_PROFILES,
-    createBook3dRenderer,
-    dprForGlProfile,
-    probeBook3dGlProfile,
-} from './webglSupport';
 import './BookScene.css';
 
 const ORBIT_RETURN_MS = 1100;
@@ -541,55 +535,19 @@ export default function BookScene({
     onCoverOpen,
     playIntroAnimation = false,
     onIntroComplete,
-    onFatalWebglError,
 }) {
     const sceneWrapRef = useRef(null);
     const orbitDragRef = useRef(false);
     const [showContactShadow, setShowContactShadow] = useState(true);
     const [introActive, setIntroActive] = useState(playIntroAnimation);
     const [canvasReady, setCanvasReady] = useState(false);
-    const [profileIndex, setProfileIndex] = useState(() => {
-        const probed = probeBook3dGlProfile();
-        if (!probed) return 0;
-        const idx = BOOK3D_GL_PROFILES.findIndex((p) => p.id === probed.id);
-        return idx >= 0 ? idx : 0;
-    });
-    const [canvasGeneration, setCanvasGeneration] = useState(0);
-    const [fatalWebgl, setFatalWebgl] = useState(false);
-    const retryingRef = useRef(false);
-
-    const activeProfile = BOOK3D_GL_PROFILES[profileIndex] || BOOK3D_GL_PROFILES[0];
-    const canvasDpr = dprForGlProfile(activeProfile);
+    const [webglError, setWebglError] = useState(false);
 
     // Defer Canvas mount — avoids React StrictMode double-init losing the WebGL context.
     useEffect(() => {
         const frame = requestAnimationFrame(() => setCanvasReady(true));
         return () => cancelAnimationFrame(frame);
-    }, [canvasGeneration]);
-
-    const handleContextLost = useCallback(() => {
-        if (retryingRef.current || fatalWebgl) return;
-        retryingRef.current = true;
-        setProfileIndex((current) => {
-            const next = current + 1;
-            if (next >= BOOK3D_GL_PROFILES.length) {
-                setFatalWebgl(true);
-                onFatalWebglError?.(new Error('WebGL context unavailable'));
-                retryingRef.current = false;
-                return current;
-            }
-            console.warn(
-                `[BookScene] WebGL context lost — retrying with profile "${BOOK3D_GL_PROFILES[next].id}"`
-            );
-            setCanvasReady(false);
-            setCanvasGeneration((g) => g + 1);
-            queueMicrotask(() => {
-                retryingRef.current = false;
-            });
-            return next;
-        });
-    }, [fatalWebgl, onFatalWebglError]);
-
+    }, []);
     const fallbackDims = useMemo(() => getBook3dDimensions(album), [album]);
     const bookHeight = pageWorldDims?.height ?? fallbackDims.height;
     const shadowY = -(bookHeight / 2 + 0.2);
@@ -603,22 +561,7 @@ export default function BookScene({
         requestAnimationFrame(() => setShowContactShadow(true));
     }, []);
 
-    const createGl = useCallback(
-        (props) => {
-            let lastError = null;
-            for (let i = profileIndex; i < BOOK3D_GL_PROFILES.length; i += 1) {
-                try {
-                    return createBook3dRenderer(BOOK3D_GL_PROFILES[i], props);
-                } catch (error) {
-                    lastError = error;
-                }
-            }
-            throw lastError || new Error('WebGL unavailable');
-        },
-        [profileIndex]
-    );
-
-    if (fatalWebgl) {
+    if (webglError) {
         throw new Error('WebGL context unavailable');
     }
 
@@ -629,30 +572,26 @@ export default function BookScene({
             }`}
             ref={sceneWrapRef}
         >
-            {!canvasReady ? (
+            {!canvasReady || webglError ? (
                 <div className="ab-book-scene__boot" aria-hidden="true" />
             ) : (
             <Canvas
-                key={`book3d-gl-${canvasGeneration}-${activeProfile.id}`}
                 shadows={false}
-                dpr={canvasDpr}
+                dpr={[1, 1.5]}
                 frameloop="always"
                 camera={{
                     position: [0, 0, BOOK_SCENE_CAMERA_DISTANCE],
                     fov: BOOK_SCENE_CAMERA_FOV,
                 }}
-                gl={createGl}
-                onCreated={({ gl }) => {
-                    // Catch create-time failures that never fire contextlost.
-                    try {
-                        const lost = gl.getContext?.()?.isContextLost?.();
-                        if (lost) handleContextLost();
-                    } catch {
-                        handleContextLost();
-                    }
+                gl={{
+                    antialias: true,
+                    powerPreference: 'high-performance',
+                    outputColorSpace: THREE.SRGBColorSpace,
+                    toneMapping: THREE.NoToneMapping,
+                    toneMappingExposure: 1,
                 }}
             >
-                <WebGLContextGuard onLost={handleContextLost} />
+                <WebGLContextGuard onLost={() => setWebglError(true)} />
                 <color attach="background" args={['#efefef']} />
 
                 <ambientLight intensity={0.72} />
@@ -675,7 +614,7 @@ export default function BookScene({
                     />
                 </IntroBookPivot>
 
-                {showContactShadow && activeProfile.id !== 'low-power' ? (
+                {showContactShadow ? (
                     <ContactShadows
                         position={[0, shadowY, 0]}
                         opacity={0.32}
@@ -701,4 +640,3 @@ export default function BookScene({
         </div>
     );
 }
-
