@@ -224,8 +224,10 @@ function pagesShareCollapsedIds(pages = {}, collection = []) {
     (stored) => stored && typeof stored === 'object' && stored.collectionItemId
   );
   if (pageEntries.length <= 1 || collection.length <= 1) return false;
+  // Whole-spread layouts reuse one collectionItemId across paired page keys — that is
+  // healthy. Only rebuild from R2 when ids/paths truly collapsed to a single value.
   const uniqueIds = new Set(pageEntries.map((p) => p.collectionItemId));
-  if (uniqueIds.size < Math.min(pageEntries.length, collection.length)) return true;
+  if (uniqueIds.size === 1) return true;
   const uniquePaths = new Set(pageEntries.map((p) => p.storagePath).filter(Boolean));
   if (uniquePaths.size === 1 && collection.length > 1) return true;
   return false;
@@ -501,7 +503,7 @@ async function repairAlbumRow(album, { persist, db }) {
     .maybeSingle();
 
   // Anon may not read photographers — fall back to album name only.
-  const collection = await listAlbumR2Collection(album.id, {
+  let collection = await listAlbumR2Collection(album.id, {
     id: album.photographer_id,
     display_name: photographer?.display_name || null,
     email: photographer?.email || null,
@@ -518,6 +520,52 @@ async function repairAlbumRow(album, { persist, db }) {
       cover_image_url: album.cover_image_url || null,
       warning: 'No R2 objects found for this album.',
     };
+  }
+
+  // When a catalog already exists, keep only R2 objects that belong to it or to page
+  // placements. New version retains prior R2 files for history — listing the whole
+  // album prefix would otherwise import those orphans as extra collection photos.
+  const existingPaths = new Set(
+    existingCollection.map((item) => item?.storagePath).filter(Boolean)
+  );
+  const pagePaths = new Set(
+    Object.values(existingPages)
+      .map((stored) => stored?.storagePath)
+      .filter(Boolean)
+  );
+  const pageItemIds = new Set(
+    Object.values(existingPages)
+      .map((stored) => stored?.collectionItemId)
+      .filter(Boolean)
+  );
+  if (existingPaths.size > 0 || pagePaths.size > 0 || pageItemIds.size > 0) {
+    const filtered = collection.filter(
+      (item) =>
+        (item.storagePath && (existingPaths.has(item.storagePath) || pagePaths.has(item.storagePath))) ||
+        (item.id && pageItemIds.has(item.id))
+    );
+    if (filtered.length > 0) {
+      // Prefer existing catalog rows (stable ids/sort) and fill gaps from filtered R2.
+      const byPath = new Map(filtered.map((item) => [item.storagePath, item]));
+      const merged = [];
+      const seen = new Set();
+      for (const item of existingCollection) {
+        if (!item) continue;
+        const fromR2 = item.storagePath ? byPath.get(item.storagePath) : null;
+        const next = fromR2 ? { ...item, ...fromR2, id: item.id || fromR2.id } : item;
+        const key = next.id || next.storagePath;
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        merged.push(next);
+      }
+      for (const item of filtered) {
+        const key = item.id || item.storagePath;
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        merged.push(item);
+      }
+      collection = merged;
+    }
   }
 
   const { pages, remapped } = remapPagesToCollection(existingPages, collection);

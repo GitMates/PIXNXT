@@ -386,6 +386,13 @@ export default function AlbumEditor({
     const prevLayoutPhotoCountRef = useRef(null);
     /** Block auto page-count growth while New version / slot replace adds a collection item. */
     const suppressCollectionPageGrowthRef = useRef(false);
+    /**
+     * Page growth is allowlisted: only "Add to collection" uploads may insert spreads.
+     * New version / slot replace / R2 history orphans must never grow page_count.
+     */
+    const allowCollectionPageGrowthRef = useRef(false);
+    /** Snapshot page_count around New version so accidental growth can be reverted. */
+    const pinnedPageCountRef = useRef(null);
     const albumRef = useRef(album);
     albumRef.current = album;
     const [slotMenu, setSlotMenu] = useState(null);
@@ -604,7 +611,8 @@ export default function AlbumEditor({
         });
 
         if (targetPages > currentPages) {
-            if (!collectionGrew) return albumNow;
+            // Deny-by-default: R2 history orphans / New version must not insert spreads.
+            if (!allowCollectionPageGrowthRef.current || !collectionGrew) return albumNow;
             const delta = targetPages - currentPages;
             const insertAt = getPageInsertIndex(currentPages, spreadOptsNow);
             insertAlbumStoragePages(albumId, insertAt, delta);
@@ -663,6 +671,7 @@ export default function AlbumEditor({
 
     const beginSuppressCollectionPageGrowth = useCallback(() => {
         suppressCollectionPageGrowthRef.current = true;
+        pinnedPageCountRef.current = albumRef.current?.page_count ?? null;
     }, []);
 
     const endSuppressCollectionPageGrowth = useCallback(() => {
@@ -674,6 +683,27 @@ export default function AlbumEditor({
         }
         suppressCollectionPageGrowthRef.current = false;
     }, [albumId]);
+
+    /** If New version / replace somehow grew page_count, roll it back. */
+    const revertAccidentalPageGrowth = useCallback(async () => {
+        const pinned = pinnedPageCountRef.current;
+        pinnedPageCountRef.current = null;
+        const albumNow = albumRef.current;
+        if (!albumId || !user?.id || !albumNow || pinned == null) return;
+        const current = albumNow.page_count || 0;
+        if (current <= pinned) return;
+        try {
+            const updated = await smartAlbumsService.updateAlbumPageCount(
+                user.id,
+                albumId,
+                pinned
+            );
+            onAlbumUpdate?.(updated);
+            scheduleWorkspaceRefresh();
+        } catch (err) {
+            console.warn('Could not revert accidental page growth after version upload:', err);
+        }
+    }, [albumId, onAlbumUpdate, scheduleWorkspaceRefresh, user?.id]);
 
     const syncCollectionOrderToSpreads = useCallback(async () => {
         if (!albumId || !album || !user?.id) return 0;
@@ -1503,6 +1533,7 @@ export default function AlbumEditor({
                 showToast('Upload failed. Try again.', { variant: 'error', duration: 4000 });
             } finally {
                 endSuppressCollectionPageGrowth();
+                pinnedPageCountRef.current = null;
                 setUploading(false);
             }
         },
@@ -1797,6 +1828,7 @@ export default function AlbumEditor({
         if (files.some((f) => isPdfFile(f))) {
             showToast('Converting PDF pages to images…', { variant: 'info', duration: 0 });
         }
+        allowCollectionPageGrowthRef.current = true;
         try {
             const added = await addFilesToAlbumCollection(albumId, files, {
                 photographerId: album?.photographer_id,
@@ -1826,6 +1858,7 @@ export default function AlbumEditor({
             console.error(e);
             showToast('Upload failed. Try again.', { variant: 'error', duration: 4500 });
         } finally {
+            allowCollectionPageGrowthRef.current = false;
             setUploading(false);
         }
     };
@@ -2009,6 +2042,11 @@ export default function AlbumEditor({
                 showToast('Upload failed. Try again.', { variant: 'error', duration: 4000 });
             } finally {
                 endSuppressCollectionPageGrowth();
+                if (asNewVersion) {
+                    await revertAccidentalPageGrowth();
+                } else {
+                    pinnedPageCountRef.current = null;
+                }
                 setUploading(false);
             }
         },
@@ -2023,6 +2061,7 @@ export default function AlbumEditor({
             gridSelection,
             placeCollectionItemOnSlot,
             resolveSpreadReplacementItem,
+            revertAccidentalPageGrowth,
             showToast,
             spreadOpts,
             totalPages,
