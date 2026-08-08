@@ -857,16 +857,6 @@
   border-bottom-color: #bf7b47;
 }
 
-.ae-spread-message-compose-visible {
-  margin: 8px 4px 0;
-  font-family: var(--font-sans);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #a8a29e;
-}
-
 .ae-panel-pin-subheader__spread {
   font-size: 13px;
   font-weight: 700;
@@ -926,14 +916,36 @@
 
 .ae-panel-pin-footer {
   flex-shrink: 0;
-  padding: 12px 18px 16px;
-  border-top: 1px solid #ebe8e3;
-  background: transparent;
+  padding: 12px 14px 16px;
+  border-top: 1px solid #ebeae6;
+  background: #f7f6f2;
   box-shadow: none;
 }
 
 .ae-panel-pin-footer .ae-spread-actions {
   margin-bottom: 0;
+}
+
+/* White compose card — matches mock: version bar | divider | note pill | meta */
+.ae-spread-compose-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 14px 14px 12px;
+  background: #ffffff;
+  border: 1px solid #ebeae6;
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(28, 25, 23, 0.04);
+}
+
+.ae-spread-compose-card .ae-version-history {
+  margin: 0 0 12px;
+  padding: 0 0 12px;
+  border-bottom: 1px solid #ebeae6;
+}
+
+.ae-spread-compose-card .ae-spread-message-compose {
+  margin: 0;
 }
 
 .ae-spread-message-compose {
@@ -945,7 +957,7 @@
   align-items: center;
   gap: 8px;
   background: #ffffff;
-  border: 1px solid #e2ddd6;
+  border: 1px solid #e0ddd8;
   border-radius: 999px;
   padding: 6px 6px 6px 16px;
   box-shadow: none;
@@ -967,7 +979,7 @@
   font-family: inherit;
   font-size: 13.5px;
   line-height: 1.4;
-  color: #1d1916;
+  color: #3f3a36;
   background: transparent;
   cursor: text;
   white-space: pre-wrap;
@@ -985,7 +997,7 @@
 }
 
 .ae-spread-message-compose-input::placeholder {
-  color: #9a948e;
+  color: #b0aaa4;
 }
 
 .ae-spread-message-compose-input:disabled {
@@ -997,11 +1009,11 @@
   align-self: center;
   min-width: 0;
   height: auto;
-  padding: 0 12px 0 4px;
+  padding: 0 14px 0 4px;
   border: none;
   border-radius: 0;
   background: transparent;
-  color: #9c704b;
+  color: #c4803c;
   font-size: 13px;
   font-weight: 600;
   font-family: inherit;
@@ -1012,13 +1024,23 @@
 
 .ae-spread-message-compose-post:hover:not(:disabled) {
   background: transparent;
-  color: #7a5438;
+  color: #a86c3c;
 }
 
 .ae-spread-message-compose-post:disabled {
   opacity: 1;
-  color: #c4bfb8;
+  color: #c8c4be;
   cursor: default;
+}
+
+.ae-spread-message-compose-visible {
+  margin: 10px 4px 0;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #a4a4a0;
 }
 
 .ae-spread-sent-messages {

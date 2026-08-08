@@ -598,30 +598,32 @@ export default function AlbumEditorSidebar({
                         </div>
                         {gridSelection?.mode !== 'cover' ? (
                             <div className="ae-panel-pin-footer">
-                                <SpreadVersionHistory
-                                    albumId={albumId}
-                                    replacements={currentSpreadReplacements}
-                                    currentPreviewUrl={currentSpreadPreviewUrl}
-                                    forceExpandToken={versionExpandToken}
-                                    onNewVersion={handleNewVersionUpload}
-                                    onRestore={onRestoreImageReplacement}
-                                    onDelete={(row) => {
-                                        if (!row?.id) return;
-                                        if (onRemoveImageReplacement) {
-                                            onRemoveImageReplacement(row.id);
-                                        } else {
-                                            removeImageReplacement(albumId, row.id);
-                                        }
-                                    }}
-                                />
-                                <EditorSpreadMessageCompose
-                                    albumId={albumId}
-                                    spreadIndex={currentSpreadIndex}
-                                    authorName={photographerName}
-                                    disabled={!albumId}
-                                    visibleToName={clientVisibleName}
-                                    spreadLabel={currentSpreadMetaLabel}
-                                />
+                                <div className="ae-spread-compose-card">
+                                    <SpreadVersionHistory
+                                        albumId={albumId}
+                                        replacements={currentSpreadReplacements}
+                                        currentPreviewUrl={currentSpreadPreviewUrl}
+                                        forceExpandToken={versionExpandToken}
+                                        onNewVersion={handleNewVersionUpload}
+                                        onRestore={onRestoreImageReplacement}
+                                        onDelete={(row) => {
+                                            if (!row?.id) return;
+                                            if (onRemoveImageReplacement) {
+                                                onRemoveImageReplacement(row.id);
+                                            } else {
+                                                removeImageReplacement(albumId, row.id);
+                                            }
+                                        }}
+                                    />
+                                    <EditorSpreadMessageCompose
+                                        albumId={albumId}
+                                        spreadIndex={currentSpreadIndex}
+                                        authorName={photographerName}
+                                        disabled={!albumId}
+                                        visibleToName={clientVisibleName}
+                                        spreadLabel={currentSpreadMetaLabel}
+                                    />
+                                </div>
                             </div>
                         ) : null}
                     </div>

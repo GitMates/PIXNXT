@@ -330,7 +330,7 @@ function QuietProofCard({
                             onClick={onMarkDone}
                             disabled={!unseen}
                         >
-                            {unseen ? 'Mark done' : 'Done'}
+                            {unseen ? 'Mark as done' : 'Done'}
                         </button>
                     ) : null}
                 </div>

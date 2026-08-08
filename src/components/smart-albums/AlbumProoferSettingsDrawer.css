@@ -13,8 +13,8 @@
 .theme-mono .sa-album-settings-popup {
   display: flex;
   flex-direction: column;
-  width: 320px;
-  max-height: min(80vh, 560px);
+  width: 300px;
+  max-height: min(80vh, 360px);
   background: #fff;
   border-radius: 14px;
   box-shadow:
@@ -36,6 +36,15 @@
   min-height: 0;
   overflow-y: auto;
   padding: 20px 22px 24px;
+}
+
+.theme-mono .sa-album-settings-drawer__scroll--actions-only {
+  padding: 8px 10px 12px;
+  overflow: visible;
+}
+
+.theme-mono .sa-album-settings-drawer__section--actions-only {
+  margin-bottom: 0;
 }
 
 .theme-mono .sa-album-settings-drawer__header {

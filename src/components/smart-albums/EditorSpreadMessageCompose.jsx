@@ -49,6 +49,11 @@ export default function EditorSpreadMessageCompose({
         (spreadIndex != null
             ? formatBookSpreadMetaLabel(spreadIndex, totalPages, { hasCovers })
             : 'SPREAD');
+    // Placeholder uses title case ("Spread 05") while the footer meta stays uppercase.
+    const placeholderSpread =
+        /^SPREAD\s+/i.test(spreadNum)
+            ? spreadNum.replace(/^SPREAD\s+/i, 'Spread ')
+            : spreadNum.charAt(0) + spreadNum.slice(1).toLowerCase();
 
     return (
         <div className="ae-spread-message-compose">
@@ -56,7 +61,7 @@ export default function EditorSpreadMessageCompose({
                 <textarea
                     className="ae-spread-message-compose-input"
                     rows={1}
-                    placeholder={`Add a note to ${spreadNum}…`}
+                    placeholder={`Add a note to ${placeholderSpread}…`}
                     value={draft}
                     disabled={disabled || posting}
                     onChange={(e) => setDraft(e.target.value)}

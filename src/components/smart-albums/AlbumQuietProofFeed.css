@@ -495,34 +495,38 @@
 .quiet-proof-card__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin: 14px 0 0;
+  align-items: center;
+  gap: 16px;
+  margin: 12px 0 0;
+  padding-top: 2px;
 }
 
 .quiet-proof-card__btn {
   margin: 0;
-  padding: 7px 14px;
-  border: 1px solid #e0e0e0;
-  border-radius: 999px;
-  background: #ffffff;
-  color: #555555;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #c4803c;
   font-family: inherit;
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 600;
   line-height: 1.2;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  transition: color 0.15s ease;
 }
 
 .quiet-proof-card__btn:hover:not(:disabled) {
-  background: #fafafa;
-  border-color: #d4d4d4;
-  color: #333333;
+  background: transparent;
+  border-color: transparent;
+  color: #a86c3c;
+  text-decoration: underline;
 }
 
 .quiet-proof-card__btn--done,
 .quiet-proof-card__btn:disabled {
-  color: #999999;
+  color: #c8c4be;
   cursor: default;
-  background: #ffffff;
+  background: transparent;
+  text-decoration: none;
 }

@@ -1,7 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DatePicker } from '../../components/ui/DatePicker';
-import { addFilesToAlbumCollection } from '../../components/smart-albums/albumCollection';
+import {
+    addFilesToAlbumCollection,
+    applyCollectionSortOrder,
+    getAlbumCollection,
+    isCoverWrapCollectionItem,
+} from '../../components/smart-albums/albumCollection';
 import { applyCollectionOrderToPages } from '../../components/smart-albums/albumPagePhotos';
 import { useAuth } from '../../hooks/useAuth';
 import { ensureAuthSession, isAuthExpiredError } from '../../services/auth.service';
@@ -1284,6 +1289,21 @@ const CreateAlbum = () => {
                     added,
                     slotsForCreate
                 );
+                // Persist UI order (filename / as-selected) into collection sortOrder.
+                // Without this, AlbumEditor's post-create sync re-places by upload order.
+                if (orderedItemIds.length > 0) {
+                    const coverWrapIds = getAlbumCollection(album.id)
+                        .filter(isCoverWrapCollectionItem)
+                        .map((item) => item.id)
+                        .filter(Boolean);
+                    const orderedPhotoIds = orderedItemIds.filter(
+                        (id) => !coverWrapIds.includes(id)
+                    );
+                    applyCollectionSortOrder(album.id, [
+                        ...coverWrapIds,
+                        ...orderedPhotoIds,
+                    ]);
+                }
                 const effectivePhotoCount = Math.max(
                     photoCount,
                     orderedItemIds.length,
