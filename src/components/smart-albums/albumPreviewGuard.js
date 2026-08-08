@@ -67,7 +67,14 @@ export function protectPreviewSnapshot(localPreview, existingPreview) {
     previewData.storage_bytes =
       Number(existingPreview.storage_bytes) ||
       cloudCollection.reduce((sum, item) => sum + (Number(item.size_bytes) || 0), 0);
-  } else if (localCollection.length > 0 && cloudCollection.length > localCollection.length * 2) {
+  } else if (
+    localCollection.length > 0 &&
+    !localCollection.some((item) => item?.storagePath) &&
+    cloudCollection.some((item) => item?.storagePath)
+  ) {
+    // Local catalog is URL-only / broken — recover paths from cloud. Do NOT merge when
+    // cloud is merely larger: New-version history files used to bloat cloud collection
+    // and re-inflate local page counts on every sync.
     const merged = mergeCollections(cloudCollection, localCollection);
     previewData.collection = merged;
     previewData.storage_bytes = merged.reduce(

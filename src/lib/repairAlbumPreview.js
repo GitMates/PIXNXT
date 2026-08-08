@@ -59,9 +59,12 @@ export function previewNeedsAssetRepair(previewData) {
   const pageEntries = Object.values(pages).filter(
     (stored) => stored && typeof stored === 'object' && stored.collectionItemId
   );
+  // Only treat as collapsed-id corruption when essentially every page shares one id/path.
+  // Whole-spread albums legitimately reuse the same collectionItemId on paired page keys;
+  // a looser check caused R2 rebuilds that imported New-version history files as extras.
   if (pageEntries.length > 1 && collection.length > 1) {
     const uniqueIds = new Set(pageEntries.map((p) => p.collectionItemId));
-    if (uniqueIds.size < Math.min(pageEntries.length, collection.length)) return true;
+    if (uniqueIds.size === 1) return true;
     const uniquePaths = new Set(pageEntries.map((p) => p.storagePath).filter(Boolean));
     if (uniquePaths.size === 1) return true;
   }
@@ -101,7 +104,7 @@ export function isPreviewSnapshotHealthy(previewData, { requireCollectionIfPages
   );
   if (pageEntries.length > 1 && collection.length > 1) {
     const uniqueIds = new Set(pageEntries.map((p) => p.collectionItemId));
-    if (uniqueIds.size < Math.min(pageEntries.length, collection.length)) return false;
+    if (uniqueIds.size === 1) return false;
     const uniquePaths = new Set(pageEntries.map((p) => p.storagePath).filter(Boolean));
     if (uniquePaths.size === 1) return false;
   }

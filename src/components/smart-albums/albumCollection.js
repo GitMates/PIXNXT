@@ -733,9 +733,12 @@ export async function loadAlbumAssetsFromCloud(albumId, photographerId) {
     let collection = Array.isArray(previewData?.collection) ? [...previewData.collection] : [];
     const collectionHasPaths = collection.some((item) => item?.storagePath);
 
-    // Browser R2 list as secondary fallback (may fail under CORS).
-    const shouldListR2 = collection.length === 0 || !collectionHasPaths;
+    // Only list R2 when the catalog is missing/unusable. A healthy catalog must not
+    // merge every object under the album prefix — New version keeps prior R2 files for
+    // history (retainPreviousStorage), and those orphans would inflate collectionCount
+    // and auto-insert blank spreads.
     let r2Collection = [];
+    const shouldListR2 = collection.length === 0 || !collectionHasPaths;
     if (shouldListR2) {
         r2Collection = await listR2CollectionItems(albumId, photographerId);
         if (r2Collection.length > 0) {
@@ -747,22 +750,6 @@ export async function loadAlbumAssetsFromCloud(albumId, photographerId) {
                 pages: previewData?.pages || {},
                 revision: previewData?.revision ?? collection.length,
             });
-        }
-    } else {
-        try {
-            r2Collection = await listR2CollectionItems(albumId, photographerId);
-            if (r2Collection.length > 0) {
-                const before = collection.length;
-                collection = mergeCollectionItemLists(collection, r2Collection);
-                if (collection.length > before) {
-                    hydrateAlbumPreviewData(albumId, {
-                        ...(previewData || { version: 1, pages: {} }),
-                        collection,
-                    });
-                }
-            }
-        } catch {
-            /* soft-fail */
         }
     }
 
