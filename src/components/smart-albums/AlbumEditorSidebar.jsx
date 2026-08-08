@@ -604,6 +604,8 @@ export default function AlbumEditorSidebar({
                                         replacements={currentSpreadReplacements}
                                         currentPreviewUrl={currentSpreadPreviewUrl}
                                         forceExpandToken={versionExpandToken}
+                                        authorLabel="you"
+                                        createdAt={album?.created_at || album?.updated_at || null}
                                         onNewVersion={handleNewVersionUpload}
                                         onRestore={onRestoreImageReplacement}
                                         onDelete={(row) => {

@@ -422,10 +422,18 @@ const AlbumBook = ({
     const { left: leftNum, right: rightNum } = getSpreadPages(spreadIndex, totalPages, spreadOpts);
 
     const counterLabel = useMemo(() => {
+        const total = totalSpreads;
+        const spreadWord = total === 1 ? 'spread' : 'spreads';
+        if (spreadOpts.hasCovers && spreadIndex <= 0) {
+            return `Cover · ${total} ${spreadWord}`;
+        }
+        if (isEndHalfSpreadIndex(spreadIndex, totalPages, spreadOpts)) {
+            return `Back · ${total} ${spreadWord}`;
+        }
         const n = String(spreadIndex + 1).padStart(2, '0');
-        const total = String(totalSpreads).padStart(2, '0');
-        return `${n} / ${total}`;
-    }, [spreadIndex, totalSpreads]);
+        const totalLabel = String(total).padStart(2, '0');
+        return `${n} / ${totalLabel}`;
+    }, [spreadIndex, totalSpreads, totalPages, spreadOpts]);
 
     const spreadMetaLabel = useMemo(
         () => formatBookSpreadMetaLabel(spreadIndex, totalPages, spreadOpts),
@@ -678,38 +686,49 @@ const AlbumBook = ({
         viewportHeight: bookDims?.height ?? 0,
     });
 
-    // Keep preview nav arrows outside the spread bounds (never over photos / sidebar).
+    // Keep nav arrows vertically centered on the spread (and outside its sides).
     useLayoutEffect(() => {
-        if (!previewMode) return undefined;
         const root = rootRef.current;
         if (!root) return undefined;
 
-        const NAV = 58;
-        const GAP = 12;
+        const NAV = previewMode ? 58 : 48;
+        const GAP = previewMode ? 12 : 8;
         const MIN = 4;
 
         const syncNavGutters = () => {
-            const book =
-                root.querySelector('.ab-spread-display') ||
+            const bookEl =
                 root.querySelector('.ab-spread-book-block') ||
+                root.querySelector('.ab-flipbook-wrap') ||
                 stageOuterRef.current;
-            if (!book) return;
+            if (!bookEl) return;
 
             const rootRect = root.getBoundingClientRect();
-            const bookRect = book.getBoundingClientRect();
-            if (rootRect.width < 8 || bookRect.width < 8) return;
+            const raw = bookEl.getBoundingClientRect();
+            if (rootRect.width < 8 || raw.width < 8 || raw.height < 8) return;
 
-            let prevLeft = bookRect.left - rootRect.left - NAV - GAP;
-            let nextRight = rootRect.right - bookRect.right - NAV - GAP;
-
-            // Stay outside the spread; fall back to root inset if the gutter is tight.
-            prevLeft = Math.max(MIN, Math.min(prevLeft, bookRect.left - rootRect.left - NAV - 2));
-            nextRight = Math.max(
-                MIN,
-                Math.min(nextRight, rootRect.right - bookRect.right - NAV - 2)
+            // Cover / back clips hide half the flipbook — aim at the visible half only.
+            const frontClip = root.querySelector(
+                '.ab-flipbook-wrap--front-cover-only:not(.ab-flipbook-wrap--flipping):not(.ab-flipbook-wrap--front-cover-reveal)'
+            );
+            const endClip = root.querySelector(
+                '.ab-flipbook-wrap--end-cover-only:not(.ab-flipbook-wrap--flipping):not(.ab-flipbook-wrap--end-cover-reveal)'
             );
 
-            const top = bookRect.top - rootRect.top + bookRect.height / 2;
+            let left = raw.left;
+            let right = raw.right;
+            if (frontClip) {
+                left = raw.left + raw.width / 2;
+            } else if (endClip) {
+                right = raw.left + raw.width / 2;
+            }
+
+            let prevLeft = left - rootRect.left - NAV - GAP;
+            let nextRight = rootRect.right - right - NAV - GAP;
+
+            prevLeft = Math.max(MIN, Math.min(prevLeft, left - rootRect.left - NAV - 2));
+            nextRight = Math.max(MIN, Math.min(nextRight, rootRect.right - right - NAV - 2));
+
+            const top = raw.top - rootRect.top + raw.height / 2;
             root.style.setProperty('--ab-nav-prev-inset', `${prevLeft}px`);
             root.style.setProperty('--ab-nav-next-inset', `${nextRight}px`);
             root.style.setProperty('--ab-nav-top', `${top}px`);
@@ -721,6 +740,8 @@ const AlbumBook = ({
         });
         ro.observe(root);
         if (stageOuterRef.current) ro.observe(stageOuterRef.current);
+        const bookBlock = root.querySelector('.ab-spread-book-block');
+        if (bookBlock) ro.observe(bookBlock);
         window.addEventListener('resize', syncNavGutters);
         return () => {
             ro.disconnect();
@@ -729,7 +750,15 @@ const AlbumBook = ({
             root.style.removeProperty('--ab-nav-next-inset');
             root.style.removeProperty('--ab-nav-top');
         };
-    }, [previewMode, bookDims, pageIndex, spreadMagnify.scale, spreadMagnify.active]);
+    }, [
+        previewMode,
+        bookDims,
+        pageIndex,
+        spreadIndex,
+        spreadMagnify.scale,
+        spreadMagnify.active,
+        album?.has_covers,
+    ]);
 
     const zoomPercentLabel = useMemo(
         () => `${Math.round(spreadMagnify.scale * 100)}%`,
@@ -2137,35 +2166,52 @@ const AlbumBook = ({
                         </button>
                     </div>
                     <span className="ab-spread-controls-divider" aria-hidden />
-                    <div
-                        className={`ab-need-action${needActionCount === 0 ? ' ab-need-action--clear' : ''}`}
-                        role="group"
-                        aria-label="Items needing action"
+                    {!previewMode ? (
+                        <>
+                            <div
+                                className={`ab-need-action${needActionCount === 0 ? ' ab-need-action--clear' : ''}`}
+                                role="group"
+                                aria-label="Items needing action"
+                            >
+                                <span className="ab-need-action-label">
+                                    {needActionCount > 0 ? `${needActionCount} need action` : 'All clear'}
+                                </span>
+                                <button
+                                    type="button"
+                                    className="ab-need-action-nav"
+                                    aria-label="Previous item needing action"
+                                    disabled={needActionCount === 0}
+                                    onClick={() => goToNeedAction(-1)}
+                                >
+                                    ‹
+                                </button>
+                                <button
+                                    type="button"
+                                    className="ab-need-action-nav"
+                                    aria-label="Next item needing action"
+                                    disabled={needActionCount === 0}
+                                    onClick={() => goToNeedAction(1)}
+                                >
+                                    ›
+                                </button>
+                            </div>
+                            <span className="ab-spread-controls-divider" aria-hidden />
+                        </>
+                    ) : null}
+                    <span
+                        className={`ab-page-counter${
+                            (spreadOpts.hasCovers && spreadIndex <= 0) ||
+                            isEndHalfSpreadIndex(spreadIndex, totalPages, spreadOpts)
+                                ? ' ab-page-counter--named'
+                                : ''
+                        }`}
+                        title={
+                            (spreadOpts.hasCovers && spreadIndex <= 0) ||
+                            isEndHalfSpreadIndex(spreadIndex, totalPages, spreadOpts)
+                                ? counterLabel
+                                : `Pages ${pageRangeLabel}`
+                        }
                     >
-                        <span className="ab-need-action-label">
-                            {needActionCount > 0 ? `${needActionCount} need action` : 'All clear'}
-                        </span>
-                        <button
-                            type="button"
-                            className="ab-need-action-nav"
-                            aria-label="Previous item needing action"
-                            disabled={needActionCount === 0}
-                            onClick={() => goToNeedAction(-1)}
-                        >
-                            ‹
-                        </button>
-                        <button
-                            type="button"
-                            className="ab-need-action-nav"
-                            aria-label="Next item needing action"
-                            disabled={needActionCount === 0}
-                            onClick={() => goToNeedAction(1)}
-                        >
-                            ›
-                        </button>
-                    </div>
-                    <span className="ab-spread-controls-divider" aria-hidden />
-                    <span className="ab-page-counter" title={`Pages ${pageRangeLabel}`}>
                         {counterLabel}
                     </span>
                 </div>

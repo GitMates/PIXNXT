@@ -677,6 +677,8 @@ export default function AlbumPreviewFeedbackSidebar({
                     <SpreadVersionHistory
                         albumId={albumId}
                         replacements={currentSpreadReplacements}
+                        authorLabel="you"
+                        createdAt={album?.created_at || album?.updated_at || null}
                         onNewVersion={onNewVersion}
                         onRestore={onRestoreReplacement}
                         onDelete={(row) => {

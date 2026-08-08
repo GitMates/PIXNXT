@@ -926,26 +926,33 @@
   margin-bottom: 0;
 }
 
-/* White compose card — matches mock: version bar | divider | note pill | meta */
+/* White compose card — beige version strip | note pill | meta (matches editor mock) */
 .ae-spread-compose-card {
   display: flex;
   flex-direction: column;
   gap: 0;
-  padding: 14px 14px 12px;
+  padding: 0;
+  overflow: hidden;
   background: #ffffff;
   border: 1px solid #ebeae6;
   border-radius: 14px;
-  box-shadow: 0 1px 2px rgba(28, 25, 23, 0.04);
+  box-shadow: 0 4px 18px rgba(28, 25, 23, 0.06);
 }
 
 .ae-spread-compose-card .ae-version-history {
-  margin: 0 0 12px;
-  padding: 0 0 12px;
+  margin: 0;
+  padding: 11px 14px;
   border-bottom: 1px solid #ebeae6;
+  background: #f3f1ec;
+}
+
+.ae-spread-compose-card .ae-version-history--open {
+  background: #f3f1ec;
 }
 
 .ae-spread-compose-card .ae-spread-message-compose {
   margin: 0;
+  padding: 12px 14px 12px;
 }
 
 .ae-spread-message-compose {
@@ -956,10 +963,10 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  background: #ffffff;
-  border: 1px solid #e0ddd8;
+  background: #f7f6f2;
+  border: 1px solid #e5e2dc;
   border-radius: 999px;
-  padding: 6px 6px 6px 16px;
+  padding: 5px 6px 5px 16px;
   box-shadow: none;
 }
 
@@ -1019,7 +1026,7 @@
   font-family: inherit;
   letter-spacing: 0.01em;
   cursor: pointer;
-  transition: color 0.15s ease;
+  transition: color 0.15s ease, opacity 0.15s ease;
 }
 
 .ae-spread-message-compose-post:hover:not(:disabled) {
@@ -1028,19 +1035,19 @@
 }
 
 .ae-spread-message-compose-post:disabled {
-  opacity: 1;
-  color: #c8c4be;
+  opacity: 0.55;
+  color: #c4803c;
   cursor: default;
 }
 
 .ae-spread-message-compose-visible {
-  margin: 10px 4px 0;
+  margin: 10px 2px 0;
   font-family: var(--font-sans);
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #a4a4a0;
+  color: #9c9690;
 }
 
 .ae-spread-sent-messages {
@@ -2195,11 +2202,11 @@
 }
 
 .ae-canvas-stage .ab-nav--prev {
-  left: 12px;
+  left: var(--ab-nav-prev-inset, 12px);
 }
 
 .ae-canvas-stage .ab-nav--next {
-  right: 12px;
+  right: var(--ab-nav-next-inset, 12px);
 }
 
 .ae-canvas-chrome {

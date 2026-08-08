@@ -327,7 +327,6 @@ const CreateAlbum = () => {
     const [photoCountBusy, setPhotoCountBusy] = useState(false);
     const [gridSizeBusy, setGridSizeBusy] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [createProgress, setCreateProgress] = useState(null);
     const [error, setError] = useState(null);
     const [wizardStep, setWizardStep] = useState(1);
     const coverInputRef = useRef(null);
@@ -586,10 +585,6 @@ const CreateAlbum = () => {
             includeCoverSpreads,
         ]
     );
-
-    const setProgress = (next) => {
-        setCreateProgress(next);
-    };
 
     useEffect(() => {
         if (!coverFile) {
@@ -1131,7 +1126,6 @@ const CreateAlbum = () => {
         e.preventDefault();
         if (!user) {
             setError('You must be logged in to create an album.');
-            setProgress(null);
             return;
         }
         if (!previewSlots.length) {
@@ -1142,12 +1136,6 @@ const CreateAlbum = () => {
 
         setIsSubmitting(true);
         setError(null);
-        setProgress({
-            label: 'Starting album creation…',
-            detail: null,
-            current: 0,
-            total: 0,
-        });
 
         try {
             const finalGridLayout = gridLayout;
@@ -1184,13 +1172,6 @@ const CreateAlbum = () => {
                 gridLayout: finalGridLayout,
             });
 
-            setProgress({
-                label: 'Creating album record…',
-                detail: 'Saving layout settings.',
-                current: 0,
-                total: 0,
-            });
-
             const { user: activeUser } = await ensureAuthSession();
 
             const album = await smartAlbumsService.createAlbum({
@@ -1221,12 +1202,6 @@ const CreateAlbum = () => {
                 };
 
                 if (coverFile) {
-                    setProgress({
-                        label: 'Uploading cover image…',
-                        detail: 'Saving book wrap to your album.',
-                        current: 0,
-                        total: 1,
-                    });
                     await addFilesToAlbumCollection(album.id, [coverFile], {
                         photographerId: activeUser.id,
                         skipDuplicateCheck: true,
@@ -1245,45 +1220,8 @@ const CreateAlbum = () => {
                         skipDuplicateCheck: true,
                         album: uploadAlbumMeta,
                         compressionTarget: getAlbumUploadPixelTarget(uploadAlbumMeta),
-                        onProgress: ({ phase, message, current, total }) => {
-                            if (phase === 'preparing') {
-                                setProgress({
-                                    label: message || 'Preparing photos…',
-                                    detail: 'Reading images and PDF pages.',
-                                    current: current ?? 0,
-                                    total: total ?? photoFiles.length,
-                                });
-                                return;
-                            }
-                            if (phase === 'optimizing') {
-                                setProgress({
-                                    label: message || 'Optimizing photos…',
-                                    detail: 'Compressing large images for faster upload.',
-                                    current: current ?? 0,
-                                    total: total ?? 0,
-                                });
-                                return;
-                            }
-                            if (phase === 'uploading') {
-                                setProgress({
-                                    label: message || 'Uploading photos…',
-                                    detail: 'Saving files to your album collection.',
-                                    current: current ?? 0,
-                                    total: total ?? 0,
-                                });
-                            }
-                        },
                     });
                 }
-
-                setProgress({
-                    label: 'Placing photos on spreads…',
-                    detail: hasCoverImage
-                        ? 'Setting cover and auto-filling inner pages.'
-                        : 'Auto-filling inner pages from your uploads.',
-                    current: 0,
-                    total: 0,
-                });
 
                 const uploadedCount = added.filter((item) => item?.id).length;
                 const orderedItemIds = collectionItemIdsForPreviewSlots(
@@ -1346,13 +1284,6 @@ const CreateAlbum = () => {
                 }
             }
 
-            setProgress({
-                label: 'Opening album editor…',
-                detail: 'Almost done.',
-                current: 0,
-                total: 0,
-            });
-
             const { user: syncUser } = await ensureAuthSession();
             let synced = await smartAlbumsService.syncAlbumPreviewData(syncUser.id, album.id);
 
@@ -1394,7 +1325,6 @@ const CreateAlbum = () => {
                     ? 'Your session has expired. Please sign in again.'
                     : err.message || 'Failed to create album. Please try again.'
             );
-            setProgress(null);
         } finally {
             setIsSubmitting(false);
         }
@@ -1879,44 +1809,6 @@ const CreateAlbum = () => {
                                         )}
                                     </div>
                                 </div>
-
-                                {createProgress && (
-                                    <div className="sa-create-progress" role="status" aria-live="polite">
-                                        <div className="sa-create-progress-head">
-                                            <span className="sa-create-progress-spinner" aria-hidden />
-                                            <div>
-                                                <p className="sa-create-progress-label">{createProgress.label}</p>
-                                                {createProgress.detail && (
-                                                    <p className="sa-create-progress-detail">
-                                                        {createProgress.detail}
-                                                    </p>
-                                                )}
-                                            </div>
-                                        </div>
-                                        {createProgress.total > 0 && (
-                                            <div
-                                                className="sa-create-progress-track"
-                                                role="progressbar"
-                                                aria-valuemin={0}
-                                                aria-valuemax={createProgress.total}
-                                                aria-valuenow={createProgress.current}
-                                            >
-                                                <span
-                                                    className="sa-create-progress-fill"
-                                                    style={{
-                                                        width: `${Math.min(
-                                                            100,
-                                                            Math.round(
-                                                                (createProgress.current / createProgress.total) * 100
-                                                            )
-                                                        )}%`,
-                                                    }}
-                                                />
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-
                                 </div>
 
                                 <div className="sa-wizard-footer">
@@ -1926,7 +1818,7 @@ const CreateAlbum = () => {
                                             className="cc-submit-btn"
                                             disabled={!canCreate}
                                         >
-                                            {isSubmitting ? 'Creating…' : 'Create album'}
+                                            {isSubmitting ? 'Album is creating…' : 'Create album'}
                                         </button>
                                         <button
                                             type="button"

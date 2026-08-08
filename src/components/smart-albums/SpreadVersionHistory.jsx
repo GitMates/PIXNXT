@@ -19,6 +19,22 @@ function formatHistoryWhen(iso) {
     return `${day} ${mon} ${time}`;
 }
 
+/** Compact bar date: "6 Aug" */
+function formatBarDate(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    return `${d.getDate()} ${d.toLocaleString([], { month: 'short' })}`;
+}
+
+/** Collapsed bar copy: "Original · you · 6 Aug" */
+function formatBarSummary({ label, who = 'you', when = null }) {
+    const parts = [label, who].filter(Boolean);
+    const date = formatBarDate(when);
+    if (date) parts.push(date);
+    return parts.join(' · ');
+}
+
 function VersionThumb({
     albumId,
     url,
@@ -59,6 +75,8 @@ export default function SpreadVersionHistory({
     onRestore = null,
     onDelete = null,
     forceExpandToken = 0,
+    authorLabel = 'you',
+    createdAt = null,
 }) {
     const [expanded, setExpanded] = useState(false);
     const rows = useMemo(() => sortSpreadReplacements(replacements), [replacements]);
@@ -127,20 +145,24 @@ export default function SpreadVersionHistory({
     // Nothing to show until there is a photo or a way to upload a version.
     if (!rows.length && !livePreviewUrl && !onNewVersion) return null;
 
-    const summary = latest
+    const summaryLabel = latest
         ? latest.note ||
           latest.slotLabel ||
-          (latest.whole ? 'Updated spread photo' : 'Updated photo')
-        : 'Original photos';
-    const truncated =
-        summary.length > 28 ? `${summary.slice(0, 26).trimEnd()}…` : summary;
+          (latest.whole ? 'Updated spread' : 'Updated photo')
+        : 'Original';
+    const summaryWhen = latest?.createdAt || createdAt || null;
+    const summary = formatBarSummary({
+        label: summaryLabel,
+        who: authorLabel,
+        when: summaryWhen,
+    });
 
     return (
         <div className={`ae-version-history${expanded ? ' ae-version-history--open' : ''}`}>
             <div className="ae-version-history__bar">
                 <span className="ae-version-history__badge">v{currentVersion}</span>
                 <span className="ae-version-history__summary" title={summary}>
-                    {truncated}
+                    {summary}
                 </span>
                 <div className="ae-version-history__actions">
                     <button
@@ -148,9 +170,7 @@ export default function SpreadVersionHistory({
                         className="ae-version-history__link"
                         onClick={() => setExpanded((v) => !v)}
                     >
-                        {expanded
-                            ? 'Hide history'
-                            : `History (${Math.max(1, historyEntries.length)})`}
+                        {expanded ? 'Hide history' : 'History'}
                     </button>
                     {onNewVersion ? (
                         <button

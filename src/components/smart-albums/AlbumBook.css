@@ -675,7 +675,7 @@
 .ab-cover-leather-canvas.ab-cover-leather--flat {
   box-shadow:
     0 18px 40px rgba(0, 0, 0, 0.16),
-    0 6px 14px rgba(0, 0, 0, 0.08);
+  0 6px 14px rgba(0, 0, 0, 0.08);
   transform: none;
   border-radius: 14px;
 }
@@ -686,8 +686,31 @@
   background-color: var(--ab-leather-base, #f0ebe0);
 }
 
-.ab-flipbook-wrap--front-cover-only .ab-cover-leather--flat {
-  border-radius: 14px;
+/*
+ * Flipbook covers: fill the page flush. Nested radius + CSS filter on a white
+ * hard-page background paints a light fringe around the leather edge.
+ * The book shell already provides radius + drop shadow.
+ */
+.ab-html-flipbook .ab-cover-leather-canvas.ab-cover-leather--flat,
+.ab-flipbook-wrap--front-cover-only .ab-cover-leather--flat,
+.ab-flipbook-wrap--end-cover-only .ab-cover-leather--flat {
+  border-radius: 0;
+  box-shadow: none;
+  filter: none;
+}
+
+.ab-html-flipbook .stf__item:has(.ab-cover-leather--flat),
+.ab-html-flipbook .ab-flip-page:has(.ab-cover-leather--flat),
+.ab-html-flipbook .ab-flip-page:has(.ab-cover-leather--flat) .ab-page-empty {
+  background: transparent !important;
+}
+
+.ab-html-flipbook .stf__item.--hard:has(.ab-cover-leather--flat) {
+  background: transparent !important;
+}
+
+.ab-html-flipbook .ab-flip-page:has(.ab-cover-leather--flat) {
+  overflow: hidden;
 }
 
 .ab-cover-text-message--leather {
@@ -1251,7 +1274,7 @@
 
 .ab-nav {
   position: absolute;
-  top: 50%;
+  top: var(--ab-nav-top, 50%);
   transform: translateY(-50%);
   width: 48px;
   height: 48px;
@@ -1270,7 +1293,7 @@
   justify-content: center;
   color: #555;
   z-index: 50;
-  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s, top 0.18s ease, left 0.18s ease, right 0.18s ease;
 }
 
 .ab-nav:hover:not(:disabled) {
@@ -1293,12 +1316,12 @@
 }
 
 .ab-nav--prev {
-  left: 4px;
+  left: var(--ab-nav-prev-inset, 4px);
   z-index: 120;
 }
 
 .ab-nav--next {
-  right: 4px;
+  right: var(--ab-nav-next-inset, 4px);
   z-index: 120;
 }
 
@@ -1544,6 +1567,14 @@
   font-size: 14px;
   font-weight: 600;
   color: #2f2f2f;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.ab-spread-controls--preview .ab-page-counter--named,
+.ab-spread-controls--toolbar .ab-page-counter--named {
+  color: #857f7b;
+  font-weight: 600;
   letter-spacing: 0.01em;
 }
 
