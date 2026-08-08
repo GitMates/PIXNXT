@@ -1461,6 +1461,52 @@ body.dark-theme .ae-page .ae-panel-pin-subheader__all {
 
 body.dark-theme .ae-page .ae-panel-pin-footer {
   border-top: 1px solid #333333 !important;
+  background: #141414 !important;
+}
+
+body.dark-theme .ae-page .ae-spread-compose-card {
+  background: #1c1c1c !important;
+  border-color: #333333 !important;
+  box-shadow: none !important;
+}
+
+body.dark-theme .ae-page .ae-spread-compose-card .ae-version-history,
+body.dark-theme .ae-page .ae-version-history {
+  border-bottom-color: #333333 !important;
+}
+
+body.dark-theme .ae-page .ae-version-history__badge {
+  background: #2a2740 !important;
+  color: #c4b5fd !important;
+}
+
+body.dark-theme .ae-page .ae-version-history__summary {
+  color: #8a8580 !important;
+}
+
+body.dark-theme .ae-page .ae-version-history__link {
+  color: #a8a29e !important;
+}
+
+body.dark-theme .ae-page .ae-version-history__link--accent {
+  color: #c4803c !important;
+}
+
+body.dark-theme .ae-page .ae-spread-message-compose-box {
+  background: #1c1c1c !important;
+  border-color: #3a3a3a !important;
+}
+
+body.dark-theme .ae-page .ae-spread-message-compose-post {
+  color: #c4803c !important;
+}
+
+body.dark-theme .ae-page .ae-spread-message-compose-post:disabled {
+  color: #5c5652 !important;
+}
+
+body.dark-theme .ae-page .ae-spread-message-compose-visible {
+  color: #6b6560 !important;
 }
 
 body.dark-theme .ae-page .ae-nav-rail-btn:hover:not(.ae-nav-rail-btn--active) {
@@ -1635,27 +1681,28 @@ body.dark-theme .quiet-proof-card__reply-input:focus {
 }
 
 body.dark-theme .quiet-proof-card__btn {
-  background: #ffffff !important;
-  border-color: #ffffff !important;
-  color: #111111 !important;
+  background: transparent !important;
+  border: 0 !important;
+  color: #d08552 !important;
 }
 
 body.dark-theme .quiet-proof-card__btn--done,
 body.dark-theme .quiet-proof-card__btn:disabled {
   background: transparent !important;
-  border-color: #333333 !important;
-  color: #c8c4be !important;
+  border: 0 !important;
+  color: #6b6560 !important;
 }
 
 body.dark-theme .quiet-proof-card__btn:hover:not(:disabled) {
-  background: #e8e8e8 !important;
-  color: #111111 !important;
+  background: transparent !important;
+  color: #e0a070 !important;
+  text-decoration: underline;
 }
 
 body.dark-theme .quiet-proof-card__btn--done:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.06) !important;
-  border-color: #555555 !important;
-  color: #ffffff !important;
+  background: transparent !important;
+  border: 0 !important;
+  color: #6b6560 !important;
 }
 
 /* Collection / panels inside sidebar */

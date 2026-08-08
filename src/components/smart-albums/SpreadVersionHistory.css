@@ -1,14 +1,16 @@
+/* Version history + compose card — colors sampled from editor mock. */
 .ae-version-history {
   flex-shrink: 0;
-  margin: 0 0 10px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: #f7f5f1;
-  border: 1px solid rgba(28, 25, 23, 0.06);
+  margin: 0;
+  padding: 0 0 12px;
+  border: 0;
+  border-bottom: 1px solid #ebeae6;
+  border-radius: 0;
+  background: transparent;
 }
 
 .ae-version-history--open {
-  background: #faf9f6;
+  background: transparent;
 }
 
 .ae-version-history__bar {
@@ -16,6 +18,7 @@
   align-items: center;
   gap: 8px;
   min-width: 0;
+  padding: 0;
 }
 
 .ae-version-history__badge {
@@ -25,14 +28,15 @@
   justify-content: center;
   min-width: 28px;
   height: 22px;
-  padding: 0 7px;
+  padding: 0 8px;
   border-radius: 999px;
-  background: #ede9fe;
-  color: #5b21b6;
+  background: #efedf5;
+  color: #585070;
   font-family: var(--font-sans);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.02em;
+  line-height: 1;
 }
 
 .ae-version-history__summary {
@@ -42,15 +46,15 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font-family: var(--font-sans);
-  font-size: 12px;
-  font-weight: 500;
-  color: #a8a29e;
+  font-size: 12.5px;
+  font-weight: 400;
+  color: #a4a4a0;
 }
 
 .ae-version-history__actions {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   flex-shrink: 0;
   margin-left: auto;
 }
@@ -62,29 +66,30 @@
   padding: 0;
   margin: 0;
   font-family: var(--font-sans);
-  font-size: 12px;
-  font-weight: 600;
-  color: #857f7b;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #847c78;
   cursor: pointer;
   white-space: nowrap;
 }
 
 .ae-version-history__link:hover {
-  color: #44403c;
+  color: #5c5652;
   text-decoration: underline;
 }
 
 .ae-version-history__link--accent {
-  color: #9c704b;
+  color: #c4803c;
+  font-weight: 600;
 }
 
 .ae-version-history__link--accent:hover {
-  color: #7a5438;
+  color: #a86c3c;
 }
 
 .ae-version-history__list {
   list-style: none;
-  margin: 12px 0 0;
+  margin: 10px 0 0;
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -95,9 +100,15 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 0;
-  border-top: 1px solid rgba(28, 25, 23, 0.06);
+  padding: 10px 0 0;
+  border-top: 0;
   min-width: 0;
+}
+
+.ae-version-history__row + .ae-version-history__row {
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid #ebeae6;
 }
 
 .ae-version-history__thumb {
@@ -112,13 +123,12 @@
 }
 
 .ae-version-history__thumb--current {
-  border-color: #7c3aed;
+  border-color: #585070;
 }
 
 .ae-version-history__thumb img {
   width: 100%;
   height: 100%;
-  /* Spreads are wide diptychs — contain keeps both pages legible */
   object-fit: contain;
   display: block;
   background: #e8e6e0;
@@ -144,19 +154,19 @@
   font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 500;
-  color: #57534e;
+  color: #847c78;
 }
 
 .ae-version-history__label strong {
   font-weight: 700;
-  color: #1d1916;
+  color: #3f3a36;
 }
 
 .ae-version-history__when {
   font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 400;
-  color: #a8a29e;
+  color: #a4a4a0;
   white-space: nowrap;
 }
 
@@ -166,4 +176,15 @@
   gap: 10px;
   flex-shrink: 0;
   margin-left: auto;
+}
+
+.ae-version-history__row-actions .ae-version-history__link--accent,
+.ae-version-history__row-actions .ae-version-history__link {
+  color: #c4803c;
+  font-weight: 600;
+}
+
+.ae-version-history__row-actions .ae-version-history__link:last-child {
+  color: #847c78;
+  font-weight: 500;
 }

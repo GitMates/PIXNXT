@@ -33,8 +33,8 @@ export default function AlbumSettingsSheet({
 
     // Calculate position from anchor (3-dot button rect)
     const getPopupStyle = () => {
-        const popupW = 320;
-        const popupH = 540;
+        const popupW = 300;
+        const popupH = 320;
         const W = window.innerWidth;
         const H = window.innerHeight;
 
