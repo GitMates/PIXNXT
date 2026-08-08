@@ -53,7 +53,6 @@ export default function AlbumEditorSettingsPanel({
     const [sendReminders, setSendReminders] = useState(false);
 
     const [allowComments, setAllowComments] = useState(true);
-    const [allowSwaps, setAllowSwaps] = useState(true);
     const feedbackLocked = isAlbumClientApproved(album, albumId);
 
     const saveTimerRef = useRef(null);
@@ -92,7 +91,6 @@ export default function AlbumEditorSettingsPanel({
 
                 setSendReminders(proofer.sendReminderEmails);
                 setAllowComments(locked ? false : album?.comments_enabled !== false);
-                setAllowSwaps(locked ? false : album?.messages_enabled !== false);
                 skipSaveRef.current = true;
             } catch (err) {
                 console.error(err);
@@ -110,19 +108,16 @@ export default function AlbumEditorSettingsPanel({
         if (loading || !album) return;
         if (isAlbumClientApproved(album, albumId)) {
             setAllowComments(false);
-            setAllowSwaps(false);
             setAllowExternal(false);
             setAllowVoice(false);
             return;
         }
         setAllowComments(album.comments_enabled !== false);
-        setAllowSwaps(album.messages_enabled !== false);
     }, [
         loading,
         album,
         albumId,
         album?.comments_enabled,
-        album?.messages_enabled,
         album?.client_approved_at,
     ]);
 
@@ -150,7 +145,7 @@ export default function AlbumEditorSettingsPanel({
 
             const clientPatch = {
                 comments_enabled: allowComments,
-                messages_enabled: allowSwaps,
+                messages_enabled: true,
             };
 
             await smartAlbumProoferSettingsService.saveAlbumSettings(
@@ -192,7 +187,6 @@ export default function AlbumEditorSettingsPanel({
         approvalPin,
         sendReminders,
         allowComments,
-        allowSwaps,
         onAlbumUpdated,
     ]);
 
@@ -219,7 +213,6 @@ export default function AlbumEditorSettingsPanel({
         approvalPin,
         sendReminders,
         allowComments,
-        allowSwaps,
         persist,
     ]);
 
@@ -318,18 +311,6 @@ export default function AlbumEditorSettingsPanel({
                         </div>
                     ) : null}
 
-                    <SettingRow
-                        title="Allow swap requests"
-                        description="Clients can ask for a photo to be replaced. Unlimited at launch."
-                        control={
-                            <SettingsToggle
-                                on={allowSwaps}
-                                disabled={feedbackLocked}
-                                onChange={() => setAllowSwaps((v) => !v)}
-                                label="Allow swap requests"
-                            />
-                        }
-                    />
                 </section>
 
                 <section className="ae-settings-section">

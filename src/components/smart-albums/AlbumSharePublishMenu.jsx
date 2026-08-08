@@ -46,7 +46,7 @@ const DRAFT_ACCESS_OPTIONS = [
 const SHARE_CHANNELS = [
     { id: 'whatsapp', label: 'WhatsApp' },
     { id: 'email', label: 'Email' },
-    { id: 'copy', label: 'Copy link' },
+    { id: 'copy', label: 'Copy' },
 ];
 
 function getPublishMode(album) {
@@ -128,13 +128,18 @@ function getPauseClientCopy(album, identity = null) {
     };
 }
 
-function buildDefaultShareMessage(album, displayUrl, { pin = '', maxFreeSwaps = 5 } = {}) {
+function buildDefaultShareMessage(album, displayUrl, { pin = '', approvalPin = '', maxFreeSwaps = 5 } = {}) {
     const name = firstNameFromAlbum(album);
     const lines = [`Hi ${name} — your album proof is ready to review.`, '', String(displayUrl || '').trim()];
 
     const pinText = String(pin || '').trim();
     if (pinText) {
         lines.push(`Access PIN: ${pinText}`);
+    }
+
+    const approvalPinText = String(approvalPin || '').trim();
+    if (approvalPinText) {
+        lines.push(`Approval PIN: ${approvalPinText}`);
     }
 
     lines.push('');
@@ -191,6 +196,7 @@ export default function AlbumSharePublishMenu({
         commentCount: 0,
         openedAt: null,
     });
+    const [approvalPin, setApprovalPin] = useState('');
     const messageRef = useRef(null);
 
     const [accessLevel, setAccessLevel] = useState('public');
@@ -267,6 +273,7 @@ export default function AlbumSharePublishMenu({
                 setAccessLevel(nextLevel);
                 setAlbumPassword(proofer.albumPassword || '');
                 setPrivateShareToken(proofer.privateShareToken || '');
+                setApprovalPin(proofer.approvalPin || '');
                 setMaxFreeSwaps(
                     Number.isFinite(Number(proofer.maxFreeSwaps))
                         ? Number(proofer.maxFreeSwaps)
@@ -287,6 +294,7 @@ export default function AlbumSharePublishMenu({
                     setShareMessage(
                         buildDefaultShareMessage(album, url, {
                             pin,
+                            approvalPin: proofer.approvalPin || '',
                             maxFreeSwaps: proofer.maxFreeSwaps,
                         })
                     );
@@ -312,9 +320,13 @@ export default function AlbumSharePublishMenu({
         if (!open || messageTouchedRef.current || !shareDisplayUrl) return;
         const pin = accessLevel === 'password' ? String(albumPassword || '').trim() : '';
         setShareMessage(
-            buildDefaultShareMessage(album, shareDisplayUrl, { pin, maxFreeSwaps })
+            buildDefaultShareMessage(album, shareDisplayUrl, {
+                pin,
+                approvalPin,
+                maxFreeSwaps,
+            })
         );
-    }, [open, album, shareDisplayUrl, accessLevel, albumPassword, maxFreeSwaps]);
+    }, [open, album, shareDisplayUrl, accessLevel, albumPassword, approvalPin, maxFreeSwaps]);
 
     useEffect(() => {
         if (!open) return;
@@ -487,8 +499,21 @@ export default function AlbumSharePublishMenu({
                 <strong>You</strong> press send — nothing goes out automatically.
             </>
         ) : (
-            'Copies the client link to your clipboard.'
+            'Copies the current share message to your clipboard.'
         );
+
+    const handleCopyShareMessage = async () => {
+        await flushPersist();
+        try {
+            await navigator.clipboard.writeText(shareMessage);
+            setCopied(true);
+            showToast?.('Message copied to clipboard');
+            setTimeout(() => setCopied(false), 2000);
+        } catch (err) {
+            console.error(err);
+            showToast?.('Could not copy message.', { variant: 'error', duration: 3500 });
+        }
+    };
 
     const handleCopyLink = async () => {
         await flushPersist();
@@ -527,7 +552,7 @@ export default function AlbumSharePublishMenu({
             );
             return;
         }
-        void handleCopyLink();
+        void handleCopyShareMessage();
     };
 
     const handlePublishAndShare = async () => {

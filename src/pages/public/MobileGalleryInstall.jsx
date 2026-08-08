@@ -59,16 +59,16 @@ function InstallCallout({ showCopyLink, installUrl, isIos, isAndroid }) {
         <>
           <p className="mg-install-callout-label">Browser not supported</p>
           <p className="mg-install-callout-text">
-            Tap the &ldquo;Copy Link&rdquo; button below and open this page directly in the{' '}
+            Tap the &ldquo;Copy&rdquo; button below and open this page directly in the{' '}
             <strong>Safari browser app</strong>.
           </p>
           <button
             type="button"
             className={`mg-install-copy-btn${copied ? ' mg-install-copy-btn--copied' : ''}`}
             onClick={handleCopy}
-            aria-label={copied ? 'Copied!' : 'Copy link'}
+            aria-label={copied ? 'Copied!' : 'Copy'}
           >
-            {copied ? 'Copied!' : 'Copy Link'}
+            {copied ? 'Copied!' : 'Copy'}
           </button>
         </>
       ) : (
