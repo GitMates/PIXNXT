@@ -2589,162 +2589,215 @@ body.dark-theme .ae-cover-spine-toggle__knob {
    Create Album wizard
    ════════════════════════════════════════════════════════════════ */
 
-body.dark-theme .sa-create-page {
-  --sa-bg: #0f0f0f;
-  --sa-surface: #1a1a1a;
-  --sa-inset: #141414;
-  --sa-text: #ffffff;
-  --sa-muted: #a89f94;
-  --sa-line: #333333;
-  --sa-neu-light: transparent;
-  --sa-neu-dark: transparent;
-  --sa-accent: #d08552;
-  background: #0f0f0f !important;
-  color: #c8c4be;
+body.dark-theme .sa-create-wizard-page.sa-create-page {
+  --sa-bg: #f7f6f2;
+  --sa-surface: #ffffff;
+  --sa-inset: #f2f2f0;
+  --sa-text: #1d1916;
+  --sa-muted: #857f7b;
+  --sa-line: #e5e2dc;
+  --sa-neu-light: rgba(255,255,255,0.7);
+  --sa-neu-dark: rgba(28,25,23,0.04);
+  --sa-accent: #9c704b;
+  --sa-accent-text: #9c704b;
+  --sa-wizard-canvas: #f7f6f2;
+  --sa-wizard-input-bg: #f2f2f0;
+  --sa-wizard-border: #e5e2dc;
+  --sa-wizard-label: #857f7b;
+  --sa-wizard-ink: #1d1916;
+  background: #f7f6f2 !important;
+  color: #44403c !important;
 }
 
-body.dark-theme .sa-create-page .cc-submit-btn,
-body.dark-theme .sa-create-page .sa-wizard-card .sa-wizard-actions .cc-submit-btn {
+body.dark-theme .sa-create-wizard-page .cc-submit-btn,
+body.dark-theme .sa-create-wizard-page .sa-wizard-card .sa-wizard-actions .cc-submit-btn {
+  background: #1d1916 !important;
+  color: #ffffff !important;
+  border-color: #1d1916 !important;
+}
+
+body.dark-theme .sa-create-wizard-page .cc-submit-btn:hover:not(:disabled),
+body.dark-theme .sa-create-wizard-page .sa-wizard-card .sa-wizard-actions .cc-submit-btn:hover:not(:disabled) {
+  background: #44403c !important;
+  color: #ffffff !important;
+}
+
+body.dark-theme .sa-create-wizard-page .cc-cancel-btn,
+body.dark-theme .sa-create-wizard-page .sa-wizard-card .sa-wizard-actions .cc-cancel-btn {
+  color: #857f7b !important;
+}
+
+body.dark-theme .sa-create-wizard-page .sa-name-suggest-menu {
   background: #ffffff !important;
-  color: #111111 !important;
-  border-color: #ffffff !important;
+  border: 1px solid #e5e2dc !important;
+  box-shadow: 0 12px 32px rgba(28, 25, 23, 0.08) !important;
 }
 
-body.dark-theme .sa-create-page .cc-submit-btn:hover:not(:disabled),
-body.dark-theme .sa-create-page .sa-wizard-card .sa-wizard-actions .cc-submit-btn:hover:not(:disabled) {
-  background: #e8e8e8 !important;
-  color: #111111 !important;
+body.dark-theme .sa-create-wizard-page .sa-name-suggest-option {
+  color: #1d1916 !important;
 }
 
-body.dark-theme .sa-create-page .cc-cancel-btn,
-body.dark-theme .sa-create-page .sa-wizard-card .sa-wizard-actions .cc-cancel-btn {
-  color: #a89f94 !important;
+body.dark-theme .sa-create-wizard-page .sa-name-suggest-option:hover,
+body.dark-theme .sa-create-wizard-page .sa-name-suggest-option--active {
+  background: rgba(156, 112, 75, 0.08) !important;
 }
 
-body.dark-theme .sa-name-suggest-menu {
-  background: #1a1a1a !important;
-  border: 1px solid #333333 !important;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45) !important;
-}
-
-body.dark-theme .sa-name-suggest-option {
-  color: #f1f1f1 !important;
-}
-
-body.dark-theme .sa-name-suggest-option:hover,
-body.dark-theme .sa-name-suggest-option--active {
-  background: rgba(208, 133, 82, 0.14) !important;
-}
-
-body.dark-theme .sa-wizard-cover-block,
-body.dark-theme .sa-wizard-spreads-block,
-body.dark-theme .sa-create-page .sa-wizard-card,
-body.dark-theme .sa-wizard-card,
-body.dark-theme .sa-wizard-fields,
-body.dark-theme .sa-preview-card {
-  background: #1a1a1a !important;
-  border-color: #333333 !important;
+body.dark-theme .sa-create-wizard-page .sa-wizard-cover-block,
+body.dark-theme .sa-create-wizard-page .sa-wizard-spreads-block,
+body.dark-theme .sa-create-wizard-page .sa-wizard-card,
+body.dark-theme .sa-create-wizard-page .sa-wizard-fields,
+body.dark-theme .sa-create-wizard-page .sa-preview-card {
+  background: #ffffff !important;
+  border-color: #e5e2dc !important;
   box-shadow: none !important;
 }
 
-body.dark-theme .sa-wizard-card-intro h2,
-body.dark-theme .sa-wizard-title,
-body.dark-theme .sa-create-page .sa-wizard-title {
-  color: #ffffff !important;
+body.dark-theme .sa-create-wizard-page .sa-wizard-card-intro h2,
+body.dark-theme .sa-create-wizard-page .sa-wizard-title {
+  color: #1d1916 !important;
 }
 
-body.dark-theme .sa-wizard-card-intro .sa-create-kicker,
-body.dark-theme .sa-create-kicker,
-body.dark-theme .sa-wizard-step-label {
-  color: #a89f94 !important;
+body.dark-theme .sa-create-wizard-page .sa-wizard-card-intro .sa-create-kicker,
+body.dark-theme .sa-create-wizard-page .sa-create-kicker,
+body.dark-theme .sa-create-wizard-page .sa-wizard-step-label {
+  color: #857f7b !important;
 }
 
-body.dark-theme .sa-create-page .sa-wizard-fields .cc-input,
-body.dark-theme .sa-create-page .sa-wizard-fields .dp-input-field {
-  background: #141414 !important;
-  border-color: #333333 !important;
-  color: #f1f1f1 !important;
+body.dark-theme .sa-create-wizard-page .sa-wizard-fields .cc-input,
+body.dark-theme .sa-create-wizard-page .sa-wizard-fields .dp-input-field {
+  background: #f2f2f0 !important;
+  border: none !important;
+  color: #1d1916 !important;
 }
 
-body.dark-theme .sa-create-page .cc-dropzone,
-body.dark-theme .sa-create-page .sa-upload-zone,
-body.dark-theme .sa-create-page .sa-upload-card,
-body.dark-theme .sa-upload-card {
-  background: #141414 !important;
-  border: 1.5px dashed #333333 !important;
-  color: #c8c4be !important;
+body.dark-theme .sa-create-wizard-page .cc-dropzone,
+body.dark-theme .sa-create-wizard-page .sa-upload-zone,
+body.dark-theme .sa-create-wizard-page .sa-upload-card {
+  background: #f2f2f0 !important;
+  border: 1.5px dashed #e5e2dc !important;
+  color: #44403c !important;
 }
 
-body.dark-theme .sa-upload-card:hover,
-body.dark-theme .sa-upload-card--drop-active {
-  background: #1a1a1a !important;
-  border-color: #d08552 !important;
-  color: #f1f1f1 !important;
+body.dark-theme .sa-create-wizard-page .sa-upload-card:hover,
+body.dark-theme .sa-create-wizard-page .sa-upload-card--drop-active {
+  background: #ffffff !important;
+  border-color: #9c704b !important;
+  color: #1d1916 !important;
 }
 
-body.dark-theme .sa-wizard-error {
-  background: rgba(196, 122, 114, 0.12) !important;
-  border-color: rgba(196, 122, 114, 0.35) !important;
-  color: #e8a39c !important;
+body.dark-theme .sa-create-wizard-page .sa-wizard-error {
+  background: #fef2f2 !important;
+  border-color: #fecaca !important;
+  color: #b91c1c !important;
 }
 
-body.dark-theme .sa-filmstrip-tile,
-body.dark-theme .sa-filmstrip-ph {
-  background: #1a1a1a !important;
+body.dark-theme .sa-create-wizard-page .sa-filmstrip-tile,
+body.dark-theme .sa-create-wizard-page .sa-filmstrip-ph {
+  background: #f2f2f0 !important;
 }
 
-body.dark-theme .sa-filmstrip-tile--active {
-  border-color: #d08552 !important;
+body.dark-theme .sa-create-wizard-page .sa-filmstrip-tile--active {
+  border-color: #9c704b !important;
 }
 
-body.dark-theme .sa-spread-nav {
-  background: #1a1a1a !important;
-  border-color: #333333 !important;
+body.dark-theme .sa-create-wizard-page .sa-spread-nav {
+  background: #ffffff !important;
+  border-color: #e5e2dc !important;
   box-shadow: none !important;
 }
 
-body.dark-theme .sa-spread-nav::before {
-  border-color: #f1f1f1 !important;
+body.dark-theme .sa-create-wizard-page .sa-spread-nav::before {
+  border-color: #1d1916 !important;
 }
 
-body.dark-theme .sa-preview-card figcaption span {
-  color: #ffffff !important;
+body.dark-theme .sa-create-wizard-page .sa-preview-card figcaption span {
+  color: #1d1916 !important;
 }
 
-body.dark-theme .sa-preview-card figcaption small {
-  color: #a89f94 !important;
+body.dark-theme .sa-create-wizard-page .sa-preview-card figcaption small {
+  color: #857f7b !important;
 }
 
 body.dark-theme .sa-create-wizard-page .sa-upload-more,
 body.dark-theme .sa-create-wizard-page .sa-upload-clear {
-  color: #d08552 !important;
+  color: #9c704b !important;
 }
 
-body.dark-theme .sa-create-progress {
-  background: #141414 !important;
-  border: 1px solid #333333 !important;
+body.dark-theme .sa-create-wizard-page .sa-create-progress {
+  background: #ffffff !important;
+  border: 1px solid #e5e2dc !important;
   box-shadow: none !important;
 }
 
-body.dark-theme .sa-create-progress-label {
-  color: #ffffff !important;
+body.dark-theme .sa-create-wizard-page .sa-create-progress-label {
+  color: #1d1916 !important;
 }
 
-body.dark-theme .sa-create-progress-detail {
-  color: #a89f94 !important;
+body.dark-theme .sa-create-wizard-page .sa-create-progress-detail {
+  color: #857f7b !important;
 }
 
-body.dark-theme .sa-create-progress-spinner {
-  border-color: #333333 !important;
-  border-top-color: #d08552 !important;
+body.dark-theme .sa-create-wizard-page .sa-create-progress-spinner {
+  border-color: #e5e2dc !important;
+  border-top-color: #9c704b !important;
 }
 
-body.dark-theme .sa-create-progress-track {
-  background: #2a2a2a !important;
+body.dark-theme .sa-create-wizard-page .sa-create-progress-track {
+  background: #f2f2f0 !important;
 }
 
-body.dark-theme .sa-create-progress-fill {
-  background: #d08552 !important;
+body.dark-theme .sa-create-wizard-page .sa-create-progress-fill {
+  background: #9c704b !important;
+}
+
+body.dark-theme .sa-create-wizard-page .sa-wizard-footer {
+  background: #ffffff !important;
+  border-top-color: #e5e2dc !important;
+}
+
+body.dark-theme .sa-create-wizard-page .sa-wizard-card-lead,
+body.dark-theme .sa-create-wizard-page .sa-field-help,
+body.dark-theme .sa-create-wizard-page .sa-field-optional {
+  color: #857f7b !important;
+}
+
+body.dark-theme .sa-create-wizard-page .sa-wizard-progress-line {
+  background: #e5e2dc !important;
+}
+
+body.dark-theme .sa-create-wizard-page .sa-wizard-progress-accent {
+  background: #9c704b !important;
+}
+
+body.dark-theme .sa-create-wizard-page .sa-wizard-card .cc-label {
+  color: #857f7b !important;
+}
+
+body.dark-theme .sa-create-wizard-page .sa-wizard-card .cc-input::placeholder,
+body.dark-theme .sa-create-wizard-page .sa-wizard-card .dp-input-field::placeholder {
+  color: #a8a29e !important;
+}
+
+body.dark-theme .sa-create-wizard-page .sa-wizard-card .cc-input:focus,
+body.dark-theme .sa-create-wizard-page .sa-wizard-card .dp-input-field.focused {
+  background: #ffffff !important;
+  outline: 1px solid #1d1916 !important;
+}
+
+body.dark-theme .sa-create-wizard-page .sa-wizard-section-head span {
+  color: #1d1916 !important;
+}
+
+body.dark-theme .sa-create-wizard-page .sa-wizard-section-head small {
+  color: #857f7b !important;
+}
+
+body.dark-theme .sa-create-wizard-page .sa-wizard-hint {
+  color: #857f7b !important;
+}
+
+body.dark-theme .sa-create-wizard-page .sa-label-required {
+  color: #dc2626 !important;
 }
 
 

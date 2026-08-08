@@ -55,7 +55,7 @@
   color: var(--sa-text) !important;
 }
 
-.sa-create-page .cc-form-group .dp-wrapper {
+.sa-create-page .cc-form-group .custom-datepicker {
   height: 58px;
   font-size: 17px;
 }
@@ -407,38 +407,38 @@
   flex-direction: row !important;
   align-items: center !important;
   justify-content: flex-start !important;
-  gap: 12px !important;
-  padding: 10px 14px !important;
-  border: 1.5px dashed #d4cfc6 !important;
-  border-radius: 10px !important;
-  background: linear-gradient(180deg, #f7f6f2 0%, #fff 100%) !important;
+  gap: 14px !important;
+  padding: 14px 16px !important;
+  border: 1px dashed #d8d3cb !important;
+  border-radius: 12px !important;
+  background: #faf9f6 !important;
   color: #44403c !important;
   text-align: left !important;
   cursor: pointer !important;
-  transition: border-color 0.18s, background 0.18s, transform 0.18s !important;
+  transition: border-color 0.18s, background 0.18s !important;
 }
 
 .sa-upload-card:hover {
-  border-color: #bf7b47 !important;
-  background: #f0efeb !important;
-  transform: translateY(-1px) !important;
+  border-color: #c9a07a !important;
+  background: #f7f4ef !important;
+  transform: none !important;
 }
 
 .sa-upload-card--drop-active {
   border-color: #bf7b47 !important;
   background: #f5efe8 !important;
-  transform: translateY(-1px) !important;
+  transform: none !important;
 }
 
 .sa-upload-icon {
-  width: 34px !important;
-  height: 34px !important;
+  width: 36px !important;
+  height: 36px !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
-  border-radius: 9px !important;
-  background: #f0efeb !important;
-  color: #bf7b47 !important;
+  border-radius: 10px !important;
+  background: #f6ebe0 !important;
+  color: #c4803c !important;
   flex-shrink: 0 !important;
 }
 
@@ -447,25 +447,44 @@
   height: 18px !important;
 }
 
+/* Title + hint stay on one line (matches create-album mock). */
 .sa-upload-card-info {
   display: flex !important;
-  flex-direction: column !important;
-  align-items: flex-start !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: baseline !important;
+  gap: 6px !important;
+  min-width: 0 !important;
+  flex: 1 1 auto !important;
   text-align: left !important;
-  gap: 2px !important;
+  line-height: 1.35 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
 }
 
 .sa-upload-card strong {
   color: #1d1916 !important;
   font-family: var(--font-sans) !important;
   font-size: 13.5px !important;
-  font-weight: 600 !important;
+  font-weight: 650 !important;
+  display: inline !important;
+  margin: 0 !important;
+  flex: 0 0 auto !important;
+  white-space: nowrap !important;
 }
 
 .sa-upload-card small {
-  color: #857f7b !important;
+  color: #8a847c !important;
   font-family: var(--font-sans) !important;
-  font-size: 11.5px !important;
+  font-size: 12.5px !important;
+  font-weight: 400 !important;
+  display: inline !important;
+  margin: 0 !important;
+  flex: 0 1 auto !important;
+  min-width: 0 !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  white-space: nowrap !important;
 }
 
 @keyframes sa-shimmer {
@@ -1031,7 +1050,7 @@
 }
 
 .sa-create-wizard-main {
-  max-width: 640px !important;
+  max-width: 760px !important;
   margin: 0 auto !important;
   width: 100% !important;
   padding: 20px 24px 64px !important;
@@ -1352,7 +1371,7 @@
   box-shadow: none !important;
 }
 
-.sa-create-page .sa-wizard-card .cc-form-group .dp-wrapper {
+.sa-create-page .sa-wizard-card .cc-form-group .custom-datepicker {
   height: 42px !important;
   font-size: 14px !important;
 }

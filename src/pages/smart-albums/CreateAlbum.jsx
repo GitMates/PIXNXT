@@ -853,19 +853,21 @@ const CreateAlbum = () => {
             if (user?.id) {
                 const existing = await smartAlbumsService.getAlbums(user.id);
                 const nameExists = existing.some(
-                    (a) => a.name.trim().toLowerCase() === name.trim().toLowerCase()
+                    (a) =>
+                        String(a?.name || '')
+                            .trim()
+                            .toLowerCase() === name.trim().toLowerCase()
                 );
                 if (nameExists) {
                     setError('An album with this name already exists.');
-                    setIsSubmitting(false);
                     return;
                 }
             }
-            setError(null);
             setWizardStep(2);
             window.scrollTo({ top: 0, behavior: 'smooth' });
         } catch (err) {
             console.error(err);
+            setError(err?.message || 'Could not continue. Please try again.');
         } finally {
             setIsSubmitting(false);
         }
@@ -1469,9 +1471,11 @@ const CreateAlbum = () => {
                                     <div className="sa-wizard-fields sa-wizard-fields--step1">
                                         <div className="sa-wizard-fields-row">
                                             <div className="cc-form-group">
-                                                <label className="cc-label" htmlFor="album-name">
-                                                    ALBUM NAME <span className="sa-label-required">*</span>
-                                                </label>
+                                                <div className="sa-field-label-row">
+                                                    <label className="cc-label" htmlFor="album-name">
+                                                        ALBUM NAME <span className="sa-label-required">*</span>
+                                                    </label>
+                                                </div>
                                                 <div
                                                     className={`sa-name-autocomplete${showNameSuggestions ? ' sa-name-autocomplete--open' : ''}`}
                                                     ref={nameAutocompleteRef}
@@ -1748,8 +1752,8 @@ const CreateAlbum = () => {
                                                 <div className="sa-upload-card-info">
                                                     <strong>Choose photos or a PDF</strong>
                                                     <small>
-                                                        JPG, PNG, WEBP or PDF — a multi-page PDF becomes one spread
-                                                        per page.
+                                                        JPG, PNG, WEBP or PDF · a multi-page PDF becomes one
+                                                        spread per page.
                                                     </small>
                                                 </div>
                                             </label>
@@ -1769,8 +1773,7 @@ const CreateAlbum = () => {
                                                     <div className="sa-upload-card-info">
                                                         <strong>Add more spreads</strong>
                                                         <small>
-                                                            JPG, PNG, WEBP or PDF — a multi-page PDF becomes one
-                                                            spread per page.
+                                                            JPG, PNG, WEBP or PDF - a multi-page PDF becomes onespread per page.
                                                         </small>
                                                     </div>
                                                 </label>
