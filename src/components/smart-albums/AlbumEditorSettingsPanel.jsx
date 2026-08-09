@@ -258,7 +258,7 @@ export default function AlbumEditorSettingsPanel({
     return (
         <div className="ae-settings-panel">
             <div className="ae-settings-panel__scroll">
-                <h2 className="ae-settings-panel__heading">Settings</h2>
+                {/* Heading removed per design — kept element out to save vertical space */}
 
                 <section className="ae-settings-section">
                     <p className="ae-settings-section__label">Feedback</p>
@@ -366,11 +366,6 @@ export default function AlbumEditorSettingsPanel({
                             >
                                 Regenerate
                             </button>
-                            <p className="ae-settings-field__desc ae-settings-pin-footnote">
-                                A signature, not a key. This is <strong>not</strong> the access PIN
-                                in Share — if they are the same number, anyone the client forwards
-                                the door code to can also sign off the album.
-                            </p>
                         </div>
                     ) : null}
 

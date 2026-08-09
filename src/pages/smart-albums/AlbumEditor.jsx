@@ -1051,6 +1051,13 @@ export default function AlbumEditor({
             const page = spreadIndexToPage(spreadIdx, spreadCtx);
             const clamped = Math.max(0, Math.min(page, Math.max(0, totalPages - 1)));
             handleBookPageChange(clamped);
+            // After navigating to the spread, broadcast an event to open the pin popover
+            // so the pin's message is visible on the spread.
+            window.setTimeout(() => {
+                window.dispatchEvent(new CustomEvent('album-spot-pin-open', {
+                    detail: { layerId: null, pinId: pin.id },
+                }));
+            }, 120);
         },
         [handleBookPageChange, totalPages]
     );

@@ -779,11 +779,22 @@ export default function AlbumPreview({
                         }}
                         onJumpToSpread={jumpToSpread}
                         onNavigateToPin={(pin) => {
-                            if (pin?.spreadIndex != null) jumpToSpread(pin.spreadIndex);
-                            else if (Number.isFinite(pin?.pageNum)) {
-                                jumpToSpread(
-                                    pageToSpreadIndex(pin.pageNum, { ...spreadOpts, totalPages })
-                                );
+                            let targetSpread = null;
+                            if (pin?.spreadIndex != null) {
+                                targetSpread = pin.spreadIndex;
+                            } else if (Number.isFinite(pin?.pageNum)) {
+                                targetSpread = pageToSpreadIndex(pin.pageNum, { ...spreadOpts, totalPages });
+                            }
+
+                            if (targetSpread != null) {
+                                jumpToSpread(targetSpread);
+                                window.setTimeout(() => {
+                                    window.dispatchEvent(
+                                        new CustomEvent('album-spot-pin-open', {
+                                            detail: { layerId: null, pinId: pin.id },
+                                        })
+                                    );
+                                }, 120);
                             }
                         }}
                         onNavigateToSlotKey={(slotKey) => {

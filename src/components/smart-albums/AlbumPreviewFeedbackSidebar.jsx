@@ -450,12 +450,20 @@ function FeedbackCompose({
                         role="status"
                         aria-live="polite"
                     >
-                        <span className="av-feedback-compose__recording-dot" aria-hidden />
-                        <span className="av-feedback-compose__recording-label">
-                            Recording {elapsedLabel}
+                        <span className="av-feedback-compose__recording-waveform" aria-hidden="true">
+                            <span />
+                            <span />
+                            <span />
+                            <span />
+                            <span />
                         </span>
-                        <span className="av-feedback-compose__recording-hint">
-                            Tap mic to stop
+                        <span className="av-feedback-compose__recording-copy">
+                            <span className="av-feedback-compose__recording-label">
+                                Recording {elapsedLabel}
+                            </span>
+                            <span className="av-feedback-compose__recording-hint">
+                                Tap mic to stop
+                            </span>
                         </span>
                     </div>
                 ) : null}

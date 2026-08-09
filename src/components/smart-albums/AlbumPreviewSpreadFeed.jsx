@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Mic } from 'lucide-react';
 import CommentAttachmentContent from './CommentAttachmentContent';
 import { getClientCommentBadgeLabel, hasCommentAttachment, isCommentAudioAttachment } from './albumCommentAttachments';
 import {
@@ -929,6 +930,9 @@ export default function AlbumPreviewSpreadFeed({
                                             >
                                                 Save
                                             </button>
+                                            <span className="av-chat-action" aria-label="Audio comment">
+                                                <Mic size={14} />
+                                            </span>
                                         </div>
                                     </article>
                                 </div>

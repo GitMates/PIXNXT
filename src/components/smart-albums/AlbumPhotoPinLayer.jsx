@@ -5,6 +5,8 @@ import {
     pinPointFromPointer,
     pinPointToClient,
 } from '../../lib/photoSpotPoint';
+import { useFeedbackVoiceRecorder } from './useFeedbackVoiceRecorder';
+import { Mic } from 'lucide-react';
 import { useAlbumBookPageContext } from './AlbumBookPageContext';
 import SwapIcon from './SwapIcon';
 import {
@@ -196,10 +198,26 @@ function PinMarker({ layerRef, pin, open, onToggle, onRemove, allowRemove }) {
 
 function SpotInlineCommentComposer({ layerRef, xPct, yPct, onSave, onClose }) {
     const [message, setMessage] = useState('');
+    const [pendingAttachment, setPendingAttachment] = useState(null);
     const textareaRef = useRef(null);
     const composerRef = useRef(null);
     const [anchor, setAnchor] = useState(null);
     const [flipBelow, setFlipBelow] = useState(false);
+
+    const {
+        recording,
+        preparing,
+        elapsedLabel,
+        toggleRecording,
+        cancelRecording,
+    } = useFeedbackVoiceRecorder({
+        onError: (error) => {
+            console.warn('Voice recording error:', error);
+        },
+        onRecordingReady: (preparedAudio) => {
+            setPendingAttachment(preparedAudio);
+        },
+    });
 
     const resizeTextarea = useCallback(() => {
         const el = textareaRef.current;
@@ -275,19 +293,59 @@ function SpotInlineCommentComposer({ layerRef, xPct, yPct, onSave, onClose }) {
                     <button
                         type="button"
                         className="ab-spot-inline-composer-btn ab-spot-inline-composer-btn--ghost"
-                        onClick={() => onClose?.()}
+                        onClick={() => {
+                            cancelRecording();
+                            setPendingAttachment(null);
+                            onClose?.();
+                        }}
                     >
                         Cancel
                     </button>
-                    <button
-                        type="button"
-                        className="ab-spot-inline-composer-btn ab-spot-inline-composer-btn--save"
-                        disabled={!message.trim()}
-                        onClick={() => onSave?.(message.trim())}
-                    >
-                        Save
-                    </button>
+                    <div className="ab-spot-inline-composer-action-group">
+                        <button
+                            type="button"
+                            className="ab-spot-inline-composer-btn ab-spot-inline-composer-btn--save"
+                            disabled={!(message.trim() || pendingAttachment)}
+                            onClick={() =>
+                                onSave?.({
+                                    message: message.trim(),
+                                    attachment: pendingAttachment,
+                                })
+                            }
+                        >
+                            Save
+                        </button>
+                        <button
+                            type="button"
+                            className={`ab-spot-inline-composer-btn ab-spot-inline-composer-btn--icon${
+                                recording ? ' ab-spot-inline-composer-btn--recording' : ''
+                            }`}
+                            onClick={() => toggleRecording()}
+                            aria-pressed={recording}
+                            aria-label={recording ? 'Stop voice recording' : 'Record voice comment'}
+                        >
+                            <Mic size={14} />
+                        </button>
+                    </div>
                 </div>
+                {(recording || pendingAttachment) ? (
+                    <div className="ab-spot-inline-composer-audio-status" aria-live="polite">
+                        {recording ? (
+                            <>
+                                <span className="ab-spot-inline-composer-waveform" aria-hidden="true">
+                                    <span />
+                                    <span />
+                                    <span />
+                                    <span />
+                                    <span />
+                                </span>
+                                Recording {elapsedLabel}
+                            </>
+                        ) : (
+                            <span>Voice note ready: {pendingAttachment?.name}</span>
+                        )}
+                    </div>
+                ) : null}
             </div>
             <span className="ab-spot-action-picker-ring ab-spot-action-picker-ring--small" aria-hidden />
         </div>,
@@ -483,13 +541,37 @@ export default function AlbumPhotoPinLayer({
             }
             setOpenPinId(null);
         };
+
+        // Support opening a pin by pinId (detail.pinId) or by explicit layerId/pinId.
         const onPinOpen = (e) => {
-            if (e.detail?.layerId !== layerId) {
+            const detail = e.detail || {};
+            const targetLayer = detail.layerId;
+            const pinId = detail.pinId;
+
+            // If an event targets another layer, clear our popovers.
+            if (targetLayer && targetLayer !== layerId) {
                 setOpenPinId(null);
                 setSpotPicker(null);
                 setSpotCommentComposer(null);
+                return;
             }
+
+            // If a pinId is provided, open it if it belongs to this layer (pins or swapPins).
+            if (pinId) {
+                const allPins = [...(pins || []), ...(swapPins || [])];
+                if (allPins.some((p) => p?.id === pinId)) {
+                    setOpenPinId(pinId);
+                    return;
+                }
+                // If pin not found here, ensure we close any open popover.
+                setOpenPinId(null);
+                return;
+            }
+
+            // Fallback: if no pinId and no targetLayer, just clear.
+            setOpenPinId(null);
         };
+
         const onCloseAll = () => dismissPopovers();
         window.addEventListener(SPOT_DRAFT_OPEN_EVENT, onDraftOpen);
         window.addEventListener(SPOT_PIN_OPEN_EVENT, onPinOpen);
@@ -499,7 +581,7 @@ export default function AlbumPhotoPinLayer({
             window.removeEventListener(SPOT_PIN_OPEN_EVENT, onPinOpen);
             window.removeEventListener(ALBUM_PIN_POPOVER_CLOSE_EVENT, onCloseAll);
         };
-    }, [layerId, dismissPopovers]);
+    }, [layerId, dismissPopovers, pins, swapPins]);
 
     useEffect(() => {
         if (ctx.activeBookPage == null) return undefined;

@@ -361,6 +361,10 @@
   background: #fdf2e9;
   color: #ab6229;
 }
+.ae-notifications-item-icon-container--audio {
+  background: #eff6ff;
+  color: #2563eb;
+}
 
 .ae-notifications-item-content {
   flex: 1;

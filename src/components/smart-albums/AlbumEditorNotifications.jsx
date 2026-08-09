@@ -6,7 +6,7 @@ import {
     pageToSpreadIndex,
     isEndHalfSpreadIndex,
 } from './albumSpreadUtils';
-import { MessageSquare, ArrowLeftRight, Check } from 'lucide-react';
+import { MessageSquare, ArrowLeftRight, Check, Mic } from 'lucide-react';
 import {
     getNotificationPage,
     getNotificationPanel,
@@ -15,7 +15,7 @@ import {
     NOTIFICATION_REFRESH_EVENTS,
     markAllAlbumProofItemsSeen,
 } from '../../services/albumNotifications';
-import { formatCommentDateTime } from '../../services/smartAlbumComments.service';
+import { isCommentAudioAttachment } from './albumCommentAttachments';
 import { resolveFilmstripVisual, FilmstripThumb } from './AlbumSpreadFilmstrip';
 import { parseGridSizeAspect } from './albumGridSize';
 
@@ -282,6 +282,7 @@ export default function AlbumEditorNotifications({
                                 const tileAspect = (isCover || isEndSpread) ? pageAspect : spreadAspect;
                                 const visual = hasThumbnail ? resolveFilmstripVisual(album, spreadIndex, totalPages, spreadOpts) : null;
 
+                                const isAudioComment = item.comment && isCommentAudioAttachment(item.comment);
                                 let iconClass = 'comment';
                                 let iconElement = <MessageSquare size={14} />;
                                 if (item.type === 'swap') {
@@ -290,6 +291,9 @@ export default function AlbumEditorNotifications({
                                 } else if (item.type === 'changes_submitted' || item.type === 'album_approved') {
                                     iconClass = 'tick';
                                     iconElement = <Check size={14} />;
+                                } else if (isAudioComment) {
+                                    iconClass = 'audio';
+                                    iconElement = <Mic size={14} />;
                                 }
 
                                 return (
