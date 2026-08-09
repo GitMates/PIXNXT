@@ -6,6 +6,8 @@ import {
 } from './albumSpreadReorder';
 import {
     isMissingRelationError,
+    isMissingColumnError,
+    resolveCommentAttachmentForDb,
     loadFeedbackSeenMap,
     upsertFeedbackSeenRows,
 } from './albumFeedbackDb';
@@ -48,6 +50,9 @@ function mapPinRow(row) {
         updatedAt: row.updated_at || null,
         authorName: row.author_name || null,
         authorEmail: row.author_email || null,
+        attachment_url: row.attachment_url || null,
+        attachment_name: row.attachment_name || null,
+        attachment_type: row.attachment_type || null,
     };
 }
 
@@ -66,14 +71,27 @@ function toPinInsert(albumId, pin) {
         author_email: pin.authorEmail || null,
         created_at: pin.createdAt || new Date().toISOString(),
         updated_at: pin.updatedAt || pin.createdAt || new Date().toISOString(),
+        attachment_url: pin.attachment_url || null,
+        attachment_name: pin.attachment_name || null,
+        attachment_type: pin.attachment_type || null,
     };
 }
 
 async function persistPinInsert(albumId, pin) {
     try {
-        const { error } = await supabase
+        const payload = toPinInsert(albumId, pin);
+        let { error } = await supabase
             .from('album_proofer_photo_pins')
-            .insert(toPinInsert(albumId, pin));
+            .insert(payload);
+        if (error && isMissingColumnError(error, 'attachment')) {
+            const fallback = { ...payload };
+            delete fallback.attachment_url;
+            delete fallback.attachment_name;
+            delete fallback.attachment_type;
+            ({ error } = await supabase
+                .from('album_proofer_photo_pins')
+                .insert(fallback));
+        }
         if (error && !isMissingRelationError(error, 'album_proofer_photo_pins')) {
             console.warn('persistPinInsert:', error.message);
         }
@@ -95,19 +113,34 @@ async function persistPinDelete(pinId) {
 
 async function persistPinUpdate(albumId, pin) {
     try {
-        const { error } = await supabase
+        const updatePayload = {
+            page_num: pin.pageNum,
+            cell_id: pin.cellId ?? 0,
+            x_pct: pin.xPct,
+            y_pct: pin.yPct,
+            message: pin.message || '',
+            label: pin.label || null,
+            updated_at: pin.updatedAt || new Date().toISOString(),
+            attachment_url: pin.attachment_url || null,
+            attachment_name: pin.attachment_name || null,
+            attachment_type: pin.attachment_type || null,
+        };
+        let { error } = await supabase
             .from('album_proofer_photo_pins')
-            .update({
-                page_num: pin.pageNum,
-                cell_id: pin.cellId ?? 0,
-                x_pct: pin.xPct,
-                y_pct: pin.yPct,
-                message: pin.message || '',
-                label: pin.label || null,
-                updated_at: pin.updatedAt || new Date().toISOString(),
-            })
+            .update(updatePayload)
             .eq('id', pin.id)
             .eq('album_id', albumId);
+        if (error && isMissingColumnError(error, 'attachment')) {
+            const fallback = { ...updatePayload };
+            delete fallback.attachment_url;
+            delete fallback.attachment_name;
+            delete fallback.attachment_type;
+            ({ error } = await supabase
+                .from('album_proofer_photo_pins')
+                .update(fallback)
+                .eq('id', pin.id)
+                .eq('album_id', albumId));
+        }
         if (error && !isMissingRelationError(error, 'album_proofer_photo_pins')) {
             console.warn('persistPinUpdate:', error.message);
         }
@@ -225,10 +258,19 @@ export function getPinsForSlot(pins, pageNum, cellId = 0, { placementMode = 'sin
     return (pins || []).filter((p) => makePinSlotKey(p.pageNum, p.cellId ?? 0) === key);
 }
 
-export function addPhotoPin(albumId, { pageNum, cellId = 0, xPct, yPct, message, label, authorName, authorEmail }) {
-    if (!albumId || message == null) return null;
-    const trimmed = String(message).trim();
-    if (!trimmed) return null;
+export function addPhotoPin(albumId, { pageNum, cellId = 0, xPct, yPct, message, label, authorName, authorEmail, attachment }) {
+    if (!albumId) return null;
+    let finalMessage = '';
+    let rawAttachment = null;
+    if (typeof message === 'object' && message !== null) {
+        finalMessage = message.message || '';
+        rawAttachment = message.attachment || null;
+    } else {
+        finalMessage = message;
+        rawAttachment = attachment || null;
+    }
+    const trimmed = String(finalMessage).trim();
+    if (!trimmed && !rawAttachment) return null;
 
     const pin = {
         id: crypto.randomUUID(),
@@ -242,11 +284,40 @@ export function addPhotoPin(albumId, { pageNum, cellId = 0, xPct, yPct, message,
         createdAt: new Date().toISOString(),
         authorName: authorName || null,
         authorEmail: authorEmail || null,
+        attachment_url: rawAttachment?.url || null,
+        attachment_name: rawAttachment?.name || null,
+        attachment_type: rawAttachment?.type || null,
     };
 
     const list = [...getPhotoPins(albumId), pin];
     setAlbumPins(albumId, list);
-    void persistPinInsert(albumId, pin);
+
+    (async () => {
+        if (rawAttachment?.url?.startsWith('data:')) {
+            try {
+                const uploaded = await resolveCommentAttachmentForDb(
+                    albumId,
+                    rawAttachment.url,
+                    rawAttachment.name,
+                    rawAttachment.type
+                );
+                pin.attachment_url = uploaded.url;
+                pin.attachment_name = uploaded.name;
+                pin.attachment_type = uploaded.type;
+
+                const currentList = getPhotoPins(albumId);
+                const idx = currentList.findIndex((p) => p.id === pin.id);
+                if (idx >= 0) {
+                    currentList[idx] = { ...pin };
+                    setAlbumPins(albumId, currentList);
+                }
+            } catch (err) {
+                console.warn('Failed to upload pin attachment:', err);
+            }
+        }
+        void persistPinInsert(albumId, pin);
+    })();
+
     return pin;
 }
 
@@ -298,12 +369,18 @@ export function updatePhotoPin(albumId, pinId, patch = {}) {
     const list = getPhotoPins(albumId);
     const idx = list.findIndex((p) => p.id === pinId);
     if (idx < 0) return null;
+
+    let patchMsgText = patch.message;
+    if (typeof patchMsgText === 'object' && patchMsgText !== null) {
+        patchMsgText = patchMsgText.message;
+    }
+
     const nextPin = {
         ...list[idx],
         ...patch,
         message:
-            patch.message != null
-                ? String(patch.message).trim()
+            patchMsgText != null
+                ? String(patchMsgText).trim()
                 : list[idx].message,
         updatedAt: new Date().toISOString(),
     };

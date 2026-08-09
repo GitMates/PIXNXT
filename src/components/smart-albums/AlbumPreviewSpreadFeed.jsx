@@ -574,7 +574,17 @@ function QuietProofFeed({
                             onNavigate={navigatePin}
                             {...replyPropsFor(item)}
                         >
-                            <p className="quiet-proof-card__text">{pin.message}</p>
+                            {hasCommentAttachment(pin) ? (
+                                <div className="quiet-proof-card__media">
+                                    <CommentAttachmentContent
+                                        comment={pin}
+                                        className="quiet-proof-card__attachment"
+                                    />
+                                </div>
+                            ) : null}
+                            {pin.message ? (
+                                <p className="quiet-proof-card__text">{pin.message}</p>
+                            ) : null}
                         </QuietProofCard>
                     );
                 }

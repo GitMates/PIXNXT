@@ -461,6 +461,106 @@
   }
 }
 
+/* ── Dark recording strip (matches Telegram / WhatsApp style) ── */
+.ab-spot-recording-strip {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #1e293b;
+  border-radius: 14px;
+  padding: 10px 12px;
+  min-height: 44px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.22);
+  animation: ab-strip-fade-in 0.25s ease;
+}
+
+@keyframes ab-strip-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.ab-spot-recording-strip-waveform {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  height: 28px;
+  overflow: hidden;
+}
+
+.ab-spot-recording-strip-waveform span {
+  display: block;
+  flex: 0 0 2px;
+  width: 2px;
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.55);
+  min-height: 3px;
+  animation: ab-strip-bar 1.4s ease-in-out infinite alternate;
+  transform-origin: center;
+}
+
+@keyframes ab-strip-bar {
+  0%   { transform: scaleY(0.4); opacity: 0.4; }
+  50%  { transform: scaleY(1);   opacity: 1;   }
+  100% { transform: scaleY(0.5); opacity: 0.5; }
+}
+
+.ab-spot-recording-strip-time {
+  flex-shrink: 0;
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Menlo', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  letter-spacing: 0.04em;
+  min-width: 36px;
+  text-align: right;
+}
+
+.ab-spot-recording-strip-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.ab-spot-recording-strip-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.15s ease;
+  padding: 0;
+}
+
+.ab-spot-recording-strip-btn:hover {
+  transform: scale(1.08);
+}
+
+.ab-spot-recording-strip-btn--cancel {
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.ab-spot-recording-strip-btn--cancel:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+.ab-spot-recording-strip-btn--accept {
+  background: #3b82f6;
+  color: #fff;
+}
+
+.ab-spot-recording-strip-btn--accept:hover {
+  background: #2563eb;
+}
+
 .ab-photo-pin-layer--tools:hover .ab-proof-tools-hover {
   opacity: 1;
   pointer-events: auto;
@@ -729,7 +829,7 @@
   display: flex;
   flex-direction: column;
   min-width: 148px;
-  max-width: 220px;
+  max-width: 280px;
   padding: 10px 12px;
   border-radius: 10px;
   border: 1px solid #e5e7eb;
@@ -737,6 +837,11 @@
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.14);
   text-align: left;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+.ab-photo-pin-attachment {
+  margin-top: 6px;
+  width: 100%;
 }
 
 .ab-photo-pin-popover::after {

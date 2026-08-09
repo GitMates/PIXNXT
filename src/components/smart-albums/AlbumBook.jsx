@@ -1744,12 +1744,22 @@ const AlbumBook = ({
 
     const handlePinSaveDirect = useCallback(
         (placement) => {
-            if (!album?.id || !placement?.message?.trim()) return;
+            let msgText = '';
+            let attachment = null;
+            if (typeof placement?.message === 'object' && placement.message !== null) {
+                msgText = placement.message.message || '';
+                attachment = placement.message.attachment || null;
+            } else {
+                msgText = placement?.message || '';
+            }
+            if (!album?.id || (!msgText.trim() && !attachment)) return;
             if (!ensureClientFeedback('comment')) return;
             const hadFeedback = albumHadClientFeedbackBefore(album.id);
             const identity = getClientReviewerIdentity(album.id);
             addPhotoPin(album.id, {
                 ...placement,
+                message: msgText,
+                attachment,
                 authorName: placement.authorName || identity?.name || null,
             });
             if (previewMode) {
@@ -1758,7 +1768,7 @@ const AlbumBook = ({
                     hadFeedbackBefore: hadFeedback,
                     eventType: 'photo_comment',
                     eventLabel: 'Photo comment',
-                    eventDetail: placement.message,
+                    eventDetail: msgText || (attachment?.type === 'audio' ? 'Voice message' : 'Photo attachment'),
                 });
             }
         },

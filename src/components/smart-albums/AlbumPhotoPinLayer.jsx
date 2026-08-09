@@ -6,9 +6,11 @@ import {
     pinPointToClient,
 } from '../../lib/photoSpotPoint';
 import { useFeedbackVoiceRecorder } from './useFeedbackVoiceRecorder';
-import { Mic } from 'lucide-react';
+import { Mic, X } from 'lucide-react';
 import { useAlbumBookPageContext } from './AlbumBookPageContext';
 import SwapIcon from './SwapIcon';
+import CommentAttachmentContent from './CommentAttachmentContent';
+import VoiceMessagePlayer from './VoiceMessagePlayer';
 import {
     ALBUM_PIN_POPOVER_CLOSE_EVENT,
 } from './albumPinPopoverEvents';
@@ -70,32 +72,35 @@ function SpeechIcon({ className }) {
     );
 }
 
-function PinPopover({ markerRef, layerRef, pin, isSwap, allowRemove, onRemove }) {
+
+function PinPopover({ markerRef, layerRef, pin, onClose, onRemove, allowRemove }) {
     const popoverRef = useRef(null);
     const [anchor, setAnchor] = useState(null);
     const [flipBelow, setFlipBelow] = useState(false);
+    const isSwap = pin?.type === 'swap';
 
     const updateAnchor = useCallback(() => {
-        const marker = markerRef?.current;
-        if (marker) {
-            const rect = marker.getBoundingClientRect();
-            const popoverHeight = popoverRef.current?.offsetHeight ?? 88;
-            const shouldFlip = rect.top < popoverHeight + 20;
-            setFlipBelow(shouldFlip);
-            setAnchor({
-                left: rect.left + rect.width / 2,
-                top: shouldFlip ? rect.bottom : rect.top,
-            });
-            return;
-        }
-
         const point = pinPointToClient(layerRef?.current, pin.xPct, pin.yPct);
         if (!point) return;
-        const popoverHeight = popoverRef.current?.offsetHeight ?? 88;
-        const pinOffset = 32;
-        setFlipBelow(point.top < popoverHeight + pinOffset + 20);
-        setAnchor({ left: point.left, top: point.top - pinOffset });
-    }, [markerRef, layerRef, pin.xPct, pin.yPct]);
+        setAnchor(point);
+
+        const popoverHeight = popoverRef.current?.offsetHeight ?? 80;
+        setFlipBelow(point.top < popoverHeight + 28);
+    }, [layerRef, pin.xPct, pin.yPct]);
+
+    useEffect(() => {
+        const onOutsideClick = (e) => {
+            if (
+                popoverRef.current?.contains(e.target) ||
+                markerRef.current?.contains(e.target)
+            ) {
+                return;
+            }
+            onClose?.();
+        };
+        document.addEventListener('click', onOutsideClick, true);
+        return () => document.removeEventListener('click', onOutsideClick, true);
+    }, [onClose, markerRef]);
 
     useLayoutEffect(() => {
         updateAnchor();
@@ -125,9 +130,12 @@ function PinPopover({ markerRef, layerRef, pin, isSwap, allowRemove, onRemove })
             <span className="ab-photo-pin-popover-label">
                 {isSwap ? 'Swap pin' : 'Comment'}
             </span>
-            <p className="ab-photo-pin-message">
-                {isSwap ? pin.message || 'Swap point selected' : pin.message}
-            </p>
+            {(pin.message || isSwap) && (
+                <p className="ab-photo-pin-message">
+                    {isSwap ? pin.message || 'Swap point selected' : pin.message}
+                </p>
+            )}
+            <CommentAttachmentContent comment={pin} className="ab-photo-pin-attachment" />
             {allowRemove && (
                 <button
                     type="button"
@@ -285,7 +293,12 @@ function SpotInlineCommentComposer({ layerRef, xPct, yPct, onSave, onClose }) {
                         if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault();
                             const text = message.trim();
-                            if (text) onSave?.(text);
+                            if (text || pendingAttachment) {
+                                onSave?.({
+                                    message: text,
+                                    attachment: pendingAttachment,
+                                });
+                            }
                         }
                     }}
                 />
@@ -315,35 +328,62 @@ function SpotInlineCommentComposer({ layerRef, xPct, yPct, onSave, onClose }) {
                         >
                             Save
                         </button>
-                        <button
-                            type="button"
-                            className={`ab-spot-inline-composer-btn ab-spot-inline-composer-btn--icon${
-                                recording ? ' ab-spot-inline-composer-btn--recording' : ''
-                            }`}
-                            onClick={() => toggleRecording()}
-                            aria-pressed={recording}
-                            aria-label={recording ? 'Stop voice recording' : 'Record voice comment'}
-                        >
-                            <Mic size={14} />
-                        </button>
+                        {!recording && (
+                            <button
+                                type="button"
+                                className="ab-spot-inline-composer-btn ab-spot-inline-composer-btn--icon"
+                                onClick={() => toggleRecording()}
+                                aria-label="Record voice comment"
+                            >
+                                <Mic size={14} />
+                            </button>
+                        )}
                     </div>
                 </div>
-                {(recording || pendingAttachment) ? (
+                {recording ? (
+                    <div className="ab-spot-recording-strip" role="status" aria-live="polite">
+                        <div className="ab-spot-recording-strip-waveform" aria-hidden="true">
+                            {Array.from({ length: 40 }, (_, i) => (
+                                <span
+                                    key={i}
+                                    style={{
+                                        animationDelay: `${-(i * 0.06)}s`,
+                                        height: `${6 + Math.round(Math.sin(i * 0.7) * 8 + Math.random() * 10)}px`,
+                                    }}
+                                />
+                            ))}
+                        </div>
+                        <span className="ab-spot-recording-strip-time">{elapsedLabel}</span>
+                        <div className="ab-spot-recording-strip-controls">
+                            <button
+                                type="button"
+                                className="ab-spot-recording-strip-btn ab-spot-recording-strip-btn--cancel"
+                                onClick={() => cancelRecording()}
+                                aria-label="Cancel recording"
+                            >
+                                <X size={16} />
+                            </button>
+                            <button
+                                type="button"
+                                className="ab-spot-recording-strip-btn ab-spot-recording-strip-btn--accept"
+                                onClick={() => toggleRecording()}
+                                aria-label="Accept recording"
+                            >
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                    <path d="M3 8.5L6.5 12L13 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                ) : pendingAttachment ? (
                     <div className="ab-spot-inline-composer-audio-status" aria-live="polite">
-                        {recording ? (
-                            <>
-                                <span className="ab-spot-inline-composer-waveform" aria-hidden="true">
-                                    <span />
-                                    <span />
-                                    <span />
-                                    <span />
-                                    <span />
-                                </span>
-                                Recording {elapsedLabel}
-                            </>
-                        ) : (
-                            <span>Voice note ready: {pendingAttachment?.name}</span>
-                        )}
+                        <VoiceMessagePlayer
+                            src={pendingAttachment.url}
+                            className="av-voice-player--compose"
+                            onRemove={() => setPendingAttachment(null)}
+                            removeLabel="Remove voice message"
+                            ariaLabel="Voice message preview"
+                        />
                     </div>
                 ) : null}
             </div>

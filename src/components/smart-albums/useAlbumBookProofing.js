@@ -225,8 +225,20 @@ export default function useAlbumBookProofing({
 
     const handlePinSaveDirect = useCallback(
         (placement) => {
-            if (!albumId || !placement?.message?.trim()) return;
-            addPhotoPin(albumId, placement);
+            let msgText = '';
+            let attachment = null;
+            if (typeof placement?.message === 'object' && placement.message !== null) {
+                msgText = placement.message.message || '';
+                attachment = placement.message.attachment || null;
+            } else {
+                msgText = placement?.message || '';
+            }
+            if (!albumId || (!msgText.trim() && !attachment)) return;
+            addPhotoPin(albumId, {
+                ...placement,
+                message: msgText,
+                attachment,
+            });
         },
         [albumId]
     );
