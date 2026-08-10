@@ -1771,6 +1771,28 @@
   top: 72px;
 }
 
+/* Preview / client: box matches album spread aspect; images fill (no grey letterboxing). */
+.ab-overview--gallery-proof .ab-overview-thumb {
+  height: auto;
+  aspect-ratio: var(--ab-overview-thumb-aspect, 2);
+  background: #e8eaed;
+}
+
+.ab-overview--gallery-proof .ab-overview-page {
+  background: transparent;
+}
+
+.ab-overview--gallery-proof .ab-overview-page img,
+.ab-overview--gallery-proof .ab-overview-page--cover-single > img:not(.ab-overview-wrap-img),
+.ab-overview--gallery-proof .ab-overview-page--end-single > img:not(.ab-overview-wrap-img),
+.ab-overview--gallery-proof .ab-overview-wrap-crop .ab-overview-wrap-img {
+  object-fit: cover;
+}
+
+.ab-overview--gallery-proof .ab-overview-placeholder {
+  background: #e8eaed;
+}
+
 
 
 .ab-overview-body {

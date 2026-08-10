@@ -37,6 +37,7 @@ import SpreadGridComments from './SpreadGridComments';
 import {
     COMMENTS_SEEN_CHANGED_EVENT,
     getClientReviewerIdentity,
+    isCommentUnseen,
 } from '../../services/smartAlbumComments.service';
 import { buildOverviewSpreadReorderPlan } from './albumSpreadReorder';
 import AlbumSwapPickerModal from './AlbumSwapPickerModal';
@@ -285,7 +286,7 @@ const AlbumBook = ({
     const [pinModeActive, setPinModeActive] = useState(false);
     const [pinComposer, setPinComposer] = useState(null);
     const [initialized, setInitialized] = useState(false);
-    const [commentsSeenTick, setCommentsSeenTick] = useState(0);
+    const [proofSeenTick, setProofSeenTick] = useState(0);
 
     const ensureClientFeedback = useCallback(
         (action) => {
@@ -339,6 +340,8 @@ const AlbumBook = ({
         const thumbH = Math.round(thumbW / spreadAspect);
         return {
             '--ab-overview-thumb-h': `${Math.max(96, Math.min(200, thumbH))}px`,
+            '--ab-overview-thumb-aspect': String(spreadAspect),
+            '--ab-overview-page-aspect': String(pageAspect),
         };
     }, [album?.grid_size]);
 
@@ -415,11 +418,17 @@ const AlbumBook = ({
     useEffect(() => {
         if (!album?.id) return undefined;
         const onSeen = (e) => {
-            if (e.detail?.albumId !== album.id) return;
-            setCommentsSeenTick((tick) => tick + 1);
+            if (e.detail?.albumId && e.detail.albumId !== album.id) return;
+            setProofSeenTick((tick) => tick + 1);
         };
         window.addEventListener(COMMENTS_SEEN_CHANGED_EVENT, onSeen);
-        return () => window.removeEventListener(COMMENTS_SEEN_CHANGED_EVENT, onSeen);
+        window.addEventListener(PHOTO_PINS_SEEN_CHANGED_EVENT, onSeen);
+        window.addEventListener(SWAP_MARKS_SEEN_CHANGED_EVENT, onSeen);
+        return () => {
+            window.removeEventListener(COMMENTS_SEEN_CHANGED_EVENT, onSeen);
+            window.removeEventListener(PHOTO_PINS_SEEN_CHANGED_EVENT, onSeen);
+            window.removeEventListener(SWAP_MARKS_SEEN_CHANGED_EVENT, onSeen);
+        };
     }, [album?.id]);
     const { left: leftNum, right: rightNum } = getSpreadPages(spreadIndex, totalPages, spreadOpts);
 
@@ -473,10 +482,18 @@ const AlbumBook = ({
 
     const needActionCount = useMemo(() => {
         let count = 0;
-        if (spreadCommentsBySpread) {
+        if (spreadCommentsBySpread && album?.id) {
             count += Object.values(spreadCommentsBySpread).reduce((sum, rows) => {
                 if (!Array.isArray(rows)) return sum;
-                return sum + rows.filter((c) => c && !c.resolved && !c.done).length;
+                return (
+                    sum +
+                    rows.filter(
+                        (c) =>
+                            c &&
+                            c.author_type === 'client' &&
+                            isCommentUnseen(album.id, c)
+                    ).length
+                );
             }, 0);
         }
         if (photoPins && album?.id) {
@@ -486,27 +503,35 @@ const AlbumBook = ({
             count += swapMarks.filter((mark) => isSwapMarkUnseen(album.id, mark)).length;
         }
         return count;
-    }, [spreadCommentsBySpread, photoPins, swapMarks, album?.id]);
+    }, [spreadCommentsBySpread, photoPins, swapMarks, album?.id, proofSeenTick]);
 
     const needActionSpreadIndices = useMemo(() => {
         const indices = new Set();
-        if (spreadCommentsBySpread) {
+        if (spreadCommentsBySpread && album?.id) {
             Object.keys(spreadCommentsBySpread).forEach((k) => {
                 const idx = Number(k);
-                if (Number.isFinite(idx)) {
-                    const rows = spreadCommentsBySpread[idx];
-                    if (Array.isArray(rows) && rows.some((c) => c && !c.resolved && !c.done)) {
-                        indices.add(idx);
-                    }
+                if (!Number.isFinite(idx)) return;
+                const rows = spreadCommentsBySpread[idx];
+                if (
+                    Array.isArray(rows) &&
+                    rows.some(
+                        (c) =>
+                            c &&
+                            c.author_type === 'client' &&
+                            isCommentUnseen(album.id, c)
+                    )
+                ) {
+                    indices.add(idx);
                 }
             });
         }
         if (photoPins && album?.id) {
             photoPins.forEach((pin) => {
                 if (isPhotoPinUnseen(album.id, pin)) {
-                    const idx = pin.spreadIndex != null 
-                        ? pin.spreadIndex 
-                        : pageToSpreadIndex(pin.pageNum, { ...spreadOpts, totalPages });
+                    const idx =
+                        pin.spreadIndex != null
+                            ? pin.spreadIndex
+                            : pageToSpreadIndex(pin.pageNum, { ...spreadOpts, totalPages });
                     if (Number.isFinite(idx)) {
                         indices.add(idx);
                     }
@@ -519,8 +544,13 @@ const AlbumBook = ({
                     const idx = Number.isFinite(mark.spreadA)
                         ? mark.spreadA
                         : Number.isFinite(mark.spreadB)
-                        ? mark.spreadB
-                        : (mark.a ? pageToSpreadIndex(parseSlotKey(mark.a).pageNum, { ...spreadOpts, totalPages }) : 0);
+                          ? mark.spreadB
+                          : mark.a
+                            ? pageToSpreadIndex(parseSlotKey(mark.a).pageNum, {
+                                  ...spreadOpts,
+                                  totalPages,
+                              })
+                            : 0;
                     if (Number.isFinite(idx)) {
                         indices.add(idx);
                     }
@@ -528,7 +558,15 @@ const AlbumBook = ({
             });
         }
         return Array.from(indices).sort((a, b) => a - b);
-    }, [spreadCommentsBySpread, photoPins, swapMarks, album?.id, totalPages, spreadOpts]);
+    }, [
+        spreadCommentsBySpread,
+        photoPins,
+        swapMarks,
+        album?.id,
+        totalPages,
+        spreadOpts,
+        proofSeenTick,
+    ]);
 
     const pageRangeLabel = useMemo(() => {
         if (rightNum < totalPages) return `${leftNum}–${rightNum}`;
@@ -2222,7 +2260,7 @@ const AlbumBook = ({
                             comments={currentSpreadComments}
                             variant="spreadBar"
                             albumId={album?.id}
-                            seenTick={commentsSeenTick}
+                            seenTick={proofSeenTick}
                         />
                     </div>
                 )}
@@ -2339,6 +2377,10 @@ const AlbumBook = ({
                                         }
                                         setOverviewTargetSpreadIndex(overviewSpreadIndex);
                                         goToPage(targetPage);
+                                        // Preview / client link: close overview and land on the spread.
+                                        if (previewMode) {
+                                            setOverviewOpen(false);
+                                        }
                                     }}
                                 >
                                     <span className="ab-overview-thumb ab-overview-thumb--spread">

@@ -28,8 +28,8 @@ function formatBarDate(iso) {
 }
 
 /** Collapsed bar copy: "Original · you · 6 Aug" */
-function formatBarSummary({ label, who = 'you', when = null }) {
-    const parts = [label, who].filter(Boolean);
+function formatBarSummary({ label, when = null }) {
+    const parts = [label].filter(Boolean);
     const date = formatBarDate(when);
     if (date) parts.push(date);
     return parts.join(' · ');

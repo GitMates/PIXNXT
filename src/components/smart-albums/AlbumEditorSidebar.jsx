@@ -17,6 +17,7 @@ import { hasCommentAttachment } from './albumCommentAttachments';
 import CoverLeatherColorPicker from './CoverLeatherColorPicker';
 import CoverPhotoUploader from './CoverPhotoUploader';
 import { formatAlbumGridSizeDisplay } from './albumGridSize';
+import { resolveFrontCoverDisplayText } from './albumCoverText';
 import {
     albumHasBlankCovers,
     albumUsesBookWrap,
@@ -134,9 +135,16 @@ export default function AlbumEditorSidebar({
         return Boolean(resolveCoverImageSrc(album, { showSamples: false }));
     }, [album, workspaceRevision]);
 
+    // Same text shown on the leather cover (custom message, or album name when blank).
+    const resolvedCoverText = useMemo(() => {
+        void coverTextMessage;
+        void hasCoverPhoto;
+        return resolveFrontCoverDisplayText(album, albumId);
+    }, [album, albumId, coverTextMessage, hasCoverPhoto]);
+
     useEffect(() => {
-        setLocalCoverText(coverTextMessage || '');
-    }, [coverTextMessage]);
+        setLocalCoverText(resolvedCoverText || '');
+    }, [resolvedCoverText]);
 
     const swapsEnabled = album?.messages_enabled !== false;
     const showAllFeedback = feedbackFilter === 'all';
@@ -775,7 +783,9 @@ export default function AlbumEditorSidebar({
                                     <button
                                         type="button"
                                         className="ae-cover-panel__text-save"
-                                        disabled={localCoverText.trim() === (coverTextMessage || '').trim()}
+                                        disabled={
+                                            localCoverText.trim() === (resolvedCoverText || '').trim()
+                                        }
                                         onClick={() => onSaveCoverText(localCoverText.trim())}
                                     >
                                         Save
