@@ -429,8 +429,9 @@
 }
 
 .av-feedback-compose__input-shell--recording {
-  border-color: #f0c4c4;
-  background: #fffbfb;
+  border-color: #e5e7eb;
+  background: #f8f8f8;
+  border-radius: 18px;
 }
 
 .av-feedback-compose__input-shell--has-attachment {
@@ -488,46 +489,49 @@
   margin: 0;
   border: 1px solid #e5e7eb;
   border-radius: 16px;
-  background: #ffffff;
-  padding: 12px 14px;
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+  background: #f2f2f2;
+  padding: 12px 14px 10px;
+  box-shadow: none;
 }
 
 .av-feedback-compose__recording {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 12px;
   width: 100%;
+  min-height: 54px;
 }
 
 .av-feedback-compose__recording-waveform {
   display: inline-flex;
   align-items: flex-end;
   gap: 4px;
-  min-width: 88px;
-  height: 24px;
+  min-width: 92px;
+  height: 20px;
+  flex-shrink: 0;
 }
 
 .av-feedback-compose__recording-waveform span {
   display: inline-block;
-  width: 6px;
+  width: 5px;
   border-radius: 999px;
-  background: #e5e7eb;
+  background: rgba(73, 82, 90, 0.7);
   animation: av-feedback-wave 1.2s ease-in-out infinite;
 }
 
 .av-feedback-compose__recording-waveform span:nth-child(1) {
-  height: 10px;
+  height: 9px;
   animation-delay: -0.2s;
 }
 
 .av-feedback-compose__recording-waveform span:nth-child(2) {
-  height: 16px;
+  height: 12px;
   animation-delay: -0.1s;
 }
 
 .av-feedback-compose__recording-waveform span:nth-child(3) {
-  height: 22px;
+  height: 18px;
 }
 
 .av-feedback-compose__recording-waveform span:nth-child(4) {
@@ -536,13 +540,14 @@
 }
 
 .av-feedback-compose__recording-waveform span:nth-child(5) {
-  height: 18px;
+  height: 17px;
   animation-delay: -0.05s;
 }
 
 .av-feedback-compose__recording-copy {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 2px;
   flex: 1;
   min-width: 0;
@@ -550,15 +555,17 @@
 
 .av-feedback-compose__recording-label {
   font-family: var(--font-sans);
-  font-size: 13px;
+  font-size: 16px;
   font-weight: 700;
   color: #111827;
+  line-height: 1.2;
 }
 
 .av-feedback-compose__recording-hint {
   font-family: var(--font-sans);
   font-size: 12px;
   color: #6b7280;
+  line-height: 1.2;
 }
 
 @keyframes av-feedback-wave {
@@ -633,8 +640,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border: 1px solid #e5e5e5;
   border-radius: 50%;
   background: #fff;
@@ -655,14 +662,14 @@
 }
 
 .av-feedback-compose__icon-btn--send {
-  background: #7dcea0;
-  color: #ffffff;
+  background: #d7ebd3;
+  color: #1f2937;
   border-color: transparent;
 }
 
 .av-feedback-compose__icon-btn--send:hover:not(:disabled) {
-  background: #6fc292;
-  color: #ffffff;
+  background: #cde6cb;
+  color: #1f2937;
 }
 
 @media (max-width: 960px) {
