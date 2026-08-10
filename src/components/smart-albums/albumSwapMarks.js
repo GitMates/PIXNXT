@@ -21,6 +21,7 @@ import {
 import {
     isMissingRelationError,
     loadFeedbackSeenMap,
+    resolveFeedbackViewerKey,
     upsertFeedbackSeenRows,
 } from './albumFeedbackDb';
 
@@ -215,27 +216,32 @@ export function countUnseenSwapMarks(albumId, marks) {
 export function markSwapMarksSeen(
     albumId,
     marks,
-    { viewerRole = 'photographer', viewerKey = 'default' } = {}
+    { viewerRole = 'photographer', viewerKey } = {}
 ) {
     if (!albumId || !marks?.length) return;
     const bucket = { ...(seenByAlbum[albumId] || {}) };
     const now = new Date().toISOString();
-    const rows = [];
+    const ids = [];
     marks.forEach((mark) => {
         if (!mark?.id) return;
         bucket[mark.id] = now;
-        rows.push({
-            album_id: albumId,
-            viewer_role: viewerRole,
-            viewer_key: viewerKey || 'default',
-            item_kind: 'swap',
-            item_id: String(mark.id),
-            seen_at: now,
-        });
+        ids.push(String(mark.id));
     });
+    if (!ids.length) return;
     seenByAlbum[albumId] = bucket;
     notifySwapMarksSeenChanged(albumId);
-    void upsertFeedbackSeenRows(rows);
+    void (async () => {
+        const key = await resolveFeedbackViewerKey(viewerRole, viewerKey, albumId);
+        const rows = ids.map((itemId) => ({
+            album_id: albumId,
+            viewer_role: viewerRole,
+            viewer_key: key,
+            item_kind: 'swap',
+            item_id: itemId,
+            seen_at: now,
+        }));
+        await upsertFeedbackSeenRows(rows);
+    })();
 }
 
 /** All swappable photo slots for the album layout. */

@@ -147,7 +147,9 @@ export default function SpreadVersionHistory({
 
     const summaryLabel = latest
         ? latest.note ||
-          latest.slotLabel ||
+          (latest.whole || /^whole spread$/i.test(String(latest.slotLabel || ''))
+              ? 'Uploaded a new version'
+              : latest.slotLabel) ||
           (latest.whole ? 'Updated spread' : 'Updated photo')
         : 'Original';
     const summaryWhen = latest?.createdAt || createdAt || null;

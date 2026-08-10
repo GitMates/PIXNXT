@@ -18,6 +18,7 @@ import {
     getSpreadContext,
     getSpreadPages,
     getTotalSpreads,
+    getInnerSpreadCount,
     isDraggableOverviewSpread,
     isEndHalfSpreadIndex,
     isInsideCoverSpreadLeft,
@@ -25,6 +26,7 @@ import {
     isWholeSpreadLayout,
     formatOverviewSpreadLabel,
     formatBookSpreadMetaLabel,
+    formatSpreadCounterNumber,
     normalizeStoragePageIndex,
     pageToSpreadIndex,
     spreadIndexToPage,
@@ -422,18 +424,18 @@ const AlbumBook = ({
     const { left: leftNum, right: rightNum } = getSpreadPages(spreadIndex, totalPages, spreadOpts);
 
     const counterLabel = useMemo(() => {
-        const total = totalSpreads;
-        const spreadWord = total === 1 ? 'spread' : 'spreads';
+        const innerCount = getInnerSpreadCount(totalPages, spreadOpts);
+        const spreadWord = innerCount === 1 ? 'spread' : 'spreads';
         if (spreadOpts.hasCovers && spreadIndex <= 0) {
-            return `Cover · ${total} ${spreadWord}`;
+            return `Cover · ${innerCount} ${spreadWord}`;
         }
         if (isEndHalfSpreadIndex(spreadIndex, totalPages, spreadOpts)) {
-            return `Back · ${total} ${spreadWord}`;
+            return `Back · ${innerCount} ${spreadWord}`;
         }
-        const n = String(spreadIndex + 1).padStart(2, '0');
-        const totalLabel = String(total).padStart(2, '0');
+        const n = formatSpreadCounterNumber(spreadIndex, totalPages, spreadOpts);
+        const totalLabel = String(innerCount).padStart(2, '0');
         return `${n} / ${totalLabel}`;
-    }, [spreadIndex, totalSpreads, totalPages, spreadOpts]);
+    }, [spreadIndex, totalPages, spreadOpts]);
 
     const spreadMetaLabel = useMemo(
         () => formatBookSpreadMetaLabel(spreadIndex, totalPages, spreadOpts),

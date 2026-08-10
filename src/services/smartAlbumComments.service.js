@@ -7,6 +7,7 @@ import {
     isMissingRelationError,
     loadFeedbackSeenMap,
     resolveCommentAttachmentForDb,
+    resolveFeedbackViewerKey,
     upsertFeedbackSeenRows,
 } from '../components/smart-albums/albumFeedbackDb';
 
@@ -55,27 +56,32 @@ export function isCommentUnseen(albumId, comment) {
 export function markCommentsSeen(
     albumId,
     comments,
-    { viewerRole = 'photographer', viewerKey = 'default' } = {}
+    { viewerRole = 'photographer', viewerKey } = {}
 ) {
     if (!albumId || !comments?.length) return;
     const bucket = { ...(seenByAlbum[albumId] || {}) };
     const now = new Date().toISOString();
-    const rows = [];
+    const ids = [];
     comments.forEach((comment) => {
         if (!comment?.id) return;
         bucket[comment.id] = now;
-        rows.push({
-            album_id: albumId,
-            viewer_role: viewerRole,
-            viewer_key: viewerKey || 'default',
-            item_kind: 'comment',
-            item_id: String(comment.id),
-            seen_at: now,
-        });
+        ids.push(String(comment.id));
     });
+    if (!ids.length) return;
     seenByAlbum[albumId] = bucket;
     notifyCommentsSeenChanged(albumId);
-    void upsertFeedbackSeenRows(rows);
+    void (async () => {
+        const key = await resolveFeedbackViewerKey(viewerRole, viewerKey, albumId);
+        const rows = ids.map((itemId) => ({
+            album_id: albumId,
+            viewer_role: viewerRole,
+            viewer_key: key,
+            item_kind: 'comment',
+            item_id: itemId,
+            seen_at: now,
+        }));
+        await upsertFeedbackSeenRows(rows);
+    })();
 }
 
 export function notifyGuestCommentsSeenChanged(albumId) {
@@ -98,30 +104,31 @@ export function isGuestCommentUnseen(albumId, comment) {
     return new Date(stamp).getTime() > new Date(seenAt).getTime();
 }
 
-export function markGuestCommentsSeen(
-    albumId,
-    comments,
-    { viewerKey = 'default' } = {}
-) {
+export function markGuestCommentsSeen(albumId, comments, { viewerKey } = {}) {
     if (!albumId || !comments?.length) return;
     const bucket = { ...(guestSeenByAlbum[albumId] || {}) };
     const now = new Date().toISOString();
-    const rows = [];
+    const ids = [];
     comments.forEach((comment) => {
         if (!comment?.id) return;
         bucket[comment.id] = now;
-        rows.push({
-            album_id: albumId,
-            viewer_role: 'client',
-            viewer_key: viewerKey || 'default',
-            item_kind: 'comment',
-            item_id: String(comment.id),
-            seen_at: now,
-        });
+        ids.push(String(comment.id));
     });
+    if (!ids.length) return;
     guestSeenByAlbum[albumId] = bucket;
     notifyGuestCommentsSeenChanged(albumId);
-    void upsertFeedbackSeenRows(rows);
+    void (async () => {
+        const key = await resolveFeedbackViewerKey('client', viewerKey, albumId);
+        const rows = ids.map((itemId) => ({
+            album_id: albumId,
+            viewer_role: 'client',
+            viewer_key: key,
+            item_kind: 'comment',
+            item_id: itemId,
+            seen_at: now,
+        }));
+        await upsertFeedbackSeenRows(rows);
+    })();
 }
 
 export function getCommentsSubmittedAt(albumId) {

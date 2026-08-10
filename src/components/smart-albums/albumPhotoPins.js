@@ -9,6 +9,7 @@ import {
     isMissingColumnError,
     resolveCommentAttachmentForDb,
     loadFeedbackSeenMap,
+    resolveFeedbackViewerKey,
     upsertFeedbackSeenRows,
 } from './albumFeedbackDb';
 
@@ -210,27 +211,32 @@ export function countUnseenPhotoPins(albumId, pins) {
 export function markPhotoPinsSeen(
     albumId,
     pins,
-    { viewerRole = 'photographer', viewerKey = 'default' } = {}
+    { viewerRole = 'photographer', viewerKey } = {}
 ) {
     if (!albumId || !pins?.length) return;
     const bucket = { ...(seenByAlbum[albumId] || {}) };
     const now = new Date().toISOString();
-    const rows = [];
+    const ids = [];
     pins.forEach((pin) => {
         if (!pin?.id) return;
         bucket[pin.id] = now;
-        rows.push({
-            album_id: albumId,
-            viewer_role: viewerRole,
-            viewer_key: viewerKey || 'default',
-            item_kind: 'pin',
-            item_id: String(pin.id),
-            seen_at: now,
-        });
+        ids.push(String(pin.id));
     });
+    if (!ids.length) return;
     seenByAlbum[albumId] = bucket;
     notifyPhotoPinsSeenChanged(albumId);
-    void upsertFeedbackSeenRows(rows);
+    void (async () => {
+        const key = await resolveFeedbackViewerKey(viewerRole, viewerKey, albumId);
+        const rows = ids.map((itemId) => ({
+            album_id: albumId,
+            viewer_role: viewerRole,
+            viewer_key: key,
+            item_kind: 'pin',
+            item_id: itemId,
+            seen_at: now,
+        }));
+        await upsertFeedbackSeenRows(rows);
+    })();
 }
 
 export function getPhotoPins(albumId) {

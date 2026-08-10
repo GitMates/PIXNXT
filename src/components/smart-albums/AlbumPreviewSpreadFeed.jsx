@@ -39,7 +39,7 @@ import {
 import AlbumPreviewReplacementCard from './AlbumPreviewReplacementCard';
 import OverviewLeatherCover from './OverviewLeatherCover';
 import SwapIcon from './SwapIcon';
-import { getSpreadContext, pageToSpreadIndex } from './albumSpreadUtils';
+import { getSpreadContext, pageToSpreadIndex, formatProofSpreadActivityLabel } from './albumSpreadUtils';
 import './AlbumQuietProofFeed.css';
 
 function resolveSwapEndpointSrc(albumId, slotKey, album, totalPages) {
@@ -396,6 +396,10 @@ function QuietProofFeed({
     onJumpToSpread,
 }) {
     void photoRevision;
+    const spreadOpts = useMemo(
+        () => getSpreadContext(album, totalPages),
+        [album, totalPages]
+    );
     const clientName =
         getClientReviewerIdentity(albumId).name ||
         getGuestProfile(albumId)?.name ||
@@ -511,7 +515,11 @@ function QuietProofFeed({
                             authorName={businessName || comment.author_name || 'You'}
                             createdAt={comment.updated_at || comment.created_at}
                             badge="Photographer"
-                            activityLabel={`Comment · Spread ${String((comment.spread_index ?? 0) + 1).padStart(2, '0')}`}
+                            activityLabel={formatProofSpreadActivityLabel(
+                                comment.spread_index,
+                                totalPages,
+                                spreadOpts
+                            )}
                             unseen={false}
                             showMarkDone={false}
                             {...replyPropsFor(item)}
@@ -532,7 +540,11 @@ function QuietProofFeed({
                             authorName={comment.author_name || clientName}
                             createdAt={comment.updated_at || comment.created_at}
                             badge={getClientCommentBadgeLabel(comment)}
-                            activityLabel={`Comment · Spread ${String((comment.spread_index ?? 0) + 1).padStart(2, '0')}`}
+                            activityLabel={formatProofSpreadActivityLabel(
+                                comment.spread_index,
+                                totalPages,
+                                spreadOpts
+                            )}
                             unseen={unseen}
                             showMarkDone={!clientViewer}
                             onMarkDone={() => markCommentsSeen(albumId, [comment])}
@@ -567,7 +579,11 @@ function QuietProofFeed({
                             authorName={pin.authorName || pin.author_name || clientName}
                             createdAt={pin.createdAt}
                             badge={`Pin ${ordinal}`}
-                            activityLabel={`Comment · Spread ${String((pin.spreadIndex ?? 0) + 1).padStart(2, '0')}`}
+                            activityLabel={formatProofSpreadActivityLabel(
+                                pin.spreadIndex,
+                                totalPages,
+                                spreadOpts
+                            )}
                             unseen={unseen}
                             showMarkDone={!clientViewer}
                             onMarkDone={() => markPhotoPinsSeen(albumId, [pin])}
@@ -589,18 +605,6 @@ function QuietProofFeed({
                     );
                 }
 
-                if (item.kind === 'image-replacement-stack') {
-                    return (
-                        <AlbumPreviewReplacementCard
-                            key={item.id}
-                            albumId={albumId}
-                            replacements={item.replacements}
-                            authorName={businessName || 'Photographer'}
-                            hasCovers={Boolean(album?.has_covers)}
-                        />
-                    );
-                }
-
                 if (item.kind === 'image-replacement') {
                     return (
                         <AlbumPreviewReplacementCard
@@ -609,6 +613,7 @@ function QuietProofFeed({
                             replacement={item.replacement}
                             authorName={businessName || 'Photographer'}
                             hasCovers={Boolean(album?.has_covers)}
+                            isLatestOnSpread={Boolean(item.isLatestOnSpread)}
                         />
                     );
                 }
@@ -617,7 +622,6 @@ function QuietProofFeed({
                 const swapUnseen = isSwapMarkUnseen(albumId, swapItem);
                 const labelA = formatSwapEndpointLabel(swapItem.labelA);
                 const labelB = formatSwapEndpointLabel(swapItem.labelB);
-                const spreadOpts = getSpreadContext(album, totalPages);
                 const spreadA =
                     Number.isFinite(swapItem.spreadA)
                         ? swapItem.spreadA
@@ -670,7 +674,12 @@ function QuietProofFeed({
                         authorName={swapItem.authorName || clientName}
                         createdAt={swapItem.createdAt}
                         badge="Swap"
-                        activityLabel={`Swap request · Spread ${String((Number.isFinite(spreadA) ? spreadA : 0) + 1).padStart(2, '0')}`}
+                        activityLabel={formatProofSpreadActivityLabel(
+                            spreadA,
+                            totalPages,
+                            spreadOpts,
+                            { prefix: 'Swap request' }
+                        )}
                         unseen={swapUnseen}
                         showMarkDone={!clientViewer}
                         onMarkDone={() => markSwapMarksSeen(albumId, [swapItem])}
@@ -1005,22 +1014,6 @@ export default function AlbumPreviewSpreadFeed({
                     );
                 }
 
-                if (item.kind === 'image-replacement-stack') {
-                    return (
-                        <React.Fragment key={item.id}>
-                            {dateDivider}
-                            <div className="av-chat-row av-chat-row--system">
-                                <AlbumPreviewReplacementCard
-                                    albumId={albumId}
-                                    replacements={item.replacements}
-                                    authorName={businessName || 'Photographer'}
-                                    hasCovers={Boolean(album?.has_covers)}
-                                />
-                            </div>
-                        </React.Fragment>
-                    );
-                }
-
                 if (item.kind === 'image-replacement') {
                     return (
                         <React.Fragment key={item.id}>
@@ -1031,6 +1024,7 @@ export default function AlbumPreviewSpreadFeed({
                                     replacement={item.replacement}
                                     authorName={businessName || 'Photographer'}
                                     hasCovers={Boolean(album?.has_covers)}
+                                    isLatestOnSpread={Boolean(item.isLatestOnSpread)}
                                 />
                             </div>
                         </React.Fragment>

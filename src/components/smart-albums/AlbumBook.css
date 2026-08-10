@@ -135,6 +135,44 @@
   z-index: 2;
 }
 
+/* Client / preview spread — floating shadow without bottom artifact */
+.ab-root--preview .ab-spread-book-block {
+  border-radius: 14px;
+  filter:
+    drop-shadow(0 4px 10px rgba(0, 0, 0, 0.08))
+    drop-shadow(0 14px 32px rgba(0, 0, 0, 0.14))
+    drop-shadow(0 24px 48px rgba(0, 0, 0, 0.1));
+}
+
+.ab-root--preview.ab-root--flipping .ab-spread-book-block {
+  filter: none;
+}
+
+.ab-root--preview .ab-html-flipbook {
+  box-shadow: none;
+  border-radius: 0;
+}
+
+.ab-root--preview .ab-spread-magnify-viewport:not(.ab-spread-magnify-viewport--active) {
+  overflow: visible;
+}
+
+.ab-root--preview
+  .ab-flipbook-wrap:not(.ab-flipbook-wrap--flipping)
+  .stf__outerShadow,
+.ab-root--preview
+  .ab-flipbook-wrap:not(.ab-flipbook-wrap--flipping)
+  .stf__innerShadow,
+.ab-root--preview
+  .ab-flipbook-wrap:not(.ab-flipbook-wrap--flipping)
+  .stf__hardShadow,
+.ab-root--preview
+  .ab-flipbook-wrap:not(.ab-flipbook-wrap--flipping)
+  .stf__hardInnerShadow {
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
 .ab-spread-magnify-viewport {
   position: relative;
   overflow: hidden;
@@ -176,7 +214,7 @@
 
 .ab-spread-display > .ab-spread-controls {
   position: relative;
-  align-self: flex-end;
+  align-self: center;
   margin-top: 14px;
   z-index: 1;
   pointer-events: auto;
@@ -1366,7 +1404,7 @@
 }
 
 .ab-root--preview .ab-spread-display > .ab-spread-controls {
-  align-self: flex-end;
+  align-self: center;
   margin-top: 12px;
   z-index: 1;
 }
@@ -1381,6 +1419,7 @@
 }
 
 .ab-root--preview .ab-spread-display > .ab-spread-controls--preview,
+.ab-root--preview .ab-spread-display > .ab-spread-controls--toolbar,
 .ab-spread-display > .ab-spread-controls--toolbar {
   position: relative;
   align-self: center;

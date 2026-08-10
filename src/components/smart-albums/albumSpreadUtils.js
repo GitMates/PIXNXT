@@ -70,6 +70,35 @@ export function formatSpreadDisplayLabel(spreadIndex, opts = {}) {
 }
 
 /**
+ * Padded spread number for toolbar / filmstrip / activity lines (05, not 06 when covers are on).
+ */
+export function formatSpreadCounterNumber(spreadIndex, totalPages, opts = {}) {
+    const idx = Number(spreadIndex);
+    if (!Number.isFinite(idx)) return '01';
+    const spreadOpts = normalizeSpreadOpts(opts);
+    if (spreadOpts.hasCovers && idx <= 0) return '00';
+    if (isEndHalfSpreadIndex(idx, totalPages, spreadOpts)) return '99';
+    if (spreadOpts.hasCovers) return String(idx).padStart(2, '0');
+    return String(idx + 1).padStart(2, '0');
+}
+
+/** Activity line under comment cards — matches filmstrip numbering (Comment · Spread 05). */
+export function formatProofSpreadActivityLabel(
+    spreadIndex,
+    totalPages,
+    opts = {},
+    { prefix = 'Comment' } = {}
+) {
+    const idx = Number(spreadIndex);
+    const spreadOpts = normalizeSpreadOpts(opts);
+    if (!Number.isFinite(idx)) return `${prefix} · Spread`;
+    if (spreadOpts.hasCovers && idx <= 0) return `${prefix} · Cover`;
+    if (isEndHalfSpreadIndex(idx, totalPages, spreadOpts)) return `${prefix} · Back`;
+    const num = formatSpreadCounterNumber(idx, totalPages, spreadOpts);
+    return `${prefix} · Spread ${num}`;
+}
+
+/**
  * Meta label under the book / in comments compose (COVER, SPREAD 01, BACK).
  * Must match filmstrip numbering — cover is never "SPREAD 01".
  */
@@ -362,6 +391,15 @@ export function getTotalSpreads(totalPages, opts = {}) {
     }
     const innerSpreads = Math.ceil(getInnerPageCount(totalPages, spreadOpts) / 2);
     return 1 + innerSpreads + 1;
+}
+
+/** Inner/content spreads only — excludes front and back cover when hasCovers. */
+export function getInnerSpreadCount(totalPages, opts = {}) {
+    const spreadOpts = normalizeSpreadOpts(opts);
+    if (!spreadOpts.hasCovers) {
+        return getTotalSpreads(totalPages, spreadOpts);
+    }
+    return Math.max(0, getTotalSpreads(totalPages, spreadOpts) - 2);
 }
 
 /** Map flipbook page index → spread index (matches page-flip showCover spreads). */

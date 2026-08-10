@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     formatOverviewSpreadLabel,
+    formatSpreadCounterNumber,
     getSpreadContext,
     getSpreadPages,
     getTotalSpreads,
@@ -621,9 +622,15 @@ export default function AlbumSpreadFilmstrip({
                                     ) : null}
                                 </span>
                                 <span className="ae-spread-filmstrip__num">
-                                    {spreadCtx.hasCovers || visual.isCover
-                                        ? (spreadIndex === 0 ? 'COVER' : String(spreadIndex).padStart(2, '0'))
-                                        : String(spreadIndex + 1).padStart(2, '0')}
+                                    {spreadIndex === 0 && (spreadCtx.hasCovers || visual.isCover)
+                                        ? 'COVER'
+                                        : isEndHalfSpreadIndex(spreadIndex, totalPages, spreadCtx)
+                                          ? 'BACK'
+                                          : formatSpreadCounterNumber(
+                                                spreadIndex,
+                                                totalPages,
+                                                spreadCtx
+                                            )}
                                     {isLocked && !visual.isCover ? (
                                         <span className="ae-spread-filmstrip__lock" style={{ marginLeft: '4px', opacity: 0.7, display: 'inline-flex', alignItems: 'center' }}>
                                             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">

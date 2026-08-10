@@ -93,17 +93,96 @@ export async function resolveCommentAttachmentForDb(
     };
 }
 
+/**
+ * Photographer hydrate/mark must share the same viewer_key (auth user id).
+ * Falls back to 'default' only when there is no session.
+ */
+export async function resolvePhotographerViewerKey(explicitKey) {
+    if (explicitKey && explicitKey !== 'default') return explicitKey;
+    try {
+        const { data } = await supabase.auth.getSession();
+        const userId = data?.session?.user?.id;
+        if (userId) return userId;
+    } catch {
+        /* ignore */
+    }
+    return explicitKey || 'default';
+}
+
+export async function resolveFeedbackViewerKey(viewerRole, explicitKey, albumId = null) {
+    if (viewerRole === 'photographer') {
+        return resolvePhotographerViewerKey(explicitKey);
+    }
+    if (explicitKey && explicitKey !== 'default') return explicitKey;
+    if (albumId) {
+        try {
+            const raw = localStorage.getItem(`pixnxt_album_guest_${albumId}`);
+            const guest = raw ? JSON.parse(raw) : null;
+            const key = guest?.email?.trim() || guest?.name?.trim();
+            if (key) return key;
+        } catch {
+            /* ignore */
+        }
+    }
+    return explicitKey || 'default';
+}
+
+function mergeSeenMaps(primary, fallback) {
+    const map = { ...(primary || {}) };
+    Object.entries(fallback || {}).forEach(([kind, items]) => {
+        if (!map[kind]) map[kind] = {};
+        Object.entries(items || {}).forEach(([itemId, seenAt]) => {
+            const existing = map[kind][itemId];
+            if (!existing) {
+                map[kind][itemId] = seenAt;
+                return;
+            }
+            if (new Date(seenAt).getTime() > new Date(existing).getTime()) {
+                map[kind][itemId] = seenAt;
+            }
+        });
+    });
+    return map;
+}
+
+async function fetchFeedbackSeenMap(albumId, viewerRole, viewerKey) {
+    const empty = {};
+    const { data, error } = await supabase
+        .from('album_proofer_feedback_seen')
+        .select('item_kind, item_id, seen_at')
+        .eq('album_id', albumId)
+        .eq('viewer_role', viewerRole)
+        .eq('viewer_key', viewerKey || 'default');
+    if (error) {
+        if (!isMissingRelationError(error, 'album_proofer_feedback_seen')) {
+            console.warn('loadFeedbackSeenMap:', error.message);
+        }
+        return empty;
+    }
+    const map = {};
+    (data || []).forEach((row) => {
+        if (!map[row.item_kind]) map[row.item_kind] = {};
+        map[row.item_kind][row.item_id] = row.seen_at;
+    });
+    return map;
+}
+
 export async function upsertFeedbackSeenRows(rows) {
-    if (!rows?.length) return;
+    if (!rows?.length) return { ok: false, error: null };
     try {
         const { error } = await supabase.from('album_proofer_feedback_seen').upsert(rows, {
             onConflict: 'album_id,viewer_role,viewer_key,item_kind,item_id',
         });
-        if (error && !isMissingRelationError(error, 'album_proofer_feedback_seen')) {
-            console.warn('upsertFeedbackSeenRows:', error.message);
+        if (error) {
+            if (!isMissingRelationError(error, 'album_proofer_feedback_seen')) {
+                console.warn('upsertFeedbackSeenRows:', error.message);
+            }
+            return { ok: false, error };
         }
+        return { ok: true, error: null };
     } catch (err) {
         console.warn('upsertFeedbackSeenRows failed:', err);
+        return { ok: false, error: err };
     }
 }
 
@@ -111,24 +190,14 @@ export async function loadFeedbackSeenMap(albumId, viewerRole, viewerKey = 'defa
     const empty = {};
     if (!albumId) return empty;
     try {
-        const { data, error } = await supabase
-            .from('album_proofer_feedback_seen')
-            .select('item_kind, item_id, seen_at')
-            .eq('album_id', albumId)
-            .eq('viewer_role', viewerRole)
-            .eq('viewer_key', viewerKey || 'default');
-        if (error) {
-            if (!isMissingRelationError(error, 'album_proofer_feedback_seen')) {
-                console.warn('loadFeedbackSeenMap:', error.message);
-            }
-            return empty;
+        const key = viewerKey || 'default';
+        const primary = await fetchFeedbackSeenMap(albumId, viewerRole, key);
+        // Merge legacy rows written under 'default' so refresh keeps Done after the key fix.
+        if (key !== 'default') {
+            const legacy = await fetchFeedbackSeenMap(albumId, viewerRole, 'default');
+            return mergeSeenMaps(primary, legacy);
         }
-        const map = {};
-        (data || []).forEach((row) => {
-            if (!map[row.item_kind]) map[row.item_kind] = {};
-            map[row.item_kind][row.item_id] = row.seen_at;
-        });
-        return map;
+        return primary;
     } catch (err) {
         console.warn('loadFeedbackSeenMap failed:', err);
         return empty;

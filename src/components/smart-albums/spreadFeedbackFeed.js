@@ -1,32 +1,30 @@
-import { sortSpreadReplacements } from './albumImageReplacements';
-
 export function feedItemSortTime(iso) {
     const t = new Date(iso || 0).getTime();
     return Number.isFinite(t) ? t : 0;
 }
 
-function groupImageReplacementsForFeed(imageReplacements = []) {
-    const bySpread = new Map();
-    for (const replacement of imageReplacements) {
-        const spreadIndex = replacement.spreadIndex ?? 0;
-        if (!bySpread.has(spreadIndex)) bySpread.set(spreadIndex, []);
-        bySpread.get(spreadIndex).push(replacement);
+/** One feed card per version upload or restore, ordered by time. */
+function imageReplacementsForFeed(imageReplacements = []) {
+    if (!imageReplacements?.length) return [];
+
+    const sorted = [...imageReplacements].sort(
+        (a, b) => feedItemSortTime(a.createdAt) - feedItemSortTime(b.createdAt)
+    );
+    const latestBySpread = new Map();
+    for (const row of sorted) {
+        const spreadIndex = row.spreadIndex ?? 0;
+        latestBySpread.set(spreadIndex, row);
     }
 
-    const items = [];
-    for (const [spreadIndex, rows] of bySpread) {
-        if (!rows.length) continue;
-        const sorted = sortSpreadReplacements(rows);
-        const latest = sorted[sorted.length - 1];
-        items.push({
-            kind: 'image-replacement-stack',
-            id: `repl-stack-${spreadIndex}-${latest.id}`,
-            sortAt: feedItemSortTime(latest.createdAt),
-            spreadIndex,
-            replacements: sorted,
-        });
-    }
-    return items;
+    return sorted.map((replacement) => ({
+        kind: 'image-replacement',
+        id: `repl-${replacement.id}`,
+        sortAt: feedItemSortTime(replacement.createdAt),
+        spreadIndex: replacement.spreadIndex ?? 0,
+        replacement,
+        isLatestOnSpread:
+            latestBySpread.get(replacement.spreadIndex ?? 0)?.id === replacement.id,
+    }));
 }
 
 /** Merge spread feedback items; oldest first, newest at bottom. */
@@ -78,7 +76,7 @@ export function buildSpreadFeedbackFeed({
         });
     }
 
-    items.push(...groupImageReplacementsForFeed(imageReplacements));
+    items.push(...imageReplacementsForFeed(imageReplacements));
 
     return items.sort((a, b) => a.sortAt - b.sortAt);
 }

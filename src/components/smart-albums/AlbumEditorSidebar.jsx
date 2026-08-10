@@ -3,9 +3,12 @@ import { pickImageFiles } from '../../lib/pickImageFiles';
 import { PROOF_CELL_LABELS, PROOF_SLOT_COUNT, getSpreadLeftPageIndex } from './albumSpreadGrid';
 import {
     getSlotLabel,
+    isSwapMarkUnseen,
     parseSlotKey,
     removeSwapMark,
 } from './albumSwapMarks';
+import { isPhotoPinUnseen } from './albumPhotoPins';
+import { isCommentUnseen } from '../../services/smartAlbumComments.service';
 import EditorSpreadMessageCompose from './EditorSpreadMessageCompose';
 import SpreadVersionHistory from './SpreadVersionHistory';
 import AlbumPreviewSpreadFeed from './AlbumPreviewSpreadFeed';
@@ -29,6 +32,7 @@ import {
     resolveCoverImageSrc,
 } from './albumPagePhotos';
 import {
+    filterUploadReplacements,
     getImageReplacements,
     IMAGE_REPLACEMENTS_CHANGED_EVENT,
     removeImageReplacement,
@@ -47,6 +51,21 @@ const GRID_LAYOUT_LABELS = {
     'two-page': 'Two-page grid (left + right)',
     'whole-spread': 'Whole-spread photo',
 };
+
+/** Mark-as-done is photographer "seen" state — not comment.resolved. */
+function isProofFeedItemMarkedDone(albumId, item) {
+    if (!albumId || !item) return false;
+    if (item.kind === 'client-message' && item.comment) {
+        return !isCommentUnseen(albumId, item.comment);
+    }
+    if (item.kind === 'photo-pin' && item.pin) {
+        return !isPhotoPinUnseen(albumId, item.pin);
+    }
+    if (item.kind === 'swap' && item.mark) {
+        return !isSwapMarkUnseen(albumId, item.mark);
+    }
+    return false;
+}
 
 function CoverSpineToggle({ on, onChange, label }) {
     return (
@@ -118,7 +137,6 @@ export default function AlbumEditorSidebar({
         setLocalCoverText(coverTextMessage || '');
     }, [coverTextMessage]);
 
-    void proofSeenTick;
     const swapsEnabled = album?.messages_enabled !== false;
     const showAllFeedback = feedbackFilter === 'all';
     const showDoneOnly = feedbackFilter === 'done';
@@ -269,10 +287,7 @@ export default function AlbumEditorSidebar({
             includeSwaps: swapsEnabled,
         });
         if (!showDoneOnly) return feed;
-        return feed.filter((item) => {
-            const row = item?.comment || item?.data || item;
-            return Boolean(row?.resolved || row?.done || item?.resolved);
-        });
+        return feed.filter((item) => isProofFeedItemMarkedDone(albumId, item));
     }, [
         visibleSentMessages,
         visibleClientMessages,
@@ -281,6 +296,8 @@ export default function AlbumEditorSidebar({
         visibleImageReplacements,
         swapsEnabled,
         showDoneOnly,
+        albumId,
+        proofSeenTick,
     ]);
 
     const doneFeedCount = useMemo(() => {
@@ -303,10 +320,7 @@ export default function AlbumEditorSidebar({
             imageReplacements,
             includeSwaps: swapsEnabled,
         });
-        return all.filter((item) => {
-            const row = item?.comment || item?.data || item;
-            return Boolean(row?.resolved || row?.done || item?.resolved);
-        }).length;
+        return all.filter((item) => isProofFeedItemMarkedDone(albumId, item)).length;
     }, [
         spreadCommentsBySpread,
         photoPins,
@@ -314,6 +328,8 @@ export default function AlbumEditorSidebar({
         imageReplacements,
         swapsEnabled,
         spreadOpts,
+        albumId,
+        proofSeenTick,
     ]);
 
     const currentSpreadFeedCount = useMemo(() => {
@@ -353,29 +369,34 @@ export default function AlbumEditorSidebar({
 
     const currentSpreadReplacements = useMemo(
         () =>
-            imageReplacements.filter(
-                (replacement) =>
-                    Number(replacement.spreadIndex) === Number(currentSpreadIndex)
+            filterUploadReplacements(
+                showAllFeedback
+                    ? imageReplacements
+                    : imageReplacements.filter(
+                          (replacement) =>
+                              Number(replacement.spreadIndex) === Number(currentSpreadIndex)
+                      )
             ),
-        [imageReplacements, currentSpreadIndex]
+        [imageReplacements, currentSpreadIndex, showAllFeedback]
     );
 
     const currentSpreadPreviewUrl = useMemo(() => {
         void workspaceRevision;
         if (!albumId) return null;
-        const sorted = sortSpreadReplacements(currentSpreadReplacements);
-        const latest = sorted.length ? sorted[sorted.length - 1] : null;
-        if (latest?.newUrl) return latest.newUrl;
         if (currentSpreadIndex <= 0 && spreadOpts.hasCovers) {
-            return resolveCoverImageSrc(album, { showSamples: false });
+            const cover = resolveCoverImageSrc(album, { showSamples: false });
+            if (cover) return cover;
         }
         const { left, right } = getSpreadPages(currentSpreadIndex, totalPages, spreadOpts);
-        return (
+        const live =
             getSpreadPhotoOverride(albumId, left) ||
             getPagePhotoOverride(albumId, left) ||
             (right !== left ? getPagePhotoOverride(albumId, right) : null) ||
-            null
-        );
+            null;
+        if (live) return live;
+        const sorted = sortSpreadReplacements(currentSpreadReplacements);
+        const latest = sorted.length ? sorted[sorted.length - 1] : null;
+        return latest?.newUrl || null;
     }, [
         album,
         albumId,
@@ -420,8 +441,8 @@ export default function AlbumEditorSidebar({
                 }
             });
         });
-        return pinCount + swapCount + clientCount;
-    }, [photoPins, swapMarks, swapsEnabled, spreadCommentsBySpread]);
+        return pinCount + swapCount + clientCount + (imageReplacements?.length || 0);
+    }, [photoPins, swapMarks, swapsEnabled, spreadCommentsBySpread, imageReplacements]);
 
     const currentSpreadMetaLabel = useMemo(
         () => formatBookSpreadMetaLabel(currentSpreadIndex, totalPages, spreadOpts),

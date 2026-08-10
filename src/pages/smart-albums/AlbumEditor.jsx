@@ -130,6 +130,7 @@ import {
     getReplacementVersion,
     IMAGE_REPLACEMENTS_CHANGED_EVENT,
     removeImageReplacement,
+    restoreImageReplacementVersion,
     trackSpreadImageReplacement,
 } from '../../components/smart-albums/albumImageReplacements';
 import AlbumEditorSettingsPanel from '../../components/smart-albums/AlbumEditorSettingsPanel';
@@ -152,6 +153,7 @@ import {
     COMMENTS_CHANGED_EVENT,
     COMMENTS_SEEN_CHANGED_EVENT,
     groupRootCommentsBySpread,
+    isCommentUnseen,
     smartAlbumCommentsService,
 } from '../../services/smartAlbumComments.service';
 import { hydrateAlbumClientFeedback } from '../../components/smart-albums/hydrateAlbumClientFeedback';
@@ -485,7 +487,15 @@ export default function AlbumEditor({
         Object.entries(spreadCommentsBySpread || {}).forEach(([key, rows]) => {
             const idx = Number(key);
             if (!Number.isFinite(idx)) return;
-            if (Array.isArray(rows) && rows.some((c) => c && !c.resolved && !c.done)) {
+            if (
+                Array.isArray(rows) &&
+                rows.some(
+                    (c) =>
+                        c &&
+                        c.author_type === 'client' &&
+                        isCommentUnseen(albumId, c)
+                )
+            ) {
                 set.add(idx);
             }
         });
@@ -500,7 +510,7 @@ export default function AlbumEditor({
             }
         });
         return set;
-    }, [spreadCommentsBySpread, photoPins, albumId, spreadOpts, totalPages]);
+    }, [spreadCommentsBySpread, photoPins, albumId, spreadOpts, totalPages, proofSeenTick]);
 
     const filmstripSwapSpreads = useMemo(() => {
         const set = new Set();
@@ -513,7 +523,7 @@ export default function AlbumEditor({
             }
         });
         return set;
-    }, [swapMarks, albumId, spreadOpts, totalPages]);
+    }, [swapMarks, albumId, spreadOpts, totalPages, proofSeenTick]);
 
     const filmstripVersionBySpread = useMemo(() => {
         const map = {};
@@ -1273,39 +1283,30 @@ export default function AlbumEditor({
     const handleRestoreImageReplacement = useCallback(
         (row) => {
             if (!albumId || !row) return;
-            const itemId = row.previousItemId;
-            if (!itemId) {
-                showToast('Original photo is no longer available to restore.', {
-                    variant: 'info',
-                    duration: 4000,
-                });
-                return;
-            }
-            const slot = {
-                pageNum: row.pageNum,
-                cellId: row.cellId ?? 0,
-                whole: Boolean(row.whole),
-                label: row.slotLabel,
-            };
-            const placed = placeCollectionItemOnSlot(slot, itemId, null, { skipTrack: true });
-            if (!placed) {
+            const result = restoreImageReplacementVersion(albumId, row, {
+                album,
+                totalPages,
+                spreadOpts,
+            });
+            if (!result.ok) {
+                if (result.reason === 'no_snapshot') {
+                    showToast('Original photo is no longer available to restore.', {
+                        variant: 'info',
+                        duration: 4000,
+                    });
+                    return;
+                }
                 showToast('Could not restore that version.', {
                     variant: 'error',
                     duration: 4000,
                 });
                 return;
             }
-            const version = getReplacementVersion(row);
-            const toRemove = getImageReplacements(albumId).filter(
-                (entry) =>
-                    entry.spreadIndex === row.spreadIndex &&
-                    getReplacementVersion(entry) >= version
-            );
-            toRemove.forEach((entry) => removeImageReplacement(albumId, entry.id));
+            setImageReplacements(getImageReplacements(albumId));
             bumpWorkspace();
-            showToast(`Restored v${version}.`, { variant: 'success', duration: 3000 });
+            showToast(`Restored v${result.version}.`, { variant: 'success', duration: 3000 });
         },
-        [albumId, placeCollectionItemOnSlot, showToast, bumpWorkspace]
+        [album, albumId, bumpWorkspace, showToast, spreadOpts, totalPages]
     );
 
     const handleSlotActivate = useCallback(

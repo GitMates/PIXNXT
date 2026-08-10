@@ -2,6 +2,7 @@ import { smartAlbumCommentsService, hydrateCommentSeen } from '../../services/sm
 import { hydrateSwapMarks, hydrateSwapMarksSeen } from './albumSwapMarks';
 import { hydratePhotoPins, hydratePhotoPinsSeen } from './albumPhotoPins';
 import { hydrateProofReplies } from './albumProofReplies';
+import { resolveFeedbackViewerKey } from './albumFeedbackDb';
 
 /**
  * Load all client proofing feedback from Supabase into memory caches
@@ -13,6 +14,8 @@ export async function hydrateAlbumClientFeedback(
 ) {
     if (!albumId) return null;
 
+    const resolvedKey = await resolveFeedbackViewerKey(viewerRole, viewerKey, albumId);
+
     const [comments, swaps, pins, replies] = await Promise.all([
         smartAlbumCommentsService.listAlbumComments(albumId),
         hydrateSwapMarks(albumId),
@@ -21,9 +24,9 @@ export async function hydrateAlbumClientFeedback(
     ]);
 
     await Promise.all([
-        hydrateCommentSeen(albumId, viewerRole, viewerKey),
-        hydrateSwapMarksSeen(albumId, viewerRole, viewerKey),
-        hydratePhotoPinsSeen(albumId, viewerRole, viewerKey),
+        hydrateCommentSeen(albumId, viewerRole, resolvedKey),
+        hydrateSwapMarksSeen(albumId, viewerRole, resolvedKey),
+        hydratePhotoPinsSeen(albumId, viewerRole, resolvedKey),
     ]);
 
     return { comments, swaps, pins, replies };

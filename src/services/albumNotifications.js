@@ -55,6 +55,19 @@ export function getNotificationTypeLabel(type) {
     return TYPE_LABELS[type] || 'Update';
 }
 
+/** Client feedback types that use Mark as done in the comments feed. */
+export const MARK_DONE_NOTIFICATION_TYPES = new Set([
+    NOTIFICATION_TYPES.PHOTO_COMMENT,
+    NOTIFICATION_TYPES.SWAP,
+    NOTIFICATION_TYPES.SPREAD_COMMENT,
+    NOTIFICATION_TYPES.CLIENT_REPLY,
+]);
+
+export function isNotificationMarkedDone(item) {
+    if (!item || item.isUnread) return false;
+    return MARK_DONE_NOTIFICATION_TYPES.has(item.type);
+}
+
 function readSubmitSeen() {
     try {
         const raw = localStorage.getItem(SUBMIT_SEEN_KEY);

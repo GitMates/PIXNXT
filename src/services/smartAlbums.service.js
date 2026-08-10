@@ -767,11 +767,18 @@ async function syncLocalAlbumsToSupabase(photographerId, remoteRows) {
   );
 }
 
-async function syncLocalAlbumAssetsToSupabase(photographerId) {
+async function syncLocalAlbumAssetsToSupabase(photographerId, remoteRows = []) {
   const albumIds = getAlbumIdsWithLocalAssets();
   if (!albumIds.length) return;
 
+  // Ignore stale localStorage keys for deleted albums or other photographers.
+  const knownAlbumIds = new Set([
+    ...(remoteRows || []).map((row) => row.id),
+    ...readLocalAlbums(photographerId).map((album) => album.id),
+  ]);
+
   for (const albumId of albumIds) {
+    if (!knownAlbumIds.has(albumId)) continue;
     const gridOvr = readGridSettingsOverrides(photographerId)[albumId];
     const localSnapshot = buildAlbumPreviewSnapshot(albumId, {
       album: gridOvr
@@ -787,18 +794,22 @@ async function syncLocalAlbumAssetsToSupabase(photographerId) {
     if (!localSnapshot) continue;
 
     let existingPreview = null;
+    let albumRowFound = false;
     try {
       const { data } = await supabase
         .from('album_proofer_albums')
-        .select('preview_data')
+        .select('id, preview_data')
         .eq('id', albumId)
         .eq('photographer_id', photographerId)
         .maybeSingle();
+      albumRowFound = Boolean(data?.id);
       existingPreview =
         data?.preview_data && typeof data.preview_data === 'object' ? data.preview_data : null;
     } catch {
       existingPreview = null;
     }
+
+    if (!albumRowFound) continue;
 
     if (previewNeedsAssetRepair(existingPreview) || previewNeedsAssetRepair(localSnapshot)) {
       try {
@@ -982,7 +993,7 @@ export const smartAlbumsService = {
 
         if (!fallback.error && fallback.data) {
           const synced = await syncLocalAlbumsToSupabase(photographerId, fallback.data);
-          void syncLocalAlbumAssetsToSupabase(photographerId).catch((e) => {
+          void syncLocalAlbumAssetsToSupabase(photographerId, synced).catch((e) => {
             console.warn('Background album asset sync failed:', e?.message || e);
           });
           void repairBrokenAlbumsForPhotographerInBackground(photographerId).catch((e) => {
@@ -1015,7 +1026,7 @@ export const smartAlbumsService = {
       console.warn('Local album settings sync failed:', e?.message || e);
     }
 
-    void syncLocalAlbumAssetsToSupabase(photographerId).catch((e) => {
+    void syncLocalAlbumAssetsToSupabase(photographerId, synced).catch((e) => {
       console.warn('Background album asset sync failed:', e?.message || e);
     });
 

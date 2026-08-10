@@ -399,7 +399,11 @@ export async function handleRepairAlbumPreviewRequest(req, body = {}) {
     album = data;
   }
 
-  if (!album) throw new Error('Album not found.');
+  if (!album) {
+    const err = new Error('Album not found.');
+    err.status = 404;
+    throw err;
+  }
 
   const writer = admin || (userId && userId === album.photographer_id ? userClient : null);
   const photographerDb = writer || admin || userClient || anon;

@@ -1,8 +1,10 @@
-import { getCollectionItem, getCollectionItemDisplayUrl } from './albumCollection';
+import { getCollectionItem, getCollectionItemDisplayUrl, restoreCollectionItemSnapshot } from './albumCollection';
 import { storageService } from '../../services/storage.service';
 import {
     getGridSlotPhoto,
     resolveSlotCollectionItemId,
+    restoreSlotPhotoFromHistory,
+    syncCollectionItemPlacements,
 } from './albumPagePhotos';
 import { getRemotePreviewData, patchRemotePreviewImageReplacements } from './albumPreviewData';
 import { getSpreadLeftPageIndex } from './albumSpreadGrid';
@@ -77,7 +79,14 @@ function readWorkingReplacements(albumId) {
     );
     const legacy = migrateLegacyLocalReplacements(albumId);
 
-    // Prefer the richest in-memory/DB-hydrated set; migrate legacy only when empty.
+    // After any in-session write, memory is authoritative — never let a stale/larger
+    // remote snapshot drop restore feed rows during batched removes.
+    if (MEMORY_REPLACEMENTS.has(albumId)) {
+        if (memory.length) return memory;
+        if (legacy.length) return legacy;
+        return remote;
+    }
+
     let rows = remote;
     if (memory.length >= rows.length) rows = memory;
     if (!rows.length && legacy.length) rows = legacy;
@@ -122,6 +131,9 @@ async function persistReplacementsToDatabase(albumId, rows) {
                 newStoragePath: row.newStoragePath ?? null,
                 newUrl: row.newUrl,
                 version: row.version ?? null,
+                eventKind: row.eventKind ?? 'upload',
+                versionFrom: row.versionFrom ?? null,
+                versionTo: row.versionTo ?? null,
                 createdAt: row.createdAt,
             }))
         );
@@ -263,6 +275,7 @@ function nextReplacementVersion(bucket, spreadIndex) {
     let maxVersion = 0;
     for (const row of bucket) {
         if (row.spreadIndex !== spreadIndex) continue;
+        if (isRestoreReplacementEvent(row)) continue;
         const version = Number(row.version);
         if (Number.isFinite(version) && version > maxVersion) {
             maxVersion = version;
@@ -274,6 +287,44 @@ function nextReplacementVersion(bucket, spreadIndex) {
 export function getReplacementVersion(replacement) {
     const version = Number(replacement?.version);
     return Number.isFinite(version) && version > 0 ? version : 1;
+}
+
+export function isRestoreReplacementEvent(replacement) {
+    return replacement?.eventKind === 'restore';
+}
+
+/** Upload history only — excludes restore feed events. */
+export function filterUploadReplacements(replacements) {
+    return (replacements || []).filter((row) => !isRestoreReplacementEvent(row));
+}
+
+export function getSpreadUploadVersion(albumId, spreadIndex) {
+    const uploads = filterUploadReplacements(getImageReplacements(albumId)).filter(
+        (row) => Number(row.spreadIndex) === Number(spreadIndex)
+    );
+    if (!uploads.length) return 1;
+    const sorted = sortSpreadReplacements(uploads);
+    const latest = sorted[sorted.length - 1];
+    return getReplacementCurrentVersion(latest);
+}
+
+/** Version pair and labels for proof-feed cards (upload or restore). */
+export function getReplacementFeedVersionPair(replacement) {
+    if (isRestoreReplacementEvent(replacement)) {
+        const to = Number(replacement.versionTo);
+        const from = Number(replacement.versionFrom);
+        return {
+            isRestore: true,
+            from: Number.isFinite(from) && from > 0 ? from : Number.isFinite(to) ? to : 1,
+            to: Number.isFinite(to) && to > 0 ? to : 1,
+        };
+    }
+    const from = getReplacementVersion(replacement);
+    return {
+        isRestore: false,
+        from,
+        to: getReplacementCurrentVersion(replacement),
+    };
 }
 
 export function getReplacementCurrentVersion(replacement) {
@@ -402,6 +453,7 @@ function buildReplacementRecord(
         newStoragePath,
         newUrl: newUrl || (newStoragePath ? storageService.getPublicUrl(newStoragePath) : null),
         createdAt: new Date().toISOString(),
+        eventKind: 'upload',
     };
 }
 
@@ -447,6 +499,7 @@ function backfillReplacementVersions(rows) {
     );
     const versionById = new Map();
     for (const row of chronological) {
+        if (isRestoreReplacementEvent(row)) continue;
         const spread = row.spreadIndex ?? 0;
         let version = Number(row.version);
         if (!Number.isFinite(version) || version <= 0) {
@@ -487,7 +540,10 @@ export function addImageReplacement(albumId, record) {
     const entry = {
         ...record,
         spreadIndex: Number(record.spreadIndex),
-        version: nextReplacementVersion(merged, Number(record.spreadIndex)),
+        eventKind: record.eventKind === 'restore' ? 'restore' : 'upload',
+        ...(record.eventKind === 'restore'
+            ? {}
+            : { version: nextReplacementVersion(merged, Number(record.spreadIndex)) }),
     };
     merged.push(entry);
     commitReplacements(albumId, merged);
@@ -545,6 +601,96 @@ export function trackSpreadImageReplacement(
     return addImageReplacement(albumId, record);
 }
 
+/**
+ * Restore a spread to a prior version from a history row.
+ * Uses frozen previousStoragePath/previousUrl — not the live collection file —
+ * because New version uploads replace files in place on the same item id.
+ */
+export function restoreImageReplacementVersion(albumId, row, { album, totalPages, spreadOpts } = {}) {
+    if (!albumId || !row) return { ok: false, reason: 'missing' };
+
+    const snapshot = {
+        collectionItemId: row.previousItemId || null,
+        storagePath: row.previousStoragePath || null,
+        dataUrl: row.previousUrl || null,
+    };
+
+    if (!snapshot.collectionItemId && !snapshot.storagePath && !snapshot.dataUrl) {
+        return { ok: false, reason: 'no_snapshot' };
+    }
+
+    const slot = {
+        pageNum: row.pageNum,
+        cellId: row.cellId ?? 0,
+        whole: Boolean(row.whole),
+        label: row.slotLabel,
+        spreadLeft: row.pageNum,
+    };
+
+    const versionFrom = getSpreadUploadVersion(albumId, row.spreadIndex);
+    const versionTo = getReplacementVersion(row);
+    const beforeRestore = captureSlotImageBeforeReplace(albumId, slot, album, totalPages);
+
+    if (snapshot.collectionItemId && (snapshot.storagePath || snapshot.dataUrl)) {
+        restoreCollectionItemSnapshot(albumId, snapshot.collectionItemId, {
+            storagePath: snapshot.storagePath,
+            dataUrl: snapshot.dataUrl,
+        });
+        syncCollectionItemPlacements(albumId, snapshot.collectionItemId);
+    }
+
+    const placed = restoreSlotPhotoFromHistory(albumId, slot, snapshot, {
+        album,
+        totalPages,
+        spreadOpts,
+    });
+
+    if (!placed) {
+        return { ok: false, reason: 'placement_failed' };
+    }
+
+    const restoredUrl =
+        snapshot.dataUrl ||
+        (snapshot.storagePath ? storageService.getPublicUrl(snapshot.storagePath) : null);
+
+    const restoreRecord = {
+        id: `repl-restore-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+        eventKind: 'restore',
+        slotKey: row.slotKey,
+        slotLabel: row.slotLabel,
+        note: `Restored to v${versionTo}`,
+        spreadIndex: row.spreadIndex,
+        pageNum: row.pageNum,
+        cellId: row.cellId ?? 0,
+        whole: Boolean(row.whole),
+        versionFrom,
+        versionTo,
+        previousItemId: beforeRestore?.previousItemId || row.newItemId || snapshot.collectionItemId,
+        previousStoragePath: beforeRestore?.previousStoragePath || null,
+        previousUrl: beforeRestore?.previousUrl || null,
+        newItemId: snapshot.collectionItemId,
+        newStoragePath: snapshot.storagePath,
+        newUrl: restoredUrl,
+        createdAt: new Date().toISOString(),
+    };
+
+    const bucket = readWorkingReplacements(albumId);
+    const removeIds = new Set(
+        filterUploadReplacements(bucket)
+            .filter(
+                (entry) =>
+                    entry.spreadIndex === row.spreadIndex &&
+                    getReplacementVersion(entry) >= versionTo
+            )
+            .map((entry) => entry.id)
+    );
+    const next = bucket.filter((entry) => !removeIds.has(entry.id));
+    next.push(restoreRecord);
+    commitReplacements(albumId, next);
+
+    return { ok: true, version: versionTo };
+}
+
 export function removeImageReplacement(albumId, replacementId) {
     if (!albumId || !replacementId) return false;
     const bucket = readWorkingReplacements(albumId);
@@ -571,6 +717,9 @@ export function serializeImageReplacementsForSnapshot(albumId) {
         newStoragePath: row.newStoragePath ?? null,
         newUrl: row.newUrl,
         version: row.version ?? null,
+        eventKind: row.eventKind ?? 'upload',
+        versionFrom: row.versionFrom ?? null,
+        versionTo: row.versionTo ?? null,
         createdAt: row.createdAt,
     }));
 }

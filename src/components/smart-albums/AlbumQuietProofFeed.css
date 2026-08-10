@@ -36,11 +36,11 @@
 }
 
 .quiet-proof-card:first-of-type {
-  border-top: 1px solid #eeeeee;
+  border-top: none;
 }
 
-.quiet-proof-card--unseen {
-  background: transparent;
+.quiet-proof-feed .quiet-proof-card:last-child {
+  border-bottom: none;
 }
 
 .quiet-proof-card__head {
