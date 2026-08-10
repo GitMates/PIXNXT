@@ -576,6 +576,7 @@ export default function AlbumPreviewFeedbackSidebar({
     onJumpToSpread,
     onNavigateToPin = null,
     onNavigateToSlotKey = null,
+    onNavigateToSwapMark = null,
     onRemoveSwap,
     onRemoveReplacement,
     onNewVersion = null,
@@ -637,6 +638,7 @@ export default function AlbumPreviewFeedbackSidebar({
                             onJumpToSpread={onJumpToSpread}
                             onNavigateToPin={onNavigateToPin}
                             onNavigateToSlotKey={onNavigateToSlotKey}
+                            onNavigateToSwapMark={onNavigateToSwapMark}
                             onRemoveSwap={onRemoveSwap}
                             onRemoveReplacement={onRemoveReplacement}
                             onNewVersion={onNewVersion}

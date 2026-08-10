@@ -113,6 +113,7 @@ export default function AlbumEditorSidebar({
     photographerName = 'Photographer',
     onNavigateToPin = null,
     onNavigateToSwapSlotKey = null,
+    onNavigateToSwapMark = null,
     proofSeenTick = 0,
     showCoverSpine = true,
     onShowCoverSpineChange = null,
@@ -603,6 +604,7 @@ export default function AlbumEditorSidebar({
                                         seenTick={proofSeenTick}
                                         onNavigateToPin={onNavigateToPin}
                                         onNavigateToSlotKey={onNavigateToSwapSlotKey}
+                                        onNavigateToSwapMark={onNavigateToSwapMark}
                                         onRemoveSwap={(id) => removeSwapMark(albumId, id)}
                                         onRemoveReplacement={(id) => {
                                             if (onRemoveImageReplacement) {

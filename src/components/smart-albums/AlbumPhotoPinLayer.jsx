@@ -582,11 +582,13 @@ export default function AlbumPhotoPinLayer({
             setOpenPinId(null);
         };
 
-        // Support opening a pin by pinId (detail.pinId) or by explicit layerId/pinId.
+        // Support opening by pinId, swap markId/swapGroup, or explicit layerId.
         const onPinOpen = (e) => {
             const detail = e.detail || {};
             const targetLayer = detail.layerId;
             const pinId = detail.pinId;
+            const markId = detail.markId || detail.swapGroup || null;
+            const endpoint = detail.endpoint || null;
 
             // If an event targets another layer, clear our popovers.
             if (targetLayer && targetLayer !== layerId) {
@@ -608,7 +610,32 @@ export default function AlbumPhotoPinLayer({
                 return;
             }
 
-            // Fallback: if no pinId and no targetLayer, just clear.
+            // Open a swap pin for this mark (optionally prefer A/B endpoint).
+            if (markId) {
+                const group = String(markId);
+                const matches = (swapPins || []).filter(
+                    (p) =>
+                        p &&
+                        (String(p.swapGroup) === group ||
+                            String(p.id).includes(group))
+                );
+                if (matches.length) {
+                    const preferred =
+                        (endpoint &&
+                            matches.find(
+                                (p) =>
+                                    String(p.id).includes(`${group}-${endpoint}`) ||
+                                    String(p.pinLabel || '').startsWith(String(endpoint))
+                            )) ||
+                        matches[0];
+                    setOpenPinId(preferred.id);
+                    return;
+                }
+                setOpenPinId(null);
+                return;
+            }
+
+            // Fallback: if no pinId/markId and no targetLayer, just clear.
             setOpenPinId(null);
         };
 

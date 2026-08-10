@@ -805,6 +805,29 @@ export default function AlbumPreview({
                                 pageToSpreadIndex(pageNum, { ...spreadOpts, totalPages })
                             );
                         }}
+                        onNavigateToSwapMark={(mark, endpoint = 'A') => {
+                            if (!mark) return;
+                            const slotKey = endpoint === 'B' ? mark.b : mark.a;
+                            if (slotKey) {
+                                const [pageNum] = String(slotKey).split(':').map(Number);
+                                if (Number.isFinite(pageNum)) {
+                                    jumpToSpread(
+                                        pageToSpreadIndex(pageNum, { ...spreadOpts, totalPages })
+                                    );
+                                }
+                            }
+                            window.setTimeout(() => {
+                                window.dispatchEvent(
+                                    new CustomEvent('album-spot-pin-open', {
+                                        detail: {
+                                            layerId: null,
+                                            markId: mark.id,
+                                            endpoint: endpoint === 'B' ? 'B' : 'A',
+                                        },
+                                    })
+                                );
+                            }, 120);
+                        }}
                         onRemoveSwap={(id) => removeSwapMark(albumId, id)}
                         onRemoveReplacement={handleRemoveImageReplacement}
                         onBlocked={clientPreview ? handleProoferBlocked : undefined}

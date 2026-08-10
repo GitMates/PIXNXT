@@ -232,15 +232,32 @@ function QuietProofCard({
                     <div className="quiet-proof-card__name-wrap">
                         <span className="quiet-proof-card__name">{name}</span>
                         {badge ? (
-                                    <span
-                                        className={`quiet-proof-card__badge${
-                                            badge === 'Photographer'
-                                                ? ' quiet-proof-card__badge--photographer'
-                                                : ''
-                                        }`}
-                                    >
-                                        {badge}
-                                    </span>
+                            onNavigate ? (
+                                <button
+                                    type="button"
+                                    className={`quiet-proof-card__badge quiet-proof-card__badge--nav${
+                                        badge === 'Photographer'
+                                            ? ' quiet-proof-card__badge--photographer'
+                                            : ''
+                                    }`}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onNavigate();
+                                    }}
+                                >
+                                    {badge}
+                                </button>
+                            ) : (
+                                <span
+                                    className={`quiet-proof-card__badge${
+                                        badge === 'Photographer'
+                                            ? ' quiet-proof-card__badge--photographer'
+                                            : ''
+                                    }`}
+                                >
+                                    {badge}
+                                </span>
+                            )
                         ) : null}
                     </div>
                     {timeLabel ? (
@@ -392,6 +409,7 @@ function QuietProofFeed({
     clientViewer = false,
     onNavigateToPin,
     onNavigateToSlotKey,
+    onNavigateToSwapMark,
     onRemoveSwap,
     onJumpToSpread,
 }) {
@@ -660,13 +678,27 @@ function QuietProofFeed({
                 );
                 const useLiveA = spreadThumbHasImage(visualA);
                 const useLiveB = spreadThumbHasImage(visualB);
-                const goA = () => {
-                    if (onNavigateToSlotKey) onNavigateToSlotKey(swapItem.a);
-                    else onJumpToSpread?.(spreadA);
+                const openSwap = (endpoint = 'A') => {
+                    if (onNavigateToSwapMark) {
+                        onNavigateToSwapMark(swapItem, endpoint);
+                        return;
+                    }
+                    if (endpoint === 'B') {
+                        if (onNavigateToSlotKey) onNavigateToSlotKey(swapItem.b);
+                        else onJumpToSpread?.(spreadB);
+                    } else if (onNavigateToSlotKey) {
+                        onNavigateToSlotKey(swapItem.a);
+                    } else {
+                        onJumpToSpread?.(spreadA);
+                    }
                 };
-                const goB = () => {
-                    if (onNavigateToSlotKey) onNavigateToSlotKey(swapItem.b);
-                    else onJumpToSpread?.(spreadB);
+                const goA = (e) => {
+                    e?.stopPropagation?.();
+                    openSwap('A');
+                };
+                const goB = (e) => {
+                    e?.stopPropagation?.();
+                    openSwap('B');
                 };
                 return (
                     <QuietProofCard
@@ -683,6 +715,7 @@ function QuietProofFeed({
                         unseen={swapUnseen}
                         showMarkDone={!clientViewer}
                         onMarkDone={() => markSwapMarksSeen(albumId, [swapItem])}
+                        onNavigate={() => openSwap('A')}
                         {...replyPropsFor(item)}
                     >
                         {useLiveA || useLiveB || slotSrcA || slotSrcB ? (
@@ -710,9 +743,17 @@ function QuietProofFeed({
                                     </span>
                                     <span className="quiet-proof-card__swap-shot-label">{labelA}</span>
                                 </button>
-                                <span className="quiet-proof-card__swap-pair-arrow" aria-hidden>
+                                <button
+                                    type="button"
+                                    className="quiet-proof-card__swap-pair-arrow"
+                                    aria-label="Open swap on spread"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        openSwap('A');
+                                    }}
+                                >
                                     <SwapIcon size={14} />
-                                </span>
+                                </button>
                                 <button
                                     type="button"
                                     className="quiet-proof-card__swap-shot"
@@ -746,9 +787,17 @@ function QuietProofFeed({
                                 >
                                     {labelA}
                                 </button>
-                                <span className="quiet-proof-card__swap-arrow" aria-hidden>
+                                <button
+                                    type="button"
+                                    className="quiet-proof-card__swap-arrow"
+                                    aria-label="Open swap on spread"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        openSwap('A');
+                                    }}
+                                >
                                     <SwapIcon size={14} />
-                                </span>
+                                </button>
                                 <button
                                     type="button"
                                     className="quiet-proof-card__swap-chip"
@@ -782,6 +831,7 @@ export default function AlbumPreviewSpreadFeed({
     onJumpToSpread,
     onNavigateToPin,
     onNavigateToSlotKey,
+    onNavigateToSwapMark,
     onRemoveSwap,
     onRemoveReplacement,
     onNewVersion = null,
@@ -809,6 +859,7 @@ export default function AlbumPreviewSpreadFeed({
                 clientViewer={clientViewer}
                 onNavigateToPin={onNavigateToPin}
                 onNavigateToSlotKey={onNavigateToSlotKey}
+                onNavigateToSwapMark={onNavigateToSwapMark}
                 onRemoveSwap={onRemoveSwap}
                 onJumpToSpread={onJumpToSpread}
             />

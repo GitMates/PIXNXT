@@ -1083,6 +1083,32 @@ export default function AlbumEditor({
         [handleBookPageChange, totalPages]
     );
 
+    const handleNavigateToSwapMark = useCallback(
+        (mark, endpoint = 'A') => {
+            if (!mark) return;
+            const slotKey = endpoint === 'B' ? mark.b : mark.a;
+            if (slotKey) {
+                const { pageNum } = parseSlotKey(slotKey);
+                const spreadIdx = pageToSpreadIndex(pageNum, spreadCtx);
+                const page = spreadIndexToPage(spreadIdx, spreadCtx);
+                const clamped = Math.max(0, Math.min(page, Math.max(0, totalPages - 1)));
+                handleBookPageChange(clamped);
+            }
+            window.setTimeout(() => {
+                window.dispatchEvent(
+                    new CustomEvent('album-spot-pin-open', {
+                        detail: {
+                            layerId: null,
+                            markId: mark.id,
+                            endpoint: endpoint === 'B' ? 'B' : 'A',
+                        },
+                    })
+                );
+            }, 120);
+        },
+        [handleBookPageChange, totalPages]
+    );
+
     const handleGridEditSetChange = useCallback(
         (set) => {
             const lockedSet = layoutToPlacementMode(album?.grid_layout);
@@ -2802,6 +2828,7 @@ export default function AlbumEditor({
                     photographerName={photographerDisplayName}
                     onNavigateToPin={handleNavigateToPin}
                     onNavigateToSwapSlotKey={handleNavigateToSwapSlotKey}
+                    onNavigateToSwapMark={handleNavigateToSwapMark}
                     onReorderCollectionItem={handleReorderCollectionItem}
                     proofSeenTick={proofSeenTick}
                     showCoverSpine={showCoverSpine}
