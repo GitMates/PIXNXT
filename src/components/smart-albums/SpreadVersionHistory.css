@@ -116,31 +116,35 @@
 
 .ae-version-history__thumb {
   flex-shrink: 0;
-  width: 72px;
-  height: 40px;
+  width: fit-content;
+  max-width: 120px;
+  height: auto;
   border-radius: 4px;
   overflow: hidden;
-  background: #e8e6e0;
-  border: 1.5px solid transparent;
+  background: transparent;
+  border: 1.5px solid #e4e2dc;
   box-sizing: border-box;
+  line-height: 0;
 }
 
 .ae-version-history__thumb--current {
-  border-color: #585070;
+  border-color: #d8d5ce;
 }
 
 .ae-version-history__thumb img {
-  width: 100%;
-  height: 100%;
+  width: auto;
+  height: auto;
+  max-width: 120px;
+  max-height: 48px;
   object-fit: contain;
   display: block;
-  background: #e8e6e0;
+  background: transparent;
 }
 
 .ae-version-history__thumb-ph {
   display: block;
-  width: 100%;
-  height: 100%;
+  width: 88px;
+  height: 40px;
   background: linear-gradient(135deg, #ebe8e2, #ddd8d0);
 }
 

@@ -2,11 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom';
 import { Mic, Paperclip, Play, Send, X } from 'lucide-react';
 import AlbumPreviewSpreadFeed from './AlbumPreviewSpreadFeed';
-import SpreadVersionHistory from './SpreadVersionHistory';
-import {
-    getImageReplacements,
-    IMAGE_REPLACEMENTS_CHANGED_EVENT,
-} from './albumImageReplacements';
 import {
     getGuestProfile,
     saveGuestProfile,
@@ -591,31 +586,6 @@ export default function AlbumPreviewFeedbackSidebar({
 }) {
     const [tutorialDismissed, setTutorialDismissed] = useState(() => readTutorialDismissed(albumId));
     const [videoOpen, setVideoOpen] = useState(false);
-    const [imageReplacements, setImageReplacements] = useState([]);
-
-    useEffect(() => {
-        if (!albumId) {
-            setImageReplacements([]);
-            return undefined;
-        }
-        const loadReplacements = () => setImageReplacements(getImageReplacements(albumId));
-        loadReplacements();
-        const onReplacementsChanged = (e) => {
-            if (e.detail?.albumId && e.detail.albumId !== albumId) return;
-            loadReplacements();
-        };
-        window.addEventListener(IMAGE_REPLACEMENTS_CHANGED_EVENT, onReplacementsChanged);
-        return () =>
-            window.removeEventListener(IMAGE_REPLACEMENTS_CHANGED_EVENT, onReplacementsChanged);
-    }, [albumId]);
-
-    const currentSpreadReplacements = useMemo(
-        () =>
-            imageReplacements.filter(
-                (replacement) => replacement.spreadIndex === spreadIndex
-            ),
-        [imageReplacements, spreadIndex]
-    );
 
     const dismissTutorial = useCallback(() => {
         writeTutorialDismissed(albumId);
@@ -679,23 +649,6 @@ export default function AlbumPreviewFeedbackSidebar({
                     )}
                 </div>
             </div>
-
-            {(currentSpreadReplacements.length > 0 || onNewVersion) && (
-                <div className="av-feedback-sidebar__history-wrapper">
-                    <SpreadVersionHistory
-                        albumId={albumId}
-                        replacements={currentSpreadReplacements}
-                        authorLabel="you"
-                        createdAt={album?.created_at || album?.updated_at || null}
-                        onNewVersion={onNewVersion}
-                        onRestore={onRestoreReplacement}
-                        onDelete={(row) => {
-                            if (!row?.id) return;
-                            onRemoveReplacement?.(row.id);
-                        }}
-                    />
-                </div>
-            )}
 
             <FeedbackCompose
                 albumId={albumId}

@@ -694,8 +694,9 @@ const AlbumBook = ({
         if (!root) return undefined;
 
         const NAV = previewMode ? 58 : 48;
-        const GAP = previewMode ? 12 : 8;
-        const MIN = 4;
+        const GAP = previewMode ? 14 : 8;
+        /* Keep full arrow visible inside overflow:hidden preview shells */
+        const MIN = previewMode ? 12 : 4;
 
         const syncNavGutters = () => {
             const bookEl =
@@ -708,21 +709,9 @@ const AlbumBook = ({
             const raw = bookEl.getBoundingClientRect();
             if (rootRect.width < 8 || raw.width < 8 || raw.height < 8) return;
 
-            // Cover / back clips hide half the flipbook — aim at the visible half only.
-            const frontClip = root.querySelector(
-                '.ab-flipbook-wrap--front-cover-only:not(.ab-flipbook-wrap--flipping):not(.ab-flipbook-wrap--front-cover-reveal)'
-            );
-            const endClip = root.querySelector(
-                '.ab-flipbook-wrap--end-cover-only:not(.ab-flipbook-wrap--flipping):not(.ab-flipbook-wrap--end-cover-reveal)'
-            );
-
-            let left = raw.left;
-            let right = raw.right;
-            if (frontClip) {
-                left = raw.left + raw.width / 2;
-            } else if (endClip) {
-                right = raw.left + raw.width / 2;
-            }
+            // Always anchor arrows to the full spread box — cover/back half-clips are visual only.
+            const left = raw.left;
+            const right = raw.right;
 
             let prevLeft = left - rootRect.left - NAV - GAP;
             let nextRight = rootRect.right - right - NAV - GAP;

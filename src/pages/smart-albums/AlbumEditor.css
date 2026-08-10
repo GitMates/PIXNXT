@@ -866,6 +866,7 @@
   flex-shrink: 0;
   width: 100%;
   padding: 12px 16px 0;
+  background: #f2f1ed;
   border-bottom: 1px solid #ebe8e3;
   overflow-x: auto;
   box-sizing: border-box;
