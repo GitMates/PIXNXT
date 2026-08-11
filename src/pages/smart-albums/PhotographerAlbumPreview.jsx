@@ -1,14 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { getAlbumPhotoRevision } from '../../components/smart-albums/albumPagePhotos';
 import { useAuth } from '../../hooks/useAuth';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
-import {
-    ALBUM_PROOFER_SETTINGS_CHANGED_EVENT,
-    smartAlbumProoferSettingsService,
-} from '../../services/smartAlbumProoferSettings.service';
+import { ALBUM_PROOFER_SETTINGS_CHANGED_EVENT } from '../../services/smartAlbumProoferSettings.service';
 import AlbumPreview from './AlbumPreview';
-import AlbumPreviewAccessGate from '../../components/smart-albums/AlbumPreviewAccessGate';
 import { getAlbumSpreadOptions } from '../../components/smart-albums/albumSpreadUtils';
 import { parseUrlPage } from './useAlbumWorkspace';
 import {
@@ -24,8 +20,8 @@ const SHARE_LINK_POLL_MS = 5000;
 
 /**
  * Album preview in its own tab (like collection gallery preview).
- * Mirrors the client experience, including password protection when enabled.
- * Private-link token walls are skipped for the album owner.
+ * Mirrors the client layout, but skips name / email / password gates for the owner.
+ * The public client link still requires those details.
  */
 export default function PhotographerAlbumPreview() {
     const { albumId } = useParams();
@@ -167,16 +163,6 @@ export default function PhotographerAlbumPreview() {
     const initialPage = parseUrlPage(searchParams.get('page'), totalPages, spreadOpts);
     const accessPaused = !isClientShareLinkLive(album);
 
-    const access = useMemo(() => {
-        if (!album?.id) return null;
-        return smartAlbumProoferSettingsService.getEffectiveAlbumAccess(
-            album.photographer_id,
-            album.id,
-            album,
-            album.preview_data
-        );
-    }, [album]);
-
     const isOwner = Boolean(user?.id && album?.photographer_id === user.id);
 
     const handlePageChange = (pageIdx) => {
@@ -219,21 +205,16 @@ export default function PhotographerAlbumPreview() {
     const resolvedAlbumId = album.id || albumId;
 
     return (
-        <AlbumPreviewAccessGate
+        <AlbumPreview
+            album={normalizeAlbumForClientPreview(album)}
             albumId={resolvedAlbumId}
-            access={access}
-            isOwner={isOwner}
-        >
-            <AlbumPreview
-                album={normalizeAlbumForClientPreview(album)}
-                albumId={resolvedAlbumId}
-                totalPages={totalPages}
-                initialPage={initialPage}
-                photoRevision={photoRevision}
-                onPageChange={handlePageChange}
-                minimalChrome
-                clientPreview
-            />
-        </AlbumPreviewAccessGate>
+            totalPages={totalPages}
+            initialPage={initialPage}
+            photoRevision={photoRevision}
+            onPageChange={handlePageChange}
+            minimalChrome
+            clientPreview
+            skipGuestDetails={isOwner}
+        />
     );
 }
