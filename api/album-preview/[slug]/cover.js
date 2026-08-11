@@ -7,7 +7,7 @@ function sendJpeg(res, jpeg) {
   res.setHeader('Content-Type', 'image/jpeg');
   res.setHeader(
     'Cache-Control',
-    'public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800'
+    'public, max-age=120, s-maxage=300, stale-while-revalidate=86400'
   );
   res.status(200).send(jpeg);
 }

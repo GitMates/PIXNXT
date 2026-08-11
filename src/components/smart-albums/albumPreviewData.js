@@ -48,10 +48,18 @@ function resolveStoredUrl(stored, collection) {
 /** Pick the best list-card image from a cloud snapshot (no localStorage). */
 export function deriveCoverUrlFromSnapshot(snapshot) {
     if (!snapshot) return null;
-    if (snapshot.cover_url) return snapshot.cover_url;
 
     const collection = snapshot.collection || [];
     const pages = snapshot.pages || {};
+
+    const wrap = resolveStoredUrl(pages['spread:0'], collection);
+    if (wrap) return wrap;
+
+    const wrapItem = collection.find((item) => item?.role === 'cover-wrap');
+    const fromWrapItem = resolveStoredUrl(wrapItem, collection);
+    if (fromWrapItem) return fromWrapItem;
+
+    if (snapshot.cover_url) return snapshot.cover_url;
 
     const cover = resolveStoredUrl(pages['0'], collection);
     if (cover) return cover;
@@ -239,9 +247,7 @@ export function buildAlbumPreviewSnapshot(
         storage_bytes: collection.reduce((sum, item) => sum + (Number(item.size_bytes) || 0), 0),
     };
 
-    if (coverText) {
-        snapshot.cover_text = coverText;
-    }
+    snapshot.cover_text = coverText || String(album?.name || '').trim();
 
     if (album) {
         snapshot.has_covers = album.has_covers !== false;

@@ -10,6 +10,7 @@
     { "source": "/m/:slug/icon-512.png", "destination": "/api/m/:slug/icon?size=512" },
     { "source": "/m/:slug/apple-touch-icon.png", "destination": "/api/m/:slug/icon" },
     { "source": "/album-preview/:slug/cover.jpg", "destination": "/api/album-preview/:slug/cover" },
+    { "source": "/album-preview/:slug/og-:v.jpg", "destination": "/api/album-preview/:slug/cover" },
     {
       "source": "/album-preview/:slug/",
       "missing": [{ "type": "query", "key": "app" }],
