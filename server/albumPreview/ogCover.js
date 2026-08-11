@@ -46,8 +46,12 @@ function isUuid(value) {
 
 function publicStorageUrl(storagePath) {
   if (!storagePath || typeof storagePath !== 'string') return null;
-  if (/^https?:\/\//i.test(storagePath) || /^data:image/i.test(storagePath)) return storagePath;
-  const base = process.env.VITE_R2_PUBLIC_URL || process.env.R2_PUBLIC_URL || '';
+  if (/^(https?:|data:image)/i.test(storagePath)) return storagePath;
+  const base =
+    process.env.VITE_R2_PUBLIC_URL ||
+    process.env.R2_PUBLIC_URL ||
+    process.env.NEXT_PUBLIC_R2_PUBLIC_URL ||
+    '';
   if (!base) return null;
   const root = base.endsWith('/') ? base : `${base}/`;
   const key = storagePath.replace(/^\//, '');
@@ -57,18 +61,27 @@ function publicStorageUrl(storagePath) {
 
 function storedUrl(stored, collection = []) {
   if (!stored) return null;
-  if (typeof stored === 'string' && /^(https?:|data:image)/i.test(stored)) return stored;
+  if (typeof stored === 'string') {
+    if (/^(https?:|data:image)/i.test(stored)) return stored;
+    const byId = collection.find((entry) => entry?.id === stored);
+    return byId ? storedUrl(byId, collection) : publicStorageUrl(stored);
+  }
   if (stored.storagePath) {
     const fromPath = publicStorageUrl(stored.storagePath);
     if (fromPath) return fromPath;
   }
-  if (stored.collectionItemId) {
-    const item = collection.find((entry) => entry.id === stored.collectionItemId);
-    if (item?.dataUrl && /^(https?:|data:image)/i.test(item.dataUrl)) return item.dataUrl;
-    const fromItem = publicStorageUrl(item?.storagePath);
-    if (fromItem) return fromItem;
+  const linkedId = stored.collectionItemId || stored.id;
+  if (linkedId) {
+    const item = collection.find((entry) => entry?.id === linkedId);
+    if (item && item !== stored) {
+      const fromItem = storedUrl(item, collection);
+      if (fromItem) return fromItem;
+    }
   }
-  if (stored.dataUrl && /^(https?:|data:image)/i.test(stored.dataUrl)) return stored.dataUrl;
+  for (const key of ['dataUrl', 'url', 'src', 'publicUrl', 'full_url', 'cover_url']) {
+    const value = stored[key];
+    if (typeof value === 'string' && /^(https?:|data:image)/i.test(value)) return value;
+  }
   return null;
 }
 
@@ -96,22 +109,48 @@ export function normalizePreviewData(raw) {
   return typeof raw === 'object' ? raw : {};
 }
 
+function pageStored(pages, key) {
+  if (!pages || typeof pages !== 'object') return null;
+  if (pages[key] != null) return pages[key];
+  const match = Object.keys(pages).find((k) => k.toLowerCase() === String(key).toLowerCase());
+  return match ? pages[match] : null;
+}
+
+function coverWrapItemUrl(collection) {
+  const wrap = collection.find((item) => item?.role === 'cover-wrap' || item?.role === 'cover_wrap');
+  return storedUrl(wrap, collection);
+}
+
 export function resolveAlbumCoverPhotoUrl(album) {
   if (!album) return null;
   const preview = normalizePreviewData(album.preview_data);
-  const blankCovers = truthyFlag(album.blank_covers) || truthyFlag(preview.blank_covers);
-  // Leather covers must not use pool/list photos (cover_image_url is often collection[0]).
-  if (blankCovers) return null;
-
   const collection = Array.isArray(preview.collection) ? preview.collection : [];
   const pages = preview.pages && typeof preview.pages === 'object' ? preview.pages : {};
+  const innerPhotos = collection.filter(
+    (item) => item?.role !== 'cover-wrap' && item?.role !== 'cover_wrap'
+  );
+
+  // Any album: a photo actually placed on the cover wrap always wins (leather or photo cover).
+  const placedCover = firstImageUrl(
+    storedUrl(pageStored(pages, 'spread:0'), collection),
+    storedUrl(pageStored(pages, '0'), collection),
+    coverWrapItemUrl(collection)
+  );
+  if (placedCover) return placedCover;
+
+  const listed = firstImageUrl(album.cover_image_url, preview.cover_url);
+  const blankCovers = truthyFlag(album.blank_covers) || truthyFlag(preview.blank_covers);
+  if (blankCovers) {
+    const innerFirst = storedUrl(innerPhotos[0], collection);
+    // Uploaded wrap often lands in cover_image_url while blank_covers stays true.
+    if (listed && listed !== innerFirst) return listed;
+    return null;
+  }
 
   return firstImageUrl(
-    storedUrl(pages['spread:0'], collection),
-    storedUrl(pages['0'], collection),
-    album.cover_image_url,
-    preview.cover_url,
-    storedUrl(pages['1'], collection)
+    listed,
+    storedUrl(pageStored(pages, '1'), collection),
+    storedUrl(innerPhotos[0], collection)
   );
 }
 
@@ -124,15 +163,19 @@ export function resolveAlbumCoverMeta(album) {
       : String(presetRaw?.id || presetRaw?.presetId || 'sky');
   const preset = LEATHER_PRESETS[presetId] || LEATHER_PRESETS.sky;
   const title = String(preview.cover_text || album?.name || 'Album').trim() || 'Album';
-  const updated =
-    preview.updated_at || album?.updated_at || album?.created_at || String(Date.now());
-  return { title, preset, updated, presetId };
+  const photoUrl = resolveAlbumCoverPhotoUrl(album);
+  const kind = photoUrl ? 'p' : 'l';
+  const photoBit = photoUrl ? String(photoUrl).replace(/[^\w]/g, '').slice(-16) : 'none';
+  const stamp = String(preview.updated_at || album?.updated_at || album?.created_at || Date.now())
+    .replace(/[^\w.-]/g, '')
+    .slice(0, 24);
+  return { title, preset, updated: `${kind}${photoBit}${stamp}`, presetId, photoUrl };
 }
 
 export function albumCoverImageUrl(origin, slug, updated) {
   const encodedSlug = encodeURIComponent(String(slug || '').trim());
-  const cacheKey = encodeURIComponent(String(updated || Date.now()).replace(/[^\w.-]/g, ''));
-  return `${origin}/album-preview/${encodedSlug}/cover.jpg?v=${cacheKey}`;
+  const cacheKey = String(updated || Date.now()).replace(/[^\w.-]/g, '').slice(0, 40) || '1';
+  return `${origin}/album-preview/${encodedSlug}/og-${cacheKey}.jpg`;
 }
 
 async function selectAlbum(supabase, column, value, fields) {
@@ -230,13 +273,113 @@ function wrapTitleLines(title, maxChars = 18) {
   return lines.slice(0, 4);
 }
 
+function leatherTitleFill(preset) {
+  const base = String(preset?.base || '').toLowerCase();
+  const light =
+    base === '#f8f8f8' || base === '#e07b32' || base === '#f0ebe0' || base === '#ffffff';
+  return light ? '#3a2a1a' : '#f4f0ea';
+}
+
+/** 5×7 glyphs — no system fonts (Vercel has no Georgia, so SVG <text> was blank). */
+const GLYPHS = {
+  A: ['01110', '10001', '10001', '11111', '10001', '10001', '10001'],
+  B: ['11110', '10001', '10001', '11110', '10001', '10001', '11110'],
+  C: ['01111', '10000', '10000', '10000', '10000', '10000', '01111'],
+  D: ['11110', '10001', '10001', '10001', '10001', '10001', '11110'],
+  E: ['11111', '10000', '10000', '11110', '10000', '10000', '11111'],
+  F: ['11111', '10000', '10000', '11110', '10000', '10000', '10000'],
+  G: ['01111', '10000', '10000', '10111', '10001', '10001', '01110'],
+  H: ['10001', '10001', '10001', '11111', '10001', '10001', '10001'],
+  I: ['11111', '00100', '00100', '00100', '00100', '00100', '11111'],
+  J: ['00111', '00010', '00010', '00010', '00010', '10010', '01100'],
+  K: ['10001', '10010', '10100', '11000', '10100', '10010', '10001'],
+  L: ['10000', '10000', '10000', '10000', '10000', '10000', '11111'],
+  M: ['10001', '11011', '10101', '10101', '10001', '10001', '10001'],
+  N: ['10001', '11001', '10101', '10011', '10001', '10001', '10001'],
+  O: ['01110', '10001', '10001', '10001', '10001', '10001', '01110'],
+  P: ['11110', '10001', '10001', '11110', '10000', '10000', '10000'],
+  Q: ['01110', '10001', '10001', '10001', '10101', '10010', '01101'],
+  R: ['11110', '10001', '10001', '11110', '10100', '10010', '10001'],
+  S: ['01111', '10000', '10000', '01110', '00001', '00001', '11110'],
+  T: ['11111', '00100', '00100', '00100', '00100', '00100', '00100'],
+  U: ['10001', '10001', '10001', '10001', '10001', '10001', '01110'],
+  V: ['10001', '10001', '10001', '10001', '10001', '01010', '00100'],
+  W: ['10001', '10001', '10001', '10101', '10101', '11011', '10001'],
+  X: ['10001', '10001', '01010', '00100', '01010', '10001', '10001'],
+  Y: ['10001', '10001', '01010', '00100', '00100', '00100', '00100'],
+  Z: ['11111', '00001', '00010', '00100', '01000', '10000', '11111'],
+  '0': ['01110', '10001', '10011', '10101', '11001', '10001', '01110'],
+  '1': ['00100', '01100', '00100', '00100', '00100', '00100', '01110'],
+  '2': ['01110', '10001', '00001', '00010', '00100', '01000', '11111'],
+  '3': ['11110', '00001', '00001', '01110', '00001', '00001', '11110'],
+  '4': ['00010', '00110', '01010', '10010', '11111', '00010', '00010'],
+  '5': ['11111', '10000', '11110', '00001', '00001', '10001', '01110'],
+  '6': ['01110', '10000', '10000', '11110', '10001', '10001', '01110'],
+  '7': ['11111', '00001', '00010', '00100', '01000', '01000', '01000'],
+  '8': ['01110', '10001', '10001', '01110', '10001', '10001', '01110'],
+  '9': ['01110', '10001', '10001', '01111', '00001', '00001', '01110'],
+  '-': ['00000', '00000', '00000', '11111', '00000', '00000', '00000'],
+  "'": ['00100', '00100', '01000', '00000', '00000', '00000', '00000'],
+};
+
+function glyphRects(text, originX, originY, cell, fill) {
+  const rows = 7;
+  const cols = 5;
+  const advance = (cols + 1) * cell;
+  let x = originX;
+  const rects = [];
+  for (const raw of String(text || '').toUpperCase()) {
+    if (raw === ' ') {
+      x += advance;
+      continue;
+    }
+    const glyph = GLYPHS[raw];
+    if (!glyph) {
+      x += advance;
+      continue;
+    }
+    for (let r = 0; r < rows; r += 1) {
+      for (let c = 0; c < cols; c += 1) {
+        if (glyph[r][c] !== '1') continue;
+        rects.push(
+          `<rect x="${x + c * cell}" y="${originY + r * cell}" width="${cell}" height="${cell}" fill="${fill}"/>`
+        );
+      }
+    }
+    x += advance;
+  }
+  return rects.join('');
+}
+
+function titleGlyphMarkup(title, fill) {
+  const lines = wrapTitleLines(title, 16);
+  const longest = Math.max(...lines.map((line) => line.length), 1);
+  const cell = longest > 16 ? 9 : longest > 12 ? 11 : 13;
+  const advance = 6 * cell;
+  const lineHeight = 9 * cell;
+  const blockH = lines.length * lineHeight - 2 * cell;
+  const startY = 600 - blockH / 2;
+  return lines
+    .map((line, index) => {
+      const width = line.replace(/ /g, ' ').length * advance - cell;
+      const x = Math.round(600 - width / 2);
+      const y = Math.round(startY + index * lineHeight);
+      return glyphRects(line, x, y, cell, fill);
+    })
+    .join('');
+}
+
 export function buildLeatherCoverSvg(title, preset) {
-  const lines = wrapTitleLines(title);
-  const fontSize = lines.some((line) => line.length > 22) ? 52 : lines.length > 2 ? 58 : 68;
-  const startY = 600 - ((lines.length - 1) * (fontSize + 18)) / 2;
+  const fill = leatherTitleFill(preset);
+  const glyphs = titleGlyphMarkup(title, fill);
+  const lines = wrapTitleLines(title, 16);
+  const longest = Math.max(...lines.map((line) => line.length), 1);
+  const fontSize = longest > 16 ? 52 : longest > 12 ? 60 : 70;
+  const lineGap = fontSize + 18;
+  const startY = 600 - ((lines.length - 1) * lineGap) / 2;
   const tspans = lines
     .map((line, index) => {
-      const dy = index === 0 ? 0 : fontSize + 18;
+      const dy = index === 0 ? 0 : lineGap;
       return `<tspan x="600" dy="${dy}">${escapeXml(line)}</tspan>`;
     })
     .join('');
@@ -251,7 +394,8 @@ export function buildLeatherCoverSvg(title, preset) {
     </linearGradient>
   </defs>
   <rect width="100%" height="100%" fill="url(#leather)"/>
-  <rect x="90" y="90" width="1020" height="1020" fill="none" stroke="${preset.text}" stroke-opacity="0.22" stroke-width="3"/>
-  <text x="600" y="${startY}" fill="${preset.text}" font-family="Georgia, 'Times New Roman', serif" font-size="${fontSize}" font-weight="600" letter-spacing="6" text-anchor="middle">${tspans}</text>
+  <rect x="72" y="72" width="1056" height="1056" fill="none" stroke="${fill}" stroke-opacity="0.28" stroke-width="4"/>
+  ${glyphs}
+  <text x="600" y="${startY}" fill="${fill}" stroke="${preset.shadow}" stroke-width="8" stroke-linejoin="round" paint-order="stroke fill" font-family="Times New Roman, Times, Liberation Serif, DejaVu Serif, Georgia, serif" font-size="${fontSize}" font-weight="600" letter-spacing="6" text-anchor="middle">${tspans}</text>
 </svg>`;
 }

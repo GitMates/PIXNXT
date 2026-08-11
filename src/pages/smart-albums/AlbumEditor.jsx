@@ -2136,6 +2136,13 @@ export default function AlbumEditor({
                     }
                     keepCoverEditorActive();
                 }
+                if (user?.id) {
+                    smartAlbumsService
+                        .syncAlbumPreviewData(user.id, albumId)
+                        .catch((err) =>
+                            console.warn('Could not sync album preview after placing photo:', err)
+                        );
+                }
                 showToast(
                     gridSelection?.mode === 'cover'
                         ? 'Photo placed on cover.'
@@ -2156,6 +2163,7 @@ export default function AlbumEditor({
             showToast,
             gridSelection?.mode,
             keepCoverEditorActive,
+            user?.id,
         ]
     );
 
