@@ -8,7 +8,13 @@ const TRANSFORMS_KEY = 'pixnxt_album_page_transforms';
 
 /** Cover page + at least one inner spread (2 pages) + end-cover spread (2 pages). */
 export const MIN_ALBUM_PAGES = 5;
-export const MAX_ALBUM_PAGES = 99;
+/** Enough for large wedding albums (e.g. 112 whole-spreads + covers ≈ 228 pages). */
+export const MAX_ALBUM_PAGES = 500;
+
+export function clampAlbumPageCount(pageCount, fallback = 21) {
+    const n = Math.floor(Number(pageCount) || fallback);
+    return Math.max(1, Math.min(MAX_ALBUM_PAGES, n));
+}
 /** Inner spreads are two pages (left + right). */
 export const PAGES_PER_SPREAD = 2;
 

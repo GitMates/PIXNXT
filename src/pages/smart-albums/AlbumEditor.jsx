@@ -30,7 +30,7 @@ import {
     markCollectionItemAsCoverWrap,
     reorderCollectionItems,
 } from '../../components/smart-albums/albumCollection';
-import { insertAlbumStoragePages, removeAlbumStoragePages } from '../../components/smart-albums/albumPageStorage';
+import { insertAlbumStoragePages, MAX_ALBUM_PAGES, removeAlbumStoragePages } from '../../components/smart-albums/albumPageStorage';
 import {
     applyCollectionOrderToPages,
     captureEndCoverPlacement,
@@ -322,7 +322,7 @@ export default function AlbumEditor({
     onChangePageCount,
     onAlbumUpdate,
     minPages = 3,
-    maxPages = 99,
+    maxPages = MAX_ALBUM_PAGES,
     pagesPerSpread = 2,
 }) {
     const navigate = useNavigate();

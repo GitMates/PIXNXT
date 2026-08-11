@@ -340,7 +340,9 @@ export function isManualWholeSpreadPlacement(leftPage, totalPages, album, opts =
 
 export function isPreBackHalfSpreadRightPage(pageNum, totalPages, opts = {}) {
     const info = getPreBackHalfSpreadInfo(totalPages, opts);
-    return info != null && pageNum === info.right;
+    // Odd page counts can collapse left/right onto the same index — that leaf is
+    // the photo page, not a disabled right half, so do not treat it as "right".
+    return info != null && info.right !== info.left && pageNum === info.right;
 }
 
 export function getPreBackSpreadPageRole(pageNum, totalPages, opts = {}) {

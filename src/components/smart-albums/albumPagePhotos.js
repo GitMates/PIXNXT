@@ -1400,7 +1400,7 @@ export function setPagePhotoFromCollectionItem(
         const opts = { ...normalizeSpreadOpts(spreadOpts), totalPages, hasCovers: hasCovers ?? spreadOpts?.hasCovers };
         if (isPreBackHalfSpreadRightPage(pageNum, totalPages, opts)) {
             const info = getPreBackHalfSpreadInfo(totalPages, opts);
-            if (info) {
+            if (info?.left != null && info.left !== pageNum) {
                 return setPagePhotoFromCollectionItem(albumId, info.left, collectionItemId, {
                     clearSpreadForLeft: info.left,
                     hasCovers,
@@ -1408,7 +1408,6 @@ export function setPagePhotoFromCollectionItem(
                     spreadOpts,
                 });
             }
-            return false;
         }
     }
     const all = readAll();

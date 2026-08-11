@@ -1136,6 +1136,8 @@ const CreateAlbum = () => {
 
         setIsSubmitting(true);
         setError(null);
+        let createdAlbumId = null;
+        let createdPhotographerId = null;
 
         try {
             const finalGridLayout = gridLayout;
@@ -1185,6 +1187,8 @@ const CreateAlbum = () => {
                 has_covers: includeCoverSpreads,
                 blank_covers: blankCovers,
             });
+            createdAlbumId = album?.id || null;
+            createdPhotographerId = activeUser.id;
 
             const trimmedClient = clientName.trim();
             if (trimmedClient) {
@@ -1320,6 +1324,19 @@ const CreateAlbum = () => {
             });
         } catch (err) {
             console.error('Error creating album:', err);
+            if (createdAlbumId) {
+                try {
+                    await smartAlbumsService.deleteAlbum(
+                        createdPhotographerId || user?.id,
+                        createdAlbumId
+                    );
+                } catch (cleanupErr) {
+                    console.warn(
+                        'Could not remove incomplete album after create failure:',
+                        cleanupErr?.message || cleanupErr
+                    );
+                }
+            }
             setError(
                 isAuthExpiredError(err)
                     ? 'Your session has expired. Please sign in again.'

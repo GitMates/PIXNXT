@@ -3,6 +3,7 @@ import { albumProofService } from './albumProof.service';
 import { smartAlbumProoferSettingsService } from './smartAlbumProoferSettings.service';
 import { categoryTagsToDb } from '../lib/categoryTags';
 import { deleteAlbumCollectionAssets, getAlbumCollectionStorageBytes } from '../components/smart-albums/albumCollection';
+import { clampAlbumPageCount } from '../components/smart-albums/albumPageStorage';
 import { clearAllAlbumPagePhotos } from '../components/smart-albums/albumPagePhotos';
 import { clearAlbumTransforms } from '../components/smart-albums/albumPageTransforms';
 import {
@@ -1122,7 +1123,7 @@ export const smartAlbumsService = {
 
       slug: generateSlug(trimmedName),
 
-      page_count: Math.max(1, Math.min(99, Math.floor(Number(page_count) || 21))),
+      page_count: clampAlbumPageCount(page_count, 21),
 
       grid_size,
 
@@ -1229,7 +1230,7 @@ export const smartAlbumsService = {
 
 
   async updateAlbumPageCount(photographerId, albumId, pageCount) {
-    const count = Math.max(1, Math.min(99, Math.floor(Number(pageCount) || 21)));
+    const count = clampAlbumPageCount(pageCount, 21);
     writePageCountOverride(photographerId, albumId, count);
 
     const { data, error } = await supabase
