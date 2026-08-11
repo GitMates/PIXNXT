@@ -77,8 +77,16 @@ export function devApiMiddleware() {
       const result = await handler(req, body);
       sendJson(res, 200, { ok: true, result });
     } catch (err) {
-      console.error(`[${url}]`, err);
-      const status = err?.message === 'Unauthorized' || err?.message === 'Forbidden' ? 403 : 500;
+      const status =
+        err?.status ||
+        (err?.message === 'Unauthorized' || err?.message === 'Forbidden'
+          ? 403
+          : err?.message?.includes('not found')
+            ? 404
+            : 500);
+      if (status >= 500) {
+        console.error(`[${url}]`, err);
+      }
       sendJson(res, status, {
         ok: false,
         error: err?.message || 'Request failed',

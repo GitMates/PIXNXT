@@ -8,6 +8,7 @@ import {
     clearAllPhotographerNotifications,
     dismissNotificationItem,
     getNotificationTypeLabel,
+    isNotificationMarkedDone,
     listPhotographerNotifications,
     markAllPhotographerNotificationsRead,
     NOTIFICATION_REFRESH_EVENTS,
@@ -288,9 +289,9 @@ export default function SmartAlbumNotifications({ userId, variant = 'default' })
                                                     )}
                                                     {getNotificationTypeLabel(item.type)}
                                                 </span>
-                                                {!item.isUnread ? (
+                                                {!item.isUnread && isNotificationMarkedDone(item) ? (
                                                     <span className="sa-notifications-item-status">
-                                                        Resolved
+                                                        Done
                                                     </span>
                                                 ) : null}
                                             </span>

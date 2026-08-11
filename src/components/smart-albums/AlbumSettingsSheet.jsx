@@ -33,25 +33,24 @@ export default function AlbumSettingsSheet({
 
     // Calculate position from anchor (3-dot button rect)
     const getPopupStyle = () => {
-        const popupW = 300;
-        const popupH = 320;
+        const popupW = 280;
+        // Approximate full menu height so clamp keeps the card on-screen.
+        const popupH = 360;
         const W = window.innerWidth;
         const H = window.innerHeight;
 
         if (!anchor) {
-            // fallback: center of screen
             return {
-                top: Math.max(60, (H - popupH) / 2),
+                top: Math.max(24, (H - popupH) / 2),
                 left: Math.max(8, (W - popupW) / 2),
                 width: popupW,
             };
         }
 
-        // Open to the left of the button (anchor.left = rect.right of 3-dot btn)
-        let left = anchor.left - popupW;
+        let left = anchor.left - popupW - 6;
         let top = anchor.top;
 
-        // Clamp so it stays inside the viewport
+        if (left < 8) left = Math.min(anchor.left + 6, W - popupW - 8);
         if (left < 8) left = 8;
         if (left + popupW > W - 8) left = W - popupW - 8;
         if (top + popupH > H - 8) top = Math.max(8, H - popupH - 8);

@@ -3,22 +3,22 @@
 .ae-spread-filmstrip {
   flex-shrink: 0;
   width: 100%;
-  padding: 16px 20px 20px;
+  padding: 7px 16px 9px;
   box-sizing: border-box;
-  background: #e0dad0; /* Curated sand background matching reference */
-  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  background: #4b473f;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .ae-spread-filmstrip__track {
   display: flex;
   align-items: flex-end;
-  gap: 16px; /* Wider, more premium spacing */
+  gap: 14px;
   overflow-x: auto;
-  padding: 8px 4px 16px;
+  padding: 0 4px 5px;
   scroll-snap-type: x proximity;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
-  scrollbar-color: rgba(28, 25, 23, 0.2) transparent;
+  scrollbar-color: rgba(255, 255, 255, 0.28) transparent;
 }
 
 .ae-spread-filmstrip__track--dragging {
@@ -36,7 +36,7 @@
 }
 
 .ae-spread-filmstrip__track::-webkit-scrollbar-thumb {
-  background: rgba(28, 25, 23, 0.22);
+  background: rgba(255, 255, 255, 0.24);
   border-radius: 999px;
 }
 
@@ -89,10 +89,10 @@
   position: absolute;
   left: 0;
   right: 0;
-  bottom: -10px;
-  height: 3px;
+  bottom: -3px;
+  height: 2px;
   border-radius: 999px;
-  background: #ab6229;
+  background: #c4803c;
 }
 
 .ae-spread-filmstrip__tile--cover,
@@ -108,14 +108,14 @@
   position: relative;
   display: flex;
   align-items: stretch;
-  justify-content: center;
-  height: 74px; /* Fixed height so tracks align perfectly */
-  width: auto; /* Dynamic width based on inline aspect ratio */
+  justify-content: stretch;
+  height: 84px;
+  width: auto;
   overflow: hidden;
-  border-radius: 4px;
-  border: 1px solid rgba(0, 0, 0, 0.12); /* Clean thin grey border */
-  background: #fff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  background: #3a3832;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.22);
 }
 
 .ae-spread-filmstrip__thumb .ab-overview-leather-cover {
@@ -132,34 +132,40 @@
 .ae-spread-filmstrip__thumb > img {
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
   object-position: center;
   display: block;
   pointer-events: none;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  filter: contrast(1.03) saturate(1.04);
 }
 
 .ae-spread-filmstrip__page {
   flex: 1 1 50%;
   min-width: 0;
   height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: block;
   overflow: hidden;
-  background: #fff;
+  background: #3a3832;
 }
 
 .ae-spread-filmstrip__page + .ae-spread-filmstrip__page {
-  border-left: 1px solid rgba(28, 25, 23, 0.08);
+  border-left: 1px solid rgba(0, 0, 0, 0.12);
 }
 
 .ae-spread-filmstrip__page img {
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
   object-position: center;
   display: block;
   pointer-events: none;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  filter: contrast(1.03) saturate(1.04);
 }
 
 .ae-spread-filmstrip__ph {
@@ -171,36 +177,37 @@
 
 .ae-spread-filmstrip__num {
   display: block;
-  margin-top: 6px;
+  margin-top: 2px;
   text-align: center;
   font-family: var(--font-sans);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.04em;
-  color: #44403c;
+  color: rgba(255, 255, 255, 0.72);
   pointer-events: none;
+  line-height: 1.1;
 }
 
 .ae-spread-filmstrip__tile--active .ae-spread-filmstrip__num {
   font-weight: 800;
-  color: #1c1917;
+  color: #ffffff;
 }
 
 .ae-spread-filmstrip__dots {
   position: absolute;
-  top: 6px;
-  right: 6px;
+  top: 3px;
+  right: 3px;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   z-index: 2;
 }
 
 .ae-spread-filmstrip__dot {
-  width: 14px;
-  height: 14px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.95);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.95);
   transition: all 0.2s ease;
 }
 
@@ -217,20 +224,20 @@
   left: 0;
   bottom: 0;
   z-index: 2;
-  padding: 3px 8px 3px 6px;
-  border-top-right-radius: 8px;
-  background: #ffffff;
+  padding: 1px 5px 1px 4px;
+  border-top-right-radius: 6px;
+  background: rgba(255, 255, 255, 0.92);
   color: #44403c;
-  font-size: 11px;
-  font-weight: 500;
+  font-size: 9px;
+  font-weight: 600;
   font-family: var(--font-sans);
   line-height: 1.2;
-  box-shadow: 1px -1px 2px rgba(0, 0, 0, 0.05);
+  box-shadow: 1px -1px 2px rgba(0, 0, 0, 0.08);
 }
 
 @media (max-width: 768px) {
   .ae-spread-filmstrip {
-    padding: 8px 12px 12px;
+    padding: 3px 12px 5px;
   }
 
   .ae-spread-filmstrip__tile {
@@ -243,7 +250,7 @@
   }
 
   .ae-spread-filmstrip__thumb {
-    height: 60px;
+    height: 68px;
   }
 }
 
@@ -263,6 +270,8 @@
   height: 100% !important;
   max-width: none !important;
   object-fit: cover !important;
+  transform: translateZ(0);
+  filter: contrast(1.03) saturate(1.04);
 }
 
 /* Half cover clipping for dynamic width strip (fallback without spine layout) */

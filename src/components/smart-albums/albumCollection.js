@@ -1251,6 +1251,71 @@ export async function replaceCollectionItemFile(
     return getCollectionItem(albumId, itemId);
 }
 
+/**
+ * Point a collection item back at a frozen version snapshot (storage path or data URL).
+ * Used when restoring spread version history after in-place file replaces.
+ */
+export function restoreCollectionItemSnapshot(
+    albumId,
+    itemId,
+    { storagePath = null, dataUrl = null } = {}
+) {
+    if (!albumId || !itemId) return null;
+    if (!storagePath && !dataUrl) return null;
+
+    const existing =
+        getCollectionItem(albumId, itemId) ||
+        getRemotePreviewData(albumId)?.collection?.find((entry) => entry?.id === itemId) ||
+        null;
+
+    const resolvedStoragePath = storagePath || existing?.storagePath || null;
+    let resolvedDataUrl = null;
+    if (dataUrl?.startsWith('data:')) {
+        resolvedDataUrl = dataUrl;
+    } else if (resolvedStoragePath) {
+        resolvedDataUrl = storageService.getPublicUrl(resolvedStoragePath);
+    } else if (dataUrl) {
+        resolvedDataUrl = dataUrl;
+    } else if (existing?.dataUrl) {
+        resolvedDataUrl = existing.dataUrl;
+    }
+
+    const nextItem = {
+        ...(existing || { id: itemId, name: 'Photo' }),
+        id: itemId,
+        storagePath: resolvedStoragePath,
+        dataUrl: resolvedDataUrl,
+        replacedAt: Date.now(),
+    };
+
+    const all = readAll();
+    const bucket = { ...(all[albumId] || {}) };
+    const localItems = [...(bucket.items || [])];
+    const localIdx = localItems.findIndex((entry) => entry.id === itemId);
+    if (localIdx >= 0) {
+        localItems[localIdx] = { ...localItems[localIdx], ...nextItem };
+    } else {
+        localItems.push(nextItem);
+    }
+    bucket.items = localItems;
+    persistCollectionBucket(all, albumId, bucket);
+
+    const remote = getRemotePreviewData(albumId);
+    if (remote?.collection?.length) {
+        const collection = remote.collection.map((entry) =>
+            entry?.id === itemId ? { ...entry, ...nextItem } : entry
+        );
+        const hadId = remote.collection.some((entry) => entry?.id === itemId);
+        hydrateAlbumPreviewData(albumId, {
+            ...remote,
+            collection: hadId ? collection : [...collection, nextItem],
+            revision: (remote.revision || 0) + 1,
+        });
+    }
+
+    return getCollectionItem(albumId, itemId) || nextItem;
+}
+
 /** Remove one collection item and delete its R2 object when present. */
 export async function deleteCollectionItemAsset(albumId, itemId, { retainStorage = false } = {}) {
     const item = getCollectionItem(albumId, itemId);

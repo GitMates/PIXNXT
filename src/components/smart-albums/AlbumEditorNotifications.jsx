@@ -6,16 +6,17 @@ import {
     pageToSpreadIndex,
     isEndHalfSpreadIndex,
 } from './albumSpreadUtils';
-import { MessageSquare, ArrowLeftRight, Check } from 'lucide-react';
+import { MessageSquare, ArrowLeftRight, Check, Mic } from 'lucide-react';
 import {
     getNotificationPage,
     getNotificationPanel,
     getNotificationTypeLabel,
+    isNotificationMarkedDone,
     listAlbumNotificationsForAlbum,
     NOTIFICATION_REFRESH_EVENTS,
     markAllAlbumProofItemsSeen,
 } from '../../services/albumNotifications';
-import { formatCommentDateTime } from '../../services/smartAlbumComments.service';
+import { isCommentAudioAttachment } from './albumCommentAttachments';
 import { resolveFilmstripVisual, FilmstripThumb } from './AlbumSpreadFilmstrip';
 import { parseGridSizeAspect } from './albumGridSize';
 
@@ -282,12 +283,20 @@ export default function AlbumEditorNotifications({
                                 const tileAspect = (isCover || isEndSpread) ? pageAspect : spreadAspect;
                                 const visual = hasThumbnail ? resolveFilmstripVisual(album, spreadIndex, totalPages, spreadOpts) : null;
 
+                                const isAudioComment = item.comment && isCommentAudioAttachment(item.comment);
+                                const isDone = isNotificationMarkedDone(item);
                                 let iconClass = 'comment';
                                 let iconElement = <MessageSquare size={14} />;
                                 if (item.type === 'swap') {
                                     iconClass = 'swap';
                                     iconElement = <ArrowLeftRight size={14} />;
                                 } else if (item.type === 'changes_submitted' || item.type === 'album_approved') {
+                                    iconClass = 'tick';
+                                    iconElement = <Check size={14} />;
+                                } else if (isAudioComment) {
+                                    iconClass = 'audio';
+                                    iconElement = <Mic size={14} />;
+                                } else if (isDone) {
                                     iconClass = 'tick';
                                     iconElement = <Check size={14} />;
                                 }
@@ -298,12 +307,17 @@ export default function AlbumEditorNotifications({
                                             type="button"
                                             className={`ae-notifications-item${
                                                 item.isUnread ? ' ae-notifications-item--unread' : ''
-                                            }`}
+                                            }${isDone ? ' ae-notifications-item--done' : ''}`}
                                             role="menuitem"
                                             onClick={() => handleSelect(item)}
                                         >
                                             <div className="ae-notifications-item-left-area">
                                                 {item.isUnread && <span className="ae-notifications-item-unread-dot" />}
+                                                {isDone ? (
+                                                    <span className="ae-notifications-item-done-mark" aria-hidden>
+                                                        <Check size={12} strokeWidth={2.5} />
+                                                    </span>
+                                                ) : null}
                                                 <div className={`ae-notifications-item-icon-container ae-notifications-item-icon-container--${iconClass}`}>
                                                     {iconElement}
                                                 </div>
@@ -319,11 +333,16 @@ export default function AlbumEditorNotifications({
                                                             {tagText}
                                                         </span>
                                                     </span>
-                                                    {item.createdAt && (
-                                                        <span className="ae-notifications-item-time">
-                                                            {formatCommentTimeOnly(item.createdAt)}
-                                                        </span>
-                                                    )}
+                                                    <span className="ae-notifications-item-meta">
+                                                        {item.createdAt ? (
+                                                            <span className="ae-notifications-item-time">
+                                                                {formatCommentTimeOnly(item.createdAt)}
+                                                            </span>
+                                                        ) : null}
+                                                        {isDone ? (
+                                                            <span className="ae-notifications-item-status">Done</span>
+                                                        ) : null}
+                                                    </span>
                                                 </div>
                                                 <span className="ae-notifications-item-preview">
                                                     {item.preview}

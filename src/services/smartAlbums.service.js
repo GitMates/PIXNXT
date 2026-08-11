@@ -3,6 +3,7 @@ import { albumProofService } from './albumProof.service';
 import { smartAlbumProoferSettingsService } from './smartAlbumProoferSettings.service';
 import { categoryTagsToDb } from '../lib/categoryTags';
 import { deleteAlbumCollectionAssets, getAlbumCollectionStorageBytes } from '../components/smart-albums/albumCollection';
+import { clampAlbumPageCount } from '../components/smart-albums/albumPageStorage';
 import { clearAllAlbumPagePhotos } from '../components/smart-albums/albumPagePhotos';
 import { clearAlbumTransforms } from '../components/smart-albums/albumPageTransforms';
 import {
@@ -767,11 +768,18 @@ async function syncLocalAlbumsToSupabase(photographerId, remoteRows) {
   );
 }
 
-async function syncLocalAlbumAssetsToSupabase(photographerId) {
+async function syncLocalAlbumAssetsToSupabase(photographerId, remoteRows = []) {
   const albumIds = getAlbumIdsWithLocalAssets();
   if (!albumIds.length) return;
 
+  // Ignore stale localStorage keys for deleted albums or other photographers.
+  const knownAlbumIds = new Set([
+    ...(remoteRows || []).map((row) => row.id),
+    ...readLocalAlbums(photographerId).map((album) => album.id),
+  ]);
+
   for (const albumId of albumIds) {
+    if (!knownAlbumIds.has(albumId)) continue;
     const gridOvr = readGridSettingsOverrides(photographerId)[albumId];
     const localSnapshot = buildAlbumPreviewSnapshot(albumId, {
       album: gridOvr
@@ -787,18 +795,22 @@ async function syncLocalAlbumAssetsToSupabase(photographerId) {
     if (!localSnapshot) continue;
 
     let existingPreview = null;
+    let albumRowFound = false;
     try {
       const { data } = await supabase
         .from('album_proofer_albums')
-        .select('preview_data')
+        .select('id, preview_data')
         .eq('id', albumId)
         .eq('photographer_id', photographerId)
         .maybeSingle();
+      albumRowFound = Boolean(data?.id);
       existingPreview =
         data?.preview_data && typeof data.preview_data === 'object' ? data.preview_data : null;
     } catch {
       existingPreview = null;
     }
+
+    if (!albumRowFound) continue;
 
     if (previewNeedsAssetRepair(existingPreview) || previewNeedsAssetRepair(localSnapshot)) {
       try {
@@ -982,7 +994,7 @@ export const smartAlbumsService = {
 
         if (!fallback.error && fallback.data) {
           const synced = await syncLocalAlbumsToSupabase(photographerId, fallback.data);
-          void syncLocalAlbumAssetsToSupabase(photographerId).catch((e) => {
+          void syncLocalAlbumAssetsToSupabase(photographerId, synced).catch((e) => {
             console.warn('Background album asset sync failed:', e?.message || e);
           });
           void repairBrokenAlbumsForPhotographerInBackground(photographerId).catch((e) => {
@@ -1015,7 +1027,7 @@ export const smartAlbumsService = {
       console.warn('Local album settings sync failed:', e?.message || e);
     }
 
-    void syncLocalAlbumAssetsToSupabase(photographerId).catch((e) => {
+    void syncLocalAlbumAssetsToSupabase(photographerId, synced).catch((e) => {
       console.warn('Background album asset sync failed:', e?.message || e);
     });
 
@@ -1111,7 +1123,7 @@ export const smartAlbumsService = {
 
       slug: generateSlug(trimmedName),
 
-      page_count: Math.max(1, Math.min(99, Math.floor(Number(page_count) || 21))),
+      page_count: clampAlbumPageCount(page_count, 21),
 
       grid_size,
 
@@ -1218,7 +1230,7 @@ export const smartAlbumsService = {
 
 
   async updateAlbumPageCount(photographerId, albumId, pageCount) {
-    const count = Math.max(1, Math.min(99, Math.floor(Number(pageCount) || 21)));
+    const count = clampAlbumPageCount(pageCount, 21);
     writePageCountOverride(photographerId, albumId, count);
 
     const { data, error } = await supabase

@@ -35,12 +35,15 @@
   max-height: calc(100vh - 172px);
 }
 
-/* Editor canvas: fill panel between sidebar and chrome */
+/* Editor canvas: fill panel between sidebar and chrome.
+   No max-width so landscape / whole-spread books can use leftover width;
+   square two-page albums stay height-capped at 520px and do not enlarge. */
 .ae-canvas-stage .ab-book-stage {
   min-height: 0;
   max-height: none;
   height: 100%;
   flex: 1;
+  max-width: none;
 }
 
 /* Sizing grid only — same footprint as before; does not clip the flip */
@@ -125,6 +128,8 @@
   flex-direction: column;
   align-items: center;
   flex: 0 0 auto;
+  width: max-content;
+  max-width: 100%;
   overflow: visible;
 }
 
@@ -133,6 +138,44 @@
   flex: 0 0 auto;
   /* Keep the book (and page-turn curl) above the toolbar flex sibling */
   z-index: 2;
+}
+
+/* Client / preview spread — floating shadow without bottom artifact */
+.ab-root--preview .ab-spread-book-block {
+  border-radius: 14px;
+  filter:
+    drop-shadow(0 4px 10px rgba(0, 0, 0, 0.08))
+    drop-shadow(0 14px 32px rgba(0, 0, 0, 0.14))
+    drop-shadow(0 24px 48px rgba(0, 0, 0, 0.1));
+}
+
+.ab-root--preview.ab-root--flipping .ab-spread-book-block {
+  filter: none;
+}
+
+.ab-root--preview .ab-html-flipbook {
+  box-shadow: none;
+  border-radius: 0;
+}
+
+.ab-root--preview .ab-spread-magnify-viewport:not(.ab-spread-magnify-viewport--active) {
+  overflow: visible;
+}
+
+.ab-root--preview
+  .ab-flipbook-wrap:not(.ab-flipbook-wrap--flipping)
+  .stf__outerShadow,
+.ab-root--preview
+  .ab-flipbook-wrap:not(.ab-flipbook-wrap--flipping)
+  .stf__innerShadow,
+.ab-root--preview
+  .ab-flipbook-wrap:not(.ab-flipbook-wrap--flipping)
+  .stf__hardShadow,
+.ab-root--preview
+  .ab-flipbook-wrap:not(.ab-flipbook-wrap--flipping)
+  .stf__hardInnerShadow {
+  opacity: 0 !important;
+  visibility: hidden !important;
 }
 
 .ab-spread-magnify-viewport {
@@ -176,7 +219,7 @@
 
 .ab-spread-display > .ab-spread-controls {
   position: relative;
-  align-self: flex-end;
+  align-self: center;
   margin-top: 14px;
   z-index: 1;
   pointer-events: auto;
@@ -675,7 +718,7 @@
 .ab-cover-leather-canvas.ab-cover-leather--flat {
   box-shadow:
     0 18px 40px rgba(0, 0, 0, 0.16),
-    0 6px 14px rgba(0, 0, 0, 0.08);
+  0 6px 14px rgba(0, 0, 0, 0.08);
   transform: none;
   border-radius: 14px;
 }
@@ -686,8 +729,31 @@
   background-color: var(--ab-leather-base, #f0ebe0);
 }
 
-.ab-flipbook-wrap--front-cover-only .ab-cover-leather--flat {
-  border-radius: 14px;
+/*
+ * Flipbook covers: fill the page flush. Nested radius + CSS filter on a white
+ * hard-page background paints a light fringe around the leather edge.
+ * The book shell already provides radius + drop shadow.
+ */
+.ab-html-flipbook .ab-cover-leather-canvas.ab-cover-leather--flat,
+.ab-flipbook-wrap--front-cover-only .ab-cover-leather--flat,
+.ab-flipbook-wrap--end-cover-only .ab-cover-leather--flat {
+  border-radius: 0;
+  box-shadow: none;
+  filter: none;
+}
+
+.ab-html-flipbook .stf__item:has(.ab-cover-leather--flat),
+.ab-html-flipbook .ab-flip-page:has(.ab-cover-leather--flat),
+.ab-html-flipbook .ab-flip-page:has(.ab-cover-leather--flat) .ab-page-empty {
+  background: transparent !important;
+}
+
+.ab-html-flipbook .stf__item.--hard:has(.ab-cover-leather--flat) {
+  background: transparent !important;
+}
+
+.ab-html-flipbook .ab-flip-page:has(.ab-cover-leather--flat) {
+  overflow: hidden;
 }
 
 .ab-cover-text-message--leather {
@@ -1251,7 +1317,7 @@
 
 .ab-nav {
   position: absolute;
-  top: 50%;
+  top: var(--ab-nav-top, 50%);
   transform: translateY(-50%);
   width: 48px;
   height: 48px;
@@ -1270,7 +1336,7 @@
   justify-content: center;
   color: #555;
   z-index: 50;
-  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s, top 0.18s ease, left 0.18s ease, right 0.18s ease;
 }
 
 .ab-nav:hover:not(:disabled) {
@@ -1293,12 +1359,12 @@
 }
 
 .ab-nav--prev {
-  left: 4px;
+  left: var(--ab-nav-prev-inset, 4px);
   z-index: 120;
 }
 
 .ab-nav--next {
-  right: 4px;
+  right: var(--ab-nav-next-inset, 4px);
   z-index: 120;
 }
 
@@ -1343,7 +1409,7 @@
 }
 
 .ab-root--preview .ab-spread-display > .ab-spread-controls {
-  align-self: flex-end;
+  align-self: center;
   margin-top: 12px;
   z-index: 1;
 }
@@ -1358,12 +1424,19 @@
 }
 
 .ab-root--preview .ab-spread-display > .ab-spread-controls--preview,
+.ab-root--preview .ab-spread-display > .ab-spread-controls--toolbar,
 .ab-spread-display > .ab-spread-controls--toolbar {
   position: relative;
   align-self: center;
   margin-top: 14px;
   display: inline-flex;
   align-items: center;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  width: max-content;
+  min-width: max-content;
+  max-width: none;
+  white-space: nowrap;
   gap: 8px;
   padding: 8px 14px;
   border-radius: 999px;
@@ -1376,6 +1449,21 @@
   color: #2f2f2f;
   pointer-events: auto;
   z-index: 1;
+}
+
+.ab-spread-display > .ab-spread-controls--toolbar.ab-spread-controls--wide-counter,
+.ab-root--preview .ab-spread-display > .ab-spread-controls--toolbar.ab-spread-controls--wide-counter,
+.ab-root--preview .ab-spread-display > .ab-spread-controls--preview.ab-spread-controls--wide-counter {
+  gap: 12px;
+  padding: 8px 20px 8px 14px;
+}
+
+.ab-root--whole-spread .ab-spread-meta {
+  margin-top: 12px;
+}
+
+.ab-root--whole-spread .ab-spread-display > .ab-spread-controls--toolbar {
+  margin-top: 16px;
 }
 
 .ab-spread-meta {
@@ -1414,12 +1502,14 @@
 .ab-toolbar-group {
   display: inline-flex;
   align-items: center;
+  flex-shrink: 0;
   gap: 4px;
 }
 
 .ab-need-action {
   display: inline-flex;
   align-items: center;
+  flex-shrink: 0;
   gap: 4px;
   height: 28px;
   padding: 0 8px 0 12px;
@@ -1427,6 +1517,15 @@
   background: #fdf2e9;
   color: #ab6229;
   transition: all 0.2s ease;
+}
+
+.ab-spread-controls--wide-counter .ab-need-action {
+  gap: 6px;
+  padding: 0 10px 0 14px;
+}
+
+.ab-spread-controls--wide-counter .ab-spread-controls-divider {
+  margin: 0 6px;
 }
 
 .ab-need-action--clear {
@@ -1545,15 +1644,32 @@
   font-weight: 600;
   color: #2f2f2f;
   letter-spacing: 0.01em;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
 }
 
-/* Gallery proofing — arrows hug the spread edges via --ab-nav-* (set in AlbumBook) */
+.ab-spread-controls--toolbar .ab-page-counter--wide,
+.ab-spread-controls--preview .ab-page-counter--wide {
+  min-width: var(--ab-counter-ch, 9ch);
+  padding: 0 10px 0 14px;
+  text-align: center;
+}
+
+.ab-spread-controls--preview .ab-page-counter--named,
+.ab-spread-controls--toolbar .ab-page-counter--named {
+  color: #857f7b;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+/* Gallery proofing — arrows centered in gutters via --ab-nav-* (set in AlbumBook) */
 .ab-root--preview .ab-nav {
   position: absolute;
   top: var(--ab-nav-top, 50%);
   transform: translateY(-50%);
-  width: 58px;
-  height: 58px;
+  width: 46px;
+  height: 46px;
   padding: 0;
   margin: 0;
   appearance: none;
@@ -1585,8 +1701,8 @@
 }
 
 .ab-root--preview .ab-nav svg {
-  width: 30px;
-  height: 30px;
+  width: 22px;
+  height: 22px;
   display: block;
   stroke-width: 1.65;
   stroke-linecap: round;
@@ -1603,12 +1719,12 @@
 }
 
 .ab-root--preview .ab-nav--prev {
-  left: var(--ab-nav-prev-inset, 8px);
+  left: max(8px, var(--ab-nav-prev-inset, 8px));
   right: auto;
 }
 
 .ab-root--preview .ab-nav--next {
-  right: var(--ab-nav-next-inset, 8px);
+  right: max(8px, var(--ab-nav-next-inset, 8px));
   left: auto;
 }
 
@@ -1699,6 +1815,28 @@
 
 .ab-overview--gallery-proof .ab-overview-close {
   top: 72px;
+}
+
+/* Preview / client: box matches album spread aspect; images fill (no grey letterboxing). */
+.ab-overview--gallery-proof .ab-overview-thumb {
+  height: auto;
+  aspect-ratio: var(--ab-overview-thumb-aspect, 2);
+  background: #e8eaed;
+}
+
+.ab-overview--gallery-proof .ab-overview-page {
+  background: transparent;
+}
+
+.ab-overview--gallery-proof .ab-overview-page img,
+.ab-overview--gallery-proof .ab-overview-page--cover-single > img:not(.ab-overview-wrap-img),
+.ab-overview--gallery-proof .ab-overview-page--end-single > img:not(.ab-overview-wrap-img),
+.ab-overview--gallery-proof .ab-overview-wrap-crop .ab-overview-wrap-img {
+  object-fit: cover;
+}
+
+.ab-overview--gallery-proof .ab-overview-placeholder {
+  background: #e8eaed;
 }
 
 
@@ -2215,9 +2353,32 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  height: 100%;
+  padding: 0 88px;
+  box-sizing: border-box;
+  overflow: hidden;
   cursor: default;
+}
+
+.ab-focus-stage .ab-book-3d-scene {
+  position: relative;
+  flex: 0 0 auto;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.ab-focus-stage .ab-book-3d-scene--front-cover-only .ab-focus-flipbook-wrap {
+  /* Show only the front cover half, flush in the half-width scene */
+  transform: translateX(-50%);
+}
+
+.ab-focus-stage .ab-book-3d-scene--end-cover-only .ab-focus-flipbook-wrap {
+  transform: translateX(0);
+}
+
+.ab-focus-stage .ab-book-3d-scene--flipping {
+  overflow: visible;
 }
 
 .ab-focus-flipbook-wrap {
@@ -2226,8 +2387,15 @@
   filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.12));
 }
 
+.ab-focus-flipbook-wrap.ab-flipbook-wrap::after {
+  /* Hide spine seam needle in fullscreen — it reads as a broken arrow */
+  display: none;
+}
+
 .ab-html-flipbook--focus {
   margin: 0 auto;
+  box-shadow: none;
+  border-radius: 0;
 }
 
 /* Clip each page half so whole-spread pano does not duplicate in the gutter */
@@ -2249,20 +2417,62 @@
   background: var(--ab-focus-bg) !important;
 }
 
+/* Fixed to the fullscreen root (same approach as close) so nothing can clip them */
 .ab-focus-nav {
-  position: absolute;
+  position: fixed;
   top: 50%;
   transform: translateY(-50%);
-  z-index: 3203;
+  z-index: 3205;
+  box-sizing: border-box;
+  width: 52px;
+  height: 52px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  appearance: none;
+  -webkit-appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.96);
+  color: #2f2f2f;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.22);
+  cursor: pointer;
   pointer-events: auto;
+  line-height: 0;
 }
 
-.ab-focus-nav.ab-nav--prev {
-  left: 16px;
+.ab-focus-nav--prev {
+  left: max(20px, env(safe-area-inset-left, 0px));
+  right: auto;
 }
 
-.ab-focus-nav.ab-nav--next {
-  right: 16px;
+.ab-focus-nav--next {
+  right: max(20px, env(safe-area-inset-right, 0px));
+  left: auto;
+}
+
+.ab-focus-nav--enabled,
+.ab-focus-nav:not(:disabled) {
+  opacity: 1;
+}
+
+.ab-focus-nav:hover:not(:disabled) {
+  background: #ffffff;
+  color: #111;
+}
+
+.ab-focus-nav:disabled {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  box-shadow: none;
+}
+
+.ab-focus-view:fullscreen .ab-focus-nav,
+.ab-focus-view:-webkit-full-screen .ab-focus-nav {
+  position: fixed;
 }
 
 .ab-focus-counter {

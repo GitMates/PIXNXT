@@ -1400,7 +1400,7 @@ export function setPagePhotoFromCollectionItem(
         const opts = { ...normalizeSpreadOpts(spreadOpts), totalPages, hasCovers: hasCovers ?? spreadOpts?.hasCovers };
         if (isPreBackHalfSpreadRightPage(pageNum, totalPages, opts)) {
             const info = getPreBackHalfSpreadInfo(totalPages, opts);
-            if (info) {
+            if (info?.left != null && info.left !== pageNum) {
                 return setPagePhotoFromCollectionItem(albumId, info.left, collectionItemId, {
                     clearSpreadForLeft: info.left,
                     hasCovers,
@@ -1408,7 +1408,6 @@ export function setPagePhotoFromCollectionItem(
                     spreadOpts,
                 });
             }
-            return false;
         }
     }
     const all = readAll();
@@ -1610,6 +1609,113 @@ export function clearAllAlbumPagePhotos(albumId, { totalPages = 21 } = {}) {
     all[albumId] = { __revision: (prev.__revision || 0) + 1 };
     writeAll(all);
     return cleared;
+}
+
+function buildHistoryPlacement({ collectionItemId = null, storagePath = null, dataUrl = null } = {}) {
+    if (!collectionItemId && !storagePath && !dataUrl) return null;
+    const placement = {};
+    if (collectionItemId) placement.collectionItemId = collectionItemId;
+    if (storagePath) placement.storagePath = storagePath;
+    if (dataUrl?.startsWith('data:')) {
+        placement.dataUrl = dataUrl;
+    } else if (!storagePath && dataUrl) {
+        placement.dataUrl = dataUrl;
+    }
+    return Object.keys(placement).length ? placement : null;
+}
+
+function writeSpreadPlacementValue(
+    albumId,
+    leftPage,
+    rightPage,
+    placement,
+    { totalPages, spreadOpts } = {}
+) {
+    if (!albumId || leftPage == null || !placement) return false;
+    const opts = { ...normalizeSpreadOpts(spreadOpts), totalPages };
+    if (totalPages != null && isInsideCoverSpreadLeft(leftPage, totalPages, opts)) {
+        return writePagePlacementValue(albumId, 3, placement, { clearSpreadForLeft: leftPage });
+    }
+    if (totalPages != null && isPreBackHalfSpreadLeftPage(leftPage, totalPages, opts)) {
+        return writePagePlacementValue(albumId, leftPage, placement, { clearSpreadForLeft: leftPage });
+    }
+    if (
+        totalPages != null &&
+        isEndHalfSpreadLeftPage(leftPage, totalPages, opts) &&
+        !isWholeSpreadLayout(spreadOpts?.gridLayout)
+    ) {
+        return writePagePlacementValue(albumId, leftPage, placement, { clearSpreadForLeft: leftPage });
+    }
+
+    const all = readAll();
+    const album = { ...(all[albumId] || {}) };
+    album[spreadStorageKey(leftPage)] = placement;
+    delete album[String(leftPage)];
+    if (rightPage != null) delete album[String(rightPage)];
+    album.__revision = (album.__revision || 0) + 1;
+    all[albumId] = album;
+    const wrote = writeAll(all);
+
+    const remote = getRemotePreviewData(albumId);
+    if (remote?.pages) {
+        const pages = { ...remote.pages };
+        pages[spreadStorageKey(leftPage)] = placement;
+        delete pages[String(leftPage)];
+        if (rightPage != null) delete pages[String(rightPage)];
+        hydrateAlbumPreviewData(albumId, {
+            ...remote,
+            pages,
+            revision: (remote.revision || 0) + 1,
+        });
+    }
+
+    return wrote;
+}
+
+function writePagePlacementValue(albumId, pageNum, placement, { clearSpreadForLeft } = {}) {
+    if (!albumId || pageNum == null || !placement) return false;
+    const all = readAll();
+    const album = { ...(all[albumId] || {}) };
+    if (clearSpreadForLeft != null) {
+        delete album[spreadStorageKey(clearSpreadForLeft)];
+    }
+    album[String(pageNum)] = placement;
+    album.__revision = (album.__revision || 0) + 1;
+    all[albumId] = album;
+    return writeAll(all);
+}
+
+/** Restore a spread slot from frozen version-history snapshot fields. */
+export function restoreSlotPhotoFromHistory(
+    albumId,
+    slot,
+    snapshot,
+    { album = null, totalPages = 0, spreadOpts = null } = {}
+) {
+    const placement = buildHistoryPlacement(snapshot);
+    if (!albumId || !slot || !placement) return false;
+
+    const opts = { ...normalizeSpreadOpts(spreadOpts), totalPages };
+    const left = slot.spreadLeft ?? slot.pageNum;
+    const right = Math.min(left + 1, Math.max(0, (totalPages || 1) - 1));
+
+    if (slot.pageNum === 0) {
+        return writeSpreadPlacementValue(albumId, 0, right, placement, {
+            totalPages,
+            spreadOpts: opts,
+        });
+    }
+
+    if (slot.whole) {
+        return writeSpreadPlacementValue(albumId, left, right, placement, {
+            totalPages,
+            spreadOpts: opts,
+        });
+    }
+
+    return writePagePlacementValue(albumId, slot.pageNum, placement, {
+        clearSpreadForLeft: left,
+    });
 }
 
 /** One image across the full spread (left + right pages). */

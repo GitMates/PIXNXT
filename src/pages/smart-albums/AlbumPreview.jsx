@@ -779,11 +779,22 @@ export default function AlbumPreview({
                         }}
                         onJumpToSpread={jumpToSpread}
                         onNavigateToPin={(pin) => {
-                            if (pin?.spreadIndex != null) jumpToSpread(pin.spreadIndex);
-                            else if (Number.isFinite(pin?.pageNum)) {
-                                jumpToSpread(
-                                    pageToSpreadIndex(pin.pageNum, { ...spreadOpts, totalPages })
-                                );
+                            let targetSpread = null;
+                            if (pin?.spreadIndex != null) {
+                                targetSpread = pin.spreadIndex;
+                            } else if (Number.isFinite(pin?.pageNum)) {
+                                targetSpread = pageToSpreadIndex(pin.pageNum, { ...spreadOpts, totalPages });
+                            }
+
+                            if (targetSpread != null) {
+                                jumpToSpread(targetSpread);
+                                window.setTimeout(() => {
+                                    window.dispatchEvent(
+                                        new CustomEvent('album-spot-pin-open', {
+                                            detail: { layerId: null, pinId: pin.id },
+                                        })
+                                    );
+                                }, 120);
                             }
                         }}
                         onNavigateToSlotKey={(slotKey) => {
@@ -793,6 +804,29 @@ export default function AlbumPreview({
                             jumpToSpread(
                                 pageToSpreadIndex(pageNum, { ...spreadOpts, totalPages })
                             );
+                        }}
+                        onNavigateToSwapMark={(mark, endpoint = 'A') => {
+                            if (!mark) return;
+                            const slotKey = endpoint === 'B' ? mark.b : mark.a;
+                            if (slotKey) {
+                                const [pageNum] = String(slotKey).split(':').map(Number);
+                                if (Number.isFinite(pageNum)) {
+                                    jumpToSpread(
+                                        pageToSpreadIndex(pageNum, { ...spreadOpts, totalPages })
+                                    );
+                                }
+                            }
+                            window.setTimeout(() => {
+                                window.dispatchEvent(
+                                    new CustomEvent('album-spot-pin-open', {
+                                        detail: {
+                                            layerId: null,
+                                            markId: mark.id,
+                                            endpoint: endpoint === 'B' ? 'B' : 'A',
+                                        },
+                                    })
+                                );
+                            }, 120);
                         }}
                         onRemoveSwap={(id) => removeSwapMark(albumId, id)}
                         onRemoveReplacement={handleRemoveImageReplacement}

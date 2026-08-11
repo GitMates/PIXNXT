@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { formatRelativeTime } from '../../lib/relativeTime';
 import { formatCommentTime } from '../../services/smartAlbumComments.service';
 import {
-    getReplacementCurrentVersion,
+    getReplacementFeedVersionPair,
     resolveReplacementPreviewUrl,
     sortSpreadReplacements,
 } from './albumImageReplacements';
@@ -25,6 +25,18 @@ function Shot({ albumId, url, storagePath, itemId = null, preferLive = false, ta
     );
 }
 
+function formatVersionUploadDescription(row) {
+    if (row.note) {
+        const note = String(row.note).trim();
+        if (note) return note.endsWith('.') ? note : `${note}.`;
+    }
+    const label = String(row.slotLabel || '').trim();
+    if (label && !row.whole && !/^whole spread$/i.test(label)) {
+        return `Uploaded a new version \u2014 ${label.toLowerCase()}.`;
+    }
+    return 'Uploaded a new version.';
+}
+
 /** Feed card for photo version changes (Quiet Proof style). */
 export default function AlbumPreviewReplacementCard({
     albumId,
@@ -34,6 +46,7 @@ export default function AlbumPreviewReplacementCard({
     spreadLabel = null,
     hasCovers = false,
     currentPreviewUrl = null,
+    isLatestOnSpread = false,
 }) {
     const rows = useMemo(
         () =>
@@ -45,26 +58,24 @@ export default function AlbumPreviewReplacementCard({
 
     if (!rows.length) return null;
 
-    const latest = rows[rows.length - 1];
-    const currentVersion = getReplacementCurrentVersion(latest);
-    const createdAt = latest.createdAt;
+    const row = replacement || rows[rows.length - 1];
+    const { isRestore, from: versionFrom, to: versionTo } = getReplacementFeedVersionPair(row);
+    const createdAt = row.createdAt;
     const timeLabel = formatRelativeTime(createdAt) || formatCommentTime(createdAt);
-    const spreadIdx =
-        latest.spreadIndex != null ? Number(latest.spreadIndex) : null;
-    // Use the same cover-aware numbering as the book ("SPREAD 10"), not spreadIndex+1.
+    const spreadIdx = row.spreadIndex != null ? Number(row.spreadIndex) : null;
     const spreadText =
         spreadLabel ||
         (Number.isFinite(spreadIdx)
             ? formatSpreadDisplayLabel(spreadIdx, { hasCovers })
             : null);
 
-    const description =
-        latest.note ||
-        (latest.slotLabel
-            ? `Uploaded a new version of this spread \u2014 ${latest.slotLabel.toLowerCase()}.`
-            : 'Uploaded a new version of this spread.');
+    const description = isRestore
+        ? row.note || `Restored this spread to v${versionTo}.`
+        : formatVersionUploadDescription(row);
 
-    const currentUrl = currentPreviewUrl || latest.newUrl;
+    const preferLiveNew =
+        isLatestOnSpread || (!replacement && rows.length > 1 && row === rows[rows.length - 1]);
+    const currentUrl = preferLiveNew ? currentPreviewUrl || row.newUrl : row.newUrl;
 
     return (
         <article className="quiet-proof-card">
@@ -84,7 +95,7 @@ export default function AlbumPreviewReplacementCard({
                 </div>
                 <p className="quiet-proof-card__activity">
                     <span className="quiet-proof-card__activity-dot" aria-hidden />
-                    New version · v{currentVersion}
+                    {isRestore ? 'Restored version' : 'New version'} · v{versionFrom} → v{versionTo}
                     {spreadText ? ` · ${spreadText}` : ''}
                 </p>
             </header>
@@ -93,9 +104,9 @@ export default function AlbumPreviewReplacementCard({
                 <div className="quiet-proof-card__version-pair" aria-label="Version change">
                     <Shot
                         albumId={albumId}
-                        url={latest.previousUrl}
-                        storagePath={latest.previousStoragePath}
-                        tag={`v${Math.max(1, currentVersion - 1)}`}
+                        url={row.previousUrl}
+                        storagePath={row.previousStoragePath}
+                        tag={`v${versionFrom}`}
                     />
                     <span className="quiet-proof-card__version-arrow" aria-hidden>
                         →
@@ -103,10 +114,10 @@ export default function AlbumPreviewReplacementCard({
                     <Shot
                         albumId={albumId}
                         url={currentUrl}
-                        storagePath={latest.newStoragePath}
-                        itemId={latest.newItemId}
-                        preferLive
-                        tag={`v${currentVersion}`}
+                        storagePath={row.newStoragePath}
+                        itemId={row.newItemId}
+                        preferLive={preferLiveNew}
+                        tag={`v${versionTo}`}
                     />
                 </div>
             </div>

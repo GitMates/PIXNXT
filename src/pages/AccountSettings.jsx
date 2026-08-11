@@ -1049,7 +1049,7 @@ function ReferTab({ user, showToast }) {
                             onClick={handleCopyLink}
                             className="neu-pill acct-btn-primary px-6 py-3 text-[16px] font-medium whitespace-nowrap"
                         >
-                            Copy Link
+                            Copy
                         </button>
                     </div>
                 </div>

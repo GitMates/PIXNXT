@@ -26,11 +26,9 @@ export default function AlbumCommentSettings({
     onOpenFullSettings,
 }) {
     const commentsOn = album?.comments_enabled !== false;
-    const swapsOn = album?.messages_enabled !== false;
     const published = true;
     const shareLinkOn = album?.share_link_enabled !== false;
     const [commentsBusy, setCommentsBusy] = useState(false);
-    const [swapsBusy, setSwapsBusy] = useState(false);
     const [shareLinkBusy, setShareLinkBusy] = useState(false);
 
     const handleCommentsToggle = async () => {
@@ -52,24 +50,6 @@ export default function AlbumCommentSettings({
         }
     };
 
-    const handleSwapsToggle = async () => {
-        if (!photographerId || !album?.id || swapsBusy) return;
-        const next = !swapsOn;
-        setSwapsBusy(true);
-        try {
-            const updated = await smartAlbumsService.updateAlbumClientSettings(
-                photographerId,
-                album.id,
-                { messages_enabled: next }
-            );
-            onUpdated?.(updated);
-        } catch (e) {
-            console.error(e);
-            alert('Could not update swap settings.');
-        } finally {
-            setSwapsBusy(false);
-        }
-    };
 
     const handleShareLinkToggle = async () => {
         if (!photographerId || !album?.id || shareLinkBusy) return;
@@ -118,30 +98,6 @@ export default function AlbumCommentSettings({
 
             <div className="asc-settings-row">
                 <div className="asc-settings-row-main">
-                    <span className="asc-settings-row-label">Allow swaps</span>
-                    <span className="asc-settings-row-desc">
-                        Clients can place swap requests on photos in the preview
-                    </span>
-                </div>
-                <div className="asc-settings-row-control">
-                    <span
-                        className={`asc-settings-status${swapsOn ? ' asc-settings-status--on' : ''}`}
-                    >
-                        {swapsBusy ? '…' : swapsOn ? 'On' : 'Off'}
-                    </span>
-                    <SettingsSwitch
-                        id="asc-swaps-enabled"
-                        checked={swapsOn}
-                        busy={swapsBusy}
-                        disabled={!photographerId}
-                        onChange={handleSwapsToggle}
-                        label="Allow swap requests on album preview"
-                    />
-                </div>
-            </div>
-
-            <div className="asc-settings-row">
-                <div className="asc-settings-row-main">
                     <span className="asc-settings-row-label">Client share link</span>
                     <span className="asc-settings-row-desc">
                         {shareLinkOn
@@ -170,11 +126,6 @@ export default function AlbumCommentSettings({
                 <p className="asc-settings-hint">
                     Album is published, but comments are off. Clients can view spreads but cannot
                     add feedback.
-                </p>
-            )}
-            {published && !swapsOn && (
-                <p className="asc-settings-hint">
-                    Swap requests are off. Clients can view spreads but cannot create swaps.
                 </p>
             )}
             {published && !shareLinkOn && (

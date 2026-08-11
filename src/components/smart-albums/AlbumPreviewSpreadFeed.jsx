@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Mic } from 'lucide-react';
 import CommentAttachmentContent from './CommentAttachmentContent';
 import { getClientCommentBadgeLabel, hasCommentAttachment, isCommentAudioAttachment } from './albumCommentAttachments';
 import {
@@ -38,7 +39,7 @@ import {
 import AlbumPreviewReplacementCard from './AlbumPreviewReplacementCard';
 import OverviewLeatherCover from './OverviewLeatherCover';
 import SwapIcon from './SwapIcon';
-import { getSpreadContext, pageToSpreadIndex } from './albumSpreadUtils';
+import { getSpreadContext, pageToSpreadIndex, formatProofSpreadActivityLabel } from './albumSpreadUtils';
 import './AlbumQuietProofFeed.css';
 
 function resolveSwapEndpointSrc(albumId, slotKey, album, totalPages) {
@@ -231,15 +232,32 @@ function QuietProofCard({
                     <div className="quiet-proof-card__name-wrap">
                         <span className="quiet-proof-card__name">{name}</span>
                         {badge ? (
-                                    <span
-                                        className={`quiet-proof-card__badge${
-                                            badge === 'Photographer'
-                                                ? ' quiet-proof-card__badge--photographer'
-                                                : ''
-                                        }`}
-                                    >
-                                        {badge}
-                                    </span>
+                            onNavigate ? (
+                                <button
+                                    type="button"
+                                    className={`quiet-proof-card__badge quiet-proof-card__badge--nav${
+                                        badge === 'Photographer'
+                                            ? ' quiet-proof-card__badge--photographer'
+                                            : ''
+                                    }`}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onNavigate();
+                                    }}
+                                >
+                                    {badge}
+                                </button>
+                            ) : (
+                                <span
+                                    className={`quiet-proof-card__badge${
+                                        badge === 'Photographer'
+                                            ? ' quiet-proof-card__badge--photographer'
+                                            : ''
+                                    }`}
+                                >
+                                    {badge}
+                                </span>
+                            )
                         ) : null}
                     </div>
                     {timeLabel ? (
@@ -391,10 +409,15 @@ function QuietProofFeed({
     clientViewer = false,
     onNavigateToPin,
     onNavigateToSlotKey,
+    onNavigateToSwapMark,
     onRemoveSwap,
     onJumpToSpread,
 }) {
     void photoRevision;
+    const spreadOpts = useMemo(
+        () => getSpreadContext(album, totalPages),
+        [album, totalPages]
+    );
     const clientName =
         getClientReviewerIdentity(albumId).name ||
         getGuestProfile(albumId)?.name ||
@@ -510,7 +533,11 @@ function QuietProofFeed({
                             authorName={businessName || comment.author_name || 'You'}
                             createdAt={comment.updated_at || comment.created_at}
                             badge="Photographer"
-                            activityLabel={`Comment · Spread ${String((comment.spread_index ?? 0) + 1).padStart(2, '0')}`}
+                            activityLabel={formatProofSpreadActivityLabel(
+                                comment.spread_index,
+                                totalPages,
+                                spreadOpts
+                            )}
                             unseen={false}
                             showMarkDone={false}
                             {...replyPropsFor(item)}
@@ -531,7 +558,11 @@ function QuietProofFeed({
                             authorName={comment.author_name || clientName}
                             createdAt={comment.updated_at || comment.created_at}
                             badge={getClientCommentBadgeLabel(comment)}
-                            activityLabel={`Comment · Spread ${String((comment.spread_index ?? 0) + 1).padStart(2, '0')}`}
+                            activityLabel={formatProofSpreadActivityLabel(
+                                comment.spread_index,
+                                totalPages,
+                                spreadOpts
+                            )}
                             unseen={unseen}
                             showMarkDone={!clientViewer}
                             onMarkDone={() => markCommentsSeen(albumId, [comment])}
@@ -566,27 +597,29 @@ function QuietProofFeed({
                             authorName={pin.authorName || pin.author_name || clientName}
                             createdAt={pin.createdAt}
                             badge={`Pin ${ordinal}`}
-                            activityLabel={`Comment · Spread ${String((pin.spreadIndex ?? 0) + 1).padStart(2, '0')}`}
+                            activityLabel={formatProofSpreadActivityLabel(
+                                pin.spreadIndex,
+                                totalPages,
+                                spreadOpts
+                            )}
                             unseen={unseen}
                             showMarkDone={!clientViewer}
                             onMarkDone={() => markPhotoPinsSeen(albumId, [pin])}
                             onNavigate={navigatePin}
                             {...replyPropsFor(item)}
                         >
-                            <p className="quiet-proof-card__text">{pin.message}</p>
+                            {hasCommentAttachment(pin) ? (
+                                <div className="quiet-proof-card__media">
+                                    <CommentAttachmentContent
+                                        comment={pin}
+                                        className="quiet-proof-card__attachment"
+                                    />
+                                </div>
+                            ) : null}
+                            {pin.message ? (
+                                <p className="quiet-proof-card__text">{pin.message}</p>
+                            ) : null}
                         </QuietProofCard>
-                    );
-                }
-
-                if (item.kind === 'image-replacement-stack') {
-                    return (
-                        <AlbumPreviewReplacementCard
-                            key={item.id}
-                            albumId={albumId}
-                            replacements={item.replacements}
-                            authorName={businessName || 'Photographer'}
-                            hasCovers={Boolean(album?.has_covers)}
-                        />
                     );
                 }
 
@@ -598,6 +631,7 @@ function QuietProofFeed({
                             replacement={item.replacement}
                             authorName={businessName || 'Photographer'}
                             hasCovers={Boolean(album?.has_covers)}
+                            isLatestOnSpread={Boolean(item.isLatestOnSpread)}
                         />
                     );
                 }
@@ -606,7 +640,6 @@ function QuietProofFeed({
                 const swapUnseen = isSwapMarkUnseen(albumId, swapItem);
                 const labelA = formatSwapEndpointLabel(swapItem.labelA);
                 const labelB = formatSwapEndpointLabel(swapItem.labelB);
-                const spreadOpts = getSpreadContext(album, totalPages);
                 const spreadA =
                     Number.isFinite(swapItem.spreadA)
                         ? swapItem.spreadA
@@ -645,13 +678,27 @@ function QuietProofFeed({
                 );
                 const useLiveA = spreadThumbHasImage(visualA);
                 const useLiveB = spreadThumbHasImage(visualB);
-                const goA = () => {
-                    if (onNavigateToSlotKey) onNavigateToSlotKey(swapItem.a);
-                    else onJumpToSpread?.(spreadA);
+                const openSwap = (endpoint = 'A') => {
+                    if (onNavigateToSwapMark) {
+                        onNavigateToSwapMark(swapItem, endpoint);
+                        return;
+                    }
+                    if (endpoint === 'B') {
+                        if (onNavigateToSlotKey) onNavigateToSlotKey(swapItem.b);
+                        else onJumpToSpread?.(spreadB);
+                    } else if (onNavigateToSlotKey) {
+                        onNavigateToSlotKey(swapItem.a);
+                    } else {
+                        onJumpToSpread?.(spreadA);
+                    }
                 };
-                const goB = () => {
-                    if (onNavigateToSlotKey) onNavigateToSlotKey(swapItem.b);
-                    else onJumpToSpread?.(spreadB);
+                const goA = (e) => {
+                    e?.stopPropagation?.();
+                    openSwap('A');
+                };
+                const goB = (e) => {
+                    e?.stopPropagation?.();
+                    openSwap('B');
                 };
                 return (
                     <QuietProofCard
@@ -659,10 +706,16 @@ function QuietProofFeed({
                         authorName={swapItem.authorName || clientName}
                         createdAt={swapItem.createdAt}
                         badge="Swap"
-                        activityLabel={`Swap request · Spread ${String((Number.isFinite(spreadA) ? spreadA : 0) + 1).padStart(2, '0')}`}
+                        activityLabel={formatProofSpreadActivityLabel(
+                            spreadA,
+                            totalPages,
+                            spreadOpts,
+                            { prefix: 'Swap request' }
+                        )}
                         unseen={swapUnseen}
                         showMarkDone={!clientViewer}
                         onMarkDone={() => markSwapMarksSeen(albumId, [swapItem])}
+                        onNavigate={() => openSwap('A')}
                         {...replyPropsFor(item)}
                     >
                         {useLiveA || useLiveB || slotSrcA || slotSrcB ? (
@@ -690,9 +743,17 @@ function QuietProofFeed({
                                     </span>
                                     <span className="quiet-proof-card__swap-shot-label">{labelA}</span>
                                 </button>
-                                <span className="quiet-proof-card__swap-pair-arrow" aria-hidden>
+                                <button
+                                    type="button"
+                                    className="quiet-proof-card__swap-pair-arrow"
+                                    aria-label="Open swap on spread"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        openSwap('A');
+                                    }}
+                                >
                                     <SwapIcon size={14} />
-                                </span>
+                                </button>
                                 <button
                                     type="button"
                                     className="quiet-proof-card__swap-shot"
@@ -726,9 +787,17 @@ function QuietProofFeed({
                                 >
                                     {labelA}
                                 </button>
-                                <span className="quiet-proof-card__swap-arrow" aria-hidden>
+                                <button
+                                    type="button"
+                                    className="quiet-proof-card__swap-arrow"
+                                    aria-label="Open swap on spread"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        openSwap('A');
+                                    }}
+                                >
                                     <SwapIcon size={14} />
-                                </span>
+                                </button>
                                 <button
                                     type="button"
                                     className="quiet-proof-card__swap-chip"
@@ -762,6 +831,7 @@ export default function AlbumPreviewSpreadFeed({
     onJumpToSpread,
     onNavigateToPin,
     onNavigateToSlotKey,
+    onNavigateToSwapMark,
     onRemoveSwap,
     onRemoveReplacement,
     onNewVersion = null,
@@ -789,6 +859,7 @@ export default function AlbumPreviewSpreadFeed({
                 clientViewer={clientViewer}
                 onNavigateToPin={onNavigateToPin}
                 onNavigateToSlotKey={onNavigateToSlotKey}
+                onNavigateToSwapMark={onNavigateToSwapMark}
                 onRemoveSwap={onRemoveSwap}
                 onJumpToSpread={onJumpToSpread}
             />
@@ -929,6 +1000,9 @@ export default function AlbumPreviewSpreadFeed({
                                             >
                                                 Save
                                             </button>
+                                            <span className="av-chat-action" aria-label="Audio comment">
+                                                <Mic size={14} />
+                                            </span>
                                         </div>
                                     </article>
                                 </div>
@@ -991,22 +1065,6 @@ export default function AlbumPreviewSpreadFeed({
                     );
                 }
 
-                if (item.kind === 'image-replacement-stack') {
-                    return (
-                        <React.Fragment key={item.id}>
-                            {dateDivider}
-                            <div className="av-chat-row av-chat-row--system">
-                                <AlbumPreviewReplacementCard
-                                    albumId={albumId}
-                                    replacements={item.replacements}
-                                    authorName={businessName || 'Photographer'}
-                                    hasCovers={Boolean(album?.has_covers)}
-                                />
-                            </div>
-                        </React.Fragment>
-                    );
-                }
-
                 if (item.kind === 'image-replacement') {
                     return (
                         <React.Fragment key={item.id}>
@@ -1017,6 +1075,7 @@ export default function AlbumPreviewSpreadFeed({
                                     replacement={item.replacement}
                                     authorName={businessName || 'Photographer'}
                                     hasCovers={Boolean(album?.has_covers)}
+                                    isLatestOnSpread={Boolean(item.isLatestOnSpread)}
                                 />
                             </div>
                         </React.Fragment>

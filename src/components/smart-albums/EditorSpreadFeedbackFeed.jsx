@@ -16,6 +16,8 @@ import { formatCommentDateTime } from '../../services/smartAlbumComments.service
 import { formatSpreadDisplayLabel } from './albumSpreadUtils';
 import { buildSpreadFeedbackFeed } from './spreadFeedbackFeed';
 import ProofDoneButton from './ProofDoneButton';
+import { hasCommentAttachment } from './albumCommentAttachments';
+import CommentAttachmentContent from './CommentAttachmentContent';
 
 function pinSlotLabel(pin, gridLayout, totalPages, album) {
     const whole = gridLayout === 'whole-spread' && pin.pageNum > 0;
@@ -133,7 +135,17 @@ export default function EditorSpreadFeedbackFeed({
                                             <span className="ae-proof-new-badge">New</span>
                                         )}
                                     </span>
-                                    <span className="ae-photo-pins-message">{pin.message}</span>
+                                    {hasCommentAttachment(pin) ? (
+                                        <div className="ae-photo-pins-media" style={{ margin: '8px 0' }}>
+                                            <CommentAttachmentContent
+                                                comment={pin}
+                                                className="ae-photo-pins-attachment"
+                                            />
+                                        </div>
+                                    ) : null}
+                                    {pin.message ? (
+                                        <span className="ae-photo-pins-message">{pin.message}</span>
+                                    ) : null}
                                 </button>
                                 <div className="ae-photo-pins-footer">
                                     {createdAtLabel ? (

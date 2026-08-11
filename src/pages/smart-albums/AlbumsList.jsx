@@ -544,7 +544,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                         className="sa-proofer-albums__new-btn"
                         onClick={() => navigate('/album-proofer/create')}
                     >
-                        New album
+                        + New album
                     </button>
                 )}
             </header>

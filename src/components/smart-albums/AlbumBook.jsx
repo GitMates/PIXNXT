@@ -18,6 +18,7 @@ import {
     getSpreadContext,
     getSpreadPages,
     getTotalSpreads,
+    getInnerSpreadCount,
     isDraggableOverviewSpread,
     isEndHalfSpreadIndex,
     isInsideCoverSpreadLeft,
@@ -25,6 +26,7 @@ import {
     isWholeSpreadLayout,
     formatOverviewSpreadLabel,
     formatBookSpreadMetaLabel,
+    formatSpreadCounterNumber,
     normalizeStoragePageIndex,
     pageToSpreadIndex,
     spreadIndexToPage,
@@ -35,6 +37,7 @@ import SpreadGridComments from './SpreadGridComments';
 import {
     COMMENTS_SEEN_CHANGED_EVENT,
     getClientReviewerIdentity,
+    isCommentUnseen,
 } from '../../services/smartAlbumComments.service';
 import { buildOverviewSpreadReorderPlan } from './albumSpreadReorder';
 import AlbumSwapPickerModal from './AlbumSwapPickerModal';
@@ -54,6 +57,7 @@ import {
     hydrateSwapMarks,
     isSwapMarkUnseen,
     parseSlotKey,
+    removeSwapMark,
 } from './albumSwapMarks';
 import {
     addPhotoPin,
@@ -74,6 +78,7 @@ import './AlbumBook.css';
 import './AlbumSwapMarks.css';
 import './AlbumPhotoPins.css';
 import { parseGridSizeAspect } from './albumGridSize';
+import { getBookDimensions, getFallbackBookDimensions } from './albumBookDimensions';
 import { AlbumBookPageContext } from './AlbumBookPageContext';
 import { installSafePageFlip } from './pageFlipSafe';
 import { albumHasBlankCovers } from './albumSpreadUtils';
@@ -92,44 +97,6 @@ import {
 
 const FLIP_TIME_MS = 900;
 const FLIP_CORNER = 'bottom';
-const BOOK_PAGE_HEIGHT_MIN = 300;
-const BOOK_PAGE_HEIGHT_MAX = 520;
-const BOOK_PAGE_HEIGHT_SCALE = 0.93;
-const BOOK_STAGE_MIN_PX = 80;
-/** Stage must be tall enough for real page height — avoids mounting while flex layout is still 0px. */
-const BOOK_STAGE_READY_MIN_PX = 300;
-function computeBookDimensions(w, h, gridSize = 'square') {
-    if (w < BOOK_STAGE_MIN_PX || h < BOOK_STAGE_MIN_PX) return null;
-    const aspect = parseGridSizeAspect(gridSize);
-    const maxPageWidth = w / 2;
-    const maxPageHeight = h * BOOK_PAGE_HEIGHT_SCALE;
-    const pageHeight = Math.floor(Math.min(maxPageHeight, maxPageWidth / aspect));
-    const clampedPageHeight = Math.max(
-        BOOK_PAGE_HEIGHT_MIN,
-        Math.min(BOOK_PAGE_HEIGHT_MAX, pageHeight)
-    );
-    return {
-        width: Math.round(clampedPageHeight * aspect),
-        height: clampedPageHeight,
-    };
-}
-
-function getBookDimensions(stageEl, gridSize = 'square') {
-    if (!stageEl) return null;
-    const h = stageEl.clientHeight;
-    if (h < BOOK_STAGE_READY_MIN_PX) return null;
-    return computeBookDimensions(stageEl.clientWidth, h, gridSize);
-}
-
-function getFallbackBookDimensions(rootEl, gridSize = 'square') {
-    const rootW = rootEl?.clientWidth ?? 0;
-    const rootH = rootEl?.clientHeight ?? 0;
-    const w =
-        rootW > BOOK_STAGE_MIN_PX ? rootW - 48 : Math.min(960, window.innerWidth - 280);
-    const h =
-        rootH > BOOK_STAGE_MIN_PX ? rootH - 48 : Math.max(360, window.innerHeight - 280);
-    return computeBookDimensions(w, h, gridSize);
-}
 
 function OverviewCoverPhoto({ src, placeholderClass = '' }) {
     if (!src) {
@@ -283,7 +250,7 @@ const AlbumBook = ({
     const [pinModeActive, setPinModeActive] = useState(false);
     const [pinComposer, setPinComposer] = useState(null);
     const [initialized, setInitialized] = useState(false);
-    const [commentsSeenTick, setCommentsSeenTick] = useState(0);
+    const [proofSeenTick, setProofSeenTick] = useState(0);
 
     const ensureClientFeedback = useCallback(
         (action) => {
@@ -337,6 +304,8 @@ const AlbumBook = ({
         const thumbH = Math.round(thumbW / spreadAspect);
         return {
             '--ab-overview-thumb-h': `${Math.max(96, Math.min(200, thumbH))}px`,
+            '--ab-overview-thumb-aspect': String(spreadAspect),
+            '--ab-overview-page-aspect': String(pageAspect),
         };
     }, [album?.grid_size]);
 
@@ -413,19 +382,39 @@ const AlbumBook = ({
     useEffect(() => {
         if (!album?.id) return undefined;
         const onSeen = (e) => {
-            if (e.detail?.albumId !== album.id) return;
-            setCommentsSeenTick((tick) => tick + 1);
+            if (e.detail?.albumId && e.detail.albumId !== album.id) return;
+            setProofSeenTick((tick) => tick + 1);
         };
         window.addEventListener(COMMENTS_SEEN_CHANGED_EVENT, onSeen);
-        return () => window.removeEventListener(COMMENTS_SEEN_CHANGED_EVENT, onSeen);
+        window.addEventListener(PHOTO_PINS_SEEN_CHANGED_EVENT, onSeen);
+        window.addEventListener(SWAP_MARKS_SEEN_CHANGED_EVENT, onSeen);
+        return () => {
+            window.removeEventListener(COMMENTS_SEEN_CHANGED_EVENT, onSeen);
+            window.removeEventListener(PHOTO_PINS_SEEN_CHANGED_EVENT, onSeen);
+            window.removeEventListener(SWAP_MARKS_SEEN_CHANGED_EVENT, onSeen);
+        };
     }, [album?.id]);
     const { left: leftNum, right: rightNum } = getSpreadPages(spreadIndex, totalPages, spreadOpts);
 
+    const innerSpreadCount = useMemo(
+        () => getInnerSpreadCount(totalPages, spreadOpts),
+        [totalPages, spreadOpts]
+    );
     const counterLabel = useMemo(() => {
-        const n = String(spreadIndex + 1).padStart(2, '0');
-        const total = String(totalSpreads).padStart(2, '0');
-        return `${n} / ${total}`;
-    }, [spreadIndex, totalSpreads]);
+        const spreadWord = innerSpreadCount === 1 ? 'spread' : 'spreads';
+        if (spreadOpts.hasCovers && spreadIndex <= 0) {
+            return `Cover · ${innerSpreadCount} ${spreadWord}`;
+        }
+        if (isEndHalfSpreadIndex(spreadIndex, totalPages, spreadOpts)) {
+            return `Back · ${innerSpreadCount} ${spreadWord}`;
+        }
+        const n = formatSpreadCounterNumber(spreadIndex, totalPages, spreadOpts);
+        const digitCount = Math.max(2, String(innerSpreadCount).length);
+        const totalLabel = String(innerSpreadCount).padStart(digitCount, '0');
+        return `${n} / ${totalLabel}`;
+    }, [spreadIndex, totalPages, spreadOpts, innerSpreadCount]);
+    const toolbarCounterWide =
+        /\d{3}/.test(counterLabel) || counterLabel.length > 7;
 
     const spreadMetaLabel = useMemo(
         () => formatBookSpreadMetaLabel(spreadIndex, totalPages, spreadOpts),
@@ -463,10 +452,18 @@ const AlbumBook = ({
 
     const needActionCount = useMemo(() => {
         let count = 0;
-        if (spreadCommentsBySpread) {
+        if (spreadCommentsBySpread && album?.id) {
             count += Object.values(spreadCommentsBySpread).reduce((sum, rows) => {
                 if (!Array.isArray(rows)) return sum;
-                return sum + rows.filter((c) => c && !c.resolved && !c.done).length;
+                return (
+                    sum +
+                    rows.filter(
+                        (c) =>
+                            c &&
+                            c.author_type === 'client' &&
+                            isCommentUnseen(album.id, c)
+                    ).length
+                );
             }, 0);
         }
         if (photoPins && album?.id) {
@@ -476,27 +473,35 @@ const AlbumBook = ({
             count += swapMarks.filter((mark) => isSwapMarkUnseen(album.id, mark)).length;
         }
         return count;
-    }, [spreadCommentsBySpread, photoPins, swapMarks, album?.id]);
+    }, [spreadCommentsBySpread, photoPins, swapMarks, album?.id, proofSeenTick]);
 
     const needActionSpreadIndices = useMemo(() => {
         const indices = new Set();
-        if (spreadCommentsBySpread) {
+        if (spreadCommentsBySpread && album?.id) {
             Object.keys(spreadCommentsBySpread).forEach((k) => {
                 const idx = Number(k);
-                if (Number.isFinite(idx)) {
-                    const rows = spreadCommentsBySpread[idx];
-                    if (Array.isArray(rows) && rows.some((c) => c && !c.resolved && !c.done)) {
-                        indices.add(idx);
-                    }
+                if (!Number.isFinite(idx)) return;
+                const rows = spreadCommentsBySpread[idx];
+                if (
+                    Array.isArray(rows) &&
+                    rows.some(
+                        (c) =>
+                            c &&
+                            c.author_type === 'client' &&
+                            isCommentUnseen(album.id, c)
+                    )
+                ) {
+                    indices.add(idx);
                 }
             });
         }
         if (photoPins && album?.id) {
             photoPins.forEach((pin) => {
                 if (isPhotoPinUnseen(album.id, pin)) {
-                    const idx = pin.spreadIndex != null 
-                        ? pin.spreadIndex 
-                        : pageToSpreadIndex(pin.pageNum, { ...spreadOpts, totalPages });
+                    const idx =
+                        pin.spreadIndex != null
+                            ? pin.spreadIndex
+                            : pageToSpreadIndex(pin.pageNum, { ...spreadOpts, totalPages });
                     if (Number.isFinite(idx)) {
                         indices.add(idx);
                     }
@@ -509,8 +514,13 @@ const AlbumBook = ({
                     const idx = Number.isFinite(mark.spreadA)
                         ? mark.spreadA
                         : Number.isFinite(mark.spreadB)
-                        ? mark.spreadB
-                        : (mark.a ? pageToSpreadIndex(parseSlotKey(mark.a).pageNum, { ...spreadOpts, totalPages }) : 0);
+                          ? mark.spreadB
+                          : mark.a
+                            ? pageToSpreadIndex(parseSlotKey(mark.a).pageNum, {
+                                  ...spreadOpts,
+                                  totalPages,
+                              })
+                            : 0;
                     if (Number.isFinite(idx)) {
                         indices.add(idx);
                     }
@@ -518,7 +528,15 @@ const AlbumBook = ({
             });
         }
         return Array.from(indices).sort((a, b) => a - b);
-    }, [spreadCommentsBySpread, photoPins, swapMarks, album?.id, totalPages, spreadOpts]);
+    }, [
+        spreadCommentsBySpread,
+        photoPins,
+        swapMarks,
+        album?.id,
+        totalPages,
+        spreadOpts,
+        proofSeenTick,
+    ]);
 
     const pageRangeLabel = useMemo(() => {
         if (rightNum < totalPages) return `${leftNum}–${rightNum}`;
@@ -591,7 +609,12 @@ const AlbumBook = ({
                 pendingDimsCommitRef.current = requestAnimationFrame(() => {
                     pendingDimsCommitRef.current = null;
                     const measureTarget = stageOuterRef.current ?? stageRef.current;
-                    const verified = getBookDimensions(measureTarget, album?.grid_size) ?? next;
+                    const verified =
+                        getBookDimensions(
+                            measureTarget,
+                            album?.grid_size,
+                            album?.grid_layout
+                        ) ?? next;
                     if (!verified) return;
                     setDims((prev) =>
                         prev &&
@@ -616,7 +639,7 @@ const AlbumBook = ({
             if (dimsRafRef.current != null) cancelAnimationFrame(dimsRafRef.current);
             dimsRafRef.current = requestAnimationFrame(() => {
                 dimsRafRef.current = null;
-                const next = getBookDimensions(stage, album?.grid_size);
+                const next = getBookDimensions(stage, album?.grid_size, album?.grid_layout);
                 if (!next) {
                     measureAttempts += 1;
                     // Mount cover ASAP on open/reload — don't wait ~1s for stage to hit 300px.
@@ -626,7 +649,8 @@ const AlbumBook = ({
                     ) {
                         const fallback = getFallbackBookDimensions(
                             rootRef.current,
-                            album?.grid_size
+                            album?.grid_size,
+                            album?.grid_layout
                         );
                         if (fallback) commitDims(fallback);
                     }
@@ -654,7 +678,7 @@ const AlbumBook = ({
                 cancelAnimationFrame(pendingDimsCommitRef.current);
             }
         };
-    }, [album?.grid_size, flipBookStructuralKey]);
+    }, [album?.grid_size, album?.grid_layout, flipBookStructuralKey]);
 
     useLayoutEffect(() => {
         if (!stableDims || !initialized) return;
@@ -678,38 +702,41 @@ const AlbumBook = ({
         viewportHeight: bookDims?.height ?? 0,
     });
 
-    // Keep preview nav arrows outside the spread bounds (never over photos / sidebar).
+    // Keep nav arrows vertically centered on the spread, and horizontally
+    // centered in the gutters (prev: stage↔spread, next: spread↔sidebar).
     useLayoutEffect(() => {
-        if (!previewMode) return undefined;
         const root = rootRef.current;
         if (!root) return undefined;
 
-        const NAV = 58;
-        const GAP = 12;
-        const MIN = 4;
+        const NAV = previewMode ? 46 : 48;
+        const MIN = previewMode ? 8 : 4;
 
         const syncNavGutters = () => {
-            const book =
-                root.querySelector('.ab-spread-display') ||
+            const bookEl =
                 root.querySelector('.ab-spread-book-block') ||
+                root.querySelector('.ab-flipbook-wrap') ||
                 stageOuterRef.current;
-            if (!book) return;
+            if (!bookEl) return;
 
             const rootRect = root.getBoundingClientRect();
-            const bookRect = book.getBoundingClientRect();
-            if (rootRect.width < 8 || bookRect.width < 8) return;
+            const raw = bookEl.getBoundingClientRect();
+            if (rootRect.width < 8 || raw.width < 8 || raw.height < 8) return;
 
-            let prevLeft = bookRect.left - rootRect.left - NAV - GAP;
-            let nextRight = rootRect.right - bookRect.right - NAV - GAP;
+            // Always anchor arrows to the full spread box — cover/back half-clips are visual only.
+            const left = raw.left;
+            const right = raw.right;
 
-            // Stay outside the spread; fall back to root inset if the gutter is tight.
-            prevLeft = Math.max(MIN, Math.min(prevLeft, bookRect.left - rootRect.left - NAV - 2));
-            nextRight = Math.max(
-                MIN,
-                Math.min(nextRight, rootRect.right - bookRect.right - NAV - 2)
-            );
+            const leftGap = left - rootRect.left;
+            const rightGap = rootRect.right - right;
 
-            const top = bookRect.top - rootRect.top + bookRect.height / 2;
+            // Center the arrow circle in each gutter.
+            let prevLeft = leftGap / 2 - NAV / 2;
+            let nextRight = rightGap / 2 - NAV / 2;
+
+            prevLeft = Math.max(MIN, prevLeft);
+            nextRight = Math.max(MIN, nextRight);
+
+            const top = raw.top - rootRect.top + raw.height / 2;
             root.style.setProperty('--ab-nav-prev-inset', `${prevLeft}px`);
             root.style.setProperty('--ab-nav-next-inset', `${nextRight}px`);
             root.style.setProperty('--ab-nav-top', `${top}px`);
@@ -721,6 +748,8 @@ const AlbumBook = ({
         });
         ro.observe(root);
         if (stageOuterRef.current) ro.observe(stageOuterRef.current);
+        const bookBlock = root.querySelector('.ab-spread-book-block');
+        if (bookBlock) ro.observe(bookBlock);
         window.addEventListener('resize', syncNavGutters);
         return () => {
             ro.disconnect();
@@ -729,7 +758,15 @@ const AlbumBook = ({
             root.style.removeProperty('--ab-nav-next-inset');
             root.style.removeProperty('--ab-nav-top');
         };
-    }, [previewMode, bookDims, pageIndex, spreadMagnify.scale, spreadMagnify.active]);
+    }, [
+        previewMode,
+        bookDims,
+        pageIndex,
+        spreadIndex,
+        spreadMagnify.scale,
+        spreadMagnify.active,
+        album?.has_covers,
+    ]);
 
     const zoomPercentLabel = useMemo(
         () => `${Math.round(spreadMagnify.scale * 100)}%`,
@@ -1715,12 +1752,22 @@ const AlbumBook = ({
 
     const handlePinSaveDirect = useCallback(
         (placement) => {
-            if (!album?.id || !placement?.message?.trim()) return;
+            let msgText = '';
+            let attachment = null;
+            if (typeof placement?.message === 'object' && placement.message !== null) {
+                msgText = placement.message.message || '';
+                attachment = placement.message.attachment || null;
+            } else {
+                msgText = placement?.message || '';
+            }
+            if (!album?.id || (!msgText.trim() && !attachment)) return;
             if (!ensureClientFeedback('comment')) return;
             const hadFeedback = albumHadClientFeedbackBefore(album.id);
             const identity = getClientReviewerIdentity(album.id);
             addPhotoPin(album.id, {
                 ...placement,
+                message: msgText,
+                attachment,
                 authorName: placement.authorName || identity?.name || null,
             });
             if (previewMode) {
@@ -1729,7 +1776,7 @@ const AlbumBook = ({
                     hadFeedbackBefore: hadFeedback,
                     eventType: 'photo_comment',
                     eventLabel: 'Photo comment',
-                    eventDetail: placement.message,
+                    eventDetail: msgText || (attachment?.type === 'audio' ? 'Voice message' : 'Photo attachment'),
                 });
             }
         },
@@ -1740,6 +1787,14 @@ const AlbumBook = ({
         (pinId) => {
             if (!album?.id) return;
             removePhotoPin(album.id, pinId);
+        },
+        [album?.id]
+    );
+
+    const handleSwapPinRemove = useCallback(
+        (markId) => {
+            if (!album?.id || !markId) return;
+            removeSwapMark(album.id, markId);
         },
         [album?.id]
     );
@@ -1796,6 +1851,7 @@ const AlbumBook = ({
             onPinPlace: handlePinPlace,
             onPinSave: handlePinSaveDirect,
             onPinRemove: handlePinRemove,
+            onSwapPinRemove: handleSwapPinRemove,
             onActivatePinMode: handleActivatePinMode,
             proofToolsHover,
             spotActionPicker: proofSpotPicker,
@@ -1831,6 +1887,7 @@ const AlbumBook = ({
             handlePinPlace,
             handlePinSaveDirect,
             handlePinRemove,
+            handleSwapPinRemove,
             handleActivatePinMode,
             proofSpotPicker,
             spotCanComment,
@@ -1918,7 +1975,7 @@ const AlbumBook = ({
                 spreadMagnify.active ? ' ab-root--spread-magnify' : ''
             }${isPinModeOn && pinMarkMode ? ' ab-root--pin-mode' : ''}${
                 previewMode && swapMarkMode ? ' ab-root--swap-mode' : ''
-            }`}
+            }${isWholeSpreadLayout(album?.grid_layout) ? ' ab-root--whole-spread' : ''}`}
             ref={rootRef}
         >
             {bookPlacementHint && placementHintPos &&
@@ -1959,13 +2016,6 @@ const AlbumBook = ({
                     className={`ab-spread-display${
                         showCoverClip ? ' ab-spread-display--front-cover-clip' : ''
                     }${showEndClip ? ' ab-spread-display--end-cover-clip' : ''}`}
-                    style={
-                        bookDims
-                            ? {
-                                  width: bookDims.width * 2,
-                              }
-                            : undefined
-                    }
                 >
                 <div
                     className={`ab-spread-book-block${
@@ -2072,7 +2122,14 @@ const AlbumBook = ({
                         </span>
                     ) : null}
                 </div>
-                <div className="ab-spread-controls ab-spread-controls--toolbar">
+                <div
+                    className={`ab-spread-controls ab-spread-controls--toolbar${
+                        toolbarCounterWide ? ' ab-spread-controls--wide-counter' : ''
+                    }`}
+                    style={{
+                        '--ab-counter-ch': `${Math.max(7, counterLabel.length + 1)}ch`,
+                    }}
+                >
                     <div className="ab-toolbar-group">
                         <button
                             type="button"
@@ -2137,35 +2194,52 @@ const AlbumBook = ({
                         </button>
                     </div>
                     <span className="ab-spread-controls-divider" aria-hidden />
-                    <div
-                        className={`ab-need-action${needActionCount === 0 ? ' ab-need-action--clear' : ''}`}
-                        role="group"
-                        aria-label="Items needing action"
+                    {!previewMode ? (
+                        <>
+                            <div
+                                className={`ab-need-action${needActionCount === 0 ? ' ab-need-action--clear' : ''}`}
+                                role="group"
+                                aria-label="Items needing action"
+                            >
+                                <span className="ab-need-action-label">
+                                    {needActionCount > 0 ? `${needActionCount} need action` : 'All clear'}
+                                </span>
+                                <button
+                                    type="button"
+                                    className="ab-need-action-nav"
+                                    aria-label="Previous item needing action"
+                                    disabled={needActionCount === 0}
+                                    onClick={() => goToNeedAction(-1)}
+                                >
+                                    ‹
+                                </button>
+                                <button
+                                    type="button"
+                                    className="ab-need-action-nav"
+                                    aria-label="Next item needing action"
+                                    disabled={needActionCount === 0}
+                                    onClick={() => goToNeedAction(1)}
+                                >
+                                    ›
+                                </button>
+                            </div>
+                            <span className="ab-spread-controls-divider" aria-hidden />
+                        </>
+                    ) : null}
+                    <span
+                        className={`ab-page-counter${
+                            (spreadOpts.hasCovers && spreadIndex <= 0) ||
+                            isEndHalfSpreadIndex(spreadIndex, totalPages, spreadOpts)
+                                ? ' ab-page-counter--named'
+                                : ''
+                        }${toolbarCounterWide ? ' ab-page-counter--wide' : ''}`}
+                        title={
+                            (spreadOpts.hasCovers && spreadIndex <= 0) ||
+                            isEndHalfSpreadIndex(spreadIndex, totalPages, spreadOpts)
+                                ? counterLabel
+                                : `Pages ${pageRangeLabel}`
+                        }
                     >
-                        <span className="ab-need-action-label">
-                            {needActionCount > 0 ? `${needActionCount} need action` : 'All clear'}
-                        </span>
-                        <button
-                            type="button"
-                            className="ab-need-action-nav"
-                            aria-label="Previous item needing action"
-                            disabled={needActionCount === 0}
-                            onClick={() => goToNeedAction(-1)}
-                        >
-                            ‹
-                        </button>
-                        <button
-                            type="button"
-                            className="ab-need-action-nav"
-                            aria-label="Next item needing action"
-                            disabled={needActionCount === 0}
-                            onClick={() => goToNeedAction(1)}
-                        >
-                            ›
-                        </button>
-                    </div>
-                    <span className="ab-spread-controls-divider" aria-hidden />
-                    <span className="ab-page-counter" title={`Pages ${pageRangeLabel}`}>
                         {counterLabel}
                     </span>
                 </div>
@@ -2175,7 +2249,7 @@ const AlbumBook = ({
                             comments={currentSpreadComments}
                             variant="spreadBar"
                             albumId={album?.id}
-                            seenTick={commentsSeenTick}
+                            seenTick={proofSeenTick}
                         />
                     </div>
                 )}
@@ -2292,6 +2366,10 @@ const AlbumBook = ({
                                         }
                                         setOverviewTargetSpreadIndex(overviewSpreadIndex);
                                         goToPage(targetPage);
+                                        // Preview / client link: close overview and land on the spread.
+                                        if (previewMode) {
+                                            setOverviewOpen(false);
+                                        }
                                     }}
                                 >
                                     <span className="ab-overview-thumb ab-overview-thumb--spread">

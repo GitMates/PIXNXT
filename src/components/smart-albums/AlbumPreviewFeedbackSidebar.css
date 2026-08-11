@@ -3,8 +3,8 @@
 .av-feedback-sidebar {
   display: flex;
   flex-direction: column;
-  flex: 0 0 360px;
-  width: 360px;
+  flex: 0 0 318px;
+  width: 318px;
   min-width: 0;
   min-height: 0;
   height: 100%;
@@ -235,18 +235,19 @@
 
 .av-feedback-sidebar__history-wrapper {
   flex-shrink: 0;
-  margin: 0 16px 12px;
-  padding: 14px 14px 4px;
-  background: #ffffff;
-  border: 1px solid #ebeae6;
-  border-radius: 14px 14px 0 0;
-  box-shadow: 0 1px 2px rgba(28, 25, 23, 0.04);
+  margin: 0;
+  padding: 11px 18px;
+  background: #f3f1ec;
+  border: none;
+  border-top: none;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .av-feedback-sidebar__history-wrapper .ae-version-history {
   margin: 0;
-  padding: 0 0 12px;
-  border-bottom: 1px solid #ebeae6;
+  padding: 0;
+  border-bottom: none;
 }
 
 .av-feedback-sidebar__empty {
@@ -429,8 +430,16 @@
 }
 
 .av-feedback-compose__input-shell--recording {
-  border-color: #f0c4c4;
-  background: #fffbfb;
+  border-color: transparent;
+  background: transparent;
+  border-radius: 18px;
+  padding: 0;
+  box-shadow: none;
+}
+
+.av-feedback-compose__recording-wrap {
+  width: 100%;
+  padding: 0;
 }
 
 .av-feedback-compose__input-shell--has-attachment {
@@ -486,58 +495,104 @@
 
 .av-feedback-compose__recording--inline {
   margin: 0;
-  border: none;
-  border-bottom: 1px solid #f3d0d4;
-  border-radius: 0;
-  background: transparent;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  background: #f2f2f2;
+  padding: 12px 14px 10px;
+  box-shadow: none;
 }
 
 .av-feedback-compose__recording {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 12px 14px 10px;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 54px;
 }
 
-.av-feedback-compose__recording-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #ef4444;
-  animation: av-feedback-recording-pulse 1.1s ease-in-out infinite;
+.av-feedback-compose__recording-waveform {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 4px;
+  min-width: 92px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.av-feedback-compose__recording-waveform span {
+  display: inline-block;
+  width: 5px;
+  border-radius: 999px;
+  background: rgba(73, 82, 90, 0.7);
+  animation: av-feedback-wave 1.2s ease-in-out infinite;
+}
+
+.av-feedback-compose__recording-waveform span:nth-child(1) {
+  height: 9px;
+  animation-delay: -0.2s;
+}
+
+.av-feedback-compose__recording-waveform span:nth-child(2) {
+  height: 12px;
+  animation-delay: -0.1s;
+}
+
+.av-feedback-compose__recording-waveform span:nth-child(3) {
+  height: 18px;
+}
+
+.av-feedback-compose__recording-waveform span:nth-child(4) {
+  height: 14px;
+  animation-delay: -0.15s;
+}
+
+.av-feedback-compose__recording-waveform span:nth-child(5) {
+  height: 17px;
+  animation-delay: -0.05s;
+}
+
+.av-feedback-compose__recording-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
 }
 
 .av-feedback-compose__recording-label {
   font-family: var(--font-sans);
-  font-size: 12px;
-  font-weight: 600;
-  color: #b42318;
+  font-size: 16px;
+  font-weight: 700;
+  color: #111827;
+  line-height: 1.2;
 }
 
 .av-feedback-compose__recording-hint {
   font-family: var(--font-sans);
-  font-size: 11px;
-  color: #9a9590;
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.2;
 }
 
-@keyframes av-feedback-recording-pulse {
+@keyframes av-feedback-wave {
   0%,
   100% {
-    opacity: 1;
-    transform: scale(1);
+    opacity: 0.55;
+    transform: scaleY(1);
   }
 
   50% {
-    opacity: 0.45;
-    transform: scale(0.92);
+    opacity: 1;
+    transform: scaleY(1.35);
   }
 }
 
 .av-feedback-compose__icon-btn--recording {
-  color: #b42318;
+  color: #991b1b;
   border-color: #fecaca;
-  background: #fff1f2;
+  background: #fef2f2;
 }
 
 .av-feedback-compose__input {
@@ -593,8 +648,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border: 1px solid #e5e5e5;
   border-radius: 50%;
   background: #fff;
@@ -615,20 +670,20 @@
 }
 
 .av-feedback-compose__icon-btn--send {
-  background: #7dcea0;
-  color: #ffffff;
+  background: #d7ebd3;
+  color: #1f2937;
   border-color: transparent;
 }
 
 .av-feedback-compose__icon-btn--send:hover:not(:disabled) {
-  background: #6fc292;
-  color: #ffffff;
+  background: #cde6cb;
+  color: #1f2937;
 }
 
 @media (max-width: 960px) {
   .av-feedback-sidebar {
-    flex-basis: 320px;
-    width: 320px;
+    flex-basis: 288px;
+    width: 288px;
   }
 }
 

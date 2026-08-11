@@ -15,14 +15,17 @@ export default async function handler(req, res) {
     const result = await handleRepairAlbumPreviewRequest(req, req.body || {});
     res.status(200).json({ ok: true, result });
   } catch (err) {
-    console.error('[album-proofer/repair-preview]', err);
-    const message = err?.message || 'Repair failed';
     const status =
-      message === 'Unauthorized' || message === 'Forbidden'
+      err?.status ||
+      (err?.message === 'Unauthorized' || err?.message === 'Forbidden'
         ? 403
-        : message.includes('required') || message.includes('not found')
-          ? 400
-          : 500;
+        : err?.message?.includes('not found')
+          ? 404
+          : 500);
+    if (status >= 500) {
+      console.error('[album-proofer/repair-preview]', err);
+    }
+    const message = err?.message || 'Repair failed';
     res.status(status).json({ ok: false, error: message });
   }
 }

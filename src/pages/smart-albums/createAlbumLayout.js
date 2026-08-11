@@ -85,7 +85,15 @@ export function computePageCountFromPhotoCount(
         pages = Math.max(1, n);
     }
 
-    return Math.min(MAX_ALBUM_PAGES, pages);
+    // Cover albums are paired spreads. An odd page count collapses pre-back
+    // left/right onto one index and used to recurse until the stack overflowed.
+    if (includeCovers && pages % 2 === 1) {
+        pages += 1;
+    }
+    const maxPages = includeCovers
+        ? MAX_ALBUM_PAGES - (MAX_ALBUM_PAGES % 2)
+        : MAX_ALBUM_PAGES;
+    return Math.min(maxPages, pages);
 }
 
 export function describeAlbumLayout(

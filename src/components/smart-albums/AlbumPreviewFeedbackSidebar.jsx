@@ -2,11 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom';
 import { Mic, Paperclip, Play, Send, X } from 'lucide-react';
 import AlbumPreviewSpreadFeed from './AlbumPreviewSpreadFeed';
-import SpreadVersionHistory from './SpreadVersionHistory';
-import {
-    getImageReplacements,
-    IMAGE_REPLACEMENTS_CHANGED_EVENT,
-} from './albumImageReplacements';
 import {
     getGuestProfile,
     saveGuestProfile,
@@ -17,6 +12,7 @@ import { prepareCommentAttachmentFromFile } from './albumCommentAttachments';
 import { canClientAttachImage, canClientLeaveFeedback, canClientRecordVoice } from './albumProoferPreview';
 import { useFeedbackVoiceRecorder } from './useFeedbackVoiceRecorder';
 import VoiceMessagePlayer from './VoiceMessagePlayer';
+import VoiceRecordingBar from './VoiceRecordingBar';
 import './AlbumPreviewFeedbackSidebar.css';
 
 const QUICK_STEPS = [
@@ -240,6 +236,7 @@ function FeedbackCompose({
         recording,
         preparing: preparingVoice,
         elapsedLabel,
+        levels: voiceLevels,
         toggleRecording,
         cancelRecording,
     } = useFeedbackVoiceRecorder({
@@ -445,18 +442,13 @@ function FeedbackCompose({
                 }${hasInlineAttachment ? ' av-feedback-compose__input-shell--has-attachment' : ''}`}
             >
                 {recording ? (
-                    <div
-                        className="av-feedback-compose__recording av-feedback-compose__recording--inline"
-                        role="status"
-                        aria-live="polite"
-                    >
-                        <span className="av-feedback-compose__recording-dot" aria-hidden />
-                        <span className="av-feedback-compose__recording-label">
-                            Recording {elapsedLabel}
-                        </span>
-                        <span className="av-feedback-compose__recording-hint">
-                            Tap mic to stop
-                        </span>
+                    <div className="av-feedback-compose__recording-wrap">
+                        <VoiceRecordingBar
+                            elapsedLabel={elapsedLabel}
+                            levels={voiceLevels}
+                            onCancel={() => cancelRecording()}
+                            onAccept={() => toggleRecording()}
+                        />
                     </div>
                 ) : null}
                 {pendingAttachment ? (
@@ -488,18 +480,21 @@ function FeedbackCompose({
                         )}
                     </div>
                 ) : null}
-                <textarea
-                    className={`av-feedback-compose__input${
-                        showCompactInput ? ' av-feedback-compose__input--compact' : ''
-                    }`}
-                    rows={showCompactInput ? 2 : 3}
-                    placeholder={composePlaceholder}
-                    value={draft}
-                    disabled={disabled}
-                    onChange={(e) => setDraft(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    aria-label="Add feedback for this spread"
-                />
+                {!recording ? (
+                    <textarea
+                        className={`av-feedback-compose__input${
+                            showCompactInput ? ' av-feedback-compose__input--compact' : ''
+                        }`}
+                        rows={showCompactInput ? 2 : 3}
+                        placeholder={composePlaceholder}
+                        value={draft}
+                        disabled={disabled}
+                        onChange={(e) => setDraft(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        aria-label="Add feedback for this spread"
+                    />
+                ) : null}
+                {!recording ? (
                 <div className="av-feedback-compose__actions">
                     <div className="av-feedback-compose__actions-left">
                         {canAttachImage ? (
@@ -516,20 +511,18 @@ function FeedbackCompose({
                         {canRecordVoice ? (
                             <button
                                 type="button"
-                                className={`av-feedback-compose__icon-btn${
-                                    recording ? ' av-feedback-compose__icon-btn--recording' : ''
-                                }`}
-                                disabled={disabled && !recording}
+                                className="av-feedback-compose__icon-btn"
+                                disabled={disabled}
                                 onClick={() => {
                                     if (!canRecordVoice) {
                                         onNotify?.('Voice recordings are disabled for this album.');
                                         return;
                                     }
-                                    if (!recording && !ensureCanLeaveFeedback()) return;
+                                    if (!ensureCanLeaveFeedback()) return;
                                     toggleRecording();
                                 }}
-                                aria-label={recording ? 'Stop recording' : 'Record voice message'}
-                                aria-pressed={recording}
+                                aria-label="Record voice message"
+                                aria-pressed={false}
                             >
                                 <Mic size={18} />
                             </button>
@@ -545,6 +538,7 @@ function FeedbackCompose({
                         <Send size={18} />
                     </button>
                 </div>
+                ) : null}
             </div>
         </footer>
     );
@@ -573,6 +567,7 @@ export default function AlbumPreviewFeedbackSidebar({
     onJumpToSpread,
     onNavigateToPin = null,
     onNavigateToSlotKey = null,
+    onNavigateToSwapMark = null,
     onRemoveSwap,
     onRemoveReplacement,
     onNewVersion = null,
@@ -583,31 +578,6 @@ export default function AlbumPreviewFeedbackSidebar({
 }) {
     const [tutorialDismissed, setTutorialDismissed] = useState(() => readTutorialDismissed(albumId));
     const [videoOpen, setVideoOpen] = useState(false);
-    const [imageReplacements, setImageReplacements] = useState([]);
-
-    useEffect(() => {
-        if (!albumId) {
-            setImageReplacements([]);
-            return undefined;
-        }
-        const loadReplacements = () => setImageReplacements(getImageReplacements(albumId));
-        loadReplacements();
-        const onReplacementsChanged = (e) => {
-            if (e.detail?.albumId && e.detail.albumId !== albumId) return;
-            loadReplacements();
-        };
-        window.addEventListener(IMAGE_REPLACEMENTS_CHANGED_EVENT, onReplacementsChanged);
-        return () =>
-            window.removeEventListener(IMAGE_REPLACEMENTS_CHANGED_EVENT, onReplacementsChanged);
-    }, [albumId]);
-
-    const currentSpreadReplacements = useMemo(
-        () =>
-            imageReplacements.filter(
-                (replacement) => replacement.spreadIndex === spreadIndex
-            ),
-        [imageReplacements, spreadIndex]
-    );
 
     const dismissTutorial = useCallback(() => {
         writeTutorialDismissed(albumId);
@@ -659,6 +629,7 @@ export default function AlbumPreviewFeedbackSidebar({
                             onJumpToSpread={onJumpToSpread}
                             onNavigateToPin={onNavigateToPin}
                             onNavigateToSlotKey={onNavigateToSlotKey}
+                            onNavigateToSwapMark={onNavigateToSwapMark}
                             onRemoveSwap={onRemoveSwap}
                             onRemoveReplacement={onRemoveReplacement}
                             onNewVersion={onNewVersion}
@@ -671,21 +642,6 @@ export default function AlbumPreviewFeedbackSidebar({
                     )}
                 </div>
             </div>
-
-            {(currentSpreadReplacements.length > 0 || onNewVersion) && (
-                <div className="av-feedback-sidebar__history-wrapper">
-                    <SpreadVersionHistory
-                        albumId={albumId}
-                        replacements={currentSpreadReplacements}
-                        onNewVersion={onNewVersion}
-                        onRestore={onRestoreReplacement}
-                        onDelete={(row) => {
-                            if (!row?.id) return;
-                            onRemoveReplacement?.(row.id);
-                        }}
-                    />
-                </div>
-            )}
 
             <FeedbackCompose
                 albumId={albumId}

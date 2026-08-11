@@ -5487,7 +5487,7 @@ const CollectionDashboard = () => {
                                         style={{ padding: '0 18px', backgroundColor: '#111', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap' }}
                                         onClick={() => { navigator.clipboard.writeText(shareUrl); }}
                                     >
-                                        Copy Link
+                                        Copy
                                     </button>
                                 </div>
                                 <div className="cd-quick-share-icons" style={{ display: 'flex', gap: 12, marginTop: 20, justifyContent: 'center', flexWrap: 'wrap' }}>

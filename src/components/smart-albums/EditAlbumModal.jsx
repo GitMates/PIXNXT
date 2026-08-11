@@ -53,7 +53,6 @@ export default function EditAlbumModal({
     const [allowComments, setAllowComments] = useState(true);
     const [allowExternal, setAllowExternal] = useState(false);
     const [allowVoice, setAllowVoice] = useState(true);
-    const [allowSwaps, setAllowSwaps] = useState(true);
     const [requireVerification, setRequireVerification] = useState(false);
     const [approvalPin, setApprovalPin] = useState('');
 
@@ -90,7 +89,6 @@ export default function EditAlbumModal({
                 setApprovalPin(pin);
                 setRequireVerification(Boolean(pin) || Boolean(defaults.requireApprovalPin));
                 setAllowComments(locked ? false : album?.comments_enabled !== false);
-                setAllowSwaps(locked ? false : album?.messages_enabled !== false);
             } catch (err) {
                 console.error(err);
             } finally {
@@ -127,7 +125,7 @@ export default function EditAlbumModal({
 
         const clientPatch = {
             comments_enabled: allowComments,
-            messages_enabled: allowSwaps,
+            messages_enabled: true,
         };
 
         await smartAlbumProoferSettingsService.saveAlbumSettings(
@@ -164,7 +162,6 @@ export default function EditAlbumModal({
         allowExternal,
         allowVoice,
         allowComments,
-        allowSwaps,
     ]);
 
     const handleSubmit = async (e) => {
@@ -315,19 +312,6 @@ export default function EditAlbumModal({
                                                     />
                                                 </div>
                                             ) : null}
-
-                                            <SettingRow
-                                                title="Allow swap requests"
-                                                description="Clients can ask for a photo to be replaced. Unlimited at launch."
-                                                control={
-                                                    <ModalToggle
-                                                        on={allowSwaps}
-                                                        disabled={feedbackLocked}
-                                                        onChange={setAllowSwaps}
-                                                        label="Allow swap requests"
-                                                    />
-                                                }
-                                            />
                                         </section>
 
                                         <section className="eam-section">

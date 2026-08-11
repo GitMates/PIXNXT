@@ -159,7 +159,7 @@ const EventGuestsPanel = ({ event, photographerId, onGuestCountChange, refreshKe
                       {guest.matched_photo_count > 0 && (
                         <>
                           <button type="button" className="gd-btn-text" onClick={() => handleCopyLink(guest)}>
-                            Copy link
+                            Copy
                           </button>
                           <button
                             type="button"

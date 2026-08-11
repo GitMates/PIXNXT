@@ -14,7 +14,13 @@ function isValidLayoutDims(next) {
  * Same page sizing as AlbumBook — keeps 3D cover and 2D spread aligned.
  * Pins the last good measurement so cover remounts after page turns do not shrink.
  */
-export default function useAlbumBookLayoutDims(stageRef, rootRef, gridSize, structuralKey = '') {
+export default function useAlbumBookLayoutDims(
+    stageRef,
+    rootRef,
+    gridSize,
+    structuralKey = '',
+    gridLayout = 'two-page'
+) {
     const [dims, setDims] = useState(null);
     const [stableDims, setStableDims] = useState(null);
     const pinnedDimsRef = useRef(null);
@@ -52,7 +58,7 @@ export default function useAlbumBookLayoutDims(stageRef, rootRef, gridSize, stru
                     pendingCommitRef.current = null;
                     const stageEl = stageRef.current;
                     if (!stageEl || stageEl.clientHeight < BOOK_STAGE_READY_MIN_PX) return;
-                    const verified = getBookDimensions(stageEl, gridSize) ?? next;
+                    const verified = getBookDimensions(stageEl, gridSize, gridLayout) ?? next;
                     commitVerified(verified);
                 });
             });
@@ -64,11 +70,15 @@ export default function useAlbumBookLayoutDims(stageRef, rootRef, gridSize, stru
                 dimsRafRef.current = null;
                 const stageEl = stageRef.current;
                 if (!stageEl) return;
-                const next = getBookDimensions(stageEl, gridSize);
+                const next = getBookDimensions(stageEl, gridSize, gridLayout);
                 if (!next) {
                     measureAttempts += 1;
                     if (measureAttempts >= maxAttempts) {
-                        const fallback = getFallbackBookDimensions(rootRef.current, gridSize);
+                        const fallback = getFallbackBookDimensions(
+                            rootRef.current,
+                            gridSize,
+                            gridLayout
+                        );
                         if (fallback) commitDims(fallback);
                     } else {
                         dimsRafRef.current = requestAnimationFrame(update);
@@ -96,7 +106,7 @@ export default function useAlbumBookLayoutDims(stageRef, rootRef, gridSize, stru
                 cancelAnimationFrame(pendingCommitRef.current);
             }
         };
-    }, [gridSize, structuralKey, rootRef, stageRef]);
+    }, [gridSize, gridLayout, structuralKey, rootRef, stageRef]);
 
     return pinnedDimsRef.current ?? stableDims ?? dims;
 }

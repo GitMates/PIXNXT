@@ -13,6 +13,7 @@ import {
     truncateCommentPreview,
 } from './smartAlbumComments.service';
 import { getAlbumSpreadOptions, spreadIndexToPage } from '../components/smart-albums/albumSpreadUtils';
+import { isCommentAudioAttachment } from '../components/smart-albums/albumCommentAttachments';
 import { PHOTO_PINS_CHANGED_EVENT, PHOTO_PINS_SEEN_CHANGED_EVENT } from '../components/smart-albums/albumPhotoPins';
 import { SWAP_MARKS_CHANGED_EVENT, SWAP_MARKS_SEEN_CHANGED_EVENT } from '../components/smart-albums/albumSwapMarks';
 import {
@@ -52,6 +53,19 @@ const TYPE_LABELS = {
 
 export function getNotificationTypeLabel(type) {
     return TYPE_LABELS[type] || 'Update';
+}
+
+/** Client feedback types that use Mark as done in the comments feed. */
+export const MARK_DONE_NOTIFICATION_TYPES = new Set([
+    NOTIFICATION_TYPES.PHOTO_COMMENT,
+    NOTIFICATION_TYPES.SWAP,
+    NOTIFICATION_TYPES.SPREAD_COMMENT,
+    NOTIFICATION_TYPES.CLIENT_REPLY,
+]);
+
+export function isNotificationMarkedDone(item) {
+    if (!item || item.isUnread) return false;
+    return MARK_DONE_NOTIFICATION_TYPES.has(item.type);
 }
 
 function readSubmitSeen() {
@@ -199,13 +213,6 @@ function writeProofCommentingStartedSeen(data) {
     }
 }
 
-function isProofCommentingStartedUnseen(albumId, startedAt) {
-    if (!albumId || !startedAt) return false;
-    const seenAt = readProofCommentingStartedSeen()[albumId];
-    if (!seenAt) return true;
-    return new Date(startedAt).getTime() > new Date(seenAt).getTime();
-}
-
 function markProofCommentingStartedSeen(albumId, startedAt) {
     if (!albumId || !startedAt) return;
     const all = readProofCommentingStartedSeen();
@@ -330,7 +337,9 @@ async function collectCommentNotificationsForAlbum(album, dismissed) {
                     albumId,
                     albumName,
                     spreadIndex: comment.spread_index,
-                    preview: truncateCommentPreview(comment.body || 'New comment'),
+                    preview: isCommentAudioAttachment(comment)
+                        ? 'New voice message'
+                        : truncateCommentPreview(comment.body || 'New comment'),
                     authorName: comment.author_name,
                     createdAt: comment.updated_at || comment.created_at,
                     isUnread: isCommentUnseen(albumId, comment),
