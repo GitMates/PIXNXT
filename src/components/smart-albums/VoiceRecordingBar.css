@@ -1,0 +1,123 @@
+.voice-recording-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  padding: 8px 8px 8px 14px;
+  box-sizing: border-box;
+  border-radius: 16px;
+  border: 1px solid #e6e2dc;
+  background: linear-gradient(180deg, #fbfaf8 0%, #f3f1ec 100%);
+  box-shadow: 0 1px 2px rgba(40, 32, 24, 0.04);
+  animation: voice-recording-bar-in 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes voice-recording-bar-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.voice-recording-bar__waveform {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 3.5px;
+  min-width: 0;
+  height: 28px;
+  overflow: hidden;
+}
+
+.voice-recording-bar__bar {
+  display: block;
+  flex: 0 0 3px;
+  width: 3px;
+  border-radius: 999px;
+  background: #6f6860;
+  transform-origin: center;
+  transition: height 0.18s ease-out;
+}
+
+.voice-recording-bar__bar--dot {
+  background: #c4beb5;
+}
+
+.voice-recording-bar__time {
+  flex-shrink: 0;
+  min-width: 2.4em;
+  font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  color: #5c564f;
+  text-align: right;
+}
+
+.voice-recording-bar__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.voice-recording-bar__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition:
+    transform 0.12s ease,
+    background 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.voice-recording-bar__btn:hover {
+  transform: scale(1.04);
+}
+
+.voice-recording-bar__btn:active {
+  transform: scale(0.97);
+}
+
+.voice-recording-bar__btn--cancel {
+  background: #ebe7e1;
+  color: #5c564f;
+}
+
+.voice-recording-bar__btn--cancel:hover {
+  background: #e0dbd3;
+  color: #2f2a26;
+}
+
+.voice-recording-bar__btn--accept {
+  background: #4f7cff;
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(79, 124, 255, 0.28);
+}
+
+.voice-recording-bar__btn--accept:hover {
+  background: #3d6af0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .voice-recording-bar {
+    animation: none;
+  }
+
+  .voice-recording-bar__bar {
+    transition: none;
+  }
+}

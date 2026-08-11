@@ -3,8 +3,8 @@
 .av-feedback-sidebar {
   display: flex;
   flex-direction: column;
-  flex: 0 0 360px;
-  width: 360px;
+  flex: 0 0 318px;
+  width: 318px;
   min-width: 0;
   min-height: 0;
   height: 100%;
@@ -430,9 +430,16 @@
 }
 
 .av-feedback-compose__input-shell--recording {
-  border-color: #e5e7eb;
-  background: #f8f8f8;
+  border-color: transparent;
+  background: transparent;
   border-radius: 18px;
+  padding: 0;
+  box-shadow: none;
+}
+
+.av-feedback-compose__recording-wrap {
+  width: 100%;
+  padding: 0;
 }
 
 .av-feedback-compose__input-shell--has-attachment {
@@ -675,8 +682,8 @@
 
 @media (max-width: 960px) {
   .av-feedback-sidebar {
-    flex-basis: 320px;
-    width: 320px;
+    flex-basis: 288px;
+    width: 288px;
   }
 }
 

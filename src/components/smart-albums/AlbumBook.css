@@ -1617,13 +1617,13 @@
   letter-spacing: 0.01em;
 }
 
-/* Gallery proofing — arrows hug the spread edges via --ab-nav-* (set in AlbumBook) */
+/* Gallery proofing — arrows centered in gutters via --ab-nav-* (set in AlbumBook) */
 .ab-root--preview .ab-nav {
   position: absolute;
   top: var(--ab-nav-top, 50%);
   transform: translateY(-50%);
-  width: 58px;
-  height: 58px;
+  width: 46px;
+  height: 46px;
   padding: 0;
   margin: 0;
   appearance: none;
@@ -1655,8 +1655,8 @@
 }
 
 .ab-root--preview .ab-nav svg {
-  width: 30px;
-  height: 30px;
+  width: 22px;
+  height: 22px;
   display: block;
   stroke-width: 1.65;
   stroke-linecap: round;
@@ -1673,12 +1673,12 @@
 }
 
 .ab-root--preview .ab-nav--prev {
-  left: max(12px, var(--ab-nav-prev-inset, 12px));
+  left: max(8px, var(--ab-nav-prev-inset, 8px));
   right: auto;
 }
 
 .ab-root--preview .ab-nav--next {
-  right: max(12px, var(--ab-nav-next-inset, 12px));
+  right: max(8px, var(--ab-nav-next-inset, 8px));
   left: auto;
 }
 

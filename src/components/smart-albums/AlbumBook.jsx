@@ -57,6 +57,7 @@ import {
     hydrateSwapMarks,
     isSwapMarkUnseen,
     parseSlotKey,
+    removeSwapMark,
 } from './albumSwapMarks';
 import {
     addPhotoPin,
@@ -726,15 +727,14 @@ const AlbumBook = ({
         viewportHeight: bookDims?.height ?? 0,
     });
 
-    // Keep nav arrows vertically centered on the spread (and outside its sides).
+    // Keep nav arrows vertically centered on the spread, and horizontally
+    // centered in the gutters (prev: stage↔spread, next: spread↔sidebar).
     useLayoutEffect(() => {
         const root = rootRef.current;
         if (!root) return undefined;
 
-        const NAV = previewMode ? 58 : 48;
-        const GAP = previewMode ? 14 : 8;
-        /* Keep full arrow visible inside overflow:hidden preview shells */
-        const MIN = previewMode ? 12 : 4;
+        const NAV = previewMode ? 46 : 48;
+        const MIN = previewMode ? 8 : 4;
 
         const syncNavGutters = () => {
             const bookEl =
@@ -751,11 +751,15 @@ const AlbumBook = ({
             const left = raw.left;
             const right = raw.right;
 
-            let prevLeft = left - rootRect.left - NAV - GAP;
-            let nextRight = rootRect.right - right - NAV - GAP;
+            const leftGap = left - rootRect.left;
+            const rightGap = rootRect.right - right;
 
-            prevLeft = Math.max(MIN, Math.min(prevLeft, left - rootRect.left - NAV - 2));
-            nextRight = Math.max(MIN, Math.min(nextRight, rootRect.right - right - NAV - 2));
+            // Center the arrow circle in each gutter.
+            let prevLeft = leftGap / 2 - NAV / 2;
+            let nextRight = rightGap / 2 - NAV / 2;
+
+            prevLeft = Math.max(MIN, prevLeft);
+            nextRight = Math.max(MIN, nextRight);
 
             const top = raw.top - rootRect.top + raw.height / 2;
             root.style.setProperty('--ab-nav-prev-inset', `${prevLeft}px`);
@@ -1812,6 +1816,14 @@ const AlbumBook = ({
         [album?.id]
     );
 
+    const handleSwapPinRemove = useCallback(
+        (markId) => {
+            if (!album?.id || !markId) return;
+            removeSwapMark(album.id, markId);
+        },
+        [album?.id]
+    );
+
     const closeFocusView = useCallback(() => {
         setFocusOpen(false);
         goToPage(focusPageRef.current);
@@ -1864,6 +1876,7 @@ const AlbumBook = ({
             onPinPlace: handlePinPlace,
             onPinSave: handlePinSaveDirect,
             onPinRemove: handlePinRemove,
+            onSwapPinRemove: handleSwapPinRemove,
             onActivatePinMode: handleActivatePinMode,
             proofToolsHover,
             spotActionPicker: proofSpotPicker,
@@ -1899,6 +1912,7 @@ const AlbumBook = ({
             handlePinPlace,
             handlePinSaveDirect,
             handlePinRemove,
+            handleSwapPinRemove,
             handleActivatePinMode,
             proofSpotPicker,
             spotCanComment,

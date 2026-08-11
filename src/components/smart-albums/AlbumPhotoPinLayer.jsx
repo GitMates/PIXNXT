@@ -11,6 +11,7 @@ import { useAlbumBookPageContext } from './AlbumBookPageContext';
 import SwapIcon from './SwapIcon';
 import CommentAttachmentContent from './CommentAttachmentContent';
 import VoiceMessagePlayer from './VoiceMessagePlayer';
+import VoiceRecordingBar from './VoiceRecordingBar';
 import {
     ALBUM_PIN_POPOVER_CLOSE_EVENT,
 } from './albumPinPopoverEvents';
@@ -142,7 +143,7 @@ function PinPopover({ markerRef, layerRef, pin, onClose, onRemove, allowRemove }
                     className="ab-photo-pin-remove"
                     onClick={(e) => {
                         e.stopPropagation();
-                        onRemove?.(pin.id);
+                        onRemove?.(isSwap ? pin.swapGroup ?? pin.markId : pin.id);
                     }}
                 >
                     Remove
@@ -216,6 +217,7 @@ function SpotInlineCommentComposer({ layerRef, xPct, yPct, onSave, onClose }) {
         recording,
         preparing,
         elapsedLabel,
+        levels: voiceLevels,
         toggleRecording,
         cancelRecording,
     } = useFeedbackVoiceRecorder({
@@ -341,40 +343,13 @@ function SpotInlineCommentComposer({ layerRef, xPct, yPct, onSave, onClose }) {
                     </div>
                 </div>
                 {recording ? (
-                    <div className="ab-spot-recording-strip" role="status" aria-live="polite">
-                        <div className="ab-spot-recording-strip-waveform" aria-hidden="true">
-                            {Array.from({ length: 40 }, (_, i) => (
-                                <span
-                                    key={i}
-                                    style={{
-                                        animationDelay: `${-(i * 0.06)}s`,
-                                        height: `${6 + Math.round(Math.sin(i * 0.7) * 8 + Math.random() * 10)}px`,
-                                    }}
-                                />
-                            ))}
-                        </div>
-                        <span className="ab-spot-recording-strip-time">{elapsedLabel}</span>
-                        <div className="ab-spot-recording-strip-controls">
-                            <button
-                                type="button"
-                                className="ab-spot-recording-strip-btn ab-spot-recording-strip-btn--cancel"
-                                onClick={() => cancelRecording()}
-                                aria-label="Cancel recording"
-                            >
-                                <X size={16} />
-                            </button>
-                            <button
-                                type="button"
-                                className="ab-spot-recording-strip-btn ab-spot-recording-strip-btn--accept"
-                                onClick={() => toggleRecording()}
-                                aria-label="Accept recording"
-                            >
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                    <path d="M3 8.5L6.5 12L13 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
+                    <VoiceRecordingBar
+                        className="ab-spot-inline-composer-recording"
+                        elapsedLabel={elapsedLabel}
+                        levels={voiceLevels}
+                        onCancel={() => cancelRecording()}
+                        onAccept={() => toggleRecording()}
+                    />
                 ) : pendingAttachment ? (
                     <div className="ab-spot-inline-composer-audio-status" aria-live="polite">
                         <VoiceMessagePlayer
@@ -497,6 +472,7 @@ export default function AlbumPhotoPinLayer({
     onPlacePin,
     onRemovePin,
     allowPinRemove = true,
+    onRemoveSwapPin = null,
     onSaveSpotComment = null,
     spotActionPicker: spotActionPickerProp = false,
     spotCanComment: spotCanCommentProp = false,
@@ -508,6 +484,7 @@ export default function AlbumPhotoPinLayer({
     const spotCanComment = spotCanCommentProp || Boolean(ctx.spotCanComment);
     const spotCanSwap = spotCanSwapProp || Boolean(ctx.spotCanSwap);
     const ensureClientFeedback = ctx.ensureClientFeedback;
+    const removeSwapPin = onRemoveSwapPin ?? ctx.onSwapPinRemove;
     const spreadMagnifyActive = Boolean(ctx.spreadMagnifyActive);
     const layerId = useId();
     const [openPinId, setOpenPinId] = useState(null);
@@ -975,13 +952,19 @@ export default function AlbumPhotoPinLayer({
                     layerRef={layerRef}
                     pin={{ ...pin, type: 'swap' }}
                     open={openPinId === pin.id}
-                    allowRemove={false}
+                    allowRemove={Boolean(
+                        allowPinRemove && removeSwapPin && (pin.swapGroup || pin.markId)
+                    )}
                     onToggle={() => {
                         setSpotPicker(null);
                         setSpotCommentComposer(null);
                         const opening = openPinId !== pin.id;
                         setOpenPinId(opening ? pin.id : null);
                         if (opening) broadcastPinOpen(layerId, pin.id);
+                    }}
+                    onRemove={(markId) => {
+                        setOpenPinId(null);
+                        removeSwapPin?.(markId);
                     }}
                 />
             ))}

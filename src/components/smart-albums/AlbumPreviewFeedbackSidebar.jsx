@@ -12,6 +12,7 @@ import { prepareCommentAttachmentFromFile } from './albumCommentAttachments';
 import { canClientAttachImage, canClientLeaveFeedback, canClientRecordVoice } from './albumProoferPreview';
 import { useFeedbackVoiceRecorder } from './useFeedbackVoiceRecorder';
 import VoiceMessagePlayer from './VoiceMessagePlayer';
+import VoiceRecordingBar from './VoiceRecordingBar';
 import './AlbumPreviewFeedbackSidebar.css';
 
 const QUICK_STEPS = [
@@ -235,6 +236,7 @@ function FeedbackCompose({
         recording,
         preparing: preparingVoice,
         elapsedLabel,
+        levels: voiceLevels,
         toggleRecording,
         cancelRecording,
     } = useFeedbackVoiceRecorder({
@@ -440,26 +442,13 @@ function FeedbackCompose({
                 }${hasInlineAttachment ? ' av-feedback-compose__input-shell--has-attachment' : ''}`}
             >
                 {recording ? (
-                    <div
-                        className="av-feedback-compose__recording av-feedback-compose__recording--inline"
-                        role="status"
-                        aria-live="polite"
-                    >
-                        <span className="av-feedback-compose__recording-waveform" aria-hidden="true">
-                            <span />
-                            <span />
-                            <span />
-                            <span />
-                            <span />
-                        </span>
-                        <span className="av-feedback-compose__recording-copy">
-                            <span className="av-feedback-compose__recording-label">
-                                Recording {elapsedLabel}
-                            </span>
-                            <span className="av-feedback-compose__recording-hint">
-                                Tap mic to stop
-                            </span>
-                        </span>
+                    <div className="av-feedback-compose__recording-wrap">
+                        <VoiceRecordingBar
+                            elapsedLabel={elapsedLabel}
+                            levels={voiceLevels}
+                            onCancel={() => cancelRecording()}
+                            onAccept={() => toggleRecording()}
+                        />
                     </div>
                 ) : null}
                 {pendingAttachment ? (
@@ -491,18 +480,21 @@ function FeedbackCompose({
                         )}
                     </div>
                 ) : null}
-                <textarea
-                    className={`av-feedback-compose__input${
-                        showCompactInput ? ' av-feedback-compose__input--compact' : ''
-                    }`}
-                    rows={showCompactInput ? 2 : 3}
-                    placeholder={composePlaceholder}
-                    value={draft}
-                    disabled={disabled}
-                    onChange={(e) => setDraft(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    aria-label="Add feedback for this spread"
-                />
+                {!recording ? (
+                    <textarea
+                        className={`av-feedback-compose__input${
+                            showCompactInput ? ' av-feedback-compose__input--compact' : ''
+                        }`}
+                        rows={showCompactInput ? 2 : 3}
+                        placeholder={composePlaceholder}
+                        value={draft}
+                        disabled={disabled}
+                        onChange={(e) => setDraft(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        aria-label="Add feedback for this spread"
+                    />
+                ) : null}
+                {!recording ? (
                 <div className="av-feedback-compose__actions">
                     <div className="av-feedback-compose__actions-left">
                         {canAttachImage ? (
@@ -519,20 +511,18 @@ function FeedbackCompose({
                         {canRecordVoice ? (
                             <button
                                 type="button"
-                                className={`av-feedback-compose__icon-btn${
-                                    recording ? ' av-feedback-compose__icon-btn--recording' : ''
-                                }`}
-                                disabled={disabled && !recording}
+                                className="av-feedback-compose__icon-btn"
+                                disabled={disabled}
                                 onClick={() => {
                                     if (!canRecordVoice) {
                                         onNotify?.('Voice recordings are disabled for this album.');
                                         return;
                                     }
-                                    if (!recording && !ensureCanLeaveFeedback()) return;
+                                    if (!ensureCanLeaveFeedback()) return;
                                     toggleRecording();
                                 }}
-                                aria-label={recording ? 'Stop recording' : 'Record voice message'}
-                                aria-pressed={recording}
+                                aria-label="Record voice message"
+                                aria-pressed={false}
                             >
                                 <Mic size={18} />
                             </button>
@@ -548,6 +538,7 @@ function FeedbackCompose({
                         <Send size={18} />
                     </button>
                 </div>
+                ) : null}
             </div>
         </footer>
     );
