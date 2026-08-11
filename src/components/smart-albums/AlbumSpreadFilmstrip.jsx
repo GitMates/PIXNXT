@@ -28,6 +28,7 @@ import { buildOverviewSpreadReorderPlan } from './albumSpreadReorder';
 import OverviewLeatherCover from './OverviewLeatherCover';
 import { parseGridSizeAspect } from './albumGridSize';
 import BookWrapSpineImage from './BookWrapSpineImage';
+import { bindHorizontalWheelScroll } from './horizontalWheelScroll';
 import { getBookWrapSpineLayout } from './bookWrapSpine';
 import { getSpreadPhotoTransform } from './albumPageTransforms';
 import { SPINE_BOUNDS_CHANGED_EVENT } from './albumSpineSettings';
@@ -235,6 +236,7 @@ export default function AlbumSpreadFilmstrip({
     const wrapRefs = useRef([]);
     const scrollRafRef = useRef(null);
     const scrollVelocityRef = useRef(0);
+    const dragRef = useRef(null);
     const [drag, setDrag] = useState(null);
     const [optimisticVisuals, setOptimisticVisuals] = useState(null);
     const [spineBoundsTick, setSpineBoundsTick] = useState(0);
@@ -522,6 +524,15 @@ export default function AlbumSpreadFilmstrip({
     ]);
 
     useEffect(() => () => stopAutoScroll(), [stopAutoScroll]);
+
+    dragRef.current = drag;
+    useEffect(() => {
+        const el = stripRef.current;
+        if (!el) return undefined;
+        return bindHorizontalWheelScroll(el, {
+            isPaused: () => Boolean(dragRef.current),
+        });
+    }, [totalSpreads]);
 
     if (totalSpreads <= 0) return null;
 

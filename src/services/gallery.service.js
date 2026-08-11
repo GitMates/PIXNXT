@@ -146,6 +146,25 @@ async function deleteStoragePaths(paths) {
   }
 }
 
+const SUPABASE_PAGE_SIZE = 1000;
+
+async function fetchAllSupabaseRows(runPage) {
+  const rows = [];
+  let from = 0;
+
+  while (true) {
+    const to = from + SUPABASE_PAGE_SIZE - 1;
+    const { data, error } = await runPage(from, to);
+    if (error) throw error;
+    const batch = data || [];
+    rows.push(...batch);
+    if (batch.length < SUPABASE_PAGE_SIZE) break;
+    from += SUPABASE_PAGE_SIZE;
+  }
+
+  return rows;
+}
+
 /** Dashboard list row: storage totals + filenames for client-gallery search. */
 function mapCollectionDashboardRow(c) {
   const photoRows = c.photos || [];
@@ -252,6 +271,27 @@ export const galleryService = {
     return (data || []).map((row) => {
       const collection = Array.isArray(row.collection) ? row.collection[0] : row.collection;
       return { ...row, collection: collection || null };
+    });
+  },
+
+  /** Every client-gallery photo for the photographer Photo Library. */
+  async getLibraryPhotos(photographerId) {
+    if (!photographerId) return [];
+    const rows = await fetchAllSupabaseRows((from, to) =>
+      supabase
+        .from('photos')
+        .select(`
+          ${DASHBOARD_PHOTO_FIELDS},
+          collection:deliveries!photos_collection_id_fkey(id, name, slug, guest_delivery_enabled)
+        `)
+        .eq('photographer_id', photographerId)
+        .order('created_at', { ascending: false })
+        .range(from, to)
+    );
+
+    return rows.map((row) => {
+      const collection = Array.isArray(row.collection) ? row.collection[0] : row.collection;
+      return { ...row, collection: collection || null, source: 'delivery' };
     });
   },
 

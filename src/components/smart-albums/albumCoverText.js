@@ -62,13 +62,13 @@ export function clearAlbumCoverText(albumId) {
     setAlbumCoverText(albumId, '');
 }
 
-/** Custom cover message, or album title when no cover photo has been uploaded. */
+/** Leather-cover title only. Uploaded cover photos never get stamped text. */
 export function resolveFrontCoverDisplayText(album, albumId) {
-    const custom = getAlbumCoverText(albumId);
-    if (custom) return custom;
-
     const hasCoverPhoto = Boolean(resolveCoverImageSrc(album, { showSamples: false }));
     if (hasCoverPhoto) return '';
+
+    const custom = getAlbumCoverText(albumId);
+    if (custom) return custom;
 
     return String(album?.name ?? '').trim();
 }

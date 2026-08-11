@@ -1,5 +1,6 @@
 import {
   Images,
+  LayoutGrid,
   BookOpen,
   Briefcase,
   Smartphone,
@@ -85,6 +86,13 @@ export const productNavItems: Record<string, ProductNavItem[]> = {
       href: DELIVERY_PRODUCT_HOME,
       match: (p) => isDeliveryPath(p),
       icon: Images,
+      section: "work",
+    },
+    {
+      label: "Library",
+      href: "/photos",
+      match: (p) => p === "/photos" || p.startsWith("/photos/"),
+      icon: LayoutGrid,
       section: "work",
     },
     {

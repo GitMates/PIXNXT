@@ -81,6 +81,56 @@ export const guestDeliveryPhotosService = {
     return data || [];
   },
 
+  /** Guest Delivery photos across all events, shaped for Photo Library. */
+  async getLibraryPhotos(photographerId) {
+    if (!photographerId) return [];
+
+    const mapRows = (rows, eventsById = null) =>
+      (rows || []).map((row) => {
+        const nested = Array.isArray(row.event) ? row.event[0] : row.event;
+        const event = nested || eventsById?.get(row.event_id) || null;
+        return {
+          ...row,
+          web_url: row.full_url,
+          thumbnail_url: row.thumbnail_url || row.full_url,
+          source: 'guest_delivery',
+          event_id: row.event_id,
+          collection: event
+            ? { id: null, name: event.name, slug: event.slug }
+            : null,
+          is_starred: false,
+        };
+      });
+
+    const { data, error } = await supabase
+      .from('guest_delivery_photos')
+      .select(`${PHOTO_FIELDS}, event:guest_delivery_events(id, name, slug)`)
+      .eq('photographer_id', photographerId)
+      .order('created_at', { ascending: false });
+
+    if (!error) return mapRows(data);
+
+    const { data: photos, error: photosError } = await supabase
+      .from('guest_delivery_photos')
+      .select(PHOTO_FIELDS)
+      .eq('photographer_id', photographerId)
+      .order('created_at', { ascending: false });
+
+    if (photosError) throw photosError;
+
+    const eventIds = [...new Set((photos || []).map((row) => row.event_id).filter(Boolean))];
+    let eventsById = new Map();
+    if (eventIds.length > 0) {
+      const { data: events } = await supabase
+        .from('guest_delivery_events')
+        .select('id, name, slug')
+        .in('id', eventIds);
+      eventsById = new Map((events || []).map((event) => [event.id, event]));
+    }
+
+    return mapRows(photos, eventsById);
+  },
+
   async uploadPhoto({
     photographerId,
     eventId,
