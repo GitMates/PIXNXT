@@ -78,6 +78,7 @@ import './AlbumBook.css';
 import './AlbumSwapMarks.css';
 import './AlbumPhotoPins.css';
 import { parseGridSizeAspect } from './albumGridSize';
+import { getBookDimensions, getFallbackBookDimensions } from './albumBookDimensions';
 import { AlbumBookPageContext } from './AlbumBookPageContext';
 import { installSafePageFlip } from './pageFlipSafe';
 import { albumHasBlankCovers } from './albumSpreadUtils';
@@ -96,44 +97,6 @@ import {
 
 const FLIP_TIME_MS = 900;
 const FLIP_CORNER = 'bottom';
-const BOOK_PAGE_HEIGHT_MIN = 300;
-const BOOK_PAGE_HEIGHT_MAX = 520;
-const BOOK_PAGE_HEIGHT_SCALE = 0.93;
-const BOOK_STAGE_MIN_PX = 80;
-/** Stage must be tall enough for real page height — avoids mounting while flex layout is still 0px. */
-const BOOK_STAGE_READY_MIN_PX = 300;
-function computeBookDimensions(w, h, gridSize = 'square') {
-    if (w < BOOK_STAGE_MIN_PX || h < BOOK_STAGE_MIN_PX) return null;
-    const aspect = parseGridSizeAspect(gridSize);
-    const maxPageWidth = w / 2;
-    const maxPageHeight = h * BOOK_PAGE_HEIGHT_SCALE;
-    const pageHeight = Math.floor(Math.min(maxPageHeight, maxPageWidth / aspect));
-    const clampedPageHeight = Math.max(
-        BOOK_PAGE_HEIGHT_MIN,
-        Math.min(BOOK_PAGE_HEIGHT_MAX, pageHeight)
-    );
-    return {
-        width: Math.round(clampedPageHeight * aspect),
-        height: clampedPageHeight,
-    };
-}
-
-function getBookDimensions(stageEl, gridSize = 'square') {
-    if (!stageEl) return null;
-    const h = stageEl.clientHeight;
-    if (h < BOOK_STAGE_READY_MIN_PX) return null;
-    return computeBookDimensions(stageEl.clientWidth, h, gridSize);
-}
-
-function getFallbackBookDimensions(rootEl, gridSize = 'square') {
-    const rootW = rootEl?.clientWidth ?? 0;
-    const rootH = rootEl?.clientHeight ?? 0;
-    const w =
-        rootW > BOOK_STAGE_MIN_PX ? rootW - 48 : Math.min(960, window.innerWidth - 280);
-    const h =
-        rootH > BOOK_STAGE_MIN_PX ? rootH - 48 : Math.max(360, window.innerHeight - 280);
-    return computeBookDimensions(w, h, gridSize);
-}
 
 function OverviewCoverPhoto({ src, placeholderClass = '' }) {
     if (!src) {
@@ -433,19 +396,25 @@ const AlbumBook = ({
     }, [album?.id]);
     const { left: leftNum, right: rightNum } = getSpreadPages(spreadIndex, totalPages, spreadOpts);
 
+    const innerSpreadCount = useMemo(
+        () => getInnerSpreadCount(totalPages, spreadOpts),
+        [totalPages, spreadOpts]
+    );
     const counterLabel = useMemo(() => {
-        const innerCount = getInnerSpreadCount(totalPages, spreadOpts);
-        const spreadWord = innerCount === 1 ? 'spread' : 'spreads';
+        const spreadWord = innerSpreadCount === 1 ? 'spread' : 'spreads';
         if (spreadOpts.hasCovers && spreadIndex <= 0) {
-            return `Cover · ${innerCount} ${spreadWord}`;
+            return `Cover · ${innerSpreadCount} ${spreadWord}`;
         }
         if (isEndHalfSpreadIndex(spreadIndex, totalPages, spreadOpts)) {
-            return `Back · ${innerCount} ${spreadWord}`;
+            return `Back · ${innerSpreadCount} ${spreadWord}`;
         }
         const n = formatSpreadCounterNumber(spreadIndex, totalPages, spreadOpts);
-        const totalLabel = String(innerCount).padStart(2, '0');
+        const digitCount = Math.max(2, String(innerSpreadCount).length);
+        const totalLabel = String(innerSpreadCount).padStart(digitCount, '0');
         return `${n} / ${totalLabel}`;
-    }, [spreadIndex, totalPages, spreadOpts]);
+    }, [spreadIndex, totalPages, spreadOpts, innerSpreadCount]);
+    const toolbarCounterWide =
+        /\d{3}/.test(counterLabel) || counterLabel.length > 7;
 
     const spreadMetaLabel = useMemo(
         () => formatBookSpreadMetaLabel(spreadIndex, totalPages, spreadOpts),
@@ -640,7 +609,12 @@ const AlbumBook = ({
                 pendingDimsCommitRef.current = requestAnimationFrame(() => {
                     pendingDimsCommitRef.current = null;
                     const measureTarget = stageOuterRef.current ?? stageRef.current;
-                    const verified = getBookDimensions(measureTarget, album?.grid_size) ?? next;
+                    const verified =
+                        getBookDimensions(
+                            measureTarget,
+                            album?.grid_size,
+                            album?.grid_layout
+                        ) ?? next;
                     if (!verified) return;
                     setDims((prev) =>
                         prev &&
@@ -665,7 +639,7 @@ const AlbumBook = ({
             if (dimsRafRef.current != null) cancelAnimationFrame(dimsRafRef.current);
             dimsRafRef.current = requestAnimationFrame(() => {
                 dimsRafRef.current = null;
-                const next = getBookDimensions(stage, album?.grid_size);
+                const next = getBookDimensions(stage, album?.grid_size, album?.grid_layout);
                 if (!next) {
                     measureAttempts += 1;
                     // Mount cover ASAP on open/reload — don't wait ~1s for stage to hit 300px.
@@ -675,7 +649,8 @@ const AlbumBook = ({
                     ) {
                         const fallback = getFallbackBookDimensions(
                             rootRef.current,
-                            album?.grid_size
+                            album?.grid_size,
+                            album?.grid_layout
                         );
                         if (fallback) commitDims(fallback);
                     }
@@ -703,7 +678,7 @@ const AlbumBook = ({
                 cancelAnimationFrame(pendingDimsCommitRef.current);
             }
         };
-    }, [album?.grid_size, flipBookStructuralKey]);
+    }, [album?.grid_size, album?.grid_layout, flipBookStructuralKey]);
 
     useLayoutEffect(() => {
         if (!stableDims || !initialized) return;
@@ -2000,7 +1975,7 @@ const AlbumBook = ({
                 spreadMagnify.active ? ' ab-root--spread-magnify' : ''
             }${isPinModeOn && pinMarkMode ? ' ab-root--pin-mode' : ''}${
                 previewMode && swapMarkMode ? ' ab-root--swap-mode' : ''
-            }`}
+            }${isWholeSpreadLayout(album?.grid_layout) ? ' ab-root--whole-spread' : ''}`}
             ref={rootRef}
         >
             {bookPlacementHint && placementHintPos &&
@@ -2041,13 +2016,6 @@ const AlbumBook = ({
                     className={`ab-spread-display${
                         showCoverClip ? ' ab-spread-display--front-cover-clip' : ''
                     }${showEndClip ? ' ab-spread-display--end-cover-clip' : ''}`}
-                    style={
-                        bookDims
-                            ? {
-                                  width: bookDims.width * 2,
-                              }
-                            : undefined
-                    }
                 >
                 <div
                     className={`ab-spread-book-block${
@@ -2154,7 +2122,14 @@ const AlbumBook = ({
                         </span>
                     ) : null}
                 </div>
-                <div className="ab-spread-controls ab-spread-controls--toolbar">
+                <div
+                    className={`ab-spread-controls ab-spread-controls--toolbar${
+                        toolbarCounterWide ? ' ab-spread-controls--wide-counter' : ''
+                    }`}
+                    style={{
+                        '--ab-counter-ch': `${Math.max(7, counterLabel.length + 1)}ch`,
+                    }}
+                >
                     <div className="ab-toolbar-group">
                         <button
                             type="button"
@@ -2257,7 +2232,7 @@ const AlbumBook = ({
                             isEndHalfSpreadIndex(spreadIndex, totalPages, spreadOpts)
                                 ? ' ab-page-counter--named'
                                 : ''
-                        }`}
+                        }${toolbarCounterWide ? ' ab-page-counter--wide' : ''}`}
                         title={
                             (spreadOpts.hasCovers && spreadIndex <= 0) ||
                             isEndHalfSpreadIndex(spreadIndex, totalPages, spreadOpts)

@@ -43,7 +43,8 @@ export default function BookCover3DView({
         stageRef,
         shellRef,
         album?.grid_size,
-        layoutStructuralKey
+        layoutStructuralKey,
+        album?.grid_layout
     );
 
     // Build leather/title textures before Canvas mounts so the first frame is not white.
@@ -74,7 +75,8 @@ export default function BookCover3DView({
 
     const pageWorldDims = useMemo(() => {
         const layoutDims =
-            pageLayoutDims ?? getFallbackBookDimensions(shellRef.current, album?.grid_size);
+            pageLayoutDims ??
+            getFallbackBookDimensions(shellRef.current, album?.grid_size, album?.grid_layout);
         const canvasHeight =
             shellHeight ||
             shellRef.current?.clientHeight ||

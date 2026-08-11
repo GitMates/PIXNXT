@@ -39,7 +39,8 @@ export default function AlbumHybrid3DPreview({
         measureStageRef,
         previewRef,
         album?.grid_size,
-        layoutStructuralKey
+        layoutStructuralKey,
+        album?.grid_layout
     );
 
     const spreadOpts = useMemo(

@@ -35,12 +35,15 @@
   max-height: calc(100vh - 172px);
 }
 
-/* Editor canvas: fill panel between sidebar and chrome */
+/* Editor canvas: fill panel between sidebar and chrome.
+   No max-width so landscape / whole-spread books can use leftover width;
+   square two-page albums stay height-capped at 520px and do not enlarge. */
 .ae-canvas-stage .ab-book-stage {
   min-height: 0;
   max-height: none;
   height: 100%;
   flex: 1;
+  max-width: none;
 }
 
 /* Sizing grid only — same footprint as before; does not clip the flip */
@@ -125,6 +128,8 @@
   flex-direction: column;
   align-items: center;
   flex: 0 0 auto;
+  width: max-content;
+  max-width: 100%;
   overflow: visible;
 }
 
@@ -1426,6 +1431,12 @@
   margin-top: 14px;
   display: inline-flex;
   align-items: center;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  width: max-content;
+  min-width: max-content;
+  max-width: none;
+  white-space: nowrap;
   gap: 8px;
   padding: 8px 14px;
   border-radius: 999px;
@@ -1438,6 +1449,21 @@
   color: #2f2f2f;
   pointer-events: auto;
   z-index: 1;
+}
+
+.ab-spread-display > .ab-spread-controls--toolbar.ab-spread-controls--wide-counter,
+.ab-root--preview .ab-spread-display > .ab-spread-controls--toolbar.ab-spread-controls--wide-counter,
+.ab-root--preview .ab-spread-display > .ab-spread-controls--preview.ab-spread-controls--wide-counter {
+  gap: 12px;
+  padding: 8px 20px 8px 14px;
+}
+
+.ab-root--whole-spread .ab-spread-meta {
+  margin-top: 12px;
+}
+
+.ab-root--whole-spread .ab-spread-display > .ab-spread-controls--toolbar {
+  margin-top: 16px;
 }
 
 .ab-spread-meta {
@@ -1476,12 +1502,14 @@
 .ab-toolbar-group {
   display: inline-flex;
   align-items: center;
+  flex-shrink: 0;
   gap: 4px;
 }
 
 .ab-need-action {
   display: inline-flex;
   align-items: center;
+  flex-shrink: 0;
   gap: 4px;
   height: 28px;
   padding: 0 8px 0 12px;
@@ -1489,6 +1517,15 @@
   background: #fdf2e9;
   color: #ab6229;
   transition: all 0.2s ease;
+}
+
+.ab-spread-controls--wide-counter .ab-need-action {
+  gap: 6px;
+  padding: 0 10px 0 14px;
+}
+
+.ab-spread-controls--wide-counter .ab-spread-controls-divider {
+  margin: 0 6px;
 }
 
 .ab-need-action--clear {
@@ -1608,6 +1645,15 @@
   color: #2f2f2f;
   letter-spacing: 0.01em;
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.ab-spread-controls--toolbar .ab-page-counter--wide,
+.ab-spread-controls--preview .ab-page-counter--wide {
+  min-width: var(--ab-counter-ch, 9ch);
+  padding: 0 10px 0 14px;
+  text-align: center;
 }
 
 .ab-spread-controls--preview .ab-page-counter--named,
