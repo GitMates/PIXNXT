@@ -76,8 +76,8 @@ function markAlbumPasswordUnlocked(albumId) {
     }
 }
 
-function needsGuestDetailsBeforeViewer(albumId, prooferAccess, clientPreview) {
-    if (!clientPreview || !albumId || !prooferAccess) return false;
+function needsGuestDetailsBeforeViewer(albumId, prooferAccess, clientPreview, skipGuestDetails) {
+    if (skipGuestDetails || !clientPreview || !albumId || !prooferAccess) return false;
     if (prooferAccess.feedbackLocked) return false;
 
     const needsPassword =
@@ -104,6 +104,8 @@ export default function AlbumPreview({
     photoRevision = 0,
     minimalChrome = false,
     clientPreview = false,
+    /** Photographer in-app preview: do not ask for name / email / password. */
+    skipGuestDetails = false,
 }) {
     const { user } = useAuth();
     const { toast, showToast, clearToast } = useAppToast(4500);
@@ -169,8 +171,14 @@ export default function AlbumPreview({
     const messagesEnabled = prooferAccess?.swapsEnabled ?? album?.messages_enabled !== false;
 
     const guestGatePending = useMemo(
-        () => needsGuestDetailsBeforeViewer(albumId, prooferAccess, clientPreview),
-        [albumId, prooferAccess, clientPreview, guestSessionTick, settingsRevision]
+        () =>
+            needsGuestDetailsBeforeViewer(
+                albumId,
+                prooferAccess,
+                clientPreview,
+                skipGuestDetails
+            ),
+        [albumId, prooferAccess, clientPreview, skipGuestDetails, guestSessionTick, settingsRevision]
     );
 
     useEffect(() => {
@@ -838,7 +846,7 @@ export default function AlbumPreview({
             </div>
             <AlbumPreviewGuestNamePrompt
                 albumId={albumId}
-                open={guestNamePromptOpen}
+                open={!skipGuestDetails && guestNamePromptOpen}
                 required={guestDetailsRequired}
                 requirePassword={
                     (prooferAccess?.accessLevel === 'password' ||
