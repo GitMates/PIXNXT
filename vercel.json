@@ -11,6 +11,18 @@
     { "source": "/m/:slug/apple-touch-icon.png", "destination": "/api/m/:slug/icon" },
     { "source": "/album-preview/:slug/cover.jpg", "destination": "/api/album-preview/:slug/cover" },
     { "source": "/album-preview/:slug/og-:v.jpg", "destination": "/api/album-preview/:slug/cover" },
+    { "source": "/gallery/:slug/cover.jpg", "destination": "/api/gallery/:slug/cover" },
+    { "source": "/gallery/:slug/og-:v.jpg", "destination": "/api/gallery/:slug/cover" },
+    {
+      "source": "/gallery/:slug/",
+      "missing": [{ "type": "query", "key": "app" }],
+      "destination": "/api/gallery/:slug/og"
+    },
+    {
+      "source": "/gallery/:slug",
+      "missing": [{ "type": "query", "key": "app" }],
+      "destination": "/api/gallery/:slug/og"
+    },
     {
       "source": "/album-preview/:slug/",
       "missing": [{ "type": "query", "key": "app" }],
