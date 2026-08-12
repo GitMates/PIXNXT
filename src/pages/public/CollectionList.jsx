@@ -7,7 +7,7 @@ import { getCollectionCardCoverSrc } from '../../lib/photoDisplayUrl';
 
 const ITEMS_PER_PAGE = 12;
 
-const CollectionList = ({ slug }) => {
+const CollectionList = ({ slug, photographerProfile = null }) => {
   const [profile, setProfile] = useState(null);
   const [collections, setCollections] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -34,8 +34,11 @@ const CollectionList = ({ slug }) => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        if (!slug) throw new Error('No slug');
-        const photographerData = await galleryService.getPhotographerProfileBySlug(slug);
+        let photographerData = photographerProfile;
+        if (!photographerData) {
+          if (!slug) throw new Error('No slug');
+          photographerData = await galleryService.getPhotographerProfileBySlug(slug);
+        }
         if (!photographerData) throw new Error('Not found');
         setProfile(photographerData);
         if (photographerData.showcase_enabled !== false) {
@@ -49,7 +52,7 @@ const CollectionList = ({ slug }) => {
       }
     };
     fetchData();
-  }, [slug]);
+  }, [slug, photographerProfile]);
 
   useEffect(() => {
     const faviconUrl = profile?.favicon_url || localStorage.getItem('custom_favicon_url');

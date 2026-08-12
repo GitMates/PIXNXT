@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import SidebarLayout from '../components/SidebarLayout';
 import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
+import { guestDeliveryPhotosService } from '../services/guestDeliveryPhotos.service';
 import { photoAiService } from '../services/photoAi.service';
 import { collectLabelSuggestions, filterPhotosByAiSearch, filterPhotosByDateRange } from '../lib/photoAiSearch';
 import { formatFilterDateRangeLabel } from '../utils/clientGalleryFilters';
@@ -18,6 +19,7 @@ const PhotoLibrary = () => {
 
   const [photos, setPhotos] = useState([]);
   const [collectionCount, setCollectionCount] = useState(0);
+  const [guestEventCount, setGuestEventCount] = useState(0);
   const [metadataRows, setMetadataRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -32,14 +34,45 @@ const PhotoLibrary = () => {
     setLoading(true);
     setError(null);
     try {
-      const [photoRows, metadataResult, collections] = await Promise.all([
+      const [galleryResult, guestResult, metadataResult, collectionsResult] = await Promise.allSettled([
         galleryService.getLibraryPhotos(user.id),
+        guestDeliveryPhotosService.getLibraryPhotos(user.id),
         photoAiService.getAllMetadataForPhotographer(user.id),
         galleryService.getCollections(user.id),
       ]);
-      setPhotos(photoRows);
-      setCollectionCount(collections?.length || 0);
-      setMetadataRows(metadataResult.rows || []);
+
+      if (galleryResult.status === 'rejected' && guestResult.status === 'rejected') {
+        throw galleryResult.reason || guestResult.reason;
+      }
+      if (galleryResult.status === 'rejected') {
+        console.error('Failed to load gallery library photos:', galleryResult.reason);
+      }
+      if (guestResult.status === 'rejected') {
+        console.error('Failed to load guest delivery library photos:', guestResult.reason);
+      }
+      if (metadataResult.status === 'rejected') {
+        console.warn('Failed to load photo AI metadata:', metadataResult.reason);
+      }
+      if (collectionsResult.status === 'rejected') {
+        console.warn('Failed to load deliveries:', collectionsResult.reason);
+      }
+
+      const galleryRows = galleryResult.status === 'fulfilled' ? galleryResult.value : [];
+      const guestRows = guestResult.status === 'fulfilled' ? guestResult.value : [];
+      const merged = [...galleryRows, ...guestRows].sort((a, b) => {
+        const aTime = new Date(a.created_at || 0).getTime();
+        const bTime = new Date(b.created_at || 0).getTime();
+        return bTime - aTime;
+      });
+
+      setPhotos(merged);
+      setCollectionCount(
+        collectionsResult.status === 'fulfilled' ? collectionsResult.value?.length || 0 : 0
+      );
+      setGuestEventCount(new Set(guestRows.map((row) => row.event_id).filter(Boolean)).size);
+      setMetadataRows(
+        metadataResult.status === 'fulfilled' ? metadataResult.value?.rows || [] : []
+      );
     } catch (err) {
       console.error('Failed to load photo library:', err);
       setError('Failed to load photo library. Please try again.');
@@ -89,6 +122,10 @@ const PhotoLibrary = () => {
   const hasPhotos = photos.length > 0;
 
   const openPhotoCollection = (photo) => {
+    if (photo?.source === 'guest_delivery' && photo.event_id) {
+      navigate(`/guest-delivery/event/${photo.event_id}`);
+      return;
+    }
     const collectionId = photo.collection_id || photo.collection?.id;
     if (!collectionId) return;
     navigate(`/deliveries/manage?id=${encodeURIComponent(collectionId)}`);
@@ -103,6 +140,9 @@ const PhotoLibrary = () => {
             {!loading && hasPhotos ? (
               <p className="pl-subtitle">
                 {photos.length} photo{photos.length === 1 ? '' : 's'} from {collectionCount} delivery{collectionCount === 1 ? '' : 's'}
+                {guestEventCount > 0
+                  ? ` · ${guestEventCount} guest event${guestEventCount === 1 ? '' : 's'}`
+                  : ''}
               </p>
             ) : null}
           </div>
@@ -143,7 +183,7 @@ const PhotoLibrary = () => {
             <p className="pl-empty-text">
               Every photo you upload to a client gallery delivery
               <br />
-              will appear here automatically.
+              or Guest Delivery event will appear here automatically.
             </p>
             <button type="button" className="pl-new-btn" onClick={() => navigate('/deliveries/get-started')}>
               New Delivery
@@ -181,7 +221,7 @@ const PhotoLibrary = () => {
                 <div className="cd-photo-grid cd-photo-grid--manage pl-library-grid">
                   {group.photos.map((photo, localIndex) => (
                       <div
-                        key={photo.id}
+                        key={`${photo.source || 'delivery'}-${photo.id}`}
                         className="cd-photo-card pl-library-photo-card"
                         role="button"
                         tabIndex={0}
@@ -192,6 +232,15 @@ const PhotoLibrary = () => {
                             openPhotoCollection(photo);
                           }
                         }}
+                        title={
+                          photo.source === 'guest_delivery'
+                            ? photo.collection?.name
+                              ? `Open Guest Delivery · ${photo.collection.name}`
+                              : 'Open Guest Delivery event'
+                            : photo.collection?.name
+                              ? `Open ${photo.collection.name}`
+                              : 'Open delivery'
+                        }
                       >
                         <div className="cd-photo-card-inner cd-photo-card-inner--contain">
                           <div className="cd-photo-thumb-shell">
@@ -201,6 +250,9 @@ const PhotoLibrary = () => {
                               containInCell
                             />
                           </div>
+                          {photo.source === 'guest_delivery' || photo.collection?.guest_delivery_enabled ? (
+                            <span className="pl-source-badge" title="Guest Delivery">GD</span>
+                          ) : null}
                           {photo.is_starred ? (
                             <span className="cd-photo-star active" aria-label="Starred">
                               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="#FFC107" stroke="#FFC107" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>

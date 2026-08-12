@@ -82,7 +82,9 @@ const ModuleSettings = () => {
         ]);
         if (cancelled) return;
         setSettings(storedSettings);
-        setCustomDomainDraft(storedSettings.custom_domain || '');
+        setCustomDomainDraft(
+          profile?.custom_domain || storedSettings.custom_domain || ''
+        );
         setPlan(profile?.plan || 'free');
       } catch (err) {
         console.error('Failed to load Mobile Gallery settings', err);
@@ -171,14 +173,6 @@ const ModuleSettings = () => {
     await persistSettings({ logo_url: '' }, { immediate: true });
   };
 
-  const handleCustomDomainBlur = () => {
-    if (!isUpgraded) return;
-    const trimmed = customDomainDraft.trim();
-    if (trimmed !== (settings?.custom_domain || '')) {
-      persistSettings({ custom_domain: trimmed }, { immediate: true });
-    }
-  };
-
   const handleUpgrade = () => {
     window.open('/account/billing', '_self');
   };
@@ -250,8 +244,7 @@ const ModuleSettings = () => {
                 className="mg-settings-input"
                 placeholder="www.yourdomain.com"
                 value={customDomainDraft}
-                onChange={(e) => setCustomDomainDraft(e.target.value)}
-                onBlur={handleCustomDomainBlur}
+                readOnly
                 disabled={!isUpgraded}
               />
             </div>
@@ -262,8 +255,11 @@ const ModuleSettings = () => {
             )}
           </div>
           <p className="mg-settings-help">
-            Use your own custom domain for your mobile gallery apps. This feature is available with an upgraded
-            account.{' '}
+            Use your own custom domain for your mobile gallery apps. Connect it in{' '}
+            <Link to="/settings/branding" className="mg-settings-link">
+              Settings → Branding
+            </Link>
+            . This feature is available with an upgraded account.{' '}
             <button type="button" className="mg-settings-link mg-settings-link--btn" onClick={handleUpgrade}>
               Learn more
             </button>

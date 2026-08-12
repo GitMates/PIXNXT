@@ -15,7 +15,7 @@ import {
 } from './albumSpineSettings';
 import { parseGridSizeAspect } from './albumGridSize';
 import BookWrapSpineImage from './BookWrapSpineImage';
-import { COVER_TEXT_CHANGED_EVENT, getAlbumCoverText, resolveFrontCoverDisplayText } from './albumCoverText';
+import { COVER_TEXT_CHANGED_EVENT, resolveFrontCoverDisplayText } from './albumCoverText';
 import {
     COVER_COLOR_CHANGED_EVENT,
     getAlbumCoverColor,
@@ -182,10 +182,6 @@ export default function AlbumCoverEditView({
 
     const coverText = useMemo(() => {
         void coverTextTick;
-        // Never overlay album-title fallback while a cover photo is showing.
-        if (resolveBookWrapSpreadSrc(album, { showSamples: false })) {
-            return getAlbumCoverText(albumId) || '';
-        }
         return resolveFrontCoverDisplayText(album, albumId);
     }, [album, albumId, coverTextTick, photoRevision]);
 
@@ -628,11 +624,6 @@ export default function AlbumCoverEditView({
                         ) : (
                             <div className="ab-cover-edit-view__empty" aria-hidden />
                         )}
-                        {coverText && src ? (
-                            <div className="ab-cover-text-message" aria-hidden>
-                                {coverText}
-                            </div>
-                        ) : null}
                     </div>
                     <span className="ab-cover-edit-hint ab-cover-edit-hint--front">Front</span>
                 </PanelTag>

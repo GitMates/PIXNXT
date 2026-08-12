@@ -17,6 +17,7 @@ import {
 import AlbumPreview from './AlbumPreview';
 import { getAlbumSpreadOptions } from '../../components/smart-albums/albumSpreadUtils';
 import { isClientShareLinkLive } from '../../lib/shareSmartAlbum';
+import { getAlbumShareSlug } from '../../lib/albumPreviewSlug';
 import { supabase } from '../../lib/supabase/client';
 import { parseUrlPage } from './useAlbumWorkspace';
 import './AlbumViewer.css';
@@ -52,6 +53,18 @@ export default function PublicAlbumPreview() {
             cancelled = true;
         };
     }, [albumId]);
+
+    // Canonicalize legacy …-msoohhle paths to the clean share slug in the address bar.
+    useEffect(() => {
+        if (!album || !albumId) return;
+        const pretty = getAlbumShareSlug(album);
+        if (!pretty || pretty === albumId) return;
+        const next = new URLSearchParams(searchParams);
+        const qs = next.toString();
+        navigate(`/album-preview/${encodeURIComponent(pretty)}${qs ? `?${qs}` : ''}`, {
+            replace: true,
+        });
+    }, [album, albumId, navigate, searchParams]);
 
     useEffect(() => {
         if (!albumId) return undefined;

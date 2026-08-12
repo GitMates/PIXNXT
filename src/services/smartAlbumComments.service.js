@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase/client';
 import { getClientTimezone } from './albumProof.service';
 import { smartAlbumsService } from './smartAlbums.service';
 import { hasCommentAttachment } from '../components/smart-albums/albumCommentAttachments';
+import { pickPublicAlbumForSlug } from '../lib/albumPreviewSlug';
 import {
     isMissingColumnError,
     isMissingRelationError,
@@ -1145,7 +1146,17 @@ export const smartAlbumCommentsService = {
             .maybeSingle();
 
         if (bySlug.error) throw bySlug.error;
-        return bySlug.data;
+        if (bySlug.data) return bySlug.data;
+
+        // Clean share path …/karthiksanthosh-meetup → legacy …-msoohhle rows.
+        const listed = await supabase
+            .from('album_proofer_albums')
+            .select('*')
+            .like('slug', `${key}-%`)
+            .limit(25);
+
+        if (listed.error) throw listed.error;
+        return pickPublicAlbumForSlug(key, listed.data || []);
     },
 
     async notifyPhotographerAlbumComments({

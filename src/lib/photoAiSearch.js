@@ -33,6 +33,9 @@ export function filterPhotosByAiSearch(photos, metadataByPhotoId, query) {
     const filename = String(photo.filename || '').toLowerCase();
     if (filename.includes(normalized)) return true;
 
+    const collectionName = String(photo.collection?.name || '').toLowerCase();
+    if (collectionName.includes(normalized)) return true;
+
     const meta = metadataByPhotoId?.[photo.id];
     const labels = meta?.labels || [];
     return labels.some((label) => String(label).toLowerCase().includes(normalized));

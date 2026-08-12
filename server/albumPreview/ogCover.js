@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { getSupabaseAdmin, getSupabaseUrl } from '../photoAi/supabaseAdmin.js';
+import { pickPublicAlbumForSlug } from '../../src/lib/albumPreviewSlug.js';
 
 /** Square JPEG — fills the WhatsApp share thumbnail (the N-logo slot). */
 export const OG_WIDTH = 1200;
@@ -238,6 +239,35 @@ export async function loadPublicAlbum(slugOrId) {
       result = await selectAlbum(supabase, column, value, lightFields);
     }
     if (result.data) return hydrateAlbum(result.data);
+  }
+
+  // Clean share slugs (karthiksanthosh-meetup) resolve legacy rows
+  // stored as karthiksanthosh-meetup-<timestamp36>.
+  if (!isUuid(key)) {
+    const prefix = `${key}-`;
+    let listed = await supabase
+      .from('album_proofer_albums')
+      .select('*')
+      .like('slug', `${prefix}%`)
+      .limit(25);
+    if (listed.error) {
+      listed = await supabase
+        .from('album_proofer_albums')
+        .select(fullFields)
+        .like('slug', `${prefix}%`)
+        .limit(25);
+    }
+    if (listed.error) {
+      listed = await supabase
+        .from('album_proofer_albums')
+        .select(lightFields)
+        .like('slug', `${prefix}%`)
+        .limit(25);
+    }
+    if (!listed.error) {
+      const matched = pickPublicAlbumForSlug(key, listed.data || []);
+      if (matched) return hydrateAlbum(matched);
+    }
   }
 
   return null;

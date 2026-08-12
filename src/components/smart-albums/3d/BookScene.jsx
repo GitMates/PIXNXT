@@ -565,13 +565,20 @@ export default function BookScene({
         throw new Error('WebGL context unavailable');
     }
 
+    const showOpenHint = Boolean(onCoverOpen && !introActive);
+
     return (
         <div
             className={`ab-book-scene ab-book-scene--orbit${
-                onCoverOpen && !introActive ? ' ab-book-scene--openable' : ''
+                showOpenHint ? ' ab-book-scene--openable' : ''
             }`}
             ref={sceneWrapRef}
         >
+            {showOpenHint ? (
+                <p className="ab-book-scene__open-hint" aria-hidden="true">
+                    Click to open
+                </p>
+            ) : null}
             {!canvasReady || webglError ? (
                 <div className="ab-book-scene__boot" aria-hidden="true" />
             ) : (

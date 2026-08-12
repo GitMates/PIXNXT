@@ -3,12 +3,45 @@ import { Link } from 'react-router-dom';
 import {
   getDefaultGalleryHost,
   getDnsHostLabel,
+  getGalleryApexIps,
   getGalleryCnameTarget,
+  isApexCustomDomain,
   isCustomDomainVerified,
   isValidCustomDomain,
   normalizeCustomDomain,
 } from '../../../lib/customDomain';
 import { customDomainService } from '../../../services/customDomain.service';
+
+function DnsTable({ rows }) {
+  return (
+    <div className="set-dns-table-wrap">
+      <table className="set-dns-table">
+        <thead>
+          <tr>
+            <th>Type</th>
+            <th>Host</th>
+            <th>Points to</th>
+            <th>TTL</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={`${row.type}-${row.host}-${row.value}`}>
+              <td>{row.type}</td>
+              <td>
+                <code>{row.host}</code>
+              </td>
+              <td>
+                <code>{row.value}</code>
+              </td>
+              <td>{row.ttl}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 export function CustomDomainPanel({ profile, updateProfile, compact = false }) {
   const [modalOpen, setModalOpen] = useState(false);
@@ -17,23 +50,45 @@ export function CustomDomainPanel({ profile, updateProfile, compact = false }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
+  const [showRootHelp, setShowRootHelp] = useState(false);
+  const [showTrouble, setShowTrouble] = useState(false);
 
   const cnameTarget = getGalleryCnameTarget();
+  const apexIps = getGalleryApexIps();
   const defaultHost = getDefaultGalleryHost(profile);
   const connectedDomain = normalizeCustomDomain(profile?.custom_domain);
   const isVerified = isCustomDomainVerified(profile);
   const isPending = profile?.custom_domain_status === 'pending' && connectedDomain;
+  const isUpgraded = profile?.plan !== 'free';
 
-  const dnsHostLabel = useMemo(
-    () => getDnsHostLabel(domainDraft || connectedDomain || 'gallery.yourdomain.com'),
-    [domainDraft, connectedDomain]
-  );
+  const previewDomain = normalizeCustomDomain(domainDraft || connectedDomain || 'gallery.yourdomain.com');
+  const dnsHostLabel = useMemo(() => getDnsHostLabel(previewDomain), [previewDomain]);
+  const usingApex = isApexCustomDomain(previewDomain);
+
+  const subdomainRows = [
+    {
+      type: 'CNAME',
+      host: dnsHostLabel === '@' ? 'gallery' : dnsHostLabel,
+      value: cnameTarget,
+      ttl: '1 hour',
+    },
+  ];
+
+  const rootRows = [
+    { type: 'CNAME', host: 'www', value: cnameTarget, ttl: '1 hour' },
+    ...apexIps.map((ip) => ({ type: 'A', host: '@', value: ip, ttl: '1 hour' })),
+  ];
+
+  const instructionRows = usingApex ? rootRows : subdomainRows;
 
   const openModal = () => {
+    if (!isUpgraded) return;
     setDomainDraft(connectedDomain || '');
     setModalStep('instructions');
     setError('');
     setInfo('');
+    setShowRootHelp(false);
+    setShowTrouble(false);
     setModalOpen(true);
   };
 
@@ -123,12 +178,21 @@ export function CustomDomainPanel({ profile, updateProfile, compact = false }) {
             <input
               className="si-domain-input"
               type="text"
-              readOnly={Boolean(connectedDomain)}
+              readOnly
               placeholder={fieldPlaceholder}
               value={fieldValue}
-              onClick={!connectedDomain ? openModal : undefined}
+              onClick={!connectedDomain && isUpgraded ? openModal : undefined}
             />
           </div>
+
+          {!isUpgraded && (
+            <p className="set-help-text">
+              An upgraded plan is required to connect a custom domain.{' '}
+              <Link to="/account/billing" className="set-link-teal">
+                Upgrade
+              </Link>
+            </p>
+          )}
 
           {connectedDomain ? (
             <div className="si-domain-status">
@@ -137,7 +201,7 @@ export function CustomDomainPanel({ profile, updateProfile, compact = false }) {
                 aria-hidden
               />
               <span className="type-status">
-                {isVerified ? 'Verified · SSL active' : 'Pending DNS verification'}
+                {isVerified ? 'Verified · SSL provisioning' : 'Pending DNS verification'}
               </span>
               <div className="si-domain-status-actions">
                 {isPending ? (
@@ -159,9 +223,11 @@ export function CustomDomainPanel({ profile, updateProfile, compact = false }) {
               </div>
             </div>
           ) : (
-            <button type="button" className="si-domain-add" onClick={openModal}>
-              + Add custom domain
-            </button>
+            isUpgraded && (
+              <button type="button" className="si-domain-add" onClick={openModal}>
+                + Add custom domain
+              </button>
+            )
           )}
 
           {info && <p className="set-domain-info">{info}</p>}
@@ -193,10 +259,10 @@ export function CustomDomainPanel({ profile, updateProfile, compact = false }) {
               <input
                 className="set-input"
                 type="text"
-                readOnly={Boolean(connectedDomain)}
+                readOnly
                 placeholder={fieldPlaceholder}
                 value={fieldValue}
-                onClick={!connectedDomain ? openModal : undefined}
+                onClick={!connectedDomain && isUpgraded ? openModal : undefined}
               />
             </div>
 
@@ -206,9 +272,15 @@ export function CustomDomainPanel({ profile, updateProfile, compact = false }) {
                   Use your own subdomain for client galleries (e.g. gallery.yourdomain.com). We recommend a
                   subdomain so your main website is not affected.
                 </p>
-                <button type="button" className="set-add-domain-btn" onClick={openModal}>
-                  + Add custom domain
-                </button>
+                {isUpgraded ? (
+                  <button type="button" className="set-add-domain-btn" onClick={openModal}>
+                    + Add custom domain
+                  </button>
+                ) : (
+                  <Link to="/account/billing" className="set-upgrade-pill">
+                    Upgrade to enable
+                  </Link>
+                )}
               </>
             )}
 
@@ -282,39 +354,64 @@ export function CustomDomainPanel({ profile, updateProfile, compact = false }) {
             {modalStep === 'instructions' ? (
               <div className="set-modal-body">
                 <p className="set-help-text">
-                  Before connecting, add a CNAME record in your domain provider&apos;s DNS settings (GoDaddy,
-                  Cloudflare, Namecheap, etc.). Do not modify existing MX records.
+                  Before connecting, add a DNS record in your domain provider&apos;s dashboard (GoDaddy,
+                  Cloudflare, Namecheap, etc.). This does not transfer your domain and will not affect your
+                  root website if you use a subdomain. Do not modify existing MX records.
                 </p>
 
-                <div className="set-dns-table-wrap">
-                  <table className="set-dns-table">
-                    <thead>
-                      <tr>
-                        <th>Type</th>
-                        <th>Host</th>
-                        <th>Points to</th>
-                        <th>TTL</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td>CNAME</td>
-                        <td>
-                          <code>{dnsHostLabel === '@' ? '@' : dnsHostLabel || 'gallery'}</code>
-                        </td>
-                        <td>
-                          <code>{cnameTarget}</code>
-                        </td>
-                        <td>1 hour</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
+                <DnsTable rows={instructionRows} />
 
                 <p className="set-help-text">
-                  Paste <strong>{cnameTarget}</strong> exactly as shown. Example:{' '}
+                  Paste <strong>{cnameTarget}</strong> exactly as shown. Do not replace it with your username
+                  or your personal domain. Example:{' '}
                   <code>gallery.yourdomain.com</code> → CNAME → <code>{cnameTarget}</code>
                 </p>
+                <p className="set-help-text">
+                  If you use Cloudflare, set the record to <strong>DNS only</strong> (grey cloud), not
+                  proxied.
+                </p>
+
+                <button
+                  type="button"
+                  className="set-domain-disclosure"
+                  onClick={() => setShowRootHelp((open) => !open)}
+                >
+                  {showRootHelp ? 'Hide' : 'I want to use my root domain instead of a subdomain'}
+                </button>
+                {showRootHelp && (
+                  <div className="set-domain-disclosure-body">
+                    <p className="set-help-text">
+                      For a root domain (e.g. yourdomain.com), add a www CNAME and an A record for @. If you
+                      cannot enter @, leave the host blank or enter your domain name.
+                    </p>
+                    <DnsTable rows={rootRows} />
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  className="set-domain-disclosure"
+                  onClick={() => setShowTrouble((open) => !open)}
+                >
+                  {showTrouble ? 'Hide troubleshooting' : 'Troubleshooting'}
+                </button>
+                {showTrouble && (
+                  <div className="set-domain-disclosure-body">
+                    <p className="set-help-text">
+                      <strong>I can&apos;t update DNS records.</strong> Delete any domain forwarding /
+                      redirects first. Parked domains must be activated with your provider.
+                    </p>
+                    <p className="set-help-text">
+                      <strong>I updated DNS, but it&apos;s not working.</strong> Changes can take up to 48
+                      hours. Create the record at the provider that actually hosts DNS (this may differ from
+                      where you bought the domain).
+                    </p>
+                    <p className="set-help-text">
+                      <strong>Galleries show &quot;Not Secure&quot;.</strong> SSL can take up to 24 hours
+                      after a successful connection. Delete any CAA records if the certificate never appears.
+                    </p>
+                  </div>
+                )}
 
                 <div className="set-modal-footer">
                   <button type="button" className="set-btn-ghost" onClick={closeModal}>
@@ -342,8 +439,21 @@ export function CustomDomainPanel({ profile, updateProfile, compact = false }) {
                   />
                 </div>
                 <p className="set-help-text">
-                  We recommend connecting a subdomain for your deliveries and mobile apps.
+                  Enter the hostname you created in DNS, then verify. We recommend a subdomain so your main
+                  website is not affected.
                 </p>
+
+                {domainDraft && (
+                  <>
+                    <DnsTable rows={instructionRows} />
+                    {usingApex && (
+                      <p className="set-help-text">
+                        Root domain detected. Make sure the A record for @ and the www CNAME are both in
+                        place.
+                      </p>
+                    )}
+                  </>
+                )}
 
                 {error && <p className="set-domain-error">{error}</p>}
 

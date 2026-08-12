@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase/client';
 import { getPublicSiteOrigin } from '../lib/publicSiteUrl';
 import { getPhotographerPublicOrigin, isCustomDomainVerified } from '../lib/customDomain';
+import { getAlbumShareSlug } from '../lib/albumPreviewSlug';
 import { isAlbumClientApproved } from './albumProof.service';
 
 const DEFAULTS_CACHE_KEY = 'pixnxt_smart_album_proofer_defaults';
@@ -240,7 +241,7 @@ export function getAlbumShareCopyUrl(album, settings, photographerProfile = null
         const token = settings.privateShareToken || album?.id || '';
         return `${origin}/album-preview/${encodeURIComponent(album?.id || '')}?token=${token}`;
     }
-    const slug = album?.slug || album?.id || '';
+    const slug = getAlbumShareSlug(album) || album?.id || '';
     return `${origin}/album-preview/${encodeURIComponent(slug)}`;
 }
 

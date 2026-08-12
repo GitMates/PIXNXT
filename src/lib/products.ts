@@ -240,8 +240,7 @@ export function isProductActive(productHref: string, pathname: string): boolean 
       pathname.startsWith("/folders") ||
       pathname.startsWith("/starred") ||
       isShowcasePath(pathname) ||
-      pathname.startsWith("/settings") ||
-      pathname.startsWith("/photos")
+      pathname.startsWith("/settings")
     )
   }
   if (productHref === ALBUM_PROOFER_ROUTE || productHref === ALBUM_PROOFER_ROUTE_LEGACY) {

@@ -19,7 +19,10 @@ import { AlbumPreviewLinkModal, AlbumPreviewQrModal } from '../../components/sma
 import EditAlbumModal from '../../components/smart-albums/EditAlbumModal';
 import AlbumDuplicateModal from '../../components/smart-albums/AlbumDuplicateModal';
 import AlbumSettingsSheet from '../../components/smart-albums/AlbumSettingsSheet';
-import AlbumStatusFilterPopover from '../../components/smart-albums/AlbumStatusFilterPopover';
+import AlbumStatusFilterPopover, {
+    albumMatchesStatusFilters,
+    normalizeStatusFilters,
+} from '../../components/smart-albums/AlbumStatusFilterPopover';
 import '../../components/portal/portal.css';
 import '../../components/smart-albums/AlbumStatusFilterPopover.css';
 import './SmartAlbums.css';
@@ -131,8 +134,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [starFilter, setStarFilter] = useState(starredOnly ? 'starred' : 'all');
     const [createdFilter, setCreatedFilter] = useState('newest');
-    const [statusFilter, setStatusFilter] = useState('all');
-    const [pendingStatusFilter, setPendingStatusFilter] = useState('all');
+    const [statusFilter, setStatusFilter] = useState([]);
     const [showStatusFilter, setShowStatusFilter] = useState(false);
     const [sortOpen, setSortOpen] = useState(false);
     const [viewMode, setViewMode] = useState('grid');
@@ -464,7 +466,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
         const result = enrichedAlbums.filter((a) => {
             if (proofFilter === 'awaiting' && !isNeedsYouAlbum(a)) return false;
             if (proofFilter === 'approved' && !isApprovedAlbum(a)) return false;
-            if (statusFilter !== 'all' && getAlbumProofStatus(a).tone !== statusFilter) {
+            if (!albumMatchesStatusFilters(getAlbumProofStatus(a).tone, statusFilter)) {
                 return false;
             }
             if (starredOnly && !a.is_starred) return false;
@@ -502,10 +504,11 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
         needsYouFirst,
     ]);
 
+    const statusFilterCount = normalizeStatusFilters(statusFilter).length;
     const hasActiveFilters =
         (!starredOnly && starFilter !== 'all') ||
         (starredOnly && starFilter !== 'starred') ||
-        statusFilter !== 'all' ||
+        statusFilterCount > 0 ||
         createdFilter !== 'newest';
     const showEmpty = !loading && filteredAlbums.length === 0 && !searchQuery && !hasActiveFilters;
     const showFirstProofEmpty = showEmpty && !starredOnly && proofFilter === 'all';
@@ -567,13 +570,10 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                     <div className="sa-proofer-albums__filter-anchor">
                         <button
                             type="button"
-                            className={`sa-proofer-albums__chip-btn${showStatusFilter || statusFilter !== 'all' ? ' sa-proofer-albums__chip-btn--active' : ''}${statusFilter !== 'all' ? ' sa-proofer-albums__chip-btn--filtered' : ''}`}
+                            className={`sa-proofer-albums__chip-btn${showStatusFilter || statusFilterCount > 0 ? ' sa-proofer-albums__chip-btn--active' : ''}${statusFilterCount > 0 ? ' sa-proofer-albums__chip-btn--filtered' : ''}`}
                             onClick={() => {
                                 setSortOpen(false);
-                                setShowStatusFilter((open) => {
-                                    if (!open) setPendingStatusFilter(statusFilter);
-                                    return !open;
-                                });
+                                setShowStatusFilter((open) => !open);
                             }}
                             aria-label="Filter albums"
                             aria-expanded={showStatusFilter}
@@ -582,16 +582,17 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                                 <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
                             </svg>
                             Filter
+                            {statusFilterCount > 0 ? (
+                                <span className="sa-proofer-albums__filter-count">
+                                    {statusFilterCount}
+                                </span>
+                            ) : null}
                         </button>
                         <AlbumStatusFilterPopover
                             open={showStatusFilter}
-                            value={pendingStatusFilter}
-                            onChange={setPendingStatusFilter}
-                            onApply={() => {
-                                setStatusFilter(pendingStatusFilter);
-                                setShowStatusFilter(false);
-                            }}
-                            onClear={() => setPendingStatusFilter('all')}
+                            value={statusFilter}
+                            onChange={setStatusFilter}
+                            onClear={() => setStatusFilter([])}
                             onClose={() => setShowStatusFilter(false)}
                         />
                     </div>

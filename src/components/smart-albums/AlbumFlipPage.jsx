@@ -1324,11 +1324,6 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                     ) : showLeatherCover ? null : (
                         <div className="ab-page-empty" aria-hidden />
                     )}
-                    {coverText && src ? (
-                        <div className="ab-cover-text-message" aria-hidden>
-                            {coverText}
-                        </div>
-                    ) : null}
                 </AlbumPhotoPinLayer>
                 {showStar && (
                     <span className="ab-page-star" aria-label="Starred">

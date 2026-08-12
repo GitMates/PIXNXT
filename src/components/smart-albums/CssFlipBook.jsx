@@ -58,11 +58,6 @@ function PageFace({ face, spineLayout, coverText, showCoverText, leatherStyle, l
                     className="css-flip-book-page-img"
                     panoramic={face.panoramic}
                 />
-                {showCoverText && coverText ? (
-                    <div className="ab-cover-text-message" aria-hidden>
-                        {coverText}
-                    </div>
-                ) : null}
             </div>
         );
     }
