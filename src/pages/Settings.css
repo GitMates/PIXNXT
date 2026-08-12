@@ -847,6 +847,24 @@
   background: #faf9f6;
 }
 
+.set-help-text--strong {
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 6px;
+}
+
+.set-domain-checklist {
+  margin: 0 0 16px;
+  padding-left: 1.25rem;
+  font-size: 0.875rem;
+  color: #71717a;
+  line-height: 1.55;
+}
+
+.set-domain-checklist li + li {
+  margin-top: 6px;
+}
+
 .set-modal-header {
   display: flex;
   align-items: center;
@@ -1045,6 +1063,14 @@
   outline: none;
   border-color: var(--accent, #bf7b47);
   box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--accent, #bf7b47) 25%, transparent);
+}
+
+.si-domain-input--action {
+  cursor: pointer;
+}
+
+.si-domain-input--action::placeholder {
+  color: #a1a1aa;
 }
 
 .si-domain-status {
@@ -2758,6 +2784,67 @@
 
 .fm-panel .gd-save-status {
   margin-top: 28px;
+}
+
+/* ── Access defaults (static UI) ── */
+.ad-panel {
+  max-width: 680px;
+  padding-bottom: 32px;
+}
+
+.ad-title {
+  margin: 0;
+  font-family: var(--font-display, 'Fraunces', Georgia, serif);
+  font-size: 28px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: #1c1917;
+  line-height: 1.2;
+}
+
+.ad-lead {
+  margin: 10px 0 0;
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: #8c857e;
+  max-width: 52ch;
+}
+
+.ad-section {
+  margin-top: 28px;
+}
+
+.ad-threshold {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: #44403c;
+}
+
+.ad-threshold-input {
+  width: 52px;
+  height: 34px;
+  padding: 0 8px;
+  border: 1px solid #e7e2db;
+  border-radius: 8px;
+  background: #f5f2ed;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 500;
+  color: #1c1917;
+  outline: none;
+}
+
+.ad-threshold-input:focus {
+  border-color: #c4b5a5;
+  background: #fff;
+}
+
+.ad-panel .gd-save-status {
+  margin-top: 4px;
 }
 
 /* ── Delivery templates list ── */

@@ -250,4 +250,33 @@ export const albumProofService = {
         }
         return data;
     },
+
+    /** Manual photographer nudge from Albums list Remind. */
+    async sendClientReminder({
+        albumId,
+        guestName,
+        guestEmail,
+        siteOrigin,
+        force = true,
+    }) {
+        const { data, error } = await supabase.functions.invoke('send-smart-album-client-email', {
+            body: {
+                albumId,
+                action: 'client_reminder',
+                guestName: guestName?.trim() || null,
+                guestEmail: guestEmail?.trim() || null,
+                siteOrigin:
+                    siteOrigin || (typeof window !== 'undefined' ? window.location.origin : ''),
+                force: Boolean(force),
+            },
+        });
+
+        if (error) {
+            throw new Error(await readFunctionErrorMessage(error));
+        }
+        if (data?.error) {
+            throw new Error(data.error);
+        }
+        return data;
+    },
 };

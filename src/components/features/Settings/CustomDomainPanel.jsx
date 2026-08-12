@@ -59,7 +59,6 @@ export function CustomDomainPanel({ profile, updateProfile, compact = false }) {
   const connectedDomain = normalizeCustomDomain(profile?.custom_domain);
   const isVerified = isCustomDomainVerified(profile);
   const isPending = profile?.custom_domain_status === 'pending' && connectedDomain;
-  const isUpgraded = profile?.plan !== 'free';
 
   const previewDomain = normalizeCustomDomain(domainDraft || connectedDomain || 'gallery.yourdomain.com');
   const dnsHostLabel = useMemo(() => getDnsHostLabel(previewDomain), [previewDomain]);
@@ -82,7 +81,6 @@ export function CustomDomainPanel({ profile, updateProfile, compact = false }) {
   const instructionRows = usingApex ? rootRows : subdomainRows;
 
   const openModal = () => {
-    if (!isUpgraded) return;
     setDomainDraft(connectedDomain || '');
     setModalStep('instructions');
     setError('');
@@ -176,23 +174,14 @@ export function CustomDomainPanel({ profile, updateProfile, compact = false }) {
         <>
           <div className="si-domain-field">
             <input
-              className="si-domain-input"
+              className={`si-domain-input${!connectedDomain ? ' si-domain-input--action' : ''}`}
               type="text"
               readOnly
               placeholder={fieldPlaceholder}
               value={fieldValue}
-              onClick={!connectedDomain && isUpgraded ? openModal : undefined}
+              onClick={!connectedDomain ? openModal : undefined}
             />
           </div>
-
-          {!isUpgraded && (
-            <p className="set-help-text">
-              An upgraded plan is required to connect a custom domain.{' '}
-              <Link to="/account/billing" className="set-link-teal">
-                Upgrade
-              </Link>
-            </p>
-          )}
 
           {connectedDomain ? (
             <div className="si-domain-status">
@@ -223,11 +212,9 @@ export function CustomDomainPanel({ profile, updateProfile, compact = false }) {
               </div>
             </div>
           ) : (
-            isUpgraded && (
-              <button type="button" className="si-domain-add" onClick={openModal}>
-                + Add custom domain
-              </button>
-            )
+            <button type="button" className="si-domain-add" onClick={openModal}>
+              + Add custom domain
+            </button>
           )}
 
           {info && <p className="set-domain-info">{info}</p>}
@@ -262,7 +249,7 @@ export function CustomDomainPanel({ profile, updateProfile, compact = false }) {
                 readOnly
                 placeholder={fieldPlaceholder}
                 value={fieldValue}
-                onClick={!connectedDomain && isUpgraded ? openModal : undefined}
+                onClick={!connectedDomain ? openModal : undefined}
               />
             </div>
 
@@ -272,15 +259,9 @@ export function CustomDomainPanel({ profile, updateProfile, compact = false }) {
                   Use your own subdomain for client galleries (e.g. gallery.yourdomain.com). We recommend a
                   subdomain so your main website is not affected.
                 </p>
-                {isUpgraded ? (
-                  <button type="button" className="set-add-domain-btn" onClick={openModal}>
-                    + Add custom domain
-                  </button>
-                ) : (
-                  <Link to="/account/billing" className="set-upgrade-pill">
-                    Upgrade to enable
-                  </Link>
-                )}
+                <button type="button" className="set-add-domain-btn" onClick={openModal}>
+                  + Add custom domain
+                </button>
               </>
             )}
 
@@ -353,18 +334,37 @@ export function CustomDomainPanel({ profile, updateProfile, compact = false }) {
 
             {modalStep === 'instructions' ? (
               <div className="set-modal-body">
+                <p className="set-help-text set-help-text--strong">Before you start</p>
+                <ul className="set-domain-checklist">
+                  <li>
+                    You need a domain you own with access to DNS settings (GoDaddy, Cloudflare,
+                    Namecheap, etc.).
+                  </li>
+                  <li>
+                    Your domain stays with your provider — you are connecting a subdomain to PIXNXT, not
+                    transferring the domain.
+                  </li>
+                  <li>
+                    We recommend a subdomain (e.g. <code>gallery.yourdomain.com</code>) so your main website
+                    is not affected.
+                  </li>
+                </ul>
+
                 <p className="set-help-text">
-                  Before connecting, add a DNS record in your domain provider&apos;s dashboard (GoDaddy,
-                  Cloudflare, Namecheap, etc.). This does not transfer your domain and will not affect your
-                  root website if you use a subdomain. Do not modify existing MX records.
+                  <strong>Step 1 — Add DNS.</strong> In your domain provider&apos;s DNS settings, add the record
+                  below. Do not modify existing MX records (they control email).
                 </p>
 
                 <DnsTable rows={instructionRows} />
 
                 <p className="set-help-text">
-                  Paste <strong>{cnameTarget}</strong> exactly as shown. Do not replace it with your username
-                  or your personal domain. Example:{' '}
+                  Paste <strong>{cnameTarget}</strong> exactly as shown — do not replace it with your username
+                  or studio handle. Example:{' '}
                   <code>gallery.yourdomain.com</code> → CNAME → <code>{cnameTarget}</code>
+                </p>
+                <p className="set-help-text">
+                  <strong>Step 2 — Connect here.</strong> Click Next, enter your subdomain, then Verify &amp;
+                  save. SSL will generate automatically (usually minutes, up to 24 hours).
                 </p>
                 <p className="set-help-text">
                   If you use Cloudflare, set the record to <strong>DNS only</strong> (grey cloud), not

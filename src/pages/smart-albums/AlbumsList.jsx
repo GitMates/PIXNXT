@@ -5,6 +5,7 @@ import { openSmartAlbumPreview, getSmartAlbumPreviewShareUrl, openShareByEmail, 
 import { smartAlbumsService } from '../../services/smartAlbums.service';
 import { galleryService } from '../../services/gallery.service';
 import { smartAlbumCommentsService, COMMENTS_CHANGED_EVENT } from '../../services/smartAlbumComments.service';
+import { albumProofService } from '../../services/albumProof.service';
 import {
     ALBUM_PROOF_STATUS_CHANGED_EVENT,
     getAlbumProofActivityAt,
@@ -23,6 +24,7 @@ import AlbumStatusFilterPopover, {
     albumMatchesStatusFilters,
     normalizeStatusFilters,
 } from '../../components/smart-albums/AlbumStatusFilterPopover';
+import { AppToast, useAppToast } from '../../components/ui/AppToast';
 import '../../components/portal/portal.css';
 import '../../components/smart-albums/AlbumStatusFilterPopover.css';
 import './SmartAlbums.css';
@@ -128,6 +130,7 @@ function formatAlbumMetaParts(clientLabel, footnote) {
 const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
     const navigate = useNavigate();
     const { user, loading: authLoading } = useAuth();
+    const { toast, showToast, clearToast } = useAppToast(4500);
     const [albums, setAlbums] = useState([]);
     const [proofSummaries, setProofSummaries] = useState({});
     const [loading, setLoading] = useState(true);
@@ -150,6 +153,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
     const [editSaving, setEditSaving] = useState(false);
     const [settingsAlbum, setSettingsAlbum] = useState(null);
     const [settingsAnchor, setSettingsAnchor] = useState(null);
+    const [remindingAlbumId, setRemindingAlbumId] = useState(null);
     const [relativeNow, setRelativeNow] = useState(() => Date.now());
     const contextRef = useRef(null);
     const filtersRef = useRef(null);
@@ -357,6 +361,48 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
             setShareLinkAlbum(album);
         },
         [closeContextMenu]
+    );
+
+    const handleRemindClient = useCallback(
+        async (album) => {
+            if (!album?.id || remindingAlbumId) return;
+            setRemindingAlbumId(album.id);
+            try {
+                const result = await albumProofService.sendClientReminder({
+                    albumId: album.id,
+                    guestName: album.client_contact_name || null,
+                    guestEmail: album.client_contact_email || null,
+                });
+                const sentAt = new Date().toISOString();
+                setAlbums((prev) =>
+                    prev.map((row) =>
+                        row.id === album.id
+                            ? {
+                                  ...row,
+                                  client_reminder_sent_at: sentAt,
+                                  client_contact_email:
+                                      result?.to || row.client_contact_email || null,
+                              }
+                            : row
+                    )
+                );
+                showToast(
+                    result?.to
+                        ? `Reminder sent to ${result.to}`
+                        : 'Reminder email sent to client.',
+                    { variant: 'success', duration: 4000 }
+                );
+            } catch (err) {
+                console.error(err);
+                const message =
+                    err?.message ||
+                    'Could not send reminder. Add a client email when sharing, then try again.';
+                showToast(message, { variant: 'error', duration: 5000 });
+            } finally {
+                setRemindingAlbumId(null);
+            }
+        },
+        [remindingAlbumId, showToast]
     );
 
     const handleGetQrCode = useCallback(
@@ -592,7 +638,6 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                             open={showStatusFilter}
                             value={statusFilter}
                             onChange={setStatusFilter}
-                            onClear={() => setStatusFilter([])}
                             onClose={() => setShowStatusFilter(false)}
                         />
                     </div>
@@ -821,16 +866,23 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                                                 <button
                                                     type="button"
                                                     className="sa-proofer-album-card__action"
+                                                    disabled={
+                                                        listAction.kind === 'remind' &&
+                                                        remindingAlbumId === album.id
+                                                    }
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         if (listAction.kind === 'remind') {
-                                                            handleGetDirectLink(album);
+                                                            void handleRemindClient(album);
                                                         } else {
                                                             openAlbum();
                                                         }
                                                     }}
                                                 >
-                                                    {listAction.label}
+                                                    {listAction.kind === 'remind' &&
+                                                    remindingAlbumId === album.id
+                                                        ? 'Sending…'
+                                                        : listAction.label}
                                                 </button>
                                             </div>
                                         </>
@@ -972,6 +1024,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                     setSettingsAlbum(null);
                 }}
             />
+            <AppToast toast={toast} onDismiss={clearToast} />
         </main>
     );
 };

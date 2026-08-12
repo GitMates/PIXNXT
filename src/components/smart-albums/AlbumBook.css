@@ -2365,32 +2365,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 100%;
-  height: 100%;
-  padding: 0 88px;
-  box-sizing: border-box;
-  overflow: hidden;
+  width: 100vw;
+  height: 100vh;
   cursor: default;
-}
-
-.ab-focus-stage .ab-book-3d-scene {
-  position: relative;
-  flex: 0 0 auto;
-  max-width: 100%;
-  overflow: hidden;
-}
-
-.ab-focus-stage .ab-book-3d-scene--front-cover-only .ab-focus-flipbook-wrap {
-  /* Show only the front cover half, flush in the half-width scene */
-  transform: translateX(-50%);
-}
-
-.ab-focus-stage .ab-book-3d-scene--end-cover-only .ab-focus-flipbook-wrap {
-  transform: translateX(0);
-}
-
-.ab-focus-stage .ab-book-3d-scene--flipping {
-  overflow: visible;
 }
 
 .ab-focus-flipbook-wrap {
@@ -2429,62 +2406,20 @@
   background: var(--ab-focus-bg) !important;
 }
 
-/* Fixed to the fullscreen root (same approach as close) so nothing can clip them */
 .ab-focus-nav {
-  position: fixed;
+  position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  z-index: 3205;
-  box-sizing: border-box;
-  width: 52px;
-  height: 52px;
-  margin: 0;
-  padding: 0;
-  border: none;
-  border-radius: 50%;
-  appearance: none;
-  -webkit-appearance: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.96);
-  color: #2f2f2f;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.22);
-  cursor: pointer;
+  z-index: 3203;
   pointer-events: auto;
-  line-height: 0;
 }
 
-.ab-focus-nav--prev {
-  left: max(20px, env(safe-area-inset-left, 0px));
-  right: auto;
+.ab-focus-nav.ab-nav--prev {
+  left: 16px;
 }
 
-.ab-focus-nav--next {
-  right: max(20px, env(safe-area-inset-right, 0px));
-  left: auto;
-}
-
-.ab-focus-nav--enabled,
-.ab-focus-nav:not(:disabled) {
-  opacity: 1;
-}
-
-.ab-focus-nav:hover:not(:disabled) {
-  background: #ffffff;
-  color: #111;
-}
-
-.ab-focus-nav:disabled {
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  box-shadow: none;
-}
-
-.ab-focus-view:fullscreen .ab-focus-nav,
-.ab-focus-view:-webkit-full-screen .ab-focus-nav {
-  position: fixed;
+.ab-focus-nav.ab-nav--next {
+  right: 16px;
 }
 
 .ab-focus-counter {

@@ -178,7 +178,7 @@ const Settings = () => {
                         {activeTab === 'showcase-page' && <ShowcasePageTab profile={profile} updateProfile={updateProfile} />}
                         {activeTab === 'guest-delivery' && <GuestDeliveryTab />}
                         {activeTab === 'face-matching' && <FaceMatchingTab />}
-                        {activeTab === 'access-defaults' && <PlaceholderTab title="Access defaults" desc="Set up default password protection, email access rules, and download limits." />}
+                        {activeTab === 'access-defaults' && <AccessDefaultsTab />}
                     </div>
                 </div>
             </div>
@@ -741,6 +741,101 @@ const FaceMatchingTab = () => {
                     <strong>That&apos;s me</strong> action, not <em>Person 14</em>.
                 </p>
             </aside>
+
+            <p className="gd-save-status">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span>Saved a moment ago.</span>
+            </p>
+        </div>
+    );
+};
+
+/* ── Access defaults (static UI) ── */
+const AD_OPEN_OPTIONS = [
+    {
+        value: 'anyone',
+        title: 'Anyone with the link',
+        desc: 'No PIN. Fewest support messages, and the right default for most weddings.',
+    },
+    {
+        value: 'link_pin',
+        title: 'Link + PIN',
+        desc: 'A 4-digit code travels with the link in the same message.',
+    },
+    {
+        value: 'named_email',
+        title: 'Named email addresses only',
+        desc: 'For commercial work where you must know who opened it.',
+    },
+];
+
+const AccessDefaultsTab = () => {
+    const [whoCanOpen, setWhoCanOpen] = useState('anyone');
+    const [askAbovePhotos, setAskAbovePhotos] = useState('40');
+
+    return (
+        <div className="ad-panel">
+            <h2 className="ad-title">Access defaults</h2>
+            <p className="ad-lead">
+                Who can open a new delivery, and what they must give you first. Every delivery can override
+                this.
+            </p>
+
+            <section className="gd-section ad-section">
+                <span className="gd-overline">WHO CAN OPEN A NEW DELIVERY</span>
+                <div className="gd-radio-cards">
+                    {AD_OPEN_OPTIONS.map((opt) => {
+                        const active = whoCanOpen === opt.value;
+                        return (
+                            <button
+                                key={opt.value}
+                                type="button"
+                                className={`gd-radio-card${active ? ' gd-radio-card--active' : ''}`}
+                                onClick={() => setWhoCanOpen(opt.value)}
+                                aria-pressed={active}
+                            >
+                                <span className="gd-radio-circle" aria-hidden>
+                                    {active ? <span className="gd-radio-dot" /> : null}
+                                </span>
+                                <span className="gd-radio-copy">
+                                    <span className="gd-radio-title">{opt.title}</span>
+                                    <span className="gd-radio-desc">{opt.desc}</span>
+                                </span>
+                            </button>
+                        );
+                    })}
+                </div>
+            </section>
+
+            <div className="gd-divider" />
+
+            <section className="gd-section">
+                <span className="gd-overline">BEFORE A FULL DOWNLOAD</span>
+                <div className="gd-block">
+                    <span className="gd-label">Ask where to send the archive</span>
+                    <p className="gd-desc">
+                        Full sets are built on the server and emailed as a link. Asking for an address first
+                        avoids a half-hour wait on a phone that then loses the file. Below this count, the
+                        browser can handle it alone.
+                    </p>
+                    <label className="ad-threshold">
+                        <span>Ask above</span>
+                        <input
+                            type="text"
+                            inputMode="numeric"
+                            className="ad-threshold-input"
+                            value={askAbovePhotos}
+                            onChange={(e) => setAskAbovePhotos(e.target.value.replace(/[^\d]/g, '').slice(0, 4))}
+                            aria-label="Ask above this many photos"
+                        />
+                        <span>photos</span>
+                    </label>
+                </div>
+            </section>
+
+            <div className="gd-divider" />
 
             <p className="gd-save-status">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

@@ -351,6 +351,19 @@ body.dark-theme .theme-mono .sa-status-filter {
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
 }
 
+body.dark-theme .theme-mono .sa-status-filter__option {
+  color: #e5e5e5;
+}
+
+body.dark-theme .theme-mono .sa-status-filter__option:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+body.dark-theme .theme-mono .sa-status-filter__option--selected,
+body.dark-theme .theme-mono .sa-status-filter__tick {
+  color: #ffffff;
+}
+
 body.dark-theme .theme-mono .sa-proofer-albums__search {
   background: #1a1a1a;
   border-color: #333333;
