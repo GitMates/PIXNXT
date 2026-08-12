@@ -1,4 +1,8 @@
-import { smartAlbumCommentsService, hydrateCommentSeen } from '../../services/smartAlbumComments.service';
+import {
+    smartAlbumCommentsService,
+    hydrateCommentSeen,
+    notifyCommentsChanged,
+} from '../../services/smartAlbumComments.service';
 import { hydrateSwapMarks, hydrateSwapMarksSeen } from './albumSwapMarks';
 import { hydratePhotoPins, hydratePhotoPinsSeen } from './albumPhotoPins';
 import { hydrateProofReplies } from './albumProofReplies';
@@ -10,7 +14,7 @@ import { resolveFeedbackViewerKey } from './albumFeedbackDb';
  */
 export async function hydrateAlbumClientFeedback(
     albumId,
-    { viewerRole = 'photographer', viewerKey = 'default' } = {}
+    { viewerRole = 'photographer', viewerKey = 'default', notify = true } = {}
 ) {
     if (!albumId) return null;
 
@@ -28,6 +32,9 @@ export async function hydrateAlbumClientFeedback(
         hydrateSwapMarksSeen(albumId, viewerRole, resolvedKey),
         hydratePhotoPinsSeen(albumId, viewerRole, resolvedKey),
     ]);
+
+    // Pins/swaps/replies already emit on hydrate; comments only write memory.
+    if (notify) notifyCommentsChanged(albumId);
 
     return { comments, swaps, pins, replies };
 }

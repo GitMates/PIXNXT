@@ -522,6 +522,38 @@ export function getImageReplacements(albumId) {
     );
 }
 
+/**
+ * Apply image_replacements from a remote preview_data snapshot so other open
+ * views (client / preview / editor) update without a full page reload.
+ * Skips when local memory has rows not yet present remotely (in-flight persist).
+ */
+export function applyRemoteImageReplacements(albumId, replacements) {
+    if (!albumId) return;
+    const list = Array.isArray(replacements) ? replacements.filter(Boolean) : [];
+    if (MEMORY_REPLACEMENTS.has(albumId)) {
+        const local = normalizeReplacementBucket(MEMORY_REPLACEMENTS.get(albumId));
+        const remoteIds = new Set(list.map((row) => String(row.id)));
+        const hasPendingLocal = local.some((row) => row?.id && !remoteIds.has(String(row.id)));
+        if (hasPendingLocal) return;
+        const sameLength = local.length === list.length;
+        const sameIds =
+            sameLength && local.every((row) => row?.id && remoteIds.has(String(row.id)));
+        if (sameIds) {
+            // Still refresh URLs / notes from remote when the id set matches.
+            const localById = new Map(local.map((row) => [String(row.id), row]));
+            const merged = list.map((row) => ({
+                ...(localById.get(String(row.id)) || {}),
+                ...row,
+            }));
+            MEMORY_REPLACEMENTS.set(albumId, merged);
+            notify(albumId);
+            return;
+        }
+    }
+    MEMORY_REPLACEMENTS.set(albumId, list);
+    notify(albumId);
+}
+
 export function addImageReplacement(albumId, record) {
     if (!albumId || !record) return null;
     const merged = [...readWorkingReplacements(albumId)];

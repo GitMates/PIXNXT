@@ -157,6 +157,7 @@ import {
     smartAlbumCommentsService,
 } from '../../services/smartAlbumComments.service';
 import { hydrateAlbumClientFeedback } from '../../components/smart-albums/hydrateAlbumClientFeedback';
+import { useAlbumFeedbackRealtime } from '../../components/smart-albums/useAlbumFeedbackRealtime';
 import { useAuth } from '../../hooks/useAuth';
 import { getUserDisplayLabel } from '../../lib/userInitials';
 import { computePageCountFromPhotoCount } from './createAlbumLayout';
@@ -856,6 +857,12 @@ export default function AlbumEditor({
             cancelled = true;
         };
     }, [albumId, user?.id]);
+
+    useAlbumFeedbackRealtime(albumId, {
+        enabled: Boolean(albumId),
+        viewerRole: 'photographer',
+        viewerKey: user?.id || 'default',
+    });
 
     useEffect(() => {
         setSwapMarks(getSwapMarks(albumId));

@@ -50,6 +50,7 @@ import {
 } from '../../services/smartAlbumProoferSettings.service';
 import { ALBUM_PROOF_STATUS_CHANGED_EVENT } from '../../components/smart-albums/albumProofStatus';
 import { hydrateAlbumClientFeedback } from '../../components/smart-albums/hydrateAlbumClientFeedback';
+import { useAlbumFeedbackRealtime } from '../../components/smart-albums/useAlbumFeedbackRealtime';
 import { canClientLeaveFeedback } from '../../components/smart-albums/albumProoferPreview';
 import AlbumPreviewGuestNamePrompt from '../../components/smart-albums/AlbumPreviewGuestNamePrompt';
 import './AlbumViewer.css';
@@ -425,14 +426,22 @@ export default function AlbumPreview({
         loadSpreadComments();
     }, [loadSpreadComments]);
 
+    const feedbackViewerKey = useMemo(() => {
+        if (!albumId) return 'default';
+        if (skipGuestDetails && user?.id) return user.id;
+        const guest = getGuestProfile(albumId);
+        return guest?.email?.trim() || guest?.name?.trim() || 'default';
+    }, [albumId, skipGuestDetails, user?.id]);
+
+    const feedbackViewerRole =
+        clientPreview && !skipGuestDetails ? 'client' : 'photographer';
+
     useEffect(() => {
         if (!albumId) return undefined;
         let cancelled = false;
-        const guest = getGuestProfile(albumId);
-        const viewerKey = guest?.email?.trim() || guest?.name?.trim() || 'default';
         void hydrateAlbumClientFeedback(albumId, {
-            viewerRole: 'client',
-            viewerKey,
+            viewerRole: feedbackViewerRole,
+            viewerKey: feedbackViewerKey,
         }).then(() => {
             if (cancelled) return;
             setPhotoPins(getPhotoPins(albumId));
@@ -442,7 +451,13 @@ export default function AlbumPreview({
         return () => {
             cancelled = true;
         };
-    }, [albumId, loadSpreadComments]);
+    }, [albumId, loadSpreadComments, feedbackViewerRole, feedbackViewerKey]);
+
+    useAlbumFeedbackRealtime(albumId, {
+        enabled: Boolean(albumId),
+        viewerRole: feedbackViewerRole,
+        viewerKey: feedbackViewerKey,
+    });
 
     useEffect(() => {
         if (!albumId) return undefined;
