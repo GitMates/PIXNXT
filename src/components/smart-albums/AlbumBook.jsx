@@ -21,8 +21,10 @@ import {
     getInnerSpreadCount,
     isDraggableOverviewSpread,
     isEndHalfSpreadIndex,
+    isInsideCoverLeftPage,
     isInsideCoverSpreadLeft,
     isPreBackHalfSpreadIndex,
+    isPreBackHalfSpreadRightPage,
     isWholeSpreadLayout,
     formatOverviewSpreadLabel,
     formatBookSpreadMetaLabel,
@@ -129,6 +131,9 @@ function OverviewBookWrapSegment({ src, side, layout, transform }) {
 function getOverviewPageImage(album, pageNum, totalPages, showSamples) {
     const albumId = album?.id;
     const spreadOpts = getSpreadContext(album, totalPages);
+    // Structural blanks — never show a photo or sample on these halves.
+    if (isInsideCoverLeftPage(pageNum, totalPages, spreadOpts)) return null;
+    if (isPreBackHalfSpreadRightPage(pageNum, totalPages, spreadOpts)) return null;
     if (pageNum === 0 && spreadOpts.hasCovers) {
         return resolveCoverImageSrc(album, { showSamples });
     }
@@ -150,6 +155,7 @@ function resolveOverviewSpreadVisual(album, overviewSpreadIndex, totalPages, spr
     const isEndSpread = isEndHalfSpreadIndex(overviewSpreadIndex, totalPages, spreadOpts);
     const isInsideCover = isInsideCoverSpreadLeft(left, totalPages, spreadOpts);
     const isPreBack = isPreBackHalfSpreadIndex(overviewSpreadIndex, totalPages, spreadOpts);
+    // Never treat inside-cover / pre-back as a single panoramic thumb — blanks must show.
     const spreadSrc =
         !isCover && !isEndSpread && !isInsideCover && !isPreBack
             ? getSpreadPhotoOverride(album?.id, left)
@@ -177,7 +183,7 @@ function resolveOverviewSpreadVisual(album, overviewSpreadIndex, totalPages, spr
         bookWrapSrc,
         leftSrc,
         rightSrc,
-        showSpreadFull: Boolean(spreadSrc),
+        showSpreadFull: Boolean(spreadSrc) && !isInsideCover && !isPreBack,
     };
 }
 
