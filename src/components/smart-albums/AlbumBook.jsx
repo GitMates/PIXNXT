@@ -1852,6 +1852,11 @@ const AlbumBook = ({
             onPinSave: handlePinSaveDirect,
             onPinRemove: handlePinRemove,
             onSwapPinRemove: handleSwapPinRemove,
+            /**
+             * Hide Remove on comment/swap pin popovers in the photographer editor.
+             * Client share/preview can still remove their own pins.
+             */
+            allowPinRemove: Boolean(clientPreview),
             onActivatePinMode: handleActivatePinMode,
             proofToolsHover,
             spotActionPicker: proofSpotPicker,
@@ -1888,6 +1893,7 @@ const AlbumBook = ({
             handlePinSaveDirect,
             handlePinRemove,
             handleSwapPinRemove,
+            clientPreview,
             handleActivatePinMode,
             proofSpotPicker,
             spotCanComment,

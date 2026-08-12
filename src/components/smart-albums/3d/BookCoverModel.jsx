@@ -1,5 +1,6 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { useFrame } from '@react-three/fiber';
 import { COVER_TEXT_CHANGED_EVENT, resolveFrontCoverDisplayText } from '../albumCoverText';
 import {
     COVER_COLOR_CHANGED_EVENT,
@@ -24,6 +25,9 @@ import { useBlankCoverTitleTexture, useBlankLeatherPanelTexture, useCanvasWrapTe
 
 const COVER_THICK = 0.045;
 const SPINE_EMPTY = '#e4e7ec';
+/** Idle open angle (rad) for the turn-page invitation. */
+const TURN_HINT_MAX_YAW = 0.28;
+const TURN_HINT_SPEED = 1.05;
 
 function CoverPhotoMaterial({ map, side = THREE.FrontSide }) {
     return (
@@ -37,6 +41,36 @@ function MatteMaterial({ color }) {
 
 function PageEdgeMaterial() {
     return <meshBasicMaterial color={PAGE_WHITE} toneMapped={false} />;
+}
+
+/** Soft breathing open of the front board so the page stack reads as turnable. */
+function useFrontCoverTurnHint(hingeRef, enabled) {
+    const reduceMotionRef = useRef(false);
+
+    useEffect(() => {
+        if (typeof window === 'undefined' || !window.matchMedia) return undefined;
+        const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+        const sync = () => {
+            reduceMotionRef.current = mq.matches;
+        };
+        sync();
+        mq.addEventListener?.('change', sync);
+        return () => mq.removeEventListener?.('change', sync);
+    }, []);
+
+    useFrame(({ clock }) => {
+        const hinge = hingeRef.current;
+        if (!hinge) return;
+        if (!enabled || reduceMotionRef.current) {
+            hinge.rotation.y = 0;
+            return;
+        }
+        // Hold closed briefly, ease open, ease closed — readable as a page turn cue.
+        const cycle = (clock.elapsedTime * TURN_HINT_SPEED) % (Math.PI * 2);
+        const wave = Math.max(0, Math.sin(cycle));
+        const amount = wave * wave;
+        hinge.rotation.y = -amount * TURN_HINT_MAX_YAW;
+    });
 }
 
 function ClosedBook({
@@ -53,7 +87,11 @@ function ClosedBook({
     hasBackPhoto,
     hasSpinePhoto,
     showSpinePanel,
+    showTurnHint = false,
 }) {
+    const frontHingeRef = useRef(null);
+    useFrontCoverTurnHint(frontHingeRef, showTurnHint);
+
     const totalDepth = pageDepth + COVER_THICK * 2;
     const boardPad = 0.012;
     const coverW = width + boardPad;
@@ -75,16 +113,37 @@ function ClosedBook({
           ? SPINE_EMPTY
           : SPINE_DARK;
 
+    const frontCover = (
+        <>
+            <mesh position={[0, 0, -COVER_THICK / 2]} castShadow>
+                <boxGeometry args={[coverW, coverH, COVER_THICK]} />
+                <MatteMaterial color={boardColor} />
+            </mesh>
+            {/* Underside peek when the cover lifts */}
+            <mesh position={[0, 0, -COVER_THICK - 0.001]} rotation={[0, Math.PI, 0]}>
+                <planeGeometry args={[coverW, coverH]} />
+                <meshBasicMaterial color="#f7f5f1" toneMapped={false} />
+            </mesh>
+            <mesh
+                position={[0, 0, 0.002]}
+                castShadow
+                userData={{ isFrontCover: true }}
+            >
+                <planeGeometry args={[coverW, coverH]} />
+                {hasFrontPhoto ? (
+                    <CoverPhotoMaterial map={frontTexture} />
+                ) : (
+                    <MatteMaterial color={boardColor} />
+                )}
+            </mesh>
+        </>
+    );
+
     return (
         <group>
             <mesh>
                 <boxGeometry args={[width, height, pageDepth]} />
                 <PageEdgeMaterial />
-            </mesh>
-
-            <mesh position={[0, 0, outerZ - COVER_THICK / 2]} castShadow>
-                <boxGeometry args={[coverW, coverH, COVER_THICK]} />
-                <MatteMaterial color={boardColor} />
             </mesh>
 
             <mesh position={[0, 0, -(outerZ - COVER_THICK / 2)]} castShadow>
@@ -109,18 +168,13 @@ function ClosedBook({
                 )}
             </mesh>
 
-            <mesh
-                position={[0, 0, outerZ + 0.002]}
-                castShadow
-                userData={{ isFrontCover: true }}
+            {/* Hinge at the spine edge so the front board can breathe open. */}
+            <group
+                ref={frontHingeRef}
+                position={[-halfCoverW, 0, outerZ]}
             >
-                <planeGeometry args={[coverW, coverH]} />
-                {hasFrontPhoto ? (
-                    <CoverPhotoMaterial map={frontTexture} />
-                ) : (
-                    <MatteMaterial color={boardColor} />
-                )}
-            </mesh>
+                <group position={[halfCoverW, 0, 0]}>{frontCover}</group>
+            </group>
 
             <mesh
                 position={[0, 0, -(outerZ + 0.002)]}
@@ -296,6 +350,7 @@ export default function BookCoverModel({
                     (blankNoPhoto && showSpinePanel)
                 }
                 showSpinePanel={showSpinePanel}
+                showTurnHint={Boolean(onCoverOpen)}
             />
         </group>
     );

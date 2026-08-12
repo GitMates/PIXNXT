@@ -10,22 +10,21 @@
   top: calc(100% + 10px);
   right: 0;
   z-index: 50;
-  width: min(320px, calc(100vw - 48px));
-  border-radius: 18px;
+  width: min(300px, calc(100vw - 48px));
+  border-radius: 16px;
   background: var(--surface);
   border: 1px solid var(--border);
-  box-shadow: 0 16px 40px rgb(28 25 23 / 0.12);
+  box-shadow: 0 18px 44px rgb(28 25 23 / 0.14);
   font-family: var(--font-sans);
   overflow: hidden;
 }
 
 .theme-mono .sa-status-filter__header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  padding: 16px 18px 14px;
-  border-bottom: 1px solid var(--border);
+  padding: 16px 16px 12px;
 }
 
 .theme-mono .sa-status-filter__title {
@@ -33,14 +32,24 @@
   font-family: var(--font-sans) !important;
   font-size: 15px !important;
   font-weight: 600 !important;
-  letter-spacing: normal !important;
+  letter-spacing: -0.01em !important;
   text-transform: none !important;
   color: var(--ink) !important;
+  line-height: 1.25;
+}
+
+.theme-mono .sa-status-filter__hint {
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-muted);
+  line-height: 1.35;
 }
 
 .theme-mono .sa-status-filter__close {
   width: 28px;
   height: 28px;
+  margin-top: -2px;
   border: none;
   border-radius: 8px;
   background: transparent;
@@ -57,14 +66,14 @@
 }
 
 .theme-mono .sa-status-filter__body {
-  padding: 14px 18px 6px;
+  padding: 0 10px 10px;
 }
 
 .theme-mono .sa-status-filter__section-label {
-  margin: 0 0 12px;
+  margin: 0 6px 8px;
   font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
+  font-weight: 650;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--ink-muted);
 }
@@ -73,14 +82,17 @@
   list-style: none;
   margin: 0;
   padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .theme-mono .sa-status-filter__option {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   width: 100%;
-  padding: 11px 4px;
+  padding: 9px 8px;
   border: none;
   background: transparent;
   text-align: left;
@@ -93,20 +105,28 @@
   background: var(--surface-sunk);
 }
 
-.theme-mono .sa-status-filter__radio {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: 2px solid var(--border);
-  background: transparent;
-  flex-shrink: 0;
-  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+.theme-mono .sa-status-filter__option--selected {
+  background: color-mix(in oklab, var(--ink) 6%, transparent);
 }
 
-.theme-mono .sa-status-filter__option--selected .sa-status-filter__radio {
+.theme-mono .sa-status-filter__check {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--surface);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.theme-mono .sa-status-filter__check--on {
   border-color: var(--ink);
   background: var(--ink);
-  box-shadow: inset 0 0 0 4px var(--surface);
+  color: var(--surface);
 }
 
 .theme-mono .sa-status-filter__dot {
@@ -145,43 +165,43 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 14px 18px 16px;
-  border-top: 1px solid var(--border);
+  padding: 8px 16px 14px;
 }
 
 .theme-mono .sa-status-filter__clear {
   border: none;
   background: transparent;
   font-family: inherit;
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 600;
   color: var(--ink-muted);
   cursor: pointer;
-  padding: 8px 4px;
+  padding: 4px 0;
 }
 
 .theme-mono .sa-status-filter__clear:hover {
   color: var(--ink);
 }
 
-.theme-mono .sa-status-filter__apply {
-  height: 40px;
-  padding: 0 20px;
-  border: none;
-  border-radius: 999px;
-  background: var(--ink);
-  color: var(--surface);
-  font-family: inherit;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: opacity 0.18s ease;
-}
-
-.theme-mono .sa-status-filter__apply:hover {
-  opacity: 0.92;
+.theme-mono .sa-status-filter__count {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-muted);
 }
 
 .theme-mono .sa-proofer-albums__icon-btn--filtered {
   color: var(--ink);
+}
+
+.theme-mono .sa-proofer-albums__filter-count {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--surface);
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 18px;
+  text-align: center;
 }

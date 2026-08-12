@@ -485,6 +485,8 @@ export default function AlbumPhotoPinLayer({
     const spotCanSwap = spotCanSwapProp || Boolean(ctx.spotCanSwap);
     const ensureClientFeedback = ctx.ensureClientFeedback;
     const removeSwapPin = onRemoveSwapPin ?? ctx.onSwapPinRemove;
+    const allowRemove =
+        typeof ctx.allowPinRemove === 'boolean' ? ctx.allowPinRemove : allowPinRemove;
     const spreadMagnifyActive = Boolean(ctx.spreadMagnifyActive);
     const layerId = useId();
     const [openPinId, setOpenPinId] = useState(null);
@@ -935,7 +937,7 @@ export default function AlbumPhotoPinLayer({
                     layerRef={layerRef}
                     pin={pin}
                     open={openPinId === pin.id}
-                    allowRemove={allowPinRemove}
+                    allowRemove={allowRemove}
                     onToggle={() => {
                         setSpotPicker(null);
                         setSpotCommentComposer(null);
@@ -953,7 +955,7 @@ export default function AlbumPhotoPinLayer({
                     pin={{ ...pin, type: 'swap' }}
                     open={openPinId === pin.id}
                     allowRemove={Boolean(
-                        allowPinRemove && removeSwapPin && (pin.swapGroup || pin.markId)
+                        allowRemove && removeSwapPin && (pin.swapGroup || pin.markId)
                     )}
                     onToggle={() => {
                         setSpotPicker(null);

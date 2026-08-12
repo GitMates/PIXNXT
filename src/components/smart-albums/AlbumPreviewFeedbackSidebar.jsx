@@ -46,16 +46,13 @@ function writeTutorialDismissed(albumId) {
 
 function VideoPopup({ onClose }) {
     const videoRef = useRef(null);
-    const [playing, setPlaying] = useState(true);
-    const [currentTime, setCurrentTime] = useState(0);
-    const [duration, setDuration] = useState(0);
 
     useEffect(() => {
         const video = videoRef.current;
         if (!video) return undefined;
         video.loop = true;
         const playPromise = video.play();
-        if (playPromise?.catch) playPromise.catch(() => setPlaying(false));
+        if (playPromise?.catch) playPromise.catch(() => {});
         return () => {
             video.pause();
         };
@@ -69,30 +66,14 @@ function VideoPopup({ onClose }) {
         return () => document.removeEventListener('keydown', onKey);
     }, [onClose]);
 
-    const formatTime = (seconds) => {
-        if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
-        const m = Math.floor(seconds / 60);
-        const s = Math.floor(seconds % 60);
-        return `${m}:${String(s).padStart(2, '0')}`;
-    };
-
     const togglePlay = () => {
         const video = videoRef.current;
         if (!video) return;
         if (video.paused) {
-            video.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
+            video.play().catch(() => {});
         } else {
             video.pause();
-            setPlaying(false);
         }
-    };
-
-    const handleSeek = (event) => {
-        const video = videoRef.current;
-        if (!video || !duration) return;
-        const next = Number(event.target.value);
-        video.currentTime = next;
-        setCurrentTime(next);
     };
 
     return createPortal(
@@ -120,43 +101,11 @@ function VideoPopup({ onClose }) {
                     loop
                     preload="auto"
                     onClick={togglePlay}
-                    onPlay={() => setPlaying(true)}
-                    onPause={() => setPlaying(false)}
-                    onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
-                    onLoadedMetadata={(e) => setDuration(e.currentTarget.duration || 0)}
                     onEnded={(e) => {
-                        // Fallback if loop is ignored by the browser
                         e.currentTarget.currentTime = 0;
                         e.currentTarget.play().catch(() => {});
                     }}
                 />
-                <div className="avp-video-popup__controls">
-                    <button
-                        type="button"
-                        className="avp-video-popup__play"
-                        onClick={togglePlay}
-                        aria-label={playing ? 'Pause' : 'Play'}
-                    >
-                        {playing ? (
-                            <span className="avp-video-popup__pause-icon" aria-hidden />
-                        ) : (
-                            <Play size={16} fill="currentColor" aria-hidden />
-                        )}
-                    </button>
-                    <span className="avp-video-popup__time">
-                        {formatTime(currentTime)} / {formatTime(duration)}
-                    </span>
-                    <input
-                        type="range"
-                        className="avp-video-popup__seek"
-                        min={0}
-                        max={duration || 0}
-                        step={0.1}
-                        value={Math.min(currentTime, duration || 0)}
-                        onChange={handleSeek}
-                        aria-label="Seek"
-                    />
-                </div>
             </div>
         </div>,
         document.body

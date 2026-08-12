@@ -1,6 +1,5 @@
 import {
   Images,
-  LayoutGrid,
   BookOpen,
   Briefcase,
   Smartphone,
@@ -86,13 +85,6 @@ export const productNavItems: Record<string, ProductNavItem[]> = {
       href: DELIVERY_PRODUCT_HOME,
       match: (p) => isDeliveryPath(p),
       icon: Images,
-      section: "work",
-    },
-    {
-      label: "Library",
-      href: "/photos",
-      match: (p) => p === "/photos" || p.startsWith("/photos/"),
-      icon: LayoutGrid,
       section: "work",
     },
     {
@@ -248,8 +240,7 @@ export function isProductActive(productHref: string, pathname: string): boolean 
       pathname.startsWith("/folders") ||
       pathname.startsWith("/starred") ||
       isShowcasePath(pathname) ||
-      pathname.startsWith("/settings") ||
-      pathname.startsWith("/photos")
+      pathname.startsWith("/settings")
     )
   }
   if (productHref === ALBUM_PROOFER_ROUTE || productHref === ALBUM_PROOFER_ROUTE_LEGACY) {

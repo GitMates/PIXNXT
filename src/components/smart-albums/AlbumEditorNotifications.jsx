@@ -362,19 +362,6 @@ export default function AlbumEditorNotifications({
                     </>
                 )}
             </div>
-            
-            <div className="ae-notifications-footer">
-                <button
-                    type="button"
-                    className="ae-notifications-footer-btn"
-                    onClick={() => {
-                        setOpen(false);
-                        onSelectNotification?.({ item: null, page: bookPage, panel: 'pin' });
-                    }}
-                >
-                    Open Comments panel
-                </button>
-            </div>
         </div>
     );
 
