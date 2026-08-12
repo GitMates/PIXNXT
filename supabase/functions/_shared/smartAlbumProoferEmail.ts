@@ -89,7 +89,7 @@ export function buildAlbumEditorUrl(albumId: string, siteOrigin: string): string
 }
 
 export function buildAlbumPreviewUrl(
-  album: { id?: string; slug?: string | null },
+  album: { id?: string; slug?: string | null; name?: string | null },
   prooferSettings: Record<string, unknown> | null | undefined,
   siteOrigin: string
 ): string {
@@ -104,7 +104,23 @@ export function buildAlbumPreviewUrl(
     );
     return `${origin}/album-preview/${encodeURIComponent(albumId)}?token=${encodeURIComponent(token)}`;
   }
-  const slug = album.slug || albumId;
+  const slug = (() => {
+    const stored = String(album.slug || '').trim();
+    const nameBase = String(album.name || '')
+      .toLowerCase()
+      .trim()
+      .replace(/[^\w ]+/g, '')
+      .replace(/ +/g, '-') || '';
+    if (
+      stored &&
+      nameBase &&
+      stored.startsWith(`${nameBase}-`) &&
+      /^[a-z0-9]{5,12}$/i.test(stored.slice(nameBase.length + 1))
+    ) {
+      return nameBase;
+    }
+    return stored || albumId;
+  })();
   return `${origin}/album-preview/${encodeURIComponent(slug)}`;
 }
 

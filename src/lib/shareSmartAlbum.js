@@ -1,6 +1,7 @@
 import { getPublicSiteOrigin, getShareUrlWarning } from './publicSiteUrl';
 import { getPhotographerPublicOrigin, isCustomDomainVerified } from './customDomain';
 import { openSpaPath } from './spaNavigation';
+import { getAlbumShareSlug } from './albumPreviewSlug';
 import {
     openShareByEmail,
     openWhatsAppShare,
@@ -12,10 +13,14 @@ export { getShareUrlWarning, openShareByEmail, openWhatsAppShare, getQrCodeImage
 /**
  * Shareable URL for read-only album preview (flipbook view only).
  * Uses verified custom domain when set; otherwise the platform public origin.
+ * Prefer clean name slugs (…/karthiksanthosh-meetup), not legacy …-msoohhle suffixes.
  */
 export function getSmartAlbumPreviewShareUrl(album, options = {}) {
     const { photographerProfile } = options;
-    const id = album?.slug || album?.id || (typeof album === 'string' ? album : '');
+    const id =
+        typeof album === 'string'
+            ? album
+            : getAlbumShareSlug(album) || album?.id || '';
 
     // Only use photographer host when custom domain is verified.
     // Studio subdomains (slug.pixnxt.in) have no wildcard DNS and do not resolve.

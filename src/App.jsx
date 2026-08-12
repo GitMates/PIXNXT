@@ -199,7 +199,10 @@ function App() {
     );
   }
 
-  if (isCustomDomainHost && !activeSlug) {
+  // Photographer custom domains (gallery.studio.com, www.studio.com, studio.com)
+  // must win over the "first label is a PIXNXT slug" heuristic. Otherwise
+  // gallery.studio.com is treated as slug "gallery" and never looks up the domain.
+  if (isCustomDomainHost) {
     return (
       <UploadQueueProvider>
         <UploadQueueRouteSync />

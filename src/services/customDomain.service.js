@@ -1,6 +1,22 @@
 import { supabase } from '../lib/supabase/client';
 import { normalizeCustomDomain } from '../lib/customDomain';
 
+async function invokeVerify(body) {
+  const { data, error } = await supabase.functions.invoke('verify-custom-domain', {
+    body,
+  });
+
+  if (error) {
+    throw new Error(error.message || 'Domain verification failed.');
+  }
+
+  if (data?.error) {
+    throw new Error(data.error);
+  }
+
+  return data;
+}
+
 export const customDomainService = {
   async verifyAndConnect(domain) {
     const normalized = normalizeCustomDomain(domain);
@@ -8,37 +24,13 @@ export const customDomainService = {
       throw new Error('Enter a valid domain or subdomain (e.g. gallery.yourdomain.com).');
     }
 
-    const { data, error } = await supabase.functions.invoke('verify-custom-domain', {
-      body: { domain: normalized },
-    });
-
-    if (error) {
-      throw new Error(error.message || 'Domain verification failed.');
-    }
-
-    if (data?.error) {
-      throw new Error(data.error);
-    }
-
-    return data;
+    return invokeVerify({ action: 'verify', domain: normalized });
   },
 
   async disconnect() {
     const { data: sessionData } = await supabase.auth.getSession();
-    const userId = sessionData?.session?.user?.id;
-    if (!userId) throw new Error('You must be signed in.');
-
-    const { error } = await supabase
-      .from('photographers')
-      .update({
-        custom_domain: null,
-        custom_domain_status: 'none',
-        custom_domain_verified_at: null,
-      })
-      .eq('id', userId);
-
-    if (error) throw error;
-    return true;
+    if (!sessionData?.session?.user?.id) throw new Error('You must be signed in.');
+    return invokeVerify({ action: 'disconnect' });
   },
 
   async recheck(profile) {

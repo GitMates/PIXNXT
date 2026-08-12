@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase/client';
 import { albumProofService } from './albumProof.service';
 import { smartAlbumProoferSettingsService } from './smartAlbumProoferSettings.service';
 import { categoryTagsToDb } from '../lib/categoryTags';
+import { getAlbumShareSlug, slugifyAlbumName } from '../lib/albumPreviewSlug';
 import { deleteAlbumCollectionAssets, getAlbumCollectionStorageBytes } from '../components/smart-albums/albumCollection';
 import { clampAlbumPageCount } from '../components/smart-albums/albumPageStorage';
 import { clearAllAlbumPagePhotos } from '../components/smart-albums/albumPagePhotos';
@@ -48,19 +49,44 @@ async function repairBrokenAlbumsForPhotographerInBackground(photographerId) {
 
 
 function generateSlug(name) {
+  return slugifyAlbumName(name);
+}
 
-  const base = String(name || 'album')
+async function albumSlugTaken(slug, excludeId = null) {
+  const key = String(slug || '').trim();
+  if (!key) return true;
+  let query = supabase
+    .from('album_proofer_albums')
+    .select('id')
+    .eq('slug', key)
+    .limit(1);
+  if (excludeId) query = query.neq('id', excludeId);
+  const { data, error } = await query.maybeSingle();
+  if (error && error.code !== 'PGRST116') {
+    // If the table is unavailable, fall back to timestamp uniqueness.
+    return false;
+  }
+  return Boolean(data);
+}
 
-    .toLowerCase()
+/** Clean name slug; only append -2, -3… when the base is already taken. */
+async function allocateAlbumSlug(name, excludeId = null) {
+  const base = slugifyAlbumName(name);
+  if (!(await albumSlugTaken(base, excludeId))) return base;
+  for (let i = 2; i <= 50; i += 1) {
+    const candidate = `${base}-${i}`;
+    if (!(await albumSlugTaken(candidate, excludeId))) return candidate;
+  }
+  return `${base}-${Date.now().toString(36)}`;
+}
 
-    .trim()
-
-    .replace(/[^\w ]+/g, '')
-
-    .replace(/ +/g, '-');
-
-  return `${base || 'album'}-${Date.now().toString(36)}`;
-
+/** Upgrade legacy …-msoohhle slugs to the clean share form when free. */
+async function maybeUpgradeAlbumSlug(album) {
+  if (!album?.id || !album?.slug) return null;
+  const shareSlug = getAlbumShareSlug(album);
+  if (!shareSlug || shareSlug === album.slug) return null;
+  if (await albumSlugTaken(shareSlug, album.id)) return null;
+  return shareSlug;
 }
 
 function normalizeAlbumName(name) {
@@ -1121,7 +1147,7 @@ export const smartAlbumsService = {
 
       event_date: event_date || null,
 
-      slug: generateSlug(trimmedName),
+      slug: await allocateAlbumSlug(trimmedName),
 
       page_count: clampAlbumPageCount(page_count, 21),
 
@@ -1353,6 +1379,13 @@ export const smartAlbumsService = {
       if (!album?.published_at) {
         payload.published_at = new Date().toISOString();
       }
+      // Prefer clean share slugs (…/name) over legacy …-timestamp rows.
+      try {
+        const upgradedSlug = await maybeUpgradeAlbumSlug(album);
+        if (upgradedSlug) payload.slug = upgradedSlug;
+      } catch (err) {
+        console.warn('Album slug upgrade skipped:', err?.message || err);
+      }
     }
 
     let { data, error } = await updateAlbumRowResilient(photographerId, albumId, payload);
@@ -1365,6 +1398,25 @@ export const smartAlbumsService = {
     // Critical: pause/resume must update the remote column the public link reads.
     // Never rely on localStorage-only — that leaves pixnxt.in /album-preview open.
     if (patch.share_link_enabled !== undefined) {
+      // When (re)enabling the live share link, prefer a clean …/name slug.
+      if (patch.share_link_enabled === true && !payload.slug) {
+        try {
+          const albumForSlug =
+            data || (await this.getAlbum(photographerId, albumId));
+          const upgradedSlug = await maybeUpgradeAlbumSlug(albumForSlug);
+          if (upgradedSlug) {
+            const slugResult = await updateAlbumRowResilient(photographerId, albumId, {
+              slug: upgradedSlug,
+              updated_at: new Date().toISOString(),
+            });
+            if (slugResult.data) {
+              data = { ...(data || {}), ...slugResult.data };
+            }
+          }
+        } catch (err) {
+          console.warn('Album slug upgrade on share enable skipped:', err?.message || err);
+        }
+      }
       const remoteEnabled = data?.share_link_enabled;
       if (!data || remoteEnabled !== patch.share_link_enabled) {
         const shareResult = await updateShareLinkEnabledRow(

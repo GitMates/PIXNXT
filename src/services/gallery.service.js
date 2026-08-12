@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase/client';
+import { customDomainLookupCandidates } from '../lib/customDomain';
 import { getImageDimensionsFast } from '../lib/imageDimensions';
 import { getFileMime, isVideoMime, getUploadMediaType } from '../lib/fileMime';
 import { compressImageForUpload, compressImageVariants } from '../lib/prepareUploadFile';
@@ -1969,24 +1970,23 @@ export const galleryService = {
    * Resolve a verified custom domain to a photographer profile (public galleries).
    */
   async getPhotographerProfileByCustomDomain(domain) {
-    const normalized = String(domain || '')
-      .trim()
-      .toLowerCase()
-      .replace(/^https?:\/\//, '')
-      .split('/')[0]
-      .replace(/\.$/, '');
+    const candidates = customDomainLookupCandidates(domain);
 
-    if (!normalized) return null;
+    if (!candidates.length) return null;
 
-    const { data, error } = await supabase
-      .from('photographers')
-      .select('*')
-      .ilike('custom_domain', normalized)
-      .eq('custom_domain_status', 'verified')
-      .maybeSingle();
+    for (const candidate of candidates) {
+      const { data, error } = await supabase
+        .from('photographers')
+        .select('*')
+        .ilike('custom_domain', candidate)
+        .eq('custom_domain_status', 'verified')
+        .maybeSingle();
 
-    if (error && error.code !== 'PGRST116') throw error;
-    return data || null;
+      if (error && error.code !== 'PGRST116') throw error;
+      if (data) return data;
+    }
+
+    return null;
   },
 
   /**

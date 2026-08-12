@@ -1101,6 +1101,8 @@ export type Database = {
           bio: string | null
           created_at: string
           custom_domain: string | null
+          custom_domain_status: string
+          custom_domain_verified_at: string | null
           default_language: string
           display_name: string
           email: string
@@ -1137,6 +1139,8 @@ export type Database = {
           bio?: string | null
           created_at?: string
           custom_domain?: string | null
+          custom_domain_status?: string
+          custom_domain_verified_at?: string | null
           default_language?: string
           display_name?: string
           email: string
@@ -1173,6 +1177,8 @@ export type Database = {
           bio?: string | null
           created_at?: string
           custom_domain?: string | null
+          custom_domain_status?: string
+          custom_domain_verified_at?: string | null
           default_language?: string
           display_name?: string
           email?: string

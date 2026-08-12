@@ -6,6 +6,18 @@ export function getGalleryCnameTarget() {
   ).replace(/\.$/, '').toLowerCase();
 }
 
+/**
+ * Apex A-record IPs for root-domain setups (Vercel anycast).
+ * Do not use Pixieset Cloudflare IPs (104.16.x.x) — those send traffic to Pixieset.
+ */
+export function getGalleryApexIps() {
+  const raw = String(import.meta.env.VITE_GALLERY_APEX_IPS || '216.198.79.1');
+  return raw
+    .split(',')
+    .map((ip) => ip.trim())
+    .filter(Boolean);
+}
+
 export function getPlatformRootDomain() {
   const fromEnv = String(import.meta.env.VITE_PLATFORM_ROOT_DOMAIN || '').trim().toLowerCase();
   if (fromEnv) return fromEnv.replace(/^\.+/, '');
@@ -39,12 +51,41 @@ export function normalizeCustomDomain(input) {
   return value.replace(/\.$/, '');
 }
 
+const MULTI_PART_TLDS = new Set([
+  'co.uk',
+  'org.uk',
+  'ac.uk',
+  'gov.uk',
+  'com.au',
+  'net.au',
+  'org.au',
+  'co.nz',
+  'co.in',
+  'com.br',
+  'co.za',
+  'com.sg',
+  'co.jp',
+  'com.mx',
+  'co.id',
+]);
+
+export function getRegistrableDomain(domain) {
+  const normalized = normalizeCustomDomain(domain);
+  if (!normalized) return '';
+  const parts = normalized.split('.');
+  if (parts.length < 2) return normalized;
+  const lastTwo = parts.slice(-2).join('.');
+  if (MULTI_PART_TLDS.has(lastTwo) && parts.length >= 3) {
+    return parts.slice(-3).join('.');
+  }
+  return parts.slice(-2).join('.');
+}
+
 export function isValidCustomDomain(domain) {
   const normalized = normalizeCustomDomain(domain);
   if (!normalized || normalized.includes(' ')) return false;
   if (normalized === 'localhost' || normalized.endsWith('.localhost')) return false;
   if (normalized.includes('pixnxt.in') || normalized.includes('vercel.app')) return false;
-  // Require at least one dot (subdomain recommended).
   if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/.test(normalized)) {
     return false;
   }
@@ -77,9 +118,22 @@ export function getDefaultGalleryHost(profile) {
 export function getDnsHostLabel(domain) {
   const normalized = normalizeCustomDomain(domain);
   if (!normalized) return 'gallery';
-  const parts = normalized.split('.');
-  if (parts.length <= 2) return '@';
-  return parts[0];
+  const root = getRegistrableDomain(normalized);
+  if (!root || normalized === root) return '@';
+  return normalized.slice(0, -(root.length + 1)) || '@';
+}
+
+export function isApexCustomDomain(domain) {
+  return getDnsHostLabel(domain) === '@';
+}
+
+export function customDomainLookupCandidates(host) {
+  const normalized = normalizeCustomDomain(host);
+  if (!normalized) return [];
+  const candidates = [normalized];
+  if (normalized.startsWith('www.')) candidates.push(normalized.slice(4));
+  else candidates.push(`www.${normalized}`);
+  return [...new Set(candidates)];
 }
 
 export function isCustomDomainVerified(profile) {

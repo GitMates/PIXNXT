@@ -19,7 +19,7 @@ function MobileGalleryViewRedirect() {
  * (e.g. gallery.yourdomain.com instead of slug.pixnxt.in).
  */
 export function CustomDomainGalleryApp({ hostname }) {
-  const [slug, setSlug] = useState(null);
+  const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
@@ -30,15 +30,10 @@ export function CustomDomainGalleryApp({ hostname }) {
 
     galleryService
       .getPhotographerProfileByCustomDomain(hostname)
-      .then((profile) => {
+      .then((found) => {
         if (cancelled) return;
-        if (profile?.showcase_slug || profile?.display_name) {
-          setSlug(
-            profile.showcase_slug ||
-              profile.display_name ||
-              profile.email?.split('@')[0] ||
-              null
-          );
+        if (found?.id) {
+          setProfile(found);
         } else {
           setNotFound(true);
         }
@@ -55,6 +50,12 @@ export function CustomDomainGalleryApp({ hostname }) {
     };
   }, [hostname]);
 
+  const slug =
+    profile?.showcase_slug ||
+    profile?.display_name ||
+    profile?.email?.split('@')[0] ||
+    null;
+
   if (loading) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-white">
@@ -63,7 +64,7 @@ export function CustomDomainGalleryApp({ hostname }) {
     );
   }
 
-  if (notFound || !slug) {
+  if (notFound || !profile || !slug) {
     return (
       <div className="flex h-screen flex-col items-center justify-center bg-white px-6 text-center">
         <h1 className="text-2xl font-serif mb-2">Gallery not found</h1>
@@ -77,7 +78,7 @@ export function CustomDomainGalleryApp({ hostname }) {
   return (
     <>
       <Routes>
-        <Route path="/" element={<CollectionList slug={slug} />} />
+        <Route path="/" element={<CollectionList slug={slug} photographerProfile={profile} />} />
         <Route path="/gallery/:slug/f" element={<GalleryFavoritesHub />} />
         <Route path="/gallery/:slug" element={<GalleryView />} />
         <Route path="/m/:slug/pwa" element={<MobileGalleryClient />} />
