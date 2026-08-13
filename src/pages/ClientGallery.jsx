@@ -480,7 +480,6 @@ const ClientGallery = () => {
                 variant={variant}
                 onPreview={() => handlePreviewCollection(collection)}
                 onQuickEdit={() => handleQuickEdit(collection)}
-                onMoveTo={() => { closeContextMenu(); setMoveToCollection(collection); }}
                 onDuplicate={() => { closeContextMenu(); setDuplicateCollection(collection); }}
                 onDelete={() => { closeContextMenu(); handleDeleteCollection(collection.id); }}
                 onShareByEmail={() => handleShareByEmail(collection)}

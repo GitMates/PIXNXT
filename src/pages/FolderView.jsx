@@ -246,10 +246,6 @@ const FolderView = () => {
           closeContextMenu();
           setEditCollection(collection);
         }}
-        onMoveTo={() => {
-          closeContextMenu();
-          setMoveToCollection(collection);
-        }}
         onDuplicate={() => {
           closeContextMenu();
           setDuplicateCollection(collection);

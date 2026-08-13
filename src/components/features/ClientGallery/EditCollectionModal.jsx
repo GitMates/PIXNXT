@@ -31,7 +31,7 @@ export function EditCollectionModal({ collection, isOpen, onClose, onSave, onAdv
         setEventDate(collection.event_date ? collection.event_date.slice(0, 10) : '');
         setStatus(collection.status || 'draft');
         setCategoryTags(collection.description || categoryTagsFromCollection(collection).join(', '));
-        setShowOnShowcase(Boolean(collection.show_on_showcase));
+        setShowOnShowcase(collection.show_on_showcase !== false);
         setTagInput('');
     }, [collection, isOpen]);
 

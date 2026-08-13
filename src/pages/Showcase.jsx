@@ -113,14 +113,8 @@ const Showcase = () => {
 
     // ── Sorted preview collections ───────────────────────────────────────────
     const previewCollections = React.useMemo(() => {
-        // First get published collections
+        // Only show deliveries that are published AND enabled for Showcase
         let list = collections.filter((c) => c.status === 'published' && c.show_on_showcase !== false);
-        
-        // If we have fewer than 6, fill with any other available collections to fully populate the mockup with real data!
-        if (list.length < 6) {
-            const others = collections.filter((c) => !list.some((existing) => existing.id === c.id));
-            list = [...list, ...others];
-        }
 
         const sorted = [...list].sort((a, b) => {
             if (collectionSort === 'created-new') return new Date(b.created_at) - new Date(a.created_at);

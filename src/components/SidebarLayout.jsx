@@ -24,6 +24,7 @@ import ClientGalleryNotifications from './features/ClientGallery/ClientGalleryNo
 import { userStorageService } from '../services/userStorage.service';
 import { getThemeMode, setThemeMode, THEME_CHANGE_EVENT } from '../lib/appearanceTheme';
 import { syncUploadDefaultsToLocalStorage } from '../lib/uploadDefaults';
+import { navigateToAccount } from '../lib/accountBackNav';
 import brandPng from '../assets/icons/client gallery.png';
 import smartAlbumPng from '../assets/icons/smart album.png';
 import dashboardPng from '../assets/icons/dashboard.png';
@@ -247,7 +248,11 @@ const SidebarLayout = ({
     const renderProfileDropdown = (positionClasses) => {
         const pathName = location.pathname;
         const go = (to) => {
-            navigate(to);
+            if (String(to).startsWith('/account')) {
+                navigateToAccount(navigate, to, location.pathname);
+            } else {
+                navigate(to);
+            }
             setShowProfileDropdown(false);
         };
 

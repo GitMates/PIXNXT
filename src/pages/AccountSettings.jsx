@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Home, FileText, CreditCard, User, ChevronLeft, LogOut } from 'lucide-react';
 import { galleryService } from '../services/gallery.service';
 import { useAuth } from '../hooks/useAuth';
@@ -13,6 +13,11 @@ import PlanBillingPanel from '../components/features/Settings/PlanBillingPanel';
 import YourAccountPanel from '../components/features/Settings/YourAccountPanel';
 import { getThemeMode, setThemeMode, THEME_CHANGE_EVENT } from '../lib/appearanceTheme';
 import { userStorageService } from '../services/userStorage.service';
+import {
+    readAccountBack,
+    writeAccountBack,
+    resolveAccountBack,
+} from '../lib/accountBackNav';
 import { cn } from '../lib/utils';
 import brandPng from '../assets/icons/client gallery.png';
 import smartAlbumPng from '../assets/icons/smart album.png';
@@ -49,9 +54,21 @@ const STUDIO_NAV = [
     { id: 'account', label: 'Your account', icon: User, section: 'YOU' },
 ];
 
+function storageLimitBytes(profile) {
+    if (profile?.storage_limit_bytes) return Number(profile.storage_limit_bytes) || 0;
+    const gb = Number(profile?.storage_limit_gb);
+    if (gb && gb > 0) return gb * 1024 * 1024 * 1024;
+    const tier = String(profile?.plan || '').toLowerCase();
+    if (tier === 'pro') return 100 * 1024 * 1024 * 1024;
+    if (tier === 'premium') return 500 * 1024 * 1024 * 1024;
+    if (tier === 'free') return 5 * 1024 * 1024 * 1024;
+    return 10 * 1024 * 1024 * 1024;
+}
+
 export default function AccountSettings() {
     const { tab } = useParams();
     const navigate = useNavigate();
+    const location = useLocation();
     const { user, logout } = useAuth();
     const activeTab = tab || 'account';
     const useStudioShell = STUDIO_SHELL_TABS.has(activeTab);
@@ -63,12 +80,35 @@ export default function AccountSettings() {
     const [usedBytes, setUsedBytes] = useState(() =>
         userStorageService.getCachedStorageBytes(user?.id),
     );
+    const [backTarget, setBackTarget] = useState(
+        () => readAccountBack() || { path: '/dashboard', label: 'Dashboard' },
+    );
 
     useEffect(() => {
         if (activeTab === 'profile') {
             navigate('/account/account', { replace: true });
         }
     }, [activeTab, navigate]);
+
+    useEffect(() => {
+        const fromState = location.state?.from;
+        if (fromState) {
+            const resolved =
+                typeof fromState === 'string'
+                    ? resolveAccountBack(fromState)
+                    : {
+                          path: fromState.path || '/dashboard',
+                          label: fromState.label || resolveAccountBack(fromState.path).label,
+                      };
+            if (resolved.path && !resolved.path.startsWith('/account')) {
+                writeAccountBack(resolved);
+                setBackTarget(resolved);
+                return;
+            }
+        }
+        const cached = readAccountBack();
+        if (cached) setBackTarget(cached);
+    }, [location.state]);
 
     const showToast = useCallback((msg) => {
         setToastMessage(msg);
@@ -94,27 +134,24 @@ export default function AccountSettings() {
         return slug;
     }, [studioProfile, user]);
 
-    const maxBytes = useMemo(() => {
-        const gb = Number(studioProfile?.storage_limit_gb);
-        if (gb && gb > 0) return gb * 1024 * 1024 * 1024;
-        return 100 * 1024 * 1024 * 1024;
-    }, [studioProfile]);
+    const maxBytes = useMemo(() => storageLimitBytes(studioProfile), [studioProfile]);
 
     const storagePct = useMemo(() => {
         if (!maxBytes) return 0;
-        return Math.min(100, Math.round((usedBytes / maxBytes) * 100));
+        return Math.min(100, (usedBytes / maxBytes) * 100);
     }, [usedBytes, maxBytes]);
 
     const formatStorageDisplay = (used, max) => {
         if (!used || used <= 0) {
-            const maxGb = max && max > 0 ? (max / (1024 * 1024 * 1024)).toFixed(0) : 100;
+            const maxGb = max && max > 0 ? (max / (1024 * 1024 * 1024)).toFixed(0) : 10;
             return `0 / ${maxGb} GB`;
         }
         const gb = 1024 * 1024 * 1024;
         if (max >= gb) {
-            const usedGb = (used / gb).toFixed(used / gb < 1 ? 1 : 0);
+            const usedGb = used / gb;
+            const usedLabel = usedGb < 1 ? usedGb.toFixed(1) : usedGb < 10 ? usedGb.toFixed(1) : usedGb.toFixed(0);
             const maxGb = (max / gb).toFixed(0);
-            return `${usedGb} / ${maxGb} GB`;
+            return `${usedLabel} / ${maxGb} GB`;
         }
         const usedMb = (used / (1024 * 1024)).toFixed(0);
         const maxMb = (max / (1024 * 1024)).toFixed(0);
@@ -219,10 +256,10 @@ export default function AccountSettings() {
                     <button
                         type="button"
                         className="studio-shell__back"
-                        onClick={() => navigate('/client-gallery')}
+                        onClick={() => navigate(backTarget.path || '/dashboard')}
                     >
                         <ChevronLeft size={15} strokeWidth={2} />
-                        Back to Client Gallery
+                        Back to {backTarget.label || 'Dashboard'}
                     </button>
 
                     <div className="studio-shell__brand">

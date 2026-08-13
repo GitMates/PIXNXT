@@ -3,6 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
 import { loadStudioDashboard } from '../services/studioDashboard.service';
+import { userStorageService } from '../services/userStorage.service';
+import { getThemeMode, setThemeMode, THEME_CHANGE_EVENT } from '../lib/appearanceTheme';
+import { navigateToAccount } from '../lib/accountBackNav';
 import AlbumListCoverThumb from '../components/smart-albums/AlbumListCoverThumb';
 import DashboardCommandSearch from '../components/dashboard/DashboardCommandSearch';
 import './Dashboard.css';
@@ -316,6 +319,30 @@ function formatTodayLine() {
   });
 }
 
+function storageLimitBytes(profile) {
+  if (profile?.storage_limit_bytes) return profile.storage_limit_bytes;
+  const tier = String(profile?.plan || '').toLowerCase();
+  if (tier === 'pro') return 100 * 1024 * 1024 * 1024;
+  if (tier === 'premium') return 500 * 1024 * 1024 * 1024;
+  if (tier === 'free') return 5 * 1024 * 1024 * 1024;
+  return 10 * 1024 * 1024 * 1024;
+}
+
+function formatStorageAmount(bytes) {
+  if (!bytes || bytes <= 0) return '0 MB';
+  const tb = 1024 * 1024 * 1024 * 1024;
+  const gb = 1024 * 1024 * 1024;
+  if (bytes >= tb) {
+    const n = bytes / tb;
+    return `${n >= 10 ? n.toFixed(0) : n.toFixed(2).replace(/\.?0+$/, '')} TB`;
+  }
+  if (bytes >= gb) {
+    const n = bytes / gb;
+    return `${n >= 10 ? n.toFixed(0) : n.toFixed(n < 1 ? 1 : 0)} GB`;
+  }
+  return `${(bytes / (1024 * 1024)).toFixed(0)} MB`;
+}
+
 const Dashboard = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -325,8 +352,20 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [profileOpen, setProfileOpen] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
+  const [appearance, setAppearance] = useState(() => getThemeMode());
+  const [realStorageBytes, setRealStorageBytes] = useState(null);
   const profileRef = useRef(null);
   const newRef = useRef(null);
+
+  const handleAppearanceChange = (mode) => {
+    setAppearance(setThemeMode(mode));
+  };
+
+  useEffect(() => {
+    const sync = () => setAppearance(getThemeMode());
+    window.addEventListener(THEME_CHANGE_EVENT, sync);
+    return () => window.removeEventListener(THEME_CHANGE_EVENT, sync);
+  }, []);
 
   useEffect(() => {
     const load = async () => {
@@ -350,6 +389,22 @@ const Dashboard = () => {
   }, [user]);
 
   useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    userStorageService
+      .calculateUserStorageBytes(user, profile)
+      .then((bytes) => {
+        if (!cancelled && typeof bytes === 'number' && bytes >= 0) {
+          setRealStorageBytes(bytes);
+        }
+      })
+      .catch((err) => console.error('Error calculating real storage:', err));
+    return () => {
+      cancelled = true;
+    };
+  }, [user, profile?.display_name, profile?.email, profile?.storage_used_bytes]);
+
+  useEffect(() => {
     const onDoc = (e) => {
       if (profileRef.current && !profileRef.current.contains(e.target)) setProfileOpen(false);
       if (newRef.current && !newRef.current.contains(e.target)) setNewOpen(false);
@@ -364,6 +419,12 @@ const Dashboard = () => {
     navigate('/');
   };
 
+  const usedBytes = realStorageBytes ?? profile?.storage_used_bytes ?? 0;
+  const maxBytes = storageLimitBytes(profile);
+  const storagePct = Math.min(100, maxBytes > 0 ? (usedBytes / maxBytes) * 100 : 0);
+  const storageUsedLabel = formatStorageAmount(usedBytes);
+  const storageTotalLabel = `of ${formatStorageAmount(maxBytes)}`;
+
   if (loading && !profile) {
     return (
       <div className="sd-loading">
@@ -377,6 +438,15 @@ const Dashboard = () => {
   const studioName = profile?.display_name || 'Your studio';
   const host = studioHost(profile);
   const mark = (studioName.trim()[0] || 'S').toUpperCase();
+
+  const goMenu = (path) => {
+    setProfileOpen(false);
+    if (String(path).startsWith('/account')) {
+      navigateToAccount(navigate, path, '/dashboard');
+    } else {
+      navigate(path);
+    }
+  };
 
   return (
     <div className="sd-page">
@@ -399,6 +469,7 @@ const Dashboard = () => {
               <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
               <path d="M13.73 21a2 2 0 0 1-3.46 0" />
             </svg>
+            <span className="sd-icon-btn-dot" aria-hidden />
           </button>
 
           <div className="sd-profile-wrap" ref={profileRef}>
@@ -412,27 +483,61 @@ const Dashboard = () => {
               {initials}
             </button>
             {profileOpen && (
-              <div className="sd-menu">
-                <div className="sd-menu-head">
-                  <div className="sd-avatar sd-avatar--sm">{initials}</div>
-                  <div>
-                    <strong>{studioName}</strong>
-                    <p>{user?.email || ''}</p>
+              <div className="sd-menu" role="menu">
+                <div className="sd-menu-section">
+                  <div className="sd-menu-overline">STORAGE</div>
+                  <div className="sd-menu-storage">
+                    <span className="sd-menu-storage-used">{storageUsedLabel}</span>
+                    <span className="sd-menu-storage-total">{storageTotalLabel}</span>
+                  </div>
+                  <div className="sd-menu-storage-bar" aria-hidden>
+                    <span className="sd-menu-storage-fill" style={{ width: `${storagePct}%` }} />
                   </div>
                 </div>
-                <button type="button" className="sd-menu-item" onClick={() => { setProfileOpen(false); navigate('/account/studio-identity'); }}>
-                  Profile
-                </button>
-                <button type="button" className="sd-menu-item" onClick={() => { setProfileOpen(false); navigate('/account/plan-billing'); }}>
-                  Billing
-                </button>
-                <button type="button" className="sd-menu-item" onClick={() => { setProfileOpen(false); navigate('/settings'); }}>
-                  Settings
-                </button>
+
                 <div className="sd-menu-divider" />
-                <button type="button" className="sd-menu-item" onClick={handleLogout}>
-                  Logout
-                </button>
+
+                <div className="sd-menu-section">
+                  <div className="sd-menu-overline">APPEARANCE</div>
+                  <div className="sd-appearance" role="group" aria-label="Appearance">
+                    {['light', 'auto', 'dark'].map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        className={`sd-appearance-btn${appearance === mode ? ' is-active' : ''}`}
+                        aria-pressed={appearance === mode}
+                        onClick={() => handleAppearanceChange(mode)}
+                      >
+                        {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="sd-menu-divider" />
+
+                <div className="sd-menu-section sd-menu-section--links">
+                  <button type="button" className="sd-menu-item" role="menuitem" onClick={() => goMenu('/account/studio-identity')}>
+                    Studio profile
+                  </button>
+                  <button type="button" className="sd-menu-item" role="menuitem" onClick={() => goMenu('/client-gallery')}>
+                    Library
+                  </button>
+                  <button type="button" className="sd-menu-item" role="menuitem" onClick={() => goMenu('/settings')}>
+                    Settings
+                  </button>
+                </div>
+
+                <div className="sd-menu-divider" />
+
+                <div className="sd-menu-section sd-menu-section--links">
+                  <button type="button" className="sd-menu-item" role="menuitem" onClick={() => goMenu('/account/account')}>
+                    Your account
+                  </button>
+                  <button type="button" className="sd-menu-item" role="menuitem" onClick={handleLogout}>
+                    Sign out
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -661,7 +766,7 @@ const Dashboard = () => {
                     </div>
                     <div className="sd-week-bottom">
                       <span className="sd-week-detail">{ev.detail}</span>
-                      <span className="sd-week-bars" aria-hidden>
+                      <span className={`sd-week-bars sd-week-bars--${ev.tone}`} aria-hidden>
                         {Array.from({ length: ev.total }).map((_, i) => (
                           <span
                             key={i}
