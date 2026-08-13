@@ -549,6 +549,48 @@ export const galleryService = {
     return attachMissingListCovers(mapped);
   },
 
+  /** Public Showcase enquiry form submission */
+  async submitShowcaseEnquiry({ photographerId, name, email, message }) {
+    if (!photographerId) throw new Error('Photographer is required.');
+    const trimmedName = String(name || '').trim();
+    const trimmedEmail = String(email || '').trim();
+    const trimmedMessage = String(message || '').trim();
+    if (!trimmedName || !trimmedEmail || !trimmedMessage) {
+      throw new Error('Name, email, and message are required.');
+    }
+
+    const { data, error } = await supabase
+      .from('showcase_enquiries')
+      .insert({
+        photographer_id: photographerId,
+        sender_name: trimmedName,
+        sender_email: trimmedEmail,
+        message: trimmedMessage,
+      })
+      .select('id, created_at')
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /** Studio inbox: recent Showcase enquiries */
+  async getShowcaseEnquiries(photographerId, limit = 20) {
+    if (!photographerId) return [];
+    const { data, error } = await supabase
+      .from('showcase_enquiries')
+      .select('id, sender_name, sender_email, message, created_at, read_at')
+      .eq('photographer_id', photographerId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      if (error.code === '42P01') return [];
+      throw error;
+    }
+    return data || [];
+  },
+
   /**
    * Create a new delivery
    */

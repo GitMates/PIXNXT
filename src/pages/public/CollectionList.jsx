@@ -3,6 +3,7 @@ import { galleryService } from '../../services/gallery.service';
 import { useNavigate } from 'react-router-dom';
 import { sortCollections } from '../../utils/sortCollections';
 import { CollectionCardCover } from '../../components/features/ClientGallery/CollectionCardCover';
+import { ShowcaseEnquiryForm } from '../../components/features/Showcase/ShowcaseEnquiryForm';
 import { getCollectionCardCoverSrc } from '../../lib/photoDisplayUrl';
 
 const ITEMS_PER_PAGE = 12;
@@ -500,6 +501,13 @@ const CollectionList = ({ slug, photographerProfile = null }) => {
             </div>
           )}
         </section>
+
+        {profile.showcase_enquiry_enabled !== false && (
+          <ShowcaseEnquiryForm
+            photographerId={profile.id}
+            photographerName={photographerName}
+          />
+        )}
 
         {/* ── FOOTER ── */}
         <footer style={{

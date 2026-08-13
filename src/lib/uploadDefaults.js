@@ -111,8 +111,18 @@ export function uploadMaxEdgeForQuality(quality) {
   return null;
 }
 
-/** Plans that may enable RAW (Studio / Pro marketing tiers). */
+/** Plans that may enable RAW (Studio = plus, Pro = pro / ultimate). */
 export function planAllowsRaw(plan) {
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1') return true;
+  }
   const p = String(plan || '').toLowerCase();
-  return p === 'plus' || p === 'pro' || p === 'ultimate' || p === 'studio';
+  return p === 'plus' || p === 'pro' || p === 'ultimate';
+}
+
+/** Whether RAW uploads are allowed for this photographer (setting + plan). */
+export function isRawUploadEnabled(profile) {
+  const { rawPhotoSupport } = resolveUploadDefaults(profile);
+  return rawPhotoSupport && planAllowsRaw(profile?.plan);
 }

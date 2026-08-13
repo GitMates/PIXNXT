@@ -76,7 +76,6 @@ const ClientGallery = () => {
 
     const [showSortDropdown, setShowSortDropdown] = useState(false);
     const [showFilterPanel, setShowFilterPanel] = useState(false);
-    const [displayPlaceholder, setDisplayPlaceholder] = useState('');
     const [activeView, setActiveView] = useState('grid');
     const [activeSort, setActiveSort] = useState('created-new');
     const [selectedCards, setSelectedCards] = useState([]);
@@ -260,24 +259,11 @@ const ClientGallery = () => {
         };
     }, [collections]);
 
-    useEffect(() => {
-        const fullText = 'Search deliveries or clients…';
-        let index = 0;
-        const interval = window.setInterval(() => {
-            if (index <= fullText.length) {
-                setDisplayPlaceholder(fullText.slice(0, index));
-                index += 1;
-            } else {
-                window.clearInterval(interval);
-            }
-        }, 80);
-        return () => window.clearInterval(interval);
-    }, []);
-
     const closeContextMenu = useCallback(() => {
         setContextMenuId(null);
         setContextMenuAnchor(null);
     }, []);
+
     const closeFolderContextMenu = useCallback(() => {
         setFolderContextMenuId(null);
         setFolderMenuAnchor(null);
@@ -612,7 +598,7 @@ const ClientGallery = () => {
                                 type="search"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                placeholder={displayPlaceholder}
+                                placeholder="Search deliveries or clients…"
                                 aria-label="Search deliveries, folders, and photo filenames"
                                 className="neu-inset h-10 w-full rounded-full border-0 pl-9 pr-3 text-sm text-[#1A1A1A] outline-none placeholder:text-[#71717A]"
                             />

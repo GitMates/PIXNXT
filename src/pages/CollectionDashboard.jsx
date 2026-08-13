@@ -30,7 +30,7 @@ import {
 import { exportFavoriteListExcel } from '../lib/favoriteListExport';
 import { openSpaPath } from '../lib/spaNavigation';
 import { openShareByEmail, openWhatsAppShare, getCollectionShareUrl, getQrCodeImageUrl } from '../lib/shareCollection';
-import { resolveUploadDefaults, syncUploadDefaultsToLocalStorage } from '../lib/uploadDefaults';
+import { resolveUploadDefaults, syncUploadDefaultsToLocalStorage, isRawUploadEnabled } from '../lib/uploadDefaults';
 import { CollectionQrModal, CollectionDuplicateModal } from '../components/features/ClientGallery/CollectionShareModals';
 import { GuestDeliveryQrModal } from '../components/features/CollectionDashboard/GuestDeliveryQrModal';
 import '../components/features/CollectionDashboard/GuestDeliveryQrModal.css';
@@ -3350,7 +3350,7 @@ const CollectionDashboard = () => {
     }, [activeActivityMenu, favoriteDetailPhotoMenuPhotoId, favoriteActivitySortMenuOpen]);
 
     const processSelectedUploadFiles = (fileList, snapshot) => {
-        const rawSupportEnabled = resolveUploadDefaults(null).rawPhotoSupport;
+        const rawSupportEnabled = isRawUploadEnabled(profile);
         let filesToProcess = Array.from(fileList || []);
         
         if (!rawSupportEnabled) {
