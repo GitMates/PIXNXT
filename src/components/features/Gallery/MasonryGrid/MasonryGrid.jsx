@@ -76,6 +76,8 @@ export function MasonryGrid({
     let insertAt = Math.min(1, result.length);
     if (result.length >= columns + centerCol) {
       insertAt = columns + centerCol;
+    } else if (columns === 2 && result.length >= columns) {
+      insertAt = columns;
     } else if (result.length >= 2) {
       insertAt = Math.min(centerCol, result.length);
     } else {

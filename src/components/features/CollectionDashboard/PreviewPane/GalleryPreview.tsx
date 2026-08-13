@@ -33,6 +33,14 @@ import { smoothScrollToElement, smoothScrollToTop } from '../../../../lib/smooth
 import { getPhotoFullDisplayUrl } from '../../../../lib/photoDisplayUrl';
 import { filterPhotosByIds } from '../../../../lib/photoAiSearch';
 import { useGalleryPeople } from '../../../../hooks/useGalleryPeople';
+import {
+  SALES_CAMPAIGNS_STORAGE_KEY,
+  SALES_CAMPAIGNS_UPDATED_EVENT,
+  readSalesCampaignsFromStorage,
+  parseGalleryCampaignsFromStoreBanner,
+  resolveGalleryCampaigns,
+  pickActiveSalesCampaign,
+} from '../../../../lib/salesCampaignBanner';
 import './GalleryPreview.css';
 
 function normalizeFavoritePhotoId(id: string | number | null | undefined): string | null {
@@ -276,6 +284,43 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
 
   const previewCustomColumnCount =
     grid.size === 'large' ? 2 : grid.size === 'regular' ? 3 : 4;
+
+  const [salesCampaigns, setSalesCampaigns] = useState(() => readSalesCampaignsFromStorage());
+
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== SALES_CAMPAIGNS_STORAGE_KEY || e.newValue == null) return;
+      try {
+        const parsed = JSON.parse(e.newValue);
+        if (Array.isArray(parsed)) setSalesCampaigns(parsed);
+      } catch {
+        /* ignore */
+      }
+    };
+    const onCampaignsUpdated = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (Array.isArray(detail)) setSalesCampaigns(detail);
+    };
+    window.addEventListener('storage', onStorage);
+    window.addEventListener(SALES_CAMPAIGNS_UPDATED_EVENT, onCampaignsUpdated);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener(SALES_CAMPAIGNS_UPDATED_EVENT, onCampaignsUpdated);
+    };
+  }, []);
+
+  useEffect(() => {
+    const dbCampaigns = parseGalleryCampaignsFromStoreBanner(
+      dashboardState?.collection?.store_banner_text
+    );
+    if (!dbCampaigns?.length) return;
+    setSalesCampaigns((prev) => resolveGalleryCampaigns(prev, dbCampaigns));
+  }, [dashboardState?.collection?.store_banner_text]);
+
+  const activeCampaign = useMemo(
+    () => pickActiveSalesCampaign(salesCampaigns),
+    [salesCampaigns]
+  );
 
   const setDescriptionText = useMemo(() => {
     const raw = dashboardState?.activeSetId
@@ -664,6 +709,11 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
                 customColumnCount={previewCustomColumnCount}
                 showFilename={dashboardState?.showFilenameInGrid === true}
                 forceShow={true}
+                isPreviewMobile={isPreviewMobile}
+                activeCampaign={activeCampaign}
+                onVisitShop={() =>
+                  alert('This is a preview of the store promo. In the live gallery, it opens the print store.')
+                }
               />
             )}
           </div>

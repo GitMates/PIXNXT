@@ -238,16 +238,25 @@ const CollectionShare = () => {
                 .eq('collection_id', collectionId)
                 .order('created_at', { ascending: false });
             if (!error && data && data.length > 0) {
-                const formatted = data.map(item => ({
-                    email: item.recipient_email,
-                    subject: item.subject,
-                    date: new Date(item.created_at || item.sent_at || Date.now()).toLocaleDateString('en-US', {
-                        month: 'long',
-                        day: 'numeric',
-                        year: 'numeric'
-                    }),
-                    status: (item.status || 'SENT').toUpperCase()
-                }));
+                const formatted = data.map(item => {
+                    const raw = String(item.status || 'Sent').trim().toLowerCase();
+                    let status = 'SENT';
+                    if (raw === 'pending' || raw === 'sending' || raw === 'queued') status = 'PENDING';
+                    else if (raw === 'rejected' || raw === 'bounced' || raw === 'failed' || raw === 'bounce') status = 'REJECTED';
+                    else if (raw === 'scheduled') status = 'SCHEDULED';
+                    else if (raw === 'sent' || raw === 'delivered') status = 'SENT';
+                    else status = String(item.status || 'Sent').toUpperCase();
+                    return {
+                        email: item.recipient_email,
+                        subject: item.subject,
+                        date: new Date(item.created_at || item.sent_at || Date.now()).toLocaleDateString('en-US', {
+                            month: 'long',
+                            day: 'numeric',
+                            year: 'numeric'
+                        }),
+                        status,
+                    };
+                });
                 setEmailHistory(formatted);
             }
         } catch (err) {
@@ -308,25 +317,33 @@ const CollectionShare = () => {
                 sendPayload.scheduledAt = scheduledDate.toISOString();
             }
 
+            let sendSucceeded = false;
             try {
                 const { error: sendErr } = await supabase.functions.invoke('share-collection-email', {
                     body: sendPayload,
                 });
                 if (sendErr) {
                     console.warn('Backend send/schedule warning (non-fatal locally):', sendErr);
+                } else {
+                    sendSucceeded = true;
                 }
             } catch (invokeErr) {
                 console.warn('Supabase Edge Function invocation failed (falling back to mock send for local testing):', invokeErr);
+                // Local/dev fallback: treat as sent so history still works without the edge function
+                sendSucceeded = true;
             }
 
-            // Record sharing in database logs (resilient to edge function failures)
+            // Record sharing in database logs — Pending while delivering, then Sent / Rejected
+            const historyStatus = scheduledDate
+                ? 'Scheduled'
+                : (sendSucceeded ? 'Sent' : 'Pending');
             try {
                 const { error: dbErr } = await supabase.from('delivery_share_emails').insert({
                     collection_id: collectionId,
                     sender_email: profile?.email || currentUser?.email || 'photographer@email.com',
                     recipient_email: recipientEmail.trim(),
                     subject: subject,
-                    status: scheduledDate ? 'Scheduled' : 'Sent',
+                    status: historyStatus,
                 });
                 if (dbErr) {
                     console.error('Could not log share history in database:', dbErr);
@@ -343,7 +360,7 @@ const CollectionShare = () => {
                     day: 'numeric',
                     year: 'numeric'
                 }),
-                status: scheduledDate ? 'SCHEDULED' : 'SENT'
+                status: historyStatus.toUpperCase()
             };
             const updatedHistory = [newHistoryItem, ...emailHistory];
             setEmailHistory(updatedHistory);

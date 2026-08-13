@@ -231,6 +231,10 @@ const CollectionDashboard = () => {
     const [showQrCodeModal, setShowQrCodeModal] = useState(false);
     const [quickShareShowQr, setQuickShareShowQr] = useState(false);
     const [showEmailHistoryModal, setShowEmailHistoryModal] = useState(false);
+    const [emailHistory, setEmailHistory] = useState([]);
+    const [emailHistoryLoading, setEmailHistoryLoading] = useState(false);
+    const [emailHistoryError, setEmailHistoryError] = useState('');
+    const [emailHistoryHelpOpen, setEmailHistoryHelpOpen] = useState(false);
     const [showPresetsSubmenu, setShowPresetsSubmenu] = useState(false);
     const [showApplyPresetModal, setShowApplyPresetModal] = useState(false);
     const [showSavePresetModal, setShowSavePresetModal] = useState(false);
@@ -2697,6 +2701,53 @@ const CollectionDashboard = () => {
         setCoverModalScope('all');
     };
 
+    useEffect(() => {
+        if (!showEmailHistoryModal || !collectionId) return undefined;
+        let cancelled = false;
+        const load = async () => {
+            setEmailHistoryLoading(true);
+            setEmailHistoryError('');
+            try {
+                const rows = await galleryService.getCollectionShareEmailHistory(collectionId);
+                if (cancelled) return;
+                setEmailHistory(
+                    (rows || []).map((item) => {
+                        const raw = String(item.status || 'Sent').trim().toLowerCase();
+                        let status = 'Sent';
+                        if (raw === 'pending' || raw === 'sending' || raw === 'queued') status = 'Pending';
+                        else if (raw === 'rejected' || raw === 'bounced' || raw === 'failed' || raw === 'bounce') status = 'Rejected';
+                        else if (raw === 'scheduled') status = 'Scheduled';
+                        else if (raw === 'sent' || raw === 'delivered') status = 'Sent';
+                        else status = String(item.status || 'Sent').replace(/^\w/, (c) => c.toUpperCase());
+                        return {
+                            id: item.id,
+                            email: item.recipient_email,
+                            subject: item.subject || '—',
+                            date: new Date(item.created_at).toLocaleDateString('en-US', {
+                                month: 'long',
+                                day: 'numeric',
+                                year: 'numeric',
+                            }),
+                            status,
+                        };
+                    })
+                );
+            } catch (err) {
+                console.error('Failed to load email history:', err);
+                if (!cancelled) {
+                    setEmailHistory([]);
+                    setEmailHistoryError(err?.message || 'Failed to load email history.');
+                }
+            } finally {
+                if (!cancelled) setEmailHistoryLoading(false);
+            }
+        };
+        void load();
+        return () => {
+            cancelled = true;
+        };
+    }, [showEmailHistoryModal, collectionId]);
+
     // ─── SET HANDLERS ────────────────────────────────────────
     const handleCreateSet = async () => {
         if (!newSetName.trim() || !collectionId || !collection) return;
@@ -5101,33 +5152,122 @@ const CollectionDashboard = () => {
 
             {/* Email History Modal */}
             {showEmailHistoryModal && (
-                <div className="cd-modal-overlay" onClick={() => setShowEmailHistoryModal(false)}>
-                    <div className="cd-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '700px' }}>
+                <div className="cd-modal-overlay" onClick={() => { setShowEmailHistoryModal(false); setEmailHistoryHelpOpen(false); }}>
+                    <div className="cd-modal cd-email-history-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '720px' }}>
                         <div className="cd-modal-header">
-                            <h3 className="cd-modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>EMAIL HISTORY <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg></h3>
-                            <button className="cd-modal-close" onClick={() => setShowEmailHistoryModal(false)}>
+                            <h3 className="cd-modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                EMAIL HISTORY
+                                <button
+                                    type="button"
+                                    className="cd-email-history-help-btn"
+                                    aria-expanded={emailHistoryHelpOpen}
+                                    aria-label="About email statuses"
+                                    onClick={() => setEmailHistoryHelpOpen((v) => !v)}
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                                </button>
+                            </h3>
+                            <button className="cd-modal-close" onClick={() => { setShowEmailHistoryModal(false); setEmailHistoryHelpOpen(false); }}>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                             </button>
                         </div>
                         <div className="cd-modal-body" style={{ padding: '24px' }}>
-                            <p style={{ fontSize: '13px', color: '#666', marginBottom: '20px' }}>Please note it may take a few minutes for new email history to appear.</p>
-                            <div style={{ border: '1px solid #eee', borderRadius: '6px', overflow: 'hidden' }}>
-                                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                                    <thead style={{ backgroundColor: '#f9f9f9', borderBottom: '1px solid #eee' }}>
+                            <p className="cd-email-history-intro">
+                                Emails sent for this delivery will be listed here. Note that email history might take up to a few minutes to show up.
+                            </p>
+
+                            {emailHistoryHelpOpen && (
+                                <div className="cd-email-history-help">
+                                    <div className="cd-email-history-help-block">
+                                        <h4>Pending</h4>
+                                        <p>After you click Send, the invite may show as Pending while it is still being delivered. This can take up to a couple of minutes. Once delivered, the status updates to Sent.</p>
+                                    </div>
+                                    <div className="cd-email-history-help-block">
+                                        <h4>Sent</h4>
+                                        <p>The email was accepted for delivery. If your client still does not see it, ask them to check junk/spam/promotions, or wait for their email provider to finish delivery.</p>
+                                    </div>
+                                    <div className="cd-email-history-help-block">
+                                        <h4>Rejected</h4>
+                                        <p>The email bounced and was rejected by the recipient’s server (soft bounce: temporary issues like a full mailbox; hard bounce: invalid address or permanent block). Rejected emails are not re-delivered — send again with a corrected address if needed.</p>
+                                    </div>
+                                    <div className="cd-email-history-help-block">
+                                        <h4>DIY personal invite</h4>
+                                        <p>If email delivery is unreliable, share a direct link instead (text message, WhatsApp, etc.).</p>
+                                        <button
+                                            type="button"
+                                            className="cd-email-history-link-btn"
+                                            onClick={() => {
+                                                setShowEmailHistoryModal(false);
+                                                setEmailHistoryHelpOpen(false);
+                                                setShowGetDirectLinkModal(true);
+                                            }}
+                                        >
+                                            Get direct link
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="cd-email-history-table-wrap">
+                                <table className="cd-email-history-table">
+                                    <thead>
                                         <tr>
-                                            <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: '600', color: '#555', letterSpacing: '0.5px' }}>EMAIL</th>
-                                            <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: '600', color: '#555', letterSpacing: '0.5px' }}>SUBJECT</th>
-                                            <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: '600', color: '#555', letterSpacing: '0.5px' }}>DATE SENT</th>
-                                            <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: '600', color: '#555', letterSpacing: '0.5px' }}>STATUS</th>
+                                            <th>Email</th>
+                                            <th>Subject</th>
+                                            <th>Date Sent</th>
+                                            <th>Status</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <tr>
-                                            <td colSpan="4" style={{ padding: '30px', textAlign: 'center', color: '#888', fontSize: '14px' }}>No email history found.</td>
-                                        </tr>
+                                        {emailHistoryLoading ? (
+                                            <tr>
+                                                <td colSpan="4" className="cd-email-history-empty">Loading…</td>
+                                            </tr>
+                                        ) : emailHistoryError ? (
+                                            <tr>
+                                                <td colSpan="4" className="cd-email-history-empty cd-email-history-empty--error">{emailHistoryError}</td>
+                                            </tr>
+                                        ) : emailHistory.length === 0 ? (
+                                            <tr>
+                                                <td colSpan="4" className="cd-email-history-empty">No email history found.</td>
+                                            </tr>
+                                        ) : (
+                                            emailHistory.map((item) => (
+                                                <tr key={item.id}>
+                                                    <td>{item.email}</td>
+                                                    <td>{item.subject}</td>
+                                                    <td>{item.date}</td>
+                                                    <td>
+                                                        <span className={`cd-email-status cd-email-status--${item.status.toLowerCase()}`}>
+                                                            {item.status}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
                                     </tbody>
                                 </table>
                             </div>
+
+                            <div className="cd-email-history-diy">
+                                <span>Having trouble with email delivery?</span>
+                                <button
+                                    type="button"
+                                    className="cd-email-history-link-btn"
+                                    onClick={() => {
+                                        setShowEmailHistoryModal(false);
+                                        setEmailHistoryHelpOpen(false);
+                                        setShowGetDirectLinkModal(true);
+                                    }}
+                                >
+                                    Get direct link
+                                </button>
+                            </div>
+                        </div>
+                        <div className="cd-modal-footer">
+                            <button type="button" className="cd-cancel-btn" onClick={() => { setShowEmailHistoryModal(false); setEmailHistoryHelpOpen(false); }}>
+                                Close
+                            </button>
                         </div>
                     </div>
                 </div>
