@@ -58,6 +58,15 @@ export function PixnxtPortalSingle() {
     setWorkspaceProjectName(null)
   }, [activeView])
 
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    if (params.get("newProject") === "1" || params.get("create") === "1") {
+      setIsNewProjectModalOpen(true)
+      // Clear the query parameter so refreshing doesn't reopen it
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+  }, [location.search])
+
   const filteredStages = useMemo(() => {
     return stages.map((stage) => ({
       ...stage,
