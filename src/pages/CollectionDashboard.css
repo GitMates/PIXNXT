@@ -2629,8 +2629,19 @@
     padding: 8px 0;
     z-index: 1250;
     color: #333;
-    overflow: hidden;
+    overflow-y: auto;
+    overflow-x: hidden;
     text-align: left;
+}
+
+.cd-selection-more-dropdown--portal {
+    position: fixed;
+    top: auto;
+    right: auto;
+    bottom: auto;
+    left: auto;
+    z-index: 6000;
+    max-height: min(70vh, calc(100vh - 24px));
 }
 
 .cd-ctx-item {
@@ -4143,7 +4154,7 @@
     .cd-photo-context-menu,
     .cd-more-dropdown,
     .cd-share-dropdown,
-    .cd-selection-more-dropdown {
+    .cd-selection-more-dropdown:not(.cd-selection-more-dropdown--portal) {
         z-index: 9999 !important;
         position: absolute !important;
         right: 0 !important;
@@ -4695,7 +4706,7 @@
     top: auto;
     right: auto;
     left: auto;
-    z-index: 5000;
+    z-index: 6000;
     max-height: min(72vh, calc(100vh - 24px));
 }
 
@@ -4740,6 +4751,22 @@
     width: 17px;
     height: 17px;
     color: #444;
+}
+
+.cd-photo-menu .cd-ctx-text {
+    flex: 1;
+}
+
+.cd-photo-menu .cd-ctx-hotkey {
+    margin-left: auto;
+    font-size: 13px;
+    color: #999;
+    background: #fafafa;
+    padding: 2px 6px;
+    border-radius: 0;
+    border: 1px solid #eee;
+    font-family: 'Roboto', system-ui, sans-serif;
+    text-transform: none;
 }
 
 .cd-photo-menu-filename-hint {

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { galleryService } from '../../services/gallery.service';
+import { galleryService } from '../../../services/gallery.service';
 
 export function ShowcaseEnquiryForm({ photographerId, photographerName }) {
   const [name, setName] = useState('');

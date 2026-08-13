@@ -127,11 +127,6 @@
   line-height: 1.4;
 }
 
-.cd-sidebar-cover-set-name {
-  font-weight: 600;
-  color: #111827;
-}
-
 .cd-sidebar-cover-actions {
   display: flex;
   flex-wrap: wrap;

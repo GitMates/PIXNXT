@@ -36,12 +36,11 @@ function isCoverImageFile(file) {
 }
 
 /**
- * Cover slot: drag from the active set, browse from device, or pick from the delivery.
+ * Cover slot: browse from device or pick from the delivery.
  */
 export function SidebarCoverUpload({
   coverUrl,
   isUpdating = false,
-  activeSetName = 'this set',
   onPhotoDrop,
   onSelectFromCollection,
   onCoverFileSelect,
@@ -146,7 +145,7 @@ export function SidebarCoverUpload({
       )}
       role="button"
       tabIndex={isUpdating ? -1 : 0}
-      aria-label={`Set delivery cover. Drag a photo from ${activeSetName}, browse files, or select from delivery.`}
+      aria-label="Set delivery cover. Browse files or select from delivery."
       onClick={handleBrowseClick}
       onKeyDown={handleDropzoneKeyDown}
     >
@@ -154,17 +153,11 @@ export function SidebarCoverUpload({
         {COVER_DROP_ICON}
       </div>
       <p className="cd-sidebar-cover-drop-label">Delivery cover</p>
-      <p className="cd-sidebar-cover-drop-title">
-        {isUpdating ? (
-          'Updating cover…'
-        ) : isDragging ? (
-          'Drop to set cover'
-        ) : (
-          <>
-            Drag from <span className="cd-sidebar-cover-set-name">{activeSetName}</span>
-          </>
-        )}
-      </p>
+      {(isUpdating || isDragging) && (
+        <p className="cd-sidebar-cover-drop-title">
+          {isUpdating ? 'Updating cover…' : 'Drop to set cover'}
+        </p>
+      )}
       {!isUpdating && !isDragging && (
         <div className="cd-sidebar-cover-actions">
           <button

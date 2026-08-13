@@ -222,6 +222,7 @@ const CollectionDashboard = () => {
     const [showSelectAllMenu, setShowSelectAllMenu] = useState(false);
     const [showMoveToSetMenu, setShowMoveToSetMenu] = useState(false);
     const [moveMenuPosition, setMoveMenuPosition] = useState(null);
+    const [selectionMoreMenuPosition, setSelectionMoreMenuPosition] = useState(null);
     const [photoMenuPosition, setPhotoMenuPosition] = useState(null);
     const [photoMenuAlignLeft, setPhotoMenuAlignLeft] = useState(false);
 
@@ -860,6 +861,7 @@ const CollectionDashboard = () => {
     const sortRef = useRef(null);
     const shareRef = useRef(null);
     const selectionMoreRef = useRef(null);
+    const selectionMorePortalRef = useRef(null);
     const selectAllMenuRef = useRef(null);
     const moveToSetRef = useRef(null);
     const moveMenuPortalRef = useRef(null);
@@ -883,39 +885,58 @@ const CollectionDashboard = () => {
         };
     }, []);
 
-    const computePhotoMenuPosition = useCallback((anchorEl, alignLeft) => {
+    const SELECTION_TOOLBAR_RESERVE = 96;
+
+    const computePhotoMenuPosition = useCallback((anchorEl, alignLeft, bottomReserve = 0, menuHeight = null) => {
         if (!anchorEl) return null;
         const rect = anchorEl.getBoundingClientRect();
         const menuWidth = 240;
-        const estimatedHeight = 420;
         const gutter = 8;
-        const spaceBelow = window.innerHeight - rect.bottom - gutter;
-        const spaceAbove = rect.top - gutter;
-        const openUpward = spaceBelow < Math.min(estimatedHeight, 280) && spaceAbove > spaceBelow;
+        const estimatedHeight = menuHeight ?? 440;
+        const availBelow = window.innerHeight - rect.bottom - gutter - bottomReserve - 6;
+        const availAbove = rect.top - gutter - 6;
+        const openDown = availBelow >= availAbove;
+        const available = Math.max(160, openDown ? availBelow : availAbove);
         const left = alignLeft
             ? Math.min(Math.max(gutter, rect.left), window.innerWidth - menuWidth - gutter)
             : Math.min(Math.max(gutter, rect.right - menuWidth), window.innerWidth - menuWidth - gutter);
 
-        if (openUpward) {
-            return {
-                position: 'fixed',
-                top: 'auto',
-                bottom: window.innerHeight - rect.top + 6,
-                left,
-                minWidth: menuWidth,
-                maxHeight: Math.max(160, spaceAbove - 6),
-                zIndex: 5000,
-            };
+        let top;
+        if (openDown) {
+            top = rect.bottom + 6;
+        } else if (menuHeight != null && menuHeight > available) {
+            top = gutter;
+        } else {
+            const height = Math.min(estimatedHeight, available);
+            top = Math.max(gutter, rect.top - 6 - height);
         }
 
         return {
             position: 'fixed',
-            top: rect.bottom + 6,
+            top,
             bottom: 'auto',
             left,
             minWidth: menuWidth,
-            maxHeight: Math.max(160, spaceBelow - 6),
-            zIndex: 5000,
+            maxHeight: available,
+            zIndex: 6000,
+        };
+    }, []);
+
+    const updateSelectionMoreMenuPosition = useCallback(() => {
+        const anchor = selectionMoreRef.current?.querySelector('.cd-sel-action-btn');
+        if (!anchor) return null;
+        const rect = anchor.getBoundingClientRect();
+        const menuWidth = 280;
+        const left = Math.min(
+            Math.max(8, rect.right - menuWidth),
+            window.innerWidth - menuWidth - 8
+        );
+        return {
+            position: 'fixed',
+            left,
+            bottom: window.innerHeight - rect.top + 12,
+            minWidth: menuWidth,
+            zIndex: 6000,
         };
     }, []);
 
@@ -924,13 +945,13 @@ const CollectionDashboard = () => {
         setPhotoMenuPosition(null);
     }, []);
 
-    const openPhotoMenuFor = useCallback((photoId, anchorEl, alignLeft) => {
+    const openPhotoMenuFor = useCallback((photoId, anchorEl, alignLeft, bottomReserve = 0) => {
         if (photoMenu === photoId) {
             closePhotoMenu();
             return;
         }
         setPhotoMenuAlignLeft(Boolean(alignLeft));
-        setPhotoMenuPosition(computePhotoMenuPosition(anchorEl, alignLeft));
+        setPhotoMenuPosition(computePhotoMenuPosition(anchorEl, alignLeft, bottomReserve));
         setPhotoMenu(photoId);
     }, [closePhotoMenu, computePhotoMenuPosition, photoMenu]);
 
@@ -950,16 +971,35 @@ const CollectionDashboard = () => {
     }, [showMoveToSetMenu, sets.length, highlightsName, updateMoveMenuPosition]);
 
     useLayoutEffect(() => {
+        if (!showSelectionMore) {
+            setSelectionMoreMenuPosition(null);
+            return undefined;
+        }
+        const apply = () => setSelectionMoreMenuPosition(updateSelectionMoreMenuPosition());
+        apply();
+        window.addEventListener('resize', apply);
+        window.addEventListener('scroll', apply, true);
+        return () => {
+            window.removeEventListener('resize', apply);
+            window.removeEventListener('scroll', apply, true);
+        };
+    }, [showSelectionMore, updateSelectionMoreMenuPosition]);
+
+    useLayoutEffect(() => {
         if (!photoMenu) {
             setPhotoMenuPosition(null);
             return undefined;
         }
+        const bottomReserve = selectedPhotos.length > 0 ? SELECTION_TOOLBAR_RESERVE : 0;
         const apply = () => {
             const anchor = document.querySelector(
                 `.cd-photo-card--menu-open .cd-photo-more-btn`
             );
             if (!anchor) return;
-            setPhotoMenuPosition(computePhotoMenuPosition(anchor, photoMenuAlignLeft));
+            const menuHeight = photoMenuRef.current?.scrollHeight ?? null;
+            setPhotoMenuPosition(
+                computePhotoMenuPosition(anchor, photoMenuAlignLeft, bottomReserve, menuHeight)
+            );
         };
         apply();
         window.addEventListener('resize', apply);
@@ -968,7 +1008,7 @@ const CollectionDashboard = () => {
             window.removeEventListener('resize', apply);
             window.removeEventListener('scroll', apply, true);
         };
-    }, [photoMenu, photoMenuAlignLeft, computePhotoMenuPosition]);
+    }, [photoMenu, photoMenuAlignLeft, computePhotoMenuPosition, selectedPhotos.length]);
     const favoriteDetailToolbarMenuRef = useRef(null);
     const favoriteDetailPhotoMenuRef = useRef(null);
     const designHydratedRef = useRef(false);
@@ -2234,7 +2274,12 @@ const CollectionDashboard = () => {
             ) {
                 setFavoriteDetailPhotoMenuPhotoId(null);
             }
-            if (showSelectionMore && selectionMoreRef.current && !selectionMoreRef.current.contains(e.target)) {
+            if (
+                showSelectionMore
+                && selectionMoreRef.current
+                && !selectionMoreRef.current.contains(e.target)
+                && (!selectionMorePortalRef.current || !selectionMorePortalRef.current.contains(e.target))
+            ) {
                 setShowSelectionMore(false);
             }
             if (showSelectAllMenu && selectAllMenuRef.current && !selectAllMenuRef.current.contains(e.target)) {
@@ -2842,6 +2887,21 @@ const CollectionDashboard = () => {
         closeSelectionChrome();
         setLightboxOpenIndex(idx >= 0 ? idx : 0);
     };
+
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.code !== 'Space' && e.key !== ' ') return;
+            const target = e.target;
+            const tag = target?.tagName?.toLowerCase();
+            if (tag === 'input' || tag === 'textarea' || tag === 'select' || target?.isContentEditable) return;
+            if (lightboxOpenIndex >= 0) return;
+            if (selectedPhotos.length === 0) return;
+            e.preventDefault();
+            handleSelectionOpen();
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [selectedPhotos, lightboxOpenIndex, sortedPhotos, photos]);
 
     const handleSelectionStar = async () => {
         const sel = getSelectedPhotoRecords();
@@ -3666,7 +3726,6 @@ const CollectionDashboard = () => {
                         <SidebarCoverUpload
                             coverUrl={collection?.cover_url}
                             isUpdating={isCoverUploading}
-                            activeSetName={activeSetName}
                             onPhotoDrop={handleCoverPhotoDropById}
                             onSelectFromCollection={() => openCoverModal('all')}
                             onCoverFileSelect={(file) => void handleCoverFileSelect(file)}
@@ -4075,7 +4134,12 @@ const CollectionDashboard = () => {
                                                         aria-expanded={photoMenu === photo.id}
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            openPhotoMenuFor(photo.id, e.currentTarget, menuAlignLeft);
+                                                            openPhotoMenuFor(
+                                                                photo.id,
+                                                                e.currentTarget,
+                                                                menuAlignLeft,
+                                                                selectedPhotos.length > 0 ? SELECTION_TOOLBAR_RESERVE : 0
+                                                            );
                                                         }}
                                                     >
                                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
@@ -4439,17 +4503,10 @@ const CollectionDashboard = () => {
                                 onMouseDown={(e) => e.stopPropagation()}
                                 onClick={(e) => e.stopPropagation()}
                             >
-                                {showFilename && menuPhoto.filename && (
-                                    <>
-                                        <div className="cd-photo-menu-filename-hint" title={menuPhoto.filename}>
-                                            {menuPhoto.filename}
-                                        </div>
-                                        <div className="cd-ctx-divider" />
-                                    </>
-                                )}
                                 <div className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); closePhotoMenu(); setLightboxOpenIndex(menuIndex >= 0 ? menuIndex : 0); }}>
                                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
-                                    <span>Open</span>
+                                    <span className="cd-ctx-text">Open</span>
+                                    <span className="cd-ctx-hotkey">spacebar</span>
                                 </div>
                                 <div className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); closePhotoMenu(); handleQuickShare(menuPhoto); }}>
                                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
@@ -4576,8 +4633,14 @@ const CollectionDashboard = () => {
                                     <button type="button" className="cd-sel-action-btn" data-tooltip="More" aria-label="More" onClick={(e) => { e.stopPropagation(); setShowMoveToSetMenu(false); setShowSelectionMore(!showSelectionMore); }}>
                                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
                                     </button>
-                                    {showSelectionMore && (
-                                        <div className="cd-selection-more-dropdown" role="menu">
+                                    {showSelectionMore && selectionMoreMenuPosition && createPortal(
+                                        <div
+                                            ref={selectionMorePortalRef}
+                                            className="cd-selection-more-dropdown cd-selection-more-dropdown--portal"
+                                            role="menu"
+                                            style={selectionMoreMenuPosition}
+                                            onMouseDown={(e) => e.stopPropagation()}
+                                        >
                                             <button type="button" className="cd-ctx-item" role="menuitem" onClick={handleSelectionOpen}>
                                                 <div className="cd-ctx-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="m21 21-6-6m6 6v-4.8m0 4.8h-4.8M3 3l6 6M3 3v4.8M3 3h4.8M21 3l-6 6M21 3v4.8M21 3h-4.8M3 21l6-6M3 21v-4.8M3 21h4.8" /></svg></div>
                                                 <span className="cd-ctx-text">Open</span>
@@ -4607,7 +4670,8 @@ const CollectionDashboard = () => {
                                                 <div className="cd-ctx-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M14.5 9a2.5 2.5 0 0 0-5 0v6a2.5 2.5 0 0 0 5 0" /><path d="M10 12h4.5" /></svg></div>
                                                 <span className="cd-ctx-text">Watermark</span>
                                             </button>
-                                        </div>
+                                        </div>,
+                                        document.body
                                     )}
                                 </div>
                             </div>
