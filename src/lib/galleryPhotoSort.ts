@@ -13,7 +13,11 @@ const VALID_SORTS = new Set<DashboardPhotoSort>([
   "name-az",
   "name-za",
   "random",
-  "custom"
+  "custom",
+  "starred-first",
+  "starred-first-asc",
+  "camera-az",
+  "camera-za",
 ]);
 
 /**

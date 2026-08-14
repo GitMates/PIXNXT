@@ -2,11 +2,37 @@ import React from 'react';
 import { PreviewPaneProps } from './PreviewPane.types';
 import { GalleryPreview } from './GalleryPreview';
 import { cn } from '../../../../lib/utils';
+import '../DesignTab/DesignWorkspace.css';
 import './PreviewPane.css';
 
-export const PreviewPane: React.FC<PreviewPaneProps> = ({ 
-  settings, 
-  collectionTitle, 
+function PreviewFrame({
+  className,
+  isMobile,
+  children,
+}: {
+  className?: string;
+  isMobile: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={cn('cd-design-frame', className)}>
+      <div
+        className="cd-design-frame__canvas"
+        style={isMobile ? { fontSize: '10px' } : undefined}
+      >
+        {isMobile ? (
+          <div className="cd-design-preview-pane mobile">{children}</div>
+        ) : (
+          children
+        )}
+      </div>
+    </div>
+  );
+}
+
+export const PreviewPane: React.FC<PreviewPaneProps> = ({
+  settings,
+  collectionTitle,
   collectionDate,
   collectionDescription,
   coverPhotoUrl,
@@ -16,24 +42,55 @@ export const PreviewPane: React.FC<PreviewPaneProps> = ({
   dashboardState,
   onSetActiveSet,
   photographerName,
-  coverLogoUrl
+  coverLogoUrl,
+  dualPreview = false,
 }) => {
+  const galleryProps = {
+    settings,
+    collectionTitle,
+    collectionDate,
+    collectionDescription,
+    coverPhotoUrl,
+    gridPhotos,
+    dashboardState,
+    onSetActiveSet,
+    photographerName,
+    coverLogoUrl,
+  };
+
+  if (dualPreview) {
+    return (
+      <div className="cd-design-preview-column">
+        <div className="cd-design-page-intro">
+          <h1 className="cd-design-page-title">Design</h1>
+          <p className="cd-design-page-subtitle">how your client sees this delivery</p>
+        </div>
+
+        <div className="cd-design-dual-preview">
+          <div className="cd-design-dual-preview__frames">
+            <PreviewFrame className="cd-design-frame--desktop" isMobile={false}>
+              <GalleryPreview {...galleryProps} isPreviewMobile={false} />
+            </PreviewFrame>
+            <PreviewFrame className="cd-design-frame--mobile" isMobile>
+              <GalleryPreview {...galleryProps} isPreviewMobile />
+            </PreviewFrame>
+          </div>
+          <p className="cd-design-dual-preview__note">
+            Both frames are the shape a real screen is — 16:10 and 9:19.6 — so the cover is shown at
+            the proportion your client will actually see.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={cn('cd-design-preview-pane', previewMode, `font-${settings.fontFamily}`)}>
       <div className="cd-preview-workspace">
         <div className="cd-preview-canvas">
-          <GalleryPreview 
-            settings={settings}
-            collectionTitle={collectionTitle}
-            collectionDate={collectionDate}
-            collectionDescription={collectionDescription}
-            coverPhotoUrl={coverPhotoUrl}
-            gridPhotos={gridPhotos}
-            dashboardState={dashboardState}
-            onSetActiveSet={onSetActiveSet}
+          <GalleryPreview
+            {...galleryProps}
             isPreviewMobile={previewMode === 'mobile'}
-            photographerName={photographerName}
-            coverLogoUrl={coverLogoUrl}
           />
         </div>
       </div>

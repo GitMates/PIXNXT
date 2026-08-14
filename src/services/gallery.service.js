@@ -2503,6 +2503,57 @@ export const galleryService = {
   },
 
   /**
+   * Photo ids used in client favorite / selection-list overlays (dashboard View menu).
+   */
+  async getCollectionFavoriteOverlayPhotoIds(collectionId) {
+    if (!collectionId) {
+      return { favoritedPhotoIds: [], selectionListPhotoIds: [] };
+    }
+
+    try {
+      const { data: lists, error: listsError } = await supabase
+        .from('favorite_lists')
+        .select('id, submitted_at')
+        .eq('collection_id', collectionId);
+
+      if (listsError) throw listsError;
+      if (!lists?.length) {
+        return { favoritedPhotoIds: [], selectionListPhotoIds: [] };
+      }
+
+      const listIds = lists.map((list) => list.id);
+      const submittedListIds = new Set(
+        lists.filter((list) => list.submitted_at).map((list) => list.id)
+      );
+
+      const { data: items, error: itemsError } = await supabase
+        .from('favorite_items')
+        .select('photo_id, list_id')
+        .in('list_id', listIds);
+
+      if (itemsError) throw itemsError;
+
+      const favorited = new Set();
+      const selection = new Set();
+      for (const item of items || []) {
+        if (!item?.photo_id) continue;
+        favorited.add(item.photo_id);
+        if (submittedListIds.has(item.list_id)) {
+          selection.add(item.photo_id);
+        }
+      }
+
+      return {
+        favoritedPhotoIds: [...favorited],
+        selectionListPhotoIds: [...selection],
+      };
+    } catch (error) {
+      console.warn('getCollectionFavoriteOverlayPhotoIds failed:', error);
+      return { favoritedPhotoIds: [], selectionListPhotoIds: [] };
+    }
+  },
+
+  /**
    * Get all photos for a favorite list
    */
   async getFavoriteListPhotos(listId) {

@@ -13,6 +13,7 @@ export interface PreviewPaneProps {
   onSetActiveSet?: (setId: string | null) => void;
   photographerName?: string;
   coverLogoUrl?: string;
+  dualPreview?: boolean;
 }
 
 export interface GalleryPreviewProps {

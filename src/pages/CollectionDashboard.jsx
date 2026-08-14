@@ -13,6 +13,7 @@ import '../components/features/CollectionDashboard/Photos/CollectionPhotosWorksp
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase/client';
 import { DesignTab } from '../components/features/CollectionDashboard/DesignTab';
+import '../components/features/CollectionDashboard/DesignTab/DesignWorkspace.css';
 import { PreviewPane } from '../components/features/CollectionDashboard/PreviewPane';
 import { ChangeCoverModal } from '../components/features/CollectionDashboard/CoverSettings/ChangeCoverModal';
 import { CollectionDashboardSidebar } from '../components/features/CollectionDashboard/Sidebar/CollectionDashboardSidebar';
@@ -40,6 +41,10 @@ import { guestDeliveryPublishService } from '../services/guestDeliveryPublish.se
 import EventGuestsPanel from '../components/guest-delivery/EventGuestsPanel';
 import '../pages/guest-delivery/GuestDelivery.css';
 import { sortDashboardPhotos } from '../utils/sortDashboardPhotos';
+import {
+  optionToSortUi,
+  sortFieldToOption,
+} from '../lib/dashboardPhotoSortUi';
 import { normalizeGalleryPhotoSort } from '../lib/galleryPhotoSort';
 import { clientGalleryEmailTemplatesService } from '../services/clientGalleryEmailTemplates.service';
 import { COVER_IMAGE_ACCEPT, MEDIA_FILE_INPUT_ACCEPT, pickMediaFilesOrFallback } from '../lib/mediaFilePicker';
@@ -184,6 +189,18 @@ const CollectionDashboard = () => {
     const [showGridSettings, setShowGridSettings] = useState(false);
     const [gridSize, setGridSize] = useState('small');
     const [showFilename, setShowFilename] = useState(() => resolveUploadDefaults(null).filenameDisplay === 'show');
+    const [showCameraBadges, setShowCameraBadges] = useState(
+        () => localStorage.getItem('cd_show_camera_badges') === '1'
+    );
+    const [showUnmatchedPeople, setShowUnmatchedPeople] = useState(false);
+    const [showClientFavorited, setShowClientFavorited] = useState(
+        () => localStorage.getItem('cd_show_client_favorited') === '1'
+    );
+    const [showInSelectionList, setShowInSelectionList] = useState(
+        () => localStorage.getItem('cd_show_selection_list') === '1'
+    );
+    const [clientFavoritedPhotoIds, setClientFavoritedPhotoIds] = useState(() => new Set());
+    const [selectionListPhotoIds, setSelectionListPhotoIds] = useState(() => new Set());
     const [showMoreDropdown, setShowMoreDropdown] = useState(false);
     const [photoMenu, setPhotoMenu] = useState(null);
     const [showRenameModal, setShowRenameModal] = useState(false);
@@ -394,6 +411,8 @@ const CollectionDashboard = () => {
 
     // SORT STATE
     const [sortOption, setSortOption] = useState('custom');
+    const [photoSortField, setPhotoSortField] = useState('capture-time');
+    const [photoSortReverse, setPhotoSortReverse] = useState(false);
     const [mediaFilter, setMediaFilter] = useState('photos');
 
     // TAB STATES
@@ -1087,6 +1106,9 @@ const CollectionDashboard = () => {
             setLoadingActivity(true);
             const activity = await galleryService.getFavoriteActivity(collectionId);
             setFavoriteActivity(activity);
+            const overlays = await galleryService.getCollectionFavoriteOverlayPhotoIds(collectionId);
+            setClientFavoritedPhotoIds(new Set(overlays.favoritedPhotoIds));
+            setSelectionListPhotoIds(new Set(overlays.selectionListPhotoIds));
         } catch (err) {
             console.error('Failed to fetch favorite activity:', err);
         } finally {
@@ -2063,7 +2085,13 @@ const CollectionDashboard = () => {
                     navigation: data.nav_style === 'icons_labels' ? 'text' : 'icon'
                 });
 
-                setSortOption(normalizeGalleryPhotoSort(data.gallery_photo_sort));
+                const normalizedSort = normalizeGalleryPhotoSort(data.gallery_photo_sort);
+                setSortOption(normalizedSort);
+                const sortUi = optionToSortUi(normalizedSort);
+                if (sortUi) {
+                    setPhotoSortField(sortUi.field);
+                    setPhotoSortReverse(sortUi.reverse);
+                }
 
                 // Initialize download settings
                 if (data.downloads_enabled !== undefined) setPhotoDownload(data.downloads_enabled);
@@ -2344,8 +2372,14 @@ const CollectionDashboard = () => {
         } else if (activePerson) {
             result = filterPhotosByPerson(result, photoAiMetadataMap, activePerson);
         }
+        if (showUnmatchedPeople && photoAiRows.length > 0) {
+            result = result.filter((photo) => {
+                const meta = photoAiMetadataMap[photo.id];
+                return !meta?.faces?.length;
+            });
+        }
         return result;
-    }, [sortedPhotos, photoAiMetadataMap, activePerson, selfieMatchPhotoIds]);
+    }, [sortedPhotos, photoAiMetadataMap, activePerson, selfieMatchPhotoIds, showUnmatchedPeople, photoAiRows.length]);
 
     const totalMediaCounts = useMemo(() => countGalleryMedia(photos), [photos]);
 
@@ -2540,6 +2574,31 @@ const CollectionDashboard = () => {
     useEffect(() => {
         setPhotoSearchQuery('');
     }, [activeSetId]);
+
+    const sharingOverlaysEnabled = status === 'PUBLISHED';
+
+    const handlePhotoSortFieldChange = useCallback((field) => {
+        setPhotoSortField(field);
+        setPhotoSortReverse(false);
+        setSortOption(sortFieldToOption(field, false));
+    }, []);
+
+    const handlePhotoSortReverseChange = useCallback((reverse) => {
+        setPhotoSortReverse(reverse);
+        setSortOption(sortFieldToOption(photoSortField, reverse));
+    }, [photoSortField]);
+
+    useEffect(() => {
+        if (!collectionId || !sharingOverlaysEnabled) {
+            setClientFavoritedPhotoIds(new Set());
+            setSelectionListPhotoIds(new Set());
+            return;
+        }
+        void galleryService.getCollectionFavoriteOverlayPhotoIds(collectionId).then((overlays) => {
+            setClientFavoritedPhotoIds(new Set(overlays.favoritedPhotoIds));
+            setSelectionListPhotoIds(new Set(overlays.selectionListPhotoIds));
+        });
+    }, [collectionId, sharingOverlaysEnabled]);
 
     useEffect(() => {
         if (activeSidebarTab !== 'photos' || photoAiTableMissing || photoAiRows.length === 0) return;
@@ -3901,7 +3960,7 @@ const CollectionDashboard = () => {
 
                 {/* Main Content Wrapper */}
                 <div className="cd-main-wrapper">
-                    <main className="cd-main-area">
+                    <main className={`cd-main-area${activeSidebarTab === 'photos' ? ' cd-main-area--photos' : ''}${activeSidebarTab === 'design' ? ' cd-main-area--design' : ''}`}>
                         {activeSidebarTab === 'photos' && (
                             <>
                                 <CollectionPhotosWorkspaceHeader
@@ -3914,15 +3973,33 @@ const CollectionDashboard = () => {
                                     videoCount={activeSetMediaCounts.videos}
                                     searchQuery={photoSearchQuery}
                                     onSearchQueryChange={setPhotoSearchQuery}
-                                    sortOption={sortOption}
-                                    onSortOptionChange={setSortOption}
-                                    gridSize={gridSize}
-                                    onGridSizeChange={setGridSize}
+                                    sortField={photoSortField}
+                                    sortReverse={photoSortReverse}
+                                    onSortFieldChange={handlePhotoSortFieldChange}
+                                    onSortReverseChange={handlePhotoSortReverseChange}
                                     showFilename={showFilename}
                                     onShowFilenameChange={(nextValue) => {
                                         setShowFilename(nextValue);
                                         localStorage.setItem('filename_display', nextValue ? 'show' : 'hide');
                                     }}
+                                    showCameraBadges={showCameraBadges}
+                                    onShowCameraBadgesChange={(nextValue) => {
+                                        setShowCameraBadges(nextValue);
+                                        localStorage.setItem('cd_show_camera_badges', nextValue ? '1' : '0');
+                                    }}
+                                    showUnmatchedPeople={showUnmatchedPeople}
+                                    onShowUnmatchedPeopleChange={setShowUnmatchedPeople}
+                                    showClientFavorited={showClientFavorited}
+                                    onShowClientFavoritedChange={(nextValue) => {
+                                        setShowClientFavorited(nextValue);
+                                        localStorage.setItem('cd_show_client_favorited', nextValue ? '1' : '0');
+                                    }}
+                                    showInSelectionList={showInSelectionList}
+                                    onShowInSelectionListChange={(nextValue) => {
+                                        setShowInSelectionList(nextValue);
+                                        localStorage.setItem('cd_show_selection_list', nextValue ? '1' : '0');
+                                    }}
+                                    sharingOverlaysEnabled={sharingOverlaysEnabled}
                                     onAddMedia={() => setShowUploadModal(true)}
                                     people={photoAiPeople}
                                     activePersonId={activePersonId}
@@ -3939,9 +4016,6 @@ const CollectionDashboard = () => {
                                     loadingPeople={photoAiLoadingPeople}
                                     analyzing={photoAiIndexing}
                                     indexedCount={photoAiRows.length}
-                                    onSelfieSearch={handleSelfieSearch}
-                                    onClearSelfie={handleClearSelfie}
-                                    onTogglePersonHidden={handleTogglePersonHidden}
                                 />
 
                                 {gridPhotos.length > 0 ? (
@@ -3971,6 +4045,21 @@ const CollectionDashboard = () => {
                                                             index={index}
                                                             containInCell
                                                         />
+                                                        {showCameraBadges && photo.exif_camera ? (
+                                                            <span className="cd-photo-overlay-badge cd-photo-overlay-badge--camera">
+                                                                {photo.exif_camera}
+                                                            </span>
+                                                        ) : null}
+                                                        {showClientFavorited && clientFavoritedPhotoIds.has(photo.id) ? (
+                                                            <span className="cd-photo-overlay-badge cd-photo-overlay-badge--fav">
+                                                                Favourited
+                                                            </span>
+                                                        ) : null}
+                                                        {showInSelectionList && selectionListPhotoIds.has(photo.id) ? (
+                                                            <span className="cd-photo-overlay-badge cd-photo-overlay-badge--list">
+                                                                In list
+                                                            </span>
+                                                        ) : null}
                                                     </div>
                                                     {!isPending && (
                                                     <>
@@ -4087,25 +4176,8 @@ const CollectionDashboard = () => {
                         {/* --- DESIGN VIEW --- */}
                         {activeSidebarTab === 'design' && (
                             <div className="cd-design-split-view">
-                                <DesignTab
-                                    activeTab={activeDesignTab}
-                                    settings={{
-                                        coverStyle: selectedCoverStyle,
-                                        fontFamily: selectedFont,
-                                        colorPalette: selectedColorPalette,
-                                        grid: gridSettings
-                                    }}
-                                    coverPhotoUrl={collection?.cover_url || (photos.length > 0 ? photos[0].full_url : null)}
-                                    onSettingsChange={(newSettings) => {
-                                        setSelectedCoverStyle(newSettings.coverStyle);
-                                        setSelectedFont(newSettings.fontFamily);
-                                        setSelectedColorPalette(newSettings.colorPalette);
-                                        setGridSettings(newSettings.grid);
-                                    }}
-                                    onOpenCoverModal={() => setShowCoverModal(true)}
-                                    onOpenFocalModal={() => setShowFocalModal(true)}
-                                />
                                 <PreviewPane
+                                    dualPreview
                                     settings={{
                                         coverStyle: selectedCoverStyle,
                                         fontFamily: selectedFont,
@@ -4153,6 +4225,23 @@ const CollectionDashboard = () => {
                                         selectedDownloadSets,
                                     }}
                                     onSetActiveSet={setActiveSetId}
+                                />
+                                <DesignTab
+                                    settings={{
+                                        coverStyle: selectedCoverStyle,
+                                        fontFamily: selectedFont,
+                                        colorPalette: selectedColorPalette,
+                                        grid: gridSettings
+                                    }}
+                                    coverPhotoUrl={collection?.cover_url || (photos.length > 0 ? photos[0].full_url : null)}
+                                    onSettingsChange={(newSettings) => {
+                                        setSelectedCoverStyle(newSettings.coverStyle);
+                                        setSelectedFont(newSettings.fontFamily);
+                                        setSelectedColorPalette(newSettings.colorPalette);
+                                        setGridSettings(newSettings.grid);
+                                    }}
+                                    onOpenCoverModal={() => setShowCoverModal(true)}
+                                    onOpenFocalModal={() => setShowFocalModal(true)}
                                 />
                             </div>
                         )}

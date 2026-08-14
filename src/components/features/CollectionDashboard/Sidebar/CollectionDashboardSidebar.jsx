@@ -34,13 +34,6 @@ function formatStorageDisplay(used, max) {
   return `${toGb(used)} / ${toGb(max)}`;
 }
 
-const DESIGN_TABS = [
-  { id: 'cover', label: 'Cover' },
-  { id: 'typography', label: 'Typography' },
-  { id: 'color', label: 'Color' },
-  { id: 'grid', label: 'Grid' },
-];
-
 const SETTINGS_TABS = [
   { id: 'general', label: 'Basics' },
   { id: 'privacy', label: 'Access' },
@@ -322,28 +315,12 @@ export function CollectionDashboardSidebar({
             onClick={() => onSidebarTabChange('films')}
           />
 
-          <div className={cn('cdsb-expand-block', designActive && 'cdsb-expand-block--open')}>
-            <NavItem
-              active={designActive}
-              icon={Pencil}
-              label="Design"
-              onClick={() => onSidebarTabChange('design')}
-              expandable
-              expanded={designActive}
-            />
-            {designActive ? (
-              <div className="cdsb-tree cdsb-tree--tabs">
-                {DESIGN_TABS.map((tab) => (
-                  <NestedTabItem
-                    key={tab.id}
-                    active={activeDesignTab === tab.id}
-                    label={tab.label}
-                    onClick={() => onDesignTabChange?.(tab.id)}
-                  />
-                ))}
-              </div>
-            ) : null}
-          </div>
+          <NavItem
+            active={designActive}
+            icon={Pencil}
+            label="Design"
+            onClick={() => onSidebarTabChange('design')}
+          />
 
           {guestDeliveryEnabled ? (
             <NavItem

@@ -39,7 +39,7 @@
   height: 0;
   padding-bottom: 100%;
   position: relative;
-  border-radius: 12px;
+  border-radius: 20px;
   overflow: hidden;
   background: #eceae6;
 }
@@ -56,11 +56,11 @@
   position: absolute;
   inset: 0;
   min-height: 0;
-  border-radius: 12px;
+  border-radius: 20px;
 }
 
 .cdsb-cover-wrap .cd-sidebar-cover-caption {
-  border-radius: 0 0 12px 12px;
+  border-radius: 0 0 20px 20px;
   padding: 10px 12px;
 }
 
@@ -90,11 +90,12 @@
 
 .cdsb-photos-panel--active {
   background: var(--cdsb-panel);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
 }
 
 .cdsb-photos-panel--active .cdsb-nav-item {
-  border-radius: 16px 16px 0 0;
+  border-radius: 0;
 }
 
 .cdsb-expand-block,
@@ -151,27 +152,24 @@
   box-shadow: none;
   border-color: transparent;
   border-bottom: 1px solid #f0eee8;
-}
-
-.cdsb-nav > .cdsb-nav-item--active {
-  margin-left: -20px;
-  margin-right: -20px;
-  width: calc(100% + 40px);
-  padding-left: 34px;
-  border-radius: 0;
-  border-left: none;
-  border-right: none;
+  background: transparent;
 }
 
 .cdsb-nav-item--active::before {
   content: '';
   position: absolute;
+  display: none;
   left: 0;
   top: 8px;
   bottom: 8px;
-  width: 3px;
-  border-radius: 0;
+  width: 4px;
+  border-radius: 0 2px 2px 0;
   background: var(--cdsb-accent);
+}
+
+.cdsb-photos-panel--active > .cdsb-nav-item--active::before,
+.cdsb-nav > .cdsb-nav-item--active::before {
+  display: block;
 }
 
 .cdsb-nav-item--settings.cdsb-nav-item--active::before,
@@ -280,10 +278,11 @@
 
 .cdsb-set-row--active,
 .cdsb-tree__row--highlights.cdsb-tree__row--active .cdsb-set-row {
-  background: var(--cdsb-panel);
+  background: #f5f3ef;
   color: var(--cdsb-ink);
   font-weight: 600;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  box-shadow: none;
+  border-radius: 999px;
 }
 
 .cdsb-tree__row--hidden .cdsb-set-row__label {
@@ -395,15 +394,15 @@
   width: 100%;
   margin: 8px 0 4px;
   padding: 9px 12px;
-  border: 1px dashed #d5d0c8;
-  border-radius: 12px;
+  border: 1px dashed var(--cdsb-accent);
+  border-radius: 999px;
   background: transparent;
   font-family: inherit;
   font-size: 0.8125rem;
   font-weight: 600;
   color: var(--cdsb-accent);
   cursor: pointer;
-  text-align: left;
+  text-align: center;
 }
 
 .cdsb-add-set:hover {
@@ -413,9 +412,10 @@
 
 .cdsb-visible-sets {
   margin: 8px 2px 0;
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   line-height: 1.4;
   color: var(--cdsb-muted);
+  text-align: center;
 }
 
 .cdsb-footer {
@@ -472,10 +472,10 @@
   width: 100%;
   align-items: center;
   gap: 10px;
-  padding: 8px 10px;
+  padding: 8px 12px;
   border: 1px solid #e5e2dc;
-  border-radius: 16px;
-  background: #efece6;
+  border-radius: 999px;
+  background: #f2eee9;
   cursor: pointer;
   text-align: left;
   font-family: inherit;

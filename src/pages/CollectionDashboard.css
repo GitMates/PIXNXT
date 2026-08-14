@@ -968,6 +968,15 @@
     padding: 32px 40px;
 }
 
+.cd-main-area--photos {
+    background-color: #fbf9f6;
+}
+
+.cd-main-area--design {
+    background-color: #f9f7f2;
+    padding: 0;
+}
+
 .cd-main-header {
     display: flex;
     align-items: center;
@@ -1178,7 +1187,7 @@
     display: grid;
     grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: 12px;
-    padding: 4px 24px 32px;
+    padding: 20px 0 32px;
     align-items: start;
     box-sizing: border-box;
     width: 100%;
@@ -1187,7 +1196,7 @@
 .cd-photo-grid--manage.grid-large {
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 14px;
-    padding: 4px 24px 36px;
+    padding: 20px 0 36px;
 }
 
 .cd-photo-grid--dragging .cd-photo-sortable-wrap:not(.cd-photo-sortable-wrap--dragging) {
@@ -1333,6 +1342,40 @@
     align-items: center;
     justify-content: center;
     background: #f2faf8;
+}
+
+.cd-photo-grid--manage .cd-photo-overlay-badge {
+    position: absolute;
+    z-index: 4;
+    max-width: calc(100% - 8px);
+    padding: 3px 7px;
+    border-radius: 999px;
+    background: rgba(26, 26, 26, 0.82);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    pointer-events: none;
+}
+
+.cd-photo-grid--manage .cd-photo-overlay-badge--camera {
+    left: 6px;
+    bottom: 6px;
+}
+
+.cd-photo-grid--manage .cd-photo-overlay-badge--fav {
+    top: 6px;
+    left: 6px;
+    background: rgba(196, 106, 58, 0.92);
+}
+
+.cd-photo-grid--manage .cd-photo-overlay-badge--list {
+    top: 6px;
+    right: 6px;
+    background: rgba(46, 125, 50, 0.92);
 }
 
 .cd-photo-grid--manage.cd-photo-grid--filenames .cd-photo-thumb-shell {
