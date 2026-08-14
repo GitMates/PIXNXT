@@ -43,6 +43,7 @@ import './GalleryView.css';
 import { useIsMobileViewport } from '../../hooks/useIsMobileViewport';
 import { normalizeGalleryPhotoSort, sortPhotosForGallery } from '../../lib/galleryPhotoSort';
 import { normalizeNavigationStyle } from '../../lib/navStyle';
+import { getThumbnailSizeColumnCount } from '../../lib/masonryColumnDistribution';
 import {
   normalizePaletteId,
   normalizeFontId,
@@ -1061,6 +1062,9 @@ const GalleryView = () => {
   const previewFont = searchParams.get('font');
   const previewColor = searchParams.get('color');
   const previewGrid = searchParams.get('grid');
+  const previewThumb = searchParams.get('thumb');
+  const previewSpacing = searchParams.get('spacing');
+  const previewNav = searchParams.get('nav');
   const previewSlideshow = searchParams.get('slideshow');
 
   const getEffectiveSettings = () => {
@@ -1069,16 +1073,23 @@ const GalleryView = () => {
       font_family: 'sans',
       color_palette: 'light',
       grid_style: 'vertical',
+      thumbnail_size: 'regular',
+      grid_spacing: 'regular',
       nav_style: 'icons'
     };
+    const extras = collection.design_options && typeof collection.design_options === 'object'
+      ? collection.design_options
+      : {};
     return {
       cover_style: previewCoverStyle
         ? normalizeCoverStyleId(previewCoverStyle)
         : resolveCoverLayoutId(collection),
-      font_family: normalizeFontId(previewFont || collection.font_family || 'sans'),
-      color_palette: normalizePaletteId(previewColor || collection.color_palette || 'light'),
-      grid_style: previewGrid || collection.grid_style || 'vertical',
-      nav_style: collection.nav_style || 'icons'
+      font_family: normalizeFontId(previewFont || extras.font_family || collection.font_family || 'sans'),
+      color_palette: normalizePaletteId(previewColor || extras.color_palette || collection.color_palette || 'light'),
+      grid_style: previewGrid || extras.grid_style || collection.grid_style || 'vertical',
+      thumbnail_size: previewThumb || extras.thumbnail_size || collection.thumbnail_size || 'regular',
+      grid_spacing: previewSpacing || extras.grid_spacing || collection.grid_spacing || 'regular',
+      nav_style: previewNav || extras.nav_style || collection.nav_style || 'icons'
     };
   };
 
@@ -1467,29 +1478,29 @@ const GalleryView = () => {
   const galleryGridSettings = useMemo(
     () => ({
       style: effectiveSettings.grid_style || 'vertical',
-      size: collection?.thumbnail_size || 'regular',
-      spacing: collection?.grid_spacing || 'regular',
+      size: effectiveSettings.thumbnail_size || 'regular',
+      spacing: effectiveSettings.grid_spacing || 'regular',
       aspectRatio: collection?.aspect_ratio || 'original',
     }),
     [
       effectiveSettings.grid_style,
-      collection?.thumbnail_size,
-      collection?.grid_spacing,
+      effectiveSettings.thumbnail_size,
+      effectiveSettings.grid_spacing,
       collection?.aspect_ratio,
     ]
   );
 
   const galleryCustomRowHeight =
-    collection?.thumbnail_size === 'large'
+    effectiveSettings.thumbnail_size === 'large'
       ? 420
-      : collection?.thumbnail_size === 'regular'
+      : effectiveSettings.thumbnail_size === 'regular'
         ? 300
-        : collection?.thumbnail_size === 'small'
+        : effectiveSettings.thumbnail_size === 'small'
           ? 200
           : 140;
 
-  // Column count is viewport-driven inside MasonryGrid (4 cols above 1600px).
-  // Do not pass a fixed customColumnCount — thumbnail_size only affects tile height.
+  // Column count comes from thumbnail size inside MasonryGrid:
+  // large 4/2, regular 6/3, small 8/4 (web / mobile).
 
   const handleStartSlideshow = useCallback(() => {
     if (filteredPhotos.length < 1) return;
@@ -2201,6 +2212,10 @@ const GalleryView = () => {
               onShop: handleShopClick,
               favoritedPhotoIds: favoritedPhotos,
               customRowHeight: galleryCustomRowHeight,
+              customColumnCount: getThumbnailSizeColumnCount(
+                galleryGridSettings.size,
+                isMobileViewport
+              ),
               showFilename: false,
               className: 'mt-2',
             };
@@ -2211,7 +2226,7 @@ const GalleryView = () => {
                 {largeBannerMarkup}
 
                 <MasonryGrid
-                  key={`grid-single-${activeSetId ?? 'highlights'}-${mediaFilter}-${effectiveSettings.grid_style}`}
+                  key={`grid-single-${activeSetId ?? 'highlights'}-${mediaFilter}-${effectiveSettings.grid_style}-${effectiveSettings.thumbnail_size}-${effectiveSettings.grid_spacing}`}
                   photos={filteredPhotos}
                   onImageClick={handleGridImageClick}
                   activeCampaign={activeCampaign}

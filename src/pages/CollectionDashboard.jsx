@@ -31,6 +31,11 @@ import {
 } from '../lib/downloadActivityExport';
 import { exportFavoriteListExcel } from '../lib/favoriteListExport';
 import { openSpaPath } from '../lib/spaNavigation';
+import {
+    chromeFromDelivery,
+    gridSettingsFromDelivery,
+    toDeliveryDesignPatch,
+} from '../lib/designSettingsPersist';
 import { openShareByEmail, openWhatsAppShare, getCollectionShareUrl, getQrCodeImageUrl } from '../lib/shareCollection';
 import { resolveUploadDefaults, syncUploadDefaultsToLocalStorage, isRawUploadEnabled } from '../lib/uploadDefaults';
 import { CollectionQrModal, CollectionDuplicateModal } from '../components/features/ClientGallery/CollectionShareModals';
@@ -299,6 +304,46 @@ const CollectionDashboard = () => {
             return Array.isArray(parsed) && parsed.length > 0 ? parsed.map(String) : null;
         } catch {
             return null;
+        }
+    };
+
+    const designGridStorageKey = (id) => (id ? `pixnxt-design-grid:${id}` : null);
+
+    const readCachedDesignGrid = (id) => {
+        const key = designGridStorageKey(id);
+        if (!key) return null;
+        try {
+            const raw = localStorage.getItem(key);
+            if (!raw) return null;
+            const parsed = JSON.parse(raw);
+            if (!parsed || typeof parsed !== 'object') return null;
+            return {
+                style: parsed.style === 'horizontal' ? 'horizontal' : 'vertical',
+                size: parsed.size === 'large' || parsed.size === 'small' ? parsed.size : 'regular',
+                spacing: parsed.spacing === 'large' ? 'large' : 'regular',
+                navigation: parsed.navigation === 'text' ? 'text' : 'icon',
+                fontFamily: parsed.fontFamily ? normalizeFontId(parsed.fontFamily) : null,
+                colorPalette: parsed.colorPalette ? normalizePaletteId(parsed.colorPalette) : null,
+            };
+        } catch {
+            return null;
+        }
+    };
+
+    const writeCachedDesignGrid = (id, grid, chrome = {}) => {
+        const key = designGridStorageKey(id);
+        if (!key || !grid) return;
+        try {
+            localStorage.setItem(key, JSON.stringify({
+                style: grid.style,
+                size: grid.size,
+                spacing: grid.spacing,
+                navigation: grid.navigation,
+                fontFamily: normalizeFontId(chrome.fontFamily),
+                colorPalette: normalizePaletteId(chrome.colorPalette),
+            }));
+        } catch {
+            /* ignore quota / private mode */
         }
     };
 
@@ -1039,6 +1084,18 @@ const CollectionDashboard = () => {
     const designHydratedRef = useRef(false);
     const settingsHydratedRef = useRef(false);
     const slideshowColumnReadyRef = useRef(false);
+    const designPersistRef = useRef({
+        collectionId: null,
+        selectedCoverStyle: 'novel',
+        selectedFont: 'sans',
+        selectedColorPalette: 'light',
+        gridSettings: {
+            style: 'vertical',
+            size: 'regular',
+            spacing: 'regular',
+            navigation: 'icon',
+        },
+    });
     const favoriteActivitySortMenuRef = useRef(null);
 
 
@@ -1729,16 +1786,19 @@ const CollectionDashboard = () => {
         const s = selectedPreset.settings;
         if (!s) return;
 
+        const designPatch = toDeliveryDesignPatch({
+            coverStyle: s.coverStyle || 'center',
+            fontFamily: s.typography,
+            colorPalette: s.colorTheme,
+            grid: {
+                style: s.gridStyle || 'vertical',
+                size: s.thumbnailSize || 'regular',
+                spacing: s.gridSpacing || 'regular',
+                navigation: s.navigationStyle === 'text' ? 'text' : 'icon',
+            },
+        });
         const updatedSettings = {
-            cover_layout: s.coverStyle || 'center',
-            cover_style: (s.coverStyle || 'center') === 'none' ? 'text_only' : 'photo',
-            font_family: s.typography || 'sans',
-            color_palette: s.colorTheme || 'light',
-            grid_style: s.gridStyle || 'vertical',
-            thumbnail_size: s.thumbnailSize || 'regular',
-            grid_spacing: s.gridSpacing || 'regular',
-            nav_style: s.navigationStyle === 'text' ? 'icons_labels' : 'icons',
-            
+            ...designPatch,
             password_enabled: !!s.collectionPassword,
             show_on_showcase: (s.showOnShowcase ?? s.showOnHomepage) !== false,
             
@@ -1788,8 +1848,8 @@ const CollectionDashboard = () => {
 
             // Update local React UI states directly
             setSelectedCoverStyle(s.coverStyle || 'center');
-            setSelectedFont(s.typography || 'sans');
-            setSelectedColorPalette(s.colorTheme || 'light');
+            setSelectedFont(normalizeFontId(s.typography));
+            setSelectedColorPalette(normalizePaletteId(s.colorTheme));
             setGridSettings({
                 style: s.gridStyle || 'vertical',
                 size: s.thumbnailSize || 'regular',
@@ -2075,15 +2135,29 @@ const CollectionDashboard = () => {
 
                 // Map individual columns to state
                 setSelectedCoverStyle(resolveCoverLayoutId(data));
-                setSelectedFont(normalizeFontId(data.font_family));
-                setSelectedColorPalette(normalizePaletteId(data.color_palette));
 
-                setGridSettings({
-                    style: data.grid_style || 'vertical',
-                    size: data.thumbnail_size || 'regular',
-                    spacing: data.grid_spacing || 'regular',
-                    navigation: data.nav_style === 'icons_labels' ? 'text' : 'icon'
-                });
+                const extras = data.design_options && typeof data.design_options === 'object'
+                    ? data.design_options
+                    : {};
+                const chrome = chromeFromDelivery(data);
+                const fromDb = gridSettingsFromDelivery(data);
+                const cached = readCachedDesignGrid(collectionId);
+                setSelectedFont(extras.font_family
+                    ? chrome.fontFamily
+                    : (cached?.fontFamily || chrome.fontFamily));
+                setSelectedColorPalette(extras.color_palette
+                    ? chrome.colorPalette
+                    : (cached?.colorPalette || chrome.colorPalette));
+                setGridSettings(extras.thumbnail_size || extras.grid_style
+                    ? fromDb
+                    : (cached
+                        ? {
+                            style: cached.style,
+                            size: cached.size,
+                            spacing: cached.spacing,
+                            navigation: cached.navigation,
+                        }
+                        : fromDb));
 
                 const normalizedSort = normalizeGalleryPhotoSort(data.gallery_photo_sort);
                 setSortOption(normalizedSort);
@@ -2746,9 +2820,12 @@ const CollectionDashboard = () => {
     const handlePreviewAsClient = useCallback(() => {
         const params = new URLSearchParams({
             coverStyle: selectedCoverStyle,
-            font: selectedFont,
-            color: selectedColorPalette,
+            font: normalizeFontId(selectedFont),
+            color: normalizePaletteId(selectedColorPalette),
             grid: gridSettings.style,
+            thumb: gridSettings.size,
+            spacing: gridSettings.spacing,
+            nav: gridSettings.navigation,
             slideshow: slideshow ? '1' : '0',
             socialSharing: socialSharing ? '1' : '0',
         });
@@ -2758,6 +2835,9 @@ const CollectionDashboard = () => {
         selectedFont,
         selectedColorPalette,
         gridSettings.style,
+        gridSettings.size,
+        gridSettings.spacing,
+        gridSettings.navigation,
         slideshow,
         socialSharing,
         collectionUrl,
@@ -3218,30 +3298,65 @@ const CollectionDashboard = () => {
         [isPhotoAiFilterActive]
     );
 
-    // Auto-save design settings
+    // Auto-save design settings (cover, type, palette, grid) to deliveries.
     useEffect(() => {
-        if (!collection || loading || !designHydratedRef.current) return;
+        designPersistRef.current = {
+            collectionId,
+            selectedCoverStyle,
+            selectedFont,
+            selectedColorPalette,
+            gridSettings,
+        };
+        if (collectionId && designHydratedRef.current) {
+            writeCachedDesignGrid(collectionId, gridSettings, {
+                fontFamily: selectedFont,
+                colorPalette: selectedColorPalette,
+            });
+        }
+
+        if (!collection || loading || !designHydratedRef.current || !collectionId) return undefined;
 
         const saveSettings = async () => {
             try {
-                await galleryService.updateCollection(collectionId, {
-                    cover_layout: selectedCoverStyle,
-                    cover_style: selectedCoverStyle === 'none' ? 'text_only' : 'photo', // Legacy enum; layout lives in cover_layout
-                    font_family: selectedFont,
-                    color_palette: selectedColorPalette,
-                    grid_style: gridSettings.style,
-                    thumbnail_size: gridSettings.size,
-                    grid_spacing: gridSettings.spacing,
-                    nav_style: gridSettings.navigation === 'icon' ? 'icons' : 'icons_labels'
+                const patch = toDeliveryDesignPatch({
+                    coverStyle: selectedCoverStyle,
+                    fontFamily: selectedFont,
+                    colorPalette: selectedColorPalette,
+                    grid: gridSettings,
                 });
+                const saved = await galleryService.updateCollection(collectionId, patch);
+                if (saved) {
+                    setCollection((prev) => (prev ? { ...prev, ...saved } : prev));
+                }
             } catch (err) {
                 console.error('Error auto-saving settings:', err);
             }
         };
 
-        const timeoutId = setTimeout(saveSettings, 1000);
+        const timeoutId = setTimeout(saveSettings, 400);
         return () => clearTimeout(timeoutId);
     }, [selectedCoverStyle, selectedFont, selectedColorPalette, gridSettings, collectionId, collection, loading]);
+
+    useEffect(() => {
+        const flushDesignSettings = () => {
+            if (!designHydratedRef.current) return;
+            const snapshot = designPersistRef.current;
+            if (!snapshot.collectionId) return;
+            const patch = toDeliveryDesignPatch({
+                coverStyle: snapshot.selectedCoverStyle,
+                fontFamily: snapshot.selectedFont,
+                colorPalette: snapshot.selectedColorPalette,
+                grid: snapshot.gridSettings,
+            });
+            void galleryService.updateCollection(snapshot.collectionId, patch).catch(() => {});
+        };
+        window.addEventListener('pagehide', flushDesignSettings);
+        window.addEventListener('beforeunload', flushDesignSettings);
+        return () => {
+            window.removeEventListener('pagehide', flushDesignSettings);
+            window.removeEventListener('beforeunload', flushDesignSettings);
+        };
+    }, []);
 
     // Listen for activity updates from gallery tabs
     useEffect(() => {
@@ -4236,8 +4351,8 @@ const CollectionDashboard = () => {
                                     coverPhotoUrl={collection?.cover_url || (photos.length > 0 ? photos[0].full_url : null)}
                                     onSettingsChange={(newSettings) => {
                                         setSelectedCoverStyle(newSettings.coverStyle);
-                                        setSelectedFont(newSettings.fontFamily);
-                                        setSelectedColorPalette(newSettings.colorPalette);
+                                        setSelectedFont(normalizeFontId(newSettings.fontFamily));
+                                        setSelectedColorPalette(normalizePaletteId(newSettings.colorPalette));
                                         setGridSettings(newSettings.grid);
                                     }}
                                     onOpenCoverModal={() => setShowCoverModal(true)}

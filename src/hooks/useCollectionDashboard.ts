@@ -9,7 +9,9 @@ import {
   DesignTab,
   ActivityTab,
 } from "@/types/collection.types";
-import { DesignSettings } from "@/types/design.types";
+import { DesignSettings, FontId, PaletteId } from "@/types/design.types";
+import { chromeFromDelivery, gridSettingsFromDelivery, toDeliveryDesignPatch } from "../lib/designSettingsPersist";
+import { resolveCoverLayoutId } from "../lib/normalizeDesignTokens";
 
 export function useCollectionDashboard(collectionId: string | null) {
   const [isLoading, setIsLoading] = useState(true);
@@ -123,17 +125,14 @@ export function useCollectionDashboard(collectionId: string | null) {
       if (collectionData.default_watermark) setDefaultWatermark(collectionData.default_watermark);
       
       // Sync design settings
+      const chrome = chromeFromDelivery(collectionData);
       setDesignSettings({
-        coverStyle: collectionData.cover_style || 'novel',
-        fontFamily: collectionData.font_family || 'sans',
-        colorPalette: collectionData.color_palette || 'light',
+        coverStyle: resolveCoverLayoutId(collectionData),
+        fontFamily: chrome.fontFamily as FontId,
+        colorPalette: chrome.colorPalette as PaletteId,
         grid: {
-          style: collectionData.grid_style || 'vertical',
-          size: collectionData.thumbnail_size || 'regular',
-          spacing: collectionData.grid_spacing || 'regular',
+          ...gridSettingsFromDelivery(collectionData),
           aspectRatio: collectionData.aspect_ratio || '3-2',
-          navigation:
-            collectionData.nav_style === 'icons_labels' ? 'text' : 'icon'
         }
       });
 
@@ -228,15 +227,13 @@ export function useCollectionDashboard(collectionId: string | null) {
       const { error } = await supabase
         .from('deliveries')
         .update({
-          cover_style: designSettings.coverStyle,
-          font_family: designSettings.fontFamily,
-          color_palette: designSettings.colorPalette,
-          grid_style: designSettings.grid.style,
-          thumbnail_size: designSettings.grid.size,
-          grid_spacing: designSettings.grid.spacing,
+          ...toDeliveryDesignPatch({
+            coverStyle: designSettings.coverStyle,
+            fontFamily: designSettings.fontFamily,
+            colorPalette: designSettings.colorPalette,
+            grid: designSettings.grid,
+          }),
           aspect_ratio: designSettings.grid.aspectRatio,
-          nav_style:
-            designSettings.grid.navigation === 'text' ? 'icons_labels' : 'icons',
           client_exclusive_enabled: clientExclusiveAccess,
           client_password_hash: clientPrivatePassword || null,
           allow_clients_mark_private: allowClientsMarkPrivate,

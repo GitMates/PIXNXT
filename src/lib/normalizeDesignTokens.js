@@ -18,6 +18,16 @@ export function normalizeFontId(raw) {
   return VALID_FONTS.includes(base) ? base : 'sans';
 }
 
+/** deliveries.font_family historically stores sans_1, serif_1, … */
+export function fontIdToDb(raw) {
+  return `${normalizeFontId(raw)}_1`;
+}
+
+/** deliveries.color_palette historically stores light_1, dark_1, … */
+export function paletteIdToDb(raw) {
+  return `${normalizePaletteId(raw)}_1`;
+}
+
 /** DB cover_style `photo` is not a layout id — map to default UI cover */
 export function normalizeCoverStyleId(raw) {
   if (!raw || raw === 'photo' || raw === 'text_only' || raw === 'video_embed' || raw === 'solid_color') {

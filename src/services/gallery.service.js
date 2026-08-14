@@ -26,6 +26,63 @@ import {
   normalizeFocalPercent,
 } from '../lib/focalPoint.js';
 
+function toggleDesignTokenSuffix(value) {
+  if (typeof value !== 'string' || !value) return null;
+  return value.endsWith('_1') ? value.slice(0, -2) : `${value}_1`;
+}
+
+function retryDesignTokenPayload(payload, error) {
+  const message = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`;
+  const next = { ...payload };
+  let changed = false;
+  for (const key of ['font_family', 'color_palette']) {
+    if (!(key in next)) continue;
+    const current = next[key];
+    if (!message.includes(key) && !message.includes(String(current))) continue;
+    const alt = toggleDesignTokenSuffix(current);
+    if (alt && alt !== current) {
+      next[key] = alt;
+      changed = true;
+    }
+  }
+  return changed ? next : null;
+}
+
+function omitFailedUpdateField(payload, error) {
+  const message = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`;
+  const keys = Object.keys(payload);
+  if (keys.length <= 1) return null;
+
+  const columnMatch =
+    message.match(/Could not find the '([^']+)' column/i) ||
+    message.match(/column "([^"]+)"/i);
+  if (columnMatch?.[1] && columnMatch[1] in payload) {
+    const next = { ...payload };
+    delete next[columnMatch[1]];
+    return next;
+  }
+
+  const enumMatch = message.match(/invalid input value for enum (\w+): "([^"]+)"/i);
+  if (enumMatch?.[1] && enumMatch[1] in payload) {
+    const next = { ...payload };
+    delete next[enumMatch[1]];
+    return next;
+  }
+
+  const checkMatch = message.match(/check constraint ["']?(\w+)["']?/i);
+  if (checkMatch?.[1]) {
+    const constraint = checkMatch[1];
+    const key = keys.find((k) => constraint.includes(k));
+    if (key) {
+      const next = { ...payload };
+      delete next[key];
+      return next;
+    }
+  }
+
+  return null;
+}
+
 function getUploadVariantOptions() {
   const defaults = resolveUploadDefaults(null);
   return {
@@ -844,16 +901,44 @@ export const galleryService = {
   /**
    * Update an existing collection
    */
+  /**
+   * Update an existing collection.
+   * Drops unknown columns / invalid enum values and retries so one bad field
+   * cannot block the rest of a design autosave.
+   */
   async updateCollection(id, updateData) {
-    const { data, error } = await supabase
-      .from('deliveries')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single();
+    let payload = { ...updateData };
+    let lastError = null;
+    const triedTokens = new Set();
 
-    if (error) throw error;
-    return data;
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const { data, error } = await supabase
+        .from('deliveries')
+        .update(payload)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (!error) return data;
+      lastError = error;
+
+      const tokenSig = `${payload.font_family}|${payload.color_palette}`;
+      triedTokens.add(tokenSig);
+      const tokenRetry = retryDesignTokenPayload(payload, error);
+      if (tokenRetry) {
+        const nextSig = `${tokenRetry.font_family}|${tokenRetry.color_palette}`;
+        if (!triedTokens.has(nextSig)) {
+          payload = tokenRetry;
+          continue;
+        }
+      }
+
+      const next = omitFailedUpdateField(payload, error);
+      if (!next) break;
+      payload = next;
+    }
+
+    throw lastError;
   },
 
   /**

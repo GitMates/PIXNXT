@@ -32,6 +32,8 @@ import { GalleryEmptyGrid } from '../../Gallery/GalleryEmptyGrid/GalleryEmptyGri
 import { GalleryPeopleStrip } from '../../Gallery/GalleryPeopleStrip/GalleryPeopleStrip';
 import { smoothScrollToElement, smoothScrollToTop } from '../../../../lib/smoothGalleryScroll';
 import { getPhotoFullDisplayUrl } from '../../../../lib/photoDisplayUrl';
+import { getThumbnailSizeColumnCount } from '../../../../lib/masonryColumnDistribution';
+import { normalizeFontId, normalizePaletteId } from '../../../../lib/normalizeDesignTokens';
 import { filterPhotosByIds } from '../../../../lib/photoAiSearch';
 import { useGalleryPeople } from '../../../../hooks/useGalleryPeople';
 import {
@@ -43,6 +45,10 @@ import {
   pickActiveSalesCampaign,
 } from '../../../../lib/salesCampaignBanner';
 import './GalleryPreview.css';
+
+const PREVIEW_MOBILE_REF_WIDTH = 375;
+/** Typical laptop gallery width so the desktop frame matches the public web view. */
+const PREVIEW_DESKTOP_REF_WIDTH = 1280;
 
 function normalizeFavoritePhotoId(id: string | number | null | undefined): string | null {
   if (id == null || id === '') return null;
@@ -62,7 +68,9 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
   isPreviewMobile = false,
   coverLogoUrl,
 }) => {
-  const { coverStyle, fontFamily, colorPalette, grid } = settings;
+  const fontFamily = normalizeFontId(settings.fontFamily);
+  const colorPalette = normalizePaletteId(settings.colorPalette);
+  const { coverStyle, grid } = settings;
   const navigationStyle = normalizeNavigationStyle(grid.navigation);
 
   const [showFavoriteModal, setShowFavoriteModal] = useState(false);
@@ -118,7 +126,9 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
   // We track the inner div's LAYOUT height (unaffected by transform) via ResizeObserver
   // and set the outer container's height to innerHeight*scale so the canvas doesn't collapse.
   // Scale preview grid to match public gallery layout dynamically based on current viewport.
-  const [galleryRefWidth, setGalleryRefWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1280);
+  const previewLayoutWidth = isPreviewMobile ? PREVIEW_MOBILE_REF_WIDTH : PREVIEW_DESKTOP_REF_WIDTH;
+
+  const [galleryRefWidth, setGalleryRefWidth] = useState(previewLayoutWidth);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const galleryBodyRef = useRef<HTMLDivElement>(null);
   const gridWrapperRef = useRef<HTMLDivElement>(null);
@@ -143,6 +153,10 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
   };
 
   useEffect(() => {
+    setGalleryRefWidth(previewLayoutWidth);
+  }, [previewLayoutWidth]);
+
+  useEffect(() => {
     let outerObs: ResizeObserver | null = null;
     let innerObs: ResizeObserver | null = null;
 
@@ -151,10 +165,13 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
       const inner = innerGridRef.current;
       if (!outer || !inner) return;
 
-      outerObs = new ResizeObserver(() => {
+      const syncScale = () => {
         const w = outer.offsetWidth;
-        if (w > 0) setGridScale(w / window.innerWidth);
-      });
+        if (w > 0) setGridScale(w / previewLayoutWidth);
+      };
+
+      syncScale();
+      outerObs = new ResizeObserver(syncScale);
       innerObs = new ResizeObserver(() => {
         const h = inner.offsetHeight;
         if (h > 0) setInnerGridH(h);
@@ -163,23 +180,13 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
       innerObs.observe(inner);
     };
 
-    const handleResize = () => {
-      setGalleryRefWidth(window.innerWidth);
-      const outer = gridWrapperRef.current;
-      if (outer && outer.offsetWidth > 0) {
-        setGridScale(outer.offsetWidth / window.innerWidth);
-      }
-    };
-    window.addEventListener('resize', handleResize);
-
     const raf = requestAnimationFrame(setup);
     return () => {
       cancelAnimationFrame(raf);
-      window.removeEventListener('resize', handleResize);
       outerObs?.disconnect();
       innerObs?.disconnect();
     };
-  }, []);
+  }, [isPreviewMobile, previewLayoutWidth]);
 
   /** Re-measure grid scale when preview frame size changes (desktop ↔ mobile). */
   useEffect(() => {
@@ -283,8 +290,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
   const previewCustomRowHeight =
     grid.size === 'large' ? 420 : grid.size === 'regular' ? 300 : grid.size === 'small' ? 200 : 140;
 
-  const previewCustomColumnCount =
-    grid.size === 'large' ? 2 : grid.size === 'regular' ? 3 : 4;
+  const previewCustomColumnCount = getThumbnailSizeColumnCount(grid.size, isPreviewMobile);
 
   const [salesCampaigns, setSalesCampaigns] = useState(() => readSalesCampaignsFromStorage());
 

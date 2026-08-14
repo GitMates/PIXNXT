@@ -31,13 +31,28 @@ export function distributePhotosToShortestColumns<T>(
   return columns;
 }
 
+const MOBILE_MASONRY_BREAKPOINT = 768;
+
+export type ThumbnailSizeId = 'large' | 'regular' | 'small' | 'x-small';
+
+/** Images per row: large 4/2, regular 6/3, small 8/4 (web / mobile). */
+export function getThumbnailSizeColumnCount(
+  size?: string | null,
+  isMobile = false,
+): number {
+  const normalized =
+    size === 'large' ? 'large' : size === 'small' || size === 'x-small' ? 'small' : 'regular';
+  if (normalized === 'large') return isMobile ? 2 : 4;
+  if (normalized === 'small') return isMobile ? 4 : 8;
+  return isMobile ? 3 : 6;
+}
+
 /**
- * Responsive column count for public gallery masonry.
- * 4 columns above 1600px keeps collages readable (616px → ~460px per tile).
+ * Responsive column count for public gallery masonry, driven by thumbnail size.
  */
-export function getGalleryMasonryColumnCount(viewportWidth: number): number {
-  if (viewportWidth <= 480) return 1;
-  if (viewportWidth <= 768) return 2;
-  if (viewportWidth <= 1600) return 3;
-  return 4;
+export function getGalleryMasonryColumnCount(
+  viewportWidth: number,
+  size?: string | null,
+): number {
+  return getThumbnailSizeColumnCount(size, viewportWidth <= MOBILE_MASONRY_BREAKPOINT);
 }

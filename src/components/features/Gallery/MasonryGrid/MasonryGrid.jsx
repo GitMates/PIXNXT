@@ -16,6 +16,7 @@ import {
 import {
   distributePhotosToShortestColumns,
   getGalleryMasonryColumnCount,
+  getThumbnailSizeColumnCount,
 } from '../../../../lib/masonryColumnDistribution';
 import { isRowMasonryGridStyle } from '../../../../lib/galleryGridStyle';
 import './MasonryGrid.css';
@@ -57,8 +58,11 @@ export function MasonryGrid({
   const [dynamicAspectRatios, setDynamicAspectRatios] = useState({});
   const [colsCount, setColsCount] = useState(() => {
     if (customColumnCount != null) return customColumnCount;
-    if (typeof window !== 'undefined') return getGalleryMasonryColumnCount(window.innerWidth);
-    return 3;
+    const mobile = Boolean(isPreviewMobile || isMobileViewport);
+    if (typeof window !== 'undefined') {
+      return getGalleryMasonryColumnCount(window.innerWidth, gridSettings?.size);
+    }
+    return getThumbnailSizeColumnCount(gridSettings?.size, mobile);
   });
 
   const displayPhotos = useMemo(() => {
@@ -171,10 +175,10 @@ export function MasonryGrid({
       if (width > 0) setGridContainerWidth(width);
     };
 
-    updateWidth(el.getBoundingClientRect().width);
+    updateWidth(el.offsetWidth);
 
     const ro = new ResizeObserver((entries) => {
-      const width = entries[0]?.contentRect?.width ?? 0;
+      const width = entries[0]?.contentRect?.width ?? el.offsetWidth;
       updateWidth(width);
     });
     ro.observe(el);
@@ -322,6 +326,7 @@ export function MasonryGrid({
     if (customColumnCount != null) {
       return {
         '--desktop-columns': customColumnCount,
+        '--mobile-columns': customColumnCount,
         columnGap: `${gap}px`,
       };
     }
@@ -331,6 +336,8 @@ export function MasonryGrid({
           : size === 'small' ? 240
             : 200;
     return {
+      '--desktop-columns': getThumbnailSizeColumnCount(size, false),
+      '--mobile-columns': getThumbnailSizeColumnCount(size, true),
       columnWidth: `${w}px`,
       columnGap: `${gap}px`,
     };
@@ -374,13 +381,18 @@ export function MasonryGrid({
       return;
     }
     const updateCols = () => {
-      setColsCount(getGalleryMasonryColumnCount(window.innerWidth));
+      const mobile = Boolean(isPreviewMobile || isMobileViewport);
+      setColsCount(
+        mobile
+          ? getThumbnailSizeColumnCount(gridSettings?.size, true)
+          : getGalleryMasonryColumnCount(window.innerWidth, gridSettings?.size)
+      );
     };
-    
+
     updateCols();
     window.addEventListener('resize', updateCols);
     return () => window.removeEventListener('resize', updateCols);
-  }, [customColumnCount]);
+  }, [customColumnCount, gridSettings?.size, isPreviewMobile, isMobileViewport]);
 
   // columns built below for masonry distribution
 

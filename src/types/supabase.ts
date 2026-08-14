@@ -1660,7 +1660,7 @@ export type Database = {
         | "refunded"
       plan_tier: "free" | "basic" | "plus" | "pro" | "ultimate"
       privacy_mode: "public" | "password" | "client_exclusive"
-      thumbnail_size: "regular" | "large"
+      thumbnail_size: "regular" | "large" | "small"
       watermark_position:
         | "center"
         | "top_left"

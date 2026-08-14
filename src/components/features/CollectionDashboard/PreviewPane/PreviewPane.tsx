@@ -8,24 +8,31 @@ import './PreviewPane.css';
 function PreviewFrame({
   className,
   isMobile,
+  fontFamily,
   children,
 }: {
   className?: string;
   isMobile: boolean;
+  fontFamily?: string;
   children: React.ReactNode;
 }) {
+  if (isMobile) {
+    return (
+      <div className={cn('cd-design-frame', className)}>
+        <div className="cd-design-frame__mobile-scaler">
+          <div className={cn('cd-design-preview-pane', 'mobile', fontFamily && `font-${fontFamily}`)}>
+            <div className="cd-preview-workspace cd-preview-workspace--dual">
+              <div className="cd-preview-canvas">{children}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={cn('cd-design-frame', className)}>
-      <div
-        className="cd-design-frame__canvas"
-        style={isMobile ? { fontSize: '10px' } : undefined}
-      >
-        {isMobile ? (
-          <div className="cd-design-preview-pane mobile">{children}</div>
-        ) : (
-          children
-        )}
-      </div>
+      <div className="cd-design-frame__canvas">{children}</div>
     </div>
   );
 }
@@ -68,16 +75,22 @@ export const PreviewPane: React.FC<PreviewPaneProps> = ({
 
         <div className="cd-design-dual-preview">
           <div className="cd-design-dual-preview__frames">
-            <PreviewFrame className="cd-design-frame--desktop" isMobile={false}>
-              <GalleryPreview {...galleryProps} isPreviewMobile={false} />
-            </PreviewFrame>
-            <PreviewFrame className="cd-design-frame--mobile" isMobile>
-              <GalleryPreview {...galleryProps} isPreviewMobile />
-            </PreviewFrame>
+            <div className="cd-design-dual-preview__scale">
+              <PreviewFrame className="cd-design-frame--desktop" isMobile={false}>
+                <GalleryPreview {...galleryProps} isPreviewMobile={false} />
+              </PreviewFrame>
+              <PreviewFrame
+                className="cd-design-frame--mobile"
+                isMobile
+                fontFamily={settings.fontFamily}
+              >
+                <GalleryPreview {...galleryProps} isPreviewMobile />
+              </PreviewFrame>
+            </div>
           </div>
           <p className="cd-design-dual-preview__note">
-            Both frames are the shape a real screen is — 16:10 and 9:19.6 — so the cover is shown at
-            the proportion your client will actually see.
+            Both frames show the same delivery — desktop at 16:10, mobile scaled to fit beside it at
+            true 375px layout.
           </p>
         </div>
       </div>

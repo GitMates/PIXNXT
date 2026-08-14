@@ -462,40 +462,16 @@
 
 /* Masonry Grid Rules */
 .masonry-grid-vertical {
-  column-count: var(--desktop-columns, auto);
+  column-count: var(--desktop-columns, 6);
 }
 
 .masonry-grid-vertical.preview-mobile {
-  column-count: 2 !important;
-}
-
-@media (min-width: 1601px) {
-  .masonry-grid-vertical {
-    column-count: min(var(--desktop-columns, 4), 4) !important;
-  }
-}
-
-@media (max-width: 1600px) {
-  .masonry-grid-vertical {
-    column-count: min(var(--desktop-columns, 3), 3) !important;
-  }
-}
-
-@media (max-width: 1024px) {
-  .masonry-grid-vertical {
-    column-count: min(var(--desktop-columns, 3), 3) !important;
-  }
+  column-count: var(--mobile-columns, 3) !important;
 }
 
 @media (max-width: 768px) {
   .masonry-grid-vertical {
-    column-count: 2 !important;
-  }
-}
-
-@media (max-width: 480px) {
-  .masonry-grid-vertical {
-    column-count: 1 !important;
+    column-count: var(--mobile-columns, 3) !important;
   }
 }
 
@@ -521,7 +497,7 @@
 
 /* Real phones â€” align public gallery with collection preview mobile */
 .gallery-view-page[data-gallery-viewport='mobile'] .masonry-grid-vertical.preview-mobile {
-  column-count: 2 !important;
+  column-count: var(--mobile-columns, 3) !important;
 }
 
 .gallery-view-page[data-gallery-viewport='mobile'] .gallery-sticky-nav--gallery-view .gallery-chrome__nav-inner--mobile {

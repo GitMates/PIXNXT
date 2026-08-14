@@ -501,18 +501,31 @@
 }
 
 .cd-preview-gallery-body.grid-style-vertical.grid-size-x-small .gallery-preview-grid {
-    column-count: 6;
+    column-count: 8;
 }
 
 .cd-preview-gallery-body.grid-style-vertical.grid-size-small .gallery-preview-grid {
-    column-count: 4;
+    column-count: 8;
 }
 
 .cd-preview-gallery-body.grid-style-vertical.grid-size-regular .gallery-preview-grid {
-    column-count: 3;
+    column-count: 6;
 }
 
 .cd-preview-gallery-body.grid-style-vertical.grid-size-large .gallery-preview-grid {
+    column-count: 4;
+}
+
+.cd-preview-gallery-body--mobile-frame.grid-style-vertical.grid-size-x-small .gallery-preview-grid,
+.cd-preview-gallery-body--mobile-frame.grid-style-vertical.grid-size-small .gallery-preview-grid {
+    column-count: 4;
+}
+
+.cd-preview-gallery-body--mobile-frame.grid-style-vertical.grid-size-regular .gallery-preview-grid {
+    column-count: 3;
+}
+
+.cd-preview-gallery-body--mobile-frame.grid-style-vertical.grid-size-large .gallery-preview-grid {
     column-count: 2;
 }
 
