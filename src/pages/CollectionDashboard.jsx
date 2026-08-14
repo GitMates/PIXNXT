@@ -8,14 +8,15 @@ import {
     filterPhotosByPerson,
     filterPhotosByIds,
 } from '../lib/photoAiSearch';
-import { CollectionPhotoAiToolbar } from '../components/features/CollectionDashboard/Photos/CollectionPhotoAiToolbar';
-import '../components/features/CollectionDashboard/Photos/CollectionPhotoAiToolbar.css';
+import { CollectionPhotosWorkspaceHeader } from '../components/features/CollectionDashboard/Photos/CollectionPhotosWorkspaceHeader';
+import '../components/features/CollectionDashboard/Photos/CollectionPhotosWorkspaceHeader.css';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase/client';
 import { DesignTab } from '../components/features/CollectionDashboard/DesignTab';
 import { PreviewPane } from '../components/features/CollectionDashboard/PreviewPane';
 import { ChangeCoverModal } from '../components/features/CollectionDashboard/CoverSettings/ChangeCoverModal';
-import { SidebarCoverUpload } from '../components/features/CollectionDashboard/CoverSettings/SidebarCoverUpload';
+import { CollectionDashboardSidebar } from '../components/features/CollectionDashboard/Sidebar/CollectionDashboardSidebar';
+import { DeliveryFilmsView } from '../components/features/CollectionDashboard/Films/DeliveryFilmsView';
 import { downloadPhotoFromR2 } from '../lib/downloadPhoto';
 import {
   resolvePhotosForDownloadActivity,
@@ -76,7 +77,6 @@ import {
 } from '../lib/focalPoint';
 import { CollectionGridPhoto } from '../components/features/CollectionDashboard/Media/CollectionGridPhoto';
 import CollectionPhotoSortableGrid from '../components/features/CollectionDashboard/Media/CollectionPhotoSortableGrid';
-import { DashboardMediaFilter } from '../components/features/CollectionDashboard/Media/DashboardMediaFilter';
 import { RawPhotoPlaceholder } from '../components/features/CollectionDashboard/Media/RawPhotoPlaceholder';
 import {
     getPhotoFullDisplayUrl,
@@ -84,7 +84,7 @@ import {
     hasRawDisplayPreview,
     isRawMedia,
 } from '../lib/photoDisplayUrl';
-import { formatCoverDate, formatCollectionHeaderDate } from '../lib/formatCoverDate.js';
+import { formatCoverDate, formatSidebarDeliveryDate, formatLastSavedTime } from '../lib/formatCoverDate.js';
 import {
     countGalleryMedia,
     filterGalleryMediaByType,
@@ -202,6 +202,7 @@ const CollectionDashboard = () => {
     const [selectedPhotos, setSelectedPhotos] = useState([]);
 
     const [showPeoplePanel, setShowPeoplePanel] = useState(false);
+    const [photoSearchQuery, setPhotoSearchQuery] = useState('');
     const [activePersonId, setActivePersonId] = useState(null);
     const [photoAiRows, setPhotoAiRows] = useState([]);
     const [photoAiPeople, setPhotoAiPeople] = useState([]);
@@ -309,6 +310,7 @@ const CollectionDashboard = () => {
         const setItems = sets.map((s) => ({
             ...s,
             isHighlights: false,
+            isPrivate: s.is_private === true,
             photoCount: photos.filter((p) => p.set_id === s.id).length,
         }));
         const highlightsItem = highlightsEnabled
@@ -2310,18 +2312,20 @@ const CollectionDashboard = () => {
     }, [activeActivityMenu, favoriteDetailPhotoMenuPhotoId, favoriteActivitySortMenuOpen, showSelectionMore, showSelectAllMenu, showMoveToSetMenu]);
 
     // ─── SORT LOGIC ──────────────────────────────────────────
+    const isFilmsView = activeSidebarTab === 'films';
+
     const sortedPhotos = useMemo(() => {
-        // Filter by active set
         let filtered = photos;
-        if (activeSetId) {
+        if (isFilmsView) {
+            filtered = photos;
+        } else if (activeSetId) {
             filtered = photos.filter(p => p.set_id === activeSetId);
         } else {
-            // Highlights: Only photos not assigned to any set
             filtered = photos.filter(p => !p.set_id);
         }
 
         return sortDashboardPhotos(filtered, sortOption);
-    }, [photos, activeSetId, sortOption]);
+    }, [photos, activeSetId, sortOption, isFilmsView]);
 
     const photoAiMetadataMap = useMemo(
         () => photoAiService.metadataToMap(photoAiRows),
@@ -2343,6 +2347,22 @@ const CollectionDashboard = () => {
         return result;
     }, [sortedPhotos, photoAiMetadataMap, activePerson, selfieMatchPhotoIds]);
 
+    const totalMediaCounts = useMemo(() => countGalleryMedia(photos), [photos]);
+
+    const sidebarActivityCount = useMemo(
+        () =>
+            (activityCounts.contacts || 0) +
+            (activityCounts.downloaded || 0) +
+            (activityCounts.favorited || 0) +
+            (activityCounts.registered || 0) +
+            (activityCounts.purchased || 0),
+        [activityCounts]
+    );
+
+    useEffect(() => {
+        if (isFilmsView) setMediaFilter('videos');
+    }, [isFilmsView]);
+
     const activeSetMediaCounts = useMemo(
         () => countGalleryMedia(sortedPhotos),
         [sortedPhotos]
@@ -2351,14 +2371,18 @@ const CollectionDashboard = () => {
     const showMediaFilter = shouldShowGalleryMediaFilter(activeSetMediaCounts);
 
     useEffect(() => {
+        if (isFilmsView) return;
         if (activeSetMediaCounts.photos > 0) setMediaFilter('photos');
         else if (activeSetMediaCounts.videos > 0) setMediaFilter('videos');
-    }, [activeSetId, activeSetMediaCounts.photos, activeSetMediaCounts.videos]);
+    }, [activeSetId, activeSetMediaCounts.photos, activeSetMediaCounts.videos, isFilmsView]);
 
     const mediaFilteredPhotos = useMemo(() => {
+        if (isFilmsView) {
+            return filterGalleryMediaByType(aiFilteredPhotos, 'videos');
+        }
         if (!showMediaFilter) return aiFilteredPhotos;
         return filterGalleryMediaByType(aiFilteredPhotos, mediaFilter);
-    }, [aiFilteredPhotos, showMediaFilter, mediaFilter]);
+    }, [aiFilteredPhotos, showMediaFilter, mediaFilter, isFilmsView]);
 
     const isPhotoAiFilterActive = Boolean(
         activePersonId || selfieMatchPhotoIds.length
@@ -2494,7 +2518,7 @@ const CollectionDashboard = () => {
         try {
             await photoAiService.syncCollection(collectionId);
             await refreshPhotoAiMetadata();
-            if (showPeoplePanel) {
+            if (showPeoplePanel || activeSidebarTab === 'photos') {
                 await loadPhotoAiPeople({ silent: true });
             }
         } catch (err) {
@@ -2508,20 +2532,19 @@ const CollectionDashboard = () => {
         photoAiTableMissing,
         indexablePhotoCount,
         showPeoplePanel,
+        activeSidebarTab,
         refreshPhotoAiMetadata,
         loadPhotoAiPeople,
     ]);
 
-    const prevShowPeoplePanelRef = useRef(false);
+    useEffect(() => {
+        setPhotoSearchQuery('');
+    }, [activeSetId]);
 
     useEffect(() => {
-        const justOpened = showPeoplePanel && !prevShowPeoplePanelRef.current;
-        prevShowPeoplePanelRef.current = showPeoplePanel;
-
-        if (!showPeoplePanel || photoAiTableMissing || photoAiRows.length === 0) return;
-
-        void loadPhotoAiPeople({ silent: !justOpened });
-    }, [showPeoplePanel, photoAiTableMissing, photoAiRows.length, loadPhotoAiPeople]);
+        if (activeSidebarTab !== 'photos' || photoAiTableMissing || photoAiRows.length === 0) return;
+        void loadPhotoAiPeople({ silent: true });
+    }, [activeSidebarTab, photoAiTableMissing, photoAiRows.length, loadPhotoAiPeople]);
 
     useEffect(() => {
         if (!collectionId || indexablePhotoCount === 0 || photoAiTableMissing) return;
@@ -2619,9 +2642,17 @@ const CollectionDashboard = () => {
         }
     }, [highlightsEnabled, activeSetId, sets]);
 
+    const searchFilteredPhotos = useMemo(() => {
+        const query = photoSearchQuery.trim().toLowerCase();
+        if (!query) return mediaFilteredPhotos;
+        return mediaFilteredPhotos.filter((photo) =>
+            (photo.filename || '').toLowerCase().includes(query)
+        );
+    }, [mediaFilteredPhotos, photoSearchQuery]);
+
     const gridPhotos = useMemo(() => {
         const viewSetId = highlightsEnabled ? activeSetId : (activeSetId ?? sets[0]?.id ?? null);
-        const completedNames = new Set(mediaFilteredPhotos.map((p) => p.filename));
+        const completedNames = new Set(searchFilteredPhotos.map((p) => p.filename));
         const pending = uploadState.files
             .filter(
                 (f) =>
@@ -2643,8 +2674,35 @@ const CollectionDashboard = () => {
         const filteredPending = showMediaFilter
             ? filterGalleryMediaByType(pending, mediaFilter)
             : pending;
-        return [...mediaFilteredPhotos, ...filteredPending];
-    }, [mediaFilteredPhotos, uploadState.files, collectionId, highlightsEnabled, activeSetId, sets, showMediaFilter, mediaFilter]);
+        return [...searchFilteredPhotos, ...filteredPending];
+    }, [searchFilteredPhotos, uploadState.files, collectionId, highlightsEnabled, activeSetId, sets, showMediaFilter, mediaFilter]);
+
+    const deliveryFilms = useMemo(() => {
+        const videos = filterGalleryMediaByType(photos, 'videos');
+        return sortDashboardPhotos(videos, sortOption);
+    }, [photos, sortOption]);
+
+    const videoDownloadEnabled = photoDownloadSizes.includes('video');
+
+    const handlePreviewAsClient = useCallback(() => {
+        const params = new URLSearchParams({
+            coverStyle: selectedCoverStyle,
+            font: selectedFont,
+            color: selectedColorPalette,
+            grid: gridSettings.style,
+            slideshow: slideshow ? '1' : '0',
+            socialSharing: socialSharing ? '1' : '0',
+        });
+        openSpaPath(`/gallery/${collectionUrl}?${params.toString()}`);
+    }, [
+        selectedCoverStyle,
+        selectedFont,
+        selectedColorPalette,
+        gridSettings.style,
+        slideshow,
+        socialSharing,
+        collectionUrl,
+    ]);
 
     useEffect(() => {
         if (!pendingUploadScrollRef.current || activeSidebarTab !== 'photos') return;
@@ -2658,24 +2716,23 @@ const CollectionDashboard = () => {
         ? photos.filter(p => p.set_id === activeSetId).length
         : photos.filter(p => !p.set_id).length;
 
-    const activeSetDisplayCount = useMemo(() => {
-        if (isPhotoAiFilterActive) {
-            const typeTotal = showMediaFilter
-                ? activeSetMediaCounts[mediaFilter === 'photos' ? 'photos' : 'videos']
-                : activeSetPhotoCount;
-            return `${mediaFilteredPhotos.length} of ${typeTotal}`;
+    const activeSetCountLabel = useMemo(() => {
+        const typeCount = showMediaFilter
+            ? activeSetMediaCounts[mediaFilter === 'photos' ? 'photos' : 'videos']
+            : activeSetPhotoCount;
+        const noun = showMediaFilter && mediaFilter === 'videos' ? 'videos' : 'photos';
+        if (isPhotoAiFilterActive || photoSearchQuery.trim()) {
+            return `${gridPhotos.filter((p) => !p._uploadPending).length.toLocaleString()} of ${Number(typeCount).toLocaleString()} ${noun}`;
         }
-        if (showMediaFilter) {
-            return activeSetMediaCounts[mediaFilter === 'photos' ? 'photos' : 'videos'];
-        }
-        return activeSetPhotoCount;
+        return `${Number(typeCount).toLocaleString()} ${noun}`;
     }, [
-        isPhotoAiFilterActive,
         showMediaFilter,
         mediaFilter,
-        mediaFilteredPhotos.length,
         activeSetMediaCounts,
         activeSetPhotoCount,
+        isPhotoAiFilterActive,
+        photoSearchQuery,
+        gridPhotos,
     ]);
 
     const coverModalPhotos = useMemo(() => {
@@ -3409,8 +3466,11 @@ const CollectionDashboard = () => {
     // Derived values
     const collectionName = collection?.name || 'Loading...';
     const collectionDate = collection?.event_date
-        ? formatCollectionHeaderDate(collection.event_date)
-        : '...';
+        ? formatSidebarDeliveryDate(collection.event_date)
+        : collection?.created_at
+            ? formatSidebarDeliveryDate(collection.created_at)
+            : '...';
+    const lastSavedTime = formatLastSavedTime(collection?.updated_at || collection?.created_at);
     const coverDisplayDate = collection?.event_date
         ? formatCoverDate(collection.event_date)
         : collection?.created_at
@@ -3590,29 +3650,40 @@ const CollectionDashboard = () => {
     return (
         <div className={`cd-layout-container theme-mono cd-dashboard-shell ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
 
-            {/* Top Navigation Bar ALWAYS Top */}
-            <header className="cd-topbar">
-                <div className="cd-topbar-left">
-                    <button className="cd-back-btn" onClick={() => navigate('/client-gallery')} title="Back to Deliveries">
+            <div className="cd-shell-header">
+                <div className="cd-shell-brand">
+                    <button
+                        type="button"
+                        className="cd-shell-brand__back"
+                        onClick={() => navigate('/client-gallery')}
+                        title="Back to Deliveries"
+                    >
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
                     </button>
-                    <div className="cd-title-area">
-                        <h1 className="cd-title">{collectionName}</h1>
-                        <span className="cd-subtitle">{collectionDate}</span>
+                    <div className="cd-shell-brand__text">
+                        <h1 className="cd-shell-brand__title">{collectionName}</h1>
+                        <p className="cd-shell-brand__date">{collectionDate}</p>
                     </div>
+                </div>
+
+                <header className="cd-topbar cd-topbar--shell">
+                <div className="cd-topbar-left">
                     <div
-                        className={`cd-status-badge ${status === 'PUBLISHED' ? 'published' : ''}`}
+                        className={`cd-status-badge ${status === 'PUBLISHED' ? 'cd-status-badge--published published' : ''}`}
                         onClick={toggleStatus}
                     >
-                        {status}
+                        {status === 'PUBLISHED' ? 'Published' : status}
                     </div>
+                    {lastSavedTime ? (
+                        <span className="cd-topbar-save">All changes saved · {lastSavedTime}</span>
+                    ) : null}
                 </div>
 
                 <div className="cd-topbar-right">
                     <div className="cd-more-wrapper" ref={moreRef}>
                         <button
                             type="button"
-                            className="cd-text-btn"
+                            className="cd-topbar-btn"
                             aria-expanded={showMoreDropdown}
                             aria-haspopup="menu"
                             onClick={() => {
@@ -3688,18 +3759,8 @@ const CollectionDashboard = () => {
                         </button>
                     )}
                     <button
-                        className="cd-text-btn"
-                        onClick={() => {
-                            const params = new URLSearchParams({
-                                coverStyle: selectedCoverStyle,
-                                font: selectedFont,
-                                color: selectedColorPalette,
-                                grid: gridSettings.style,
-                                slideshow: slideshow ? '1' : '0',
-                                socialSharing: socialSharing ? '1' : '0',
-                            });
-                            openSpaPath(`/gallery/${collectionUrl}?${params.toString()}`);
-                        }}
+                        className="cd-topbar-btn"
+                        onClick={handlePreviewAsClient}
                     >
                         Preview
                     </button>
@@ -3757,6 +3818,19 @@ const CollectionDashboard = () => {
                             </div>
                         )}
                     </div>
+                    {collection?.guest_delivery_enabled && gdEvent && (gdGuestCount || gdEvent?.guest_count) > 0 ? (
+                        <button
+                            type="button"
+                            className="cd-topbar-btn cd-topbar-btn--primary"
+                            onClick={() => {
+                                setShowShareDropdown(false);
+                                setShowMoreDropdown(false);
+                                setActiveSidebarTab('guests');
+                            }}
+                        >
+                            Send to {(gdGuestCount || gdEvent?.guest_count || 0).toLocaleString()} guests
+                        </button>
+                    ) : null}
                     {collection?.guest_delivery_enabled && gdEvent && (
                         <button
                             className="cd-text-btn cd-gd-publish-btn"
@@ -3768,384 +3842,107 @@ const CollectionDashboard = () => {
                     )}
                 </div>
             </header>
+            </div>
 
             <div className="cd-layout-body">
-                {/* Left Sidebar */}
-                <aside className="cd-sidebar">
-                    <div className="cd-sidebar-scrollable">
-
-                        <SidebarCoverUpload
-                            coverUrl={collection?.cover_url}
-                            isUpdating={isCoverUploading}
-                            onPhotoDrop={handleCoverPhotoDropById}
-                            onSelectFromCollection={() => openCoverModal('all')}
-                            onCoverFileSelect={(file) => void handleCoverFileSelect(file)}
-                        />
-
-                        <div className="cd-icon-bar">
-                            <button
-                                className={`cd-icon-bar-btn ${activeSidebarTab === 'photos' ? 'active' : ''}`}
-                                title="Photos"
-                                onClick={() => setActiveSidebarTab('photos')}
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                <CollectionDashboardSidebar
+                    coverUrl={collection?.cover_url}
+                    isCoverUploading={isCoverUploading}
+                    onCoverPhotoDrop={handleCoverPhotoDropById}
+                    onSelectCoverFromCollection={() => openCoverModal('all')}
+                    onCoverFileSelect={(file) => void handleCoverFileSelect(file)}
+                    isCollapsed={isSidebarCollapsed}
+                    onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                    activeSidebarTab={activeSidebarTab}
+                    onSidebarTabChange={setActiveSidebarTab}
+                    sortedSidebarSets={sortedSidebarSets}
+                    activeSetId={activeSetId}
+                    onSetSelect={setActiveSetId}
+                    onAddSet={() => setShowAddSetModal(true)}
+                    draggedSetIndex={draggedSetIndex}
+                    dragOverSetIndex={dragOverSetIndex}
+                    onSetDragStart={handleSetDragStart}
+                    onSetDragOver={handleSetDragOver}
+                    onSetDragEnd={handleSetDragEnd}
+                    onSetDrop={handleSetDrop}
+                    showSetMenu={showSetMenu}
+                    onSetMenuToggle={(setId) => setShowSetMenu(showSetMenu === setId ? null : setId)}
+                    renderSetMenu={(set) => (
+                        <div className="cd-set-dropdown" role="menu">
+                            <button type="button" className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); openCoverModal(set.id); }}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                                <span>Change cover</span>
                             </button>
-                            <button
-                                className={`cd-icon-bar-btn ${activeSidebarTab === 'design' ? 'active' : ''}`}
-                                title="Design"
-                                onClick={() => setActiveSidebarTab('design')}
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"></path><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path><path d="M2 2l7.586 7.586"></path><circle cx="11" cy="11" r="2"></circle></svg>
+                            <button type="button" className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); set.isHighlights ? openEditSetModal({ id: 'highlights', name: highlightsName, description: collection?.description || '' }) : openEditSetModal(set); }}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                                <span>Edit set</span>
                             </button>
-                            <button
-                                className={`cd-icon-bar-btn ${activeSidebarTab === 'settings' ? 'active' : ''}`}
-                                title="Settings"
-                                onClick={() => setActiveSidebarTab('settings')}
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                            <button type="button" className="cd-ctx-item cd-ctx-delete" role="menuitem" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); handleDeleteSet(set.id); }}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                <span>Delete set</span>
                             </button>
-                            <button
-                                className={`cd-icon-bar-btn ${activeSidebarTab === 'activity' ? 'active' : ''}`}
-                                title="Activity"
-                                onClick={() => setActiveSidebarTab('activity')}
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 11a9 9 0 0 1 9 9"></path><path d="M4 4a16 16 0 0 1 16 16"></path><circle cx="5" cy="19" r="1"></circle></svg>
-                            </button>
-                            {collection?.guest_delivery_enabled && (
-                                <button
-                                    className={`cd-icon-bar-btn ${activeSidebarTab === 'guests' ? 'active' : ''}`}
-                                    title="Guests"
-                                    onClick={() => setActiveSidebarTab('guests')}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                                </button>
-                            )}
                         </div>
-
-                        {activeSidebarTab === 'photos' && (
-                            <div className="cd-sidebar-photos-section">
-                                <div className="cd-sidebar-photos-header">
-                                    <span className="cd-photos-label">PHOTOS</span>
-                                    <button className="cd-add-set-btn" onClick={() => setShowAddSetModal(true)}>
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
-                                        Add Set
-                                    </button>
-                                </div>
-                                {/* Unified Reorderable Sets List (Highlights & Custom Sets) */}
-                                {sortedSidebarSets.map((set, index) => {
-                                    const isActive = set.isHighlights ? !activeSetId : activeSetId === set.id;
-                                    return (
-                                        <div
-                                            key={set.id}
-                                            className={`cd-set-item ${isActive ? 'active' : ''} ${draggedSetIndex === index ? 'is-dragging' : ''} ${dragOverSetIndex === index && draggedSetIndex !== index ? 'drag-over' : ''}`}
-                                            onClick={() => setActiveSetId(set.isHighlights ? null : set.id)}
-                                            draggable={true}
-                                            onDragStart={(e) => handleSetDragStart(e, index)}
-                                            onDragOver={(e) => handleSetDragOver(e, index)}
-                                            onDragEnd={handleSetDragEnd}
-                                            onDrop={(e) => handleSetDrop(e, index)}
-                                        >
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="cd-drag-handle"><line x1="4" y1="9" x2="20" y2="9"></line><line x1="4" y1="15" x2="20" y2="15"></line></svg>
-                                            <span className="cd-set-name">{set.name} ({set.photoCount})</span>
-                                            <div className="cd-set-actions">
-                                                <div className="cd-set-more-container">
-                                                    <div className="cd-set-menu-wrapper">
-                                                        <button className="cd-set-menu-btn" onClick={(e) => { e.stopPropagation(); setShowSetMenu(showSetMenu === set.id ? null : set.id); }}>
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
-                                                        </button>
-                                                        {showSetMenu === set.id && (
-                                                            <div className="cd-set-dropdown" role="menu">
-                                                                <button type="button" className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); openCoverModal(set.id); }}>
-                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                                                                    <span>Change cover</span>
-                                                                </button>
-                                                                <button type="button" className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); set.isHighlights ? openEditSetModal({ id: 'highlights', name: highlightsName, description: collection?.description || '' }) : openEditSetModal(set); }}>
-                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
-                                                                    <span>Edit set</span>
-                                                                </button>
-                                                                <button type="button" className="cd-ctx-item cd-ctx-delete" role="menuitem" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); handleDeleteSet(set.id); }}>
-                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                                                                    <span>Delete set</span>
-                                                                </button>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-
-                        {activeSidebarTab === 'design' && (
-                            <div className="cd-sidebar-design-section">
-                                <div className="cd-sidebar-design-header">
-                                    <span className="cd-photos-label">DESIGN</span>
-                                </div>
-                                <div
-                                    className={`cd-design-nav-item ${activeDesignTab === 'cover' ? 'active' : ''}`}
-                                    onClick={() => setActiveDesignTab('cover')}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
-                                    <span>Cover</span>
-                                </div>
-                                <div
-                                    className={`cd-design-nav-item ${activeDesignTab === 'typography' ? 'active' : ''}`}
-                                    onClick={() => setActiveDesignTab('typography')}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 7 4 4 20 4 20 7" /><line x1="9" y1="20" x2="15" y2="20" /><line x1="12" y1="4" x2="12" y2="20" /></svg>
-                                    <span>Typography</span>
-                                </div>
-                                <div
-                                    className={`cd-design-nav-item ${activeDesignTab === 'color' ? 'active' : ''}`}
-                                    onClick={() => setActiveDesignTab('color')}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="m19 11-8-8-8.6 8.6a2 2 0 0 0 0 2.8l5.2 5.2c.8.8 2 .8 2.8 0L19 11Z" /><path d="m5 2 5 5" /><path d="M2 22c5-5 5-5 10-5h9" /><path d="M22 22c-5-5-5-5-10-5" /></svg>
-                                    <span>Color</span>
-                                </div>
-                                <div
-                                    className={`cd-design-nav-item ${activeDesignTab === 'grid' ? 'active' : ''}`}
-                                    onClick={() => setActiveDesignTab('grid')}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-                                    <span>Grid</span>
-                                </div>
-                            </div>
-                        )}
-
-                        {activeSidebarTab === 'settings' && (
-                            <div className="cd-sidebar-settings-section">
-                                <div className="cd-sidebar-settings-header">
-                                    <span className="cd-photos-label">SETTINGS</span>
-                                </div>
-                                <div
-                                    className={`cd-design-nav-item ${activeSettingsTab === 'general' ? 'active' : ''}`}
-                                    onClick={() => setActiveSettingsTab('general')}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
-                                    <span>General</span>
-                                </div>
-                                <div
-                                    className={`cd-design-nav-item ${activeSettingsTab === 'privacy' ? 'active' : ''}`}
-                                    onClick={() => setActiveSettingsTab('privacy')}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-                                    <span>Privacy</span>
-                                </div>
-                                <div
-                                    className={`cd-design-nav-item ${activeSettingsTab === 'download' ? 'active' : ''}`}
-                                    onClick={() => setActiveSettingsTab('download')}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                                    <span>Download</span>
-                                    <span className={`tab-badge${photoDownload ? '' : ' off'}`}>
-                                        {photoDownload ? 'ON' : 'OFF'}
-                                    </span>
-                                </div>
-                                <div
-                                    className={`cd-design-nav-item ${activeSettingsTab === 'favorite' ? 'active' : ''}`}
-                                    onClick={() => setActiveSettingsTab('favorite')}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
-                                    <span>Favorite</span>
-                                    <span className={`tab-badge${favoritePhotos ? '' : ' off'}`}>
-                                        {favoritePhotos ? 'ON' : 'OFF'}
-                                    </span>
-                                </div>
-                                <div
-                                    className={`cd-design-nav-item ${activeSettingsTab === 'shop' ? 'active' : ''}`}
-                                    onClick={() => setActiveSettingsTab('shop')}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" /><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" /></svg>
-                                    <span>Print Lab</span>
-                                    <span className={`tab-badge${storeEnabled ? '' : ' off'}`}>
-                                        {storeEnabled ? 'ON' : 'OFF'}
-                                    </span>
-                                </div>
-
-                            </div>
-                        )}
-
-                        {activeSidebarTab === 'activity' && (
-                            <div className="cd-sidebar-activity-section">
-                                <div className="cd-sidebar-activity-header">
-                                    <span className="cd-photos-label">ACTIVITIES</span>
-                                </div>
-                                <div
-                                    className={`cd-design-nav-item ${activeActivitySubTab === 'download' ? 'active' : ''}`}
-                                    onClick={() => setActiveActivitySubTab('download')}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                                    <span>Download Activity</span>
-                                </div>
-                                <div
-                                    className={`cd-design-nav-item ${activeActivitySubTab === 'favorite' ? 'active' : ''}`}
-                                    onClick={() => setActiveActivitySubTab('favorite')}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
-                                    <span>Favorite Activity</span>
-                                </div>
-
-                                <div
-                                    className={`cd-design-nav-item ${activeActivitySubTab === 'store' ? 'active' : ''}`}
-                                    onClick={() => setActiveActivitySubTab('store')}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" /><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" /></svg>
-                                    <span>Store Orders</span>
-                                </div>
-
-                                <div
-                                    className={`cd-design-nav-item ${activeActivitySubTab === 'email' ? 'active' : ''}`}
-                                    onClick={() => setActiveActivitySubTab('email')}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
-                                    <span>Email Registration</span>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Bottom Collapse Toggle */}
-                    <div className="cd-sidebar-bottom-action">
-                        <button
-                            className="cd-collapse-toggle"
-                            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                            title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-                        >
-                            {isSidebarCollapsed ? (
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="13 17 18 12 13 7"></polyline><polyline points="6 17 11 12 6 7"></polyline></svg>
-                            ) : (
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="11 17 6 12 11 7"></polyline><polyline points="18 17 13 12 18 7"></polyline></svg>
-                            )}
-                        </button>
-                    </div>
-                </aside>
+                    )}
+                    activeDesignTab={activeDesignTab}
+                    onDesignTabChange={setActiveDesignTab}
+                    activeSettingsTab={activeSettingsTab}
+                    onSettingsTabChange={setActiveSettingsTab}
+                    activeActivitySubTab={activeActivitySubTab}
+                    onActivitySubTabChange={setActiveActivitySubTab}
+                    photoCount={totalMediaCounts.photos}
+                    filmCount={totalMediaCounts.videos}
+                    guestCount={gdGuestCount || gdEvent?.guest_count || 0}
+                    activityCount={sidebarActivityCount}
+                    guestDeliveryEnabled={collection?.guest_delivery_enabled}
+                    photoDownload={photoDownload}
+                    favoritePhotos={favoritePhotos}
+                    storeEnabled={storeEnabled}
+                />
 
                 {/* Main Content Wrapper */}
                 <div className="cd-main-wrapper">
                     <main className="cd-main-area">
                         {activeSidebarTab === 'photos' && (
                             <>
-                                <div className="cd-main-header">
-                                    <div className="cd-main-header-left">
-                                        <h2 className="cd-main-title">{activeSetName} ({activeSetDisplayCount})</h2>
-                                        {showMediaFilter && (
-                                            <DashboardMediaFilter
-                                                value={mediaFilter}
-                                                onChange={setMediaFilter}
-                                                photoCount={activeSetMediaCounts.photos}
-                                                videoCount={activeSetMediaCounts.videos}
-                                            />
-                                        )}
-                                    </div>
-                                    <div className={`cd-main-actions${showPeoplePanel ? ' cd-main-actions--ai-panel-open' : ''}`}>
-                                        <CollectionPhotoAiToolbar
-                                            showPeople={showPeoplePanel}
-                                            onTogglePeople={() => {
-                                                setShowPeoplePanel((v) => !v);
-                                                setShowSortMenu(false);
-                                                setShowGridSettings(false);
-                                            }}
-                                            people={photoAiPeople}
-                                            activePersonId={activePersonId}
-                                            onSelectPerson={(id) => {
-                                                setActivePersonId((current) => (current === id ? null : id));
-                                                setSelfieMatchPhotoIds([]);
-                                                setSelfieMessage('');
-                                                setSelfiePreview('');
-                                            }}
-                                            onClearPerson={() => {
-                                                setActivePersonId(null);
-                                                handleClearSelfie();
-                                            }}
-                                            loadingPeople={photoAiLoadingPeople}
-                                            selfiePreview={selfiePreview}
-                                            selfieSearching={selfieSearching}
-                                            selfieMessage={selfieMessage}
-                                            onSelfieSearch={handleSelfieSearch}
-                                            onClearSelfie={handleClearSelfie}
-                                            onTogglePersonHidden={handleTogglePersonHidden}
-                                            onClosePanels={() => {
-                                                setShowPeoplePanel(false);
-                                            }}
-                                            analyzing={photoAiIndexing}
-                                            indexedCount={photoAiRows.length}
-                                            tableMissing={photoAiTableMissing}
-                                        />
-                                        <div className={`cd-sort-wrapper${showSortMenu ? ' cd-sort-wrapper--open' : ''}`} ref={sortRef}>
-                                            <button type="button" className="cd-icon-btn sort-btn" onClick={() => { setShowGridSettings(false); setShowSortMenu(!showSortMenu); }}>
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="16" y2="12"></line><line x1="8" y1="18" x2="12" y2="18"></line><line x1="3" y1="6" x2="3" y2="18"></line><polyline points="1 15 3 18 5 15"></polyline></svg>
-                                            </button>
-                                            {showSortMenu && (
-                                                <div className="cd-sort-dropdown">
-                                                    <div className="cd-sort-label">Sort by</div>
-                                                    <div className={`cd-sort-option ${sortOption === 'upload-new-old' ? 'selected' : ''}`} onClick={() => { setSortOption('upload-new-old'); setShowSortMenu(false); }}>Uploaded: New → Old</div>
-                                                    <div className={`cd-sort-option ${sortOption === 'upload-old-new' ? 'selected' : ''}`} onClick={() => { setSortOption('upload-old-new'); setShowSortMenu(false); }}>Uploaded: Old → New</div>
-                                                    <div className={`cd-sort-option ${sortOption === 'taken-new-old' ? 'selected' : ''}`} onClick={() => { setSortOption('taken-new-old'); setShowSortMenu(false); }}>Date Taken: New → Old</div>
-                                                    <div className={`cd-sort-option ${sortOption === 'taken-old-new' ? 'selected' : ''}`} onClick={() => { setSortOption('taken-old-new'); setShowSortMenu(false); }}>Date Taken: Old → New</div>
-                                                    <div className={`cd-sort-option ${sortOption === 'name-az' ? 'selected' : ''}`} onClick={() => { setSortOption('name-az'); setShowSortMenu(false); }}>Name: A-Z</div>
-                                                    <div className={`cd-sort-option ${sortOption === 'name-za' ? 'selected' : ''}`} onClick={() => { setSortOption('name-za'); setShowSortMenu(false); }}>Name: Z-A</div>
-                                                    <div className={`cd-sort-option ${sortOption === 'random' ? 'selected' : ''}`} onClick={() => { setSortOption('random'); setShowSortMenu(false); }}>Random</div>
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div className={`cd-grid-settings-wrapper${showGridSettings ? ' cd-grid-settings-wrapper--open' : ''}`} ref={gridSettingsRef}>
-                                            <button type="button" className="cd-icon-btn active grid-btn" onClick={() => { setShowSortMenu(false); setShowGridSettings(!showGridSettings); }}>
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-                                            </button>
-                                            {showGridSettings && (
-                                                <div className="cd-grid-dropdown" role="menu">
-                                                    <div className="cd-grid-section-label">Grid Size</div>
-                                                    <div
-                                                        className={`cd-grid-option ${gridSize === 'small' ? 'selected' : ''}`}
-                                                        role="menuitemradio"
-                                                        aria-checked={gridSize === 'small'}
-                                                        onClick={() => setGridSize('small')}
-                                                    >
-                                                        <span>Small</span>
-                                                        {gridSize === 'small' && (
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                                                        )}
-                                                    </div>
-                                                    <div
-                                                        className={`cd-grid-option ${gridSize === 'large' ? 'selected' : ''}`}
-                                                        role="menuitemradio"
-                                                        aria-checked={gridSize === 'large'}
-                                                        onClick={() => setGridSize('large')}
-                                                    >
-                                                        <span>Large</span>
-                                                        {gridSize === 'large' && (
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        <div className="cd-toolbar-toggle-row">
-                                            <span>Filename</span>
-                                            <label className="cd-toggle" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={showFilename}
-                                                    onChange={() => {
-                                                        const nextValue = !showFilename;
-                                                        setShowFilename(nextValue);
-                                                        localStorage.setItem('filename_display', nextValue ? 'show' : 'hide');
-                                                    }}
-                                                />
-                                                <span className="cd-toggle-slider"></span>
-                                            </label>
-                                        </div>
-
-                                        <div className="cd-main-actions-divider"></div>
-                                        <button className="cd-add-media-btn" onClick={() => setShowUploadModal(true)}>
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
-                                            Add Media
-                                        </button>
-                                    </div>
-                                </div>
+                                <CollectionPhotosWorkspaceHeader
+                                    setName={activeSetName}
+                                    countLabel={activeSetCountLabel}
+                                    showMediaFilter={showMediaFilter}
+                                    mediaFilter={mediaFilter}
+                                    onMediaFilterChange={setMediaFilter}
+                                    photoCount={activeSetMediaCounts.photos}
+                                    videoCount={activeSetMediaCounts.videos}
+                                    searchQuery={photoSearchQuery}
+                                    onSearchQueryChange={setPhotoSearchQuery}
+                                    sortOption={sortOption}
+                                    onSortOptionChange={setSortOption}
+                                    gridSize={gridSize}
+                                    onGridSizeChange={setGridSize}
+                                    showFilename={showFilename}
+                                    onShowFilenameChange={(nextValue) => {
+                                        setShowFilename(nextValue);
+                                        localStorage.setItem('filename_display', nextValue ? 'show' : 'hide');
+                                    }}
+                                    onAddMedia={() => setShowUploadModal(true)}
+                                    people={photoAiPeople}
+                                    activePersonId={activePersonId}
+                                    onSelectPerson={(id) => {
+                                        setActivePersonId((current) => (current === id ? null : id));
+                                        setSelfieMatchPhotoIds([]);
+                                        setSelfieMessage('');
+                                        setSelfiePreview('');
+                                    }}
+                                    onClearPerson={() => {
+                                        setActivePersonId(null);
+                                        handleClearSelfie();
+                                    }}
+                                    loadingPeople={photoAiLoadingPeople}
+                                    analyzing={photoAiIndexing}
+                                    indexedCount={photoAiRows.length}
+                                    onSelfieSearch={handleSelfieSearch}
+                                    onClearSelfie={handleClearSelfie}
+                                    onTogglePersonHidden={handleTogglePersonHidden}
+                                />
 
                                 {gridPhotos.length > 0 ? (
                                     <CollectionPhotoSortableGrid
@@ -4219,7 +4016,11 @@ const CollectionDashboard = () => {
                                     />
                                 ) : sortedPhotos.length > 0 ? (
                                     <p className="cd-media-filter-empty">
-                                        {showMediaFilter ? `No ${mediaFilter} in this set` : 'No matching photos'}
+                                        {photoSearchQuery.trim()
+                                            ? 'No photos match your search'
+                                            : showMediaFilter
+                                                ? `No ${mediaFilter} in this set`
+                                                : 'No matching photos'}
                                     </p>
                                 ) : (
                                     <div
@@ -4269,6 +4070,18 @@ const CollectionDashboard = () => {
                                     </div>
                                 )}
                             </>
+                        )}
+
+                        {activeSidebarTab === 'films' && (
+                            <DeliveryFilmsView
+                                films={deliveryFilms}
+                                videoDownloadEnabled={videoDownloadEnabled}
+                                onAddFilm={() => setShowUploadModal(true)}
+                                onPreviewAsClient={handlePreviewAsClient}
+                                onFilmMenu={(film, anchorEl) => {
+                                    openPhotoMenuFor(film.id, anchorEl, false, 0);
+                                }}
+                            />
                         )}
 
                         {/* --- DESIGN VIEW --- */}

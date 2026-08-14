@@ -28,6 +28,7 @@
 
 .theme-mono.cd-dashboard-shell .cd-topbar,
 .theme-mono.cd-dashboard-shell .cd-sidebar,
+.theme-mono.cd-dashboard-shell .cdsb,
 .theme-mono.cd-dashboard-shell .cd-icon-bar,
 .theme-mono.cd-dashboard-shell .cd-design-settings-pane {
   border-color: var(--cd-border) !important;
@@ -64,6 +65,21 @@
 }
 
 /* Status badge */
+.theme-mono.cd-dashboard-shell .cd-topbar-left {
+  justify-content: flex-start;
+}
+
+.theme-mono.cd-dashboard-shell .cdsb-header__title {
+  font-family: var(--font-display);
+  font-weight: 500;
+}
+
+.theme-mono.cd-dashboard-shell .cdsb-nav-item--active::before,
+.theme-mono.cd-dashboard-shell .cdsb-tree__row--active::after,
+.theme-mono.cd-dashboard-shell .cdsb-storage__bar-fill {
+  background: #c46a3a;
+}
+
 .theme-mono.cd-dashboard-shell .cd-status-badge {
   background-color: var(--cd-hover) !important;
   color: var(--cd-foreground) !important;

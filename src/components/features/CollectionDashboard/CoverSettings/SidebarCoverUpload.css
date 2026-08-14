@@ -1,4 +1,4 @@
-﻿.cd-cover-file-input {
+.cd-cover-file-input {
   position: absolute;
   width: 0;
   height: 0;
@@ -177,6 +177,50 @@
 .cd-sidebar-cover-action-btn:disabled {
   cursor: wait;
   opacity: 0.6;
+}
+
+.cd-sidebar-cover-caption {
+  position: absolute;
+  inset: auto 0 0 0;
+  z-index: 16;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.55) 100%);
+  pointer-events: none;
+}
+
+.cd-sidebar-cover-caption__label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.cd-sidebar-cover-caption__change {
+  pointer-events: auto;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.96);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a1a1a;
+  cursor: pointer;
+  line-height: 1.2;
+}
+
+.cd-sidebar-cover-caption__change:hover {
+  background: #fff;
+}
+
+.cd-sidebar-cover-caption__change:disabled {
+  cursor: wait;
+  opacity: 0.7;
 }
 
 .cd-cover-hover-overlay {
