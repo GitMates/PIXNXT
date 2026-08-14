@@ -14,6 +14,7 @@ import {
   ViewGalleryButton,
   BrandDisplay,
 } from './coverLayoutHelpers';
+import { CoverScrollHint } from './CoverScrollHint';
 
 export const CenterCover: React.FC<CoverProps> = ({
   title,
@@ -54,20 +55,31 @@ export const CenterCover: React.FC<CoverProps> = ({
         </div>
       </div>
 
-      {/* Centered Brand Name at the Bottom */}
-      {coverLogoUrl || brand ? (
-        <div className="absolute bottom-0 left-0 right-0 z-10 pb-6 text-center">
-          <BrandDisplay
-            brand={brand}
-            coverLogoUrl={coverLogoUrl}
-            textClassName={cn(
-              'cover-center-layout__brand gallery-heading uppercase tracking-[0.45em] text-white/90 font-medium',
-              s.subtitle
-            )}
+      {/* Brand above scroll at the bottom */}
+      <div className="cover-center-layout__footer absolute inset-x-0 bottom-0 z-10 flex flex-col items-center text-center">
+        {coverLogoUrl || brand ? (
+          <div className="cover-center-layout__brand-wrap">
+            <BrandDisplay
+              brand={brand}
+              coverLogoUrl={coverLogoUrl}
+              textClassName={cn(
+                'cover-center-layout__brand gallery-heading uppercase tracking-[0.45em] text-white/90 font-medium',
+                s.subtitle
+              )}
+              isPreview={isPreview}
+            />
+          </div>
+        ) : null}
+        {onViewGallery ? (
+          <CoverScrollHint
+            coverStyle="center"
+            onClick={onViewGallery}
             isPreview={isPreview}
+            isGalleryView={isGalleryView}
+            embedded
           />
-        </div>
-      ) : null}
+        ) : null}
+      </div>
     </div>
   );
 };
@@ -316,19 +328,8 @@ export const FrameCover: React.FC<CoverProps> = ({
 
       {/* Centered layout stacked from top to bottom inside the frame */}
       <div className={cn('cover-frame-layout__content absolute z-10 flex flex-col text-center text-white justify-between', frameInset)}>
-        {coverLogoUrl || brand ? (
-          <div className={cn('cover-frame-layout__brand shrink-0 text-white/95', topPad)}>
-            <BrandDisplay
-              brand={brand}
-              coverLogoUrl={coverLogoUrl}
-              textClassName={cn('gallery-heading uppercase tracking-[0.4em] font-medium', s.subtitle)}
-              isPreview={isPreview}
-            />
-          </div>
-        ) : (
-          <div className={topPad} aria-hidden />
-        )}
-        
+        <div className={topPad} aria-hidden />
+
         <div className="cover-frame-layout__center flex min-h-0 flex-1 flex-col items-center justify-center px-4 my-auto">
           <h1 className={cn('cover-frame-layout__title gallery-heading uppercase leading-none font-bold text-white', s.title)}>
             {title}
@@ -339,9 +340,30 @@ export const FrameCover: React.FC<CoverProps> = ({
             </p>
           ) : null}
         </div>
-        
-        <div className={cn('cover-frame-layout__cta flex shrink-0 justify-center', bottomPad)}>
-          <ViewGalleryButton onClick={onViewGallery} isPreview={isPreview} isGalleryView={isGalleryView} variant="ghost" />
+
+        <div className={cn('cover-frame-layout__footer flex shrink-0 flex-col items-center', bottomPad)}>
+          <div className="cover-frame-layout__cta flex justify-center">
+            <ViewGalleryButton onClick={onViewGallery} isPreview={isPreview} isGalleryView={isGalleryView} variant="ghost" />
+          </div>
+          {coverLogoUrl || brand ? (
+            <div className="cover-frame-layout__brand text-white/95">
+              <BrandDisplay
+                brand={brand}
+                coverLogoUrl={coverLogoUrl}
+                textClassName={cn('gallery-heading uppercase tracking-[0.4em] font-medium', s.subtitle)}
+                isPreview={isPreview}
+              />
+            </div>
+          ) : null}
+          {onViewGallery ? (
+            <CoverScrollHint
+              coverStyle="frame"
+              onClick={onViewGallery}
+              isPreview={isPreview}
+              isGalleryView={isGalleryView}
+              embedded
+            />
+          ) : null}
         </div>
       </div>
     </div>
@@ -505,24 +527,22 @@ export const JournalCover: React.FC<CoverProps> = ({
       </div>
 
       <div className="cover-journal-layout__panel flex w-1/2 min-w-0 h-full flex-col">
-        {coverLogoUrl || brand ? (
-          <div className="self-start">
-            <BrandDisplay
-              brand={brand}
-              coverLogoUrl={coverLogoUrl}
-              textClassName={cn('cover-journal-layout__brand cover-text-grid__subtitle uppercase font-normal', s.subtitle)}
-              isPreview={isPreview}
-              className="justify-start"
-            />
-          </div>
-        ) : (
-          <div className="mb-auto" aria-hidden="true" />
-        )}
         <div className="cover-journal-layout__copy mt-auto">
           {date ? (
             <p className={cn('cover-journal-layout__date cover-text-grid__date gallery-body-text uppercase', s.date)}>
               {date}
             </p>
+          ) : null}
+          {coverLogoUrl || brand ? (
+            <div className="cover-journal-layout__brand">
+              <BrandDisplay
+                brand={brand}
+                coverLogoUrl={coverLogoUrl}
+                textClassName={cn('cover-journal-layout__brand cover-text-grid__subtitle uppercase font-normal', s.subtitle)}
+                isPreview={isPreview}
+                className="justify-start"
+              />
+            </div>
           ) : null}
           <h1
             className={cn(
@@ -536,6 +556,15 @@ export const JournalCover: React.FC<CoverProps> = ({
             <ViewGalleryButton onClick={onViewGallery} isPreview={isPreview} isGalleryView={isGalleryView} variant="dark" />
           </div>
         </div>
+        {onViewGallery ? (
+          <CoverScrollHint
+            coverStyle="journal"
+            onClick={onViewGallery}
+            isPreview={isPreview}
+            isGalleryView={isGalleryView}
+            embedded
+          />
+        ) : null}
       </div>
     </div>
   );
@@ -648,9 +677,20 @@ export const OutlineCover: React.FC<CoverProps> = ({
           </h1>
         </div>
 
-        {/* CTA Button at bottom of box */}
-        <div className="shrink-0 flex justify-center mt-2">
-          <ViewGalleryButton onClick={onViewGallery} isPreview={isPreview} isGalleryView={isGalleryView} variant="ghost" />
+        {/* CTA + scroll above the outline border */}
+        <div className="cover-outline-layout__footer shrink-0 flex flex-col items-center mt-2">
+          <div className="cover-outline-layout__cta flex justify-center">
+            <ViewGalleryButton onClick={onViewGallery} isPreview={isPreview} isGalleryView={isGalleryView} variant="ghost" />
+          </div>
+          {onViewGallery ? (
+            <CoverScrollHint
+              coverStyle="outline"
+              onClick={onViewGallery}
+              isPreview={isPreview}
+              isGalleryView={isGalleryView}
+              embedded
+            />
+          ) : null}
         </div>
       </div>
     </div>

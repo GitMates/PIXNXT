@@ -407,6 +407,8 @@ function QuietProofFeed({
     photoRevision = 0,
     businessName,
     clientViewer = false,
+    photoPins = [],
+    imageReplacements = [],
     onNavigateToPin,
     onNavigateToSlotKey,
     onNavigateToSwapMark,
@@ -632,6 +634,11 @@ function QuietProofFeed({
                             authorName={businessName || 'Photographer'}
                             hasCovers={Boolean(album?.has_covers)}
                             isLatestOnSpread={Boolean(item.isLatestOnSpread)}
+                            photoPins={photoPins}
+                            imageReplacements={imageReplacements}
+                            spreadOpts={spreadOpts}
+                            album={album}
+                            totalPages={totalPages}
                         />
                     );
                 }
@@ -822,6 +829,8 @@ export default function AlbumPreviewSpreadFeed({
     photoRevision = 0,
     businessName = '',
     spreadOpts = {},
+    photoPins = [],
+    imageReplacements = [],
     editingPinId = null,
     editingPinMessage = '',
     onEditPinStart,
@@ -841,10 +850,16 @@ export default function AlbumPreviewSpreadFeed({
     seenTick = 0,
 }) {
     void seenTick;
-    void spreadOpts;
     void onRemoveReplacement;
     void onNewVersion;
     void onRestoreReplacement;
+    const resolvedSpreadOpts = useMemo(
+        () =>
+            spreadOpts && Object.keys(spreadOpts).length
+                ? spreadOpts
+                : getSpreadContext(album, totalPages),
+        [spreadOpts, album, totalPages]
+    );
     if (!feed.length) return null;
 
     if (proofMode) {
@@ -857,6 +872,8 @@ export default function AlbumPreviewSpreadFeed({
                 photoRevision={photoRevision}
                 businessName={businessName}
                 clientViewer={clientViewer}
+                photoPins={photoPins}
+                imageReplacements={imageReplacements}
                 onNavigateToPin={onNavigateToPin}
                 onNavigateToSlotKey={onNavigateToSlotKey}
                 onNavigateToSwapMark={onNavigateToSwapMark}
@@ -1076,6 +1093,11 @@ export default function AlbumPreviewSpreadFeed({
                                     authorName={businessName || 'Photographer'}
                                     hasCovers={Boolean(album?.has_covers)}
                                     isLatestOnSpread={Boolean(item.isLatestOnSpread)}
+                                    photoPins={photoPins}
+                                    imageReplacements={imageReplacements}
+                                    spreadOpts={resolvedSpreadOpts}
+                                    album={album}
+                                    totalPages={totalPages}
                                 />
                             </div>
                         </React.Fragment>

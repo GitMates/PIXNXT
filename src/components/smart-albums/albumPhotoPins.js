@@ -16,9 +16,15 @@ import {
 /** In-memory cache hydrated from Supabase (shared client + photographer). */
 const pinsByAlbum = Object.create(null);
 const seenByAlbum = Object.create(null);
+const peekedPinIdsByAlbum = Object.create(null);
+const peekedPinAlbumById = Object.create(null);
+const peekPinTimersById = Object.create(null);
 
 export const PHOTO_PINS_CHANGED_EVENT = 'pixnxt-album-photo-pins-changed';
 export const PHOTO_PINS_SEEN_CHANGED_EVENT = 'pixnxt-album-photo-pins-seen-changed';
+export const PHOTO_PINS_PEEK_CHANGED_EVENT = 'pixnxt-album-photo-pins-peek-changed';
+
+const DEFAULT_PIN_PEEK_MS = 5000;
 
 export function makePinSlotKey(pageNum, cellId = 0) {
     return `${pageNum}:${cellId}`;
@@ -195,6 +201,53 @@ export function notifyPhotoPinsSeenChanged(albumId) {
     }
 }
 
+function notifyPhotoPinsPeekChanged(albumId) {
+    try {
+        window.dispatchEvent(
+            new CustomEvent(PHOTO_PINS_PEEK_CHANGED_EVENT, { detail: { albumId } })
+        );
+    } catch {
+        /* ignore */
+    }
+}
+
+export function isPhotoPinPeeked(albumId, pinId) {
+    if (!albumId || !pinId) return false;
+    return Boolean(peekedPinIdsByAlbum[albumId]?.has(pinId));
+}
+
+export function clearPhotoPinPeek(albumId, pinId) {
+    if (!pinId) return;
+    if (peekPinTimersById[pinId]) {
+        clearTimeout(peekPinTimersById[pinId]);
+        delete peekPinTimersById[pinId];
+    }
+    const resolvedAlbumId = albumId || peekedPinAlbumById[pinId];
+    if (!resolvedAlbumId) return;
+    peekedPinIdsByAlbum[resolvedAlbumId]?.delete(pinId);
+    delete peekedPinAlbumById[pinId];
+    notifyPhotoPinsPeekChanged(resolvedAlbumId);
+}
+
+/** Briefly show a done pin on the spread (e.g. when opened from the sidebar). */
+export function peekPhotoPinForSpread(albumId, pinId, { durationMs = DEFAULT_PIN_PEEK_MS } = {}) {
+    if (!albumId || !pinId) return;
+    clearPhotoPinPeek(albumId, pinId);
+    if (!peekedPinIdsByAlbum[albumId]) peekedPinIdsByAlbum[albumId] = new Set();
+    peekedPinIdsByAlbum[albumId].add(pinId);
+    peekedPinAlbumById[pinId] = albumId;
+    notifyPhotoPinsPeekChanged(albumId);
+    peekPinTimersById[pinId] = setTimeout(() => {
+        clearPhotoPinPeek(albumId, pinId);
+    }, durationMs);
+}
+
+export function peekPhotoPinIfDone(albumId, pin) {
+    if (!albumId || !pin?.id) return;
+    if (isPhotoPinUnseen(albumId, pin)) return;
+    peekPhotoPinForSpread(albumId, pin.id);
+}
+
 export function isPhotoPinUnseen(albumId, pin) {
     if (!albumId || !pin?.id) return false;
     const seenAt = seenByAlbum[albumId]?.[pin.id];
@@ -206,6 +259,14 @@ export function isPhotoPinUnseen(albumId, pin) {
 
 export function countUnseenPhotoPins(albumId, pins) {
     return (pins || []).filter((pin) => isPhotoPinUnseen(albumId, pin)).length;
+}
+
+/** Photo pins that should still show markers on the spread canvas. */
+export function filterSpreadVisiblePhotoPins(albumId, pins) {
+    if (!albumId) return pins || [];
+    return (pins || []).filter(
+        (pin) => isPhotoPinUnseen(albumId, pin) || isPhotoPinPeeked(albumId, pin.id)
+    );
 }
 
 export function markPhotoPinsSeen(
@@ -237,6 +298,29 @@ export function markPhotoPinsSeen(
         }));
         await upsertFeedbackSeenRows(rows);
     })();
+}
+
+/** Map a cell-local pin onto a single whole-spread image (0–100 across both pages). */
+export function mapPhotoPinToWholeSpreadImage(pin, spreadLeft, rightPage) {
+    if (!pin) return { xPct: 50, yPct: 50 };
+    const pinCell = pin.cellId ?? 0;
+    const onRight = pin.pageNum === rightPage && pinCell === 2;
+    const onLeft = pin.pageNum === spreadLeft && pinCell === 1;
+    const xPct = Number(pin.xPct);
+    const yPct = Number(pin.yPct);
+    if (onRight) {
+        return { xPct: 50 + xPct / 2, yPct };
+    }
+    if (onLeft) {
+        return { xPct: xPct / 2, yPct };
+    }
+    if (pin.pageNum === rightPage) {
+        return { xPct: 50 + xPct / 2, yPct };
+    }
+    if (pin.pageNum === spreadLeft) {
+        return { xPct: xPct / 2, yPct };
+    }
+    return { xPct, yPct };
 }
 
 export function getPhotoPins(albumId) {

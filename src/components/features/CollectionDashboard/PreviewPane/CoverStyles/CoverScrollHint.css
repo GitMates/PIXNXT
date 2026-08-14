@@ -1,0 +1,354 @@
+.cover-scroll-hint {
+  position: absolute;
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  transform: translateX(-50%);
+  transition: opacity 0.2s ease;
+}
+
+.cover-scroll-hint:hover {
+  opacity: 0.82;
+}
+
+/* Embedded inside cover layout stacks */
+.cover-scroll-hint--embedded {
+  position: relative;
+  left: auto;
+  bottom: auto;
+  transform: none;
+  flex-shrink: 0;
+}
+
+.cover-scroll-hint--embedded-center {
+  margin-top: 0.35rem;
+  padding-bottom: 0.35rem;
+}
+
+.cover-scroll-hint--embedded-center.cover-scroll-hint--gallery-view {
+  margin-top: clamp(0.45rem, 1vh, 0.75rem);
+  padding-bottom: clamp(0.5rem, 1.2vh, 0.85rem);
+}
+
+.cover-center-layout__footer {
+  padding-bottom: 0.25rem;
+}
+
+.cover-center-layout__brand-wrap {
+  margin-bottom: 0.35rem;
+}
+
+.cover-center-layout__brand-wrap + .cover-scroll-hint--embedded-center {
+  margin-top: 0;
+}
+
+.cover-scroll-hint--embedded-frame,
+.cover-scroll-hint--embedded-outline {
+  margin-top: 0.3rem;
+}
+
+.cover-scroll-hint--embedded-frame.cover-scroll-hint--gallery-view,
+.cover-scroll-hint--embedded-outline.cover-scroll-hint--gallery-view {
+  margin-top: clamp(0.35rem, 0.9vh, 0.55rem);
+}
+
+.cover-frame-layout__footer {
+  gap: 0.35rem;
+}
+
+.cover-frame-layout__brand {
+  margin-top: 0.15rem;
+}
+
+.cover-frame-layout__cta + .cover-frame-layout__brand {
+  margin-top: 0.35rem;
+}
+
+.cover-outline-layout__footer {
+  gap: 0.25rem;
+}
+
+.cover-scroll-hint--embedded-journal {
+  align-self: center;
+  margin-top: 0.5rem;
+}
+
+.cover-scroll-hint--embedded-journal.cover-scroll-hint--gallery-view {
+  margin-top: clamp(0.65rem, 1.5vh, 1rem);
+}
+
+.cover-journal-layout__panel {
+  padding-bottom: 0.35rem;
+}
+
+.cover-journal-layout__copy {
+  margin-bottom: 0;
+}
+
+.cover-journal-layout__date {
+  margin-bottom: 0.35rem;
+}
+
+.cover-journal-layout__brand {
+  margin-bottom: 0.5rem;
+}
+
+.cover-journal-layout__title {
+  margin-bottom: 0;
+}
+
+.cover-journal-layout__cta {
+  margin-top: 0.65rem;
+}
+
+.cover-scroll-hint--embedded.cover-scroll-hint--preview {
+  gap: 0.25rem;
+}
+
+.cover-scroll-hint--embedded.cover-scroll-hint--preview .cover-scroll-hint__track {
+  height: 1.15rem;
+}
+
+.cover-scroll-hint--embedded.cover-scroll-hint--gallery-view .cover-scroll-hint__track {
+  height: clamp(1.5rem, 3.5vh, 2.25rem);
+}
+
+.gallery-view-hero .cover-center-layout__footer {
+  padding-bottom: clamp(0.85rem, 2vh, 1.35rem);
+}
+
+.gallery-view-hero .cover-center-layout__brand-wrap {
+  margin-bottom: clamp(0.55rem, 1.2vh, 0.9rem);
+}
+
+.gallery-view-hero .cover-frame-layout__footer {
+  gap: clamp(0.35rem, 0.9vh, 0.55rem);
+}
+
+.gallery-view-hero .cover-outline-layout__footer {
+  gap: clamp(0.3rem, 0.8vh, 0.5rem);
+}
+
+/* --- Placement per cover layout (hero overlay) --- */
+
+/* Full-bleed photo covers: left, frame, stripe, outline */
+.cover-scroll-hint--placement-photo-bottom {
+  left: 50%;
+  bottom: clamp(0.85rem, 2.2vh, 1.35rem);
+}
+
+/* Center cover: sit above bottom brand label */
+.cover-scroll-hint--placement-center {
+  left: 50%;
+  bottom: clamp(3.25rem, 8vh, 5.5rem);
+}
+
+/* Split layouts: text panel on the left (novel 48%, divider 50%) */
+.cover-scroll-hint--placement-left-panel {
+  left: 24%;
+  bottom: clamp(0.85rem, 2.2vh, 1.35rem);
+}
+
+.cover-scroll-hint--placement-left-panel.cover-scroll-hint--placement-divider {
+  left: 25%;
+}
+
+/* Split layout: text panel on the right (journal 50%) */
+.cover-scroll-hint--placement-right-panel {
+  left: 75%;
+  bottom: clamp(0.85rem, 2.2vh, 1.35rem);
+}
+
+/* Stacked / panel covers: vintage photo + panel, stamp centered stack */
+.cover-scroll-hint--placement-panel-bottom {
+  left: 50%;
+  bottom: clamp(0.75rem, 2vh, 1.25rem);
+}
+
+/* --- Visual styling --- */
+
+.cover-scroll-hint__track {
+  position: relative;
+  width: 1px;
+  height: 2.35rem;
+  overflow: hidden;
+}
+
+.cover-scroll-hint__line {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 100%;
+  transform: translateY(0);
+  animation: cover-scroll-line-bounce 2s ease-in-out infinite;
+}
+
+.cover-scroll-hint--light .cover-scroll-hint__line {
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0) 100%);
+}
+
+.cover-scroll-hint--dark .cover-scroll-hint__line {
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--gallery-text, #111) 88%, transparent) 0%,
+    transparent 100%
+  );
+}
+
+.cover-scroll-hint__label {
+  font-family: inherit;
+  font-size: 0.52rem;
+  font-weight: 500;
+  letter-spacing: 0.38em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.cover-scroll-hint--light .cover-scroll-hint__label {
+  color: rgba(255, 255, 255, 0.88);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.45);
+}
+
+.cover-scroll-hint--dark .cover-scroll-hint__label {
+  color: color-mix(in srgb, var(--gallery-text, #111) 72%, transparent);
+}
+
+/* --- Dashboard preview sizing --- */
+
+.cover-scroll-hint--preview {
+  gap: 0.3rem;
+}
+
+.cover-scroll-hint--preview.cover-scroll-hint--placement-photo-bottom,
+.cover-scroll-hint--preview.cover-scroll-hint--placement-left-panel,
+.cover-scroll-hint--preview.cover-scroll-hint--placement-right-panel,
+.cover-scroll-hint--preview.cover-scroll-hint--placement-panel-bottom {
+  bottom: 0.55rem;
+}
+
+.cover-scroll-hint--preview.cover-scroll-hint--placement-center {
+  bottom: 2rem;
+}
+
+.cover-scroll-hint--preview .cover-scroll-hint__track {
+  height: 1.35rem;
+}
+
+.cover-scroll-hint--preview .cover-scroll-hint__label {
+  font-size: 0.38rem;
+  letter-spacing: 0.32em;
+}
+
+.cover-scroll-hint--preview .cover-scroll-hint__line {
+  animation-name: cover-scroll-line-bounce-compact;
+}
+
+/* --- Public gallery sizing --- */
+
+.cover-scroll-hint--gallery-view {
+  gap: clamp(0.35rem, 1vh, 0.55rem);
+}
+
+.cover-scroll-hint--gallery-view .cover-scroll-hint__track {
+  height: clamp(1.75rem, 4.5vh, 2.75rem);
+}
+
+.cover-scroll-hint--gallery-view .cover-scroll-hint__label {
+  font-size: clamp(0.45rem, 0.9vw, 0.58rem);
+  letter-spacing: 0.4em;
+}
+
+/* --- Per-cover fine tuning (public gallery) --- */
+
+.gallery-view-page.style-left .cover-scroll-hint {
+  bottom: clamp(1rem, 2.8vh, 1.5rem);
+}
+
+.gallery-view-page.style-stripe .cover-scroll-hint {
+  bottom: clamp(1rem, 2.5vh, 1.45rem);
+}
+
+.gallery-view-page.style-novel .cover-scroll-hint {
+  left: 24%;
+}
+
+.gallery-view-page.style-divider .cover-scroll-hint {
+  left: 25%;
+}
+
+.gallery-view-page.style-vintage .cover-scroll-hint {
+  bottom: clamp(1rem, 2.5vh, 1.5rem);
+}
+
+.gallery-view-page.style-stamp .cover-scroll-hint {
+  bottom: clamp(1.25rem, 3vh, 2rem);
+}
+
+/* --- Per-cover fine tuning (dashboard preview) --- */
+
+.cd-preview-gallery-card.style-novel .cover-scroll-hint {
+  left: 24%;
+}
+
+.cd-preview-gallery-card.style-divider .cover-scroll-hint {
+  left: 25%;
+}
+
+.cd-preview-gallery-card.style-left .cover-scroll-hint {
+  bottom: 0.55rem;
+}
+
+/* --- Stacked mobile layouts --- */
+
+@media (max-width: 768px) {
+  .gallery-view-page.style-novel .cover-scroll-hint,
+  .gallery-view-page.style-divider .cover-scroll-hint {
+    left: 50%;
+  }
+
+  .gallery-view-page.style-novel .cover-scroll-hint {
+    bottom: clamp(1.25rem, 3vh, 2rem);
+  }
+}
+
+.cd-design-preview-pane.mobile .cd-preview-gallery-card.style-novel .cover-scroll-hint,
+.cd-design-preview-pane.mobile .cd-preview-gallery-card.style-divider .cover-scroll-hint {
+  left: 50%;
+}
+
+.cd-design-preview-pane.mobile .cd-preview-gallery-card.style-novel .cover-scroll-hint {
+  bottom: 0.75rem;
+}
+
+@keyframes cover-scroll-line-bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+
+  50% {
+    transform: translateY(0.85rem);
+    opacity: 0.35;
+  }
+}
+
+@keyframes cover-scroll-line-bounce-compact {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+
+  50% {
+    transform: translateY(0.45rem);
+    opacity: 0.35;
+  }
+}

@@ -331,6 +331,83 @@ export function getReplacementCurrentVersion(replacement) {
     return getReplacementVersion(replacement) + 1;
 }
 
+/** Active time range for a spread version (v1 = before first upload). */
+export function getSpreadVersionTimeWindow(replacements, spreadIndex, version) {
+    const uploads = sortSpreadReplacements(
+        filterUploadReplacements(
+            (replacements || []).filter((row) => (row.spreadIndex ?? 0) === spreadIndex)
+        )
+    );
+    const v = Number(version);
+    const currentVersion = uploads.length + 1;
+    if (!Number.isFinite(v) || v < 1 || v > currentVersion) {
+        return { activeFrom: null, activeUntil: null, currentVersion };
+    }
+    return {
+        activeFrom: v > 1 ? uploads[v - 2]?.createdAt || null : null,
+        activeUntil: v < currentVersion ? uploads[v - 1]?.createdAt || null : null,
+        currentVersion,
+    };
+}
+
+export function isFeedbackActiveDuringVersion(createdAt, { activeFrom, activeUntil }) {
+    if (!createdAt) return false;
+    const t = new Date(createdAt).getTime();
+    if (!Number.isFinite(t)) return false;
+    if (activeFrom && t < new Date(activeFrom).getTime()) return false;
+    if (activeUntil && t >= new Date(activeUntil).getTime()) return false;
+    return true;
+}
+
+/** Photo pins that belonged to a spread while that version was current. */
+export function getPhotoPinsForSpreadVersion(
+    pins,
+    replacements,
+    spreadIndex,
+    version,
+    spreadOpts = {}
+) {
+    const window = getSpreadVersionTimeWindow(replacements, spreadIndex, version);
+    return (pins || []).filter((pin) => {
+        if (pageToSpreadIndex(pin.pageNum, spreadOpts) !== spreadIndex) return false;
+        if (!pin.createdAt) return Number(version) === window.currentVersion;
+        return isFeedbackActiveDuringVersion(pin.createdAt, window);
+    });
+}
+
+/** Current version number for a spread (v1 when no uploads yet). */
+export function getSpreadCurrentVersionNumber(replacements, spreadIndex) {
+    const uploads = sortSpreadReplacements(
+        filterUploadReplacements(
+            (replacements || []).filter((row) => (row.spreadIndex ?? 0) === spreadIndex)
+        )
+    );
+    return uploads.length + 1;
+}
+
+/** Photo pins that belong to the spread's current version only. */
+export function getPhotoPinsForCurrentSpreadVersion(
+    pins,
+    replacements,
+    spreadIndex,
+    spreadOpts = {}
+) {
+    return getPhotoPinsForSpreadVersion(
+        pins,
+        replacements,
+        spreadIndex,
+        getSpreadCurrentVersionNumber(replacements, spreadIndex),
+        spreadOpts
+    );
+}
+
+export function parseVersionTag(tag) {
+    if (!tag) return null;
+    const match = String(tag).match(/v(\d+)/i);
+    const n = Number(match?.[1]);
+    return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 export function formatImageReplacementLabel(replacement) {
     return `Version ${getReplacementVersion(replacement)}`;
 }

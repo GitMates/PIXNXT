@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion as Motion } from 'framer-motion';
 import * as Covers from '../../components/features/CollectionDashboard/PreviewPane/CoverStyles';
+import { CoverScrollHint, coverUsesEmbeddedScroll } from '../../components/features/CollectionDashboard/PreviewPane/CoverStyles/CoverScrollHint';
 import { supabase } from '../../lib/supabase/client';
 
 import { MasonryGrid } from '../../components/features/Gallery/MasonryGrid/MasonryGrid';
@@ -1905,7 +1906,7 @@ const GalleryView = () => {
 
       {/* Hero Section */}
       <div
-        className="gallery-view-hero w-full h-[100dvh] [&>div]:!h-full"
+        className="gallery-view-hero relative w-full h-[100dvh] [&>div]:!h-full"
         data-cover-text-scale={isMobileViewport ? 'compact' : 'large'}
       >
         {(() => {
@@ -1948,6 +1949,13 @@ const GalleryView = () => {
             default: return <Covers.NovelCover {...props} />;
           }
         })()}
+        {effectiveSettings.cover_style !== 'classic' && !coverUsesEmbeddedScroll(effectiveSettings.cover_style) ? (
+          <CoverScrollHint
+            coverStyle={effectiveSettings.cover_style}
+            onClick={scrollToGallery}
+            isGalleryView
+          />
+        ) : null}
       </div>
 
       {/* Sticky Header */}

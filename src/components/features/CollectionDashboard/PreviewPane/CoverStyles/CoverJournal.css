@@ -1,4 +1,4 @@
-﻿/* Pixieset-style Journal cover â€” image left, text right */
+/* Pixieset-style Journal cover â€” image left, text right */
 .cover-journal-layout {
   --journal-media-bg: #f5f5f5;
   --journal-panel-bg: #ffffff;
@@ -102,13 +102,13 @@
 .gallery-view-hero .cover-journal-layout__panel {
   flex: 0 0 50%;
   width: 50%;
-  padding: clamp(1.5rem, 3vh, 2.5rem) clamp(1.5rem, 4vw, 3rem) clamp(1.75rem, 3.5vh, 2.75rem)
+  padding: clamp(1.5rem, 3vh, 2.5rem) clamp(1.5rem, 4vw, 3rem) clamp(1rem, 2vh, 1.5rem)
     clamp(1.5rem, 4vw, 3rem);
 }
 
 .gallery-view-hero .cover-journal-layout__brand {
   font-size: clamp(0.5rem, 0.85vw, 0.65rem) !important;
-  margin-bottom: auto !important;
+  margin-bottom: clamp(0.45rem, 1vh, 0.65rem) !important;
 }
 
 .gallery-view-hero .cover-journal-layout__date {

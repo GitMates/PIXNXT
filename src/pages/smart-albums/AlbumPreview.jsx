@@ -15,10 +15,12 @@ import {
     parseSlotKey,
     removeSwapMark,
     SWAP_MARKS_CHANGED_EVENT,
+    peekSwapMarkIfDone,
 } from '../../components/smart-albums/albumSwapMarks';
 import {
     PHOTO_PINS_CHANGED_EVENT,
     getPhotoPins,
+    peekPhotoPinIfDone,
 } from '../../components/smart-albums/albumPhotoPins';
 import {
     COMMENTS_CHANGED_EVENT,
@@ -785,6 +787,8 @@ export default function AlbumPreview({
                         commentsEnabled={commentsEnabled}
                         prooferAccess={prooferAccess}
                         visibleSpreadFeed={visibleSpreadFeed}
+                        photoPins={photoPins}
+                        imageReplacements={imageReplacements}
                         editingPinId={editingPinId}
                         editingPinMessage={editingPinMessage}
                         onEditPinStart={(pin) => {
@@ -802,6 +806,7 @@ export default function AlbumPreview({
                         }}
                         onJumpToSpread={jumpToSpread}
                         onNavigateToPin={(pin) => {
+                            peekPhotoPinIfDone(albumId, pin);
                             let targetSpread = null;
                             if (pin?.spreadIndex != null) {
                                 targetSpread = pin.spreadIndex;
@@ -830,6 +835,7 @@ export default function AlbumPreview({
                         }}
                         onNavigateToSwapMark={(mark, endpoint = 'A') => {
                             if (!mark) return;
+                            peekSwapMarkIfDone(albumId, mark);
                             const slotKey = endpoint === 'B' ? mark.b : mark.a;
                             if (slotKey) {
                                 const [pageNum] = String(slotKey).split(':').map(Number);

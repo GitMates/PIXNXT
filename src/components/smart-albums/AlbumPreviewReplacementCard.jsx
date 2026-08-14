@@ -3,27 +3,10 @@ import { formatRelativeTime } from '../../lib/relativeTime';
 import { formatCommentTime } from '../../services/smartAlbumComments.service';
 import {
     getReplacementFeedVersionPair,
-    resolveReplacementPreviewUrl,
     sortSpreadReplacements,
 } from './albumImageReplacements';
 import { formatSpreadDisplayLabel } from './albumSpreadUtils';
-
-function Shot({ albumId, url, storagePath, itemId = null, preferLive = false, tag }) {
-    const src = resolveReplacementPreviewUrl(albumId, url, storagePath, {
-        itemId,
-        preferLive,
-    });
-    return (
-        <span className="quiet-proof-card__version-shot">
-            {src ? (
-                <img src={src} alt="" draggable={false} />
-            ) : (
-                <span className="quiet-proof-card__version-shot-ph" />
-            )}
-            {tag ? <span className="quiet-proof-card__version-shot-tag">{tag}</span> : null}
-        </span>
-    );
-}
+import { ReplacementVersionShotButton } from './ReplacementVersionImageLightbox';
 
 function formatVersionUploadDescription(row) {
     if (row.note) {
@@ -47,6 +30,11 @@ export default function AlbumPreviewReplacementCard({
     hasCovers = false,
     currentPreviewUrl = null,
     isLatestOnSpread = false,
+    photoPins = [],
+    imageReplacements = [],
+    spreadOpts = {},
+    album = null,
+    totalPages = 0,
 }) {
     const rows = useMemo(
         () =>
@@ -102,22 +90,38 @@ export default function AlbumPreviewReplacementCard({
             <div className="quiet-proof-card__body">
                 <p className="quiet-proof-card__text">{description}</p>
                 <div className="quiet-proof-card__version-pair" aria-label="Version change">
-                    <Shot
+                    <ReplacementVersionShotButton
                         albumId={albumId}
                         url={row.previousUrl}
                         storagePath={row.previousStoragePath}
                         tag={`v${versionFrom}`}
+                        variant="feed"
+                        spreadIndex={spreadIdx}
+                        version={versionFrom}
+                        photoPins={photoPins}
+                        imageReplacements={imageReplacements}
+                        spreadOpts={spreadOpts}
+                        album={album}
+                        totalPages={totalPages}
                     />
                     <span className="quiet-proof-card__version-arrow" aria-hidden>
                         →
                     </span>
-                    <Shot
+                    <ReplacementVersionShotButton
                         albumId={albumId}
                         url={currentUrl}
                         storagePath={row.newStoragePath}
                         itemId={row.newItemId}
                         preferLive={preferLiveNew}
                         tag={`v${versionTo}`}
+                        variant="feed"
+                        spreadIndex={spreadIdx}
+                        version={versionTo}
+                        photoPins={photoPins}
+                        imageReplacements={imageReplacements}
+                        spreadOpts={spreadOpts}
+                        album={album}
+                        totalPages={totalPages}
                     />
                 </div>
             </div>

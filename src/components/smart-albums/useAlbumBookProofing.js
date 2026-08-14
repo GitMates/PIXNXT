@@ -7,15 +7,21 @@ import {
     makeSlotKey,
     slotsMatch,
     SWAP_MARKS_CHANGED_EVENT,
+    SWAP_MARKS_SEEN_CHANGED_EVENT,
     hydrateSwapMarks,
+    filterSpreadVisibleSwapMarkInfos,
+    SWAP_MARKS_PEEK_CHANGED_EVENT,
 } from './albumSwapMarks';
 import {
     addPhotoPin,
     getPhotoPins,
     getPinsForSlot,
     PHOTO_PINS_CHANGED_EVENT,
+    PHOTO_PINS_SEEN_CHANGED_EVENT,
+    PHOTO_PINS_PEEK_CHANGED_EVENT,
     removePhotoPin,
     hydratePhotoPins,
+    filterSpreadVisiblePhotoPins,
 } from './albumPhotoPins';
 import { hydrateProofReplies } from './albumProofReplies';
 
@@ -48,8 +54,27 @@ export default function useAlbumBookProofing({
     const [photoPins, setPhotoPins] = useState(() => getPhotoPins(albumId));
     const [pinModeActive, setPinModeActive] = useState(false);
     const [pinComposer, setPinComposer] = useState(null);
+    const [proofSeenTick, setProofSeenTick] = useState(0);
 
     const isPinModeOn = previewMode ? pinMarkMode : pinModeActive;
+
+    useEffect(() => {
+        if (!albumId) return undefined;
+        const onSeen = (e) => {
+            if (e.detail?.albumId && e.detail.albumId !== albumId) return;
+            setProofSeenTick((tick) => tick + 1);
+        };
+        window.addEventListener(PHOTO_PINS_SEEN_CHANGED_EVENT, onSeen);
+        window.addEventListener(SWAP_MARKS_SEEN_CHANGED_EVENT, onSeen);
+        window.addEventListener(PHOTO_PINS_PEEK_CHANGED_EVENT, onSeen);
+        window.addEventListener(SWAP_MARKS_PEEK_CHANGED_EVENT, onSeen);
+        return () => {
+            window.removeEventListener(PHOTO_PINS_SEEN_CHANGED_EVENT, onSeen);
+            window.removeEventListener(SWAP_MARKS_SEEN_CHANGED_EVENT, onSeen);
+            window.removeEventListener(PHOTO_PINS_PEEK_CHANGED_EVENT, onSeen);
+            window.removeEventListener(SWAP_MARKS_PEEK_CHANGED_EVENT, onSeen);
+        };
+    }, [albumId]);
 
     useEffect(() => {
         if (!albumId) return undefined;
@@ -190,33 +215,44 @@ export default function useAlbumBookProofing({
     );
 
     const getSwapMarkInfo = useCallback(
-        (pageNum, cellId, spreadLeft) =>
-            getSwapMarkForSlot(swapMarks, pageNum, cellId, {
+        (pageNum, cellId, spreadLeft) => {
+            const info = getSwapMarkForSlot(swapMarks, pageNum, cellId, {
                 placementMode,
                 spreadLeft,
                 gridLayout: album?.grid_layout || 'two-page',
                 album,
                 totalPages: album?.page_count ?? 0,
-            }),
-        [swapMarks, placementMode, album]
+            });
+            if (!albumId || !info) return info;
+            const visible = filterSpreadVisibleSwapMarkInfos(albumId, swapMarks, [info]);
+            return visible[0] || null;
+        },
+        [swapMarks, placementMode, album, albumId, proofSeenTick]
     );
 
     const getSwapMarkInfos = useCallback(
         (pageNum, cellId, spreadLeft) =>
-            getSwapMarksForSlot(swapMarks, pageNum, cellId, {
-                placementMode,
-                spreadLeft,
-                gridLayout: album?.grid_layout || 'two-page',
-                album,
-                totalPages: album?.page_count ?? 0,
-            }),
-        [swapMarks, placementMode, album]
+            filterSpreadVisibleSwapMarkInfos(
+                albumId,
+                swapMarks,
+                getSwapMarksForSlot(swapMarks, pageNum, cellId, {
+                    placementMode,
+                    spreadLeft,
+                    gridLayout: album?.grid_layout || 'two-page',
+                    album,
+                    totalPages: album?.page_count ?? 0,
+                })
+            ),
+        [swapMarks, placementMode, album, albumId, proofSeenTick]
     );
 
     const getSlotPins = useCallback(
         (pageNum, cellId, spreadLeft) =>
-            getPinsForSlot(photoPins, pageNum, cellId, { placementMode, spreadLeft }),
-        [photoPins, placementMode]
+            filterSpreadVisiblePhotoPins(
+                albumId,
+                getPinsForSlot(photoPins, pageNum, cellId, { placementMode, spreadLeft })
+            ),
+        [photoPins, placementMode, albumId, proofSeenTick]
     );
 
     const handlePinPlace = useCallback((placement) => {

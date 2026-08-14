@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { GalleryPreviewProps } from './PreviewPane.types';
 import * as Covers from './CoverStyles';
+import { CoverScrollHint, coverUsesEmbeddedScroll } from './CoverStyles/CoverScrollHint';
 import { cn } from '../../../../lib/utils';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X, Mail } from 'lucide-react';
@@ -543,6 +544,13 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
     >
       <div className="cd-preview-gallery-header">
         {renderCover()}
+        {coverStyle !== 'none' && coverStyle !== 'classic' && !coverUsesEmbeddedScroll(coverStyle) ? (
+          <CoverScrollHint
+            coverStyle={coverStyle}
+            onClick={scrollToGallery}
+            isPreview
+          />
+        ) : null}
       </div>
 
       <div

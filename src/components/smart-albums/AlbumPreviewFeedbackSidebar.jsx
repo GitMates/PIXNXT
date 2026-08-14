@@ -524,6 +524,8 @@ export default function AlbumPreviewFeedbackSidebar({
     onBlocked,
     onNotify,
     onCommentsChanged,
+    photoPins = [],
+    imageReplacements = [],
 }) {
     const [tutorialDismissed, setTutorialDismissed] = useState(() => readTutorialDismissed(albumId));
     const [videoOpen, setVideoOpen] = useState(false);
@@ -567,6 +569,8 @@ export default function AlbumPreviewFeedbackSidebar({
                             photoRevision={photoRevision}
                             businessName={businessName}
                             spreadOpts={spreadOpts}
+                            photoPins={photoPins}
+                            imageReplacements={imageReplacements}
                             proofMode
                             clientViewer={clientPreview}
                             editingPinId={editingPinId}
