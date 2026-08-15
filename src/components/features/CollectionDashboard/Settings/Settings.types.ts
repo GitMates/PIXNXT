@@ -28,28 +28,13 @@ export interface GeneralSettingsProps {
     setShowGeneralAdditionalOptions: (val: boolean) => void;
 }
 
-export interface PrivacySettingsProps {
-    collectionPassword: string;
-    setCollectionPassword: (val: string) => void;
-    showOnShowcase: boolean;
-    setShowOnShowcase: (val: boolean) => void;
-    clientExclusiveAccess: boolean;
-    setClientExclusiveAccess: (val: boolean) => void;
-    clientPrivatePassword: string;
-    setClientPrivatePassword: (val: string) => void;
-    allowClientsMarkPrivate: boolean;
-    setAllowClientsMarkPrivate: (val: boolean) => void;
-    clientOnlyHighlights: boolean;
-    setClientOnlyHighlights: (val: boolean) => void;
-    clientOnlySets: import('../../ClientExclusiveAccess').ClientExclusiveSetOption[];
-    onSetClientOnlyChange: (setId: string, isClientOnly: boolean) => void;
-}
-
 export interface DownloadSettingsProps {
+  collectionId: string;
+  collection: any;
+  setCollection?: React.Dispatch<React.SetStateAction<any>>;
+  photos?: any[];
   photoDownload: boolean;
   setPhotoDownload: (val: boolean) => void;
-  showAdditionalOptions: boolean;
-  setShowAdditionalOptions: (val: boolean) => void;
   galleryDownload: boolean;
   setGalleryDownload: (val: boolean) => void;
   singlePhotoDownload: boolean;
@@ -74,23 +59,38 @@ export interface DownloadSettingsProps {
   sets: { id: string, name: string }[];
   pinUsageLimit: string;
   setPinUsageLimit: (val: string) => void;
-  activeDownloadTab: 'general' | 'advanced';
-  setActiveDownloadTab: (tab: 'general' | 'advanced') => void;
-  setActiveSidebarTab: (tab: string) => void;
-  setActiveActivitySubTab: (tab: string) => void;
+  photoDownloadSizes?: string[];
+  setPhotoDownloadSizes?: (sizes: string[]) => void;
+  highResChoice?: string;
+  setHighResChoice?: (val: string) => void;
+  webSizeChoice?: string;
+  setWebSizeChoice?: (val: string) => void;
+  setActiveSidebarTab?: (tab: string) => void;
+  setActiveActivitySubTab?: (tab: string) => void;
 }
 
 export interface FavoriteSettingsProps {
+  collectionId: string;
+  collection: any;
+  setCollection?: React.Dispatch<React.SetStateAction<any>>;
+  collectionUrl: string;
+  profile?: any;
   favoritePhotos: boolean;
   setFavoritePhotos: (val: boolean) => void;
   favoriteNotes: boolean;
   setFavoriteNotes: (val: boolean) => void;
+  favoriteLists?: any[];
+  onReviewList?: (list: any) => void;
+  onEditList?: (list: any) => void;
   setShowCreateFavoriteListModal: (val: boolean) => void;
-  setActiveSidebarTab: (tab: string) => void;
-  setActiveActivitySubTab: (tab: string) => void;
+  setActiveSidebarTab?: (tab: string) => void;
+  setActiveActivitySubTab?: (tab: string) => void;
 }
 
 export interface StoreSettingsProps {
+  collectionId: string;
+  collection: any;
+  setCollection?: React.Dispatch<React.SetStateAction<any>>;
   storeEnabled: boolean;
   setStoreEnabled: (val: boolean) => void;
   setActiveSidebarTab: (tab: string) => void;

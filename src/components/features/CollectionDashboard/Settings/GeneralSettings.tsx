@@ -1,9 +1,10 @@
 import React from 'react';
 import { DatePicker } from '../../../ui/DatePicker';
-import { ClientGallerySelect } from '../../ClientGallery/ClientGallerySelect';
 import { galleryService } from '../../../../services/gallery.service';
 import { cacheSlideshowEnabled } from '../../../../lib/collectionFeatureFlags';
+import { getCollectionShareUrl } from '../../../../lib/shareCollection';
 import { CategoryTagsField } from './CategoryTagsField';
+import './BasicsSettings.css';
 
 export interface GeneralSettingsProps {
     collectionId: string;
@@ -35,6 +36,82 @@ export interface GeneralSettingsProps {
     categoryTagsSaving?: boolean;
     showGeneralAdditionalOptions: boolean;
     setShowGeneralAdditionalOptions: (val: boolean) => void;
+    profile?: any;
+}
+
+const LANGUAGES = [
+    { id: 'English', label: 'English' },
+    { id: 'Hindi', label: 'हिन्दी' },
+    { id: 'Tamil', label: 'தமிழ்' },
+];
+
+const REMIND_CHANNELS = [
+    { id: 'both', label: 'WhatsApp, email as fallback' },
+    { id: 'email', label: 'Email only' },
+    { id: 'whatsapp', label: 'WhatsApp only' },
+] as const;
+
+const REMIND_WHEN = [
+    { id: '3days', label: '3 days before', timing: '3 days before auto expiry date' },
+    { id: 'week', label: '1 week before', timing: '7 days before auto expiry date' },
+    { id: 'both', label: 'Both', timing: '7 days before auto expiry date' },
+] as const;
+
+function formatLongDate(value?: string | null) {
+    if (!value) return '';
+    const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    const date = match
+        ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+        : new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function calendarParts(value?: string | null) {
+    if (!value) return null;
+    const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    const date = match
+        ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+        : new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    return {
+        day: String(date.getDate()),
+        month: date.toLocaleDateString('en-US', { month: 'short' }).toUpperCase(),
+        year: String(date.getFullYear()),
+    };
+}
+
+function displayHostPath(url: string) {
+    return String(url || '').replace(/^https?:\/\//, '');
+}
+
+function Chevron({ open }: { open: boolean }) {
+    return (
+        <svg className="cd-basics-card__chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+            {open
+                ? <polyline points="18 15 12 9 6 15" />
+                : <polyline points="6 9 12 15 18 9" />}
+        </svg>
+    );
+}
+
+function Toggle({
+    checked,
+    onChange,
+}: {
+    checked: boolean;
+    onChange: (next: boolean) => void;
+}) {
+    return (
+        <label className="cd-toggle">
+            <input
+                type="checkbox"
+                checked={checked}
+                onChange={(e) => onChange(e.target.checked)}
+            />
+            <span className="cd-toggle-slider" />
+        </label>
+    );
 }
 
 export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
@@ -43,17 +120,11 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
     setCollection,
     collectionUrl,
     setCollectionUrl,
-    defaultWatermark,
-    setDefaultWatermark,
     autoExpiry,
     setAutoExpiry,
-    setShowExpiryReminderModal,
     expiryReminders = [],
     onEditReminder,
-    onDeleteReminder,
     onAddReminder,
-    emailRegistration,
-    setEmailRegistration,
     galleryAssist,
     setGalleryAssist,
     slideshow,
@@ -65,46 +136,58 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
     categoryTags,
     onCategoryTagsChange,
     categoryTagsSaving = false,
-    showGeneralAdditionalOptions,
-    setShowGeneralAdditionalOptions,
+    profile,
 }) => {
-    const [pendingWatermark, setPendingWatermark] = React.useState<string | null>(null);
-    const [isSavingWatermark, setIsSavingWatermark] = React.useState(false);
-
-    const handleWatermarkChange = (val: string) => {
-        setPendingWatermark(val);
-    };
-
-    const confirmWatermarkChange = async () => {
-        if (pendingWatermark !== null) {
-            setIsSavingWatermark(true);
-            try {
-                setDefaultWatermark(pendingWatermark);
-                await galleryService.updateCollection(collectionId, { default_watermark: pendingWatermark });
-                setCollection(prev => ({ ...prev, default_watermark: pendingWatermark }));
-            } catch (err) {
-                console.error('Failed to save default watermark:', err);
-            } finally {
-                setIsSavingWatermark(false);
-                setPendingWatermark(null);
-            }
-        }
-    };
-
-    const [vaultEnabled, setVaultEnabled] = React.useState(false);
-    const [vaultPrice, setVaultPrice] = React.useState('499');
+    const [openCard, setOpenCard] = React.useState<'link' | 'closes' | 'gallery' | null>('link');
+    const [copied, setCopied] = React.useState(false);
+    const [showFilenames, setShowFilenames] = React.useState(collection?.show_filenames === true);
+    const [remindChannel, setRemindChannel] = React.useState<'both' | 'email' | 'whatsapp'>('both');
+    const [remindWhen, setRemindWhen] = React.useState<'3days' | 'week' | 'both'>('week');
 
     React.useEffect(() => {
-        if (collectionId) {
-            galleryService.fetchVaultPlan(collectionId).then(plan => {
-                if (plan) {
-                    setVaultEnabled(plan.vault_enabled === true);
-                    setVaultPrice(String(plan.price_lifetime || '499'));
-                }
-            });
-        }
-    }, [collectionId]);
+        setShowFilenames(collection?.show_filenames === true);
+    }, [collection?.show_filenames]);
 
+    React.useEffect(() => {
+        if (!expiryReminders.length) return;
+        const hasWa = expiryReminders.some((r) => r.whatsapp_enabled);
+        const hasEmail = expiryReminders.some((r) => !r.whatsapp_enabled || r.send_copy !== false);
+        if (hasWa && hasEmail) setRemindChannel('both');
+        else if (hasWa) setRemindChannel('whatsapp');
+        else setRemindChannel('email');
+
+        const timings = expiryReminders.map((r) => String(r.timing || ''));
+        const has3 = timings.some((t) => t.startsWith('3 '));
+        const has7 = timings.some((t) => t.startsWith('7 ') || t.includes('week'));
+        if (has3 && has7) setRemindWhen('both');
+        else if (has3) setRemindWhen('3days');
+        else if (has7) setRemindWhen('week');
+    }, [expiryReminders]);
+
+    const shareUrl = getCollectionShareUrl(collectionUrl, profile);
+    const shareHostPath = displayHostPath(shareUrl);
+    const eventDate = collection?.event_date || null;
+    const expiryLabel = formatLongDate(autoExpiry);
+    const cal = calendarParts(autoExpiry);
+    const coverUrl = collection?.cover_url || '';
+    const brandHost = shareHostPath.split('/')[0] || 'gallery';
+    const primaryReminder = expiryReminders[0];
+    const reminderPreview = primaryReminder?.body
+        || 'Closing soon — download anything you want to keep';
+
+    const toggleCard = (id: 'link' | 'closes' | 'gallery') => {
+        setOpenCard((current) => (current === id ? null : id));
+    };
+
+    const persistCollection = async (patch: Record<string, unknown>) => {
+        try {
+            const updated = await galleryService.updateCollection(collectionId, patch);
+            if (updated) setCollection((prev) => (prev ? { ...prev, ...updated } : prev));
+            else setCollection((prev) => (prev ? { ...prev, ...patch } : prev));
+        } catch (err) {
+            console.error('Failed to save basics setting:', err);
+        }
+    };
 
     const broadcastGallerySettings = (settings: {
         slideshow_enabled?: boolean;
@@ -123,347 +206,360 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
     const persistGalleryVisitorFlags = async (patch: {
         slideshow_enabled?: boolean;
         social_sharing_enabled?: boolean;
+        gallery_assist?: boolean;
+        show_filenames?: boolean;
     }) => {
         if (patch.slideshow_enabled !== undefined) {
             cacheSlideshowEnabled(collectionId, patch.slideshow_enabled);
         }
-        // Live-update open gallery tabs before DB round-trip (no reload).
         broadcastGallerySettings(patch);
+        await persistCollection(patch);
+    };
+
+    const copyLink = async () => {
         try {
-            const updated = await galleryService.updateCollection(collectionId, patch);
-            if (updated) {
-                setCollection((prev) => (prev ? { ...prev, ...updated } : prev));
-            }
-        } catch (err) {
-            console.error('Failed to save gallery visitor settings:', err);
-            if (patch.slideshow_enabled !== undefined) {
-                console.error(
-                    'Slideshow setting could not be saved. Apply migration 20260519150000_ensure_slideshow_enabled_column.sql in Supabase.'
-                );
-            }
+            await navigator.clipboard.writeText(shareUrl);
+            setCopied(true);
+            window.setTimeout(() => setCopied(false), 1600);
+        } catch {
+            setCopied(false);
         }
     };
 
-    const [watermarkOptions, setWatermarkOptions] = React.useState<{value: string, label: string}[]>([
-        { value: 'No watermark', label: 'No watermark' }
-    ]);
+    const saveEventDate = async (next: string | null) => {
+        await persistCollection({ event_date: next });
+    };
 
-    React.useEffect(() => {
-        const fetchWatermarks = async () => {
-            if (collection?.photographer_id) {
-                try {
-                    const wms = await galleryService.getWatermarks(collection.photographer_id);
-                    const opts = [
-                        { value: 'No watermark', label: 'No watermark' },
-                        ...wms.map((w: any) => ({ value: w.id, label: w.name || 'Unnamed Watermark' }))
-                    ];
-                    setWatermarkOptions(opts);
-                } catch (err) {
-                    console.error('Failed to fetch watermarks:', err);
-                }
-            }
-        };
-        fetchWatermarks();
-    }, [collection?.photographer_id]);
+    const saveExpiry = async (next: string | null) => {
+        setAutoExpiry(next);
+        await persistCollection({ auto_expiry: next });
+    };
+
+    const saveLanguage = async (next: string) => {
+        setLanguage(next);
+        await persistCollection({ language: next });
+    };
+
+    const saveReminderPrefs = async (
+        channel: typeof remindChannel,
+        when: typeof remindWhen,
+    ) => {
+        setRemindChannel(channel);
+        setRemindWhen(when);
+        const timing = REMIND_WHEN.find((item) => item.id === when)?.timing
+            || '7 days before auto expiry date';
+        const whatsappEnabled = channel !== 'email';
+        if (!primaryReminder) return;
+        try {
+            await galleryService.updateCollectionReminder(primaryReminder.id, {
+                timing,
+                whatsapp_enabled: whatsappEnabled,
+            });
+        } catch (err) {
+            console.error('Failed to update reminder prefs:', err);
+        }
+    };
+
+    const onOff = (value: boolean) => (value ? 'on' : 'off');
+    const gallerySummary = (
+        <>
+            Slideshow and social sharing are <strong>{onOff(slideshow)}</strong>. Walk-through cards are <strong>{onOff(galleryAssist)}</strong>.
+        </>
+    );
+    const channelLabel = REMIND_CHANNELS.find((item) => item.id === remindChannel)?.label || 'WhatsApp, email as fallback';
+    const whenLabel = remindWhen === '3days'
+        ? '3 days before'
+        : remindWhen === 'both'
+            ? '3 days and a week before'
+            : 'a week before';
+    const closesSummary = autoExpiry ? (
+        <>
+            Hides itself on <strong>{expiryLabel}</strong>, and you remind them by <strong>{channelLabel} {whenLabel}</strong>.
+        </>
+    ) : (
+        'No closing date yet.'
+    );
+
+    const langId = LANGUAGES.some((item) => item.id === language)
+        ? language
+        : language?.toLowerCase() === 'hindi'
+            ? 'Hindi'
+            : language?.toLowerCase() === 'tamil'
+                ? 'Tamil'
+                : 'English';
 
     return (
-        <div className="cd-general-settings-view">
-            <div className="cd-settings-content-header">
-                <h2 className="cd-settings-main-title">General Settings <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg></h2>
-            </div>
+        <div className="cd-general-settings-view cd-basics">
+            <header className="cd-basics__header">
+                <h2 className="cd-basics__title">Basics</h2>
+                <p className="cd-basics__kicker">this delivery</p>
+                <p className="cd-basics__lead">
+                    What this delivery is called, where it lives, and when it closes.
+                </p>
+            </header>
 
-            <div className="cd-settings-form">
-                <div className="settings-section">
-                    <label className="settings-label">Delivery URL</label>
-                    <div className="settings-input-wrapper">
-                        <input
-                            type="text"
-                            className="settings-input"
-                            value={collectionUrl}
-                            onChange={(e) => setCollectionUrl(e.target.value)}
-                        />
-                    </div>
-                    <p className="settings-desc">Choose a unique url for visitors to access your delivery.</p>
-                </div>
-
-                <div className="settings-section">
-                    <label className="settings-label">Category Tags</label>
-                    <CategoryTagsField
-                      tags={categoryTags}
-                      onChange={onCategoryTagsChange}
-                      disabled={categoryTagsSaving}
-                    />
-                    <p className="settings-desc">
-                      Add tags to categorize different deliveries e.g. wedding, outdoor, summer.
-                      Press <strong>Enter</strong> to add each tag (tags are not added automatically).{' '}
-                      <span className="settings-link">Learn more</span>
-                    </p>
-                </div>
-
-                <div className="settings-section">
-                    <label className="settings-label">Default Watermark</label>
-                    <ClientGallerySelect
-                        value={defaultWatermark}
-                        onChange={handleWatermarkChange}
-                        aria-label="Default watermark"
-                        options={watermarkOptions}
-                    />
-                    <p className="settings-desc">Set the default watermark to apply to photos. Manage watermarks in <span className="settings-link">App settings</span>.</p>
-                </div>
-
-                <div className="settings-section">
-                    <label className="settings-label">Auto Expiry</label>
-                    <div className="settings-input-wrapper custom-dp">
-                        <DatePicker 
-                            value={autoExpiry} 
-                            onChange={async (newDate) => {
-                                setAutoExpiry(newDate);
-                                try {
-                                    await galleryService.updateCollection(collectionId, { auto_expiry: newDate });
-                                    setCollection(prev => ({ ...prev, auto_expiry: newDate }));
-                                } catch (err) {
-                                    console.error('Failed to save auto expiry:', err);
-                                }
-                            }}
-                            placeholder="Optional"
-                            disablePastDates={true}
-                        />
-                    </div>
-                    <p className="settings-desc">Automatically set your delivery to hidden on a specific date (at 11:59pm <span className="highlight-text">GMT+5:30</span>)</p>
-                    
-                    {autoExpiry && (
-                        <div style={{
-                            marginTop: '16px',
-                            padding: '16px',
-                            background: '#fcfbfa',
-                            border: '1px solid #f2ede4',
-                            borderRadius: '8px',
-                            marginBottom: '20px'
-                        }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <div style={{ flex: 1, paddingRight: '16px' }}>
-                                    <label className="settings-label" style={{ fontSize: '13px', fontWeight: 600, color: '#111', display: 'block', marginBottom: '2px' }}>Enable Permanent Vault Purchase</label>
-                                    <span className="settings-desc small" style={{ fontSize: '12px', color: '#64748b', display: 'block', lineHeight: 1.4 }}>
-                                        Allow gallery visitors to pay to extend this gallery online forever, overriding the auto expiry.
-                                    </span>
+            <div className="cd-basics__cards">
+                <article className={`cd-basics-card${openCard === 'link' ? ' is-open' : ''}`}>
+                    <button
+                        type="button"
+                        className="cd-basics-card__head"
+                        onClick={() => toggleCard('link')}
+                        aria-expanded={openCard === 'link'}
+                    >
+                        <span className="cd-basics-card__icon cd-basics-card__icon--cover">
+                            {coverUrl ? <img src={coverUrl} alt="" /> : null}
+                            <span className="cd-basics-card__brand">{brandHost}</span>
+                        </span>
+                        <span className="cd-basics-card__copy">
+                            <h3 className="cd-basics-card__title">Name and link</h3>
+                            <p className="cd-basics-card__summary">
+                                Lives at <strong>{shareHostPath || 'your gallery link'}</strong>.
+                            </p>
+                        </span>
+                        <Chevron open={openCard === 'link'} />
+                    </button>
+                    {openCard === 'link' ? (
+                        <div className="cd-basics-card__body">
+                            <div className="cd-basics-field">
+                                <span className="cd-basics-label">Gallery link</span>
+                                <div className="cd-basics-input-row">
+                                    <input
+                                        type="text"
+                                        className="cd-basics-input"
+                                        value={collectionUrl}
+                                        onChange={(e) => setCollectionUrl(e.target.value)}
+                                    />
+                                    <button type="button" className="cd-basics-btn" onClick={copyLink}>
+                                        {copied ? 'Copied' : 'Copy link'}
+                                    </button>
                                 </div>
-                                <div>
-                                    <label className="cd-toggle">
-                                        <input 
-                                            type="checkbox" 
-                                            checked={vaultEnabled} 
-                                            onChange={async (e) => {
-                                                const checked = e.target.checked;
-                                                setVaultEnabled(checked);
-                                                try {
-                                                    await galleryService.upsertVaultPlan(collectionId, { vault_enabled: checked });
-                                                } catch (err) { console.error('Failed to update vault_enabled:', err); }
-                                            }} 
-                                        />
-                                        <span className="cd-toggle-slider"></span>
-                                    </label>
+                                <p className="cd-basics-hint">
+                                    <strong>{shareHostPath}</strong> — changing this breaks any link already sent.
+                                </p>
+                            </div>
+
+                            <div className="cd-basics-field cd-basics-field--date">
+                                <span className="cd-basics-label">Event date</span>
+                                <DatePicker
+                                    value={eventDate}
+                                    onChange={(next) => void saveEventDate(next)}
+                                    placeholder="Add a date"
+                                    displayFormat="long"
+                                    showQuickSearch={false}
+                                />
+                            </div>
+
+                            <div className="cd-basics-field">
+                                <span className="cd-basics-label">Category tags</span>
+                                <CategoryTagsField
+                                    tags={categoryTags}
+                                    onChange={onCategoryTagsChange}
+                                    disabled={categoryTagsSaving}
+                                    placeholder="Add a tag and press Enter"
+                                />
+                            </div>
+
+                            <div className="cd-basics-field">
+                                <span className="cd-basics-label">Language</span>
+                                <div className="cd-basics-segment" role="group" aria-label="Language">
+                                    {LANGUAGES.map((item) => (
+                                        <button
+                                            key={item.id}
+                                            type="button"
+                                            className={`cd-basics-segment__item${langId === item.id ? ' is-on' : ''}`}
+                                            onClick={() => void saveLanguage(item.id)}
+                                        >
+                                            {item.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    ) : null}
+                </article>
+
+                <article className={`cd-basics-card${openCard === 'closes' ? ' is-open' : ''}`}>
+                    <button
+                        type="button"
+                        className="cd-basics-card__head"
+                        onClick={() => toggleCard('closes')}
+                        aria-expanded={openCard === 'closes'}
+                    >
+                        <span className="cd-basics-card__icon">
+                            {cal ? (
+                                <span className="cd-basics-cal">
+                                    <span className="cd-basics-cal__day">{cal.day}</span>
+                                    <span className="cd-basics-cal__mon">{cal.month} {cal.year}</span>
+                                </span>
+                            ) : (
+                                <span className="cd-basics-cal">
+                                    <span className="cd-basics-cal__day">—</span>
+                                    <span className="cd-basics-cal__mon">Date</span>
+                                </span>
+                            )}
+                        </span>
+                        <span className="cd-basics-card__copy">
+                            <h3 className="cd-basics-card__title">When it closes</h3>
+                            <p className="cd-basics-card__summary">{closesSummary}</p>
+                        </span>
+                        <Chevron open={openCard === 'closes'} />
+                    </button>
+                    {openCard === 'closes' ? (
+                        <div className="cd-basics-card__body">
+                            <div className="cd-basics-field">
+                                <span className="cd-basics-label">Auto expiry</span>
+                                <div className="cd-basics-expiry-row">
+                                    <DatePicker
+                                        value={autoExpiry}
+                                        onChange={(next) => void saveExpiry(next)}
+                                        placeholder="Optional"
+                                        disablePastDates
+                                    />
+                                    <button
+                                        type="button"
+                                        className="cd-basics-btn--ghost"
+                                        onClick={() => void saveExpiry(null)}
+                                    >
+                                        Clear
+                                    </button>
                                 </div>
                             </div>
 
-                            {vaultEnabled && (
-                                <div style={{ marginTop: '16px', borderTop: '1px solid #f2ede4', paddingTop: '16px' }}>
-                                    <label className="settings-label" style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '6px', color: '#111' }}>Permanent Vault Price (INR)</label>
-                                    <div className="settings-input-wrapper" style={{ maxWidth: '140px' }}>
-                                        <input
-                                            type="number"
-                                            className="settings-input"
-                                            value={vaultPrice}
-                                            onChange={async (e) => {
-                                                const price = e.target.value;
-                                                setVaultPrice(price);
-                                                try {
-                                                    await galleryService.upsertVaultPlan(collectionId, { price_lifetime: parseInt(price) || 499 });
-                                                } catch (err) { console.error('Failed to update vault_price_lifetime:', err); }
-                                            }}
-                                            placeholder="499"
-                                            style={{ padding: '8px 12px' }}
-                                        />
-                                    </div>
+                            <div className="cd-basics-field">
+                                <span className="cd-basics-label">Remind them by</span>
+                                <div className="cd-basics-pills">
+                                    {REMIND_CHANNELS.map((item) => (
+                                        <button
+                                            key={item.id}
+                                            type="button"
+                                            className={`cd-basics-pill${remindChannel === item.id ? ' is-on' : ''}`}
+                                            onClick={() => void saveReminderPrefs(item.id, remindWhen)}
+                                        >
+                                            {item.label}
+                                        </button>
+                                    ))}
                                 </div>
-                            )}
-                        </div>
-                    )}
+                            </div>
 
-                    {expiryReminders.length > 0 && (
-                        <div className="reminders-list">
-                            {expiryReminders.map((reminder) => (
-                                <div key={reminder.id} className="reminder-item">
-                                    <div className="reminder-item-left">
-                                        <div className="reminder-item-icon">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
-                                        </div>
-                                        <span className="reminder-item-text">{reminder.timing}</span>
-                                    </div>
-                                    <div className="reminder-item-actions">
-                                        <button className="reminder-edit-btn" onClick={() => onEditReminder(reminder)}>Edit</button>
-                                        <div className="reminder-divider"></div>
-                                        <button className="reminder-delete-btn" onClick={() => onDeleteReminder(reminder.id)}>Delete</button>
-                                    </div>
+                            <div className="cd-basics-field">
+                                <span className="cd-basics-label">When</span>
+                                <div className="cd-basics-pills">
+                                    {REMIND_WHEN.map((item) => (
+                                        <button
+                                            key={item.id}
+                                            type="button"
+                                            className={`cd-basics-pill${remindWhen === item.id ? ' is-on' : ''}`}
+                                            onClick={() => void saveReminderPrefs(remindChannel, item.id)}
+                                        >
+                                            {item.label}
+                                        </button>
+                                    ))}
                                 </div>
-                            ))}
-                        </div>
-                    )}
+                            </div>
 
-                    <button className="settings-action-btn" onClick={onAddReminder} style={{ marginTop: '12px' }}>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
-                        Add expiry reminder email
+                            <div className="cd-basics-note">
+                                <p className="cd-basics-note__text">{reminderPreview}</p>
+                                <div className="cd-basics-note__actions">
+                                    <button
+                                        type="button"
+                                        className="cd-basics-btn"
+                                        onClick={() => (primaryReminder ? onEditReminder(primaryReminder) : onAddReminder())}
+                                    >
+                                        Edit
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="cd-basics-btn"
+                                        onClick={() => (primaryReminder ? onEditReminder(primaryReminder) : onAddReminder())}
+                                    >
+                                        Preview
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    ) : null}
+                </article>
+
+                <article className={`cd-basics-card${openCard === 'gallery' ? ' is-open' : ''}`}>
+                    <button
+                        type="button"
+                        className="cd-basics-card__head"
+                        onClick={() => toggleCard('gallery')}
+                        aria-expanded={openCard === 'gallery'}
+                    >
+                        <span className="cd-basics-card__icon">
+                            <span className="cd-basics-grid-icon" aria-hidden>
+                                <span /><span /><span /><span />
+                            </span>
+                        </span>
+                        <span className="cd-basics-card__copy">
+                            <h3 className="cd-basics-card__title">In the gallery</h3>
+                            <p className="cd-basics-card__summary">{gallerySummary}</p>
+                        </span>
+                        <Chevron open={openCard === 'gallery'} />
                     </button>
-                </div>
-
-                <div className="settings-toggle-section">
-                    <div className="settings-toggle-row">
-                        <div className="toggle-info">
-                            <label className="settings-label">Email Registration</label>
+                    {openCard === 'gallery' ? (
+                        <div className="cd-basics-card__body">
+                            <div className="cd-basics-toggles">
+                                <div className="cd-basics-toggle">
+                                    <div className="cd-basics-toggle__copy">
+                                        <p className="cd-basics-toggle__title">Slideshow</p>
+                                        <p className="cd-basics-toggle__desc">Visitors can play the delivery as a slideshow.</p>
+                                    </div>
+                                    <Toggle
+                                        checked={slideshow}
+                                        onChange={(next) => {
+                                            setSlideshow(next);
+                                            setCollection((prev) => (prev ? { ...prev, slideshow_enabled: next } : prev));
+                                            void persistGalleryVisitorFlags({ slideshow_enabled: next });
+                                        }}
+                                    />
+                                </div>
+                                <div className="cd-basics-toggle">
+                                    <div className="cd-basics-toggle__copy">
+                                        <p className="cd-basics-toggle__title">Social sharing</p>
+                                        <p className="cd-basics-toggle__desc">Visitors can share individual photographs.</p>
+                                    </div>
+                                    <Toggle
+                                        checked={socialSharing}
+                                        onChange={(next) => {
+                                            setSocialSharing(next);
+                                            setCollection((prev) => (prev ? { ...prev, social_sharing_enabled: next } : prev));
+                                            void persistGalleryVisitorFlags({ social_sharing_enabled: next });
+                                        }}
+                                    />
+                                </div>
+                                <div className="cd-basics-toggle">
+                                    <div className="cd-basics-toggle__copy">
+                                        <p className="cd-basics-toggle__title">Walk-through cards</p>
+                                        <p className="cd-basics-toggle__desc">Short prompts showing first-time visitors how the gallery works.</p>
+                                    </div>
+                                    <Toggle
+                                        checked={galleryAssist}
+                                        onChange={(next) => {
+                                            setGalleryAssist(next);
+                                            void persistGalleryVisitorFlags({ gallery_assist: next });
+                                        }}
+                                    />
+                                </div>
+                                <div className="cd-basics-toggle">
+                                    <div className="cd-basics-toggle__copy">
+                                        <p className="cd-basics-toggle__title">Show filenames</p>
+                                        <p className="cd-basics-toggle__desc">Useful when a client refers to a shot by number.</p>
+                                    </div>
+                                    <Toggle
+                                        checked={showFilenames}
+                                        onChange={(next) => {
+                                            setShowFilenames(next);
+                                            void persistGalleryVisitorFlags({ show_filenames: next });
+                                        }}
+                                    />
+                                </div>
+                            </div>
                         </div>
-                        <div className="toggle-control">
-                            <label className="cd-toggle">
-                                <input type="checkbox" checked={emailRegistration} onChange={() => setEmailRegistration(!emailRegistration)} />
-                                <span className="cd-toggle-slider"></span>
-                            </label>
-                            <span className="toggle-state-label">{emailRegistration ? 'On' : 'Off'}</span>
-                        </div>
-                    </div>
-                    <p className="settings-desc small">Track email addresses accessing this delivery. <span className="settings-link">Learn more</span></p>
-                </div>
-
-                <div className="settings-toggle-section">
-                    <div className="settings-toggle-row">
-                        <div className="toggle-info">
-                            <label className="settings-label">Gallery Assist</label>
-                        </div>
-                        <div className="toggle-control">
-                            <label className="cd-toggle">
-                                <input type="checkbox" checked={galleryAssist} onChange={() => setGalleryAssist(!galleryAssist)} />
-                                <span className="cd-toggle-slider"></span>
-                            </label>
-                            <span className="toggle-state-label">{galleryAssist ? 'On' : 'Off'}</span>
-                        </div>
-                    </div>
-                    <p className="settings-desc small">Add walk-through cards to help visitors use the delivery. <span className="settings-link">Learn more</span></p>
-                </div>
-
-                <div className="settings-toggle-section">
-                    <div className="settings-toggle-row">
-                        <div className="toggle-info">
-                            <label className="settings-label">Slideshow</label>
-                        </div>
-                        <div className="toggle-control">
-                            <label className="cd-toggle">
-                                <input
-                                    type="checkbox"
-                                    checked={slideshow}
-                                    onChange={() => {
-                                        const newValue = !slideshow;
-                                        setSlideshow(newValue);
-                                        setCollection(prev => prev ? { ...prev, slideshow_enabled: newValue } : prev);
-                                        void persistGalleryVisitorFlags({ slideshow_enabled: newValue });
-                                    }}
-                                />
-                                <span className="cd-toggle-slider"></span>
-                            </label>
-                            <span className="toggle-state-label">{slideshow ? 'On' : 'Off'}</span>
-                        </div>
-                    </div>
-                    <p className="settings-desc small">Allow visitors to view the images in their delivery as a slideshow. <span className="settings-link">Learn more</span></p>
-                </div>
-
-                <div className="settings-toggle-section">
-                    <div className="settings-toggle-row">
-                        <div className="toggle-info">
-                            <label className="settings-label">Social Sharing</label>
-                        </div>
-                        <div className="toggle-control">
-                            <label className="cd-toggle">
-                                <input
-                                    type="checkbox"
-                                    checked={socialSharing}
-                                    onChange={() => {
-                                        const newValue = !socialSharing;
-                                        setSocialSharing(newValue);
-                                        setCollection(prev => prev ? { ...prev, social_sharing_enabled: newValue } : prev);
-                                        void persistGalleryVisitorFlags({ social_sharing_enabled: newValue });
-                                    }}
-                                />
-                                <span className="cd-toggle-slider"></span>
-                            </label>
-                            <span className="toggle-state-label">{socialSharing ? 'On' : 'Off'}</span>
-                        </div>
-                    </div>
-                    <p className="settings-desc small">Allow delivery visitors to share your work to social media.</p>
-                </div>
-
-                <div className="settings-section">
-                    <label className="settings-label">Language</label>
-                    <ClientGallerySelect
-                        value={language}
-                        onChange={setLanguage}
-                        aria-label="Delivery language"
-                        options={[
-                            { value: 'English', label: 'English' },
-                            { value: 'Spanish', label: 'Spanish' },
-                            { value: 'French', label: 'French' },
-                            { value: 'German', label: 'German' },
-                        ]}
-                    />
-                    <p className="settings-desc">Choose the language to display this delivery in.</p>
-                </div>
+                    ) : null}
+                </article>
             </div>
-
-            {pendingWatermark !== null && (
-                <div style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 9999
-                }}>
-                    <div style={{
-                        background: 'white',
-                        borderRadius: '4px',
-                        width: '440px',
-                        padding: '24px',
-                        boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
-                        position: 'relative'
-                    }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                            <h3 style={{ margin: 0, fontSize: '13px', fontWeight: '600', letterSpacing: '1px', textTransform: 'uppercase', color: '#333' }}>
-                                Change Default Watermark
-                            </h3>
-                            <button onClick={() => setPendingWatermark(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#999', padding: 0 }}>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                            </button>
-                        </div>
-                        <p style={{ margin: '0 0 24px 0', fontSize: '14px', color: '#555', lineHeight: '1.5' }}>
-                            The watermark '{watermarkOptions.find(o => o.value === pendingWatermark)?.label || pendingWatermark}' will only be applied to new photo uploads moving forward.
-                        </p>
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-                            <button 
-                                onClick={() => setPendingWatermark(null)}
-                                style={{ background: 'none', border: 'none', padding: '8px 16px', fontSize: '14px', cursor: 'pointer', color: '#555', fontWeight: '500' }}
-                            >
-                                Cancel
-                            </button>
-                            <button 
-                                onClick={confirmWatermarkChange}
-                                disabled={isSavingWatermark}
-                                style={{ background: '#0d9488', color: 'white', border: 'none', borderRadius: '4px', padding: '8px 20px', fontSize: '14px', cursor: isSavingWatermark ? 'not-allowed' : 'pointer', fontWeight: '500', opacity: isSavingWatermark ? 0.7 : 1 }}
-                            >
-                                {isSavingWatermark ? 'Saving...' : 'Save'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

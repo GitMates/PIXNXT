@@ -903,6 +903,13 @@ const CollectionDashboard = () => {
         }
     };
 
+    const handleReviewFavoriteList = (list) => {
+        if (!list?.id) return;
+        setActiveSidebarTab('activity');
+        setActiveActivitySubTab('favorite');
+        setSelectedFavoriteListId(list.id);
+    };
+
     const openEditFavoriteListModal = (item) => {
         if (!item) return;
         /* Close Favorite List Details popup so Edit is not hidden behind it (detail overlay z-index 10050). */
@@ -2037,6 +2044,19 @@ const CollectionDashboard = () => {
         if (updateError) throw updateError;
     };
 
+    /** Access settings: pick the watermark new photos are shown with, without reprocessing existing files. */
+    const handleSelectDefaultWatermark = async (name) => {
+        const next = name || 'No watermark';
+        setDefaultWatermark(next);
+        setSelectedWatermarkId(next === 'No watermark' ? '' : next);
+        try {
+            await galleryService.updateCollection(collectionId, { default_watermark: next });
+            setCollection(prev => prev ? { ...prev, default_watermark: next } : prev);
+        } catch (err) {
+            console.error('Failed to save default watermark:', err);
+        }
+    };
+
     const handleSaveWatermarkSettings = async () => {
         if (!editingPhoto) return;
         try {
@@ -2269,6 +2289,11 @@ const CollectionDashboard = () => {
                 }
                 if (data.auto_expiry) setAutoExpiry(data.auto_expiry);
                 if (data.default_watermark) setDefaultWatermark(data.default_watermark);
+                if (data.language) {
+                    const lang = String(data.language);
+                    const pretty = lang.charAt(0).toUpperCase() + lang.slice(1).toLowerCase();
+                    setLanguage(pretty === 'Hindi' || pretty === 'Tamil' ? pretty : 'English');
+                }
 
                 designHydratedRef.current = true;
                 settingsHydratedRef.current = true;
@@ -4283,7 +4308,7 @@ const CollectionDashboard = () => {
 
                 {/* Main Content Wrapper */}
                 <div className="cd-main-wrapper">
-                    <main className={`cd-main-area${activeSidebarTab === 'photos' ? ' cd-main-area--photos' : ''}${activeSidebarTab === 'design' ? ' cd-main-area--design' : ''}${activeSidebarTab === 'guests' ? ' cd-main-area--guests' : ''}${activeSidebarTab === 'activity' ? ' cd-main-area--activity' : ''}`}>
+                    <main className={`cd-main-area${activeSidebarTab === 'photos' ? ' cd-main-area--photos' : ''}${activeSidebarTab === 'design' ? ' cd-main-area--design' : ''}${activeSidebarTab === 'guests' ? ' cd-main-area--guests' : ''}${activeSidebarTab === 'activity' ? ' cd-main-area--activity' : ''}${activeSidebarTab === 'settings' ? ' cd-main-area--settings' : ''}`}>
                         {activeSidebarTab === 'photos' && (
                             <>
                                 <CollectionPhotosWorkspaceHeader
@@ -4573,6 +4598,7 @@ const CollectionDashboard = () => {
                                 collectionId={collectionId}
                                 collection={collection}
                                 setCollection={setCollection}
+                                profile={profile}
                                 collectionUrl={collectionUrl}
                                 setCollectionUrl={setCollectionUrl}
                                 defaultWatermark={defaultWatermark}
@@ -4603,6 +4629,18 @@ const CollectionDashboard = () => {
                         )}
                         {activeSidebarTab === 'settings' && activeSettingsTab === 'privacy' && (
                             <PrivacySettings
+                                collectionId={collectionId}
+                                collection={collection}
+                                setCollection={setCollection}
+                                collectionUrl={collectionUrl}
+                                profile={profile}
+                                emailRegistration={emailRegistration}
+                                setEmailRegistration={setEmailRegistration}
+                                downloadPin={downloadPin}
+                                pinValue={pinValue}
+                                defaultWatermark={defaultWatermark}
+                                watermarks={watermarks}
+                                onSelectWatermark={handleSelectDefaultWatermark}
                                 collectionPassword={collectionPassword}
                                 setCollectionPassword={setCollectionPassword}
                                 showOnShowcase={showOnShowcase}
@@ -4628,10 +4666,18 @@ const CollectionDashboard = () => {
 
                         {activeSidebarTab === 'settings' && activeSettingsTab === 'download' && (
                             <DownloadSettings
+                                collectionId={collectionId}
+                                collection={collection}
+                                setCollection={setCollection}
+                                photos={photos}
+                                photoDownloadSizes={photoDownloadSizes}
+                                setPhotoDownloadSizes={setPhotoDownloadSizes}
+                                highResChoice={highResChoice}
+                                setHighResChoice={setHighResChoice}
+                                webSizeChoice={webSizeChoice}
+                                setWebSizeChoice={setWebSizeChoice}
                                 photoDownload={photoDownload}
                                 setPhotoDownload={setPhotoDownload}
-                                showAdditionalOptions={showAdditionalOptions}
-                                setShowAdditionalOptions={setShowAdditionalOptions}
                                 galleryDownload={galleryDownload}
                                 setGalleryDownload={setGalleryDownload}
                                 singlePhotoDownload={singlePhotoDownload}
@@ -4656,8 +4702,6 @@ const CollectionDashboard = () => {
                                 sets={sets}
                                 pinUsageLimit={pinUsageLimit}
                                 setPinUsageLimit={setPinUsageLimit}
-                                activeDownloadTab={activeDownloadTab}
-                                setActiveDownloadTab={setActiveDownloadTab}
                                 setActiveSidebarTab={setActiveSidebarTab}
                                 setActiveActivitySubTab={setActiveActivitySubTab}
                             />
@@ -4665,10 +4709,18 @@ const CollectionDashboard = () => {
 
                         {activeSidebarTab === 'settings' && activeSettingsTab === 'favorite' && (
                             <FavoriteSettings
+                                collectionId={collectionId}
+                                collection={collection}
+                                setCollection={setCollection}
+                                collectionUrl={collectionUrl}
+                                profile={profile}
                                 favoritePhotos={favoritePhotos}
                                 setFavoritePhotos={setFavoritePhotos}
                                 favoriteNotes={favoriteNotes}
                                 setFavoriteNotes={setFavoriteNotes}
+                                favoriteLists={sortedFavoriteActivity}
+                                onReviewList={handleReviewFavoriteList}
+                                onEditList={openEditFavoriteListModal}
                                 setShowCreateFavoriteListModal={setShowCreateFavoriteListModal}
                                 setActiveSidebarTab={setActiveSidebarTab}
                                 setActiveActivitySubTab={setActiveActivitySubTab}
@@ -4677,6 +4729,9 @@ const CollectionDashboard = () => {
 
                         {activeSidebarTab === 'settings' && activeSettingsTab === 'shop' && (
                             <StoreSettings
+                                collectionId={collectionId}
+                                collection={collection}
+                                setCollection={setCollection}
                                 storeEnabled={storeEnabled}
                                 setStoreEnabled={setStoreEnabled}
                                 setActiveSidebarTab={setActiveSidebarTab}

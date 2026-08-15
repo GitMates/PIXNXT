@@ -185,6 +185,9 @@ const DatePicker = ({
       const month = String(d.getMonth() + 1).padStart(2, '0');
       return `${day}-${month}-${d.getFullYear()}`;
     }
+    if (displayFormat === 'long') {
+      return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+    }
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   }, [value, displayFormat]);
 
