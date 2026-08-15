@@ -4,17 +4,35 @@ import { guestDeliveryService } from './guestDelivery.service';
 const GUEST_FIELDS =
   'id, event_id, photographer_id, name, email, phone, access_token, selfie_url, registered_at, delivery_status, delivery_email_sent_at, matched_photo_count, created_at';
 
+function filterGuestsByPhotographer(rows, photographerId) {
+  const list = rows || [];
+  if (!photographerId) return list;
+  const matched = list.filter((row) => row.photographer_id === photographerId);
+  return matched.length > 0 || list.length === 0 ? matched : list;
+}
+
 export const guestDeliveryGuestsService = {
   async getGuests(photographerId, eventId) {
-    const { data, error } = await supabase
+    if (!eventId) return [];
+
+    const ordered = await supabase
       .from('event_guests')
       .select(GUEST_FIELDS)
-      .eq('photographer_id', photographerId)
       .eq('event_id', eventId)
       .order('registered_at', { ascending: false });
 
-    if (error) throw error;
-    return data || [];
+    if (!ordered.error) {
+      return filterGuestsByPhotographer(ordered.data, photographerId);
+    }
+
+    const fallback = await supabase
+      .from('event_guests')
+      .select('*')
+      .eq('event_id', eventId)
+      .order('created_at', { ascending: false });
+
+    if (fallback.error) throw ordered.error;
+    return filterGuestsByPhotographer(fallback.data, photographerId);
   },
 
   async deleteGuest(photographerId, eventId, guestId) {

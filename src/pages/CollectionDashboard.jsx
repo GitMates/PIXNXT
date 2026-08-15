@@ -62,8 +62,10 @@ import '../components/features/CollectionDashboard/Activity/DownloadActivity.css
 import '../components/features/CollectionDashboard/Activity/FavoriteActivity.css';
 import '../components/features/CollectionDashboard/Activity/StoreOrdersActivity.css';
 import '../components/features/CollectionDashboard/Activity/EmailRegistrationActivity.css';
+import '../components/features/CollectionDashboard/Activity/ActivityFeed.css';
 import '../components/features/CollectionDashboard/Settings/Settings.css';
 import { ActivityView } from '../components/features/CollectionDashboard/Activity/ActivityView';
+import { guestDeliveryGuestsService } from '../services/guestDeliveryGuests.service';
 import { DownloadSettings } from '../components/features/CollectionDashboard/Settings/DownloadSettings';
 import { FavoriteSettings } from '../components/features/CollectionDashboard/Settings/FavoriteSettings';
 import { GeneralSettings } from '../components/features/CollectionDashboard/Settings/GeneralSettings';
@@ -558,6 +560,8 @@ const CollectionDashboard = () => {
     const [favoriteActivity, setFavoriteActivity] = useState([]);
     const [downloadActivity, setDownloadActivity] = useState([]);
     const [emailRegistrationActivity, setEmailRegistrationActivity] = useState([]);
+    const [galleryOpenActivity, setGalleryOpenActivity] = useState([]);
+    const [guestDeliveryGuests, setGuestDeliveryGuests] = useState([]);
     const [loadingActivity, setLoadingActivity] = useState(false);
     
     // Store Orders State
@@ -1196,6 +1200,17 @@ const CollectionDashboard = () => {
         }
     };
 
+    const fetchGalleryOpenActivity = async () => {
+        if (!collectionId) return;
+        try {
+            const activity = await galleryService.getGalleryOpenActivity(collectionId);
+            setGalleryOpenActivity(activity);
+        } catch (err) {
+            console.error('Failed to fetch gallery open activity:', err);
+            setGalleryOpenActivity([]);
+        }
+    };
+
     const fetchStoreOrders = async () => {
         if (!collectionId) return;
         try {
@@ -1267,10 +1282,31 @@ const CollectionDashboard = () => {
             fetchFavoriteActivity();
             fetchDownloadActivity();
             fetchEmailRegistrationActivity();
+            fetchGalleryOpenActivity();
             fetchStoreOrders();
             fetchReminders();
         }
     }, [collectionId]);
+
+    useEffect(() => {
+        if (!gdEvent?.id) {
+            setGuestDeliveryGuests([]);
+            return undefined;
+        }
+        let cancelled = false;
+        const photographerId = gdEvent.photographer_id || collection?.photographer_id || user?.id;
+        guestDeliveryGuestsService
+            .getGuests(photographerId, gdEvent.id)
+            .then((rows) => {
+                if (!cancelled) setGuestDeliveryGuests(rows || []);
+            })
+            .catch(() => {
+                if (!cancelled) setGuestDeliveryGuests([]);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [gdEvent?.id, gdEvent?.photographer_id, collection?.photographer_id, user?.id]);
 
     const applyUploadView = useCallback((detail) => {
         if (detail.collectionId && detail.collectionId !== collectionId) return;
@@ -1304,21 +1340,7 @@ const CollectionDashboard = () => {
     }, [activeActivitySubTab]);
 
     useEffect(() => {
-        if (activeActivitySubTab !== 'favorite') {
-            setSelectedFavoriteListId(null);
-            setFavoriteDetailRows([]);
-            setFavoriteDetailToolbarMenuOpen(false);
-            setFavoriteDetailPhotoMenuPhotoId(null);
-            setFavoriteActivitySortMenuOpen(false);
-        }
-        if (activeActivitySubTab !== 'download') {
-            setSelectedDownloadId(null);
-            setDownloadDetailToolbarMenuOpen(false);
-        }
-    }, [activeActivitySubTab]);
-
-    useEffect(() => {
-        if (!selectedFavoriteListId || activeActivitySubTab !== 'favorite') {
+        if (!selectedFavoriteListId) {
             setFavoriteDetailRows([]);
             return;
         }
@@ -1338,7 +1360,7 @@ const CollectionDashboard = () => {
         return () => {
             cancelled = true;
         };
-    }, [selectedFavoriteListId, activeActivitySubTab]);
+    }, [selectedFavoriteListId]);
 
     useEffect(() => {
         setFavoriteDetailToolbarMenuOpen(false);
@@ -4075,7 +4097,7 @@ const CollectionDashboard = () => {
 
                 {/* Main Content Wrapper */}
                 <div className="cd-main-wrapper">
-                    <main className={`cd-main-area${activeSidebarTab === 'photos' ? ' cd-main-area--photos' : ''}${activeSidebarTab === 'design' ? ' cd-main-area--design' : ''}`}>
+                    <main className={`cd-main-area${activeSidebarTab === 'photos' ? ' cd-main-area--photos' : ''}${activeSidebarTab === 'design' ? ' cd-main-area--design' : ''}${activeSidebarTab === 'guests' ? ' cd-main-area--guests' : ''}${activeSidebarTab === 'activity' ? ' cd-main-area--activity' : ''}`}>
                         {activeSidebarTab === 'photos' && (
                             <>
                                 <CollectionPhotosWorkspaceHeader
@@ -4523,6 +4545,8 @@ const CollectionDashboard = () => {
                             storeOrderItems={storeOrderItems}
                             storeOrdersLoading={storeOrdersLoading}
                             emailRegistrationActivity={emailRegistrationActivity}
+                            galleryOpenActivity={galleryOpenActivity}
+                            guestDeliveryGuests={guestDeliveryGuests}
                             favoriteActivitySortMenuRef={favoriteActivitySortMenuRef}
                             favoriteActivityMenuRef={favoriteActivityMenuRef}
                             favoriteDetailToolbarMenuRef={favoriteDetailToolbarMenuRef}
@@ -4547,8 +4571,9 @@ const CollectionDashboard = () => {
                             <div className="cd-guests-main">
                                 {gdEvent ? (
                                     <EventGuestsPanel
+                                        key={gdEvent.id}
                                         event={gdEvent}
-                                        photographerId={user?.id}
+                                        photographerId={gdEvent.photographer_id || collection?.photographer_id || user?.id}
                                         onGuestCountChange={setGdGuestCount}
                                     />
                                 ) : (

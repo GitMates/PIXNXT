@@ -42,13 +42,6 @@ const SETTINGS_TABS = [
   { id: 'shop', label: 'Print Lab' },
 ];
 
-const ACTIVITY_TABS = [
-  { id: 'download', label: 'Download Activity' },
-  { id: 'favorite', label: 'Favorite Activity' },
-  { id: 'store', label: 'Store Orders' },
-  { id: 'email', label: 'Email Registration' },
-];
-
 function NavItem({ active, icon: Icon, label, count, onClick, className, expandable, expanded }) {
   return (
     <button
@@ -332,29 +325,16 @@ export function CollectionDashboardSidebar({
             />
           ) : null}
 
-          <div className={cn('cdsb-expand-block', activityActive && 'cdsb-expand-block--open')}>
-            <NavItem
-              active={activityActive}
-              icon={Clock}
-              label="Activity"
-              count={activityCount}
-              onClick={() => onSidebarTabChange('activity')}
-              expandable
-              expanded={activityActive}
-            />
-            {activityActive ? (
-              <div className="cdsb-tree cdsb-tree--tabs">
-                {ACTIVITY_TABS.map((tab) => (
-                  <NestedTabItem
-                    key={tab.id}
-                    active={activeActivitySubTab === tab.id}
-                    label={tab.label}
-                    onClick={() => onActivitySubTabChange?.(tab.id)}
-                  />
-                ))}
-              </div>
-            ) : null}
-          </div>
+          <NavItem
+            active={activityActive}
+            icon={Clock}
+            label="Activity"
+            count={activityCount}
+            onClick={() => {
+              onSidebarTabChange('activity');
+              onActivitySubTabChange?.('feed');
+            }}
+          />
 
           <p className="cdsb-nav__section cdsb-nav__section--set-once">Set once</p>
           <div className={cn('cdsb-settings-block', settingsActive && 'cdsb-settings-block--active')}>

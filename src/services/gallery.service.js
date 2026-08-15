@@ -3143,6 +3143,43 @@ export const galleryService = {
   /**
    * Get aggregate counts for different activity types (for Expiry Reminder modal)
    */
+  async getGalleryOpenActivity(collectionId) {
+    try {
+      const { data, error } = await supabase
+        .from('activity_log')
+        .select('id, visitor_email, created_at, metadata')
+        .eq('collection_id', collectionId)
+        .eq('event_type', 'gallery_view')
+        .order('created_at', { ascending: false })
+        .limit(200);
+
+      if (error) throw error;
+
+      const visitCounts = new Map();
+      const chronological = [...(data || [])].sort(
+        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      );
+      return chronological
+        .map((row) => {
+          const email = row.visitor_email || 'Unknown visitor';
+          const key = String(email).toLowerCase();
+          const visitCount = (visitCounts.get(key) || 0) + 1;
+          visitCounts.set(key, visitCount);
+          return {
+            id: row.id,
+            email,
+            date: row.created_at,
+            visitCount,
+            source: 'gallery_view',
+          };
+        })
+        .reverse();
+    } catch (err) {
+      console.error('Error fetching gallery open activity:', err);
+      return [];
+    }
+  },
+
   async getActivityCounts(collectionId) {
     if (!collectionId) return { contacts: 0, downloaded: 0, registered: 0, favorited: 0, purchased: 0 };
 

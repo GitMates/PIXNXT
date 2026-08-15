@@ -978,6 +978,16 @@
     overflow: hidden;
 }
 
+.cd-main-area--guests {
+    background-color: #f9f7f2;
+    padding: 0;
+}
+
+.cd-main-area--activity {
+    background-color: #f9f7f2;
+    padding: 0;
+}
+
 .cd-main-header {
     display: flex;
     align-items: center;
@@ -6347,17 +6357,14 @@
 }
 
 .cd-guests-main {
-    padding: 28px 40px 48px;
+    padding: 36px 48px 64px;
     width: 100%;
     box-sizing: border-box;
+    background: #f9f7f2;
 }
 
-.cd-guests-main .gd-panel {
+.cd-guests-main .gd-guest-board {
     max-width: 100%;
-}
-
-.cd-guests-main .gd-guest-table-wrap {
-    width: 100%;
 }
 
 
