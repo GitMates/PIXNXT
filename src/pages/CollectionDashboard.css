@@ -168,7 +168,7 @@
 
 /* Top Navigation Bar */
 .cd-topbar {
-    height: 79px;
+    height: 64px;
     display: flex;
     align-items: center;
     justify-content: space-between;

@@ -17,6 +17,7 @@ import '../components/features/CollectionDashboard/DesignTab/DesignWorkspace.css
 import { PreviewPane } from '../components/features/CollectionDashboard/PreviewPane';
 import { ChangeCoverModal } from '../components/features/CollectionDashboard/CoverSettings/ChangeCoverModal';
 import { CollectionDashboardSidebar } from '../components/features/CollectionDashboard/Sidebar/CollectionDashboardSidebar';
+import { SetOptionsMenu } from '../components/features/CollectionDashboard/Sidebar/SetOptionsMenu';
 import { DeliveryFilmsView } from '../components/features/CollectionDashboard/Films/DeliveryFilmsView';
 import { downloadPhotoFromR2 } from '../lib/downloadPhoto';
 import {
@@ -222,6 +223,8 @@ const CollectionDashboard = () => {
     const [targetSetId, setTargetSetId] = useState(null);
     const [moveMode, setMoveMode] = useState('move'); // 'move' or 'copy'
     const [showSetMenu, setShowSetMenu] = useState(null); // set id or null
+    const [setMenuAnchor, setSetMenuAnchor] = useState(null);
+    const [mobileAppSets, setMobileAppSets] = useState({});
     const [showSortMenu, setShowSortMenu] = useState(false);
     const [selectedPhotos, setSelectedPhotos] = useState([]);
 
@@ -348,6 +351,19 @@ const CollectionDashboard = () => {
             /* ignore quota / private mode */
         }
     };
+
+    useEffect(() => {
+        if (!collectionId) {
+            setMobileAppSets({});
+            return;
+        }
+        try {
+            const raw = localStorage.getItem(`pixnxt_mobile_app_sets_${collectionId}`);
+            setMobileAppSets(raw ? JSON.parse(raw) : {});
+        } catch {
+            setMobileAppSets({});
+        }
+    }, [collectionId]);
 
     const persistSidebarOrder = async (id, orderIds) => {
         if (!id || !Array.isArray(orderIds)) return;
@@ -3523,6 +3539,126 @@ const CollectionDashboard = () => {
         }
     };
 
+    const photosInSidebarSet = useCallback((set) => {
+        if (!set) return [];
+        if (set.isHighlights || set.id === 'highlights') return photos.filter((p) => !p.set_id);
+        return photos.filter((p) => p.set_id === set.id);
+    }, [photos]);
+
+    const persistMobileAppSets = useCallback((next) => {
+        setMobileAppSets(next);
+        if (!collectionId) return;
+        try {
+            localStorage.setItem(`pixnxt_mobile_app_sets_${collectionId}`, JSON.stringify(next));
+        } catch {
+            /* ignore */
+        }
+    }, [collectionId]);
+
+    const handleDuplicateSet = async (set) => {
+        if (!collectionId || !collection?.photographer_id || !set) return;
+        const sourcePhotos = photosInSidebarSet(set);
+        const baseName = String(set.name || 'Set').replace(/\s+copy$/i, '');
+        let nextName = `${baseName} copy`;
+        const existing = new Set((sets || []).map((s) => String(s.name || '').toLowerCase()));
+        let n = 2;
+        while (existing.has(nextName.toLowerCase())) {
+            nextName = `${baseName} copy ${n}`;
+            n += 1;
+        }
+        try {
+            const { set: created, photos: copied } = await galleryService.duplicateSet({
+                collectionId,
+                photographerId: collection.photographer_id,
+                name: nextName,
+                description: set.description || null,
+                position: sets.length,
+                photos: sourcePhotos,
+            });
+            setSets((prev) => [...prev, created]);
+            if (copied?.length) {
+                setPhotos((prev) => [...prev, ...copied]);
+            }
+            setOrderedSetIds((prev) => {
+                if (!prev || prev.length === 0) return prev;
+                const next = [...prev, created.id];
+                void persistSidebarOrder(collectionId, next);
+                return next;
+            });
+            setShowSetMenu(null);
+            setSetMenuAnchor(null);
+            setActiveSidebarTab('photos');
+            setActiveSetId(created.id);
+            showToast(`Duplicated “${set.name}”`, 'success');
+        } catch (err) {
+            console.error('Failed to duplicate set:', err);
+            alert(err?.message || 'Failed to duplicate set. Please try again.');
+        }
+    };
+
+    const handleToggleSetHidden = async (set, hidden) => {
+        if (!set) return;
+        if (set.isHighlights || set.id === 'highlights') {
+            setClientOnlyHighlights(hidden);
+            try {
+                await galleryService.updateCollection(collectionId, { client_only_highlights: hidden });
+            } catch (err) {
+                console.error('Failed to hide Highlights:', err);
+            }
+            return;
+        }
+        await handleSetClientOnlyChange(set.id, hidden);
+    };
+
+    const handleMoveAllPhotosFromSet = async (fromSet, targetSetId) => {
+        const sourcePhotos = photosInSidebarSet(fromSet);
+        if (sourcePhotos.length === 0) {
+            showToast('This set has no photos to move', 'error');
+            return;
+        }
+        const ids = sourcePhotos.map((p) => p.id);
+        try {
+            await galleryService.assignPhotosToSet(ids, targetSetId);
+            setPhotos((prev) => prev.map((p) => (ids.includes(p.id) ? { ...p, set_id: targetSetId } : p)));
+            setShowSetMenu(null);
+            setSetMenuAnchor(null);
+            const targetName = targetSetId
+                ? (sets.find((s) => s.id === targetSetId)?.name || 'set')
+                : highlightsName;
+            showToast(`Moved ${ids.length} photo${ids.length === 1 ? '' : 's'} to ${targetName}`, 'success');
+        } catch (err) {
+            console.error('Failed to move photos:', err);
+            alert('Failed to move photos. Please try again.');
+        }
+    };
+
+    const handleDownloadSet = async (set) => {
+        const sourcePhotos = photosInSidebarSet(set).filter((p) => p.full_url);
+        if (sourcePhotos.length === 0) {
+            showToast('This set has no photos to download', 'error');
+            return;
+        }
+        setShowSetMenu(null);
+        setSetMenuAnchor(null);
+        try {
+            for (let i = 0; i < sourcePhotos.length; i += 1) {
+                const p = sourcePhotos[i];
+                await downloadPhotoFromR2(p.full_url, p.filename || 'photo.jpg');
+                if (i < sourcePhotos.length - 1) {
+                    await new Promise((r) => setTimeout(r, 250));
+                }
+            }
+        } catch (err) {
+            console.error('Set download failed:', err);
+            alert('Failed to download some photos.');
+        }
+    };
+
+    const handleToggleSetInApp = (set, enabled) => {
+        if (!set) return;
+        persistMobileAppSets({ ...mobileAppSets, [set.id]: enabled });
+    };
+
     // Auto-save download settings
     useEffect(() => {
         if (!collection || loading) return;
@@ -3690,7 +3826,10 @@ const CollectionDashboard = () => {
                 setShowMoreDropdown(false);
                 setShowPresetsSubmenu(false);
             }
-            if (!e.target.closest?.('.cd-set-menu-wrapper')) setShowSetMenu(null);
+            if (!e.target.closest?.('.cd-set-menu-wrapper') && !e.target.closest?.('.cd-set-options')) {
+                setShowSetMenu(null);
+                setSetMenuAnchor(null);
+            }
             if (sortRef.current && !sortRef.current.contains(e.target)) setShowSortMenu(false);
             if (selectionMoreRef.current && !selectionMoreRef.current.contains(e.target)) setShowSelectionMore(false);
             if (selectAllMenuRef.current && !selectAllMenuRef.current.contains(e.target)) setShowSelectAllMenu(false);
@@ -4051,7 +4190,9 @@ const CollectionDashboard = () => {
                     onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
                     activeSidebarTab={activeSidebarTab}
                     onSidebarTabChange={setActiveSidebarTab}
-                    sortedSidebarSets={sortedSidebarSets}
+                    sortedSidebarSets={sortedSidebarSets.map((s) => (
+                        s.isHighlights ? { ...s, isPrivate: clientOnlyHighlights === true } : s
+                    ))}
                     activeSetId={activeSetId}
                     onSetSelect={setActiveSetId}
                     onAddSet={() => setShowAddSetModal(true)}
@@ -4062,23 +4203,68 @@ const CollectionDashboard = () => {
                     onSetDragEnd={handleSetDragEnd}
                     onSetDrop={handleSetDrop}
                     showSetMenu={showSetMenu}
-                    onSetMenuToggle={(setId) => setShowSetMenu(showSetMenu === setId ? null : setId)}
-                    renderSetMenu={(set) => (
-                        <div className="cd-set-dropdown" role="menu">
-                            <button type="button" className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); openCoverModal(set.id); }}>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                                <span>Change cover</span>
-                            </button>
-                            <button type="button" className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); set.isHighlights ? openEditSetModal({ id: 'highlights', name: highlightsName, description: collection?.description || '' }) : openEditSetModal(set); }}>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
-                                <span>Edit set</span>
-                            </button>
-                            <button type="button" className="cd-ctx-item cd-ctx-delete" role="menuitem" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); handleDeleteSet(set.id); }}>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                                <span>Delete set</span>
-                            </button>
-                        </div>
-                    )}
+                    onSetMenuToggle={(setId, anchor) => {
+                        if (showSetMenu === setId) {
+                            setShowSetMenu(null);
+                            setSetMenuAnchor(null);
+                        } else {
+                            setShowSetMenu(setId);
+                            setSetMenuAnchor(anchor || null);
+                        }
+                    }}
+                    renderSetMenu={(set) => {
+                        const setPhotos = photosInSidebarSet(set);
+                        const bytes = setPhotos.reduce((sum, p) => sum + (Number(p.size_bytes) || 0), 0);
+                        const gb = bytes / (1024 * 1024 * 1024);
+                        const sizeLabel = gb >= 0.1
+                            ? `${gb.toFixed(1)} GB`
+                            : bytes >= 1024 * 1024
+                                ? `${Math.max(1, Math.round(bytes / (1024 * 1024)))} MB`
+                                : '0 GB';
+                        const hidden = set.isHighlights
+                            ? clientOnlyHighlights
+                            : set.isPrivate === true;
+                        const visibleCount = sortedSidebarSets.filter((s) => (
+                            s.isHighlights ? !clientOnlyHighlights : s.isPrivate !== true
+                        )).length;
+                        return (
+                            <SetOptionsMenu
+                                set={set}
+                                photoCount={set.photoCount ?? setPhotos.length}
+                                visibleSetCount={visibleCount}
+                                otherSets={sortedSidebarSets.filter((s) => s.id !== set.id)}
+                                hidden={hidden}
+                                inApp={mobileAppSets[set.id] !== false}
+                                sizeLabel={sizeLabel}
+                                anchorEl={setMenuAnchor}
+                                onRename={() => {
+                                    setShowSetMenu(null);
+                                    setSetMenuAnchor(null);
+                                    if (set.isHighlights) {
+                                        openEditSetModal({
+                                            id: 'highlights',
+                                            name: highlightsName,
+                                            description: collection?.description || '',
+                                        });
+                                    } else {
+                                        openEditSetModal(set);
+                                    }
+                                }}
+                                onDuplicate={() => handleDuplicateSet(set)}
+                                onToggleHidden={(nextHidden) => handleToggleSetHidden(set, nextHidden)}
+                                onMoveAllTo={(targetId) => handleMoveAllPhotosFromSet(
+                                    set,
+                                    targetId === 'highlights' ? null : targetId
+                                )}
+                                onDownload={() => handleDownloadSet(set)}
+                                onToggleInApp={(enabled) => handleToggleSetInApp(set, enabled)}
+                                onClose={() => {
+                                    setShowSetMenu(null);
+                                    setSetMenuAnchor(null);
+                                }}
+                            />
+                        );
+                    }}
                     activeDesignTab={activeDesignTab}
                     onDesignTabChange={setActiveDesignTab}
                     activeSettingsTab={activeSettingsTab}

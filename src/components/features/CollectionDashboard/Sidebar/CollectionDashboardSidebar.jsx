@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ChevronRight,
-  LayoutGrid,
   Play,
   Pencil,
   Target,
@@ -10,7 +9,6 @@ import {
   Settings,
   MoreHorizontal,
   EyeOff,
-  Sparkles,
 } from 'lucide-react';
 import { cn } from '../../../../lib/utils';
 import { useAuth } from '../../../../hooks/useAuth';
@@ -18,6 +16,18 @@ import { getUserDisplayLabel, getUserInitial } from '../../../../lib/userInitial
 import { userStorageService } from '../../../../services/userStorage.service';
 import { SidebarCoverUpload } from '../CoverSettings/SidebarCoverUpload';
 import './CollectionDashboardSidebar.css';
+
+function PhotosGridIcon({ className, ...props }) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="currentColor" aria-hidden {...props}>
+      {[0, 1, 2].map((row) =>
+        [0, 1, 2].map((col) => (
+          <circle key={`${row}-${col}`} cx={3 + col * 5} cy={3 + row * 5} r="1.2" />
+        ))
+      )}
+    </svg>
+  );
+}
 
 function formatCount(n) {
   const value = Number(n) || 0;
@@ -89,6 +99,7 @@ function SetRow({
         isActive && 'cdsb-tree__row--active',
         isHighlights && 'cdsb-tree__row--highlights',
         hidden && 'cdsb-tree__row--hidden',
+        showSetMenu === set.id && 'cdsb-tree__row--menu-open',
         draggedSetIndex === index && 'cdsb-tree__row--dragging',
         dragOverSetIndex === index && draggedSetIndex !== index && 'cdsb-tree__row--drag-over'
       )}
@@ -103,21 +114,19 @@ function SetRow({
         className={cn('cdsb-set-row', isActive && 'cdsb-set-row--active')}
         onClick={() => onSetSelect?.(isHighlights ? null : set.id)}
       >
-        {isHighlights ? (
-          <Sparkles className="cdsb-set-row__icon" size={15} aria-hidden />
-        ) : null}
         <span className="cdsb-set-row__label">{set.name}</span>
+        {hidden ? <EyeOff className="cdsb-set-row__hidden" size={13} aria-label="Hidden from client" /> : null}
         <span className="cdsb-set-row__count">{formatCount(set.photoCount)}</span>
-        {hidden ? <EyeOff className="cdsb-set-row__hidden" size={14} aria-label="Hidden from client" /> : null}
       </button>
-      <div className="cdsb-set-row__menu">
+      <div className="cdsb-set-row__menu cd-set-menu-wrapper">
         <button
           type="button"
           className="cdsb-set-row__menu-btn"
           aria-label={`${set.name} options`}
+          aria-expanded={showSetMenu === set.id}
           onClick={(e) => {
             e.stopPropagation();
-            onSetMenuToggle?.(set.id);
+            onSetMenuToggle?.(set.id, e.currentTarget);
           }}
         >
           <MoreHorizontal size={16} />
@@ -260,34 +269,37 @@ export function CollectionDashboardSidebar({
           <div className={cn('cdsb-photos-panel', photosActive && 'cdsb-photos-panel--active')}>
             <NavItem
               active={photosActive}
-              icon={LayoutGrid}
+              icon={PhotosGridIcon}
               label="Photos"
               count={photoCount}
+              className="cdsb-nav-item--photos"
               onClick={() => onSidebarTabChange('photos')}
             />
             {photosActive ? (
-              <div className="cdsb-tree">
-                {sortedSidebarSets.map((set, index) => {
-                  const isActive = set.isHighlights ? !activeSetId : activeSetId === set.id;
-                  return (
-                    <SetRow
-                      key={set.id}
-                      set={set}
-                      index={index}
-                      isActive={isActive}
-                      draggedSetIndex={draggedSetIndex}
-                      dragOverSetIndex={dragOverSetIndex}
-                      onSetDragStart={onSetDragStart}
-                      onSetDragOver={onSetDragOver}
-                      onSetDragEnd={onSetDragEnd}
-                      onSetDrop={onSetDrop}
-                      onSetSelect={onSetSelect}
-                      onSetMenuToggle={onSetMenuToggle}
-                      showSetMenu={showSetMenu}
-                      renderSetMenu={renderSetMenu}
-                    />
-                  );
-                })}
+              <>
+                <div className="cdsb-tree">
+                  {sortedSidebarSets.map((set, index) => {
+                    const isActive = set.isHighlights ? !activeSetId : activeSetId === set.id;
+                    return (
+                      <SetRow
+                        key={set.id}
+                        set={set}
+                        index={index}
+                        isActive={isActive}
+                        draggedSetIndex={draggedSetIndex}
+                        dragOverSetIndex={dragOverSetIndex}
+                        onSetDragStart={onSetDragStart}
+                        onSetDragOver={onSetDragOver}
+                        onSetDragEnd={onSetDragEnd}
+                        onSetDrop={onSetDrop}
+                        onSetSelect={onSetSelect}
+                        onSetMenuToggle={onSetMenuToggle}
+                        showSetMenu={showSetMenu}
+                        renderSetMenu={renderSetMenu}
+                      />
+                    );
+                  })}
+                </div>
                 <button type="button" className="cdsb-add-set" onClick={onAddSet}>
                   + Add set
                 </button>
@@ -296,7 +308,7 @@ export function CollectionDashboardSidebar({
                     {visibleSetCount} of {totalSetCount} sets visible to your client
                   </p>
                 ) : null}
-              </div>
+              </>
             ) : null}
           </div>
 

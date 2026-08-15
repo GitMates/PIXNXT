@@ -1,6 +1,6 @@
 .cd-activity-feed {
   width: 100%;
-  max-width: 1080px;
+  max-width: 920px;
   margin: 0 auto;
   color: #3c3028;
 }
@@ -12,7 +12,7 @@
 .cd-activity-feed__title {
   margin: 0;
   font-family: 'Playfair Display', Georgia, serif;
-  font-size: 30px;
+  font-size: 22px;
   font-weight: 500;
   letter-spacing: -0.015em;
   line-height: 1.15;
@@ -20,9 +20,9 @@
 }
 
 .cd-activity-feed__sub {
-  margin: 5px 0 0;
+  margin: 3px 0 0;
   color: #a49d95;
-  font-size: 13.5px;
+  font-size: 12px;
   font-weight: 400;
   letter-spacing: 0.002em;
 }
@@ -30,16 +30,16 @@
 .cd-activity-feed__filters {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  margin: 16px 0 0;
+  gap: 8px;
+  margin: 14px 0 0;
 }
 
 .cd-activity-feed__pill {
   border: 1px solid #e6e1d9;
   background: #ffffff;
   border-radius: 8px;
-  padding: 7px 14px;
-  font-size: 13px;
+  padding: 6px 12px;
+  font-size: 12px;
   font-weight: 500;
   line-height: 1.15;
   color: #3a342f;
@@ -60,20 +60,23 @@
 }
 
 .cd-activity-feed__list {
-  margin-top: 18px;
+  margin-top: 16px;
   background: #ffffff;
-  border: 1px solid #efeae3;
-  border-radius: 10px;
+  border: none;
+  border-radius: 12px;
+  box-shadow:
+    0 0 0 1px rgba(40, 32, 24, 0.06),
+    0 1px 2px rgba(40, 32, 24, 0.04);
   overflow: hidden;
 }
 
 .cd-activity-feed__row {
   display: grid;
-  grid-template-columns: 104px minmax(120px, 250px) minmax(0, 1fr) auto;
-  gap: 6px 16px;
+  grid-template-columns: 92px minmax(120px, 200px) minmax(0, 1fr) auto;
+  gap: 6px 14px;
   align-items: center;
-  padding: 13px 26px;
-  border-bottom: 1px solid #f2eee8;
+  padding: 13px 22px;
+  border-bottom: 1px solid #f0ebe4;
   width: 100%;
   background: none;
   border-left: none;
@@ -82,6 +85,7 @@
   text-align: left;
   color: inherit;
   font: inherit;
+  box-sizing: border-box;
   transition: background-color 0.12s ease;
 }
 
@@ -95,6 +99,8 @@
 
 button.cd-activity-feed__row {
   cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 button.cd-activity-feed__row:hover {
@@ -115,28 +121,29 @@ button.cd-activity-feed__row:hover .cd-activity-feed__actor {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 20px;
+  gap: 16px;
 }
 
 .cd-activity-feed__actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   flex-shrink: 0;
-  margin-top: 2px;
+  margin-top: 1px;
 }
 
 .cd-activity-feed__badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 72px;
-  padding: 4px 9px;
-  border-radius: 5px;
-  font-size: 9px;
+  justify-self: start;
+  min-width: 78px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 8.5px;
   font-weight: 600;
   line-height: 1.3;
-  letter-spacing: 0.09em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #78716a;
   background: #f2efea;
@@ -148,7 +155,7 @@ button.cd-activity-feed__row:hover .cd-activity-feed__actor {
 }
 
 .cd-activity-feed__actor {
-  font-size: 13.5px;
+  font-size: 12.5px;
   font-weight: 600;
   color: #2d2822;
   overflow: hidden;
@@ -158,9 +165,9 @@ button.cd-activity-feed__row:hover .cd-activity-feed__actor {
 }
 
 .cd-activity-feed__copy {
-  font-size: 13.5px;
+  font-size: 12.5px;
   color: #6f6862;
-  line-height: 1.45;
+  line-height: 1.4;
   letter-spacing: -0.002em;
 }
 
@@ -171,7 +178,7 @@ button.cd-activity-feed__row:hover .cd-activity-feed__actor {
 
 .cd-activity-feed__time {
   justify-self: end;
-  font-size: 12.5px;
+  font-size: 11.5px;
   color: #aaa49c;
   white-space: nowrap;
   font-weight: 400;
@@ -179,45 +186,62 @@ button.cd-activity-feed__row:hover .cd-activity-feed__actor {
 }
 
 .cd-activity-feed__empty {
-  margin-top: 18px;
-  padding: 44px 26px;
+  margin-top: 16px;
+  padding: 36px 22px;
   background: #ffffff;
-  border: 1px solid #efeae3;
-  border-radius: 10px;
+  border: none;
+  border-radius: 12px;
+  box-shadow:
+    0 0 0 1px rgba(40, 32, 24, 0.06),
+    0 1px 2px rgba(40, 32, 24, 0.04);
 }
 
 .cd-activity-feed__empty p {
   margin: 0;
-  font-size: 14.5px;
+  font-size: 13.5px;
   font-weight: 600;
   color: #3c3028;
 }
 
 .cd-activity-feed__empty-sub {
-  margin-top: 6px !important;
+  margin-top: 5px !important;
   font-weight: 400 !important;
   color: #a89f91 !important;
-  font-size: 13.5px !important;
+  font-size: 12.5px !important;
 }
 
 .cd-activity-feed__note {
-  margin: 14px 0 0;
-  font-size: 12px;
-  line-height: 1.55;
+  margin: 10px 0 0;
+  font-size: 11px;
+  line-height: 1.5;
   color: #b6b0a8;
 }
 
 .cd-activity-main {
-  padding: 40px 52px 68px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 28px 32px 56px;
   width: 100%;
   box-sizing: border-box;
   background: #f9f7f4;
-  min-height: 100vh;
+  min-height: 100%;
+}
+
+.cd-activity-main .download-activity-actions-trigger {
+  height: 30px;
+  padding: 0 11px;
+  font-size: 12.5px;
+  border-radius: 7px;
+}
+
+.cd-activity-main .favorite-activity-header-link {
+  font-size: 12.5px;
 }
 
 @media (max-width: 900px) {
   .cd-activity-feed__row {
-    grid-template-columns: 96px minmax(0, 1fr) auto;
+    grid-template-columns: 80px minmax(0, 1fr) auto;
   }
 
   .cd-activity-feed__copy {
@@ -228,17 +252,17 @@ button.cd-activity-feed__row:hover .cd-activity-feed__actor {
 
 @media (max-width: 640px) {
   .cd-activity-main {
-    padding: 28px 18px 56px;
+    padding: 18px 14px 40px;
   }
 
   .cd-activity-feed__title {
-    font-size: 26px;
+    font-size: 20px;
   }
 
   .cd-activity-feed__row {
-    grid-template-columns: 88px minmax(0, 1fr);
-    gap: 8px 12px;
-    padding: 13px 16px;
+    grid-template-columns: 76px minmax(0, 1fr);
+    gap: 6px 10px;
+    padding: 8px 12px;
   }
 
   .cd-activity-feed__copy,

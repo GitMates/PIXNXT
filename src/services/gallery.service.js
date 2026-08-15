@@ -1177,6 +1177,52 @@ export const galleryService = {
     if (error) throw error;
   },
 
+  /**
+   * Duplicate a set and copy its photo rows (same storage URLs, new records).
+   */
+  async duplicateSet({
+    collectionId,
+    photographerId,
+    name,
+    description,
+    position,
+    photos = [],
+  }) {
+    const created = await this.createSet({
+      collectionId,
+      photographerId,
+      name,
+      description: description || null,
+      position: position ?? 0,
+    });
+
+    if (!photos.length) return { set: created, photos: [] };
+
+    const rows = photos.map((p, index) => ({
+      collection_id: collectionId,
+      photographer_id: photographerId,
+      set_id: created.id,
+      filename: p.filename,
+      full_url: p.full_url,
+      web_url: p.web_url,
+      thumbnail_url: p.thumbnail_url,
+      original_storage_path: p.original_storage_path,
+      size_bytes: p.size_bytes,
+      width: p.width,
+      height: p.height,
+      media_type: p.media_type ?? 'image',
+      position: p.position ?? index,
+      status: p.status ?? 'ready',
+      is_starred: p.is_starred ?? false,
+      exif_taken_at: p.exif_taken_at ?? null,
+      is_private: p.is_private ?? false,
+    }));
+
+    const { data, error } = await supabase.from('photos').insert(rows).select();
+    if (error) throw error;
+    return { set: created, photos: data || [] };
+  },
+
   // ─── PHOTO OPERATIONS ─────────────────────────────────────
 
   /**
