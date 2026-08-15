@@ -133,7 +133,7 @@ export function ActivityFeed({
                 <RowTag
                   key={item.id}
                   type={clickable ? 'button' : undefined}
-                  className="cd-activity-feed__row"
+                  className={`cd-activity-feed__row${item.highlight ? ' cd-activity-feed__row--highlight' : ''}`}
                   role="listitem"
                   onClick={clickable ? () => onSelectItem(item) : undefined}
                 >

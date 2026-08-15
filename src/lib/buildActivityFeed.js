@@ -52,13 +52,13 @@ function downloadCopy(row) {
   const sizeLabel = row.resolution ? String(row.resolution).toLowerCase() : null;
   const setLabel = row.setName || null;
   if (row.type === 'gallery') {
-    const countText = Number.isFinite(count) && count > 0 ? `${count} photos` : 'gallery';
+    const hasCount = Number.isFinite(count) && count > 0;
     return {
       textParts: [
-        { text: 'Downloaded ' },
-        { text: countText, bold: true },
-        ...(setLabel ? [{ text: ' from ' }, { text: setLabel, bold: true }] : []),
-        ...(sizeLabel ? [{ text: ' · ' }, { text: `${sizeLabel} size`, bold: true }] : []),
+        { text: hasCount ? 'Downloaded ' : 'Downloaded the ' },
+        { text: hasCount ? `${count} photo${count === 1 ? '' : 's'}` : 'full delivery', bold: true },
+        ...(setLabel ? [{ text: ` from ${setLabel}` }] : []),
+        ...(sizeLabel ? [{ text: ` · ${sizeLabel} size` }] : []),
       ],
     };
   }
@@ -67,7 +67,7 @@ function downloadCopy(row) {
       textParts: [
         { text: 'Downloaded ' },
         { text: row.filename || 'a video', bold: true },
-        ...(sizeLabel ? [{ text: ' · ' }, { text: `${sizeLabel} size`, bold: true }] : []),
+        ...(sizeLabel ? [{ text: ` · ${sizeLabel} size` }] : []),
       ],
     };
   }
@@ -75,8 +75,8 @@ function downloadCopy(row) {
     textParts: [
       { text: 'Downloaded ' },
       { text: row.filename || '1 photo', bold: true },
-      ...(setLabel ? [{ text: ' from ' }, { text: setLabel, bold: true }] : []),
-      ...(sizeLabel ? [{ text: ' · ' }, { text: `${sizeLabel} size`, bold: true }] : []),
+      ...(setLabel ? [{ text: ` from ${setLabel}` }] : []),
+      ...(sizeLabel ? [{ text: ` · ${sizeLabel} size` }] : []),
     ],
   };
 }
@@ -85,22 +85,22 @@ function selectionCopy(row) {
   const count = Number(row.photoCount) || 0;
   const max = row.max_selection != null ? Number(row.max_selection) : null;
   const listName = row.name || 'Favorites';
+  const progress =
+    Number.isFinite(max) && max > 0 ? `${count} of ${max}` : `${count} photo${count === 1 ? '' : 's'}`;
   if (row.submitted_at) {
-    const progress =
-      Number.isFinite(max) && max > 0 ? `${count} of ${max}` : `${count} photo${count === 1 ? '' : 's'}`;
     return {
       textParts: [
         { text: 'Submitted the ' },
-        { text: `${listName} · ${progress}`, bold: true },
+        { text: listName, bold: true },
+        { text: ` list · ${progress}` },
       ],
     };
   }
   return {
     textParts: [
-      { text: 'Updated ' },
+      { text: 'Started the ' },
       { text: listName, bold: true },
-      { text: ' · ' },
-      { text: `${count} photo${count === 1 ? '' : 's'}`, bold: true },
+      { text: ` list · ${progress} so far` },
     ],
   };
 }
@@ -116,11 +116,8 @@ function orderCopy(order, items) {
   const total = moneyLabel(order.total ?? order.total_amount ?? order.amount);
   return {
     textParts: [
-      { text: 'Ordered ' },
-      {
-        text: `${qty} print${qty === 1 ? '' : 's'} · ${size}${total ? ` · ${total}` : ''}`,
-        bold: true,
-      },
+      { text: `Ordered ${qty} print${qty === 1 ? '' : 's'} · ${size}` },
+      ...(total ? [{ text: ' · ' }, { text: total, bold: true }] : []),
     ],
   };
 }
@@ -130,9 +127,7 @@ function guestCopy(row) {
   if (Number.isFinite(matched) && matched > 0) {
     return {
       textParts: [
-        { text: 'Registered by ' },
-        { text: 'QR', bold: true },
-        { text: ' and was matched to ' },
+        { text: 'Registered by QR and was matched to ' },
         { text: `${matched} photo${matched === 1 ? '' : 's'}`, bold: true },
       ],
     };
@@ -161,10 +156,7 @@ function openCopy(row) {
           ? `${visits}rd`
           : `${visits}th`;
   return {
-    textParts: [
-      { text: 'Opened the delivery · ' },
-      { text: `${ordinal} visit`, bold: true },
-    ],
+    textParts: [{ text: `Opened the delivery · ${ordinal} visit` }],
   };
 }
 
@@ -175,6 +167,7 @@ function openCopy(row) {
  *  badge: string,
  *  actor: string,
  *  textParts: Array<{text: string, bold?: boolean}>,
+ *  highlight?: boolean,
  *  at: string,
  *  source: any,
  * }>}
@@ -212,6 +205,7 @@ export function buildActivityFeedItems({
       filter: 'selections',
       badge: 'Selection',
       actor: row.email || row.name || 'Client',
+      highlight: Boolean(row.submitted_at),
       ...selectionCopy(row),
       at,
       source: { kind: 'selection', row },
