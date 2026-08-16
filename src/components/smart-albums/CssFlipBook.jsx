@@ -9,6 +9,7 @@ import {
 } from './albumCoverColor';
 import { getCoverLeatherSurfaceStyle } from './coverLeatherSurface';
 import { parseGridSizeAspect } from './albumGridSize';
+import { albumShowsLeatherCover } from './albumSpreadUtils';
 import {
     CSS_FLIP_SHEETS,
     cssFlipCountToCheckboxIds,
@@ -149,14 +150,14 @@ export default function CssFlipBook({
     const coverText = resolveFrontCoverDisplayText(album, albumId);
     const pageAspect = parseGridSizeAspect(album?.grid_size);
     const leatherStyle =
-        album?.blank_covers === true && albumId
+        albumShowsLeatherCover(album, null) && albumId
             ? getCoverLeatherSurfaceStyle(getAlbumCoverColor(albumId), {
                   aspect: pageAspect,
                   title: coverText,
               })
             : null;
     const leatherBackStyle =
-        album?.blank_covers === true && albumId
+        albumShowsLeatherCover(album, null) && albumId
             ? getCoverLeatherSurfaceStyle(getAlbumCoverColor(albumId), {
                   aspect: pageAspect,
               })
@@ -278,8 +279,10 @@ export default function CssFlipBook({
                                     showCoverText={frontPage === 1}
                                     leatherStyle={
                                         frontPage === 1 &&
-                                        album?.blank_covers === true &&
-                                        !pageFaces[`${pageId}-front`]?.src
+                                        albumShowsLeatherCover(
+                                            album,
+                                            pageFaces[`${pageId}-front`]?.src
+                                        )
                                             ? leatherStyle
                                             : null
                                     }
@@ -293,8 +296,10 @@ export default function CssFlipBook({
                                     showCoverText={false}
                                     leatherBackStyle={
                                         pageFaces[`${pageId}-back`]?.kind === 'cover-back' &&
-                                        album?.blank_covers === true &&
-                                        !pageFaces[`${pageId}-back`]?.src
+                                        albumShowsLeatherCover(
+                                            album,
+                                            pageFaces[`${pageId}-back`]?.src
+                                        )
                                             ? leatherBackStyle
                                             : null
                                     }

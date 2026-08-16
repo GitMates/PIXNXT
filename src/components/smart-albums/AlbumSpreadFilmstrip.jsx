@@ -15,6 +15,7 @@ import {
     pageToSpreadIndex,
     spreadIndexToPage,
     albumHasBlankCovers,
+    albumShowsLeatherCover,
 } from './albumSpreadUtils';
 import { getSpreadLeftPageIndex } from './albumSpreadGrid';
 import {
@@ -85,7 +86,7 @@ function getWrapTransform(index, drag, lockedIndices) {
 function getFilmstripPageImage(album, pageNum, totalPages) {
     const albumId = album?.id;
     const spreadOpts = getSpreadContext(album, totalPages);
-    if (pageNum === 0 && spreadOpts.hasCovers) {
+    if ((pageNum === 0 || pageNum === 1) && spreadOpts.hasCovers) {
         return resolveCoverImageSrc(album, { showSamples: false });
     }
     if (isInsideCoverLeftPage(pageNum, spreadOpts)) {
@@ -122,10 +123,7 @@ export function resolveFilmstripVisual(album, spreadIndex, totalPages, spreadOpt
             ? getSpreadPhotoOverride(album?.id, left)
             : null;
     const coverSrc =
-        isCover || isEndSpread
-            ? getSpreadPhotoOverride(album?.id, 0) ||
-              resolveCoverImageSrc(album, { showSamples: false })
-            : null;
+        isCover || isEndSpread ? resolveCoverImageSrc(album, { showSamples: false }) : null;
     const leftSrc = getFilmstripPageImage(album, left, totalPages);
     const rightSrc =
         right !== left && !isPreBack ? getFilmstripPageImage(album, right, totalPages) : null;
@@ -138,12 +136,7 @@ export function resolveFilmstripVisual(album, spreadIndex, totalPages, spreadOpt
         leftSrc,
         rightSrc,
         showSpreadFull: Boolean(spreadSrc),
-        useLeather:
-            (isCover || isEndSpread) &&
-            !coverSrc &&
-            !leftSrc &&
-            !rightSrc &&
-            albumHasBlankCovers(album),
+        useLeather: (isCover || isEndSpread) && albumShowsLeatherCover(album, coverSrc),
     };
 }
 
@@ -164,7 +157,7 @@ export function FilmstripThumb({ visual, album, wrapLayout = null, coverTransfor
     }
 
     if (isCover || isEndSpread) {
-        const src = coverSrc || leftSrc || rightSrc;
+        const src = coverSrc;
         if (src && wrapLayout) {
             return (
                 <span className="ae-spread-filmstrip__thumb--cover-wrap">
@@ -253,7 +246,7 @@ export default function AlbumSpreadFilmstrip({
     const wrapLayout = useMemo(() => {
         void spineBoundsTick;
         if (album?.has_covers !== true) return null;
-        if (albumHasBlankCovers(album) && !getSpreadPhotoOverride(album?.id, 0)) {
+        if (albumHasBlankCovers(album) && !resolveCoverImageSrc(album, { showSamples: false })) {
             return null;
         }
         return getBookWrapSpineLayout(album);

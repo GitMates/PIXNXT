@@ -1,5 +1,5 @@
 import {
-    albumHasBlankCovers,
+    albumShowsLeatherCover,
     getSpreadContext,
     getSpreadPages,
     isEndHalfSpreadIndex,
@@ -22,7 +22,7 @@ import { parseSlotKey } from './albumSwapMarks';
 function getSpreadPageImage(album, pageNum, totalPages) {
     const albumId = album?.id;
     const spreadOpts = getSpreadContext(album, totalPages);
-    if (pageNum === 0 && spreadOpts.hasCovers) {
+    if ((pageNum === 0 || pageNum === 1) && spreadOpts.hasCovers) {
         return resolveCoverImageSrc(album, { showSamples: false });
     }
     if (isInsideCoverLeftPage(pageNum, spreadOpts)) {
@@ -65,10 +65,7 @@ export function resolveSpreadThumbVisual(album, spreadIndex, totalPages) {
             ? getSpreadPhotoOverride(album?.id, left)
             : null;
     const coverSrc =
-        isCover || isEndSpread
-            ? getSpreadPhotoOverride(album?.id, 0) ||
-              resolveCoverImageSrc(album, { showSamples: false })
-            : null;
+        isCover || isEndSpread ? resolveCoverImageSrc(album, { showSamples: false }) : null;
     const leftSrc = getSpreadPageImage(album, left, totalPages);
     const rightSrc =
         right !== left && !isPreBack ? getSpreadPageImage(album, right, totalPages) : null;
@@ -83,12 +80,7 @@ export function resolveSpreadThumbVisual(album, spreadIndex, totalPages) {
         leftSrc,
         rightSrc,
         showSpreadFull: Boolean(spreadSrc),
-        useLeather:
-            (isCover || isEndSpread) &&
-            !coverSrc &&
-            !leftSrc &&
-            !rightSrc &&
-            albumHasBlankCovers(album),
+        useLeather: (isCover || isEndSpread) && albumShowsLeatherCover(album, coverSrc),
     };
 }
 

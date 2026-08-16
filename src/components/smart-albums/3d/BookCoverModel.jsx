@@ -17,6 +17,7 @@ import {
 import { getSpreadPhotoTransform } from '../albumPageTransforms';
 import { getSpreadLeftPageIndex } from '../albumSpreadGrid';
 import {
+    albumShowsLeatherCover,
     getSpreadContext,
     getTotalSpreads,
     isWholeSpreadLayout,
@@ -349,7 +350,7 @@ export default function BookCoverModel({
         [album?.id]
     );
     const blankCover = isBlankCoverAlbum(album);
-    const blankNoPhoto = blankCover && !coverSrc;
+    const blankNoPhoto = albumShowsLeatherCover(album, coverSrc);
     const coverColorId = useMemo(() => {
         void coverColorTick;
         return album?.id ? getAlbumCoverColor(album.id) : DEFAULT_COVER_COLOR_PRESET_ID;

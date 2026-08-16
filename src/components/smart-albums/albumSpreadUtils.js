@@ -19,6 +19,12 @@ export function albumUsesBookWrap(album) {
     return albumHasCoverSpreads(album) && !albumHasBlankCovers(album);
 }
 
+/** Leather boards when the album has covers but no dedicated wrap photo. */
+export function albumShowsLeatherCover(album, wrapSrc = null) {
+    if (!albumHasCoverSpreads(album)) return false;
+    return !wrapSrc;
+}
+
 /** Spread layout flags from album settings. */
 export function getAlbumSpreadOptions(album, { collectionCount } = {}) {
     let hasCovers = albumHasCoverSpreads(album);
@@ -265,6 +271,30 @@ export function isCoverInsidePage(pageNum, _totalPages, { hasCovers } = {}) {
 /** Front cover spread (pages 0|1). */
 export function isFrontCoverSpreadLeft(spreadLeftPage, { hasCovers } = {}) {
     return hasCovers === true && spreadLeftPage === 0;
+}
+
+/**
+ * True when an editor slot is the book wrap / cover photo — not Spread 01
+ * (inside cover, pages 2|3). Page 1 alone is not enough: that index is also
+ * used for inner photos and must not steal cover uploads.
+ */
+export function isCoverWrapEditorSlot(slot, album) {
+    if (!slot || album?.has_covers !== true) return false;
+    const label = slot.label || '';
+    if (label === 'Inside cover' || label === 'Pre-back spread') return false;
+    if (label === 'Cover') return true;
+    if (label === 'Back cover' || label === 'End cover') {
+        return album?.blank_covers !== true;
+    }
+    // Spread 01 is pages 2|3 — never treat those as the wrap.
+    if (slot.pageNum === 2 || slot.pageNum === 3) return false;
+    const left = slot.spreadLeft;
+    if (left === 2) return false;
+    if (left === 0) return true;
+    if (slot.pageNum === 0 || slot.pageNum === 1) {
+        return left == null || left === 0;
+    }
+    return false;
 }
 
 /** Back cover spread (last spread): left half of wrap on the left page. */

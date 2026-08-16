@@ -128,7 +128,7 @@ function getPauseClientCopy(album, identity = null) {
     };
 }
 
-function buildDefaultShareMessage(album, displayUrl, { pin = '', approvalPin = '', maxFreeSwaps = 5 } = {}) {
+function buildDefaultShareMessage(album, displayUrl, { pin = '', approvalPin = '', maxFreeSwaps = 0 } = {}) {
     const name = firstNameFromAlbum(album);
     const lines = [`Hi ${name} — your album proof is ready to review.`, '', String(displayUrl || '').trim()];
 
@@ -190,7 +190,7 @@ export default function AlbumSharePublishMenu({
     const [pauseConfirm, setPauseConfirm] = useState(false);
     const [shareChannel, setShareChannel] = useState('whatsapp');
     const [shareMessage, setShareMessage] = useState('');
-    const [maxFreeSwaps, setMaxFreeSwaps] = useState(5);
+    const [maxFreeSwaps, setMaxFreeSwaps] = useState(0);
     const [clientIdentity, setClientIdentity] = useState({
         name: '',
         commentCount: 0,
@@ -277,7 +277,7 @@ export default function AlbumSharePublishMenu({
                 setMaxFreeSwaps(
                     Number.isFinite(Number(proofer.maxFreeSwaps))
                         ? Number(proofer.maxFreeSwaps)
-                        : 5
+                        : 0
                 );
 
                 if (!messageTouchedRef.current) {

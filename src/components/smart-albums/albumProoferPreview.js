@@ -1,5 +1,3 @@
-import { getSwapMarks } from './albumSwapMarks';
-
 /** Client-preview guard before comments, swaps, or pins are saved. */
 export function canClientLeaveFeedback(albumId, prooferAccess, action = 'comment') {
     if (!albumId || !prooferAccess) return { ok: true };
@@ -26,23 +24,6 @@ export function canClientLeaveFeedback(albumId, prooferAccess, action = 'comment
             code: 'swaps-disabled',
             message: 'Swap requests are turned off for this album.',
         };
-    }
-
-    if (action === 'swap') {
-        const max = Number(prooferAccess.maxFreeSwaps);
-        if (Number.isFinite(max) && max >= 0) {
-            const count = getSwapMarks(albumId).length;
-            if (count >= max) {
-                return {
-                    ok: false,
-                    code: 'swap-limit',
-                    message:
-                        max === 0
-                            ? 'Swap requests are not available for this album.'
-                            : `You have used all ${max} free swap request${max === 1 ? '' : 's'}.`,
-                };
-            }
-        }
     }
 
     return { ok: true };
