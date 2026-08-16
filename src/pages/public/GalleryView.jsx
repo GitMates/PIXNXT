@@ -16,7 +16,7 @@ import { DownloadModal } from '../../components/features/Gallery/DownloadModal/D
 import { ShareCollectionModal } from '../../components/features/Gallery/ShareCollectionModal/ShareCollectionModal';
 import { downloadSinglePhotoFile } from '../../lib/downloadPhoto';
 import { formatCoverDate } from '../../lib/formatCoverDate.js';
-import { getCollectionFocal } from '../../lib/focalPoint';
+import { getCollectionFocal, getCollectionFocals } from '../../lib/focalPoint';
 import {
   GalleryStickyNav,
   GallerySetDescription,
@@ -1930,7 +1930,10 @@ const GalleryView = () => {
           } else {
             activePhotoUrl = collection.photos?.[0] ? getWebResolutionUrl(collection.photos[0]) : '';
           }
-          const { x: focalX, y: focalY } = getCollectionFocal(collection);
+          const focals = getCollectionFocals(collection);
+          const { x: focalX, y: focalY } = isMobileViewport
+            ? (focals.phone || focals.desktop || getCollectionFocal(collection))
+            : (focals.desktop || focals.website || getCollectionFocal(collection));
 
           const props = {
             title: collection.name,

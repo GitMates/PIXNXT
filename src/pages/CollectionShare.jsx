@@ -6,6 +6,7 @@ import { galleryService } from '../services/gallery.service';
 import { clientGalleryEmailTemplatesService, resolveTemplateBody } from '../services/clientGalleryEmailTemplates.service';
 import RichTextEditor from '../components/RichTextEditor';
 import { getShareUrlForCollection, getQrCodeImageUrl } from '../lib/shareCollection';
+import { getCoverFocalForSurface } from '../lib/focalPoint';
 import './CollectionShare.css';
 
 const CollectionShare = () => {
@@ -389,6 +390,7 @@ const CollectionShare = () => {
 
     const shareUrl = getShareUrlForCollection(collection);
     const coverUrl = collection?.cover_url || collection?.cover;
+    const emailFocal = getCoverFocalForSurface(collection, 'email');
 
     return (
         <div className="cs-share-shell">
@@ -649,7 +651,12 @@ const CollectionShare = () => {
                             {/* Collection Cover Image */}
                             {coverUrl ? (
                                 <div className="cs-email-cover-wrap">
-                                    <img src={coverUrl} alt="Delivery Cover" className="cs-email-cover" />
+                                    <img
+                                        src={coverUrl}
+                                        alt="Delivery Cover"
+                                        className="cs-email-cover"
+                                        style={{ objectPosition: `${emailFocal.x}% ${emailFocal.y}%` }}
+                                    />
                                 </div>
                             ) : (
                                 <div className="cs-email-cover-placeholder">

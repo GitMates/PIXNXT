@@ -19,7 +19,9 @@ import {
   resolveOriginalStoragePath,
 } from '../components/features/CollectionDashboard/Upload/uploadUtils';
 import {
+  appendCoverFocalsToCoverUrl,
   appendFocalToCoverUrl,
+  focalsToDbPayload,
   isMissingDbColumnError,
   isNumericOverflowError,
   normalizeFocalForDb,
@@ -847,6 +849,7 @@ export const galleryService = {
       cover_url: source.cover_url ?? null,
       cover_focal_x: source.cover_focal_x ?? null,
       cover_focal_y: source.cover_focal_y ?? null,
+      cover_focals: source.cover_focals ?? null,
       download_pin_hash: source.download_pin_hash ?? null,
       downloads_enabled: source.downloads_enabled,
       download_resolutions: source.download_resolutions,
@@ -953,6 +956,44 @@ export const galleryService = {
           'cover_focal_x/y numeric overflow — saving focal in cover_url only. Run migration 20260521140100_collections_cover_focal_fix_type.sql'
         );
         return await this.updateCollection(collectionId, { cover_url: newCoverUrl });
+      }
+      throw err;
+    }
+  },
+
+  /**
+   * Save per-surface cover focals (website / desktop / phone / card / email).
+   * cover_focal_x/y stay in sync with the website point for older readers.
+   */
+  async saveCollectionCoverFocals(collectionId, coverUrl, focals, extra = {}) {
+    const payload = focalsToDbPayload(focals);
+    const primary = payload.desktop || payload.website || { x: 50, y: 50 };
+    const newCoverUrl = appendCoverFocalsToCoverUrl(coverUrl, payload);
+    const fullPatch = {
+      ...extra,
+      cover_url: newCoverUrl,
+      cover_focal_x: primary.x,
+      cover_focal_y: primary.y,
+      cover_focals: payload,
+    };
+
+    try {
+      return await this.updateCollection(collectionId, fullPatch);
+    } catch (err) {
+      if (isMissingDbColumnError(err, 'cover_focals')) {
+        console.warn(
+          'cover_focals column missing — saving focals on cover_url. Run migration 20260816150000_cover_focals.sql'
+        );
+        const { cover_focals: _ignored, ...withoutJson } = fullPatch;
+        try {
+          return await this.updateCollection(collectionId, withoutJson);
+        } catch (inner) {
+          void inner;
+          return this.saveCollectionFocalPoint(collectionId, coverUrl, primary.x, primary.y);
+        }
+      }
+      if (isMissingDbColumnError(err, 'cover_focal') || isNumericOverflowError(err)) {
+        return this.saveCollectionFocalPoint(collectionId, coverUrl, primary.x, primary.y);
       }
       throw err;
     }

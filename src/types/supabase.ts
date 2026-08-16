@@ -321,6 +321,7 @@ export type Database = {
           color_palette: string
           cover_focal_x: number | null
           cover_focal_y: number | null
+          cover_focals: Json
           cover_photo_id: string | null
           cover_style: Database["public"]["Enums"]["cover_style"]
           cover_url: string | null
@@ -376,6 +377,7 @@ export type Database = {
           color_palette?: string
           cover_focal_x?: number | null
           cover_focal_y?: number | null
+          cover_focals?: Json
           cover_photo_id?: string | null
           cover_style?: Database["public"]["Enums"]["cover_style"]
           cover_url?: string | null
@@ -431,6 +433,7 @@ export type Database = {
           color_palette?: string
           cover_focal_x?: number | null
           cover_focal_y?: number | null
+          cover_focals?: Json
           cover_photo_id?: string | null
           cover_style?: Database["public"]["Enums"]["cover_style"]
           cover_url?: string | null
@@ -1566,6 +1569,7 @@ export type Database = {
           color_palette: string | null
           cover_focal_x: number | null
           cover_focal_y: number | null
+          cover_focals: Json | null
           cover_style: Database["public"]["Enums"]["cover_style"] | null
           cover_url: string | null
           cover_video_embed: string | null

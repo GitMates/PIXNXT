@@ -40,6 +40,8 @@ function isCoverImageFile(file) {
  */
 export function SidebarCoverUpload({
   coverUrl,
+  coverFocalX = 50,
+  coverFocalY = 50,
   isUpdating = false,
   onPhotoDrop,
   onSelectFromCollection,
@@ -196,7 +198,12 @@ export function SidebarCoverUpload({
 
       {hasCover ? (
         <>
-          <img src={coverUrl.split('#')[0]} alt="Delivery cover" draggable={false} />
+          <img
+            src={coverUrl.split('#')[0]}
+            alt="Delivery cover"
+            draggable={false}
+            style={{ objectPosition: `${coverFocalX}% ${coverFocalY}%` }}
+          />
           <div
             className={cn(
               'cd-sidebar-cover-dropzone cd-sidebar-cover-dropzone--overlay',

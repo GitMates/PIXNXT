@@ -83,10 +83,9 @@ import { clearMediaUrlCache } from '../lib/imageLoadCache';
 import { categoryTagsFromCollection, categoryTagsToDb } from '../lib/categoryTags';
 import { isMissingDbColumnError } from '../lib/focalPoint';
 import {
-    appendFocalToCoverUrl,
-    focalPercentToElementStyle,
-    focalPointFromPointer,
+    appendCoverFocalsToCoverUrl,
     getCollectionFocal,
+    getCollectionFocals,
     stripMediaUrlHash,
 } from '../lib/focalPoint';
 import { CollectionGridPhoto } from '../components/features/CollectionDashboard/Media/CollectionGridPhoto';
@@ -501,13 +500,8 @@ const CollectionDashboard = () => {
         navigation: 'icon'
     });
     const [previewMode, setPreviewMode] = useState('desktop'); // desktop, mobile
-    const [showFocalModal, setShowFocalModal] = useState(false);
-    const [focalX, setFocalX] = useState(50);
-    const [focalY, setFocalY] = useState(50);
-    const [isDraggingFocal, setIsDraggingFocal] = useState(false);
-    const [focalCrosshairStyle, setFocalCrosshairStyle] = useState({ left: '50%', top: '50%' });
-    const focalImageRef = useRef(null);
     const [showCoverModal, setShowCoverModal] = useState(false);
+    const [coverModalInitialView, setCoverModalInitialView] = useState('edit');
     /** 'all' | 'highlights' | set uuid */
     const [coverModalScope, setCoverModalScope] = useState('all');
     const [isCoverUploading, setIsCoverUploading] = useState(false);
@@ -1400,89 +1394,26 @@ const CollectionDashboard = () => {
         }
     }, [favoriteActivity, selectedFavoriteListId]);
 
-    const collectionFocal = useMemo(
-        () => getCollectionFocal(collection),
-        [collection?.cover_focal_x, collection?.cover_focal_y, collection?.cover_url]
+    const collectionFocals = useMemo(
+        () => getCollectionFocals(collection),
+        [collection?.cover_focals, collection?.cover_focal_x, collection?.cover_focal_y, collection?.cover_url]
     );
+    const collectionFocal = collectionFocals.website || getCollectionFocal(collection);
 
-    const syncFocalCrosshair = useCallback((x, y) => {
-        const img = focalImageRef.current;
-        if (!img) {
-            setFocalCrosshairStyle({ left: `${x}%`, top: `${y}%` });
-            return;
+    const coverPhoto = useMemo(() => {
+        if (!photos?.length) return null;
+        if (collection?.cover_photo_id) {
+            return photos.find((p) => String(p.id) === String(collection.cover_photo_id)) || null;
         }
-        setFocalCrosshairStyle(focalPercentToElementStyle(x, y, img));
-    }, []);
-
-    useEffect(() => {
-        if (showFocalModal) {
-            setFocalX(collectionFocal.x);
-            setFocalY(collectionFocal.y);
-            syncFocalCrosshair(collectionFocal.x, collectionFocal.y);
-        }
-    }, [showFocalModal, collectionFocal.x, collectionFocal.y, syncFocalCrosshair]);
-
-    const updateFocalFromPointer = useCallback((clientX, clientY) => {
-        const img = focalImageRef.current;
-        if (!img) return;
-        const { x, y } = focalPointFromPointer(clientX, clientY, img);
-        setFocalX(x);
-        setFocalY(y);
-        setFocalCrosshairStyle(focalPercentToElementStyle(x, y, img));
-    }, []);
-
-    const handleFocalPointerDown = useCallback(
-        (e) => {
-            e.preventDefault();
-            setIsDraggingFocal(true);
-            updateFocalFromPointer(e.clientX, e.clientY);
-        },
-        [updateFocalFromPointer]
-    );
-
-    const handleFocalPointerMove = useCallback(
-        (e) => {
-            if (!isDraggingFocal) return;
-            updateFocalFromPointer(e.clientX, e.clientY);
-        },
-        [isDraggingFocal, updateFocalFromPointer]
-    );
-
-    const handleFocalPointerUp = useCallback(() => {
-        setIsDraggingFocal(false);
-    }, []);
-
-    const handleFocalSave = async () => {
-        try {
-            setSaving(true);
-            const currentCoverUrl = collection?.cover_url || (photos.length > 0 ? photos[0].full_url : '');
-            if (!currentCoverUrl) {
-                setShowFocalModal(false);
-                return;
-            }
-
-            const updated = await galleryService.saveCollectionFocalPoint(
-                collectionId,
-                currentCoverUrl,
-                focalX,
-                focalY
-            );
-            setCollection((prev) => ({
-                ...prev,
-                ...updated,
-                cover_url: updated?.cover_url ?? appendFocalToCoverUrl(currentCoverUrl, focalX, focalY),
-                cover_focal_x: updated?.cover_focal_x ?? focalX,
-                cover_focal_y: updated?.cover_focal_y ?? focalY,
-            }));
-            setShowFocalModal(false);
-        } catch (err) {
-            console.error('Failed to save focal point:', err);
-            const detail = err?.message ? `\n\n${err.message}` : '';
-            alert(`Failed to save focal point.${detail}`);
-        } finally {
-            setSaving(false);
-        }
-    };
+        const cover = stripMediaUrlHash(collection?.cover_url || '');
+        if (!cover) return null;
+        return (
+            photos.find((p) => {
+                const urls = [p.full_url, p.web_url, p.thumbnail_url].filter(Boolean).map((u) => stripMediaUrlHash(String(u)));
+                return urls.some((u) => u && (u === cover || cover.endsWith(u) || u.endsWith(cover)));
+            }) || null
+        );
+    }, [photos, collection?.cover_photo_id, collection?.cover_url]);
 
     const handleCoverPhotoSelect = async (photo) => {
         const coverUrl = getPhotoFullDisplayUrl(photo) || getPhotoOriginalFileUrl(photo);
@@ -1501,6 +1432,45 @@ const CollectionDashboard = () => {
         } catch (err) {
             console.error('Failed to set cover:', err);
             alert('Failed to set cover photo.');
+        } finally {
+            setIsCoverUploading(false);
+        }
+    };
+
+    const handleCoverModalConfirm = async ({ photo, focals }) => {
+        const coverUrl = photo
+            ? (getPhotoFullDisplayUrl(photo) || getPhotoOriginalFileUrl(photo))
+            : (collection?.cover_url || '');
+        if (!coverUrl || !collectionId) return;
+        try {
+            setIsCoverUploading(true);
+            const extra = photo ? { cover_photo_id: photo.id } : {};
+            const updated = await galleryService.saveCollectionCoverFocals(
+                collectionId,
+                coverUrl,
+                focals,
+                extra
+            );
+            const primary = focals?.desktop || focals?.website || { x: 50, y: 50 };
+            const savedFocals = updated?.cover_focals;
+            const hasSavedFocals =
+                savedFocals && typeof savedFocals === 'object' && Object.keys(savedFocals).length > 0;
+            const nextCoverUrl = appendCoverFocalsToCoverUrl(updated?.cover_url || coverUrl, focals);
+            setCollection((prev) => ({
+                ...prev,
+                ...updated,
+                cover_url: nextCoverUrl,
+                cover_photo_id: photo?.id ?? prev?.cover_photo_id,
+                cover_focals: hasSavedFocals ? savedFocals : focals,
+                cover_focal_x: updated?.cover_focal_x ?? primary.x,
+                cover_focal_y: updated?.cover_focal_y ?? primary.y,
+            }));
+            setShowCoverModal(false);
+            setCoverModalScope('all');
+        } catch (err) {
+            console.error('Failed to save delivery cover:', err);
+            const detail = err?.message ? `\n\n${err.message}` : '';
+            alert(`Failed to save delivery cover.${detail}`);
         } finally {
             setIsCoverUploading(false);
         }
@@ -2932,15 +2902,9 @@ const CollectionDashboard = () => {
         return photos.filter((p) => p.set_id === coverModalScope);
     }, [photos, coverModalScope]);
 
-    const coverModalScopeLabel = useMemo(() => {
-        if (coverModalScope === 'all') return 'All photos';
-        if (coverModalScope === 'highlights') return highlightsName;
-        const set = sets.find((s) => s.id === coverModalScope);
-        return set?.name || 'Set';
-    }, [coverModalScope, highlightsName, sets]);
-
-    const openCoverModal = (scope = 'all') => {
+    const openCoverModal = (scope = 'all', view = 'edit') => {
         setCoverModalScope(scope);
+        setCoverModalInitialView(view);
         setShowCoverModal(true);
     };
 
@@ -3370,7 +3334,17 @@ const CollectionDashboard = () => {
                 });
                 const saved = await galleryService.updateCollection(collectionId, patch);
                 if (saved) {
-                    setCollection((prev) => (prev ? { ...prev, ...saved } : prev));
+                    setCollection((prev) => {
+                        if (!prev) return saved;
+                        const next = { ...prev, ...saved };
+                        if (!saved.cover_focals && prev.cover_focals) {
+                            next.cover_focals = prev.cover_focals;
+                        }
+                        if (prev.cover_url && String(prev.cover_url).includes('coverFocals=') && !String(saved.cover_url || '').includes('coverFocals=')) {
+                            next.cover_url = prev.cover_url;
+                        }
+                        return next;
+                    });
                 }
             } catch (err) {
                 console.error('Error auto-saving settings:', err);
@@ -4207,9 +4181,13 @@ const CollectionDashboard = () => {
             <div className="cd-layout-body">
                 <CollectionDashboardSidebar
                     coverUrl={collection?.cover_url}
+                    coverFocalX={collectionFocals.card?.x}
+                    coverFocalY={collectionFocals.card?.y}
                     isCoverUploading={isCoverUploading}
                     onCoverPhotoDrop={handleCoverPhotoDropById}
-                    onSelectCoverFromCollection={() => openCoverModal('all')}
+                    onSelectCoverFromCollection={() =>
+                        openCoverModal('all', collection?.cover_url ? 'edit' : 'pick')
+                    }
                     onCoverFileSelect={(file) => void handleCoverFileSelect(file)}
                     isCollapsed={isSidebarCollapsed}
                     onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
@@ -4544,8 +4522,9 @@ const CollectionDashboard = () => {
                                     photographerName={profile?.business_name || user?.display_name || 'PHOTOGRAPHER'}
                                     coverLogoUrl={profile?.cover_logo_url || ''}
                                     dashboardState={{
-                                        focalX: collectionFocal.x,
-                                        focalY: collectionFocal.y,
+                                        focalX: collectionFocals.desktop?.x ?? collectionFocal.x,
+                                        focalY: collectionFocals.desktop?.y ?? collectionFocal.y,
+                                        coverFocals: collectionFocals,
                                         activeSetId: activeSetId,
                                         sets: sets,
                                         highlightsName,
@@ -4586,8 +4565,10 @@ const CollectionDashboard = () => {
                                         setSelectedColorPalette(normalizePaletteId(newSettings.colorPalette));
                                         setGridSettings(newSettings.grid);
                                     }}
-                                    onOpenCoverModal={() => setShowCoverModal(true)}
-                                    onOpenFocalModal={() => setShowFocalModal(true)}
+                                    onOpenCoverModal={() => openCoverModal('all', 'pick')}
+                                    onOpenFocalModal={() =>
+                                        openCoverModal('all', collection?.cover_url ? 'edit' : 'pick')
+                                    }
                                 />
                             </div>
                         )}
@@ -5079,72 +5060,6 @@ const CollectionDashboard = () => {
                     )
                 }
             </div >
-            {/* Focal Point Modal */}
-            {
-                showFocalModal && (
-                    <div className="cd-modal-overlay">
-                        <div className="cd-modal focal-modal">
-                            <div className="cd-modal-header">
-                                <h3 className="cd-modal-title">Set Focal Point</h3>
-                                <button className="cd-modal-close" onClick={() => setShowFocalModal(false)}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                                </button>
-                            </div>
-                            <div className="cd-set-modal-body">
-                                <div className="focal-point-container">
-                                    {collection?.cover_url || photos.length > 0 ? (
-                                        <div
-                                            className="focal-image-wrapper"
-                                            onMouseDown={handleFocalPointerDown}
-                                            onMouseMove={handleFocalPointerMove}
-                                            onMouseUp={handleFocalPointerUp}
-                                            onMouseLeave={handleFocalPointerUp}
-                                            onTouchStart={(e) => {
-                                                const t = e.touches[0];
-                                                if (t) handleFocalPointerDown({ preventDefault: () => e.preventDefault(), clientX: t.clientX, clientY: t.clientY });
-                                            }}
-                                            onTouchMove={(e) => {
-                                                const t = e.touches[0];
-                                                if (t && isDraggingFocal) {
-                                                    e.preventDefault();
-                                                    updateFocalFromPointer(t.clientX, t.clientY);
-                                                }
-                                            }}
-                                            onTouchEnd={handleFocalPointerUp}
-                                        >
-                                            <img
-                                                ref={focalImageRef}
-                                                src={stripMediaUrlHash(collection?.cover_url || photos[0]?.full_url)}
-                                                alt="Focal"
-                                                draggable={false}
-                                                onLoad={() => syncFocalCrosshair(focalX, focalY)}
-                                            />
-                                            <div
-                                                className="focal-crosshair"
-                                                style={focalCrosshairStyle}
-                                            >
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" style={{ filter: 'drop-shadow(0px 2px 4px rgba(0,0,0,0.15))' }}>
-                                                    <circle cx="16" cy="16" r="12" fill="rgba(255, 255, 255, 0.85)" />
-                                                    <circle cx="16" cy="16" r="5" fill="#26a69a" />
-                                                </svg>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div className="focal-empty">No cover photo set</div>
-                                    )}
-                                </div>
-                                <p className="focal-instruction">Drag the crosshair to set the focal point for your cover photo and grid.</p>
-                            </div>
-                            <div className="cd-set-modal-footer">
-                                <button className="cd-cancel-btn" onClick={() => setShowFocalModal(false)}>Cancel</button>
-                                <button className="cd-save-btn" onClick={handleFocalSave} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
-                            </div>
-                        </div>
-                    </div>
-                )
-            }
-
-
             {/* Add Set Modal */}
             {showAddSetModal && (
                 <div className="cd-modal-overlay" onClick={() => setShowAddSetModal(false)}>
@@ -5363,16 +5278,14 @@ const CollectionDashboard = () => {
                 isOpen={showCoverModal}
                 onClose={closeCoverModal}
                 photos={coverModalPhotos}
-                scopeLabel={coverModalScopeLabel}
-                isUploading={isCoverUploading}
-                onBrowseFiles={() => coverModalFileInputRef.current?.click()}
-                onDropCoverFile={(file) => {
-                    void handleCoverFileSelect(file);
-                    closeCoverModal();
-                }}
-                onSelectPhoto={(photo) => {
-                    void handleCoverPhotoSelect(photo);
-                }}
+                coverUrl={collection?.cover_url}
+                coverPhoto={coverPhoto}
+                initialFocals={collectionFocals}
+                initialView={coverModalInitialView}
+                sets={sets}
+                highlightsName={highlightsName}
+                saving={isCoverUploading}
+                onConfirm={handleCoverModalConfirm}
             />
 
             {/* Get Direct Link Modal */}

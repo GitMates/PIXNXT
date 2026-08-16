@@ -508,14 +508,20 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
   };
 
   const renderCover = () => {
+    const focals = dashboardState?.coverFocals;
+    const fallbackX = dashboardState?.focalX;
+    const fallbackY = dashboardState?.focalY;
+    const point = isPreviewMobile
+      ? (focals?.phone || { x: fallbackX, y: fallbackY })
+      : (focals?.desktop || focals?.website || { x: fallbackX, y: fallbackY });
     const props = {
       title: collectionTitle,
       subtitle: photographerName,
       coverLogoUrl: coverLogoUrl,
       date: collectionDate,
       photoUrl: coverPhotoUrl,
-      focalX: dashboardState?.focalX,
-      focalY: dashboardState?.focalY,
+      focalX: point?.x,
+      focalY: point?.y,
       isPreview: true, // dashboard pane layout only
       onViewGallery: coverStyle !== 'none' ? scrollToGallery : undefined,
     };

@@ -69,6 +69,27 @@ export function appendFocalToCoverUrl(baseUrl, x, y) {
   return `${base}#focal=${fx},${fy}`;
 }
 
+export function parseCoverFocalsFromUrl(url) {
+  if (!url || typeof url !== 'string') return null;
+  const hash = url.split('#')[1];
+  if (!hash) return null;
+  const match = hash.match(/(?:^|&)coverFocals=([^&]+)/);
+  if (!match) return null;
+  try {
+    return JSON.parse(decodeURIComponent(match[1]));
+  } catch {
+    return null;
+  }
+}
+
+export function appendCoverFocalsToCoverUrl(baseUrl, focals) {
+  const payload = focalsToDbPayload(focals);
+  const primary = payload.desktop || payload.website || { x: 50, y: 50 };
+  const withLegacy = appendFocalToCoverUrl(baseUrl, primary.x, primary.y);
+  if (!withLegacy) return '';
+  return `${withLegacy}&coverFocals=${encodeURIComponent(JSON.stringify(payload))}`;
+}
+
 /** Visible image area when img uses object-fit: contain inside its layout box. */
 export function getRenderedImageContentRect(img) {
   const rect = img.getBoundingClientRect();
@@ -128,4 +149,116 @@ export function focalPercentToElementStyle(focalX, focalY, img) {
   const left = ((cx - box.left) / box.width) * 100;
   const top = ((cy - box.top) / box.height) * 100;
   return { left: `${left}%`, top: `${top}%` };
+}
+
+/** Crops that each store their own cover focal (0–100). */
+export const COVER_FOCAL_SURFACE_IDS = ['website', 'desktop', 'phone', 'card', 'email'];
+
+/** Crops shown in the Delivery cover modal, matching where the photograph actually appears. */
+export const COVER_FOCAL_SURFACES = [
+  {
+    id: 'desktop',
+    label: 'Desktop cover · wide',
+    kicker: 'Desktop cover · wide',
+    aspect: '16 / 10',
+    hint: 'Laptop hero — about 16:10. Wide and short, so a portrait loses the top and bottom. Put the point on the faces.',
+  },
+  {
+    id: 'email',
+    label: 'Email and WhatsApp preview',
+    kicker: 'Email and WhatsApp preview',
+    aspect: '1.91 / 1',
+    hint: 'The thumbnail when this link is pasted in WhatsApp or sits in an email header. About 1.91:1 — often the first look in India.',
+  },
+  {
+    id: 'phone',
+    label: 'Phone',
+    kicker: 'Phone',
+    aspect: '9 / 19.5',
+    hint: 'Phone cover, full-bleed, about 9:19.5. Tall and narrow, so a landscape loses the left and right. Keep the couple in frame.',
+  },
+  {
+    id: 'card',
+    label: 'Card & app icon',
+    kicker: 'Card & app icon',
+    aspect: '1 / 1',
+    hint: 'Square 1:1 — the delivery tile in a list, and the icon if they save the gallery to the home screen. Keep the subject centred and large.',
+  },
+];
+
+const DEFAULT_FOCAL_POINT = { x: 50, y: 50 };
+
+export function parseFocalPoint(value) {
+  if (!value || typeof value !== 'object') return null;
+  const x = Number(value.x);
+  const y = Number(value.y);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+  return { x: normalizeFocalPercent(x), y: normalizeFocalPercent(y) };
+}
+
+export function getDefaultCoverFocals(legacy = DEFAULT_FOCAL_POINT) {
+  const point = parseFocalPoint(legacy) || { ...DEFAULT_FOCAL_POINT };
+  return Object.fromEntries(COVER_FOCAL_SURFACE_IDS.map((id) => [id, { ...point }]));
+}
+
+function parseCoverFocalsJson(raw) {
+  if (!raw) return null;
+  if (typeof raw === 'string') {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+  if (typeof raw === 'object') {
+    if (Array.isArray(raw) || Object.keys(raw).length === 0) return null;
+    return raw;
+  }
+  return null;
+}
+
+function applyFocalMap(target, source) {
+  if (!source || typeof source !== 'object') return target;
+  for (const id of COVER_FOCAL_SURFACE_IDS) {
+    const point = parseFocalPoint(source[id]);
+    if (point) target[id] = point;
+  }
+  return target;
+}
+
+/** Per-surface focals, falling back to cover_focal_x/y and #coverFocals= on cover_url. */
+export function getCollectionFocals(collection) {
+  const legacy = getCollectionFocal(collection);
+  const out = getDefaultCoverFocals(legacy);
+  applyFocalMap(out, parseCoverFocalsFromUrl(collection?.cover_url));
+  applyFocalMap(out, parseCoverFocalsJson(collection?.cover_focals));
+  if (!parseFocalPoint(out.website) || (out.website.x === legacy.x && out.website.y === legacy.y)) {
+    if (parseFocalPoint(out.desktop)) out.website = { ...out.desktop };
+  }
+  return out;
+}
+
+export function getCoverFocalForSurface(collection, surfaceId) {
+  const focals = getCollectionFocals(collection);
+  return focals[surfaceId] || focals.website || { ...DEFAULT_FOCAL_POINT };
+}
+
+export function focalsToDbPayload(focals) {
+  const src = focals && typeof focals === 'object' ? focals : {};
+  const primary =
+    parseFocalPoint(src.desktop) ||
+    parseFocalPoint(src.website) ||
+    DEFAULT_FOCAL_POINT;
+  const normalized = getDefaultCoverFocals(primary);
+  for (const id of COVER_FOCAL_SURFACE_IDS) {
+    const point = parseFocalPoint(src[id]) || (id === 'website' ? primary : normalized[id]);
+    normalized[id] = {
+      x: normalizeFocalForDb(point.x),
+      y: normalizeFocalForDb(point.y),
+    };
+  }
+  if (!parseFocalPoint(src.website) && parseFocalPoint(src.desktop)) {
+    normalized.website = { ...normalized.desktop };
+  }
+  return normalized;
 }
