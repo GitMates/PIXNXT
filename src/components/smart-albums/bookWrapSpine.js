@@ -12,15 +12,21 @@ import { photoTransformStyle } from './albumPageTransforms';
 
 function resolveWrapAspect(album) {
     const innerSpreadAspect = bookWrapInnerSpreadAspect(album);
+    const hasLiveWrapPhoto = album?.__wrap_aspect > 0;
+
+    // No wrap photo: inner spread + default leather spine (ignore leftover photo aspect).
+    if (album?.has_covers === true && !hasLiveWrapPhoto) {
+        return blankCoverWrapAspect(album?.grid_size);
+    }
 
     // Live cover image aspect always wins for book-wrap spine (y).
-    if (album?.__wrap_aspect > 0 && album?.blank_covers !== true) {
+    if (hasLiveWrapPhoto && album?.blank_covers !== true) {
         return album.__wrap_aspect;
     }
 
     // Blank covers: live wrap image aspect wins whenever measured.
     if (album?.blank_covers === true) {
-        if (album?.__wrap_aspect > 0) {
+        if (hasLiveWrapPhoto) {
             return album.__wrap_aspect;
         }
         return blankCoverWrapAspect(album?.grid_size);
@@ -35,6 +41,7 @@ function resolveWrapAspect(album) {
 }
 
 const MIN_SPINE_FRACTION = 0.004;
+const MIN_LEATHER_SPINE_FRACTION = 0.04;
 const MIN_COVER_FRACTION = 0.12;
 
 /** Inner spread width ÷ height for book-wrap spine math (back + front, no spine strip). */
@@ -107,7 +114,8 @@ export function getBookWrapSpineLayout(album) {
     };
 
     const override = getAlbumSpineBoundsOverride(album?.id);
-    if (override) {
+    const hasLiveWrapPhoto = album?.__wrap_aspect > 0;
+    if (override && hasLiveWrapPhoto) {
         if (spineFromCoverCalc && isInwardSpineOverride(override, layoutDefaults)) {
             spineStartFraction = override.spineStartFraction;
             spineEndFraction = override.spineEndFraction;
@@ -119,6 +127,17 @@ export function getBookWrapSpineLayout(album) {
                 spineEndFraction = override.spineEndFraction;
                 spineFraction = span;
             }
+        }
+    } else if (override && !hasLiveWrapPhoto) {
+        const span = override.spineEndFraction - override.spineStartFraction;
+        if (
+            spineFromCoverCalc &&
+            span >= MIN_LEATHER_SPINE_FRACTION &&
+            isInwardSpineOverride(override, layoutDefaults)
+        ) {
+            spineStartFraction = override.spineStartFraction;
+            spineEndFraction = override.spineEndFraction;
+            spineFraction = span;
         }
     }
 

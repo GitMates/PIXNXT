@@ -45,70 +45,70 @@ function resolveStoredUrl(stored, collection) {
     return null;
 }
 
+function placementItemHasInnerPage(pages, itemId) {
+    if (!itemId || !pages) return false;
+    for (const [key, stored] of Object.entries(pages)) {
+        if (key === 'spread:0' || key === '0' || key === '1') continue;
+        if (stored && typeof stored === 'object' && stored.collectionItemId === itemId) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function resolveDedicatedWrapUrl(pages, collection, { blankCovers = false } = {}) {
+    const wrapStored = pages['spread:0'];
+    const wrapItemId =
+        wrapStored && typeof wrapStored === 'object' ? wrapStored.collectionItemId : null;
+    if (wrapItemId && placementItemHasInnerPage(pages, wrapItemId)) {
+        return null;
+    }
+    const wrapUrl = resolveStoredUrl(wrapStored, collection);
+    if (wrapUrl) {
+        if (!blankCovers) return wrapUrl;
+        const wrapItem = wrapItemId ? collection.find((item) => item.id === wrapItemId) : null;
+        if (wrapItem?.role === 'cover-wrap') return wrapUrl;
+    }
+    const wrapItem = collection.find((item) => item?.role === 'cover-wrap');
+    if (wrapItem?.id && !placementItemHasInnerPage(pages, wrapItem.id)) {
+        return resolveStoredUrl(wrapItem, collection);
+    }
+    return null;
+}
+
 /** Pick the best list-card image from a cloud snapshot (no localStorage). */
 export function deriveCoverUrlFromSnapshot(snapshot) {
     if (!snapshot) return null;
 
     const collection = snapshot.collection || [];
     const pages = snapshot.pages || {};
+    const blankCovers = snapshot.blank_covers === true;
 
-    const wrap = resolveStoredUrl(pages['spread:0'], collection);
-    if (wrap) return wrap;
+    const dedicatedWrap = resolveDedicatedWrapUrl(pages, collection, { blankCovers });
+    if (dedicatedWrap) return dedicatedWrap;
 
-    const wrapItem = collection.find((item) => item?.role === 'cover-wrap');
-    const fromWrapItem = resolveStoredUrl(wrapItem, collection);
-    if (fromWrapItem) return fromWrapItem;
+    if (blankCovers) return null;
 
     if (snapshot.cover_url) return snapshot.cover_url;
 
     const cover = resolveStoredUrl(pages['0'], collection);
     if (cover) return cover;
 
-    if (collection[0]?.dataUrl) return collection[0].dataUrl;
-    if (collection[0]?.storagePath) return storageService.getPublicUrl(collection[0].storagePath);
-
-    const pageNums = Object.keys(pages)
-        .filter((k) => !k.startsWith('spread:'))
-        .map((k) => Number(k))
-        .filter((n) => !Number.isNaN(n) && n > 0)
-        .sort((a, b) => a - b);
-
-    for (const page of pageNums) {
-        const url = resolveStoredUrl(pages[String(page)], collection);
-        if (url) return url;
-    }
-
-    const spreadKeys = Object.keys(pages)
-        .filter((k) => k.startsWith('spread:'))
-        .sort((a, b) => Number(a.replace('spread:', '')) - Number(b.replace('spread:', '')));
-
-    for (const key of spreadKeys) {
-        const url = resolveStoredUrl(pages[key], collection);
-        if (url) return url;
-    }
-
     return null;
 }
 
-/** Book-wrap front cover from a cloud snapshot (spread:0 / page 1 / collection[0]). */
+/** Book-wrap front cover from a cloud snapshot (spread:0 / dedicated wrap item). */
 export function deriveFrontCoverUrlFromSnapshot(snapshot, { blankCovers = false } = {}) {
     if (!snapshot) return null;
-    if (snapshot.cover_url && !blankCovers) return snapshot.cover_url;
-
     const collection = snapshot.collection || [];
     const pages = snapshot.pages || {};
+    const useBlank = blankCovers || snapshot.blank_covers === true;
 
-    const onSpread = resolveStoredUrl(pages['spread:0'], collection);
-    if (onSpread) return onSpread;
+    const dedicatedWrap = resolveDedicatedWrapUrl(pages, collection, { blankCovers: useBlank });
+    if (dedicatedWrap) return dedicatedWrap;
 
-    if (blankCovers) return null;
-
-    const onPageOne = resolveStoredUrl(pages['1'], collection);
-    if (onPageOne) return onPageOne;
-
-    if (collection[0]?.dataUrl) return collection[0].dataUrl;
-    if (collection[0]?.storagePath) return storageService.getPublicUrl(collection[0].storagePath);
-
+    if (useBlank) return null;
+    if (snapshot.cover_url) return snapshot.cover_url;
     return null;
 }
 

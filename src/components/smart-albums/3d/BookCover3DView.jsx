@@ -9,11 +9,11 @@ import { getAlbumCoverColor } from '../albumCoverColor';
 import { resolveFrontCoverDisplayText } from '../albumCoverText';
 import { parseGridSizeAspect } from '../albumGridSize';
 import { resolveBookWrapSpreadSrc } from '../albumPagePhotos';
+import { albumShowsLeatherCover } from '../albumSpreadUtils';
 import {
     createBlankCoverTitleTexture,
     createBlankLeatherPanelTexture,
 } from './book3dPageCanvas';
-import { isBlankCoverAlbum } from './book3dTextures';
 import { isWebGLAvailable } from './webglSupport';
 import Book3DErrorBoundary from './Book3DErrorBoundary';
 import '../AlbumBook.css';
@@ -51,7 +51,7 @@ export default function BookCover3DView({
     useMemo(() => {
         if (!album?.id) return null;
         const coverSrc = resolveBookWrapSpreadSrc(album, { showSamples });
-        if (!isBlankCoverAlbum(album) || coverSrc) return null;
+        if (!albumShowsLeatherCover(album, coverSrc)) return null;
         const aspect = parseGridSizeAspect(album?.grid_size);
         const colorId = getAlbumCoverColor(album.id);
         const title = resolveFrontCoverDisplayText(album, album.id);

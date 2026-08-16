@@ -34,6 +34,7 @@ import {
 import { getCoverLeatherSurfaceStyle } from './coverLeatherSurface';
 import { parseGridSizeAspect } from './albumGridSize';
 import {
+    albumShowsLeatherCover,
     getAlbumSpreadOptions,
     getEndSpreadPageRole,
     getLastSpreadInfo,
@@ -371,7 +372,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
             ? resolveFrontCoverDisplayText(album, albumId)
             : '';
     const showLeatherCover =
-        album?.blank_covers === true && !src && isFrontCoverRightPage;
+        albumShowsLeatherCover(album, src) && isFrontCoverRightPage;
     const pageAspect = parseGridSizeAspect(album?.grid_size || 'square');
     const leatherStyle =
         showLeatherCover && albumId

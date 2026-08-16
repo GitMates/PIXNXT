@@ -181,15 +181,14 @@
   position: absolute;
   inset: 0;
   overflow: hidden;
-  background: #fff;
+  background-color: #fff;
 }
 
 .ab-cover-edit-spine-panel .ab-cover-edit-view__photo-wrap {
-  background: transparent;
+  background-color: transparent;
 }
 
 .ab-cover-edit-view__photo-wrap.ab-cover-leather-canvas {
-  background-color: transparent;
   box-shadow: none;
 }
 

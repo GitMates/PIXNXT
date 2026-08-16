@@ -19,8 +19,7 @@ import CoverPhotoUploader from './CoverPhotoUploader';
 import { formatAlbumGridSizeDisplay } from './albumGridSize';
 import { resolveFrontCoverDisplayText } from './albumCoverText';
 import {
-    albumHasBlankCovers,
-    albumUsesBookWrap,
+    albumHasCoverSpreads,
     formatBookSpreadMetaLabel,
     getAlbumSpreadOptions,
     getSpreadPages,
@@ -737,7 +736,7 @@ export default function AlbumEditorSidebar({
                                 Remove cover photos
                             </button>
                         ) : null}
-                        {albumHasBlankCovers(album) && !hasCoverPhoto ? (
+                        {albumHasCoverSpreads(album) && !hasCoverPhoto ? (
                             <CoverLeatherColorPicker albumId={albumId} />
                         ) : null}
                         {onShowCoverSpineChange ? (

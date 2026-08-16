@@ -63,7 +63,7 @@ export function isProofRightGridPage(pageNum, { showCover = true, hasCovers, tot
     if (pageNum < 0) return false;
     const covers = hasCovers ?? showCover;
     if (!covers) return pageNum % 2 === 1;
-    if (pageNum === 1) return true;
+    if (pageNum === 1) return false; // front cover is wrap/leather, not an inner photo grid
     if (totalPages != null && usesReservedEndSpread(totalPages, { hasCovers: covers, showCover: covers })) {
         const { right } = getEndSpreadPageIndices(totalPages);
         if (pageNum === right) return true;

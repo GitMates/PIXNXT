@@ -385,6 +385,24 @@ export function getAlbumLayoutPhotoCount(albumId, album = null) {
     return getAlbumCollection(albumId).length;
 }
 
+export function clearCollectionItemCoverWrapRole(albumId, itemId) {
+    if (!albumId || !itemId) return false;
+    const all = readAll();
+    const bucket = all[albumId];
+    if (!bucket?.items?.length) return false;
+    let changed = false;
+    const items = bucket.items.map((item) => {
+        if (item.id !== itemId || item.role !== COVER_WRAP_ROLE) return item;
+        changed = true;
+        const rest = { ...item };
+        delete rest.role;
+        return rest;
+    });
+    if (!changed) return false;
+    persistCollectionBucket(all, albumId, { ...bucket, items });
+    return true;
+}
+
 export function markCollectionItemAsCoverWrap(albumId, itemId) {
     if (!albumId || !itemId) return false;
     const all = readAll();
