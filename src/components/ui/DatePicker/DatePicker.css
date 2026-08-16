@@ -1,4 +1,4 @@
-﻿.custom-datepicker {
+.custom-datepicker {
     position: relative;
     width: 100%;
 }
@@ -46,6 +46,23 @@
     padding: 30px;
     border-radius: 4px;
     animation: fadeIn 0.15s ease-out;
+}
+
+.dp-dropdown--portal {
+    position: fixed;
+    z-index: 4000;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+.dp-dropdown--simple {
+    min-width: 0;
+    padding: 18px;
+}
+
+.dp-dropdown--simple .dp-calendar-section {
+    padding-right: 0;
+    border-right: none;
 }
 
 @keyframes fadeIn {

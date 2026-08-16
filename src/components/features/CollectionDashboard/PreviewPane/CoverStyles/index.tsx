@@ -702,9 +702,13 @@ export const ClassicCover: React.FC<CoverProps> = ({
   focalX,
   focalY,
   isPreview,
+  isGalleryView,
 }) => {
-  // Classic cover is a clean landscape banner at the top without overlaid text or buttons
-  const heightClass = isPreview ? 'h-[180px] min-h-[180px]' : 'h-[360px] min-h-[360px]';
+  const heightClass = isPreview
+    ? 'h-full min-h-0'
+    : isGalleryView
+      ? 'h-full min-h-0'
+      : 'h-[360px] min-h-[360px]';
 
   return (
     <div className={cn('cover-classic-layout relative w-full overflow-hidden', heightClass)}>

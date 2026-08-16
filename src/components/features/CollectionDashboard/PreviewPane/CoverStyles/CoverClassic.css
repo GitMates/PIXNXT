@@ -31,4 +31,20 @@
   max-height: 260px !important;
 }
 
+@media (min-width: 769px) {
+  .gallery-view-hero .cover-classic-layout {
+    height: 100% !important;
+    min-height: 100% !important;
+    max-height: none !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .gallery-view-hero .cover-classic-layout {
+    height: 360px !important;
+    min-height: 360px !important;
+    max-height: 360px !important;
+  }
+}
+
 

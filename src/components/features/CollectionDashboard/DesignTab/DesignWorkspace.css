@@ -118,6 +118,57 @@
   display: none;
 }
 
+/* Desktop webview: cover fills the frame like the live full-screen gallery.
+   Do not apply these rules to the mobile preview frame. */
+.cd-design-frame--desktop .cd-preview-gallery-card {
+  height: 100%;
+}
+
+.cd-design-frame--desktop .cd-preview-gallery-header {
+  display: flex !important;
+  flex-direction: column;
+  height: 100% !important;
+  min-height: 100% !important;
+  max-height: 100% !important;
+  flex-shrink: 0;
+}
+
+.cd-design-frame--desktop .cd-preview-gallery-header > [class*='-layout'] {
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100% !important;
+  min-height: 100% !important;
+  max-height: 100% !important;
+}
+
+.cd-design-frame--desktop .cd-preview-gallery-card.style-classic .cd-preview-gallery-header,
+.cd-design-frame--desktop .cd-preview-gallery-card.style-classic .cover-classic-layout,
+.cd-design-frame--desktop .cd-preview-gallery-card.style-stamp .cd-preview-gallery-header,
+.cd-design-frame--desktop .cd-preview-gallery-card.style-left .cd-preview-gallery-header {
+  height: 100% !important;
+  min-height: 100% !important;
+  max-height: 100% !important;
+}
+
+.cd-design-frame--desktop .cover-novel-layout__image-frame,
+.cd-design-frame--desktop .cover-journal-layout__image-frame {
+  max-height: 100%;
+}
+
+.cd-design-frame--desktop .cover-vintage-layout,
+.cd-design-frame--desktop .cover-stamp-layout,
+.cd-design-frame--desktop .cover-journal-layout,
+.cd-design-frame--desktop .cover-novel-layout,
+.cd-design-frame--desktop .cover-center-layout,
+.cd-design-frame--desktop .cover-left-layout,
+.cd-design-frame--desktop .cover-frame-layout,
+.cd-design-frame--desktop .cover-stripe-layout,
+.cd-design-frame--desktop .cover-divider-layout,
+.cd-design-frame--desktop .cover-outline-layout {
+  height: 100% !important;
+  min-height: 100% !important;
+}
+
 .cd-design-dual-preview__note {
   flex-shrink: 0;
   margin: 0;
