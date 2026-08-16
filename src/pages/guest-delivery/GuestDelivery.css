@@ -281,7 +281,8 @@
 
 .gd-guest-board {
   width: 100%;
-  max-width: 1120px;
+  max-width: 760px;
+  margin: 0 auto;
   color: #3c3028;
 }
 
@@ -316,6 +317,7 @@
 
 .gd-guest-board__card {
   width: 100%;
+  overflow-x: auto;
   background: #fff;
   border-radius: 16px;
   box-shadow: 0 1px 2px rgba(60, 48, 40, 0.04), 0 10px 28px rgba(60, 48, 40, 0.06);
@@ -323,10 +325,10 @@
 
 .gd-guest-board__cols {
   display: grid;
-  grid-template-columns: minmax(220px, 1.55fr) minmax(180px, 1.1fr) 110px 120px;
-  gap: 12px 28px;
+  grid-template-columns: minmax(180px, 1.4fr) minmax(150px, 1.1fr) 88px 100px;
+  gap: 12px 20px;
   align-items: center;
-  min-width: 680px;
+  min-width: 620px;
 }
 
 .gd-guest-board__cols--head {

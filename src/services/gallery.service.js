@@ -83,6 +83,66 @@ function omitFailedUpdateField(payload, error) {
   return null;
 }
 
+const REMINDER_TABLES = ['delivery_reminders', 'collection_reminders'];
+
+const DEFAULT_REMINDER = {
+  timing: '7 days before auto expiry date',
+  subject: 'The gallery {delivery.name} is about to expire',
+  body: 'Hi,\n\nThe gallery {delivery.name} will expire in {days.prior} on {expiry.date}. You will no longer be able to access this gallery after the expiry date.\n\nIf you have any questions, please don\'t hesitate to get in touch!',
+  include_pin: false,
+  send_copy: true,
+  activity_lists: [],
+  whatsapp_enabled: true,
+  whatsapp_body: 'Hi, the gallery {delivery.name} is expiring on {expiry.date}. View it here: {delivery.url}',
+};
+
+function sanitizeReminderPayload(data) {
+  const payload = { ...data };
+  if (!payload.subject) payload.subject = DEFAULT_REMINDER.subject;
+  if (!payload.body) payload.body = DEFAULT_REMINDER.body;
+  if (!Array.isArray(payload.activity_lists)) payload.activity_lists = [];
+  if (payload.to_email == null) payload.to_email = '';
+  if (payload.include_pin == null) payload.include_pin = false;
+  if (payload.send_copy == null) payload.send_copy = true;
+  if (payload.whatsapp_enabled == null) payload.whatsapp_enabled = false;
+  if (payload.whatsapp_body == null) payload.whatsapp_body = DEFAULT_REMINDER.whatsapp_body;
+  if (payload.to_whatsapp == null) payload.to_whatsapp = '';
+  return payload;
+}
+
+function isMissingRelationError(error) {
+  const msg = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`.toLowerCase();
+  return (
+    error?.code === 'PGRST205' ||
+    error?.code === '42P01' ||
+    ((msg.includes('does not exist') || msg.includes('not find the table')) &&
+      (msg.includes('relation') || msg.includes('table')))
+  );
+}
+
+async function reminderQuery(run) {
+  let lastError = null;
+  for (const table of REMINDER_TABLES) {
+    const result = await run(table);
+    if (!result.error) return result;
+    lastError = result.error;
+    if (!isMissingRelationError(result.error)) break;
+  }
+  return { data: null, error: lastError };
+}
+
+async function reminderMutate(run, payload) {
+  let next = { ...payload };
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const result = await reminderQuery((table) => run(table, next));
+    if (!result.error) return result;
+    const stripped = omitFailedUpdateField(next, result.error);
+    if (!stripped) return result;
+    next = stripped;
+  }
+  return reminderQuery((table) => run(table, next));
+}
+
 function getUploadVariantOptions() {
   const defaults = resolveUploadDefaults(null);
   return {
@@ -3298,11 +3358,13 @@ export const galleryService = {
    * Fetch all expiry reminders for a collection
    */
   async getCollectionReminders(collectionId) {
-    const { data, error } = await supabase
-      .from('delivery_reminders')
-      .select('*')
-      .eq('collection_id', collectionId)
-      .order('created_at', { ascending: true });
+    const { data, error } = await reminderQuery((table) =>
+      supabase
+        .from(table)
+        .select('*')
+        .eq('collection_id', collectionId)
+        .order('created_at', { ascending: true })
+    );
 
     if (error) throw error;
     return data ?? [];
@@ -3312,11 +3374,11 @@ export const galleryService = {
    * Create a new expiry reminder
    */
   async createCollectionReminder(reminderData) {
-    const { data, error } = await supabase
-      .from('delivery_reminders')
-      .insert([reminderData])
-      .select()
-      .single();
+    const payload = sanitizeReminderPayload(reminderData);
+    const { data, error } = await reminderMutate(
+      (table, row) => supabase.from(table).insert([row]).select().single(),
+      payload,
+    );
 
     if (error) throw error;
     return data;
@@ -3326,12 +3388,14 @@ export const galleryService = {
    * Update an existing expiry reminder
    */
   async updateCollectionReminder(id, updateData) {
-    const { data, error } = await supabase
-      .from('delivery_reminders')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single();
+    const payload = { ...updateData };
+    if ('activity_lists' in payload && !Array.isArray(payload.activity_lists)) {
+      payload.activity_lists = [];
+    }
+    const { data, error } = await reminderMutate(
+      (table, row) => supabase.from(table).update(row).eq('id', id).select().single(),
+      payload,
+    );
 
     if (error) throw error;
     return data;
@@ -3341,12 +3405,29 @@ export const galleryService = {
    * Delete an expiry reminder
    */
   async deleteCollectionReminder(id) {
-    const { error } = await supabase
-      .from('delivery_reminders')
-      .delete()
-      .eq('id', id);
+    const { error } = await reminderQuery((table) =>
+      supabase.from(table).delete().eq('id', id)
+    );
 
     if (error) throw error;
+  },
+
+  /**
+   * Create a default reminder if this delivery has none yet.
+   */
+  async ensureCollectionReminder(collectionId, patch = {}) {
+    const existing = await this.getCollectionReminders(collectionId);
+    if (existing[0]) {
+      if (patch && Object.keys(patch).length) {
+        return this.updateCollectionReminder(existing[0].id, patch);
+      }
+      return existing[0];
+    }
+    return this.createCollectionReminder({
+      collection_id: collectionId,
+      ...DEFAULT_REMINDER,
+      ...patch,
+    });
   },
 
   /**

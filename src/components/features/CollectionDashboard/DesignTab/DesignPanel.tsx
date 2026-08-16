@@ -390,6 +390,8 @@ export const DesignPanel: React.FC<DesignTabProps> = ({
                   activePalette === palette.id && 'active'
                 )}
                 onClick={() => handlePaletteChange(palette.id)}
+                aria-pressed={activePalette === palette.id}
+                aria-label={palette.name}
               >
                 <span className="cd-design-panel__palette-swatches">
                   {palette.colors.map((color, index) => (

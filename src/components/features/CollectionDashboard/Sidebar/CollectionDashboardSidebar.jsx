@@ -252,16 +252,17 @@ export function CollectionDashboardSidebar({
 
   return (
     <aside className={cn('cdsb', isCollapsed && 'cdsb--collapsed')}>
+      <div className="cdsb-cover-wrap">
+        <SidebarCoverUpload
+          coverUrl={coverUrl}
+          isUpdating={isCoverUploading}
+          onPhotoDrop={onCoverPhotoDrop}
+          onSelectFromCollection={onSelectCoverFromCollection}
+          onCoverFileSelect={onCoverFileSelect}
+        />
+      </div>
+
       <div className="cdsb__scroll">
-        <div className="cdsb-cover-wrap">
-          <SidebarCoverUpload
-            coverUrl={coverUrl}
-            isUpdating={isCoverUploading}
-            onPhotoDrop={onCoverPhotoDrop}
-            onSelectFromCollection={onSelectCoverFromCollection}
-            onCoverFileSelect={onCoverFileSelect}
-          />
-        </div>
 
         <nav className="cdsb-nav" aria-label="Delivery navigation">
           <p className="cdsb-nav__section">Working on</p>

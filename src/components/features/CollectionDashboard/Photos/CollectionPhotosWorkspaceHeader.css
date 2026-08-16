@@ -39,28 +39,6 @@
   color: #8c827a;
 }
 
-.cdpw-tabs {
-  margin-top: 2px;
-  padding-bottom: 2px;
-}
-
-.cdpw-tabs .cd-media-filter {
-  gap: 24px;
-}
-
-.cdpw-tabs .cd-media-filter-tab {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding-bottom: 8px;
-}
-
-.cdpw-tabs .cd-media-filter-tab--active::after {
-  height: 2px;
-  background: #1a1a1a;
-}
-
 .cdpw-search {
   display: flex;
   align-items: center;

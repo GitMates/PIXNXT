@@ -28,7 +28,7 @@
 
 .theme-mono.cd-dashboard-shell .cd-main-area--settings,
 .theme-mono.cd-dashboard-shell .cd-general-settings-view.cd-basics {
-  background-color: #f8f7f3 !important;
+  background-color: #faf9f5 !important;
 }
 
 .theme-mono.cd-dashboard-shell .cd-topbar,
@@ -90,6 +90,9 @@
   color: var(--cd-foreground) !important;
   border: 1px solid var(--cd-border) !important;
   font-weight: 600 !important;
+  font-size: 11px !important;
+  letter-spacing: 0.04em !important;
+  text-transform: none !important;
 }
 
 .theme-mono.cd-dashboard-shell .cd-status-badge.published {
@@ -97,6 +100,9 @@
   color: var(--cd-foreground) !important;
   border-color: var(--cd-border) !important;
   box-shadow: none !important;
+  font-size: 11px !important;
+  letter-spacing: 0.04em !important;
+  text-transform: none !important;
 }
 
 .theme-mono.cd-dashboard-shell .cd-status-badge.published:hover {
@@ -116,26 +122,48 @@
 }
 
 .theme-mono.cd-dashboard-shell .cd-share-split-btn {
-  border-radius: 9999px !important;
-  overflow: hidden;
-  background-color: oklch(0.2 0 0) !important;
-  background-image: linear-gradient(180deg, oklch(0.3 0 0), oklch(0.2 0 0)) !important;
-  box-shadow:
-    0 1px 0 0 oklch(1 0 0 / 0.15) inset,
-    0 12px 24px -10px oklch(0 0 0 / 0.35) !important;
+  display: inline-flex !important;
+  align-items: stretch !important;
+  height: 32px !important;
+  border: 1px solid #e0e0e0 !important;
+  border-radius: 9px !important;
+  overflow: hidden !important;
+  background: #fff !important;
+  background-image: none !important;
+  box-shadow: none !important;
   transform: none !important;
 }
 
 .theme-mono.cd-dashboard-shell .cd-share-split-btn:hover {
-  box-shadow:
-    0 1px 0 0 oklch(1 0 0 / 0.2) inset,
-    0 16px 30px -10px oklch(0 0 0 / 0.4) !important;
+  background: #fafafa !important;
+  box-shadow: none !important;
+  transform: none !important;
 }
 
 .theme-mono.cd-dashboard-shell .cd-share-main,
 .theme-mono.cd-dashboard-shell .cd-share-arrow {
   background: transparent !important;
-  color: #fff !important;
+  color: #1a1a1a !important;
+  border: none !important;
+  font-size: 0.8125rem !important;
+  font-weight: 500 !important;
+  min-height: 32px !important;
+  font-family: inherit !important;
+}
+
+.theme-mono.cd-dashboard-shell .cd-share-main {
+  padding: 0 13px !important;
+  border-right: 1px solid #e0e0e0 !important;
+}
+
+.theme-mono.cd-dashboard-shell .cd-share-arrow {
+  padding: 0 8px !important;
+}
+
+.theme-mono.cd-dashboard-shell .cd-share-main:hover,
+.theme-mono.cd-dashboard-shell .cd-share-arrow:hover {
+  background: #fafafa !important;
+  color: #1a1a1a !important;
 }
 
 .theme-mono.cd-dashboard-shell .cd-add-media-btn {

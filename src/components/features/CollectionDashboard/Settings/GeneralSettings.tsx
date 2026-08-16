@@ -21,6 +21,7 @@ export interface GeneralSettingsProps {
     onEditReminder: (reminder: any) => void;
     onDeleteReminder: (id: string) => void;
     onAddReminder: () => void;
+    onRemindersChange?: () => void;
     emailRegistration: boolean;
     setEmailRegistration: (val: boolean) => void;
     galleryAssist: boolean;
@@ -125,6 +126,7 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
     expiryReminders = [],
     onEditReminder,
     onAddReminder,
+    onRemindersChange,
     galleryAssist,
     setGalleryAssist,
     slideshow,
@@ -138,7 +140,7 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
     categoryTagsSaving = false,
     profile,
 }) => {
-    const [openCard, setOpenCard] = React.useState<'link' | 'closes' | 'gallery' | null>('link');
+    const [openCard, setOpenCard] = React.useState<'link' | 'closes' | 'gallery' | null>(null);
     const [copied, setCopied] = React.useState(false);
     const [showFilenames, setShowFilenames] = React.useState(collection?.show_filenames === true);
     const [remindChannel, setRemindChannel] = React.useState<'both' | 'email' | 'whatsapp'>('both');
@@ -233,6 +235,14 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
     const saveExpiry = async (next: string | null) => {
         setAutoExpiry(next);
         await persistCollection({ auto_expiry: next });
+        if (next && !expiryReminders[0]) {
+            try {
+                await galleryService.ensureCollectionReminder(collectionId);
+                onRemindersChange?.();
+            } catch (err) {
+                console.error('Failed to create default expiry reminder:', err);
+            }
+        }
     };
 
     const saveLanguage = async (next: string) => {
@@ -249,12 +259,12 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
         const timing = REMIND_WHEN.find((item) => item.id === when)?.timing
             || '7 days before auto expiry date';
         const whatsappEnabled = channel !== 'email';
-        if (!primaryReminder) return;
         try {
-            await galleryService.updateCollectionReminder(primaryReminder.id, {
+            await galleryService.ensureCollectionReminder(collectionId, {
                 timing,
                 whatsapp_enabled: whatsappEnabled,
             });
+            onRemindersChange?.();
         } catch (err) {
             console.error('Failed to update reminder prefs:', err);
         }

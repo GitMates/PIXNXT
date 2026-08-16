@@ -989,8 +989,8 @@
 }
 
 .cd-main-area--settings {
-    background-color: #f9f7f2;
-    padding: 36px 48px 80px;
+    background-color: #faf9f5;
+    padding: 40px 48px 80px;
 }
 
 .cd-main-header {
@@ -3936,8 +3936,8 @@
 }
 
 .cd-general-settings-view.cd-basics {
-    padding: 12px 16px 80px !important;
-    max-width: 700px !important;
+    padding: 8px 8px 80px !important;
+    max-width: 840px !important;
     margin: 0 auto !important;
     background-color: transparent !important;
     min-height: 0 !important;
@@ -6073,8 +6073,8 @@
 }
 
 .cd-share-split-btn:hover {
-    transform: translateY(-1.5px);
-    box-shadow: 0 6px 20px rgba(139, 223, 221, 0.35) !important;
+    transform: none;
+    box-shadow: none !important;
 }
 
 .cd-share-split-btn:active {
@@ -6370,6 +6370,8 @@
 }
 
 .cd-guests-main {
+    display: flex;
+    justify-content: center;
     padding: 36px 48px 64px;
     width: 100%;
     box-sizing: border-box;
@@ -6377,7 +6379,9 @@
 }
 
 .cd-guests-main .gd-guest-board {
-    max-width: 100%;
+    width: 100%;
+    max-width: 760px;
+    margin: 0 auto;
 }
 
 

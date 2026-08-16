@@ -101,7 +101,6 @@ import { formatCoverDate, formatSidebarDeliveryDate, formatLastSavedTime } from 
 import {
     countGalleryMedia,
     filterGalleryMediaByType,
-    shouldShowGalleryMediaFilter,
 } from '../lib/galleryMediaType';
 import {
     normalizeCoverStyleId,
@@ -476,7 +475,6 @@ const CollectionDashboard = () => {
     const [sortOption, setSortOption] = useState('custom');
     const [photoSortField, setPhotoSortField] = useState('capture-time');
     const [photoSortReverse, setPhotoSortReverse] = useState(false);
-    const [mediaFilter, setMediaFilter] = useState('photos');
 
     // TAB STATES
     const [activeSidebarTab, setActiveSidebarTab] = useState('photos'); // photos, design, settings, activity
@@ -1722,20 +1720,24 @@ const CollectionDashboard = () => {
     };
 
     const handleSaveExpiryEmail = async () => {
+        if (!collectionId) {
+            alert('This delivery is still loading. Try Save again in a moment.');
+            return;
+        }
         try {
             setSaving(true);
             const reminderData = {
                 collection_id: collectionId,
-                timing: expiryEmailTiming,
-                to_email: expiryEmailTo,
-                subject: expiryEmailSubject,
-                body: expiryEmailBody,
-                include_pin: expiryEmailIncludePin,
-                send_copy: expiryEmailSendCopy,
-                activity_lists: expiryEmailLists,
-                whatsapp_enabled: whatsappEnabled,
-                whatsapp_body: whatsappBody,
-                to_whatsapp: toWhatsapp
+                timing: expiryEmailTiming || '7 days before auto expiry date',
+                to_email: expiryEmailTo || '',
+                subject: expiryEmailSubject || 'The gallery {delivery.name} is about to expire',
+                body: expiryEmailBody || 'Hi,\n\nThe gallery {delivery.name} will expire in {days.prior} on {expiry.date}.',
+                include_pin: !!expiryEmailIncludePin,
+                send_copy: expiryEmailSendCopy !== false,
+                activity_lists: Array.isArray(expiryEmailLists) ? expiryEmailLists : [],
+                whatsapp_enabled: !!whatsappEnabled,
+                whatsapp_body: whatsappBody || '',
+                to_whatsapp: toWhatsapp || '',
             };
 
             if (editingReminderId) {
@@ -1752,7 +1754,8 @@ const CollectionDashboard = () => {
             setTimeout(() => setToastMessage(null), 3000);
         } catch (err) {
             console.error('Failed to save expiry email:', err);
-            alert('Failed to save expiry email settings.');
+            const detail = err?.message || err?.error_description || 'Unknown error';
+            alert(`Failed to save expiry email settings.\n\n${detail}`);
         } finally {
             setSaving(false);
         }
@@ -2530,30 +2533,17 @@ const CollectionDashboard = () => {
         [activityCounts]
     );
 
-    useEffect(() => {
-        if (isFilmsView) setMediaFilter('videos');
-    }, [isFilmsView]);
-
     const activeSetMediaCounts = useMemo(
         () => countGalleryMedia(sortedPhotos),
         [sortedPhotos]
     );
 
-    const showMediaFilter = shouldShowGalleryMediaFilter(activeSetMediaCounts);
-
-    useEffect(() => {
-        if (isFilmsView) return;
-        if (activeSetMediaCounts.photos > 0) setMediaFilter('photos');
-        else if (activeSetMediaCounts.videos > 0) setMediaFilter('videos');
-    }, [activeSetId, activeSetMediaCounts.photos, activeSetMediaCounts.videos, isFilmsView]);
-
     const mediaFilteredPhotos = useMemo(() => {
         if (isFilmsView) {
             return filterGalleryMediaByType(aiFilteredPhotos, 'videos');
         }
-        if (!showMediaFilter) return aiFilteredPhotos;
-        return filterGalleryMediaByType(aiFilteredPhotos, mediaFilter);
-    }, [aiFilteredPhotos, showMediaFilter, mediaFilter, isFilmsView]);
+        return filterGalleryMediaByType(aiFilteredPhotos, 'photos');
+    }, [aiFilteredPhotos, isFilmsView]);
 
     const isPhotoAiFilterActive = Boolean(
         activePersonId || selfieMatchPhotoIds.length
@@ -2867,11 +2857,9 @@ const CollectionDashboard = () => {
                 _uploadPending: true,
                 _uploadProgress: f.progress,
             }));
-        const filteredPending = showMediaFilter
-            ? filterGalleryMediaByType(pending, mediaFilter)
-            : pending;
+        const filteredPending = filterGalleryMediaByType(pending, isFilmsView ? 'videos' : 'photos');
         return [...searchFilteredPhotos, ...filteredPending];
-    }, [searchFilteredPhotos, uploadState.files, collectionId, highlightsEnabled, activeSetId, sets, showMediaFilter, mediaFilter]);
+    }, [searchFilteredPhotos, uploadState.files, collectionId, highlightsEnabled, activeSetId, sets, isFilmsView]);
 
     const deliveryFilms = useMemo(() => {
         const videos = filterGalleryMediaByType(photos, 'videos');
@@ -2914,24 +2902,14 @@ const CollectionDashboard = () => {
         });
     }, [activeSidebarTab, gridPhotos.length]);
 
-    const activeSetPhotoCount = activeSetId
-        ? photos.filter(p => p.set_id === activeSetId).length
-        : photos.filter(p => !p.set_id).length;
-
     const activeSetCountLabel = useMemo(() => {
-        const typeCount = showMediaFilter
-            ? activeSetMediaCounts[mediaFilter === 'photos' ? 'photos' : 'videos']
-            : activeSetPhotoCount;
-        const noun = showMediaFilter && mediaFilter === 'videos' ? 'videos' : 'photos';
+        const typeCount = activeSetMediaCounts.photos;
         if (isPhotoAiFilterActive || photoSearchQuery.trim()) {
-            return `${gridPhotos.filter((p) => !p._uploadPending).length.toLocaleString()} of ${Number(typeCount).toLocaleString()} ${noun}`;
+            return `${gridPhotos.filter((p) => !p._uploadPending).length.toLocaleString()} of ${Number(typeCount).toLocaleString()} photos`;
         }
-        return `${Number(typeCount).toLocaleString()} ${noun}`;
+        return `${Number(typeCount).toLocaleString()} photos`;
     }, [
-        showMediaFilter,
-        mediaFilter,
         activeSetMediaCounts,
-        activeSetPhotoCount,
         isPhotoAiFilterActive,
         photoSearchQuery,
         gridPhotos,
@@ -3314,20 +3292,12 @@ const CollectionDashboard = () => {
             const reorderedVisible = nextIds.filter((id) => byId.has(id)).map((id) => byId.get(id));
             if (reorderedVisible.length !== draggablePhotos.length) return;
 
-            let newPoolOrder;
-            if (showMediaFilter) {
-                const visibleIdSet = new Set(reorderedVisible.map((p) => p.id));
-                let visibleIndex = 0;
-                newPoolOrder = sortedPhotos.map((p) => {
-                    if (!visibleIdSet.has(p.id)) return p;
-                    return reorderedVisible[visibleIndex++];
-                });
-            } else {
-                newPoolOrder = [
-                    ...reorderedVisible,
-                    ...gridPhotos.filter((p) => p._uploadPending),
-                ];
-            }
+            const visibleIdSet = new Set(reorderedVisible.map((p) => p.id));
+            let visibleIndex = 0;
+            const newPoolOrder = sortedPhotos.map((p) => {
+                if (!visibleIdSet.has(p.id)) return p;
+                return reorderedVisible[visibleIndex++];
+            });
 
             const realPhotos = newPoolOrder.filter((p) => !p._uploadPending);
             const posMap = new Map(realPhotos.map((p, index) => [p.id, index]));
@@ -3353,7 +3323,7 @@ const CollectionDashboard = () => {
                 alert('Failed to reorder photos.');
             }
         },
-        [collection?.gallery_photo_sort, collectionId, gridPhotos, showMediaFilter, sortOption, sortedPhotos]
+        [collection?.gallery_photo_sort, collectionId, gridPhotos, sortOption, sortedPhotos]
     );
 
     const isGridPhotoDraggable = useCallback(
@@ -4125,12 +4095,19 @@ const CollectionDashboard = () => {
                         Preview
                     </button>
                     <div className="cd-share-wrapper" ref={shareRef}>
-                        <div className="cd-share-split-btn">
-                            <button className="cd-share-main" style={{ pointerEvents: 'none', cursor: 'default' }} tabIndex={-1} aria-disabled="true">Share</button>
-                            <button className="cd-share-arrow" onClick={() => { setShowMoreDropdown(false); setShowPresetsSubmenu(false); setShowShareDropdown(!showShareDropdown); }}>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                            </button>
-                        </div>
+                        <button
+                            type="button"
+                            className="cd-topbar-btn"
+                            aria-expanded={showShareDropdown}
+                            aria-haspopup="menu"
+                            onClick={() => {
+                                setShowMoreDropdown(false);
+                                setShowPresetsSubmenu(false);
+                                setShowShareDropdown(!showShareDropdown);
+                            }}
+                        >
+                            Share <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        </button>
                         {showShareDropdown && (
                             <div className="cd-share-dropdown">
                                 <div
@@ -4314,11 +4291,6 @@ const CollectionDashboard = () => {
                                 <CollectionPhotosWorkspaceHeader
                                     setName={activeSetName}
                                     countLabel={activeSetCountLabel}
-                                    showMediaFilter={showMediaFilter}
-                                    mediaFilter={mediaFilter}
-                                    onMediaFilterChange={setMediaFilter}
-                                    photoCount={activeSetMediaCounts.photos}
-                                    videoCount={activeSetMediaCounts.videos}
                                     searchQuery={photoSearchQuery}
                                     onSearchQueryChange={setPhotoSearchQuery}
                                     sortField={photoSortField}
@@ -4455,9 +4427,7 @@ const CollectionDashboard = () => {
                                     <p className="cd-media-filter-empty">
                                         {photoSearchQuery.trim()
                                             ? 'No photos match your search'
-                                            : showMediaFilter
-                                                ? `No ${mediaFilter} in this set`
-                                                : 'No matching photos'}
+                                            : 'No matching photos'}
                                     </p>
                                 ) : (
                                     <div
@@ -4610,6 +4580,7 @@ const CollectionDashboard = () => {
                                 onEditReminder={openEditReminder}
                                 onDeleteReminder={handleDeleteReminder}
                                 onAddReminder={openAddReminder}
+                                onRemindersChange={fetchReminders}
                                 emailRegistration={emailRegistration}
                                 setEmailRegistration={setEmailRegistration}
                                 galleryAssist={galleryAssist}

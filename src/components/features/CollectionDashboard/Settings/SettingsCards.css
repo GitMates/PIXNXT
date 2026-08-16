@@ -87,8 +87,8 @@
 
 /* Section card (title + description inside the white card) */
 .cd-basics-section-card {
-  background: #fcfbf7;
-  border: 1px solid #ecebe7;
+  background: #ffffff;
+  border: 1px solid #e8e4de;
   border-radius: 12px;
   padding: 18px 20px 20px;
 }

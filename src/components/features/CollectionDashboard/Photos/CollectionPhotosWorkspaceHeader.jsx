@@ -5,7 +5,6 @@ import {
   PHOTO_SORT_FIELDS,
   sortFieldLabel,
 } from '../../../../lib/dashboardPhotoSortUi';
-import { DashboardMediaFilter } from '../Media/DashboardMediaFilter';
 import { CollectionPeopleStrip } from './CollectionPeopleStrip';
 import './CollectionPhotosWorkspaceHeader.css';
 
@@ -61,11 +60,6 @@ function SortRadio({ checked, label, onSelect }) {
 export function CollectionPhotosWorkspaceHeader({
   setName,
   countLabel,
-  showMediaFilter,
-  mediaFilter,
-  onMediaFilterChange,
-  photoCount,
-  videoCount,
   searchQuery,
   onSearchQueryChange,
   sortField,
@@ -192,17 +186,6 @@ export function CollectionPhotosWorkspaceHeader({
             </button>
           </div>
         </div>
-
-        {showMediaFilter ? (
-          <div className="cdpw-tabs">
-            <DashboardMediaFilter
-              value={mediaFilter}
-              onChange={onMediaFilterChange}
-              photoCount={photoCount}
-              videoCount={videoCount}
-            />
-          </div>
-        ) : null}
       </div>
 
       {showPeopleStrip ? (
