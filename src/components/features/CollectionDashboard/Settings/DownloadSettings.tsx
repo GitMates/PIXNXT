@@ -1,39 +1,268 @@
 import React from 'react';
 import { galleryService } from '../../../../services/gallery.service';
 import { DownloadSettingsProps } from './Settings.types';
-import {
-  GridIcon,
-  LockIcon,
-  PlayIcon,
-  SettingsCard,
-  ToggleRow,
-  formatMoney,
-} from './settingsCardKit';
+import { Toggle, formatMoney } from './settingsCardKit';
 import './BasicsSettings.css';
-import './SettingsCards.css';
+import './DownloadSettings.css';
 
-const WEB_SIZES = [
-  { id: '2048px', label: '2048 px' },
-  { id: '1024px', label: '1024 px' },
-  { id: '640px', label: '640 px' },
+type TabId = 'downloads' | 'advanced';
+type SellingMode = 'off' | 'full' | 'watermarked';
+type ContactMode = 'never' | 'large' | 'every';
+type FilmPlay = 'adapt' | 'highest';
+type Bundle = { count: number; price: number };
+
+const SIZE_OPTIONS = [
+  { id: 'web' as const, label: 'Web size', desc: 'About 2,048 px on the long edge.' },
+  { id: 'high' as const, label: 'Full resolution', desc: 'Print-ready, straight from your export.' },
+  { id: 'original' as const, label: 'Original file', desc: 'Untouched, exactly as it came off the camera.' },
 ];
 
-const HIGH_RES = [
-  { id: 'original', label: 'Original' },
-  { id: '3600px', label: '3600 px' },
+const CONTACT_OPTIONS: { id: ContactMode; label: string; desc?: string }[] = [
+  { id: 'never', label: 'Never' },
+  { id: 'large', label: 'Large downloads only' },
+  { id: 'every', label: 'Every download' },
 ];
 
-const FILM_RESOLUTIONS = [
-  { id: 'original', label: 'Original' },
-  { id: '1080p', label: '1080p' },
-  { id: '720p', label: '720p' },
+const SELLING_OPTIONS: { id: SellingMode; label: string; desc: string }[] = [
+  { id: 'off', label: 'Not selling', desc: 'Everything you offer is free' },
+  { id: 'full', label: 'Full resolution only', desc: 'Web size free, originals priced' },
+  { id: 'watermarked', label: 'Everything, watermarked', desc: 'Nothing free, mark until paid' },
 ];
 
-function gigabytes(bytes: number) {
-  if (!bytes) return '';
+const PLAYBACK_OPTIONS: { id: FilmPlay; label: string; desc: string }[] = [
+  { id: 'adapt', label: 'Adapt to the connection', desc: 'Adapt starts lower on mobile data and steps up on wifi.' },
+  { id: 'highest', label: 'Always highest', desc: 'Play at the highest quality the file allows.' },
+];
+
+const DEFAULT_BUNDLES: Bundle[] = [
+  { count: 10, price: 1000 },
+  { count: 20, price: 1600 },
+  { count: 50, price: 3000 },
+];
+
+function ChevronDown() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+}
+
+function DownloadGlyph() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+      <path d="M12 3v12" />
+      <path d="m7 11 5 5 5-5" />
+      <path d="M5 21h14" />
+    </svg>
+  );
+}
+
+function AdvancedGlyph() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" aria-hidden>
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
+function parseBundles(raw: unknown): Bundle[] {
+  if (!Array.isArray(raw)) return DEFAULT_BUNDLES;
+  const next = raw
+    .map((item) => ({
+      count: Number((item as Bundle)?.count) || 0,
+      price: Number((item as Bundle)?.price) || 0,
+    }))
+    .filter((item) => item.count > 0);
+  return next.length ? next : DEFAULT_BUNDLES;
+}
+
+function formatGb(bytes: number) {
   const gb = bytes / 1024 ** 3;
-  if (gb >= 1) return `${gb.toFixed(1)} GB`;
+  if (gb >= 10) return `${Math.round(gb)} GB`;
+  if (gb >= 0.1) return `${gb.toFixed(1)} GB`;
   return `${Math.max(1, Math.round(bytes / 1024 ** 2))} MB`;
+}
+
+function sellingFromCollection(collection: any): SellingMode {
+  const saved = collection?.download_selling;
+  if (saved === 'off' || saved === 'full' || saved === 'watermarked') return saved;
+  if (saved === 'all' || saved === 'web') return 'watermarked';
+  if (Number(collection?.download_price_full) > 0 || Number(collection?.download_price_web) > 0) return 'full';
+  return 'off';
+}
+
+function contactFromCollection(collection: any): ContactMode {
+  const saved = collection?.download_contact_mode;
+  if (saved === 'never' || saved === 'large' || saved === 'every') return saved;
+  if (saved === 'always') return 'every';
+  return collection?.large_download_contact === true ? 'large' : 'never';
+}
+
+function playbackFromCollection(collection: any): FilmPlay {
+  return collection?.film_playback === 'highest' ? 'highest' : 'adapt';
+}
+
+function Row({
+  title,
+  desc,
+  control,
+}: {
+  title: string;
+  desc?: string;
+  control: React.ReactNode;
+}) {
+  return (
+    <div className="cd-dl-row">
+      <div className="cd-dl-row__copy">
+        <p className="cd-dl-row__title">{title}</p>
+        {desc ? <p className="cd-dl-row__desc">{desc}</p> : null}
+      </div>
+      <div className="cd-dl-row__control">{control}</div>
+    </div>
+  );
+}
+
+function useMenu() {
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    if (!open) return undefined;
+    const onDoc = (event: MouseEvent) => {
+      if (!ref.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [open]);
+  return { open, setOpen, ref };
+}
+
+function RadioMenu({
+  value,
+  options,
+  header,
+  onChange,
+  wide,
+  pill,
+}: {
+  value: string;
+  options: { id: string; label: string; desc?: string }[];
+  header: string;
+  onChange: (id: string) => void;
+  wide?: boolean;
+  pill?: boolean;
+}) {
+  const { open, setOpen, ref } = useMenu();
+  const label = options.find((item) => item.id === value)?.label || value;
+
+  return (
+    <div className={`cd-dl-select${open ? ' is-open' : ''}`} ref={ref}>
+      <button
+        type="button"
+        className={`cd-dl-select__btn${pill ? ' cd-dl-select__btn--pill' : ''}`}
+        style={wide ? { minWidth: 240 } : undefined}
+        onClick={() => setOpen((current) => !current)}
+      >
+        <span>{label}</span>
+        <ChevronDown />
+      </button>
+      {open ? (
+        <div className="cd-dl-pop">
+          <p className="cd-dl-pop__head">{header}</p>
+          {options.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className="cd-dl-opt"
+              onClick={() => {
+                onChange(item.id);
+                setOpen(false);
+              }}
+            >
+              <span className={`cd-dl-radio${item.id === value ? ' is-on' : ''}`} />
+              <span className="cd-dl-opt__copy">
+                <span className="cd-dl-opt__title">{item.label}</span>
+                {item.desc ? <span className="cd-dl-opt__desc">{item.desc}</span> : null}
+              </span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function SizesMenu({
+  selected,
+  onToggle,
+}: {
+  selected: Record<'web' | 'high' | 'original', boolean>;
+  onToggle: (size: 'web' | 'high' | 'original') => void;
+}) {
+  const { open, setOpen, ref } = useMenu();
+  const parts = SIZE_OPTIONS.filter((item) => selected[item.id]).map((item) => item.label);
+  const label = parts.join(', ') || 'None';
+
+  return (
+    <div className={`cd-dl-select${open ? ' is-open' : ''}`} ref={ref}>
+      <button type="button" className="cd-dl-select__btn" style={{ minWidth: 240 }} onClick={() => setOpen((c) => !c)}>
+        <span>{label}</span>
+        <ChevronDown />
+      </button>
+      {open ? (
+        <div className="cd-dl-pop">
+          <p className="cd-dl-pop__head">Sizes they can choose</p>
+          {SIZE_OPTIONS.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className={`cd-dl-check${selected[item.id] ? ' is-on' : ''}`}
+              onClick={() => onToggle(item.id)}
+            >
+              <span className="cd-dl-check__box">{selected[item.id] ? <CheckIcon /> : null}</span>
+              <span className="cd-dl-opt__copy">
+                <span className="cd-dl-opt__title">{item.label}</span>
+                <span className="cd-dl-opt__desc">{item.desc}</span>
+              </span>
+            </button>
+          ))}
+          <p className="cd-dl-pop__foot">Offer more than one and they pick at the point of download.</p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function MoneyField({
+  value,
+  onChange,
+  onBlur,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  onBlur: () => void;
+}) {
+  return (
+    <label className="cd-dl-money">
+      ₹
+      <input
+        type="number"
+        min={0}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur}
+      />
+    </label>
+  );
 }
 
 export const DownloadSettings: React.FC<DownloadSettingsProps> = ({
@@ -43,12 +272,8 @@ export const DownloadSettings: React.FC<DownloadSettingsProps> = ({
   photos = [],
   photoDownload,
   setPhotoDownload,
-  galleryDownload,
-  setGalleryDownload,
   singlePhotoDownload,
   setSinglePhotoDownload,
-  requirePinForSinglePhoto,
-  setRequirePinForSinglePhoto,
   downloadPin,
   setDownloadPin,
   pinValue,
@@ -65,30 +290,43 @@ export const DownloadSettings: React.FC<DownloadSettingsProps> = ({
   setPinUsageLimit,
   photoDownloadSizes = ['high', 'web'],
   setPhotoDownloadSizes,
-  highResChoice = '3600px',
   setHighResChoice,
-  webSizeChoice = '1024px',
   setWebSizeChoice,
+  setActiveSidebarTab,
+  setActiveActivitySubTab,
 }) => {
-  const [openCard, setOpenCard] = React.useState<string | null>(null);
-  const [priceWeb, setPriceWeb] = React.useState(String(collection?.download_price_web ?? ''));
-  const [priceFull, setPriceFull] = React.useState(String(collection?.download_price_full ?? ''));
-  const [priceBundle, setPriceBundle] = React.useState(String(collection?.download_price_bundle ?? ''));
-  const [askContact, setAskContact] = React.useState(collection?.large_download_contact === true);
+  const [tab, setTab] = React.useState<TabId>('downloads');
+  const [copied, setCopied] = React.useState(false);
+  const [editingBundles, setEditingBundles] = React.useState(false);
+  const [pricePhoto, setPricePhoto] = React.useState(String(collection?.download_price_full ?? collection?.download_price_web ?? ''));
+  const [priceFilm, setPriceFilm] = React.useState(String(collection?.download_price_film ?? ''));
+  const [bundles, setBundles] = React.useState<Bundle[]>(() => parseBundles(collection?.download_bundles));
+  const [selling, setSelling] = React.useState<SellingMode>(() => sellingFromCollection(collection));
+  const [contact, setContact] = React.useState<ContactMode>(() => contactFromCollection(collection));
   const [filmResolution, setFilmResolution] = React.useState(collection?.video_download_resolution || '1080p');
+  const [filmPlayback, setFilmPlayback] = React.useState<FilmPlay>(() => playbackFromCollection(collection));
+  const [singleFilm, setSingleFilm] = React.useState(collection?.single_film_download !== false);
 
   React.useEffect(() => {
-    setPriceWeb(String(collection?.download_price_web ?? ''));
-    setPriceFull(String(collection?.download_price_full ?? ''));
-    setPriceBundle(String(collection?.download_price_bundle ?? ''));
-    setAskContact(collection?.large_download_contact === true);
+    setPricePhoto(String(collection?.download_price_full ?? collection?.download_price_web ?? ''));
+    setPriceFilm(String(collection?.download_price_film ?? ''));
+    setBundles(parseBundles(collection?.download_bundles));
+    setSelling(sellingFromCollection(collection));
+    setContact(contactFromCollection(collection));
     setFilmResolution(collection?.video_download_resolution || '1080p');
+    setFilmPlayback(playbackFromCollection(collection));
+    setSingleFilm(collection?.single_film_download !== false);
   }, [
-    collection?.download_price_web,
     collection?.download_price_full,
-    collection?.download_price_bundle,
+    collection?.download_price_web,
+    collection?.download_price_film,
+    collection?.download_bundles,
+    collection?.download_selling,
+    collection?.download_contact_mode,
     collection?.large_download_contact,
     collection?.video_download_resolution,
+    collection?.film_playback,
+    collection?.single_film_download,
   ]);
 
   const persist = async (patch: Record<string, unknown>) => {
@@ -100,449 +338,507 @@ export const DownloadSettings: React.FC<DownloadSettingsProps> = ({
     }
   };
 
-  const pinInputRef = React.useRef<HTMLInputElement>(null);
-  const commitPin = (pin: string) => {
-    onPinEnter?.(pin);
-    pinInputRef.current?.blur();
-  };
-
-  const toggleCard = (id: string) => setOpenCard((current) => (current === id ? null : id));
-
   const webOffered = photoDownloadSizes.includes('web');
-  const highOffered = photoDownloadSizes.includes('high');
-  const filmsOffered = photoDownloadSizes.includes('video');
+  const highOffered = photoDownloadSizes.includes('high') || photoDownloadSizes.includes('full');
+  const originalOffered = photoDownloadSizes.includes('original');
+  const filmsOffered = photoDownloadSizes.includes('video') || collection?.video_downloads_enabled === true;
+  const filmChoice = filmsOffered ? (filmResolution === '4k' || filmResolution === '2160p' ? '4k' : '1080p') : 'none';
 
-  const toggleSize = (size: 'web' | 'high' | 'video') => {
-    const next = photoDownloadSizes.includes(size)
-      ? photoDownloadSizes.filter((item) => item !== size)
-      : [...photoDownloadSizes, size];
-    setPhotoDownloadSizes?.(next);
+  const persistSizes = (next: string[]) => {
+    const unique = Array.from(new Set(next));
+    setPhotoDownloadSizes?.(unique);
+    void persist({
+      download_resolutions: unique
+        .map((item) => (item === 'high' ? 'full' : item))
+        .filter((item) => item === 'web' || item === 'full' || item === 'original'),
+      video_downloads_enabled: unique.includes('video'),
+    });
   };
 
+  const toggleSize = (size: 'web' | 'high' | 'original' | 'video') => {
+    const has = size === 'high'
+      ? photoDownloadSizes.includes('high') || photoDownloadSizes.includes('full')
+      : photoDownloadSizes.includes(size);
+    const without = photoDownloadSizes.filter((item) => {
+      if (size === 'high') return item !== 'high' && item !== 'full';
+      return item !== size;
+    });
+    const next = has ? without : [...without, size === 'high' ? 'high' : size];
+    if (size === 'web' && !has) setWebSizeChoice?.('2048px');
+    if (size === 'high' && !has) setHighResChoice?.('3600px');
+    if (size === 'original' && !has) setHighResChoice?.('original');
+    persistSizes(next);
+  };
+
+  const setFilmOption = (id: string) => {
+    if (id === 'none') {
+      setFilmResolution('1080p');
+      void persist({ video_download_resolution: 'none', video_downloads_enabled: false });
+      persistSizes(photoDownloadSizes.filter((item) => item !== 'video'));
+      return;
+    }
+    setFilmResolution(id);
+    void persist({ video_download_resolution: id, video_downloads_enabled: true });
+    if (!photoDownloadSizes.includes('video')) persistSizes([...photoDownloadSizes, 'video']);
+  };
+
+  const setContactMode = (mode: ContactMode) => {
+    setContact(mode);
+    void persist({
+      download_contact_mode: mode,
+      large_download_contact: mode !== 'never',
+    });
+  };
+
+  const setSellingMode = (mode: SellingMode) => {
+    setSelling(mode);
+    void persist({ download_selling: mode });
+  };
+
+  const savePhotoPrice = () => {
+    const num = pricePhoto === '' ? null : Number(pricePhoto);
+    void persist({
+      download_price_full: num,
+      digital_download_price_single: num,
+    });
+  };
+
+  const saveFilmPrice = () => {
+    void persist({ download_price_film: priceFilm === '' ? null : Number(priceFilm) });
+  };
+
+  const saveBundles = (next: Bundle[]) => {
+    setBundles(next);
+    void persist({ download_bundles: next });
+  };
+
+  const generatePin = () => {
+    const next = String(Math.floor(1000 + Math.random() * 9000));
+    setPinValue(next);
+    onPinEnter?.(next);
+  };
+
+  const copyPin = async () => {
+    try {
+      await navigator.clipboard.writeText(pinValue || '');
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1200);
+    } catch {
+      setCopied(false);
+    }
+  };
+
+  const commitPin = (pin: string) => onPinEnter?.(pin);
+
+  const stillPhotos = React.useMemo(
+    () => (photos || []).filter((photo: any) => photo?.media_type !== 'video'),
+    [photos],
+  );
   const films = React.useMemo(
     () => (photos || []).filter((photo: any) => photo?.media_type === 'video'),
     [photos],
   );
   const filmBytes = films.reduce((sum: number, film: any) => sum + (Number(film.size_bytes) || 0), 0);
-  const filmSizeLabel = gigabytes(filmBytes);
+  const filmOptions = [
+    { id: 'none', label: 'Watch only', desc: 'No download control on a film.' },
+    {
+      id: '1080p',
+      label: 'Allowed at 1080p',
+      desc: filmBytes ? `This delivery ≈ ${formatGb(filmBytes)}.` : 'A 46-minute film ≈ 2.1 GB.',
+    },
+    {
+      id: '4k',
+      label: 'Allowed at 4K',
+      desc: filmBytes ? `This delivery ≈ ${formatGb(filmBytes * 7)}.` : 'A 46-minute film ≈ 14.7 GB.',
+    },
+  ];
 
-  const webPriceNum = Number(priceWeb) || 0;
-  const fullPriceNum = Number(priceFull) || 0;
-  const bundlePriceNum = Number(priceBundle) || 0;
+  const downloadSets = React.useMemo(() => {
+    const highlightsOn = collection?.highlights_enabled !== false;
+    const items: { id: string; name: string; count: number }[] = [];
+    if (highlightsOn) {
+      items.push({
+        id: 'Highlights',
+        name: collection?.highlights_name || 'Highlights',
+        count: stillPhotos.filter((photo: any) => !photo.set_id).length,
+      });
+    }
+    sets.forEach((set) => {
+      if (String(set.name).toLowerCase() === 'highlights') return;
+      items.push({
+        id: set.name,
+        name: set.name,
+        count: stillPhotos.filter((photo: any) => photo.set_id === set.id).length,
+      });
+    });
+    return items;
+  }, [collection?.highlights_enabled, collection?.highlights_name, sets, stillPhotos]);
 
-  const chargeSummary = (
-    <>
-      Web size is <strong>{webPriceNum > 0 ? formatMoney(webPriceNum) : 'free'}</strong>. Full resolution
-      {fullPriceNum > 0 ? (
-        <> costs <strong>{formatMoney(fullPriceNum)}</strong></>
-      ) : (
-        <> is <strong>free</strong></>
-      )}
-      {bundlePriceNum > 0 ? (
-        <>, or <strong>{formatMoney(bundlePriceNum)}</strong> each in a bundle.</>
-      ) : (
-        '.'
-      )}
-    </>
-  );
+  const allSetNames = downloadSets.map((item) => item.id);
+  const setEnabled = (name: string) => selectedDownloadSets.length === 0 || selectedDownloadSets.includes(name);
+  const enabledSetCount = downloadSets.filter((item) => setEnabled(item.id)).length;
+
+  const toggleSet = (name: string) => {
+    setSelectedDownloadSets((prev) => {
+      const enabled = prev.length === 0 ? allSetNames : prev;
+      const next = enabled.includes(name) ? enabled.filter((item) => item !== name) : [...enabled, name];
+      return next.length === allSetNames.length ? [] : next;
+    });
+  };
 
   const sizeNames = [
     webOffered ? 'Web size' : null,
     highOffered ? 'Full resolution' : null,
+    originalOffered ? 'Original file' : null,
   ].filter(Boolean) as string[];
+  const filmResLabel = filmChoice === '4k' ? '4K' : '1080p';
+  const limitLabel = downloadLimit ? `${downloadLimit} total` : 'No total limit';
+  const addressLabel = restrictToEmails.trim() ? 'Restricted to listed addresses' : 'Open to any address';
+  const setsLabel = downloadSets.length
+    ? `${enabledSetCount} of ${downloadSets.length} sets downloadable`
+    : 'No sets yet';
 
-  const sizesSummary = sizeNames.length ? (
-    <>
-      {sizeNames.map((name, index) => (
-        <React.Fragment key={name}>
-          {index > 0 ? ' and ' : ''}
-          <strong>{name}</strong>
-        </React.Fragment>
-      ))}
-      {askContact ? ', and you ask for a contact on large downloads.' : ', and no contact is asked for.'}
-    </>
-  ) : (
-    'No sizes offered — nothing can be downloaded.'
-  );
-
-  const filmsSummary = films.length ? (
-    <>
-      Films can be taken at <strong>{FILM_RESOLUTIONS.find((r) => r.id === filmResolution)?.label || filmResolution}</strong>.
-      {filmSizeLabel ? (
-        <> {films.length} film{films.length === 1 ? '' : 's'} comes to <strong>{filmSizeLabel}</strong>.</>
-      ) : null}
-    </>
-  ) : (
-    <>No films in this delivery yet. They would download at <strong>{filmResolution}</strong>.</>
-  );
-
-  const pinSummary = downloadPin && pinValue ? (
-    <>
-      Visitors must enter <strong>{pinValue}</strong> before anything downloads.
-    </>
-  ) : (
-    <>No PIN. <strong>Anyone in the gallery</strong> can download straight away.</>
-  );
-
-  const coverUrl = collection?.cover_url || '';
-  const allSetNames = ['Highlights', ...sets.map((set) => set.name)];
-  const setEnabled = (name: string) => selectedDownloadSets.length === 0 || selectedDownloadSets.includes(name);
-  const toggleSet = (name: string) => {
-    setSelectedDownloadSets((prev) => {
-      if (prev.length === 0) return allSetNames.filter((item) => item !== name);
-      return prev.includes(name) ? prev.filter((item) => item !== name) : [...prev, name];
-    });
-  };
+  const bundleLabel = bundles
+    .filter((item) => item.count > 0)
+    .map((item) => `${item.count} for ${formatMoney(item.price)}`)
+    .join(' · ');
 
   return (
-    <div className="cd-general-settings-view cd-basics">
+    <div className="cd-general-settings-view cd-basics cd-dl">
       <header className="cd-basics__header">
         <h2 className="cd-basics__title">Downloads</h2>
         <p className="cd-basics__kicker">this delivery</p>
-        <p className="cd-basics__lead">
-          Four decisions. Each one shows what it does to the gallery your client opens — open any of them
-          to change it.
-        </p>
       </header>
 
-      <div className="cd-basics__cards">
-        <SettingsCard
-          id="charge"
-          openId={openCard}
-          onToggle={toggleCard}
-          title="What you charge for"
-          summary={chargeSummary}
-          icon={(
-            <span className="cd-basics-card__icon cd-basics-card__icon--cover">
-              {coverUrl ? <img src={coverUrl} alt="" /> : null}
-              <span className="cd-basics-card__corner"><LockIcon size={10} /></span>
-              <span className="cd-basics-card__brand">
-                {webPriceNum > 0 ? `Web ${formatMoney(webPriceNum)}` : 'Web free'}
-              </span>
-            </span>
-          )}
-        >
-          <div className="cd-basics-toggles">
-            <ToggleRow
-              title="Downloads"
-              desc="Visitors can take photographs out of the gallery."
-              checked={photoDownload}
-              onChange={setPhotoDownload}
+      <div className={`cd-dl-shell${tab === 'downloads' ? ' is-first' : ''}`}>
+        <div className="cd-dl-tabs" role="tablist">
+          <button type="button" role="tab" className={`cd-dl-tab${tab === 'downloads' ? ' is-on' : ''}`} aria-selected={tab === 'downloads'} onClick={() => setTab('downloads')}>
+            Downloads
+          </button>
+          <button type="button" role="tab" className={`cd-dl-tab${tab === 'advanced' ? ' is-on' : ''}`} aria-selected={tab === 'advanced'} onClick={() => setTab('advanced')}>
+            Advanced
+          </button>
+        </div>
+
+        <div className="cd-dl-box">
+      {tab === 'downloads' ? (
+        <>
+          <div className="cd-dl-status">
+            <div className={`cd-dl-status__icon${photoDownload ? '' : ' is-off'}`}>
+              <DownloadGlyph />
+              <span className="cd-dl-status__mark">{photoDownload ? 'On' : 'Off'}</span>
+            </div>
+            <div className="cd-dl-status__copy">
+              <h3 className="cd-dl-status__title">Downloads</h3>
+              <p className="cd-dl-status__desc">
+                {photoDownload
+                  ? `On. ${sizeNames.join(', ') || 'No sizes offered'}${filmsOffered ? `, films at ${filmResLabel}` : ''}. ${singlePhotoDownload ? 'Single photographs allowed.' : 'Single photographs off.'}`
+                  : 'Off. No download control renders anywhere — not in the header, not on a photograph, not on a film.'}
+              </p>
+            </div>
+          </div>
+
+          <div className={`cd-dl-master${photoDownload ? ' is-on' : ''}`}>
+            <Row
+              title="Allow downloading"
+              desc="The master switch. Off means no download control renders anywhere — not in the header, not on a photograph, not on a film."
+              control={<Toggle checked={photoDownload} onChange={setPhotoDownload} label="Allow downloading" />}
             />
           </div>
 
-          <div className="cd-basics-field" style={{ marginTop: 18 }}>
-            <span className="cd-basics-label">Prices</span>
-            <div className="cd-basics-money-row">
-              <div className="cd-basics-money">
-                <span className="cd-basics-caplabel" style={{ marginTop: 0 }}>Web size</span>
-                <input
-                  type="number"
-                  min={0}
-                  className="cd-basics-input cd-basics-input--sm"
-                  placeholder="Free"
-                  value={priceWeb}
-                  onChange={(e) => setPriceWeb(e.target.value)}
-                  onBlur={() => void persist({ download_price_web: priceWeb === '' ? null : Number(priceWeb) })}
+          <div className={photoDownload ? undefined : 'cd-dl-muted'}>
+            <section className="cd-dl-section">
+              <span className="cd-dl-section__label">What they get</span>
+              <div className="cd-dl-card">
+                <Row
+                  title="Sizes offered"
+                  desc="Offer more than one and they choose at the point of download."
+                  control={<SizesMenu selected={{ web: webOffered, high: highOffered, original: originalOffered }} onToggle={toggleSize} />}
+                />
+                <Row
+                  title="Films"
+                  desc="Separate from photographs. You can release every photograph and still keep the films watch-only."
+                  control={<RadioMenu header="Films" value={filmChoice} options={filmOptions} onChange={setFilmOption} />}
                 />
               </div>
-              <div className="cd-basics-money">
-                <span className="cd-basics-caplabel" style={{ marginTop: 0 }}>Full resolution</span>
-                <input
-                  type="number"
-                  min={0}
-                  className="cd-basics-input cd-basics-input--sm"
-                  placeholder="Free"
-                  value={priceFull}
-                  onChange={(e) => setPriceFull(e.target.value)}
-                  onBlur={() => void persist({ download_price_full: priceFull === '' ? null : Number(priceFull) })}
+            </section>
+
+            <section className="cd-dl-section">
+              <span className="cd-dl-section__label">On each photograph</span>
+              <div className="cd-dl-card">
+                <Row
+                  title="Allow single image download"
+                  desc="Puts a download icon on each photograph on hover. Off means the only way to take anything is the DOWNLOAD button in the header, which hands over a whole set."
+                  control={<Toggle checked={singlePhotoDownload} onChange={setSinglePhotoDownload} label="Allow single image download" />}
                 />
               </div>
-              <div className="cd-basics-money">
-                <span className="cd-basics-caplabel" style={{ marginTop: 0 }}>Each in a bundle</span>
-                <input
-                  type="number"
-                  min={0}
-                  className="cd-basics-input cd-basics-input--sm"
-                  placeholder="Same price"
-                  value={priceBundle}
-                  onChange={(e) => setPriceBundle(e.target.value)}
-                  onBlur={() => void persist({ download_price_bundle: priceBundle === '' ? null : Number(priceBundle) })}
+            </section>
+
+            <section className="cd-dl-section">
+              <span className="cd-dl-section__label">What you ask for</span>
+              <div className="cd-dl-card">
+                <Row
+                  title="Ask for a PIN"
+                  desc="A four-digit code given out separately from the link. The password under Access controls viewing; this controls taking."
+                  control={(
+                    <Toggle
+                      checked={downloadPin}
+                      onChange={(next) => {
+                        setDownloadPin(next);
+                        if (next && !pinValue) generatePin();
+                      }}
+                      label="Ask for a PIN"
+                    />
+                  )}
+                />
+                {downloadPin ? (
+                  <div className="cd-dl-children">
+                    <div className="cd-dl-child">
+                      <div className="cd-dl-row__copy">
+                        <p className="cd-dl-row__title">The PIN</p>
+                        <p className="cd-dl-row__desc">Four digits, given out separately from the link.</p>
+                      </div>
+                      <div className="cd-dl-row__control">
+                        <div className="cd-dl-pin">
+                          <input
+                            className="cd-dl-pin__box"
+                            inputMode="numeric"
+                            maxLength={7}
+                            value={pinValue.replace(/\D/g, '').slice(0, 4).split('').join(' ')}
+                            onChange={(e) => setPinValue(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                            onBlur={() => commitPin(pinValue)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                commitPin(pinValue);
+                              }
+                            }}
+                          />
+                          <button type="button" className="cd-dl-textbtn" onClick={() => void copyPin()}>
+                            {copied ? 'Copied' : 'Copy'}
+                          </button>
+                          <button type="button" className="cd-dl-textbtn" onClick={generatePin}>
+                            Generate
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+                <Row
+                  title="Ask for a contact"
+                  desc="Where to send the link when a set is large enough to be zipped server-side."
+                  control={<RadioMenu header="Ask for a contact" value={contact} options={CONTACT_OPTIONS} onChange={(id) => setContactMode(id as ContactMode)} />}
                 />
               </div>
-            </div>
-            <p className="cd-basics-hint">
-              Leave a price empty and that size stays free. Bundle price applies once they take a whole set.
-            </p>
-          </div>
-        </SettingsCard>
+            </section>
 
-        <SettingsCard
-          id="sizes"
-          openId={openCard}
-          onToggle={toggleCard}
-          title="Sizes you offer"
-          summary={sizesSummary}
-          icon={(
-            <span className="cd-basics-card__icon cd-basics-card__icon--cover">
-              {coverUrl ? <img src={coverUrl} alt="" /> : null}
-              <span className="cd-basics-card__chips" aria-hidden><i /><i /></span>
-            </span>
-          )}
-        >
-          <div className="cd-basics-field">
-            <span className="cd-basics-label">Sizes</span>
-            <div className="cd-basics-pills">
-              <button
-                type="button"
-                className={`cd-basics-pill${webOffered ? ' is-on' : ''}`}
-                onClick={() => toggleSize('web')}
-              >
-                Web size
-              </button>
-              <button
-                type="button"
-                className={`cd-basics-pill${highOffered ? ' is-on' : ''}`}
-                onClick={() => toggleSize('high')}
-              >
-                Full resolution
-              </button>
-            </div>
-          </div>
-
-          {webOffered ? (
-            <div className="cd-basics-field">
-              <span className="cd-basics-label">Web size is</span>
-              <div className="cd-basics-pills">
-                {WEB_SIZES.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className={`cd-basics-pill${webSizeChoice === item.id ? ' is-on' : ''}`}
-                    onClick={() => setWebSizeChoice?.(item.id)}
-                  >
-                    {item.label}
-                  </button>
-                ))}
+            <section className="cd-dl-section">
+              <span className="cd-dl-section__label">Selling digital copies</span>
+              <div className="cd-dl-card">
+                <Row
+                  title="Selling"
+                  desc="What a visitor pays for, if anything."
+                  control={<RadioMenu header="Selling digital copies" value={selling} options={SELLING_OPTIONS} onChange={(id) => setSellingMode(id as SellingMode)} />}
+                />
+                {selling !== 'off' ? (
+                  <div className="cd-dl-children">
+                    <div className="cd-dl-child">
+                      <div className="cd-dl-row__copy">
+                        <p className="cd-dl-row__title">One photograph</p>
+                      </div>
+                      <div className="cd-dl-row__control">
+                        <MoneyField value={pricePhoto} onChange={setPricePhoto} onBlur={savePhotoPrice} />
+                      </div>
+                    </div>
+                    <div className="cd-dl-child">
+                      <div className="cd-dl-row__copy">
+                        <p className="cd-dl-row__title">One film</p>
+                      </div>
+                      <div className="cd-dl-row__control">
+                        <MoneyField value={priceFilm} onChange={setPriceFilm} onBlur={saveFilmPrice} />
+                      </div>
+                    </div>
+                    <div className="cd-dl-child">
+                      <div className="cd-dl-row__copy">
+                        <p className="cd-dl-row__title">Bundles</p>
+                        {!editingBundles && bundleLabel ? <p className="cd-dl-row__desc">{bundleLabel}</p> : null}
+                      </div>
+                      <div className="cd-dl-row__control">
+                        {editingBundles ? (
+                          <div className="cd-dl-bundles">
+                            {bundles.map((item, index) => (
+                              <div key={`${item.count}-${index}`} className="cd-dl-bundles__row">
+                                <input
+                                  type="number"
+                                  min={1}
+                                  value={item.count || ''}
+                                  onChange={(e) => {
+                                    const next = bundles.map((bundle, i) => (i === index ? { ...bundle, count: Number(e.target.value) || 0 } : bundle));
+                                    setBundles(next);
+                                  }}
+                                />
+                                <span className="cd-dl-bundles__for">for ₹</span>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  value={item.price || ''}
+                                  onChange={(e) => {
+                                    const next = bundles.map((bundle, i) => (i === index ? { ...bundle, price: Number(e.target.value) || 0 } : bundle));
+                                    setBundles(next);
+                                  }}
+                                />
+                              </div>
+                            ))}
+                            <button
+                              type="button"
+                              className="cd-dl-textbtn"
+                              onClick={() => {
+                                saveBundles(bundles);
+                                setEditingBundles(false);
+                              }}
+                            >
+                              Done
+                            </button>
+                          </div>
+                        ) : (
+                          <button type="button" className="cd-dl-textbtn" onClick={() => setEditingBundles(true)}>
+                            Edit
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
               </div>
+            </section>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="cd-dl-status">
+            <div className="cd-dl-status__icon is-wide">
+              <AdvancedGlyph />
+              <span className="cd-dl-status__mark cd-dl-status__mark--long">Advanced</span>
             </div>
-          ) : null}
-
-          {highOffered ? (
-            <div className="cd-basics-field">
-              <span className="cd-basics-label">Full resolution is</span>
-              <div className="cd-basics-pills">
-                {HIGH_RES.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className={`cd-basics-pill${highResChoice === item.id ? ' is-on' : ''}`}
-                    onClick={() => setHighResChoice?.(item.id)}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : null}
-
-          <div className="cd-basics-toggles">
-            <ToggleRow
-              title="Ask for a contact on large downloads"
-              desc="An email address before a whole gallery or set leaves."
-              checked={askContact}
-              onChange={(next) => {
-                setAskContact(next);
-                void persist({ large_download_contact: next });
-              }}
-            />
-            <ToggleRow
-              title="Whole gallery download"
-              desc="One button that takes everything at once."
-              checked={galleryDownload}
-              onChange={setGalleryDownload}
-            />
-            <ToggleRow
-              title="Single photo download"
-              desc="A download button on each photograph."
-              checked={singlePhotoDownload}
-              onChange={setSinglePhotoDownload}
-            />
-          </div>
-
-          <span className="cd-basics-caplabel">Limits</span>
-          <div className="cd-basics-field">
-            <span className="cd-basics-label">Total downloads allowed</span>
-            <input
-              type="number"
-              min={0}
-              className="cd-basics-input cd-basics-input--sm"
-              placeholder="No limit"
-              value={downloadLimit}
-              onChange={(e) => setDownloadLimit(e.target.value)}
-            />
-          </div>
-
-          <div className="cd-basics-field">
-            <span className="cd-basics-label">Only these email addresses</span>
-            <input
-              type="text"
-              className="cd-basics-input"
-              placeholder="client@example.com, assistant@example.com"
-              value={restrictToEmails}
-              onChange={(e) => setRestrictToEmails(e.target.value)}
-            />
-            <p className="cd-basics-hint">Leave empty and anyone in the gallery can download.</p>
-          </div>
-
-          <div className="cd-basics-field">
-            <span className="cd-basics-label">Sets that can be downloaded</span>
-            <div className="cd-basics-pills">
-              {allSetNames.map((name) => (
-                <button
-                  key={name}
-                  type="button"
-                  className={`cd-basics-pill${setEnabled(name) ? ' is-on' : ''}`}
-                  onClick={() => toggleSet(name)}
-                >
-                  {name}
-                </button>
-              ))}
+            <div className="cd-dl-status__copy">
+              <h3 className="cd-dl-status__title">Advanced</h3>
+              <p className="cd-dl-status__desc">{limitLabel}. {addressLabel}. {setsLabel}.</p>
             </div>
           </div>
-        </SettingsCard>
 
-        <SettingsCard
-          id="films"
-          openId={openCard}
-          onToggle={toggleCard}
-          title="Films"
-          summary={filmsSummary}
-          icon={(
-            <span className="cd-basics-card__icon cd-basics-card__icon--cover">
-              {coverUrl ? <img src={coverUrl} alt="" /> : null}
-              <span className="cd-basics-card__center"><PlayIcon /></span>
-              <span className="cd-basics-card__brand" style={{ left: 'auto', right: 6 }}>
-                {FILM_RESOLUTIONS.find((r) => r.id === filmResolution)?.label || filmResolution}
-              </span>
-            </span>
-          )}
-        >
-          <div className="cd-basics-toggles">
-            <ToggleRow
-              title="Film downloads"
-              desc="Visitors can take the films as well as the photographs."
-              checked={filmsOffered}
-              onChange={() => toggleSize('video')}
-            />
-          </div>
-
-          <div className="cd-basics-field" style={{ marginTop: 18 }}>
-            <span className="cd-basics-label">Taken at</span>
-            <div className="cd-basics-pills">
-              {FILM_RESOLUTIONS.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  className={`cd-basics-pill${filmResolution === item.id ? ' is-on' : ''}`}
-                  onClick={() => {
-                    setFilmResolution(item.id);
-                    void persist({ video_download_resolution: item.id });
-                  }}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
-            <p className="cd-basics-hint">
-              {films.length
-                ? `${films.length} film${films.length === 1 ? '' : 's'} in this delivery${filmSizeLabel ? `, ${filmSizeLabel} in total` : ''}.`
-                : 'Upload a film and it will show up here.'}
-            </p>
-          </div>
-        </SettingsCard>
-
-        <SettingsCard
-          id="pin"
-          openId={openCard}
-          onToggle={toggleCard}
-          title="Download PIN"
-          summary={pinSummary}
-          icon={(
-            <span className="cd-basics-card__icon">
-              <GridIcon />
-              <span className="cd-basics-card__center cd-basics-card__center--dark"><LockIcon size={12} /></span>
-            </span>
-          )}
-        >
-          <div className="cd-basics-toggles">
-            <ToggleRow
-              title="Require a PIN"
-              desc="Four digits before anything downloads."
-              checked={downloadPin}
-              onChange={setDownloadPin}
-            />
-          </div>
-
-          {downloadPin ? (
-            <>
-              <div className="cd-basics-field" style={{ marginTop: 18 }}>
-                <span className="cd-basics-label">PIN</span>
-                <div className="cd-basics-input-row">
+          <section className="cd-dl-section">
+            <span className="cd-dl-section__label">Limits</span>
+            <div className="cd-dl-card">
+              <Row
+                title="Total downloads allowed"
+                control={(
                   <input
-                    ref={pinInputRef}
-                    type="text"
-                    inputMode="numeric"
-                    className="cd-basics-input cd-basics-input--sm"
-                    value={pinValue}
-                    maxLength={4}
-                    placeholder="4 digits"
-                    onChange={(e) => setPinValue(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        commitPin(pinValue);
-                      }
-                    }}
+                    className="cd-dl-pill"
+                    type="number"
+                    min={0}
+                    placeholder="No limit"
+                    value={downloadLimit}
+                    onChange={(e) => setDownloadLimit(e.target.value)}
                   />
-                  <button
-                    type="button"
-                    className="cd-basics-btn"
-                    onClick={() => {
-                      const next = String(Math.floor(1000 + Math.random() * 9000));
-                      setPinValue(next);
-                      commitPin(next);
+                )}
+              />
+              <Row
+                title="The PIN can be used"
+                control={(
+                  <input
+                    className="cd-dl-pill"
+                    type="number"
+                    min={0}
+                    placeholder="Unlimited"
+                    value={pinUsageLimit}
+                    onChange={(e) => setPinUsageLimit(e.target.value)}
+                  />
+                )}
+              />
+              <Row
+                title="Restrict to these addresses"
+                desc="Comma separated. Blank allows anyone."
+                control={(
+                  <input
+                    className="cd-dl-pill cd-dl-pill--wide"
+                    type="text"
+                    placeholder="Anyone"
+                    value={restrictToEmails}
+                    onChange={(e) => setRestrictToEmails(e.target.value)}
+                  />
+                )}
+              />
+            </div>
+          </section>
+
+          <section className="cd-dl-section">
+            <span className="cd-dl-section__label">Films</span>
+            <div className="cd-dl-card">
+              <Row
+                title="Film playback"
+                desc="Adapt starts lower on mobile data and steps up on wifi."
+                control={<RadioMenu header="Film playback" value={filmPlayback} options={PLAYBACK_OPTIONS} wide pill onChange={(id) => {
+                  setFilmPlayback(id as FilmPlay);
+                  void persist({ film_playback: id });
+                }} />}
+              />
+              <Row
+                title="A single film on its own"
+                desc="Rather than only as part of the whole set."
+                control={(
+                  <Toggle
+                    checked={singleFilm}
+                    onChange={(next) => {
+                      setSingleFilm(next);
+                      void persist({ single_film_download: next });
                     }}
-                  >
-                    Generate
-                  </button>
+                    label="A single film on its own"
+                  />
+                )}
+              />
+            </div>
+          </section>
+
+          <section className="cd-dl-section">
+            <span className="cd-dl-section__label">Which sets can be downloaded</span>
+            <div className="cd-dl-card cd-dl-sets">
+              {downloadSets.length ? downloadSets.map((item) => (
+                <div key={item.id} className="cd-dl-set">
+                  <div className="cd-dl-row__copy">
+                    <p className="cd-dl-set__name">{item.name}</p>
+                    <p className="cd-dl-set__count">{item.count.toLocaleString('en-IN')} photographs</p>
+                  </div>
+                  <Toggle
+                    checked={setEnabled(item.id)}
+                    onChange={() => toggleSet(item.id)}
+                    label={`${item.name} downloadable`}
+                  />
                 </div>
-                <p className="cd-basics-hint">Send it with the link, or separately if you would rather.</p>
-              </div>
-
-              <div className="cd-basics-toggles">
-                <ToggleRow
-                  title="Ask for it on single photographs too"
-                  desc="Otherwise the PIN is only asked for whole sets."
-                  checked={requirePinForSinglePhoto}
-                  onChange={setRequirePinForSinglePhoto}
-                />
-              </div>
-
-              <div className="cd-basics-field" style={{ marginTop: 18 }}>
-                <span className="cd-basics-label">Times the PIN can be used</span>
-                <input
-                  type="number"
-                  min={0}
-                  className="cd-basics-input cd-basics-input--sm"
-                  placeholder="No limit"
-                  value={pinUsageLimit}
-                  onChange={(e) => setPinUsageLimit(e.target.value)}
-                />
-              </div>
-            </>
-          ) : null}
-        </SettingsCard>
+              )) : (
+                <div className="cd-dl-row">
+                  <p className="cd-dl-row__desc">Sets you add to this delivery will appear here.</p>
+                </div>
+              )}
+            </div>
+            <p className="cd-dl-foot">
+              Who actually downloaded what is under{' '}
+              <button
+                type="button"
+                className="cd-dl-link"
+                onClick={() => {
+                  setActiveSidebarTab?.('activity');
+                  setActiveActivitySubTab?.('downloads');
+                }}
+              >
+                Activity
+              </button>
+              .
+            </p>
+          </section>
+        </>
+      )}
+        </div>
       </div>
     </div>
   );

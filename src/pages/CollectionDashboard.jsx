@@ -2234,7 +2234,14 @@ const CollectionDashboard = () => {
 
                 // Initialize download settings
                 if (data.downloads_enabled !== undefined) setPhotoDownload(data.downloads_enabled);
-                if (data.download_resolutions) setPhotoDownloadSizes(data.download_resolutions);
+                if (data.download_resolutions) {
+                    const mapped = data.download_resolutions.map((s) => (s === 'full' ? 'high' : s));
+                    const sizes = mapped.filter((s) => s === 'web' || s === 'high' || s === 'original' || s === 'video');
+                    if (data.video_downloads_enabled && !sizes.includes('video')) sizes.push('video');
+                    if (sizes.length) setPhotoDownloadSizes(sizes);
+                } else if (data.video_downloads_enabled) {
+                    setPhotoDownloadSizes((prev) => (prev.includes('video') ? prev : [...prev, 'video']));
+                }
                 const dbPin = data.download_pin || data.download_pin_hash;
                 if (dbPin) {
                     setDownloadPin(true);
@@ -3666,7 +3673,10 @@ const CollectionDashboard = () => {
             try {
                 await galleryService.updateCollection(collectionId, {
                     downloads_enabled: photoDownload,
-                    download_resolutions: photoDownloadSizes,
+                    download_resolutions: (photoDownloadSizes || [])
+                        .map((s) => (s === 'high' ? 'full' : s))
+                        .filter((s) => s === 'web' || s === 'full' || s === 'original'),
+                    video_downloads_enabled: (photoDownloadSizes || []).includes('video'),
                     download_pin_hash: downloadPin ? pinValue : null,
                     email_capture_enabled: emailRegistration,
                     gallery_download_enabled: galleryDownload,
