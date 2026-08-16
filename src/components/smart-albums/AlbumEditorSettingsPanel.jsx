@@ -44,7 +44,7 @@ export default function AlbumEditorSettingsPanel({
     const [loading, setLoading] = useState(true);
     const [notification, setNotification] = useState('');
 
-    const [maxSwaps, setMaxSwaps] = useState(5);
+    const [maxSwaps, setMaxSwaps] = useState(0);
     const [allowExternal, setAllowExternal] = useState(false);
     const [allowVoice, setAllowVoice] = useState(true);
     const [requireVerification, setRequireVerification] = useState(false);

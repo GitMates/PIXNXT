@@ -47,7 +47,7 @@ export const DEFAULT_ALBUM_PROOFER_SETTINGS = {
     albumPassword: '',
     privateShareToken: '',
     requireNameForComments: true,
-    maxFreeSwaps: 5,
+    maxFreeSwaps: 0,
     allowExternalUploads: false,
     allowVoiceRecordings: true,
     maxRevisionRounds: 3,
@@ -132,7 +132,7 @@ function dbAlbumToSettings(row = {}) {
         privateShareToken: raw.private_share_token ?? raw.privateShareToken ?? '',
         requireNameForComments:
             raw.require_name_for_comments ?? raw.requireNameForComments ?? true,
-        maxFreeSwaps: Number(raw.max_free_swaps ?? raw.maxFreeSwaps ?? 5) || 0,
+        maxFreeSwaps: Number(raw.max_free_swaps ?? raw.maxFreeSwaps ?? 0) || 0,
         allowExternalUploads:
             raw.allow_external_uploads ?? raw.allowExternalUploads ?? false,
         allowVoiceRecordings:
@@ -410,7 +410,7 @@ export const smartAlbumProoferSettingsService = {
                   privateShareToken: fromSnapshot.privateShareToken || '',
                   approvalPin: fromSnapshot.approvalPin || '',
                   requireNameForComments: fromSnapshot.requireNameForComments !== false,
-                  maxFreeSwaps: fromSnapshot.maxFreeSwaps ?? 5,
+                  maxFreeSwaps: fromSnapshot.maxFreeSwaps ?? 0,
                   allowExternalUploads: fromSnapshot.allowExternalUploads ?? false,
                   allowVoiceRecordings: fromSnapshot.allowVoiceRecordings ?? true,
                   maxRevisionRounds: fromSnapshot.maxRevisionRounds ?? 3,
