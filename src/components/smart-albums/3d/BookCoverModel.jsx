@@ -10,7 +10,7 @@ import {
 } from '../albumCoverColor';
 import { resolveBookWrapSpreadSrc } from '../albumPagePhotos';
 import { getSpreadPhotoTransform } from '../albumPageTransforms';
-import { getSpreadContext, getTotalSpreads } from '../albumSpreadUtils';
+import { getSpreadContext, getTotalSpreads, albumShowsLeatherCover } from '../albumSpreadUtils';
 import { getBookWrapSpineLayout } from '../bookWrapSpine';
 import { SPINE_BOUNDS_CHANGED_EVENT } from '../albumSpineSettings';
 import {
@@ -260,7 +260,7 @@ export default function BookCoverModel({
         [album?.id]
     );
     const blankCover = isBlankCoverAlbum(album);
-    const blankNoPhoto = blankCover && !coverSrc;
+    const blankNoPhoto = albumShowsLeatherCover(album, coverSrc);
     const coverColorId = useMemo(() => {
         void coverColorTick;
         return album?.id ? getAlbumCoverColor(album.id) : DEFAULT_COVER_COLOR_PRESET_ID;

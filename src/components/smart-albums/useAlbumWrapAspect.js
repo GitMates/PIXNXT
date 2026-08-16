@@ -1,20 +1,21 @@
 import { useLayoutEffect, useState } from 'react';
 import { loadImageAspectFromUrl } from './albumGridSize';
 import {
+    collectionItemHasInnerPlacement,
     getSpreadPlacementCollectionItemId,
     resolveBookWrapSpreadSrc,
 } from './albumPagePhotos';
-import { getCollectionItem } from './albumCollection';
+import { getCollectionItem, isCoverWrapCollectionItem } from './albumCollection';
 
 function readLiveWrapAspect(album, albumId) {
     if (!album?.has_covers || !albumId) return null;
 
     const coverItemId = getSpreadPlacementCollectionItemId(albumId, 0);
     const coverItem = coverItemId ? getCollectionItem(albumId, coverItemId) : null;
-    if (coverItem?.width > 0 && coverItem?.height > 0) {
-        return coverItem.width / coverItem.height;
-    }
-    return null;
+    if (!coverItem?.width || !coverItem?.height) return null;
+    if (collectionItemHasInnerPlacement(albumId, coverItem.id)) return null;
+    if (album?.blank_covers === true && !isCoverWrapCollectionItem(coverItem)) return null;
+    return coverItem.width / coverItem.height;
 }
 
 /** Live wrap image aspect for spine layout (back | spine | front). */

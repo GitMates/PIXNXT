@@ -21,6 +21,7 @@ import {
     getAlbumCoverColor,
 } from './albumCoverColor';
 import { getCoverLeatherSurfaceStyle } from './coverLeatherSurface';
+import { albumShowsLeatherCover } from './albumSpreadUtils';
 import './AlbumCoverEditView.css';
 
 const PAGE_HEIGHT_MIN = 300;
@@ -75,7 +76,21 @@ export default function AlbumCoverEditView({
     const [coverColorTick, setCoverColorTick] = useState(0);
     const dragRef = useRef(null);
 
-    const baseLayout = useMemo(() => getBookWrapSpineLayout(album), [album, spineBoundsTick]);
+    const src = useMemo(
+        () => resolveBookWrapSpreadSrc(album, { showSamples }),
+        [album, showSamples, photoRevision]
+    );
+    const isBlankCoverAlbum = album?.blank_covers === true;
+    const showLeatherCover = albumShowsLeatherCover(album, src);
+    const layoutAlbum = useMemo(() => {
+        if (!album) return album;
+        if (!showLeatherCover) return album;
+        return { ...album, blank_covers: true, __wrap_aspect: undefined };
+    }, [album, showLeatherCover]);
+    const baseLayout = useMemo(
+        () => getBookWrapSpineLayout(layoutAlbum),
+        [layoutAlbum, spineBoundsTick]
+    );
     const spineLayout = useMemo(() => {
         if (!spineBounds) return baseLayout;
         const clamped = clampSpineBounds(
@@ -96,14 +111,10 @@ export default function AlbumCoverEditView({
             spineDisplayEndFraction: clamped.spineEndFraction,
             spineZoneStartFraction: baseLayout.spineZoneStartFraction,
             spineZoneEndFraction: baseLayout.spineZoneEndFraction,
-            hasSpine: spineFraction > 0.004,
+            hasSpine: spineFraction > (showLeatherCover ? 0.04 : 0.004),
         };
-    }, [baseLayout, spineBounds]);
+    }, [baseLayout, spineBounds, showLeatherCover]);
 
-    const src = useMemo(
-        () => resolveBookWrapSpreadSrc(album, { showSamples }),
-        [album, showSamples, photoRevision]
-    );
     const wrapAspect = baseLayout.wrapAspect;
     const transform = albumId
         ? getSpreadPhotoTransform(albumId, 0)
@@ -121,6 +132,19 @@ export default function AlbumCoverEditView({
                 spineEndFraction: baseLayout.defaultSpineEndFraction,
             };
             const override = getAlbumSpineBoundsOverride(albumId);
+            const overrideSpan = override
+                ? override.spineEndFraction - override.spineStartFraction
+                : 0;
+            if (
+                showLeatherCover &&
+                (!override || overrideSpan < 0.04 || !isInwardSpineOverride(override, baseLayout))
+            ) {
+                if (albumId && override && overrideSpan < 0.04) {
+                    clearAlbumSpineBoundsOverride(albumId);
+                }
+                setSpineBounds(autoBounds);
+                return;
+            }
             if (override && isInwardSpineOverride(override, baseLayout)) {
                 setSpineBounds({
                     spineStartFraction: override.spineStartFraction,
@@ -133,6 +157,11 @@ export default function AlbumCoverEditView({
             return;
         }
         const override = getAlbumSpineBoundsOverride(albumId);
+        if (showLeatherCover) {
+            if (albumId && override) clearAlbumSpineBoundsOverride(albumId);
+            setSpineBounds(autoBounds);
+            return;
+        }
         if (override) {
             const span = override.spineEndFraction - override.spineStartFraction;
             if (span > 0.004 && span < 0.5) {
@@ -149,6 +178,7 @@ export default function AlbumCoverEditView({
         baseLayout.spineFromCoverCalc,
         baseLayout.wrapAspect,
         baseLayout.innerSpreadAspect,
+        showLeatherCover,
     ]);
 
     useEffect(() => {
@@ -185,8 +215,6 @@ export default function AlbumCoverEditView({
         return resolveFrontCoverDisplayText(album, albumId);
     }, [album, albumId, coverTextTick, photoRevision]);
 
-    const isBlankCoverAlbum = album?.blank_covers === true;
-    const showLeatherCover = isBlankCoverAlbum && !src;
     const coverColorId = useMemo(() => {
         void coverColorTick;
         return getAlbumCoverColor(albumId);
