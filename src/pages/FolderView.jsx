@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import SidebarLayout from '../components/SidebarLayout';
 import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
@@ -31,6 +31,7 @@ import './FolderView.css';
 const FolderView = () => {
   const { folderId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const [folder, setFolder] = useState(null);
   const [collections, setCollections] = useState([]);
@@ -198,7 +199,9 @@ const FolderView = () => {
 
   const handleCardClick = (collection) => {
     if (selectedCards.length > 0) return;
-    navigate(`/deliveries/manage?id=${collection.id}`);
+    navigate(`/deliveries/manage?id=${collection.id}`, {
+      state: { from: `${location.pathname}${location.search}` },
+    });
   };
 
   const navigateNewInFolder = () => {
@@ -576,7 +579,9 @@ const FolderView = () => {
         isOpen={Boolean(editCollection)}
         onClose={() => setEditCollection(null)}
         onSave={handleEditSave}
-        onAdvanced={(c) => navigate(`/deliveries/manage?id=${c.id}`)}
+        onAdvanced={(c) => navigate(`/deliveries/manage?id=${c.id}`, {
+          state: { from: `${location.pathname}${location.search}` },
+        })}
         saving={editSaving}
       />
       <CollectionDirectLinkModal collection={directLinkCollection} isOpen={Boolean(directLinkCollection)} onClose={() => setDirectLinkCollection(null)} />

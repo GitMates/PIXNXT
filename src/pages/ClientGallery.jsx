@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
     Search,
     Plus,
@@ -62,6 +62,7 @@ function getStatusDotClass(status) {
 
 const ClientGallery = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const { user } = useAuth();
     const [collections, setCollections] = useState([]);
     const [folders, setFolders] = useState([]);
@@ -488,7 +489,9 @@ const ClientGallery = () => {
             });
             return;
         }
-        navigate(`/deliveries/manage?id=${collection.id}`);
+        navigate(`/deliveries/manage?id=${collection.id}`, {
+            state: { from: `${location.pathname}${location.search}` },
+        });
     };
 
     const handleCoverUpload = async (collectionId, e) => {
@@ -1013,7 +1016,9 @@ const ClientGallery = () => {
                     isOpen={Boolean(editCollection)}
                     onClose={() => setEditCollection(null)}
                     onSave={handleEditSave}
-                    onAdvanced={(c) => navigate(`/deliveries/manage?id=${c.id}`)}
+                    onAdvanced={(c) => navigate(`/deliveries/manage?id=${c.id}`, {
+                        state: { from: `${location.pathname}${location.search}` },
+                    })}
                     saving={editSaving}
                 />
                 <CollectionDirectLinkModal

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
+import { DELIVERY_PRODUCT_HOME, deliveryStudioBackPath } from '../lib/deliveryIds';
 import { Heart, Play } from 'lucide-react';
 import { galleryService } from '../services/gallery.service';
 import { photoAiService } from '../services/photoAi.service';
@@ -1343,7 +1344,10 @@ const CollectionDashboard = () => {
         const uploadView = location.state?.uploadView;
         if (!uploadView || uploadView.collectionId !== collectionId) return;
         applyUploadView(uploadView);
-        navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
+        navigate(`${location.pathname}${location.search}`, {
+            replace: true,
+            state: location.state?.from ? { from: location.state.from } : null,
+        });
     }, [location.state, location.pathname, location.search, collectionId, applyUploadView, navigate]);
 
     useEffect(() => {
@@ -2160,7 +2164,7 @@ const CollectionDashboard = () => {
     useEffect(() => {
         const fetchCollectionData = async () => {
             if (!collectionId) {
-                navigate('/client-gallery');
+                navigate(DELIVERY_PRODUCT_HOME);
                 return;
             }
 
@@ -3791,6 +3795,10 @@ const CollectionDashboard = () => {
     }, [storeEnabled, collectionId, collection, loading]);
 
     // Derived values
+    const backTo = deliveryStudioBackPath({
+        from: location.state?.from,
+        folderId: collection?.folder_id,
+    });
     const collectionName = collection?.name || 'Loading...';
     const collectionDate = collection?.event_date
         ? formatSidebarDeliveryDate(collection.event_date)
@@ -3965,12 +3973,12 @@ const CollectionDashboard = () => {
                             {error === 'Delivery not found' ? 'Delivery Not Found' : 'Failed to Load Delivery'}
                         </h2>
                         <p className="text-[#666] mb-4">{error || 'This delivery may have been deleted or you may not have permission to access it.'}</p>
-                        <button 
-                            onClick={() => navigate('/client-gallery')}
+                        <Link
+                            to={backTo}
                             className="neu-pill inline-flex h-10 items-center rounded-full px-5 text-sm font-medium"
                         >
                             Back to Deliveries
-                        </button>
+                        </Link>
                     </div>
                 </div>
             </div>
@@ -3982,14 +3990,19 @@ const CollectionDashboard = () => {
 
             <div className="cd-shell-header">
                 <div className="cd-shell-brand">
-                    <button
-                        type="button"
+                    <Link
+                        to={backTo}
                         className="cd-shell-brand__back"
-                        onClick={() => navigate('/client-gallery')}
+                        aria-label="Back to deliveries"
                         title="Back to Deliveries"
+                        onClick={(e) => {
+                            if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+                            e.preventDefault();
+                            navigate(backTo);
+                        }}
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
-                    </button>
+                    </Link>
                     <div className="cd-shell-brand__text">
                         <h1 className="cd-shell-brand__title">{collectionName}</h1>
                         <p className="cd-shell-brand__date">{collectionDate}</p>
@@ -4082,7 +4095,7 @@ const CollectionDashboard = () => {
                     {collection?.guest_delivery_enabled && (
                         <button
                             className="cd-text-btn cd-gd-qr-btn"
-                            title="Guest Delivery QR"
+                            title="Guest registration"
                             onClick={() => setShowGdQrModal(true)}
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="3" height="3"/><line x1="21" y1="14" x2="21" y2="14.01"/><line x1="21" y1="21" x2="21" y2="21.01"/><line x1="17" y1="21" x2="17" y2="21.01"/></svg>
@@ -4260,6 +4273,11 @@ const CollectionDashboard = () => {
                                 )}
                                 onDownload={() => handleDownloadSet(set)}
                                 onToggleInApp={(enabled) => handleToggleSetInApp(set, enabled)}
+                                onDelete={() => {
+                                    setShowSetMenu(null);
+                                    setSetMenuAnchor(null);
+                                    handleDeleteSet(set.isHighlights ? 'highlights' : set.id);
+                                }}
                                 onClose={() => {
                                     setShowSetMenu(null);
                                     setSetMenuAnchor(null);
@@ -5400,7 +5418,14 @@ const CollectionDashboard = () => {
             {showGdQrModal && collection?.guest_delivery_enabled && gdEvent && (
                 <GuestDeliveryQrModal
                     slug={gdEvent.slug}
+                    event={gdEvent}
+                    guests={guestDeliveryGuests}
+                    photographerId={gdEvent.photographer_id || collection?.photographer_id || user?.id}
                     onClose={() => setShowGdQrModal(false)}
+                    onOpenGuestList={() => setActiveSidebarTab('guests')}
+                    onEventUpdated={(updated) => {
+                        if (updated) setGdEvent(updated);
+                    }}
                 />
             )}
 
@@ -5681,7 +5706,7 @@ const CollectionDashboard = () => {
                                     try {
                                         setSaving(true);
                                         await galleryService.deleteCollection(collectionId);
-                                        navigate('/client-gallery');
+                                        navigate(backTo);
                                     } catch (err) {
                                         console.error('Failed to delete collection:', err);
                                         alert('Failed to delete delivery. Please try again.');

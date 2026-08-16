@@ -576,7 +576,8 @@
   min-height: 64px;
   border-bottom: 1px solid #ebebeb;
   background: #fff;
-  z-index: 100;
+  position: relative;
+  z-index: 200;
 }
 
 .cd-shell-brand {
@@ -588,6 +589,8 @@
   padding: 0 16px;
   border-right: 1px solid #ebebeb;
   background: var(--cd-bg, #f7f7f7);
+  position: relative;
+  z-index: 2;
 }
 
 .cd-shell-brand__back {
@@ -602,6 +605,11 @@
   color: #8c827a;
   cursor: pointer;
   flex-shrink: 0;
+  position: relative;
+  z-index: 3;
+  pointer-events: auto;
+  text-decoration: none;
+  box-sizing: border-box;
 }
 
 .cd-shell-brand__back:hover {
@@ -609,9 +617,14 @@
   color: #1a1a1a;
 }
 
+.cd-shell-brand__back:visited {
+  color: #8c827a;
+}
+
 .cd-shell-brand__text {
   min-width: 0;
   flex: 1;
+  overflow: hidden;
 }
 
 .cd-shell-brand__title {

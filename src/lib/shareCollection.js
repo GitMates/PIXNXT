@@ -29,6 +29,7 @@ export function openWhatsAppShare(url, title = 'Gallery') {
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
 }
 
-export function getQrCodeImageUrl(url, size = 220) {
-    return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(url)}`;
+export function getQrCodeImageUrl(url, size = 220, format = 'png') {
+    const fmt = format && format !== 'png' ? `&format=${encodeURIComponent(format)}` : '';
+    return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(url)}${fmt}`;
 }

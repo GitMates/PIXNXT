@@ -55,3 +55,29 @@ export function isDeliveryStarredPath(pathname) {
     pathname.startsWith('/starred/')
   );
 }
+
+function pathOnly(value) {
+  return String(value || '').split('?')[0];
+}
+
+/** True when `from` is a studio list we can return to (not the delivery editor itself). */
+export function isSafeDeliveryBackPath(from) {
+  const pathname = pathOnly(from);
+  if (!pathname || pathname === '/deliveries/manage' || pathname.startsWith('/deliveries/manage/')) {
+    return false;
+  }
+  return (
+    pathname === DELIVERY_PRODUCT_HOME ||
+    pathname.startsWith('/folders/') ||
+    pathname === '/photos' ||
+    pathname.startsWith('/starred') ||
+    pathname === '/dashboard'
+  );
+}
+
+/** Where the delivery editor back chevron should go. */
+export function deliveryStudioBackPath({ from, folderId } = {}) {
+  if (isSafeDeliveryBackPath(from)) return from;
+  if (folderId) return `/folders/${folderId}`;
+  return DELIVERY_PRODUCT_HOME;
+}

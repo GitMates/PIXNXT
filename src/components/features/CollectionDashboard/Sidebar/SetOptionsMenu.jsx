@@ -17,6 +17,7 @@ export function SetOptionsMenu({
   onMoveAllTo,
   onDownload,
   onToggleInApp,
+  onDelete,
   onClose,
 }) {
   const menuRef = useRef(null);
@@ -163,6 +164,20 @@ export function SetOptionsMenu({
           </span>
         </span>
       </label>
+
+      {onDelete ? (
+        <>
+          <div className="cd-set-options__rule" />
+          <button
+            type="button"
+            className="cd-set-options__item cd-set-options__item--danger"
+            role="menuitem"
+            onClick={onDelete}
+          >
+            Delete set
+          </button>
+        </>
+      ) : null}
     </div>,
     document.body
   );
