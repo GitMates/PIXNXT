@@ -14,9 +14,14 @@ const ROUTE_LABELS = [
 ];
 
 export function resolveAccountBack(pathname) {
-  const path = String(pathname || '').split('?')[0] || '';
+  const raw = String(pathname || '');
+  const path = raw.split('?')[0] || '';
+  const search = raw.includes('?') ? raw.slice(raw.indexOf('?')) : '';
   if (!path || path.startsWith('/account')) {
     return { path: '/dashboard', label: 'Dashboard' };
+  }
+  if (path.startsWith('/deliveries/manage') || path.startsWith('/collections/manage')) {
+    return { path: `${path}${search}`, label: 'Delivery' };
   }
   for (const row of ROUTE_LABELS) {
     if (row.test(path)) return { path: row.path, label: row.label };
@@ -51,8 +56,9 @@ export function writeAccountBack(target) {
 }
 
 /** Navigate into Account settings while remembering the current page for Back. */
-export function navigateToAccount(navigate, accountPath, fromPathname) {
-  const from = resolveAccountBack(fromPathname);
+export function navigateToAccount(navigate, accountPath, fromPathname, labelOverride) {
+  const resolved = resolveAccountBack(fromPathname);
+  const from = labelOverride ? { ...resolved, label: labelOverride } : resolved;
   writeAccountBack(from);
   navigate(accountPath, { state: { from } });
 }

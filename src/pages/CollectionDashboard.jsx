@@ -52,6 +52,8 @@ import { resolveUploadDefaults, syncUploadDefaultsToLocalStorage, isRawUploadEna
 import { CollectionQrModal, CollectionDuplicateModal } from '../components/features/ClientGallery/CollectionShareModals';
 import { GuestDeliveryQrModal } from '../components/features/CollectionDashboard/GuestDeliveryQrModal';
 import '../components/features/CollectionDashboard/GuestDeliveryQrModal.css';
+import { GuestDeliveryPublishedPopup } from '../components/features/CollectionDashboard/GuestDeliveryPublishedPopup';
+import '../components/features/CollectionDashboard/GuestDeliveryPublishedPopup.css';
 import { guestDeliveryService } from '../services/guestDelivery.service';
 import { guestDeliveryPublishService } from '../services/guestDeliveryPublish.service';
 import EventGuestsPanel from '../components/guest-delivery/EventGuestsPanel';
@@ -252,9 +254,11 @@ const CollectionDashboard = () => {
   const [photoAiTableMissing, setPhotoAiTableMissing] = useState(false);
   const [photoAiIndexing, setPhotoAiIndexing] = useState(false);
     const [showGdQrModal, setShowGdQrModal] = useState(false);
+    const [showGdPublishedPopup, setShowGdPublishedPopup] = useState(false);
     const [gdEvent, setGdEvent] = useState(null);
     const [gdGuestCount, setGdGuestCount] = useState(0);
     const [gdPublishing, setGdPublishing] = useState(false);
+    const [gdUnpublishing, setGdUnpublishing] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [photosToDelete, setPhotosToDelete] = useState([]);
     const [showSelectionMore, setShowSelectionMore] = useState(false);
@@ -964,6 +968,7 @@ const CollectionDashboard = () => {
     const statusRef = useRef(null);
     const sortRef = useRef(null);
     const shareRef = useRef(null);
+    const gdPublishWrapRef = useRef(null);
     const selectionMoreRef = useRef(null);
     const selectionMorePortalRef = useRef(null);
     const selectAllMenuRef = useRef(null);
@@ -983,13 +988,13 @@ const CollectionDashboard = () => {
         return {
             position: 'fixed',
             left,
-            bottom: window.innerHeight - rect.top + 12,
+            top: rect.bottom + 8,
             minWidth: menuWidth,
             zIndex: 1500,
         };
     }, []);
 
-    const SELECTION_TOOLBAR_RESERVE = 96;
+    const SELECTION_TOOLBAR_RESERVE = 0;
 
     const computePhotoMenuPosition = useCallback((anchorEl, alignLeft, bottomReserve = 0, menuHeight = null) => {
         if (!anchorEl) return null;
@@ -1711,8 +1716,7 @@ const CollectionDashboard = () => {
     };
 
     const handlePublishGuestDelivery = async () => {
-        if (!gdEvent) return;
-        if (!window.confirm('This will run face matching on all delivery photos and match them to registered guests, then send delivery emails. Continue?')) return;
+        if (!gdEvent || gdPublishing) return;
         try {
             setGdPublishing(true);
             const result = await guestDeliveryPublishService.publishEvent(gdEvent.id);
@@ -1735,26 +1739,34 @@ const CollectionDashboard = () => {
                 }
             }
 
+            const photographerId = gdEvent.photographer_id || collection?.photographer_id || user?.id;
+            if (photographerId) {
+                try {
+                    const updated = await guestDeliveryService.updateEvent(photographerId, gdEvent.id, {
+                        registration_enabled: false,
+                    });
+                    if (updated) setGdEvent((prev) => (prev ? { ...prev, ...updated } : updated));
+                } catch (err) {
+                    console.error(err);
+                }
+                try {
+                    const rows = await guestDeliveryGuestsService.getGuests(photographerId, gdEvent.id);
+                    setGuestDeliveryGuests(rows || []);
+                    setGdGuestCount((rows || []).length);
+                } catch (err) {
+                    console.error(err);
+                }
+            }
+
             const { summary } = result;
-            let message = `Guest Delivery published!\n\n` +
-                `Photos indexed: ${summary.photosIndexed}\n` +
-                `Guests matched: ${summary.guestsMatched}\n` +
-                `No matches: ${summary.guestsNoMatch}\n` +
-                `Failed: ${summary.guestsFailed}`;
-
-            if (matchedGuests.length) {
-                message += emailErrors.length
-                    ? `\n\nEmails sent with ${emailErrors.length} error(s).`
-                    : '\n\nDelivery emails sent successfully.';
-            } else {
-                message += '\n\nNo delivery emails sent (no matches).';
-            }
-
             if (emailErrors.length) {
-                message += `\n\nEmail error: ${emailErrors[0]}`;
+                setToastMessage(`Sent with ${emailErrors.length} email error(s).`);
+            } else if (matchedGuests.length) {
+                setToastMessage('Guest photos sent.');
+            } else {
+                setToastMessage(`Matched ${summary?.guestsMatched || 0} guest(s). No emails sent.`);
             }
-
-            alert(message);
+            setTimeout(() => setToastMessage(null), 4000);
         } catch (err) {
             alert(`Publish failed: ${err.message}`);
         } finally {
@@ -3870,6 +3882,9 @@ const CollectionDashboard = () => {
     useEffect(() => {
         const handleClickOutside = (e) => {
             if (shareRef.current && !shareRef.current.contains(e.target)) setShowShareDropdown(false);
+            if (gdPublishWrapRef.current && !gdPublishWrapRef.current.contains(e.target)) {
+                setShowGdPublishedPopup(false);
+            }
             if (statusRef.current && !statusRef.current.contains(e.target)) setShowStatusMenu(false);
             if (
                 photoMenuRef.current
@@ -3912,6 +3927,15 @@ const CollectionDashboard = () => {
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [activeActivityMenu, favoriteDetailPhotoMenuPhotoId, favoriteActivitySortMenuOpen]);
+
+    useEffect(() => {
+        if (!showGdPublishedPopup) return undefined;
+        const onKey = (e) => {
+            if (e.key === 'Escape') setShowGdPublishedPopup(false);
+        };
+        document.addEventListener('keydown', onKey);
+        return () => document.removeEventListener('keydown', onKey);
+    }, [showGdPublishedPopup]);
 
     const processSelectedUploadFiles = (fileList, snapshot) => {
         const rawSupportEnabled = isRawUploadEnabled(profile);
@@ -4015,6 +4039,28 @@ const CollectionDashboard = () => {
             alert(err?.message || 'Could not update delivery status. Please try again.');
         } finally {
             setStatusSaving(false);
+        }
+    };
+
+    const openGdPublishedPopup = async () => {
+        setShowShareDropdown(false);
+        setShowMoreDropdown(false);
+        setShowPresetsSubmenu(false);
+        setShowStatusMenu(false);
+        if (!hasBeenPublished({ status, published_at: collection?.published_at })) {
+            await persistDeliveryStatus(DELIVERY_STATUS.published);
+        }
+        setShowGdPublishedPopup(true);
+    };
+
+    const handleUnpublishGuestDelivery = async () => {
+        if (gdUnpublishing) return;
+        setGdUnpublishing(true);
+        try {
+            await persistDeliveryStatus(DELIVERY_STATUS.archived);
+            setShowGdPublishedPopup(false);
+        } finally {
+            setGdUnpublishing(false);
         }
     };
 
@@ -4152,6 +4198,7 @@ const CollectionDashboard = () => {
                             onClick={() => {
                                 setShowShareDropdown(false);
                                 setShowStatusMenu(false);
+                                setShowGdPublishedPopup(false);
                                 if (showMoreDropdown) {
                                     setShowMoreDropdown(false);
                                     setShowPresetsSubmenu(false);
@@ -4215,11 +4262,26 @@ const CollectionDashboard = () => {
                     </div>
                     {collection?.guest_delivery_enabled && (
                         <button
-                            className="cd-text-btn cd-gd-qr-btn"
-                            title="Guest registration"
-                            onClick={() => setShowGdQrModal(true)}
+                            type="button"
+                            className="cd-topbar-btn cd-topbar-btn--icon"
+                            title="Guest registration QR"
+                            aria-label="Guest registration QR"
+                            onClick={() => {
+                                setShowShareDropdown(false);
+                                setShowMoreDropdown(false);
+                                setShowGdPublishedPopup(false);
+                                setShowGdQrModal(true);
+                            }}
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="3" height="3"/><line x1="21" y1="14" x2="21" y2="14.01"/><line x1="21" y1="21" x2="21" y2="21.01"/><line x1="17" y1="21" x2="17" y2="21.01"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                                <rect x="3" y="3" width="7" height="7" />
+                                <rect x="14" y="3" width="7" height="7" />
+                                <rect x="3" y="14" width="7" height="7" />
+                                <rect x="14" y="14" width="3" height="3" />
+                                <line x1="21" y1="14" x2="21" y2="14.01" />
+                                <line x1="21" y1="21" x2="21" y2="21.01" />
+                                <line x1="17" y1="21" x2="17" y2="21.01" />
+                            </svg>
                         </button>
                     )}
                     <button
@@ -4238,6 +4300,7 @@ const CollectionDashboard = () => {
                                 setShowMoreDropdown(false);
                                 setShowPresetsSubmenu(false);
                                 setShowStatusMenu(false);
+                                setShowGdPublishedPopup(false);
                                 setShowShareDropdown(!showShareDropdown);
                             }}
                         >
@@ -4290,28 +4353,36 @@ const CollectionDashboard = () => {
                             </div>
                         )}
                     </div>
-                    {collection?.guest_delivery_enabled && gdEvent && (gdGuestCount || gdEvent?.guest_count) > 0 ? (
-                        <button
-                            type="button"
-                            className="cd-topbar-btn cd-topbar-btn--primary"
-                            onClick={() => {
-                                setShowShareDropdown(false);
-                                setShowMoreDropdown(false);
-                                setActiveSidebarTab('guests');
-                            }}
-                        >
-                            Send to {(gdGuestCount || gdEvent?.guest_count || 0).toLocaleString()} guests
-                        </button>
+                    {collection?.guest_delivery_enabled && gdEvent ? (
+                        <div className="cd-gd-publish-wrap" ref={gdPublishWrapRef}>
+                            <button
+                                type="button"
+                                className="cd-topbar-btn cd-topbar-btn--primary"
+                                aria-expanded={showGdPublishedPopup}
+                                aria-haspopup="dialog"
+                                onClick={() => {
+                                    if (showGdPublishedPopup) {
+                                        setShowGdPublishedPopup(false);
+                                        return;
+                                    }
+                                    void openGdPublishedPopup();
+                                }}
+                            >
+                                Send to {(gdGuestCount || gdEvent?.guest_count || 0).toLocaleString()} guests
+                            </button>
+                            {showGdPublishedPopup ? (
+                                <GuestDeliveryPublishedPopup
+                                    collection={collection}
+                                    event={gdEvent}
+                                    guests={guestDeliveryGuests}
+                                    sending={gdPublishing}
+                                    unpublishing={gdUnpublishing}
+                                    onSend={() => void handlePublishGuestDelivery()}
+                                    onUnpublish={() => void handleUnpublishGuestDelivery()}
+                                />
+                            ) : null}
+                        </div>
                     ) : null}
-                    {collection?.guest_delivery_enabled && gdEvent && (
-                        <button
-                            className="cd-text-btn cd-gd-publish-btn"
-                            disabled={gdPublishing}
-                            onClick={handlePublishGuestDelivery}
-                        >
-                            {gdPublishing ? 'Publishing…' : 'Publish Guest Delivery'}
-                        </button>
-                    )}
                 </div>
             </header>
             </div>
@@ -4425,10 +4496,95 @@ const CollectionDashboard = () => {
                     photoDownload={photoDownload}
                     favoritePhotos={favoritePhotos}
                     storeEnabled={storeEnabled}
+                    accountBackLabel={collectionName}
                 />
 
                 {/* Main Content Wrapper */}
                 <div className="cd-main-wrapper">
+                    {selectedPhotos.length > 0 && activeSidebarTab === 'photos' && (
+                        <div className="cd-selection-toolbar" role="toolbar" aria-label="Photo selection">
+                            <div className="cd-selection-left">
+                                <div
+                                    className="cd-selection-count-wrapper"
+                                    onClick={() => setShowSelectAllMenu(!showSelectAllMenu)}
+                                    ref={selectAllMenuRef}
+                                >
+                                    <span className="cd-selection-count">{selectedPhotos.length} selected</span>
+                                    {showSelectAllMenu && (
+                                        <div className="cd-selection-menu">
+                                            <div className="cd-ctx-item" onClick={selectAll}>Select All</div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="cd-selection-actions" onClick={(e) => e.stopPropagation()}>
+                                <div className={`cd-selection-move-wrapper${showMoveToSetMenu ? ' is-open' : ''}`} ref={moveToSetRef}>
+                                    <button
+                                        type="button"
+                                        className="cd-sel-action-btn"
+                                        aria-label="Move to set"
+                                        aria-expanded={showMoveToSetMenu}
+                                        aria-haspopup="menu"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setShowSelectionMore(false);
+                                            setShowMoveToSetMenu((open) => !open);
+                                        }}
+                                    >
+                                        Move to set
+                                    </button>
+                                </div>
+                                {showMoveToSetMenu && moveMenuPosition && createPortal(
+                                    <div
+                                        ref={moveMenuPortalRef}
+                                        className="cd-selection-move-dropdown cd-selection-move-dropdown--portal"
+                                        role="menu"
+                                        style={moveMenuPosition}
+                                        onMouseDown={(e) => e.stopPropagation()}
+                                    >
+                                        <div className="cd-sort-label">Move to set</div>
+                                        <button
+                                            type="button"
+                                            role="menuitem"
+                                            className={`cd-ctx-item${!activeSetId ? ' disabled' : ''}`}
+                                            disabled={!activeSetId}
+                                            onClick={() => handleMovePhotosToSet(null)}
+                                        >
+                                            {highlightsName}
+                                        </button>
+                                        {sets.map((s) => (
+                                            <button
+                                                key={s.id}
+                                                type="button"
+                                                role="menuitem"
+                                                className={`cd-ctx-item${activeSetId === s.id ? ' disabled' : ''}`}
+                                                disabled={activeSetId === s.id}
+                                                onClick={() => handleMovePhotosToSet(s.id)}
+                                            >
+                                                {s.name}
+                                            </button>
+                                        ))}
+                                    </div>,
+                                    document.body
+                                )}
+                                <button type="button" className="cd-sel-action-btn" onClick={handleSelectionStar}>
+                                    Star
+                                </button>
+                                <button type="button" className="cd-sel-action-btn" onClick={handleSelectionSetAsCover}>
+                                    Set as cover
+                                </button>
+                                <button type="button" className="cd-sel-action-btn" onClick={handleSelectionDownload}>
+                                    Download
+                                </button>
+                                <button type="button" className="cd-sel-action-btn" onClick={() => deleteSelectedPhotos()}>
+                                    Remove
+                                </button>
+                                <button type="button" className="cd-selection-clear" onClick={clearSelection}>
+                                    Clear
+                                </button>
+                            </div>
+                        </div>
+                    )}
                     <main className={`cd-main-area${activeSidebarTab === 'photos' ? ' cd-main-area--photos' : ''}${activeSidebarTab === 'design' ? ' cd-main-area--design' : ''}${activeSidebarTab === 'guests' ? ' cd-main-area--guests' : ''}${activeSidebarTab === 'activity' ? ' cd-main-area--activity' : ''}${activeSidebarTab === 'settings' ? ' cd-main-area--settings' : ''}`}>
                         {activeSidebarTab === 'photos' && (
                             <>
@@ -4542,15 +4698,18 @@ const CollectionDashboard = () => {
                                                         }}
                                                     >
                                                         {selectedPhotos.includes(photo.id) ? (
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
                                                         ) : null}
                                                     </button>
-                                                    <div className="cd-photo-hover-tools">
+                                                    <div className={`cd-photo-hover-tools${photo.is_starred ? ' cd-photo-hover-tools--starred' : ''}`}>
                                                         <button
                                                             type="button"
                                                             className={`cd-photo-star ${photo.is_starred ? 'active' : ''}`}
                                                             aria-label={photo.is_starred ? 'Unstar photograph' : 'Star photograph'}
-                                                            onClick={(e) => { e.stopPropagation(); handleToggleStar(photo.id, photo.is_starred); }}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleToggleStar(photo.id, photo.is_starred);
+                                                            }}
                                                         >
                                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill={photo.is_starred ? "#FFC107" : "none"} stroke={photo.is_starred ? "#FFC107" : "#fff"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
                                                         </button>
@@ -5015,131 +5174,6 @@ const CollectionDashboard = () => {
                         );
                     })()}
 
-                    {/* Multi-Selection Toolbar */}
-                    {selectedPhotos.length > 0 && (
-                        <div className="cd-selection-toolbar">
-                            <div className="cd-selection-left">
-                                <button type="button" className="cd-selection-close" onClick={clearSelection}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                                </button>
-                                <div className="cd-selection-count-wrapper" onClick={() => setShowSelectAllMenu(!showSelectAllMenu)} ref={selectAllMenuRef}>
-                                    <span className="cd-selection-count">{selectedPhotos.length} selected</span>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="cd-selection-chevron"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                                    {showSelectAllMenu && (
-                                        <div className="cd-selection-menu">
-                                            <div className="cd-ctx-item" onClick={selectAll}>Select All</div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                            <div className="cd-selection-actions" onClick={(e) => e.stopPropagation()}>
-                                <button type="button" className="cd-sel-action-btn" data-tooltip="Add to Starred" aria-label="Add to Starred" onClick={handleSelectionStar}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-                                </button>
-                                <button type="button" className="cd-sel-action-btn" data-tooltip="Share link" aria-label="Share link" onClick={handleSelectionShareLink}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
-                                </button>
-                                <div className={`cd-selection-move-wrapper${showMoveToSetMenu ? ' is-open' : ''}`} ref={moveToSetRef}>
-                                    <button
-                                        type="button"
-                                        className="cd-sel-action-btn"
-                                        data-tooltip="Move to set"
-                                        aria-label="Move to set"
-                                        aria-expanded={showMoveToSetMenu}
-                                        aria-haspopup="menu"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setShowSelectionMore(false);
-                                            setShowMoveToSetMenu((open) => !open);
-                                        }}
-                                    >
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M13.8 12H3" /></svg>
-                                    </button>
-                                </div>
-                                {showMoveToSetMenu && moveMenuPosition && createPortal(
-                                    <div
-                                        ref={moveMenuPortalRef}
-                                        className="cd-selection-move-dropdown cd-selection-move-dropdown--portal"
-                                        role="menu"
-                                        style={moveMenuPosition}
-                                        onMouseDown={(e) => e.stopPropagation()}
-                                    >
-                                        <div className="cd-sort-label">Move to set</div>
-                                        <button
-                                            type="button"
-                                            role="menuitem"
-                                            className={`cd-ctx-item${!activeSetId ? ' disabled' : ''}`}
-                                            disabled={!activeSetId}
-                                            onClick={() => handleMovePhotosToSet(null)}
-                                        >
-                                            {highlightsName}
-                                        </button>
-                                        {sets.map((s) => (
-                                            <button
-                                                key={s.id}
-                                                type="button"
-                                                role="menuitem"
-                                                className={`cd-ctx-item${activeSetId === s.id ? ' disabled' : ''}`}
-                                                disabled={activeSetId === s.id}
-                                                onClick={() => handleMovePhotosToSet(s.id)}
-                                            >
-                                                {s.name}
-                                            </button>
-                                        ))}
-                                    </div>,
-                                    document.body
-                                )}
-                                <button type="button" className="cd-sel-action-btn" data-tooltip="Delete" aria-label="Delete" onClick={() => deleteSelectedPhotos()}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
-                                </button>
-                                <div className="cd-selection-more-wrap" ref={selectionMoreRef}>
-                                    <button type="button" className="cd-sel-action-btn" data-tooltip="More" aria-label="More" onClick={(e) => { e.stopPropagation(); setShowMoveToSetMenu(false); setShowSelectionMore(!showSelectionMore); }}>
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
-                                    </button>
-                                    {showSelectionMore && selectionMoreMenuPosition && createPortal(
-                                        <div
-                                            ref={selectionMorePortalRef}
-                                            className="cd-selection-more-dropdown cd-selection-more-dropdown--portal"
-                                            role="menu"
-                                            style={selectionMoreMenuPosition}
-                                            onMouseDown={(e) => e.stopPropagation()}
-                                        >
-                                            <button type="button" className="cd-ctx-item" role="menuitem" onClick={handleSelectionOpen}>
-                                                <div className="cd-ctx-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="m21 21-6-6m6 6v-4.8m0 4.8h-4.8M3 3l6 6M3 3v4.8M3 3h4.8M21 3l-6 6M21 3v4.8M21 3h-4.8M3 21l6-6M3 21v-4.8M3 21h4.8" /></svg></div>
-                                                <span className="cd-ctx-text">Open</span>
-                                                <span className="cd-ctx-hotkey">spacebar</span>
-                                            </button>
-                                            <button type="button" className="cd-ctx-item" role="menuitem" onClick={handleSelectionDownload}>
-                                                <div className="cd-ctx-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg></div>
-                                                <span className="cd-ctx-text">Download</span>
-                                            </button>
-                                            <button type="button" className="cd-ctx-item" role="menuitem" onClick={handleSelectionCopyFilenames}>
-                                                <div className="cd-ctx-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></div>
-                                                <span className="cd-ctx-text">Copy filenames</span>
-                                            </button>
-                                            <button type="button" className="cd-ctx-item" role="menuitem" onClick={handleSelectionSetAsCover}>
-                                                <div className="cd-ctx-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg></div>
-                                                <span className="cd-ctx-text">Set as cover</span>
-                                            </button>
-                                            <button type="button" className="cd-ctx-item" role="menuitem" onClick={handleSelectionRename}>
-                                                <div className="cd-ctx-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></div>
-                                                <span className="cd-ctx-text">Rename</span>
-                                            </button>
-                                            <button type="button" className="cd-ctx-item" role="menuitem" onClick={handleSelectionReplace}>
-                                                <div className="cd-ctx-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 2l4 4-4 4M3 6h18M7 22l-4-4 4-4M21 18H3" /></svg></div>
-                                                <span className="cd-ctx-text">Replace photo</span>
-                                            </button>
-                                            <button type="button" className="cd-ctx-item" role="menuitem" onClick={handleSelectionWatermark}>
-                                                <div className="cd-ctx-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M14.5 9a2.5 2.5 0 0 0-5 0v6a2.5 2.5 0 0 0 5 0" /><path d="M10 12h4.5" /></svg></div>
-                                                <span className="cd-ctx-text">Watermark</span>
-                                            </button>
-                                        </div>,
-                                        document.body
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    )}
                 </div>
                 {/* Add Media Modal */}
                 {

@@ -12,7 +12,7 @@ import LegalConsentPanel from '../components/features/Settings/LegalConsentPanel
 import PlanBillingPanel from '../components/features/Settings/PlanBillingPanel';
 import YourAccountPanel from '../components/features/Settings/YourAccountPanel';
 import { getThemeMode, setThemeMode, THEME_CHANGE_EVENT } from '../lib/appearanceTheme';
-import { userStorageService } from '../services/userStorage.service';
+import { userStorageService, getStorageLimitBytes, formatStorageMeter } from '../services/userStorage.service';
 import {
     readAccountBack,
     writeAccountBack,
@@ -53,17 +53,6 @@ const STUDIO_NAV = [
     { id: 'billing', label: 'Plan & billing', icon: CreditCard, section: 'STUDIO' },
     { id: 'account', label: 'Your account', icon: User, section: 'YOU' },
 ];
-
-function storageLimitBytes(profile) {
-    if (profile?.storage_limit_bytes) return Number(profile.storage_limit_bytes) || 0;
-    const gb = Number(profile?.storage_limit_gb);
-    if (gb && gb > 0) return gb * 1024 * 1024 * 1024;
-    const tier = String(profile?.plan || '').toLowerCase();
-    if (tier === 'pro') return 100 * 1024 * 1024 * 1024;
-    if (tier === 'premium') return 500 * 1024 * 1024 * 1024;
-    if (tier === 'free') return 5 * 1024 * 1024 * 1024;
-    return 10 * 1024 * 1024 * 1024;
-}
 
 export default function AccountSettings() {
     const { tab } = useParams();
@@ -134,29 +123,12 @@ export default function AccountSettings() {
         return slug;
     }, [studioProfile, user]);
 
-    const maxBytes = useMemo(() => storageLimitBytes(studioProfile), [studioProfile]);
+    const maxBytes = useMemo(() => getStorageLimitBytes(studioProfile), [studioProfile]);
 
     const storagePct = useMemo(() => {
         if (!maxBytes) return 0;
         return Math.min(100, (usedBytes / maxBytes) * 100);
     }, [usedBytes, maxBytes]);
-
-    const formatStorageDisplay = (used, max) => {
-        if (!used || used <= 0) {
-            const maxGb = max && max > 0 ? (max / (1024 * 1024 * 1024)).toFixed(0) : 10;
-            return `0 / ${maxGb} GB`;
-        }
-        const gb = 1024 * 1024 * 1024;
-        if (max >= gb) {
-            const usedGb = used / gb;
-            const usedLabel = usedGb < 1 ? usedGb.toFixed(1) : usedGb < 10 ? usedGb.toFixed(1) : usedGb.toFixed(0);
-            const maxGb = (max / gb).toFixed(0);
-            return `${usedLabel} / ${maxGb} GB`;
-        }
-        const usedMb = (used / (1024 * 1024)).toFixed(0);
-        const maxMb = (max / (1024 * 1024)).toFixed(0);
-        return `${usedMb} / ${maxMb} MB`;
-    };
 
     useEffect(() => {
         if (!user?.id || !useStudioShell) return;
@@ -332,7 +304,7 @@ export default function AccountSettings() {
                             <div className="flex items-center justify-between gap-2">
                                 <span className="sb-storage__label">STORAGE</span>
                                 <span className="sb-storage__meta">
-                                    {formatStorageDisplay(usedBytes, maxBytes)}
+                                    {formatStorageMeter(usedBytes, maxBytes)}
                                 </span>
                             </div>
                             <div className="sb-storage__bar">

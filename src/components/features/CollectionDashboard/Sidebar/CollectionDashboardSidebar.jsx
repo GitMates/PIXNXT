@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   ChevronRight,
   Play,
@@ -13,7 +13,8 @@ import {
 import { cn } from '../../../../lib/utils';
 import { useAuth } from '../../../../hooks/useAuth';
 import { getUserDisplayLabel, getUserInitial } from '../../../../lib/userInitials';
-import { userStorageService } from '../../../../services/userStorage.service';
+import { userStorageService, getStorageLimitBytes, formatStorageMeter } from '../../../../services/userStorage.service';
+import { navigateToAccount } from '../../../../lib/accountBackNav';
 import { SidebarCoverUpload } from '../CoverSettings/SidebarCoverUpload';
 import './CollectionDashboardSidebar.css';
 
@@ -32,16 +33,6 @@ function PhotosGridIcon({ className, ...props }) {
 function formatCount(n) {
   const value = Number(n) || 0;
   return value.toLocaleString();
-}
-
-function formatStorageDisplay(used, max) {
-  const toGb = (bytes) => {
-    const gb = bytes / (1024 * 1024 * 1024);
-    if (gb >= 10) return `${Math.round(gb)} GB`;
-    if (gb >= 1) return `${gb.toFixed(1).replace(/\.0$/, '')} GB`;
-    return `${(bytes / (1024 * 1024)).toFixed(0)} MB`;
-  };
-  return `${toGb(used)} / ${toGb(max)}`;
 }
 
 const SETTINGS_TABS = [
@@ -189,8 +180,10 @@ export function CollectionDashboardSidebar({
   photoDownload = false,
   favoritePhotos = false,
   storeEnabled = false,
+  accountBackLabel = 'Delivery',
 }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const userInitial = getUserInitial(user);
   const userDisplayLabel = getUserDisplayLabel(user);
@@ -223,19 +216,15 @@ export function CollectionDashboardSidebar({
       /* ignore */
     }
     let cancelled = false;
-    userStorageService.calculateUserStorageBytes(user).then((bytes) => {
+    userStorageService.calculateUserStorageBytes(user, profile).then((bytes) => {
       if (!cancelled && typeof bytes === 'number' && bytes >= 0) setStorageBytes(bytes);
     });
     return () => {
       cancelled = true;
     };
-  }, [user?.id]);
+  }, [user?.id, profile?.storage_used_bytes]);
 
-  const maxBytes = useMemo(() => {
-    const planLimit = user?.user_metadata?.storage_limit_bytes;
-    if (planLimit && Number(planLimit) > 0) return Number(planLimit);
-    return 5 * 1024 * 1024 * 1024;
-  }, [user?.user_metadata?.storage_limit_bytes]);
+  const maxBytes = useMemo(() => getStorageLimitBytes(profile), [profile]);
 
   const usedBytes = storageBytes || profile?.storage_used_bytes || 0;
   const storagePct = Math.min(100, maxBytes > 0 ? (usedBytes / maxBytes) * 100 : 0);
@@ -272,7 +261,7 @@ export function CollectionDashboardSidebar({
       <div className="cdsb__scroll">
 
         <nav className="cdsb-nav" aria-label="Delivery navigation">
-          <p className="cdsb-nav__section">Working on</p>
+          <p className="cdsb-nav__section">Media</p>
 
           <div className={cn('cdsb-photos-panel', photosActive && 'cdsb-photos-panel--active')}>
             <NavItem
@@ -328,6 +317,8 @@ export function CollectionDashboardSidebar({
             onClick={() => onSidebarTabChange('films')}
           />
 
+          <p className="cdsb-nav__section cdsb-nav__section--group">The delivery</p>
+
           <NavItem
             active={designActive}
             icon={Pencil}
@@ -356,7 +347,7 @@ export function CollectionDashboardSidebar({
             }}
           />
 
-          <p className="cdsb-nav__section cdsb-nav__section--set-once">Set once</p>
+          <p className="cdsb-nav__section cdsb-nav__section--group">Set once</p>
           <div className={cn('cdsb-settings-block', settingsActive && 'cdsb-settings-block--active')}>
             <NavItem
               active={settingsActive}
@@ -388,14 +379,21 @@ export function CollectionDashboardSidebar({
         <div className="cdsb-storage">
           <div className="cdsb-storage__head">
             <span className="cdsb-storage__label">Storage</span>
-            <span className="cdsb-storage__meta">{formatStorageDisplay(usedBytes, maxBytes)}</span>
+            <span className="cdsb-storage__meta">{formatStorageMeter(usedBytes, maxBytes)}</span>
           </div>
           <div className="cdsb-storage__bar">
             <div className="cdsb-storage__bar-fill" style={{ width: `${storagePct}%` }} />
           </div>
         </div>
 
-        <button type="button" className="cdsb-profile" onClick={() => navigate('/account')}>
+        <button
+          type="button"
+          className="cdsb-profile"
+          onClick={() => {
+            const fromPath = `${location.pathname}${location.search}`;
+            navigateToAccount(navigate, '/account', fromPath, accountBackLabel || 'Delivery');
+          }}
+        >
           <span className="cdsb-profile__avatar">{userInitial}</span>
           <span className="cdsb-profile__text">
             <span className="cdsb-profile__name">{userDisplayLabel}</span>

@@ -812,12 +812,12 @@ export function MasonryGrid({
                 onFavorite?.(photo);
               }}
               className={cn(
-                'absolute z-[14] flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-rose-400 shadow-sm backdrop-blur-sm transition-colors hover:bg-black/55 hover:text-rose-300',
-                privateBadgeBlocksTopLeft ? 'left-3 top-12' : 'left-3 top-3'
+                'gallery-masonry-action-btn absolute z-[14] flex items-center justify-center rounded-full bg-black/40 text-rose-400 shadow-sm backdrop-blur-sm transition-colors hover:bg-black/55 hover:text-rose-300',
+                privateBadgeBlocksTopLeft ? 'left-2.5 top-11' : 'left-2.5 top-2.5'
               )}
               aria-label="Remove from favorites"
             >
-              <Heart size={18} strokeWidth={1.75} fill="currentColor" className="drop-shadow-sm" />
+              <Heart size={12} strokeWidth={1.75} fill="currentColor" className="drop-shadow-sm" />
             </button>
           ) : null}
           <div className="gallery-masonry-tile-overlay absolute inset-0 z-[10] bg-black/0">
@@ -846,7 +846,7 @@ export function MasonryGrid({
                 }}
               />
             ) : (
-            <div className="gallery-masonry-actions absolute bottom-4 right-4 z-[12] flex gap-2">
+            <div className="gallery-masonry-actions absolute bottom-2.5 right-2.5 z-[12] flex gap-1.5">
               {showShop && (
                 <button
                   type="button"
@@ -854,10 +854,10 @@ export function MasonryGrid({
                     e.stopPropagation();
                     onShop?.(photo);
                   }}
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 backdrop-blur-md text-white hover:bg-white hover:text-black transition-all"
+                  className="gallery-masonry-action-btn flex items-center justify-center rounded-full bg-white/20 backdrop-blur-md text-white hover:bg-white hover:text-black transition-all"
                   aria-label="Shop"
                 >
-                  <ShoppingBag size={16} strokeWidth={1.5} />
+                  <ShoppingBag size={12} strokeWidth={1.75} />
                 </button>
               )}
               {showDownload && (
@@ -867,16 +867,16 @@ export function MasonryGrid({
                     e.stopPropagation();
                     onDownload?.(photo);
                   }}
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 backdrop-blur-md text-white hover:bg-white hover:text-black transition-all"
+                  className="gallery-masonry-action-btn flex items-center justify-center rounded-full bg-white/20 backdrop-blur-md text-white hover:bg-white hover:text-black transition-all"
                   aria-label="Download"
                 >
                   {isPaidDownload ? (
                     <span className="relative">
-                      <ArrowDownToLine size={16} strokeWidth={1.5} />
-                      <span style={{ position: 'absolute', top: '-4px', right: '-6px', fontSize: '6px', fontWeight: 800, lineHeight: 1, background: 'currentColor', color: 'var(--gallery-bg, #fff)', borderRadius: '3px', padding: '1px 2px' }}>₹</span>
+                      <ArrowDownToLine size={12} strokeWidth={1.75} />
+                      <span style={{ position: 'absolute', top: '-3px', right: '-5px', fontSize: '5px', fontWeight: 800, lineHeight: 1, background: 'currentColor', color: 'var(--gallery-bg, #fff)', borderRadius: '2px', padding: '1px 2px' }}>₹</span>
                     </span>
                   ) : (
-                    <Download size={16} strokeWidth={1.5} />
+                    <Download size={12} strokeWidth={1.75} />
                   )}
                 </button>
               )}
@@ -889,14 +889,14 @@ export function MasonryGrid({
                     onFavorite?.(photo);
                   }}
                   className={cn(
-                    'flex h-9 w-9 items-center justify-center rounded-full backdrop-blur-md transition-all',
+                    'gallery-masonry-action-btn flex items-center justify-center rounded-full backdrop-blur-md transition-all',
                     isFav
                       ? 'bg-white text-black'
                       : 'bg-white/20 text-white hover:bg-white hover:text-black'
                   )}
                   aria-label={isFav ? 'Remove from favorites' : 'Add to favorites'}
                 >
-                  <Heart size={16} strokeWidth={1.5} fill={isFav ? 'currentColor' : 'none'} />
+                  <Heart size={12} strokeWidth={1.75} fill={isFav ? 'currentColor' : 'none'} />
                 </button>
               )}
               {showShare && (
@@ -906,10 +906,10 @@ export function MasonryGrid({
                     e.stopPropagation();
                     onShare?.(photo);
                   }}
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 backdrop-blur-md text-white hover:bg-white hover:text-black transition-all"
+                  className="gallery-masonry-action-btn flex items-center justify-center rounded-full bg-white/20 backdrop-blur-md text-white hover:bg-white hover:text-black transition-all"
                   aria-label="Share"
                 >
-                  <Share2 size={16} strokeWidth={1.5} />
+                  <Share2 size={12} strokeWidth={1.75} />
                 </button>
               )}
             </div>

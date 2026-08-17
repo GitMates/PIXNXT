@@ -21,7 +21,7 @@ import {
     isProductActive,
 } from '../lib/products';
 import ClientGalleryNotifications from './features/ClientGallery/ClientGalleryNotifications';
-import { userStorageService } from '../services/userStorage.service';
+import { userStorageService, getStorageLimitBytes, formatStorageMeter } from '../services/userStorage.service';
 import { getThemeMode, setThemeMode, THEME_CHANGE_EVENT } from '../lib/appearanceTheme';
 import { syncUploadDefaultsToLocalStorage } from '../lib/uploadDefaults';
 import { navigateToAccount } from '../lib/accountBackNav';
@@ -165,32 +165,7 @@ const SidebarLayout = ({
     }, [user?.id]);
 
     const usedBytes = realStorageBytes || profile?.storage_used_bytes || 0;
-    const limitBytes = profile?.storage_limit_bytes;
-
-    const formatStorage = (bytes) => {
-        if (!bytes || bytes <= 0) return '0 MB';
-        const tbLimit = 1024 * 1024 * 1024 * 1024;
-        const gbLimit = 1024 * 1024 * 1024;
-
-        if (bytes >= tbLimit) {
-            return `${(bytes / tbLimit).toFixed(2)} TB`.replace(/\.00 /, ' ');
-        }
-        if (bytes >= gbLimit) {
-            return `${(bytes / gbLimit).toFixed(2)} GB`.replace(/\.00 /, ' ');
-        }
-        return `${(bytes / (1024 * 1024)).toFixed(2)} MB`.replace(/\.00 /, ' ');
-    };
-
-    const getLimitBytes = () => {
-        if (limitBytes) return limitBytes;
-        const tier = String(profile?.plan || '').toLowerCase();
-        if (tier === 'pro') return 100 * 1024 * 1024 * 1024;
-        if (tier === 'premium') return 500 * 1024 * 1024 * 1024;
-        if (tier === 'free') return 5 * 1024 * 1024 * 1024;
-        return 10 * 1024 * 1024 * 1024;
-    };
-
-    const maxBytes = getLimitBytes();
+    const maxBytes = getStorageLimitBytes(profile);
     const storagePct = Math.min(100, maxBytes > 0 ? (usedBytes / maxBytes) * 100 : 0);
 
     useEffect(() => {
@@ -227,22 +202,6 @@ const SidebarLayout = ({
         }
         const Icon = product.icon;
         return <Icon className={cn('size-4', active ? 'text-white' : 'text-[#1A1A1A]')} />;
-    };
-
-    const formatStorageDisplay = (used, max) => {
-        if (!used || used <= 0) {
-            const maxGb = max && max > 0 ? (max / (1024 * 1024 * 1024)).toFixed(0) : 100;
-            return `0 / ${maxGb} GB`;
-        }
-        const gb = 1024 * 1024 * 1024;
-        if (max >= gb) {
-            const usedGb = (used / gb).toFixed(used / gb < 1 ? 1 : 0);
-            const maxGb = (max / gb).toFixed(0);
-            return `${usedGb} / ${maxGb} GB`;
-        }
-        const usedMb = (used / (1024 * 1024)).toFixed(0);
-        const maxMb = (max / (1024 * 1024)).toFixed(0);
-        return `${usedMb} / ${maxMb} MB`;
     };
 
     const renderProfileDropdown = (positionClasses) => {
@@ -560,7 +519,7 @@ const SidebarLayout = ({
                             <div className="flex items-center justify-between gap-2">
                                 <span className="sb-storage__label">STORAGE</span>
                                 <span className="sb-storage__meta">
-                                    {formatStorageDisplay(usedBytes, maxBytes)}
+                                    {formatStorageMeter(usedBytes, maxBytes)}
                                 </span>
                             </div>
                             <div className="sb-storage__bar">

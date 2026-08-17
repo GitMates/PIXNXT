@@ -1374,8 +1374,8 @@
     max-width: 100%;
     background: var(--cd-manage-cell-bg);
     border: 2px solid transparent;
-    border-radius: 0;
-    overflow: visible;
+    border-radius: 8px;
+    overflow: hidden;
     cursor: pointer;
     position: relative;
     box-sizing: border-box;
@@ -1536,7 +1536,7 @@
     display: block;
     overflow: hidden;
     background: var(--cd-manage-cell-bg);
-    border-radius: 0;
+    border-radius: 6px;
 }
 
 .cd-photo-grid--manage .cd-photo-card-inner--contain .smooth-media-wrap {
@@ -1670,7 +1670,7 @@
 .cd-photo-grid--manage.cd-photo-grid--filenames .cd-photo-card.selected {
     outline: none;
     outline-offset: 0;
-    border-color: #111111;
+    border-color: #e07030;
     box-shadow: none;
     z-index: 11;
 }
@@ -2589,40 +2589,24 @@
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
 }
 
-/* Multi-Selection Toolbar */
+/* Multi-Selection Toolbar — spans the main column from the sidebar edge */
 .cd-selection-toolbar {
-    position: fixed;
-    bottom: 28px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(17, 17, 17, 0.92);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    height: 56px;
-    padding: 0 12px 0 16px;
-    border-radius: 999px;
+    position: relative;
+    flex-shrink: 0;
+    width: 100%;
+    min-height: 44px;
+    height: auto;
+    padding: 6px 20px;
+    background: #111111;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    width: min(640px, calc(100vw - 32px));
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(255, 255, 255, 0.08);
-    z-index: 1100;
-    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    animation: cdToolbarSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    gap: 16px;
+    z-index: 90;
     border: none;
+    border-radius: 0;
+    box-shadow: none;
     overflow: visible;
-}
-
-@keyframes cdToolbarSlideUp {
-    from {
-        transform: translate(-50%, 100%);
-        opacity: 0;
-    }
-
-    to {
-        transform: translate(-50%, 0);
-        opacity: 1;
-    }
 }
 
 .cd-selection-left {
@@ -2630,63 +2614,45 @@
     align-items: center;
     gap: 16px;
     height: 100%;
+    flex-shrink: 0;
 }
 
 .cd-selection-count {
     color: #fff;
-    font-size: 15px;
+    font-size: 13px;
     font-weight: 600;
     letter-spacing: 0.01em;
+    white-space: nowrap;
 }
 
 .cd-selection-close {
-    background: none;
-    border: none;
-    color: #fff;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 8px;
-    border-radius: 0;
-    transition: background 0.2s;
-    opacity: 0.8;
-}
-
-.cd-selection-close:hover {
-    background-color: rgba(255, 255, 255, 0.1);
-    opacity: 1;
+    display: none;
 }
 
 .cd-selection-count-wrapper {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 8px 12px;
+    padding: 0;
     cursor: pointer;
     border-radius: 0;
-    transition: background 0.2s;
     position: relative;
     user-select: none;
     color: #fff;
 }
 
 .cd-selection-count-wrapper:hover {
-    background-color: rgba(255, 255, 255, 0.1);
-}
-
-.cd-selection-count {
-    font-size: 15px;
-    font-weight: 600;
-    white-space: nowrap;
+    background-color: transparent;
 }
 
 .cd-selection-actions {
     display: flex;
     align-items: center;
-    gap: 4px;
+    justify-content: flex-end;
+    gap: 6px;
     height: 100%;
     overflow: visible;
+    flex-wrap: wrap;
 }
 
 .cd-selection-move-wrapper {
@@ -2754,18 +2720,24 @@
 }
 
 .cd-sel-action-btn {
-    background: transparent;
+    background: #3a3a3a;
     border: none;
     color: #fff;
     cursor: pointer;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 42px;
-    height: 42px;
-    border-radius: 8px;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    opacity: 0.85;
+    width: auto;
+    height: 28px;
+    padding: 0 11px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    transition: background 0.15s ease;
+    opacity: 1;
     position: relative;
 }
 
@@ -2815,14 +2787,31 @@
 }
 
 .cd-sel-action-btn:hover {
-    background: rgba(255, 255, 255, 0.15);
+    background: #4a4a4a;
     opacity: 1;
-    transform: translateY(-2px);
+    transform: none;
 }
 
 .cd-sel-action-btn svg {
     stroke: #fff;
     stroke-width: 2;
+}
+
+.cd-selection-clear {
+    background: none;
+    border: none;
+    color: #c8c8c8;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    height: 28px;
+    padding: 0 4px 0 6px;
+    white-space: nowrap;
+}
+
+.cd-selection-clear:hover {
+    color: #fff;
 }
 
 /* Tooltips on selection toolbar action buttons only (not inside open menus) */
@@ -2862,8 +2851,8 @@
     z-index: 1300;
 }
 
-.cd-selection-toolbar .cd-sel-action-btn:hover::after,
-.cd-selection-toolbar .cd-sel-action-btn:hover::before {
+.cd-selection-toolbar .cd-sel-action-btn[data-tooltip]:hover::after,
+.cd-selection-toolbar .cd-sel-action-btn[data-tooltip]:hover::before {
     opacity: 1;
     transform: translateX(-50%) translateY(0);
 }
@@ -2880,7 +2869,8 @@
 .cd-selection-menu,
 .cd-selection-more-dropdown {
     position: absolute;
-    bottom: calc(100% + 12px);
+    top: calc(100% + 8px);
+    bottom: auto;
     background-color: #ffffff;
     border-radius: 8px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
@@ -2898,7 +2888,8 @@
 
 .cd-selection-more-dropdown {
     position: absolute;
-    bottom: calc(100% + 12px);
+    top: calc(100% + 8px);
+    bottom: auto;
     right: 0;
     left: auto;
     background-color: #ffffff;
@@ -4544,12 +4535,14 @@
         border-radius: 8px !important;
     }
 
-    /* --- Task 3: Fix selection toolbar width --- */
+    /* --- Task 3: Selection toolbar stays full-width under the header --- */
     .cd-selection-toolbar {
-        width: calc(100% - 32px) !important;
+        width: 100% !important;
         min-width: 0 !important;
-        padding: 0 12px !important;
-        bottom: 16px !important;
+        padding: 8px 14px !important;
+        bottom: auto !important;
+        left: auto !important;
+        transform: none !important;
         justify-content: space-between !important;
     }
 
@@ -5121,8 +5114,8 @@
 .cd-photo-more-btn {
     width: 32px;
     height: 32px;
-    border-radius: 0;
-    background: transparent;
+    border-radius: 10px;
+    background: #2c2c2c;
     border: none;
     display: flex;
     align-items: center;
@@ -5130,10 +5123,11 @@
     cursor: pointer;
     color: #fff;
     box-shadow: none;
+    flex-shrink: 0;
 }
 
 .cd-photo-more-btn:hover {
-    background: transparent;
+    background: #3a3a3a;
     transform: none;
     box-shadow: none;
     color: #fff;
@@ -5141,13 +5135,14 @@
 
 .cd-photo-check {
     position: absolute;
-    top: 8px;
-    left: 8px;
+    top: 6px;
+    left: 6px;
     z-index: 60;
-    width: 20px;
-    height: 20px;
+    width: 16px;
+    height: 16px;
     padding: 0;
-    border-radius: 4px;
+    box-sizing: border-box;
+    border-radius: 3px;
     border: 1.5px solid rgba(255, 255, 255, 0.92);
     background: rgba(255, 255, 255, 0.18);
     display: flex;
@@ -5156,6 +5151,12 @@
     cursor: pointer;
     opacity: 0;
     transition: opacity 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.cd-photo-check svg {
+    width: 10px;
+    height: 10px;
+    display: block;
 }
 
 .cd-photo-card:hover .cd-photo-check,
@@ -5173,21 +5174,47 @@
     position: absolute;
     top: 8px;
     right: 8px;
+    left: auto;
     z-index: 60;
     display: flex;
     align-items: center;
-    background: rgba(22, 22, 22, 0.78);
-    border-radius: 10px;
-    padding: 2px;
+    gap: 6px;
+    background: transparent;
+    border-radius: 0;
+    padding: 0;
     opacity: 0;
     transition: opacity 0.15s ease;
 }
 
+.cd-photo-hover-tools--starred {
+    opacity: 1;
+}
+
+.cd-photo-hover-tools--starred .cd-photo-more-btn {
+    display: none;
+}
+
+.cd-photo-card:hover .cd-photo-hover-tools--starred .cd-photo-more-btn,
+.cd-photo-card--menu-open .cd-photo-hover-tools--starred .cd-photo-more-btn {
+    display: flex;
+}
+
 .cd-photo-card:hover .cd-photo-hover-tools,
-.cd-photo-card.selected .cd-photo-hover-tools,
 .cd-photo-card--menu-open .cd-photo-hover-tools,
 .cd-photo-card--starred .cd-photo-hover-tools {
     opacity: 1;
+}
+
+.cd-photo-card.selected .cd-photo-hover-tools:not(.cd-photo-hover-tools--starred) {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.cd-photo-card.selected:hover .cd-photo-hover-tools,
+.cd-photo-card.selected.cd-photo-card--menu-open .cd-photo-hover-tools,
+.cd-photo-card.selected .cd-photo-hover-tools--starred {
+    opacity: 1;
+    pointer-events: auto;
 }
 
 .cd-photo-hover-tools .cd-photo-star {
@@ -5196,14 +5223,19 @@
     left: auto;
     width: 32px;
     height: 32px;
-    border-radius: 8px;
-    background: transparent;
+    border-radius: 10px;
+    background: #2c2c2c;
     box-shadow: none;
     opacity: 1;
 }
 
+.cd-photo-hover-tools .cd-photo-star:hover {
+    background: #3a3a3a;
+    transform: none;
+}
+
 .cd-photo-hover-tools .cd-photo-star.active {
-    background: transparent;
+    background: #2c2c2c;
 }
 
 .cd-photo-actions {
@@ -6327,7 +6359,8 @@
 
 /* 5. Stunning Photo Cards Grid & Selection glow */
 .cd-photo-grid--manage .cd-photo-card {
-    border-radius: 6px !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
     transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.4s ease, box-shadow 0.4s ease !important;
     border: 2px solid transparent !important;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02) !important;
@@ -6355,7 +6388,7 @@
 }
 
 .cd-photo-grid--manage .cd-photo-thumb-shell {
-    border-radius: 4px !important;
+    border-radius: 6px !important;
     transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1) !important;
     background-color: #fafbfc !important;
 }
@@ -6368,9 +6401,20 @@
     transform: none;
 }
 
-.cd-photo-grid--manage .cd-photo-card.selected .cd-photo-hover-tools,
 .cd-photo-grid--manage .cd-photo-card--menu-open .cd-photo-hover-tools {
     opacity: 1 !important;
+}
+
+.cd-photo-grid--manage .cd-photo-card.selected .cd-photo-hover-tools:not(.cd-photo-hover-tools--starred) {
+    opacity: 0 !important;
+    pointer-events: none;
+}
+
+.cd-photo-grid--manage .cd-photo-card.selected:hover .cd-photo-hover-tools,
+.cd-photo-grid--manage .cd-photo-card.selected.cd-photo-card--menu-open .cd-photo-hover-tools,
+.cd-photo-grid--manage .cd-photo-card.selected .cd-photo-hover-tools--starred {
+    opacity: 1 !important;
+    pointer-events: auto;
 }
 
 .cd-photo-grid--manage .cd-photo-card.selected:hover .cd-photo-thumb-shell {

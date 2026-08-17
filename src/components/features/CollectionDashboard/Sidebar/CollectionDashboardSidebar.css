@@ -90,7 +90,7 @@
   color: var(--cdsb-muted);
 }
 
-.cdsb-nav__section--set-once {
+.cdsb-nav__section--group {
   margin-top: 14px;
 }
 
@@ -578,6 +578,7 @@
   background: #fff;
   position: relative;
   z-index: 200;
+  overflow: visible;
 }
 
 .cd-shell-brand {
@@ -704,15 +705,15 @@
 }
 
 .cd-topbar-btn--primary {
-  background: #d47a46;
-  border-color: #d47a46;
+  background: #e07030;
+  border-color: #e07030;
   color: #fff;
   font-weight: 600;
 }
 
 .cd-topbar-btn--primary:hover {
-  background: #c46a3a;
-  border-color: #c46a3a;
+  background: #d06226;
+  border-color: #d06226;
 }
 
 .theme-mono.cd-dashboard-shell .cd-topbar--shell .cd-share-split-btn {

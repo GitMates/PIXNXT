@@ -11,7 +11,8 @@ export function albumHasCoverSpreads(album) {
 
 /** True when cover spreads are blank (no book-wrap photo). */
 export function albumHasBlankCovers(album) {
-    return album?.blank_covers === true;
+    if (album?.blank_covers === true) return true;
+    return album?.preview_data?.blank_covers === true;
 }
 
 /** True when photo 1 is placed on the book wrap (front + back cover image). */

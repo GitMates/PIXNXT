@@ -535,8 +535,8 @@
 }
 
 .theme-mono.cd-dashboard-shell .cd-photo-grid--manage .cd-photo-card.selected {
-  border-color: var(--cd-foreground) !important;
-  box-shadow: 0 0 0 2px oklch(0.26 0.006 60 / 0.15) !important;
+  border-color: #e07030 !important;
+  box-shadow: none !important;
 }
 
 /* Dropzone */
@@ -610,8 +610,8 @@
 
 /* Selection toolbar */
 .theme-mono.cd-dashboard-shell .cd-selection-toolbar {
-  background-color: var(--cd-foreground) !important;
-  border-radius: 9999px !important;
+  background-color: #111111 !important;
+  border-radius: 0 !important;
 }
 
 /* Create collection page */
