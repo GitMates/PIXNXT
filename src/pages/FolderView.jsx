@@ -3,6 +3,7 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import SidebarLayout from '../components/SidebarLayout';
 import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
+import { buildDeliveryStatusPatch } from '../lib/deliveryStatus';
 import { openSpaPath } from '../lib/spaNavigation';
 import { openShareByEmail, openWhatsAppShare, getShareUrlForCollection } from '../lib/shareCollection';
 import { getFolderStudioUrl } from '../lib/folderStudioUrl';
@@ -119,7 +120,15 @@ const FolderView = () => {
     if (!selectedCards.length || !Object.keys(payload).length) return;
     setBulkApplying(true);
     try {
-      await Promise.all(selectedCards.map((id) => galleryService.updateCollection(id, payload)));
+      await Promise.all(
+        selectedCards.map((id) => {
+          const col = collections.find((c) => c.id === id);
+          const nextPayload = payload.status
+            ? { ...payload, ...buildDeliveryStatusPatch(payload.status, col) }
+            : payload;
+          return galleryService.updateCollection(id, nextPayload);
+        })
+      );
       setCollections((prev) =>
         prev.map((c) => (selectedCards.includes(c.id) ? { ...c, ...payload } : c))
       );
@@ -282,7 +291,14 @@ const FolderView = () => {
     if (!editCollection) return;
     setEditSaving(true);
     try {
-      const updated = await galleryService.updateCollection(editCollection.id, payload);
+      const { status: nextStatus, ...rest } = payload;
+      const statusPatch = nextStatus
+        ? buildDeliveryStatusPatch(nextStatus, editCollection)
+        : {};
+      const updated = await galleryService.updateCollection(editCollection.id, {
+        ...rest,
+        ...statusPatch,
+      });
       setCollections((prev) =>
         prev.map((c) => (c.id === updated.id ? { ...c, ...updated, photo_count: c.photo_count } : c))
       );

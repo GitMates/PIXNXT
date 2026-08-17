@@ -351,6 +351,8 @@
     display: flex;
     align-items: center;
     gap: 6px;
+    appearance: none;
+    -webkit-appearance: none;
     background-color: #f2f3f4;
     color: #333;
     padding: 6px 14px;
@@ -362,6 +364,22 @@
     cursor: pointer;
     border: 1px solid transparent;
     transition: all 0.2s;
+    font-family: inherit;
+    text-transform: uppercase;
+}
+
+.cd-status-wrap {
+    position: relative;
+    margin-left: 20px;
+}
+
+.cd-status-wrap .cd-status-badge {
+    margin-left: 0;
+}
+
+.cd-status-badge:disabled {
+    cursor: wait;
+    opacity: 0.7;
 }
 
 .cd-status-badge:hover {
@@ -377,6 +395,54 @@
 .cd-status-badge.published:hover {
     background-color: rgba(139, 223, 221, 0.25);
     border-color: #8BDFDD;
+}
+
+.cd-status-badge--hidden {
+    background-color: #ececec;
+    color: #555;
+    border: 1px solid #ddd;
+}
+
+.cd-status-badge--hidden:hover {
+    background-color: #e4e4e4;
+}
+
+.cd-status-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    min-width: 160px;
+    background: #fff;
+    border: 1px solid #f0f0f0;
+    border-radius: 8px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12);
+    z-index: 8000;
+    padding: 6px;
+    animation: cdFadeIn 0.12s ease;
+}
+
+.cd-status-option {
+    display: block;
+    width: 100%;
+    border: none;
+    background: transparent;
+    text-align: left;
+    padding: 9px 12px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.cd-status-option:hover {
+    background: #f5f5f5;
+}
+
+.cd-status-option.is-active {
+    background: rgba(139, 223, 221, 0.16);
+    color: #111;
 }
 
 .cd-topbar-right {
@@ -6063,6 +6129,13 @@
 .cd-status-badge.published:hover {
     background-color: rgba(139, 223, 221, 0.2) !important;
     border-color: rgba(139, 223, 221, 0.6) !important;
+}
+
+.cd-status-badge--hidden {
+    text-transform: uppercase !important;
+    letter-spacing: 0.8px !important;
+    font-weight: 700 !important;
+    font-family: 'Roboto', system-ui, sans-serif !important;
 }
 
 /* 2. Premium Lift for Share & Add Buttons */

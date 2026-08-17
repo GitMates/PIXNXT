@@ -2,6 +2,12 @@ import React, { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallba
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { DELIVERY_PRODUCT_HOME, deliveryStudioBackPath } from '../lib/deliveryIds';
+import {
+    DELIVERY_STATUS,
+    deliveryStatusLabel,
+    hasBeenPublished,
+    uiDeliveryStatus,
+} from '../lib/deliveryStatus';
 import { Heart, Play } from 'lucide-react';
 import { galleryService } from '../services/gallery.service';
 import { photoAiService } from '../services/photoAi.service';
@@ -188,7 +194,9 @@ const CollectionDashboard = () => {
     const [saving, setSaving] = useState(false);
     const [showUploadModal, setShowUploadModal] = useState(false);
     const [activeMediaTab, setActiveMediaTab] = useState('upload');
-    const [status, setStatus] = useState('DRAFT'); // DRAFT or PUBLISHED
+    const [status, setStatus] = useState(DELIVERY_STATUS.draft);
+    const [showStatusMenu, setShowStatusMenu] = useState(false);
+    const [statusSaving, setStatusSaving] = useState(false);
     const [showShareDropdown, setShowShareDropdown] = useState(false);
     const [isDraggingModal, setIsDraggingModal] = useState(false);
     const [isDraggingDropzone, setIsDraggingDropzone] = useState(false);
@@ -948,6 +956,7 @@ const CollectionDashboard = () => {
     const photoMenuRef = useRef(null);
     const gridSettingsRef = useRef(null);
     const moreRef = useRef(null);
+    const statusRef = useRef(null);
     const sortRef = useRef(null);
     const shareRef = useRef(null);
     const selectionMoreRef = useRef(null);
@@ -2154,7 +2163,7 @@ const CollectionDashboard = () => {
                 setCollection(data);
 
                 // Initialize state from collection data
-                if (data.status) setStatus(data.status.toUpperCase());
+                setStatus(uiDeliveryStatus(data));
                 if (data.slug) setCollectionUrl(data.slug);
                 setCategoryTags(categoryTagsFromCollection(data));
                 if (data.guest_password_hash) setCollectionPassword(data.guest_password_hash);
@@ -2683,7 +2692,7 @@ const CollectionDashboard = () => {
         setPhotoSearchQuery('');
     }, [activeSetId]);
 
-    const sharingOverlaysEnabled = status === 'PUBLISHED';
+    const sharingOverlaysEnabled = status === DELIVERY_STATUS.published;
 
     const handlePhotoSortFieldChange = useCallback((field) => {
         setPhotoSortField(field);
@@ -3800,6 +3809,7 @@ const CollectionDashboard = () => {
     useEffect(() => {
         const handleClickOutside = (e) => {
             if (shareRef.current && !shareRef.current.contains(e.target)) setShowShareDropdown(false);
+            if (statusRef.current && !statusRef.current.contains(e.target)) setShowStatusMenu(false);
             if (
                 photoMenuRef.current
                 && !photoMenuRef.current.contains(e.target)
@@ -3926,14 +3936,37 @@ const CollectionDashboard = () => {
         }
     };
 
-    const toggleStatus = async () => {
-        const newStatus = status === 'DRAFT' ? 'published' : 'draft';
+    const persistDeliveryStatus = async (nextStatus) => {
+        if (!collectionId || statusSaving) return;
+        if (nextStatus === status) {
+            setShowStatusMenu(false);
+            return;
+        }
+        setStatusSaving(true);
         try {
-            await galleryService.updateCollection(collectionId, { status: newStatus });
-            setStatus(newStatus.toUpperCase());
+            const saved = await galleryService.updateCollectionStatus(collectionId, nextStatus, collection);
+            const next = uiDeliveryStatus(saved);
+            setStatus(next);
+            setCollection((prev) => (prev ? { ...prev, ...saved } : saved));
+            setShowStatusMenu(false);
         } catch (err) {
             console.error('Error updating status:', err);
+            alert(err?.message || 'Could not update delivery status. Please try again.');
+        } finally {
+            setStatusSaving(false);
         }
+    };
+
+    const handleStatusBadgeClick = () => {
+        if (statusSaving) return;
+        setShowShareDropdown(false);
+        setShowMoreDropdown(false);
+        setShowPresetsSubmenu(false);
+        if (!hasBeenPublished({ status, published_at: collection?.published_at })) {
+            void persistDeliveryStatus(DELIVERY_STATUS.published);
+            return;
+        }
+        setShowStatusMenu((open) => !open);
     };
 
     if (loading) {
@@ -3995,11 +4028,53 @@ const CollectionDashboard = () => {
 
                 <header className="cd-topbar cd-topbar--shell">
                 <div className="cd-topbar-left">
-                    <div
-                        className={`cd-status-badge ${status === 'PUBLISHED' ? 'cd-status-badge--published published' : ''}`}
-                        onClick={toggleStatus}
-                    >
-                        {status === 'PUBLISHED' ? 'Published' : status}
+                    <div className="cd-status-wrap" ref={statusRef}>
+                        <button
+                            type="button"
+                            className={`cd-status-badge ${
+                                status === DELIVERY_STATUS.published
+                                    ? 'cd-status-badge--published published'
+                                    : status === DELIVERY_STATUS.archived
+                                        ? 'cd-status-badge--hidden'
+                                        : ''
+                            }`}
+                            aria-haspopup={hasBeenPublished({ status, published_at: collection?.published_at }) ? 'menu' : undefined}
+                            aria-expanded={showStatusMenu}
+                            disabled={statusSaving}
+                            title={
+                                hasBeenPublished({ status, published_at: collection?.published_at })
+                                    ? 'Change delivery status'
+                                    : 'Publish this delivery'
+                            }
+                            onClick={handleStatusBadgeClick}
+                        >
+                            <span>{statusSaving ? 'Saving…' : deliveryStatusLabel(status)}</span>
+                            {hasBeenPublished({ status, published_at: collection?.published_at }) ? (
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><polyline points="6 9 12 15 18 9"></polyline></svg>
+                            ) : null}
+                        </button>
+                        {showStatusMenu ? (
+                            <div className="cd-status-dropdown" role="menu">
+                                <button
+                                    type="button"
+                                    role="menuitemradio"
+                                    aria-checked={status === DELIVERY_STATUS.published}
+                                    className={`cd-status-option ${status === DELIVERY_STATUS.published ? 'is-active' : ''}`}
+                                    onClick={() => void persistDeliveryStatus(DELIVERY_STATUS.published)}
+                                >
+                                    Published
+                                </button>
+                                <button
+                                    type="button"
+                                    role="menuitemradio"
+                                    aria-checked={status === DELIVERY_STATUS.archived}
+                                    className={`cd-status-option ${status === DELIVERY_STATUS.archived ? 'is-active' : ''}`}
+                                    onClick={() => void persistDeliveryStatus(DELIVERY_STATUS.archived)}
+                                >
+                                    Hidden
+                                </button>
+                            </div>
+                        ) : null}
                     </div>
                     {lastSavedTime ? (
                         <span className="cd-topbar-save">All changes saved · {lastSavedTime}</span>
@@ -4015,6 +4090,7 @@ const CollectionDashboard = () => {
                             aria-haspopup="menu"
                             onClick={() => {
                                 setShowShareDropdown(false);
+                                setShowStatusMenu(false);
                                 if (showMoreDropdown) {
                                     setShowMoreDropdown(false);
                                     setShowPresetsSubmenu(false);
@@ -4100,6 +4176,7 @@ const CollectionDashboard = () => {
                             onClick={() => {
                                 setShowMoreDropdown(false);
                                 setShowPresetsSubmenu(false);
+                                setShowStatusMenu(false);
                                 setShowShareDropdown(!showShareDropdown);
                             }}
                         >

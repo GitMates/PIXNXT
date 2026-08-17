@@ -110,6 +110,16 @@
   border-color: #d4d4d8 !important;
 }
 
+.theme-mono.cd-dashboard-shell .cd-status-badge--hidden {
+  background-color: var(--cd-hover) !important;
+  color: var(--cd-muted) !important;
+  border: 1px solid var(--cd-border) !important;
+  box-shadow: none !important;
+  font-size: 11px !important;
+  letter-spacing: 0.04em !important;
+  text-transform: none !important;
+}
+
 /* Topbar actions */
 .theme-mono.cd-dashboard-shell .cd-text-btn,
 .theme-mono.cd-dashboard-shell .cd-back-btn {

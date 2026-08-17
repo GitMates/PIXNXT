@@ -8,6 +8,7 @@ import { extractRawPreviewBlob } from '../lib/rawImagePreview';
 import { hasRawDisplayPreview, isRawMedia, resolveMediaUrl, toThumbDerivativeUrl } from '../lib/photoDisplayUrl';
 import { generateCollectionSlug } from '../lib/collectionSlug';
 import { DELIVERY_R2_MODULE } from '../lib/deliveryIds';
+import { buildDeliveryStatusPatch, toDbDeliveryStatus } from '../lib/deliveryStatus';
 import {
   resolveUploadDefaults,
   webMaxEdgeForQuality,
@@ -1036,7 +1037,42 @@ export const galleryService = {
 
       const next = omitFailedUpdateField(payload, error);
       if (!next) break;
+      if ('status' in payload && !('status' in next)) break;
       payload = next;
+    }
+
+    throw lastError;
+  },
+
+  /**
+   * Persist delivery visibility (`draft` | `published` | `archived` / Hidden).
+   * Never drops `status` on retry — design autosave stripping must not apply here.
+   */
+  async updateCollectionStatus(id, status, collection) {
+    const payload = buildDeliveryStatusPatch(status, collection);
+    payload.status = toDbDeliveryStatus(payload.status);
+
+    let next = { ...payload };
+    let lastError = null;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const { data, error } = await supabase
+        .from('deliveries')
+        .update(next)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (!error) return data;
+      lastError = error;
+
+      const message = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`;
+      if (next.published_at && /published_at/i.test(message)) {
+        const stripped = { ...next };
+        delete stripped.published_at;
+        next = stripped;
+        continue;
+      }
+      break;
     }
 
     throw lastError;

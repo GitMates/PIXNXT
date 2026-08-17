@@ -7,13 +7,11 @@ import {
     normalizeCategoryTagsFromString,
 } from '../../../lib/categoryTags';
 import { cn } from '../../../lib/utils';
+import {
+    deliveryStatusOptions,
+    uiDeliveryStatus,
+} from '../../../lib/deliveryStatus';
 import './EditCollectionModal.css';
-
-const STATUS_OPTIONS = [
-    { value: 'published', label: 'Published' },
-    { value: 'draft', label: 'Draft' },
-    { value: 'archived', label: 'Hidden' },
-];
 
 const PRESET_TAGS = ['Wedding', 'Portrait', 'Editorial', 'Engagement', 'Family', 'Fashion', 'Maternity'];
 
@@ -29,7 +27,7 @@ export function EditCollectionModal({ collection, isOpen, onClose, onSave, onAdv
         if (!collection || !isOpen) return;
         setName(collection.name || '');
         setEventDate(collection.event_date ? collection.event_date.slice(0, 10) : '');
-        setStatus(collection.status || 'draft');
+        setStatus(uiDeliveryStatus(collection));
         setCategoryTags(collection.description || categoryTagsFromCollection(collection).join(', '));
         setShowOnShowcase(collection.show_on_showcase !== false);
         setTagInput('');
@@ -127,7 +125,7 @@ export function EditCollectionModal({ collection, isOpen, onClose, onSave, onAdv
                             value={status}
                             onChange={(e) => setStatus(e.target.value)}
                         >
-                            {STATUS_OPTIONS.map((opt) => (
+                            {deliveryStatusOptions(collection).map((opt) => (
                                 <option key={opt.value} value={opt.value}>{opt.label}</option>
                             ))}
                         </select>

@@ -14,6 +14,11 @@ import SidebarLayout from '../components/SidebarLayout';
 import { cn } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
+import {
+    buildDeliveryStatusPatch,
+    deliveryStatusDotClass,
+    deliveryStatusLabel,
+} from '../lib/deliveryStatus';
 import { openSpaPath } from '../lib/spaNavigation';
 import { openShareByEmail, openWhatsAppShare, getShareUrlForCollection } from '../lib/shareCollection';
 import { CollectionCardCover } from '../components/features/ClientGallery/CollectionCardCover';
@@ -55,9 +60,7 @@ import { ClientGalleryFilterBar } from '../components/features/ClientGallery/Cli
 import { getFolderStudioUrl } from '../lib/folderStudioUrl';
 
 function getStatusDotClass(status) {
-    if (status === 'published') return 'cg-status-dot--live';
-    if (status === 'archived') return 'cg-status-dot--hidden';
-    return 'cg-status-dot--draft';
+    return deliveryStatusDotClass(status);
 }
 
 const ClientGallery = () => {
@@ -122,7 +125,13 @@ const ClientGallery = () => {
         setBulkApplying(true);
         try {
             await Promise.all(
-                selectedCards.map((id) => galleryService.updateCollection(id, payload))
+                selectedCards.map((id) => {
+                    const col = collections.find((c) => c.id === id);
+                    const nextPayload = payload.status
+                        ? { ...payload, ...buildDeliveryStatusPatch(payload.status, col) }
+                        : payload;
+                    return galleryService.updateCollection(id, nextPayload);
+                })
             );
             setCollections((prev) =>
                 prev.map((c) => (selectedCards.includes(c.id) ? { ...c, ...payload } : c))
@@ -413,7 +422,14 @@ const ClientGallery = () => {
         if (!editCollection) return;
         setEditSaving(true);
         try {
-            const updated = await galleryService.updateCollection(editCollection.id, payload);
+            const { status: nextStatus, ...rest } = payload;
+            const statusPatch = nextStatus
+                ? buildDeliveryStatusPatch(nextStatus, editCollection)
+                : {};
+            const updated = await galleryService.updateCollection(editCollection.id, {
+                ...rest,
+                ...statusPatch,
+            });
             setCollections((prev) =>
                 prev.map((c) => (c.id === updated.id ? { ...c, ...updated, photo_count: c.photo_count } : c))
             );
@@ -833,8 +849,8 @@ const ClientGallery = () => {
                                             <span>•</span>
                                             <span
                                                 className={cn('size-2 rounded-full', getStatusDotClass(item.collection.status))}
-                                                title={item.collection.status || 'draft'}
-                                                aria-label={item.collection.status || 'draft'}
+                                                title={deliveryStatusLabel(item.collection.status)}
+                                                aria-label={deliveryStatusLabel(item.collection.status)}
                                             />
                                             {item.collection.guest_delivery_enabled && (
                                                 <span className="cg-gd-badge" title="Guest Delivery enabled">GD</span>
@@ -929,7 +945,7 @@ const ClientGallery = () => {
                                                 {formatStorageBytes(item.collection.storage_bytes)}
                                             </span>
                                         </div>
-                                        <span className={`cg-style-77 ${item.collection.status === 'published' ? 'bg-[#eefaf9] text-[#44aaa7] border border-[#bceceb]' : 'bg-[#f0f2f3] text-[#666]'}`}>{item.collection.status?.toUpperCase() || 'DRAFT'}</span>
+                                        <span className={`cg-style-77 ${item.collection.status === 'published' ? 'bg-[#eefaf9] text-[#44aaa7] border border-[#bceceb]' : 'bg-[#f0f2f3] text-[#666]'}`}>{deliveryStatusLabel(item.collection.status).toUpperCase()}</span>
                                     </div>
                                     <div className="cg-style-49">
                                         <span className="cg-style-46">-</span>
