@@ -58,7 +58,6 @@ export const COLOR_PALETTES: {
       colors: ["#ffffff", "#faf5f2", "#a66d5b"],
     },
     { id: "sand", name: "Sand", colors: ["#ffffff", "#f7f5f2", "#967b6b"] },
-    { id: "olive", name: "Olive", colors: ["#ffffff", "#f5f7f2", "#8c966b"] },
     { id: "agave", name: "Agave", colors: ["#ffffff", "#f2f7f6", "#6b968c"] },
     { id: "sea", name: "Sea", colors: ["#ffffff", "#f2f4f7", "#6b7a96"] },
     { id: "dark", name: "Dark", colors: ["#1a1a1a", "#111111", "#988383"] },

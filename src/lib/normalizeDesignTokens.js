@@ -1,4 +1,4 @@
-const VALID_PALETTES = ['light', 'gold', 'rose', 'terracotta', 'sand', 'olive', 'agave', 'sea', 'dark'];
+const VALID_PALETTES = ['light', 'gold', 'rose', 'terracotta', 'sand', 'agave', 'sea', 'dark'];
 const VALID_FONTS = ['sans', 'serif', 'modern', 'timeless', 'bold', 'subtle'];
 const VALID_COVER_UI = [
   'center', 'left', 'novel', 'vintage', 'frame', 'stripe', 'divider',
@@ -9,6 +9,7 @@ const VALID_COVER_UI = [
 export function normalizePaletteId(raw) {
   if (!raw) return 'light';
   const base = String(raw).replace(/_1$/, '');
+  if (base === 'olive') return 'agave';
   return VALID_PALETTES.includes(base) ? base : 'light';
 }
 
