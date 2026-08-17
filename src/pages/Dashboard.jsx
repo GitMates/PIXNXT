@@ -8,6 +8,7 @@ import { getThemeMode, setThemeMode, THEME_CHANGE_EVENT } from '../lib/appearanc
 import { navigateToAccount } from '../lib/accountBackNav';
 import AlbumListCoverThumb from '../components/smart-albums/AlbumListCoverThumb';
 import DashboardCommandSearch from '../components/dashboard/DashboardCommandSearch';
+import { coverImageCssStyle } from '../lib/focalPoint';
 import './Dashboard.css';
 
 const STUDIO_STATS = [
@@ -648,11 +649,7 @@ const Dashboard = () => {
                       className="sd-recent-thumb"
                       style={
                         item.coverUrl
-                          ? {
-                              backgroundImage: `url(${item.coverUrl})`,
-                              backgroundSize: 'cover',
-                              backgroundPosition: 'center',
-                            }
+                          ? coverImageCssStyle(item.coverUrl)
                           : { background: item.gradient }
                       }
                     />

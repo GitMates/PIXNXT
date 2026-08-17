@@ -95,6 +95,7 @@ import {
     appendCoverFocalsToCoverUrl,
     getCollectionFocal,
     getCollectionFocals,
+    getDefaultCoverFocals,
     stripMediaUrlHash,
 } from '../lib/focalPoint';
 import { CollectionGridPhoto } from '../components/features/CollectionDashboard/Media/CollectionGridPhoto';
@@ -1441,17 +1442,21 @@ const CollectionDashboard = () => {
 
     const coverPhoto = useMemo(() => {
         if (!photos?.length) return null;
+        const cover = stripMediaUrlHash(collection?.cover_url || '');
+        const urlMatch = (p) => {
+            if (!cover) return false;
+            const urls = [p.full_url, p.web_url, p.thumbnail_url, getPhotoFullDisplayUrl(p)]
+                .filter(Boolean)
+                .map((u) => stripMediaUrlHash(String(u)));
+            return urls.some((u) => u && (u === cover || cover.endsWith(u) || u.endsWith(cover)));
+        };
+        if (cover) {
+            return photos.find(urlMatch) || null;
+        }
         if (collection?.cover_photo_id) {
             return photos.find((p) => String(p.id) === String(collection.cover_photo_id)) || null;
         }
-        const cover = stripMediaUrlHash(collection?.cover_url || '');
-        if (!cover) return null;
-        return (
-            photos.find((p) => {
-                const urls = [p.full_url, p.web_url, p.thumbnail_url].filter(Boolean).map((u) => stripMediaUrlHash(String(u)));
-                return urls.some((u) => u && (u === cover || cover.endsWith(u) || u.endsWith(cover)));
-            }) || null
-        );
+        return null;
     }, [photos, collection?.cover_photo_id, collection?.cover_url]);
 
     const handleCoverPhotoSelect = async (photo) => {
@@ -1459,14 +1464,21 @@ const CollectionDashboard = () => {
         if (!coverUrl || !collectionId) return;
         try {
             setIsCoverUploading(true);
+            const defaultFocals = getDefaultCoverFocals();
             await galleryService.updateCollection(collectionId, {
                 cover_photo_id: photo.id,
                 cover_url: coverUrl,
+                cover_focal_x: 50,
+                cover_focal_y: 50,
+                cover_focals: defaultFocals,
             });
             setCollection((prev) => ({
                 ...prev,
                 cover_url: coverUrl,
                 cover_photo_id: photo.id,
+                cover_focals: defaultFocals,
+                cover_focal_x: 50,
+                cover_focal_y: 50,
             }));
         } catch (err) {
             console.error('Failed to set cover:', err);
@@ -1494,7 +1506,10 @@ const CollectionDashboard = () => {
             const savedFocals = updated?.cover_focals;
             const hasSavedFocals =
                 savedFocals && typeof savedFocals === 'object' && Object.keys(savedFocals).length > 0;
-            const nextCoverUrl = appendCoverFocalsToCoverUrl(updated?.cover_url || coverUrl, focals);
+            const savedClean = stripMediaUrlHash(updated?.cover_url || coverUrl);
+            const nextCoverUrl = hasSavedFocals
+                ? savedClean
+                : appendCoverFocalsToCoverUrl(savedClean, focals);
             setCollection((prev) => ({
                 ...prev,
                 ...updated,
@@ -1578,11 +1593,17 @@ const CollectionDashboard = () => {
             await galleryService.updateCollection(collectionId, {
                 cover_photo_id: photoData.id,
                 cover_url: coverUrl,
+                cover_focal_x: 50,
+                cover_focal_y: 50,
+                cover_focals: getDefaultCoverFocals(),
             });
             setCollection((prev) => ({
                 ...prev,
                 cover_url: coverUrl,
                 cover_photo_id: photoData.id,
+                cover_focals: getDefaultCoverFocals(),
+                cover_focal_x: 50,
+                cover_focal_y: 50,
             }));
         } catch (err) {
             console.error('Cover file upload failed:', err);
@@ -4298,8 +4319,8 @@ const CollectionDashboard = () => {
             <div className="cd-layout-body">
                 <CollectionDashboardSidebar
                     coverUrl={collection?.cover_url}
-                    coverFocalX={collectionFocals.card?.x}
-                    coverFocalY={collectionFocals.card?.y}
+                    coverFocalX={collectionFocals.desktop?.x ?? collectionFocal.x}
+                    coverFocalY={collectionFocals.desktop?.y ?? collectionFocal.y}
                     isCoverUploading={isCoverUploading}
                     onCoverPhotoDrop={handleCoverPhotoDropById}
                     onSelectCoverFromCollection={() =>
@@ -4652,7 +4673,7 @@ const CollectionDashboard = () => {
                                             ? sets.find((s) => s.id === activeSetId)?.description || ''
                                             : (collection?.description || sets[0]?.description || '')
                                     }
-                                    coverPhotoUrl={collection?.cover_url || (photos.length > 0 ? photos[0].full_url : null)}
+                                    coverPhotoUrl={stripMediaUrlHash(collection?.cover_url || '') || (photos.length > 0 ? photos[0].full_url : null)}
                                     gridPhotos={photos}
                                     previewMode={previewMode}
                                     onPreviewModeChange={setPreviewMode}
@@ -4695,7 +4716,9 @@ const CollectionDashboard = () => {
                                         colorPalette: selectedColorPalette,
                                         grid: gridSettings
                                     }}
-                                    coverPhotoUrl={collection?.cover_url || (photos.length > 0 ? photos[0].full_url : null)}
+                                    coverPhotoUrl={stripMediaUrlHash(collection?.cover_url || '') || (photos.length > 0 ? photos[0].full_url : null)}
+                                    coverFocalX={collectionFocals.desktop?.x ?? collectionFocal.x}
+                                    coverFocalY={collectionFocals.desktop?.y ?? collectionFocal.y}
                                     onSettingsChange={(newSettings) => {
                                         setSelectedCoverStyle(newSettings.coverStyle);
                                         setSelectedFont(normalizeFontId(newSettings.fontFamily));

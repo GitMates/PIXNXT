@@ -198,6 +198,21 @@
   opacity: 1 !important;
 }
 
+@media (max-width: 768px) {
+  .gallery-view-hero {
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+    max-height: 100dvh !important;
+    overflow: hidden;
+  }
+
+  .gallery-view-hero > [class*='-layout'] {
+    height: 100% !important;
+    min-height: 100% !important;
+    max-height: 100% !important;
+  }
+}
+
 .gallery-view-hero .cover-over-photo .gallery-heading,
 .gallery-view-hero .cover-over-photo .cover-text-grid__title,
 .gallery-view-hero .cover-over-photo .cover-text-grid__subtitle,

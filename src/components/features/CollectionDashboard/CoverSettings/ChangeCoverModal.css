@@ -507,6 +507,7 @@
 }
 
 .cover-focal-preview__frame {
+  position: relative;
   display: block;
   width: 100%;
   overflow: hidden;
@@ -519,6 +520,8 @@
 }
 
 .cover-focal-preview__frame img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;

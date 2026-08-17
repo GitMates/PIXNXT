@@ -6,7 +6,7 @@ import { galleryService } from '../services/gallery.service';
 import { clientGalleryEmailTemplatesService, resolveTemplateBody } from '../services/clientGalleryEmailTemplates.service';
 import RichTextEditor from '../components/RichTextEditor';
 import { getShareUrlForCollection, getQrCodeImageUrl } from '../lib/shareCollection';
-import { getCoverFocalForSurface } from '../lib/focalPoint';
+import { getCoverFocalForSurface, stripMediaUrlHash } from '../lib/focalPoint';
 import './CollectionShare.css';
 
 const CollectionShare = () => {
@@ -389,7 +389,7 @@ const CollectionShare = () => {
     }
 
     const shareUrl = getShareUrlForCollection(collection);
-    const coverUrl = collection?.cover_url || collection?.cover;
+    const coverUrl = stripMediaUrlHash(collection?.cover_url || collection?.cover || '');
     const emailFocal = getCoverFocalForSurface(collection, 'email');
 
     return (

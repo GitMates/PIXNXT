@@ -5,7 +5,8 @@ import { isBrowserDisplayableImageUrl } from './rawImagePreview';
 /** Ensure grid/lightbox URLs are absolute (legacy rows may store storage paths only). */
 export function resolveMediaUrl(url) {
   if (!url) return '';
-  const trimmed = String(url).trim();
+  const trimmed = String(url).trim().split('#')[0];
+  if (!trimmed) return '';
   if (/^https?:\/\//i.test(trimmed)) return trimmed;
   if (!R2_PUBLIC_URL) return trimmed;
   const base = R2_PUBLIC_URL.endsWith('/') ? R2_PUBLIC_URL : `${R2_PUBLIC_URL}/`;

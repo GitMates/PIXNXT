@@ -400,7 +400,6 @@
 
 .cd-design-preview-pane.mobile .style-novel .cd-preview-gallery-header {
     flex-direction: column-reverse;
-    height: auto;
 }
 
 .cd-design-preview-pane.mobile .style-novel .header-left {
@@ -940,7 +939,8 @@
 }
 
 .cd-design-preview-pane.mobile .cd-preview-gallery-header {
-    min-height: 280px;
+    min-height: 100%;
+    height: 100%;
 }
 
 .cd-design-preview-pane:not(.mobile) .cd-preview-gallery-card.style-left .cd-preview-gallery-header {
@@ -949,8 +949,8 @@
 }
 
 .cd-design-preview-pane.mobile .cd-preview-gallery-card.style-left .cd-preview-gallery-header {
-    min-height: 220px;
-    height: 240px;
+    min-height: 100%;
+    height: 100%;
 }
 
 /* Button colors live in index.css (.cover-text-grid__button.view-gallery-btn); sizes below for legacy layouts */

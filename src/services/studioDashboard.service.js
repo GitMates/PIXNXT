@@ -10,6 +10,7 @@ import {
   mergeAlbumProofTimestamps,
 } from '../components/smart-albums/albumProofStatus';
 import { formatRelativeTime, formatAlbumCardTime } from '../lib/relativeTime';
+import { stripMediaUrlHash } from '../lib/focalPoint';
 import { INITIAL_STAGES } from '../components/portal/portalData';
 import {
   LAB_PIPELINE_STEPS,
@@ -40,14 +41,14 @@ function formatInr(amount) {
 }
 
 function coverOf(item) {
-  return (
+  return stripMediaUrlHash(
     item?.cover_url ||
     item?.list_cover_url ||
     item?.cover_image_url ||
     item?.icon_url ||
     item?.cover ||
-    null
-  );
+    ''
+  ) || null;
 }
 
 function activityAt(item) {

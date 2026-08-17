@@ -16,7 +16,7 @@ import { DownloadModal } from '../../components/features/Gallery/DownloadModal/D
 import { ShareCollectionModal } from '../../components/features/Gallery/ShareCollectionModal/ShareCollectionModal';
 import { downloadSinglePhotoFile } from '../../lib/downloadPhoto';
 import { formatCoverDate } from '../../lib/formatCoverDate.js';
-import { getCollectionFocal, getCollectionFocals } from '../../lib/focalPoint';
+import { getCollectionFocal, getCollectionFocals, stripMediaUrlHash } from '../../lib/focalPoint';
 import {
   GalleryStickyNav,
   GallerySetDescription,
@@ -1922,7 +1922,7 @@ const GalleryView = () => {
         data-cover-text-scale={isMobileViewport ? 'compact' : 'large'}
       >
         {(() => {
-          let activePhotoUrl = collection.cover_url || '';
+          let activePhotoUrl = stripMediaUrlHash(collection.cover_url || '');
           if (activePhotoUrl) {
             activePhotoUrl = resolveMediaUrl(activePhotoUrl);
             if (activePhotoUrl.includes('/original/')) {

@@ -27,6 +27,7 @@ import {
   isNumericOverflowError,
   normalizeFocalForDb,
   normalizeFocalPercent,
+  stripMediaUrlHash,
 } from '../lib/focalPoint.js';
 
 function toggleDesignTokenSuffix(value) {
@@ -969,10 +970,11 @@ export const galleryService = {
   async saveCollectionCoverFocals(collectionId, coverUrl, focals, extra = {}) {
     const payload = focalsToDbPayload(focals);
     const primary = payload.desktop || payload.website || { x: 50, y: 50 };
-    const newCoverUrl = appendCoverFocalsToCoverUrl(coverUrl, payload);
+    const cleanUrl = stripMediaUrlHash(coverUrl);
+    const hashedUrl = appendCoverFocalsToCoverUrl(cleanUrl, payload);
     const fullPatch = {
       ...extra,
-      cover_url: newCoverUrl,
+      cover_url: cleanUrl,
       cover_focal_x: primary.x,
       cover_focal_y: primary.y,
       cover_focals: payload,
@@ -985,16 +987,16 @@ export const galleryService = {
         console.warn(
           'cover_focals column missing — saving focals on cover_url. Run migration 20260816150000_cover_focals.sql'
         );
-        const { cover_focals: _ignored, ...withoutJson } = fullPatch;
+        const { cover_focals: _ignored, ...withoutJson } = { ...fullPatch, cover_url: hashedUrl };
         try {
           return await this.updateCollection(collectionId, withoutJson);
         } catch (inner) {
           void inner;
-          return this.saveCollectionFocalPoint(collectionId, coverUrl, primary.x, primary.y);
+          return this.saveCollectionFocalPoint(collectionId, cleanUrl, primary.x, primary.y);
         }
       }
       if (isMissingDbColumnError(err, 'cover_focal') || isNumericOverflowError(err)) {
-        return this.saveCollectionFocalPoint(collectionId, coverUrl, primary.x, primary.y);
+        return this.saveCollectionFocalPoint(collectionId, cleanUrl, primary.x, primary.y);
       }
       throw err;
     }

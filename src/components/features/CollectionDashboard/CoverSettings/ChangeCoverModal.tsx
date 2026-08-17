@@ -88,8 +88,9 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
   }, [draftPhoto, coverPhoto, imagePhotos, coverUrl]);
 
   const editorSrc = stripMediaUrlHash(
-    (resolvedPhoto && (getPhotoFullDisplayUrl(resolvedPhoto) || resolvedPhoto.full_url || resolvedPhoto.web_url)) ||
+    (draftPhoto && (getPhotoFullDisplayUrl(draftPhoto) || draftPhoto.full_url || draftPhoto.web_url)) ||
       coverUrl ||
+      (resolvedPhoto && (getPhotoFullDisplayUrl(resolvedPhoto) || resolvedPhoto.full_url || resolvedPhoto.web_url)) ||
       ''
   );
 

@@ -11,6 +11,7 @@ import { CoverStyleId, FontId, GridSettings, PaletteId } from '../../../../types
 import { galleryGridStyleLabel } from '../../../../lib/galleryGridStyle';
 import { cn } from '../../../../lib/utils';
 import { normalizeFontId, normalizePaletteId } from '../../../../lib/normalizeDesignTokens';
+import { coverImageCssStyle } from '../../../../lib/focalPoint';
 import './DesignWorkspace.css';
 
 const FEATURED_COVER_IDS: CoverStyleId[] = [
@@ -262,6 +263,8 @@ const NAVIGATION_OPTIONS = [
 export const DesignPanel: React.FC<DesignTabProps> = ({
   settings,
   coverPhotoUrl,
+  coverFocalX = 50,
+  coverFocalY = 50,
   onSettingsChange,
   onOpenCoverModal,
   onOpenFocalModal,
@@ -287,7 +290,7 @@ export const DesignPanel: React.FC<DesignTabProps> = ({
     THUMBNAIL_SIZES.find((item) => item.id === settings.grid.size)?.name?.toLowerCase() ??
     'regular';
 
-  const imageStyle = coverPhotoUrl ? { backgroundImage: `url(${coverPhotoUrl})` } : {};
+  const imageStyle = coverImageCssStyle(coverPhotoUrl, coverFocalX, coverFocalY);
 
   const handleCoverChange = (id: CoverStyleId) => {
     onSettingsChange({ ...settings, coverStyle: id });

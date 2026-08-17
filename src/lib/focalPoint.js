@@ -50,6 +50,19 @@ export function normalizeFocalPercent(value) {
   return Math.round(Math.max(0, Math.min(100, n)) * 10) / 10;
 }
 
+/** Safe CSS background for a cover photo. Hashed cover_url values break unquoted url(). */
+export function coverImageCssStyle(url, focalX = 50, focalY = 50) {
+  const src = stripMediaUrlHash(url);
+  if (!src) return {};
+  const escaped = src.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  return {
+    backgroundImage: `url("${escaped}")`,
+    backgroundSize: 'cover',
+    backgroundPosition: `${normalizeFocalPercent(focalX)}% ${normalizeFocalPercent(focalY)}%`,
+    backgroundRepeat: 'no-repeat',
+  };
+}
+
 /** Integer 0–100 for DB columns (safe for numeric(5,2) and smallint). */
 export function normalizeFocalForDb(value) {
   return Math.round(normalizeFocalPercent(value));

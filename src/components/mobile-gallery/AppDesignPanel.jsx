@@ -17,6 +17,7 @@ import {
 } from '../../lib/mobileGalleryDesign';
 
 import { sortMobileGalleryPhotos } from '../../lib/mobileGalleryPhotoSort';
+import { coverImageCssStyle } from '../../lib/focalPoint';
 
 import FocalPointModal from './FocalPointModal';
 import ThemeCoverContent, { ThemeThumbContent } from './ThemeCoverContent';
@@ -209,11 +210,9 @@ function DesignPhonePreview({
     scrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
   }, [design.cover_style]);
 
-  const coverStyle = {
-    backgroundImage: previewBgUrl && design.cover_style !== 'none' ? `url(${previewBgUrl})` : undefined,
-    backgroundSize: 'cover',
-    backgroundPosition: `${focalX}% ${focalY}%`,
-  };
+  const coverStyle = previewBgUrl && design.cover_style !== 'none'
+    ? coverImageCssStyle(previewBgUrl, focalX, focalY)
+    : {};
 
 
 

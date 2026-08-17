@@ -2,15 +2,18 @@ import React from 'react';
 import { CoverSettingsProps } from './CoverSettings.types';
 import { COVER_STYLES } from '../../../../../constants/designOptions';
 import { cn } from '../../../../../lib/utils';
+import { coverImageCssStyle } from '../../../../../lib/focalPoint';
 
 export const CoverSettings: React.FC<CoverSettingsProps> = ({
   selectedStyle,
   coverPhotoUrl,
+  coverFocalX = 50,
+  coverFocalY = 50,
   onChange,
   onOpenCoverModal,
   onOpenFocalModal
 }) => {
-  const imageStyle = coverPhotoUrl ? { backgroundImage: `url(${coverPhotoUrl})` } : {};
+  const imageStyle = coverImageCssStyle(coverPhotoUrl, coverFocalX, coverFocalY);
 
   return (
     <div className="cd-design-settings-pane">
