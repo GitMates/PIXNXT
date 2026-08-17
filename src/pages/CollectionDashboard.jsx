@@ -14,9 +14,12 @@ import { photoAiService } from '../services/photoAi.service';
 import {
     filterPhotosByPerson,
     filterPhotosByIds,
+    peopleInPhoto,
 } from '../lib/photoAiSearch';
 import { CollectionPhotosWorkspaceHeader } from '../components/features/CollectionDashboard/Photos/CollectionPhotosWorkspaceHeader';
 import '../components/features/CollectionDashboard/Photos/CollectionPhotosWorkspaceHeader.css';
+import { PhotoOptionsMenu } from '../components/features/CollectionDashboard/Media/PhotoOptionsMenu';
+import '../components/features/CollectionDashboard/Media/PhotoOptionsMenu.css';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase/client';
 import { DesignTab } from '../components/features/CollectionDashboard/DesignTab';
@@ -512,6 +515,7 @@ const CollectionDashboard = () => {
     const [coverModalInitialView, setCoverModalInitialView] = useState('edit');
     /** 'all' | 'highlights' | set uuid */
     const [coverModalScope, setCoverModalScope] = useState('all');
+    const [coverModalPhotoOverride, setCoverModalPhotoOverride] = useState(null);
     const [isCoverUploading, setIsCoverUploading] = useState(false);
     const coverModalFileInputRef = useRef(null);
     const [activeSettingsTab, setActiveSettingsTab] = useState('general'); // general, privacy, download, favorite
@@ -1149,7 +1153,33 @@ const CollectionDashboard = () => {
             setPhotos(prev => prev.map(p => p.id === photoId ? { ...p, is_starred: updatedPhoto.is_starred } : p));
         } catch (err) {
             console.error('Star toggle failed:', err);
+            alert('Could not update starred. Please try again.');
         }
+    };
+
+    const handleTogglePhotoHidden = async (photo) => {
+        if (!photo?.id) return;
+        const nextHidden = !photo.is_private;
+        try {
+            const updated = await galleryService.updatePhoto(photo.id, { is_private: nextHidden });
+            setPhotos((prev) =>
+                prev.map((p) => (p.id === photo.id ? { ...p, is_private: updated.is_private } : p))
+            );
+        } catch (err) {
+            console.error('Hide from client failed:', err);
+            alert('Could not update visibility. Please try again.');
+        }
+    };
+
+    const handleWhoIsInThis = (photo) => {
+        const matches = peopleInPhoto(photo?.id, photoAiPeople, photoAiMetadataMap);
+        closePhotoMenu();
+        if (!matches.length) {
+            alert('No people found in this photograph yet.');
+            return;
+        }
+        setActivePersonId(matches[0].id);
+        setActiveSidebarTab('photos');
     };
 
     const deleteSelectedPhotos = async (ids = selectedPhotos) => {
@@ -1487,6 +1517,15 @@ const CollectionDashboard = () => {
 
     const handleSetAsCover = (photo) => {
         void handleCoverPhotoSelect(photo);
+    };
+
+    const handleUseAsDeliveryCover = (photo) => {
+        if (!photo) return;
+        closePhotoMenu();
+        setCoverModalPhotoOverride(photo);
+        setCoverModalScope('all');
+        setCoverModalInitialView('edit');
+        setShowCoverModal(true);
     };
 
     const handleCoverPhotoDropById = (photoId) => {
@@ -2920,6 +2959,7 @@ const CollectionDashboard = () => {
     const closeCoverModal = () => {
         setShowCoverModal(false);
         setCoverModalScope('all');
+        setCoverModalPhotoOverride(null);
     };
 
     useEffect(() => {
@@ -4435,7 +4475,7 @@ const CollectionDashboard = () => {
                                             const isPending = Boolean(photo._uploadPending);
                                             return (
                                             <div
-                                                className={`cd-photo-card ${selectedPhotos.includes(photo.id) ? 'selected' : ''} ${photoMenu === photo.id ? 'cd-photo-card--menu-open' : ''} ${isPending ? 'cd-photo-card--pending' : ''}${isDragging ? ' cd-photo-card--sort-dragging' : ''}`}
+                                                className={`cd-photo-card ${selectedPhotos.includes(photo.id) ? 'selected' : ''} ${photoMenu === photo.id ? 'cd-photo-card--menu-open' : ''} ${photo.is_starred ? 'cd-photo-card--starred' : ''} ${photo.is_private ? 'cd-photo-card--hidden' : ''} ${isPending ? 'cd-photo-card--pending' : ''}${isDragging ? ' cd-photo-card--sort-dragging' : ''}`}
                                                 onClick={() => {
                                                     if (consumeClick?.()) return;
                                                     togglePhotoSelection(photo.id);
@@ -4463,36 +4503,56 @@ const CollectionDashboard = () => {
                                                                 In list
                                                             </span>
                                                         ) : null}
+                                                        {photo.is_private ? (
+                                                            <span className="cd-photo-overlay-badge cd-photo-overlay-badge--hidden">
+                                                                Hidden
+                                                            </span>
+                                                        ) : null}
                                                     </div>
                                                     {!isPending && (
                                                     <>
-                                                    <div className="cd-photo-actions">
                                                     <button
                                                         type="button"
-                                                        className="cd-photo-more-btn"
-                                                        aria-haspopup="menu"
-                                                        aria-expanded={photoMenu === photo.id}
+                                                        className={`cd-photo-check ${selectedPhotos.includes(photo.id) ? 'is-checked' : ''}`}
+                                                        aria-label={selectedPhotos.includes(photo.id) ? 'Deselect photograph' : 'Select photograph'}
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            openPhotoMenuFor(
-                                                                photo.id,
-                                                                e.currentTarget,
-                                                                menuAlignLeft,
-                                                                selectedPhotos.length > 0 ? SELECTION_TOOLBAR_RESERVE : 0
-                                                            );
+                                                            togglePhotoSelection(photo.id);
                                                         }}
                                                     >
-                                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+                                                        {selectedPhotos.includes(photo.id) ? (
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                                        ) : null}
                                                     </button>
-                                                </div>
-                                                <button
-                                                    className={`cd-photo-star ${photo.is_starred ? 'active' : ''}`}
-                                                    onClick={(e) => { e.stopPropagation(); handleToggleStar(photo.id, photo.is_starred); }}
-                                                >
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill={photo.is_starred ? "#FFC107" : "none"} stroke={photo.is_starred ? "#FFC107" : "#bbb"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-                                                </button>
-                                                </>
-                                                )}
+                                                    <div className="cd-photo-hover-tools">
+                                                        <button
+                                                            type="button"
+                                                            className={`cd-photo-star ${photo.is_starred ? 'active' : ''}`}
+                                                            aria-label={photo.is_starred ? 'Unstar photograph' : 'Star photograph'}
+                                                            onClick={(e) => { e.stopPropagation(); handleToggleStar(photo.id, photo.is_starred); }}
+                                                        >
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill={photo.is_starred ? "#FFC107" : "none"} stroke={photo.is_starred ? "#FFC107" : "#fff"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            className="cd-photo-more-btn"
+                                                            aria-haspopup="menu"
+                                                            aria-expanded={photoMenu === photo.id}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                openPhotoMenuFor(
+                                                                    photo.id,
+                                                                    e.currentTarget,
+                                                                    menuAlignLeft,
+                                                                    selectedPhotos.length > 0 ? SELECTION_TOOLBAR_RESERVE : 0
+                                                                );
+                                                            }}
+                                                        >
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"></circle><circle cx="12" cy="12" r="1.6"></circle><circle cx="12" cy="19" r="1.6"></circle></svg>
+                                                        </button>
+                                                    </div>
+                                                    </>
+                                                    )}
                                                 </div>
                                                 {showFilename && (
                                                     <div
@@ -4885,59 +4945,48 @@ const CollectionDashboard = () => {
                         const menuPhoto = gridPhotos.find((p) => p.id === photoMenu) || photos.find((p) => p.id === photoMenu);
                         if (!menuPhoto) return null;
                         const menuIndex = gridPhotos.findIndex((p) => p.id === menuPhoto.id);
+                        const peopleCount = peopleInPhoto(menuPhoto.id, photoAiPeople, photoAiMetadataMap).length;
+                        const isCover = Boolean(
+                            (collection?.cover_photo_id && String(collection.cover_photo_id) === String(menuPhoto.id))
+                            || coverPhoto?.id === menuPhoto.id
+                        );
                         return createPortal(
                             <div
-                                className={`cd-photo-menu cd-photo-menu--portal${photoMenuAlignLeft ? ' cd-photo-menu--align-left' : ''}`}
+                                className={`cd-photo-menu cd-photo-menu--portal cd-photo-menu--pixnxt${photoMenuAlignLeft ? ' cd-photo-menu--align-left' : ''}`}
                                 ref={photoMenuRef}
                                 role="menu"
                                 style={photoMenuPosition}
                                 onMouseDown={(e) => e.stopPropagation()}
                                 onClick={(e) => e.stopPropagation()}
                             >
-                                <div className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); closePhotoMenu(); setLightboxOpenIndex(menuIndex >= 0 ? menuIndex : 0); }}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
-                                    <span className="cd-ctx-text">Open</span>
-                                    <span className="cd-ctx-hotkey">spacebar</span>
-                                </div>
-                                <div className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); closePhotoMenu(); handleQuickShare(menuPhoto); }}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
-                                    <span>Quick share</span>
-                                </div>
-                                <div className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); closePhotoMenu(); handleDownloadPhoto(menuPhoto); }}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                                    <span>Download</span>
-                                </div>
-                                <div className="cd-ctx-divider"></div>
-                                <div className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); closePhotoMenu(); setEditingPhoto(menuPhoto); setTargetSetId(menuPhoto.set_id); setMoveMode('move'); setShowMoveModal(true); }}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
-                                    <span>Move/Copy</span>
-                                </div>
-                                <div className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); closePhotoMenu(); handleCopyFilename(menuPhoto); }}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                                    <span>Copy filenames</span>
-                                </div>
-                                <div className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); closePhotoMenu(); handleSetAsCover(menuPhoto); }}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                                    <span>Set as cover</span>
-                                </div>
-                                <div className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); closePhotoMenu(); setEditingPhoto(menuPhoto); setNewPhotoName(menuPhoto.filename); setShowRenameModal(true); }}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
-                                    <span>Rename</span>
-                                </div>
-                                <div className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); closePhotoMenu(); setEditingPhoto(menuPhoto); setShowReplaceModal(true); }}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9"></path></svg>
-                                    <span>Replace photo</span>
-                                </div>
-                                <div className="cd-ctx-divider"></div>
-                                <div className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); closePhotoMenu(); setEditingPhoto(menuPhoto); setShowWatermarkModal(true); }}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M14.83 14.83a4 4 0 1 1 0-5.66"></path></svg>
-                                    <span>Watermark</span>
-                                </div>
-                                <div className="cd-ctx-divider"></div>
-                                <div className="cd-ctx-item cd-ctx-delete" role="menuitem" onClick={(e) => { e.stopPropagation(); closePhotoMenu(); deleteSelectedPhotos([menuPhoto.id]); }}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                                    <span>Delete</span>
-                                </div>
+                                <PhotoOptionsMenu
+                                    photo={menuPhoto}
+                                    photographNumber={menuIndex >= 0 ? menuIndex + 1 : 1}
+                                    peopleCount={peopleCount}
+                                    isCover={isCover}
+                                    onToggleStar={(p) => handleToggleStar(p.id, p.is_starred)}
+                                    onUseAsCover={handleUseAsDeliveryCover}
+                                    onMoveToSet={(p) => {
+                                        closePhotoMenu();
+                                        setEditingPhoto(p);
+                                        setTargetSetId(p.set_id);
+                                        setMoveMode('move');
+                                        setShowMoveModal(true);
+                                    }}
+                                    onToggleHidden={(p) => {
+                                        closePhotoMenu();
+                                        void handleTogglePhotoHidden(p);
+                                    }}
+                                    onDownloadOriginal={(p) => {
+                                        closePhotoMenu();
+                                        void handleDownloadPhoto(p);
+                                    }}
+                                    onWhoIsInThis={handleWhoIsInThis}
+                                    onRemove={(p) => {
+                                        closePhotoMenu();
+                                        void deleteSelectedPhotos([p.id]);
+                                    }}
+                                />
                             </div>,
                             document.body
                         );
@@ -5356,7 +5405,7 @@ const CollectionDashboard = () => {
                 onClose={closeCoverModal}
                 photos={coverModalPhotos}
                 coverUrl={collection?.cover_url}
-                coverPhoto={coverPhoto}
+                coverPhoto={coverModalPhotoOverride || coverPhoto}
                 initialFocals={collectionFocals}
                 initialView={coverModalInitialView}
                 sets={sets}

@@ -402,7 +402,7 @@ const Dashboard = () => {
     return () => {
       cancelled = true;
     };
-  }, [user, profile?.display_name, profile?.email, profile?.storage_used_bytes]);
+  }, [user?.id]);
 
   useEffect(() => {
     const onDoc = (e) => {

@@ -1303,10 +1303,11 @@ const GalleryView = () => {
   const photosForActiveSet = useMemo(() => {
     if (!collection) return [];
     if (isFavoriteListMode) return favoriteListPhotos || [];
+    const source = (collection.photos || []).filter((p) => isClientViewer || !p.is_private);
     return activeSetId
-      ? (collection.photos || []).filter((p) => p.set_id === activeSetId)
-      : (collection.photos || []).filter((p) => !p.set_id);
-  }, [collection, activeSetId, isFavoriteListMode, favoriteListPhotos]);
+      ? source.filter((p) => p.set_id === activeSetId)
+      : source.filter((p) => !p.set_id);
+  }, [collection, activeSetId, isFavoriteListMode, favoriteListPhotos, isClientViewer]);
 
   const visibleSets = useMemo(() => {
     if (!collection?.sets) return [];

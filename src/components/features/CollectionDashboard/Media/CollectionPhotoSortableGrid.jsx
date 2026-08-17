@@ -134,7 +134,7 @@ function buildNextIds(display, lockedIndices, fromIndex, overIndex) {
 }
 
 const INTERACTIVE_SELECTOR =
-    '.cd-photo-more-btn, .cd-photo-star, .cd-photo-menu, .cd-ctx-item, button, a, input, label';
+    '.cd-photo-more-btn, .cd-photo-star, .cd-photo-check, .cd-photo-hover-tools, .cd-photo-menu, .cd-ctx-item, button, a, input, label';
 
 function getScrollParent(gridEl) {
     return gridEl?.closest('.cd-main-area') || gridEl?.closest('.cd-main-wrapper') || null;

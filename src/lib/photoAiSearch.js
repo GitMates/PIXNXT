@@ -103,6 +103,16 @@ export function buildPeopleFromMetadata(metadataRows, photos) {
     }));
 }
 
+/** People whose clustered faces appear on this photograph. */
+export function peopleInPhoto(photoId, people, metadataByPhotoId) {
+  const faces = metadataByPhotoId?.[photoId]?.faces || [];
+  const faceIds = new Set(faces.map((f) => f.faceId).filter(Boolean));
+  if (!faceIds.size) return [];
+  return (people || []).filter((person) =>
+    (person.faceIds || []).some((id) => faceIds.has(id))
+  );
+}
+
 /** Collect unique label suggestions for search chips */
 export function collectLabelSuggestions(metadataRows, limit = 12) {
   const counts = new Map();

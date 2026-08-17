@@ -215,18 +215,21 @@ export function CollectionDashboardSidebar({
     if (!user?.id) return undefined;
     try {
       const cached = localStorage.getItem(`photographer_profile_${user.id}`);
-      if (cached) setProfile(JSON.parse(cached));
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        setProfile((prev) => (prev?.id === parsed?.id ? prev : parsed));
+      }
     } catch {
       /* ignore */
     }
     let cancelled = false;
-    userStorageService.calculateUserStorageBytes(user, profile).then((bytes) => {
+    userStorageService.calculateUserStorageBytes(user).then((bytes) => {
       if (!cancelled && typeof bytes === 'number' && bytes >= 0) setStorageBytes(bytes);
     });
     return () => {
       cancelled = true;
     };
-  }, [user, profile]);
+  }, [user?.id]);
 
   const maxBytes = useMemo(() => {
     const planLimit = user?.user_metadata?.storage_limit_bytes;

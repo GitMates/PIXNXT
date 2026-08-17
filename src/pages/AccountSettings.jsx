@@ -182,7 +182,7 @@ export default function AccountSettings() {
                 if (typeof bytes === 'number' && bytes >= 0) setUsedBytes(bytes);
             })
             .catch(() => {});
-    }, [user, studioProfile, useStudioShell]);
+    }, [user?.id, useStudioShell]);
 
     useEffect(() => {
         function handleClickOutside(event) {

@@ -162,7 +162,7 @@ const SidebarLayout = ({
                 }
             })
             .catch((err) => console.error('Error calculating real storage:', err));
-    }, [user, profile?.display_name, profile?.email]);
+    }, [user?.id]);
 
     const usedBytes = realStorageBytes || profile?.storage_used_bytes || 0;
     const limitBytes = profile?.storage_limit_bytes;
