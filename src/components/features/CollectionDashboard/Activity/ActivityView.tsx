@@ -1,5 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 import {
   Check,
   ChevronDown,
@@ -9,6 +11,7 @@ import {
   Plus,
   Trash2,
 } from 'lucide-react';
+import { downloadPhotosToZip } from '../../../../lib/downloadPhoto';
 import { DownloadActivityDetailModal } from './DownloadActivityDetailModal';
 import { FavoriteActivityDetailModal } from './FavoriteActivityDetailModal';
 import { ActivityFeed } from './ActivityFeed';
@@ -47,8 +50,10 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
   handleDeleteAllDownloadActivity,
   handleExportDownloadActivityExcel,
   handleExportDownloadActivityPdf,
+  handleExportActivity,
   downloadDetailPhotos,
   loadingActivity,
+  photos = [],
   favoriteActivitySortMenuRef,
   favoriteDetailToolbarMenuRef,
   favoriteDetailPhotoMenuRef,
@@ -212,6 +217,26 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
     </div>
   );
 
+  const handleDownloadSameSet = useCallback(async () => {
+    if (!downloadDetailPhotos?.length) {
+      window.alert('No photos available for this download.');
+      return;
+    }
+    try {
+      const zip = new JSZip();
+      const result = await downloadPhotosToZip(zip, downloadDetailPhotos, {});
+      if (!result?.fileCount) {
+        window.alert('No photos could be downloaded.');
+        return;
+      }
+      const blob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
+      const base = String(collection?.name || 'delivery').replace(/[/\\:*?"<>|]/g, '_');
+      saveAs(blob, `${base}.zip`);
+    } catch {
+      window.alert('Failed to download this set.');
+    }
+  }, [collection?.name, downloadDetailPhotos]);
+
   const handleSelectItem = (item: any) => {
     if (item.source?.kind === 'download') {
       setSelectedFavoriteListId(null);
@@ -258,10 +283,11 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
               sets={sets}
               highlightsName={highlightsName}
               onClose={() => setSelectedDownloadId(null)}
-              onExport={() => {
+              onExportCsv={() => {
                 const detail = (downloadActivity || []).find((a: any) => a.id === selectedDownloadId);
-                if (detail) handleExportDownloadActivityExcel([detail]);
+                if (detail && handleExportActivity) handleExportActivity([detail]);
               }}
+              onDownloadSameSet={handleDownloadSameSet}
             />,
             document.body
           )
