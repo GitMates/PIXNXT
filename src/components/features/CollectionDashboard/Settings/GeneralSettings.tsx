@@ -5,6 +5,8 @@ import { cacheSlideshowEnabled } from '../../../../lib/collectionFeatureFlags';
 import { getCollectionShareUrl } from '../../../../lib/shareCollection';
 import { CategoryTagsField } from './CategoryTagsField';
 import './BasicsSettings.css';
+import './DownloadSettings.css';
+
 
 export interface GeneralSettingsProps {
     collectionId: string;
@@ -140,11 +142,13 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
     categoryTagsSaving = false,
     profile,
 }) => {
-    const [openCard, setOpenCard] = React.useState<'link' | 'closes' | 'gallery' | null>(null);
+    const [activeTab, setActiveTab] = React.useState<'link' | 'closes' | 'gallery'>('link');
     const [copied, setCopied] = React.useState(false);
     const [showFilenames, setShowFilenames] = React.useState(collection?.show_filenames === true);
     const [remindChannel, setRemindChannel] = React.useState<'both' | 'email' | 'whatsapp'>('both');
     const [remindWhen, setRemindWhen] = React.useState<'3days' | 'week' | 'both'>('week');
+
+    const expiryPickerRef = React.useRef<HTMLDivElement>(null);
 
     React.useEffect(() => {
         setShowFilenames(collection?.show_filenames === true);
@@ -176,10 +180,6 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
     const primaryReminder = expiryReminders[0];
     const reminderPreview = primaryReminder?.body
         || 'Closing soon — download anything you want to keep';
-
-    const toggleCard = (id: 'link' | 'closes' | 'gallery') => {
-        setOpenCard((current) => (current === id ? null : id));
-    };
 
     const persistCollection = async (patch: Record<string, unknown>) => {
         try {
@@ -270,6 +270,25 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
         }
     };
 
+    const toggleAutoExpiry = async (checked: boolean) => {
+        if (!checked) {
+            await saveExpiry(null);
+        } else {
+            const defaultDate = new Date();
+            defaultDate.setMonth(defaultDate.getMonth() + 3);
+            const yyyy = defaultDate.getFullYear();
+            const mm = String(defaultDate.getMonth() + 1).padStart(2, '0');
+            const dd = String(defaultDate.getDate()).padStart(2, '0');
+            const dateStr = `${yyyy}-${mm}-${dd}`;
+            await saveExpiry(dateStr);
+        }
+    };
+
+    const triggerExpiryPicker = () => {
+        const el = expiryPickerRef.current?.querySelector('.dp-input-field') as HTMLElement;
+        if (el) el.click();
+    };
+
     const onOff = (value: boolean) => (value ? 'on' : 'off');
     const gallerySummary = (
         <>
@@ -284,10 +303,10 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
             : 'a week before';
     const closesSummary = autoExpiry ? (
         <>
-            Hides itself on <strong>{expiryLabel}</strong>, and you remind them by <strong>{channelLabel} {whenLabel}</strong>.
+            Hides itself on <strong>{expiryLabel}</strong>, reminder by <strong>WhatsApp, email as fallback</strong> a week before.
         </>
     ) : (
-        'No closing date yet.'
+        'No auto expiry set yet.'
     );
 
     const langId = LANGUAGES.some((item) => item.id === language)
@@ -298,8 +317,10 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                 ? 'Tamil'
                 : 'English';
 
+    const showOnShowcase = collection?.show_on_showcase !== false;
+
     return (
-        <div className="cd-general-settings-view cd-basics">
+        <div className="cd-general-settings-view cd-basics cd-dl">
             <header className="cd-basics__header">
                 <h2 className="cd-basics__title">Basics</h2>
                 <p className="cd-basics__kicker">this delivery</p>
@@ -308,268 +329,397 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                 </p>
             </header>
 
-            <div className="cd-basics__cards">
-                <article className={`cd-basics-card${openCard === 'link' ? ' is-open' : ''}`}>
+            <div className={`cd-dl-shell${activeTab === 'link' ? ' is-first' : ''}`}>
+                <div className="cd-dl-tabs" role="tablist">
                     <button
                         type="button"
-                        className="cd-basics-card__head"
-                        onClick={() => toggleCard('link')}
-                        aria-expanded={openCard === 'link'}
+                        role="tab"
+                        className={`cd-dl-tab${activeTab === 'link' ? ' is-on' : ''}`}
+                        aria-selected={activeTab === 'link'}
+                        onClick={() => setActiveTab('link')}
                     >
-                        <span className="cd-basics-card__icon cd-basics-card__icon--cover">
-                            {coverUrl ? <img src={coverUrl} alt="" /> : null}
-                            <span className="cd-basics-card__brand">{brandHost}</span>
-                        </span>
-                        <span className="cd-basics-card__copy">
-                            <h3 className="cd-basics-card__title">Name and link</h3>
-                            <p className="cd-basics-card__summary">
-                                Lives at <strong>{shareHostPath || 'your gallery link'}</strong>.
-                            </p>
-                        </span>
-                        <Chevron open={openCard === 'link'} />
+                        Name and link
                     </button>
-                    {openCard === 'link' ? (
-                        <div className="cd-basics-card__body">
-                            <div className="cd-basics-field">
-                                <span className="cd-basics-label">Gallery link</span>
-                                <div className="cd-basics-input-row">
-                                    <input
-                                        type="text"
-                                        className="cd-basics-input"
-                                        value={collectionUrl}
-                                        onChange={(e) => setCollectionUrl(e.target.value)}
-                                    />
-                                    <button type="button" className="cd-basics-btn" onClick={copyLink}>
-                                        {copied ? 'Copied' : 'Copy link'}
-                                    </button>
-                                </div>
-                                <p className="cd-basics-hint">
-                                    <strong>{shareHostPath}</strong> — changing this breaks any link already sent.
-                                </p>
-                            </div>
-
-                            <div className="cd-basics-field cd-basics-field--date">
-                                <span className="cd-basics-label">Event date</span>
-                                <DatePicker
-                                    value={eventDate}
-                                    onChange={(next) => void saveEventDate(next)}
-                                    placeholder="Add a date"
-                                    displayFormat="long"
-                                    showQuickSearch={false}
-                                />
-                            </div>
-
-                            <div className="cd-basics-field">
-                                <span className="cd-basics-label">Category tags</span>
-                                <CategoryTagsField
-                                    tags={categoryTags}
-                                    onChange={onCategoryTagsChange}
-                                    disabled={categoryTagsSaving}
-                                    placeholder="Add a tag and press Enter"
-                                />
-                            </div>
-
-                            <div className="cd-basics-field">
-                                <span className="cd-basics-label">Language</span>
-                                <div className="cd-basics-segment" role="group" aria-label="Language">
-                                    {LANGUAGES.map((item) => (
-                                        <button
-                                            key={item.id}
-                                            type="button"
-                                            className={`cd-basics-segment__item${langId === item.id ? ' is-on' : ''}`}
-                                            onClick={() => void saveLanguage(item.id)}
-                                        >
-                                            {item.label}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    ) : null}
-                </article>
-
-                <article className={`cd-basics-card${openCard === 'closes' ? ' is-open' : ''}`}>
                     <button
                         type="button"
-                        className="cd-basics-card__head"
-                        onClick={() => toggleCard('closes')}
-                        aria-expanded={openCard === 'closes'}
+                        role="tab"
+                        className={`cd-dl-tab${activeTab === 'closes' ? ' is-on' : ''}`}
+                        aria-selected={activeTab === 'closes'}
+                        onClick={() => setActiveTab('closes')}
                     >
-                        <span className="cd-basics-card__icon">
-                            {cal ? (
-                                <span className="cd-basics-cal">
-                                    <span className="cd-basics-cal__day">{cal.day}</span>
-                                    <span className="cd-basics-cal__mon">{cal.month} {cal.year}</span>
-                                </span>
-                            ) : (
-                                <span className="cd-basics-cal">
-                                    <span className="cd-basics-cal__day">—</span>
-                                    <span className="cd-basics-cal__mon">Date</span>
-                                </span>
+                        Auto expiry
+                    </button>
+                    <button
+                        type="button"
+                        role="tab"
+                        className={`cd-dl-tab${activeTab === 'gallery' ? ' is-on' : ''}`}
+                        aria-selected={activeTab === 'gallery'}
+                        onClick={() => setActiveTab('gallery')}
+                    >
+                        In the gallery
+                    </button>
+                </div>
+
+                <div className="cd-dl-box">
+                    {activeTab === 'link' && (
+                        <>
+                            <div className="cd-dl-status">
+                                <div className="cd-basics-card-badge">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a39a92" strokeWidth="2">
+                                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                                    </svg>
+                                    <span className="cd-basics-card-badge__text">
+                                        {collection?.name || 'GALLERY'}
+                                    </span>
+                                </div>
+                                <div className="cd-dl-status__copy">
+                                    <h3 className="cd-dl-status__title">Name and link</h3>
+                                    <p className="cd-dl-status__desc">
+                                        Lives at <strong>{shareHostPath || 'your gallery link'}</strong>, and listed on your Showcase.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="cd-dl-body">
+                            <div className="cd-dl-card">
+                                <div className="cd-dl-row">
+                                    <div className="cd-dl-row__copy">
+                                        <p className="cd-dl-row__title">Gallery link</p>
+                                        <p className="cd-dl-row__desc">
+                                            {brandHost}/g/
+                                        </p>
+                                        <p className="cd-dl-row__title" style={{ fontSize: '15px', marginTop: '2px' }}>
+                                            {collectionUrl}
+                                        </p>
+                                        <p className="cd-dl-row__desc" style={{ fontSize: '11px', color: '#b0a89e' }}>
+                                            — changing this breaks any link already sent.
+                                        </p>
+                                    </div>
+                                    <div className="cd-dl-row__control">
+                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                            <input
+                                                type="text"
+                                                className="cd-basics-input"
+                                                style={{ width: '220px' }}
+                                                value={collectionUrl}
+                                                onChange={(e) => setCollectionUrl(e.target.value)}
+                                            />
+                                            <button type="button" className="cd-basics-btn" onClick={copyLink}>
+                                                {copied ? 'Copied' : 'Copy'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="cd-dl-row">
+                                    <div className="cd-dl-row__copy">
+                                        <p className="cd-dl-row__title">Event date</p>
+                                    </div>
+                                    <div className="cd-dl-row__control">
+                                        <DatePicker
+                                            value={eventDate}
+                                            onChange={(next) => void saveEventDate(next)}
+                                            placeholder="Add a date"
+                                            displayFormat="long"
+                                            showQuickSearch={false}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="cd-dl-row">
+                                    <div className="cd-dl-row__copy">
+                                        <p className="cd-dl-row__title">Language</p>
+                                        <p className="cd-dl-row__desc">What the gallery is written in for your client.</p>
+                                    </div>
+                                    <div className="cd-dl-row__control">
+                                        <div className="cd-basics-segment" role="group" aria-label="Language">
+                                            {LANGUAGES.map((item) => (
+                                                <button
+                                                    key={item.id}
+                                                    type="button"
+                                                    className={`cd-basics-segment__item${langId === item.id ? ' is-on' : ''}`}
+                                                    onClick={() => void saveLanguage(item.id)}
+                                                >
+                                                    {item.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="cd-dl-row" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+                                    <div className="cd-dl-row__copy" style={{ marginBottom: '8px' }}>
+                                        <p className="cd-dl-row__title">Category tags</p>
+                                        <p className="cd-dl-row__desc">Used to group deliveries on your Showcase and in search.</p>
+                                    </div>
+                                    <CategoryTagsField
+                                        tags={categoryTags}
+                                        onChange={onCategoryTagsChange}
+                                        disabled={categoryTagsSaving}
+                                        placeholder="Add a tag and press Enter"
+                                    />
+                                </div>
+                            </div>
+
+                            <p className="cd-dl-section__label" style={{ marginTop: '28px', marginBottom: '8px' }}>WHERE ELSE IT APPEARS</p>
+                            <div className="cd-dl-card">
+                                <div className="cd-dl-row">
+                                    <div className="cd-dl-row__copy">
+                                        <p className="cd-dl-row__title">Show on Showcase</p>
+                                        <p className="cd-dl-row__desc">List this delivery on your public home page, so people who find your work can see it.</p>
+                                    </div>
+                                    <div className="cd-dl-row__control">
+                                        <Toggle
+                                            checked={showOnShowcase}
+                                            onChange={(next) => void persistCollection({ show_on_showcase: next })}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                            </div>
+                        </>
+                    )}
+
+                    {activeTab === 'closes' && (
+                        <>
+                            <div className="cd-dl-status">
+                                <div className="cd-basics-card-badge cd-basics-card-badge--date">
+                                    {cal ? (
+                                        <span className="cd-basics-cal">
+                                            <span className="cd-basics-cal__day">{cal.day}</span>
+                                            <span className="cd-basics-cal__mon">{cal.month} {cal.year}</span>
+                                        </span>
+                                    ) : (
+                                        <span className="cd-basics-cal">
+                                            <span className="cd-basics-cal__day">—</span>
+                                            <span className="cd-basics-cal__mon">Date</span>
+                                        </span>
+                                    )}
+                                </div>
+                                <div className="cd-dl-status__copy">
+                                    <h3 className="cd-dl-status__title">Auto expiry</h3>
+                                    <p className="cd-dl-status__desc">
+                                        {closesSummary}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="cd-dl-body">
+                            <div className="cd-basics-note-banner">
+                                <div className="cd-dl-row" style={{ padding: 0 }}>
+                                    <div className="cd-dl-row__copy">
+                                        <p className="cd-dl-row__title">Close this delivery automatically</p>
+                                        <p className="cd-dl-row__desc">Off means it stays open until you close it yourself. Storage keeps counting either way.</p>
+                                    </div>
+                                    <div className="cd-dl-row__control">
+                                        <Toggle
+                                            checked={!!autoExpiry}
+                                            onChange={toggleAutoExpiry}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {!!autoExpiry && (
+                                <>
+                                    <p className="cd-dl-section__label">WHEN</p>
+                                    <div className="cd-dl-card" style={{ marginBottom: '24px' }}>
+                                        <div className="cd-dl-row">
+                                            <div className="cd-dl-row__copy">
+                                                <p className="cd-dl-row__title">Closes on</p>
+                                            </div>
+                                            <div className="cd-dl-row__control">
+                                                <div className="cd-basics-expiry-row">
+                                                    <div ref={expiryPickerRef}>
+                                                        <DatePicker
+                                                            value={autoExpiry}
+                                                            onChange={(next) => void saveExpiry(next)}
+                                                            placeholder="Optional"
+                                                            disablePastDates
+                                                        />
+                                                    </div>
+                                                    <button type="button" className="cd-basics-btn" onClick={triggerExpiryPicker}>
+                                                        Change
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="cd-dl-row">
+                                            <div className="cd-dl-row__copy">
+                                                <p className="cd-dl-row__title">Hidden at</p>
+                                                <p className="cd-dl-row__desc">Nothing is deleted — you can reopen it any time.</p>
+                                            </div>
+                                            <div className="cd-dl-row__control">
+                                                <span style={{ fontSize: '14.5px', fontWeight: 500, color: '#2a241e' }}>11:59 pm IST</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <p className="cd-dl-section__label">REMINDER</p>
+                                    <div className="cd-dl-card">
+                                        <div className="cd-dl-row">
+                                            <div className="cd-dl-row__copy">
+                                                <p className="cd-dl-row__title">Remind them by</p>
+                                            </div>
+                                            <div className="cd-dl-row__control">
+                                                <select
+                                                    value={remindChannel}
+                                                    onChange={(e) => void saveReminderPrefs(e.target.value as any, remindWhen)}
+                                                    className="cd-dl-select-input"
+                                                >
+                                                    {REMIND_CHANNELS.map((item) => (
+                                                        <option key={item.id} value={item.id}>{item.label}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div className="cd-dl-row">
+                                            <div className="cd-dl-row__copy">
+                                                <p className="cd-dl-row__title">How long before</p>
+                                            </div>
+                                            <div className="cd-dl-row__control">
+                                                <select
+                                                    value={remindWhen}
+                                                    onChange={(e) => void saveReminderPrefs(remindChannel, e.target.value as any)}
+                                                    className="cd-dl-select-input"
+                                                >
+                                                    {REMIND_WHEN.map((item) => (
+                                                        <option key={item.id} value={item.id}>{item.label}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div className="cd-dl-row">
+                                            <div className="cd-dl-row__copy">
+                                                <p className="cd-dl-row__title">The message</p>
+                                                <p className="cd-dl-row__desc" style={{ color: '#2a241e', fontWeight: 500, marginTop: '2px' }}>
+                                                    {reminderPreview}
+                                                </p>
+                                            </div>
+                                            <div className="cd-dl-row__control" style={{ display: 'flex', gap: '8px' }}>
+                                                <button
+                                                    type="button"
+                                                    className="cd-basics-btn"
+                                                    onClick={() => (primaryReminder ? onEditReminder(primaryReminder) : onAddReminder())}
+                                                >
+                                                    Edit
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="cd-basics-btn"
+                                                    onClick={() => (primaryReminder ? onEditReminder(primaryReminder) : onAddReminder())}
+                                                >
+                                                    Preview
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </>
                             )}
-                        </span>
-                        <span className="cd-basics-card__copy">
-                            <h3 className="cd-basics-card__title">When it closes</h3>
-                            <p className="cd-basics-card__summary">{closesSummary}</p>
-                        </span>
-                        <Chevron open={openCard === 'closes'} />
-                    </button>
-                    {openCard === 'closes' ? (
-                        <div className="cd-basics-card__body">
-                            <div className="cd-basics-field">
-                                <span className="cd-basics-label">Auto expiry</span>
-                                <div className="cd-basics-expiry-row">
-                                    <DatePicker
-                                        value={autoExpiry}
-                                        onChange={(next) => void saveExpiry(next)}
-                                        placeholder="Optional"
-                                        disablePastDates
-                                    />
-                                    <button
-                                        type="button"
-                                        className="cd-basics-btn--ghost"
-                                        onClick={() => void saveExpiry(null)}
-                                    >
-                                        Clear
-                                    </button>
+                            </div>
+                        </>
+                    )}
+
+                    {activeTab === 'gallery' && (
+                        <>
+                            <div className="cd-dl-status">
+                                <div className="cd-basics-card-badge">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a39a92" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                                        <rect x="3" y="3" width="7" height="7" rx="1.5" />
+                                        <rect x="14" y="3" width="7" height="7" rx="1.5" />
+                                        <rect x="3" y="14" width="7" height="7" rx="1.5" />
+                                        <rect x="14" y="14" width="7" height="7" rx="1.5" />
+                                    </svg>
+                                    <span className="cd-basics-card-badge__text">
+                                        IN GALLERY
+                                    </span>
+                                </div>
+                                <div className="cd-dl-status__copy">
+                                    <h3 className="cd-dl-status__title">In the gallery</h3>
+                                    <p className="cd-dl-status__desc">
+                                        {gallerySummary}
+                                    </p>
                                 </div>
                             </div>
 
-                            <div className="cd-basics-field">
-                                <span className="cd-basics-label">Remind them by</span>
-                                <div className="cd-basics-pills">
-                                    {REMIND_CHANNELS.map((item) => (
-                                        <button
-                                            key={item.id}
-                                            type="button"
-                                            className={`cd-basics-pill${remindChannel === item.id ? ' is-on' : ''}`}
-                                            onClick={() => void saveReminderPrefs(item.id, remindWhen)}
-                                        >
-                                            {item.label}
-                                        </button>
-                                    ))}
+                            <div className="cd-dl-body">
+                            <div className="cd-dl-card">
+                                <div className="cd-dl-row">
+                                    <div className="cd-dl-row__copy">
+                                        <p className="cd-dl-row__title">Slideshow</p>
+                                        <p className="cd-dl-row__desc">Visitors can play the delivery as a slideshow.</p>
+                                    </div>
+                                    <div className="cd-dl-row__control">
+                                        <Toggle
+                                            checked={slideshow}
+                                            onChange={(next) => {
+                                                setSlideshow(next);
+                                                setCollection((prev) => (prev ? { ...prev, slideshow_enabled: next } : prev));
+                                                void persistGalleryVisitorFlags({ slideshow_enabled: next });
+                                            }}
+                                        />
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div className="cd-basics-field">
-                                <span className="cd-basics-label">When</span>
-                                <div className="cd-basics-pills">
-                                    {REMIND_WHEN.map((item) => (
-                                        <button
-                                            key={item.id}
-                                            type="button"
-                                            className={`cd-basics-pill${remindWhen === item.id ? ' is-on' : ''}`}
-                                            onClick={() => void saveReminderPrefs(remindChannel, item.id)}
-                                        >
-                                            {item.label}
-                                        </button>
-                                    ))}
+                                <div className="cd-dl-row">
+                                    <div className="cd-dl-row__copy">
+                                        <p className="cd-dl-row__title">Social sharing</p>
+                                        <p className="cd-dl-row__desc">Visitors can share individual photographs.</p>
+                                    </div>
+                                    <div className="cd-dl-row__control">
+                                        <Toggle
+                                            checked={socialSharing}
+                                            onChange={(next) => {
+                                                setSocialSharing(next);
+                                                setCollection((prev) => (prev ? { ...prev, social_sharing_enabled: next } : prev));
+                                                void persistGalleryVisitorFlags({ social_sharing_enabled: next });
+                                            }}
+                                        />
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div className="cd-basics-note">
-                                <p className="cd-basics-note__text">{reminderPreview}</p>
-                                <div className="cd-basics-note__actions">
-                                    <button
-                                        type="button"
-                                        className="cd-basics-btn"
-                                        onClick={() => (primaryReminder ? onEditReminder(primaryReminder) : onAddReminder())}
-                                    >
-                                        Edit
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="cd-basics-btn"
-                                        onClick={() => (primaryReminder ? onEditReminder(primaryReminder) : onAddReminder())}
-                                    >
-                                        Preview
-                                    </button>
+                                <div className="cd-dl-row">
+                                    <div className="cd-dl-row__copy">
+                                        <p className="cd-dl-row__title">Walk-through cards</p>
+                                        <p className="cd-dl-row__desc">Short prompts showing first-time visitors how the gallery works.</p>
+                                    </div>
+                                    <div className="cd-dl-row__control">
+                                        <Toggle
+                                            checked={galleryAssist}
+                                            onChange={(next) => {
+                                                setGalleryAssist(next);
+                                                void persistGalleryVisitorFlags({ gallery_assist: next });
+                                            }}
+                                        />
+                                    </div>
                                 </div>
-                            </div>
-                        </div>
-                    ) : null}
-                </article>
 
-                <article className={`cd-basics-card${openCard === 'gallery' ? ' is-open' : ''}`}>
-                    <button
-                        type="button"
-                        className="cd-basics-card__head"
-                        onClick={() => toggleCard('gallery')}
-                        aria-expanded={openCard === 'gallery'}
-                    >
-                        <span className="cd-basics-card__icon">
-                            <span className="cd-basics-grid-icon" aria-hidden>
-                                <span /><span /><span /><span />
-                            </span>
-                        </span>
-                        <span className="cd-basics-card__copy">
-                            <h3 className="cd-basics-card__title">In the gallery</h3>
-                            <p className="cd-basics-card__summary">{gallerySummary}</p>
-                        </span>
-                        <Chevron open={openCard === 'gallery'} />
-                    </button>
-                    {openCard === 'gallery' ? (
-                        <div className="cd-basics-card__body">
-                            <div className="cd-basics-toggles">
-                                <div className="cd-basics-toggle">
-                                    <div className="cd-basics-toggle__copy">
-                                        <p className="cd-basics-toggle__title">Slideshow</p>
-                                        <p className="cd-basics-toggle__desc">Visitors can play the delivery as a slideshow.</p>
+                                <div className="cd-dl-row">
+                                    <div className="cd-dl-row__copy">
+                                        <p className="cd-dl-row__title">Show filenames</p>
+                                        <p className="cd-dl-row__desc">Useful when a client refers to a shot by number.</p>
                                     </div>
-                                    <Toggle
-                                        checked={slideshow}
-                                        onChange={(next) => {
-                                            setSlideshow(next);
-                                            setCollection((prev) => (prev ? { ...prev, slideshow_enabled: next } : prev));
-                                            void persistGalleryVisitorFlags({ slideshow_enabled: next });
-                                        }}
-                                    />
-                                </div>
-                                <div className="cd-basics-toggle">
-                                    <div className="cd-basics-toggle__copy">
-                                        <p className="cd-basics-toggle__title">Social sharing</p>
-                                        <p className="cd-basics-toggle__desc">Visitors can share individual photographs.</p>
+                                    <div className="cd-dl-row__control">
+                                        <Toggle
+                                            checked={showFilenames}
+                                            onChange={(next) => {
+                                                setShowFilenames(next);
+                                                void persistGalleryVisitorFlags({ show_filenames: next });
+                                            }}
+                                        />
                                     </div>
-                                    <Toggle
-                                        checked={socialSharing}
-                                        onChange={(next) => {
-                                            setSocialSharing(next);
-                                            setCollection((prev) => (prev ? { ...prev, social_sharing_enabled: next } : prev));
-                                            void persistGalleryVisitorFlags({ social_sharing_enabled: next });
-                                        }}
-                                    />
-                                </div>
-                                <div className="cd-basics-toggle">
-                                    <div className="cd-basics-toggle__copy">
-                                        <p className="cd-basics-toggle__title">Walk-through cards</p>
-                                        <p className="cd-basics-toggle__desc">Short prompts showing first-time visitors how the gallery works.</p>
-                                    </div>
-                                    <Toggle
-                                        checked={galleryAssist}
-                                        onChange={(next) => {
-                                            setGalleryAssist(next);
-                                            void persistGalleryVisitorFlags({ gallery_assist: next });
-                                        }}
-                                    />
-                                </div>
-                                <div className="cd-basics-toggle">
-                                    <div className="cd-basics-toggle__copy">
-                                        <p className="cd-basics-toggle__title">Show filenames</p>
-                                        <p className="cd-basics-toggle__desc">Useful when a client refers to a shot by number.</p>
-                                    </div>
-                                    <Toggle
-                                        checked={showFilenames}
-                                        onChange={(next) => {
-                                            setShowFilenames(next);
-                                            void persistGalleryVisitorFlags({ show_filenames: next });
-                                        }}
-                                    />
                                 </div>
                             </div>
-                        </div>
-                    ) : null}
-                </article>
+                            </div>
+                        </>
+                    )}
+                </div>
             </div>
         </div>
     );
 };
+

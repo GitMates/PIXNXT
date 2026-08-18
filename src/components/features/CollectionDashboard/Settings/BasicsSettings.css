@@ -15,7 +15,7 @@
 .cd-basics__title {
   margin: 0;
   font-family: var(--font-display, Georgia, serif);
-  font-size: 32px;
+  font-size: 26px;
   font-weight: 500;
   letter-spacing: -0.03em;
   line-height: 1.05;
@@ -23,9 +23,9 @@
 }
 
 .cd-basics__kicker {
-  margin: 6px 0 0;
+  margin: 2px 0 0;
   font-family: var(--font-sans, inherit);
-  font-size: 12px;
+  font-size: 10.5px;
   font-weight: 400;
   letter-spacing: 0;
   text-transform: none;
@@ -33,9 +33,9 @@
 }
 
 .cd-basics__lead {
-  margin: 14px 0 0;
+  margin: 8px 0 0;
   max-width: 420px;
-  font-size: 13px;
+  font-size: 11.5px;
   line-height: 1.5;
   color: #9a9188;
 }
@@ -64,7 +64,7 @@
   align-items: center;
   gap: 18px;
   width: 100%;
-  padding: 22px 24px;
+  padding: 18px 22px;
   border: none;
   background: transparent;
   text-align: left;
@@ -84,8 +84,8 @@
 .cd-basics-card__icon {
   position: relative;
   flex-shrink: 0;
-  width: 108px;
-  height: 68px;
+  width: 100px;
+  height: 62px;
   border-radius: 8px;
   overflow: hidden;
   background: #f3efe8;
@@ -113,7 +113,7 @@
   border-radius: 999px;
   background: #2c2824;
   color: #fff;
-  font-size: 7.5px;
+  font-size: 7px;
   font-weight: 600;
   letter-spacing: 0.01em;
   line-height: 1.25;
@@ -138,7 +138,7 @@
 }
 
 .cd-basics-cal__day {
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 500;
   letter-spacing: -0.02em;
 }
@@ -146,7 +146,7 @@
 .cd-basics-cal__mon {
   margin-top: 3px;
   font-family: var(--font-sans, inherit);
-  font-size: 7.5px;
+  font-size: 7px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -166,10 +166,21 @@
   border-radius: 2px;
 }
 
-.cd-basics-grid-icon span:nth-child(1) { background: #a5b0a4; }
-.cd-basics-grid-icon span:nth-child(2) { background: #b08d68; }
-.cd-basics-grid-icon span:nth-child(3) { background: #9b9184; }
-.cd-basics-grid-icon span:nth-child(4) { background: #cbae8b; }
+.cd-basics-grid-icon span:nth-child(1) {
+  background: #a5b0a4;
+}
+
+.cd-basics-grid-icon span:nth-child(2) {
+  background: #b08d68;
+}
+
+.cd-basics-grid-icon span:nth-child(3) {
+  background: #9b9184;
+}
+
+.cd-basics-grid-icon span:nth-child(4) {
+  background: #cbae8b;
+}
 
 .cd-basics-card__copy {
   flex: 1;
@@ -179,7 +190,7 @@
 .cd-basics-card__title {
   margin: 0;
   font-family: var(--font-sans, inherit);
-  font-size: 14.5px;
+  font-size: 12.5px;
   font-weight: 650;
   letter-spacing: -0.01em;
   line-height: 1.25;
@@ -188,7 +199,7 @@
 
 .cd-basics-card__summary {
   margin: 4px 0 0;
-  font-size: 12.5px;
+  font-size: 11px;
   line-height: 1.45;
   color: #8f877e;
 }
@@ -219,7 +230,7 @@
   display: block;
   margin: 0 0 8px;
   font-family: var(--font-sans, inherit);
-  font-size: 10.5px;
+  font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -235,13 +246,13 @@
 .cd-basics-input {
   flex: 1;
   min-width: 0;
-  height: 42px;
+  height: 38px;
   padding: 0 14px;
   border: 1px solid #e4e0d8;
   border-radius: 8px;
   background: #faf9f5;
   font-family: var(--font-sans, inherit);
-  font-size: 15px;
+  font-size: 13px;
   color: #3c3834;
 }
 
@@ -252,13 +263,13 @@
 }
 
 .cd-basics-btn {
-  height: 42px;
+  height: 38px;
   padding: 0 16px;
   border: 1px solid #e4e0d8;
   border-radius: 8px;
   background: #ffffff;
   font-family: var(--font-sans, inherit);
-  font-size: 13.5px;
+  font-size: 12px;
   font-weight: 500;
   color: #3c3834;
   cursor: pointer;
@@ -282,7 +293,7 @@
 
 .cd-basics-hint {
   margin: 8px 0 0;
-  font-size: 12.5px;
+  font-size: 11px;
   line-height: 1.5;
   color: #b0a89e;
 }
@@ -297,7 +308,7 @@
   flex-wrap: wrap;
   align-items: center;
   align-content: center;
-  min-height: 42px;
+  min-height: 38px;
   padding: 8px 10px;
   gap: 6px;
   border: 1px solid #e4e0d8;
@@ -317,7 +328,7 @@
   border: 1px solid #e6e1d9;
   border-radius: 6px;
   background: #ffffff;
-  font-size: 13.5px;
+  font-size: 12px;
   font-weight: 400;
   line-height: 26px;
   color: #3c3834;
@@ -335,7 +346,7 @@
   height: 26px;
   margin: 0;
   padding: 0;
-  font-size: 13.5px;
+  font-size: 12px;
   font-weight: 400;
   line-height: 26px;
   color: #3c3834;
@@ -344,7 +355,7 @@
 
 .cd-basics .category-tags-input::placeholder {
   color: #c4bbb2;
-  font-size: 13.5px;
+  font-size: 12px;
   line-height: 26px;
 }
 
@@ -355,13 +366,13 @@
 }
 
 .cd-basics-pill {
-  height: 36px;
+  height: 34px;
   padding: 0 14px;
   border: 1px solid #e4e0d8;
   border-radius: 999px;
   background: #fff;
   font-family: var(--font-sans, inherit);
-  font-size: 13px;
+  font-size: 11.5px;
   font-weight: 500;
   color: #4a453f;
   cursor: pointer;
@@ -382,7 +393,7 @@
 }
 
 .cd-basics-pills--lang .cd-basics-pill {
-  height: 34px;
+  height: 32px;
   padding: 0 16px;
   border-color: transparent;
   background: transparent;
@@ -410,13 +421,13 @@
 }
 
 .cd-basics-segment__item {
-  height: 32px;
+  height: 30px;
   padding: 0 18px;
   border: none;
   border-radius: 8px;
   background: transparent;
   font-family: var(--font-sans, inherit);
-  font-size: 13.5px;
+  font-size: 12px;
   font-weight: 500;
   color: #8a8278;
   cursor: pointer;
@@ -455,7 +466,7 @@
 }
 
 .cd-basics .dp-input-field {
-  height: 42px;
+  height: 38px;
   padding: 0 14px;
   border: 1px solid #e4e0d8;
   border-radius: 8px;
@@ -469,7 +480,7 @@
 
 .cd-basics .dp-value {
   font-family: var(--font-sans, inherit);
-  font-size: 15px;
+  font-size: 13px;
   color: #3c3834;
 }
 
@@ -497,7 +508,7 @@
 
 .cd-basics-note__text {
   margin: 0 0 12px;
-  font-size: 14px;
+  font-size: 12px;
   color: #3a342f;
 }
 
@@ -530,14 +541,14 @@
 
 .cd-basics-toggle__title {
   margin: 0;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
   color: #2a241e;
 }
 
 .cd-basics-toggle__desc {
   margin: 3px 0 0;
-  font-size: 13px;
+  font-size: 11.5px;
   line-height: 1.4;
   color: #8a8278;
 }
@@ -561,6 +572,107 @@
   }
 
   .cd-basics__title {
-    font-size: 28px;
+    font-size: 22px;
   }
+}
+
+/* Custom styles to match the newly implemented tabs structure exactly */
+.cd-basics-card-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 120px;
+  height: 76px;
+  background: #ffffff;
+  border: 1px solid #e6e1d9;
+  border-radius: 12px;
+  box-shadow: none;
+}
+
+.cd-basics-card-badge__text {
+  font-size: 7px;
+  font-weight: 700;
+  color: #a39a92;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 6px;
+  text-align: center;
+}
+
+.cd-basics-card-badge .cd-basics-cal {
+  border: none;
+  background: transparent;
+  padding: 4px 8px;
+}
+
+.cd-basics-card-badge .cd-basics-cal__day {
+  font-family: var(--font-display, Fraunces, Georgia, serif);
+  font-size: 30px;
+  font-weight: 500;
+  font-variation-settings: 'WONK' 0, 'SOFT' 0, 'opsz' 72;
+  font-variant-numeric: lining-nums;
+  font-feature-settings: 'lnum' 1;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: #1a1a1a;
+  -webkit-font-smoothing: antialiased;
+}
+
+.cd-basics-card-badge .cd-basics-cal__mon {
+  margin-top: 6px;
+  font-family: var(--font-sans, inherit);
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #a39485;
+  white-space: nowrap;
+}
+
+.cd-dl-select-input {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 240px;
+  max-width: 300px;
+  height: 36px;
+  padding: 0 28px 0 14px;
+  border: 1px solid #e6e1d9;
+  border-radius: 8px;
+  background: #ffffff url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23b0a89e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e") no-repeat right 12px center;
+  background-size: 14px;
+  font-family: var(--font-sans, inherit);
+  font-size: 12px;
+  font-weight: 500;
+  color: #2a241e;
+  cursor: pointer;
+  appearance: none;
+  outline: none;
+}
+
+.cd-dl-select-input:hover {
+  border-color: #d8d2c8;
+}
+
+.cd-basics-expiry-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cd-basics-note-banner {
+  background: #f4f1ec;
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 24px;
+}
+
+.cd-main-area--settings {
+  padding-top: 20px !important;
 }

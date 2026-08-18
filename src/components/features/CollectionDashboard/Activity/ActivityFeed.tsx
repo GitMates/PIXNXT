@@ -70,7 +70,7 @@ export function ActivityFeed({
   const visible = useMemo(() => filterActivityFeedItems(items, filter), [items, filter]);
 
   const filterCounts = useMemo(() => {
-    const counts: Record<string, number> = { everything: items.length };
+    const counts = { everything: items.length };
     for (const item of FILTERS) {
       if (item.id === 'everything') continue;
       counts[item.id] = items.filter((row) => row.filter === item.id).length;
@@ -103,46 +103,36 @@ export function ActivityFeed({
           <div className="cd-activity-feed__header-row">
             <div>
               <h2 className="cd-activity-feed__title">Activity</h2>
-              <p className="cd-activity-feed__sub">everything that has happened in this delivery</p>
+              <p className="cd-activity-feed__kicker">this delivery</p>
+              <p className="cd-activity-feed__lead">
+                Everything that has happened in this delivery.
+              </p>
             </div>
             {headerActions}
           </div>
         </header>
 
-        <div className="cd-activity-feed__panel">
-          <div className="cd-activity-feed__filters" role="tablist" aria-label="Activity filters">
-            {FILTERS.map((item, index) => {
+        <div className={`cd-activity-feed__shell${filter === 'everything' ? ' is-first' : ''}`}>
+          <div className="cd-activity-feed__tabs" role="tablist" aria-label="Activity filters">
+            {FILTERS.map((item) => {
               const isActive = filter === item.id;
-              const nextItem = FILTERS[index + 1];
-              const showSeparator =
-                index < FILTERS.length - 1
-                && item.id !== filter
-                && nextItem?.id !== filter;
-
               return (
-              <React.Fragment key={item.id}>
                 <button
+                  key={item.id}
                   type="button"
                   role="tab"
                   aria-selected={isActive}
-                  className={`cd-activity-feed__pill${isActive ? ' is-active' : ''}`}
+                  className={`cd-activity-feed__tab${isActive ? ' is-on' : ''}`}
                   onClick={() => setFilter(item.id)}
                 >
-                  {!isActive && ['everything', 'selections'].includes(item.id) ? (
-                    <span className="cd-activity-feed__pill-dot" aria-hidden />
-                  ) : null}
-                  <span className="cd-activity-feed__pill-label">{item.label}</span>
-                  <span className="cd-activity-feed__pill-count">{filterCounts[item.id] ?? 0}</span>
+                  {item.label}
+                  <span className="cd-activity-feed__tab-count">{filterCounts[item.id] ?? 0}</span>
                 </button>
-                {showSeparator ? (
-                  <span className="cd-activity-feed__filter-separator" aria-hidden />
-                ) : null}
-              </React.Fragment>
               );
             })}
           </div>
 
-          <div className="cd-activity-feed__content">
+          <div className="cd-activity-feed__box">
             {loadingActivity && visible.length === 0 ? (
               <p className="cd-activity-feed__empty-sub cd-activity-feed__empty-sub--loading">
                 Loading activity…
@@ -153,7 +143,7 @@ export function ActivityFeed({
                 <p className="cd-activity-feed__empty-sub">{emptySub}</p>
               </div>
             ) : (
-              <div className="cd-activity-feed__list" role="list">
+              <div className="cd-activity-feed__card" role="list">
                 {visible.map((item) => {
                   const clickable = typeof onSelectItem === 'function';
                   const RowTag = clickable ? 'button' : 'div';
@@ -176,13 +166,12 @@ export function ActivityFeed({
                 })}
               </div>
             )}
-          </div>
 
-          <p className="cd-activity-feed__note">
-            One log for the whole delivery. Downloads, client picks, print orders, guest registrations and
-            opens — filtered rather than split across separate screens. A dot means something arrived since
-            you last looked.
-          </p>
+            <p className="cd-activity-feed__note">
+              One log for the whole delivery. Downloads, client picks, print orders, guest registrations and
+              opens — filtered rather than split across separate screens.
+            </p>
+          </div>
         </div>
       </div>
     </div>
