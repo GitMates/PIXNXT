@@ -202,17 +202,17 @@
 /* â€”â€” Toast: "This photo is now private" â€”â€” */
 .cea-toast {
   position: fixed;
-  bottom: 28px;
-  left: 50%;
-  transform: translateX(-50%);
+  right: 24px;
+  bottom: 24px;
   z-index: 200;
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 16px 10px 10px;
-  background: #fff;
-  border-radius: 4px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  border-radius: 14px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18);
   max-width: min(90vw, 360px);
   pointer-events: none;
 }
@@ -222,14 +222,15 @@
   height: 40px;
   object-fit: cover;
   flex-shrink: 0;
+  border-radius: 10px;
   background: #f0f0f0;
 }
 
 .cea-toast-message {
-  font-size: 15px;
-  font-weight: 500;
+  font-size: 14px;
+  font-weight: 600;
   color: #111;
-  line-height: 1.35;
+  line-height: 1.45;
 }
 
 /* â€”â€” Client login modal â€”â€” */

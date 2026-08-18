@@ -87,6 +87,21 @@ import { filterPhotosByIds } from '../../lib/photoAiSearch';
 import { useGalleryPeople } from '../../hooks/useGalleryPeople';
 import { GalleryPeopleStrip } from '../../components/features/Gallery/GalleryPeopleStrip/GalleryPeopleStrip';
 
+function resolveDownloadSetAllowlist(selectedDownloadSets, namedSets = []) {
+  if (!selectedDownloadSets?.length) return null;
+  const hasNamedSets = namedSets.some((s) => s.name?.toLowerCase() !== 'highlights');
+  const isLegacyHighlightsOnly =
+    selectedDownloadSets.length === 1 &&
+    String(selectedDownloadSets[0]).toLowerCase() === 'highlights' &&
+    hasNamedSets;
+  return isLegacyHighlightsOnly ? null : selectedDownloadSets;
+}
+
+function isDownloadSetAllowed(allowlist, key) {
+  if (!allowlist) return true;
+  return allowlist.some((item) => String(item) === String(key));
+}
+
 /** Stable string ids so Supabase UUIDs match `photo.id` from the collection payload. */
 function normalizeFavoritePhotoId(id) {
   if (id == null || id === '') return null;
@@ -641,6 +656,7 @@ const GalleryView = () => {
   const [showClientLogin, setShowClientLogin] = useState(false);
   const [privateToast, setPrivateToast] = useState(null);
   const [privateToastThumb, setPrivateToastThumb] = useState(null);
+  const [downloadBlockedToast, setDownloadBlockedToast] = useState(null);
 
   // Preference Settings from localStorage
   const [showTosModal, setShowTosModal] = useState(false);
@@ -992,9 +1008,26 @@ const GalleryView = () => {
     const photo = (photoOrEvent && photoOrEvent.id) ? photoOrEvent : null;
 
     if (photo) {
+      const matchedSet = downloadableSets.find((set) => String(set.id) === String(photo?.set_id));
+      const photoDownloadAllowed = !photo?.set_id
+        ? isDownloadSetAllowed(downloadSetAllowlist, 'Highlights')
+        : isDownloadSetAllowed(downloadSetAllowlist, photo?.set_id) ||
+          isDownloadSetAllowed(downloadSetAllowlist, matchedSet?.name);
+      if (!photoDownloadAllowed) {
+        setDownloadBlockedToast('This set is not available for download.');
+        window.setTimeout(() => setDownloadBlockedToast(null), 4000);
+        return;
+      }
+
+      // Films can be "watch only" even when photo downloads are enabled.
+      if (photo?.media_type === 'video' && collection?.video_downloads_enabled === false) {
+        alert('This film is watch-only for this delivery.');
+        return;
+      }
+
       const needsEmail = !!collection?.email_capture_enabled || !!collection?.restrict_to_emails;
 
-      // Check if PIN is required for single photo downloads
+      // When PIN is ON, require it for single photo downloads too
       const pinRequiredForSingle = collection?.require_pin_for_single_photo !== false;
       const hasPin = !!(collection?.download_pin || collection?.pin_value || collection?.pinValue || collection?.download_pin_hash);
       const needsPin = hasPin && (!photo || pinRequiredForSingle);
@@ -1004,7 +1037,20 @@ const GalleryView = () => {
       if (!needsEmail && !needsPin && !hasDownloadLimit) {
         // Single photo: download immediately from Cloudflare R2 if no auth required
         const watermarkOptions = getWatermarkOptions();
-        await downloadSinglePhotoFile(photo, { preferOriginal: true, watermarkOptions });
+        const offered = Array.isArray(collection?.download_resolutions) ? collection?.download_resolutions : [];
+        const resolution = offered.includes('web')
+          ? 'web'
+          : offered.includes('full')
+            ? 'full'
+            : offered.includes('original')
+              ? 'original'
+              : 'full';
+        await downloadSinglePhotoFile(photo, {
+          resolution,
+          videoResolution: collection?.video_download_resolution,
+          watermarkOptions,
+        });
+        // Resolution selection applies to photographs; videos use `video_download_resolution`.
 
         // Log activity for direct download
         const savedEmail = localStorage.getItem(`pixnxt_fav_email_${collection.id}`) || 'Visitor';
@@ -1328,6 +1374,10 @@ const GalleryView = () => {
     if (!collection?.sets) return [];
     return filterSetsForViewer(collection.sets, collection, isClientViewer);
   }, [collection, isClientViewer]);
+  const downloadSetAllowlist = useMemo(
+    () => resolveDownloadSetAllowlist(collection?.selected_download_sets, downloadableSets),
+    [collection?.selected_download_sets, downloadableSets]
+  );
 
   const filteredPhotosBase = useMemo(() => {
     let base = photosForActiveSet;
@@ -2599,6 +2649,7 @@ const GalleryView = () => {
       />
 
       <ClientExclusiveToast message={privateToast} thumbnailUrl={privateToastThumb} />
+      <ClientExclusiveToast message={downloadBlockedToast} />
 
       {/* No Image Selected Shop Modal */}
       {showNoImageShopModal && (

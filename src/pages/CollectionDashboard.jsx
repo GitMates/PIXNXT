@@ -561,7 +561,7 @@ const CollectionDashboard = () => {
     // Additional options states
     const [galleryDownload, setGalleryDownload] = useState(true);
     const [singlePhotoDownload, setSinglePhotoDownload] = useState(true);
-    const [requirePinForSinglePhoto, setRequirePinForSinglePhoto] = useState(false);
+    const [requirePinForSinglePhoto, setRequirePinForSinglePhoto] = useState(true);
     const [restrictSinglePhotoSizes, setRestrictSinglePhotoSizes] = useState(false);
 
     // Advanced settings states
@@ -1620,9 +1620,9 @@ const CollectionDashboard = () => {
 
     const handleDownloadPhoto = async (photo) => {
         const pinRequiredForSingle = collection?.require_pin_for_single_photo !== false;
-        if (collection?.download_pin && pinRequiredForSingle) {
+        if (collection?.download_pin_hash && pinRequiredForSingle) {
             const enteredPin = prompt("Please enter the download PIN to download this photo:");
-            if (enteredPin !== collection.download_pin) {
+            if (enteredPin !== collection.download_pin_hash) {
                 alert("Incorrect PIN.");
                 return;
             }
@@ -1942,7 +1942,7 @@ const CollectionDashboard = () => {
             }
             if (s.downloadPin && s.downloadPinValue) {
                 await galleryService.updateCollection(collectionId, {
-                    download_pin: s.downloadPinValue
+                    download_pin_hash: s.downloadPinValue
                 });
                 setPinValue(s.downloadPinValue);
             }
@@ -2293,15 +2293,21 @@ const CollectionDashboard = () => {
                 } else if (data.video_downloads_enabled) {
                     setPhotoDownloadSizes((prev) => (prev.includes('video') ? prev : [...prev, 'video']));
                 }
-                const dbPin = data.download_pin || data.download_pin_hash;
+                // Prefer plain PIN when available. Fallback to the legacy hash column (if the DB is still populated that way).
+                const dbPin = data.download_pin ?? data.download_pin_hash;
                 if (dbPin) {
                     setDownloadPin(true);
                     setPinValue(dbPin);
-                } else if (data.download_pin === null || data.download_pin_hash === null) {
+                } else if (data.download_pin === null && data.download_pin_hash === null) {
                     setDownloadPin(false);
                 }
                 
-                if (data.require_pin_for_single_photo !== undefined) setRequirePinForSinglePhoto(data.require_pin_for_single_photo);
+                // When PIN is enabled, always require it for single photo downloads too
+                if (dbPin) {
+                    setRequirePinForSinglePhoto(true);
+                } else if (data.require_pin_for_single_photo !== undefined) {
+                    setRequirePinForSinglePhoto(data.require_pin_for_single_photo);
+                }
                 if (data.email_capture_enabled !== undefined) setEmailRegistration(data.email_capture_enabled);
                 if (data.gallery_download_enabled !== undefined) setGalleryDownload(data.gallery_download_enabled);
                 if (data.single_photo_download_enabled !== undefined) setSinglePhotoDownload(data.single_photo_download_enabled);
@@ -3317,9 +3323,9 @@ const CollectionDashboard = () => {
         if (sel.length === 0) return;
         closeSelectionChrome();
         const pinRequiredForSingle = collection?.require_pin_for_single_photo !== false;
-        if (collection?.download_pin && pinRequiredForSingle) {
+        if (collection?.download_pin_hash && pinRequiredForSingle) {
             const enteredPin = prompt('Please enter the download PIN to download:');
-            if (enteredPin !== collection.download_pin) {
+            if (enteredPin !== collection.download_pin_hash) {
                 alert('Incorrect PIN.');
                 return;
             }
@@ -3737,7 +3743,7 @@ const CollectionDashboard = () => {
                     email_capture_enabled: emailRegistration,
                     gallery_download_enabled: galleryDownload,
                     single_photo_download_enabled: singlePhotoDownload,
-                    require_pin_for_single_photo: requirePinForSinglePhoto,
+                    require_pin_for_single_photo: downloadPin ? true : requirePinForSinglePhoto,
                     // Advanced settings
                     download_limit_gallery: downloadLimit ? parseInt(downloadLimit) : null,
                     restrict_to_emails: restrictToEmails || null,
@@ -3755,7 +3761,7 @@ const CollectionDashboard = () => {
                         downloads_enabled: photoDownload,
                         gallery_download_enabled: galleryDownload,
                         single_photo_download_enabled: singlePhotoDownload,
-                        require_pin_for_single_photo: requirePinForSinglePhoto,
+                        require_pin_for_single_photo: downloadPin ? true : requirePinForSinglePhoto,
                         email_capture_enabled: emailRegistration
                     }
                 });
@@ -4861,7 +4867,13 @@ const CollectionDashboard = () => {
                                         slideshow: slideshow,
                                         downloadPin: downloadPin,
                                         pinValue: pinValue,
-                                        requirePinForSinglePhoto: requirePinForSinglePhoto,
+                                        requirePinForSinglePhoto: downloadPin ? true : requirePinForSinglePhoto,
+                                        restrictToEmails: restrictToEmails,
+                                        downloadLimit: downloadLimit,
+                                        pinUsageLimit: pinUsageLimit,
+                                        photoDownloadSizes: photoDownloadSizes,
+                                        videoDownloadResolution: collection?.video_download_resolution,
+                                        videoDownloadEnabled: photoDownloadSizes.includes('video'),
                                         emailTracking: emailRegistration,
                                         galleryPhotoSort: sortOption,
                                         selectedDownloadSets,

@@ -8,7 +8,7 @@ import { X, Mail } from 'lucide-react';
 import { ShareCollectionModal } from '../../Gallery/ShareCollectionModal/ShareCollectionModal';
 import { MasonryGrid } from '../../Gallery/MasonryGrid/MasonryGrid';
 import { PhotoLightbox } from '../../Gallery/PhotoLightbox/PhotoLightbox';
-import { downloadPhotoFromR2 } from '../../../../lib/downloadPhoto';
+import { downloadSinglePhotoFile } from '../../../../lib/downloadPhoto';
 import { DownloadModal } from '../../Gallery/DownloadModal/DownloadModal';
 import { galleryService } from '../../../../services/gallery.service';
 import { sortPhotosForGallery, normalizeGalleryPhotoSort } from '../../../../lib/galleryPhotoSort';
@@ -55,6 +55,21 @@ function normalizeFavoritePhotoId(id: string | number | null | undefined): strin
   return String(id);
 }
 
+function resolveDownloadSetAllowlist(selectedDownloadSets: string[] | undefined, namedSets: any[] = []) {
+  if (!selectedDownloadSets?.length) return null;
+  const hasNamedSets = namedSets.some((s) => s.name?.toLowerCase() !== 'highlights');
+  const isLegacyHighlightsOnly =
+    selectedDownloadSets.length === 1 &&
+    String(selectedDownloadSets[0]).toLowerCase() === 'highlights' &&
+    hasNamedSets;
+  return isLegacyHighlightsOnly ? null : selectedDownloadSets;
+}
+
+function isDownloadSetAllowed(allowlist: string[] | null, key: string | null | undefined) {
+  if (!allowlist) return true;
+  return allowlist.some((item) => String(item) === String(key));
+}
+
 export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
   settings,
   collectionTitle,
@@ -77,6 +92,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
   const [showDownloadModal, setShowDownloadModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [selectedDownloadPhoto, setSelectedDownloadPhoto] = useState<any>(null);
+  const [downloadBlockedMessage, setDownloadBlockedMessage] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [isDownloadingAll, setIsDownloadingAll] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState({ done: 0, total: 0 });
@@ -90,16 +106,39 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
 
   // Build a collection-shaped object the shared DownloadModal understands
   // Note: dashboardState.downloadPin is the boolean toggle, pinValue is the actual PIN string
+  const photoDownloadSizes = dashboardState?.photoDownloadSizes as string[] | undefined;
+  const photoDownloadResolutions = Array.isArray(photoDownloadSizes)
+    ? Array.from(new Set(photoDownloadSizes))
+        .map((s) => (s === 'high' ? 'full' : s))
+        .filter((s) => s === 'web' || s === 'full' || s === 'original')
+    : undefined;
+
+  const videoDownloadEnabled = Boolean(dashboardState?.videoDownloadEnabled);
+  const downloadLimitGallery = dashboardState?.downloadLimit
+    ? Number(dashboardState.downloadLimit)
+    : null;
+  const pinUsageLimit = dashboardState?.pinUsageLimit
+    ? Number(dashboardState.pinUsageLimit)
+    : null;
+
   const downloadCollection = {
     ...dashboardState?.collection,
     name: collectionTitle || dashboardState?.collection?.name,
     download_pin: (dashboardState?.downloadPin && dashboardState?.pinValue) ? dashboardState.pinValue : null,
     email_capture_enabled: dashboardState?.emailTracking ?? false,
-    require_pin_for_single_photo: dashboardState?.requirePinForSinglePhoto ?? true,
+    require_pin_for_single_photo: dashboardState?.requirePinForSinglePhoto !== false,
     downloads_enabled: dashboardState?.photoDownload !== false,
     gallery_download_enabled: dashboardState?.galleryDownload !== false,
     single_photo_download_enabled: dashboardState?.singlePhotoDownload !== false,
+    restrict_to_emails: dashboardState?.restrictToEmails?.trim()
+      ? dashboardState.restrictToEmails
+      : null,
+    download_limit_gallery: downloadLimitGallery && Number.isFinite(downloadLimitGallery) ? downloadLimitGallery : null,
+    pin_usage_limit: pinUsageLimit && Number.isFinite(pinUsageLimit) ? pinUsageLimit : null,
     selected_download_sets: dashboardState?.selectedDownloadSets,
+    download_resolutions: photoDownloadResolutions,
+    video_downloads_enabled: videoDownloadEnabled,
+    video_download_resolution: dashboardState?.videoDownloadResolution ?? '1080p',
   };
 
   const collectionId = dashboardState?.collection?.id as string | undefined;
@@ -352,6 +391,10 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
     () => filteredPhotos.map((p: any) => getPhotoFullDisplayUrl(p)),
     [filteredPhotos]
   );
+  const downloadSetAllowlist = useMemo(
+    () => resolveDownloadSetAllowlist(dashboardState?.selectedDownloadSets, dashboardState?.sets || []),
+    [dashboardState?.selectedDownloadSets, dashboardState?.sets]
+  );
 
   useEffect(() => {
     const n = filteredPhotos.length;
@@ -462,15 +505,47 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
     // downloadPin is a boolean toggle; only consider PIN required if toggle is ON and a PIN value exists
     const hasPin = !!((dashboardState?.downloadPin && dashboardState?.pinValue) || dashboardState?.collection?.download_pin || dashboardState?.collection?.download_pin_hash);
 
-    // Check if PIN is required for single photo downloads
+    // When PIN is ON, require it for single photo downloads too
     const pinRequiredForSingle = dashboardState?.requirePinForSinglePhoto !== false;
 
     const needsPin = hasPin && (!photo || pinRequiredForSingle);
 
     if (photo) {
+      const matchedSet = dashboardState?.sets?.find((set: any) => String(set.id) === String(photo?.set_id));
+      const photoDownloadAllowed = !photo?.set_id
+        ? isDownloadSetAllowed(downloadSetAllowlist, 'Highlights')
+        : isDownloadSetAllowed(downloadSetAllowlist, photo?.set_id) ||
+          isDownloadSetAllowed(downloadSetAllowlist, matchedSet?.name);
+      if (!photoDownloadAllowed) {
+        setDownloadBlockedMessage('This set is not available for download.');
+        window.setTimeout(() => setDownloadBlockedMessage(null), 4000);
+        return;
+      }
+
+      // Films can be configured as watch-only independently of photographs.
+      if (photo?.media_type === 'video' && dashboardState?.videoDownloadEnabled === false) {
+        alert('This film is watch-only for this delivery.');
+        return;
+      }
+
       if (!needsPin && !needsEmail) {
         // Only download directly if auth is NOT required
-        await downloadPhotoFromR2(photo.full_url, photo.filename || 'photo.jpg');
+          const offered = Array.isArray(dashboardState?.photoDownloadSizes)
+            ? dashboardState.photoDownloadSizes.map((s: string) => (s === 'high' ? 'full' : s))
+            : [];
+          const resolution = offered.includes('web')
+            ? 'web'
+            : offered.includes('full')
+              ? 'full'
+              : offered.includes('original')
+                ? 'original'
+                : 'full';
+
+          // Use the same download engine as the live gallery so size choices are respected.
+          await downloadSinglePhotoFile(photo, {
+            resolution,
+            videoResolution: dashboardState?.videoDownloadResolution ?? dashboardState?.collection?.video_download_resolution,
+          });
 
         // Log activity for direct download
         if (collectionId) {
@@ -791,6 +866,16 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
       />
 
       <AnimatePresence>
+        {downloadBlockedMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 16 }}
+            className="pointer-events-none fixed bottom-6 right-6 z-[1100] max-w-[min(92vw,360px)] rounded-2xl border border-black/10 bg-white/95 px-4 py-3 text-left text-[14px] font-semibold leading-6 text-zinc-900 shadow-[0_16px_40px_rgba(0,0,0,0.18)] backdrop-blur"
+          >
+            {downloadBlockedMessage}
+          </motion.div>
+        )}
         {showFavoriteModal && (
           <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
             <motion.div

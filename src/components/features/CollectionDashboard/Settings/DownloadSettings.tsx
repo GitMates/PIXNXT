@@ -235,7 +235,7 @@ function SizesMenu({
               </span>
             </button>
           ))}
-          <p className="cd-dl-pop__foot">Offer more than one and they pick at the point of download.</p>
+          <p className="cd-dl-pop__foot">Offer more than one and they choose at the point of download.</p>
         </div>
       ) : null}
     </div>
@@ -440,7 +440,11 @@ export const DownloadSettings: React.FC<DownloadSettingsProps> = ({
   );
   const filmBytes = films.reduce((sum: number, film: any) => sum + (Number(film.size_bytes) || 0), 0);
   const filmOptions = [
-    { id: 'none', label: 'Watch only', desc: 'No download control on a film.' },
+    {
+      id: 'none',
+      label: 'Watch only',
+      desc: 'Separate from photographs. You can release every photograph and still keep the films watch-only.',
+    },
     {
       id: '1080p',
       label: 'Allowed at 1080p',

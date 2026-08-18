@@ -18,11 +18,7 @@ export const ClientExclusiveToast: React.FC<ClientExclusiveToastProps> = ({ mess
         transition={{ duration: 0.25 }}
         role="status"
       >
-        {thumbnailUrl ? (
-          <img src={thumbnailUrl} alt="" className="cea-toast-thumb" />
-        ) : (
-          <div className="cea-toast-thumb" />
-        )}
+        {thumbnailUrl ? <img src={thumbnailUrl} alt="" className="cea-toast-thumb" /> : null}
         <span className="cea-toast-message">{message}</span>
       </motion.div>
     ) : null}
