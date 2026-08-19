@@ -28,6 +28,8 @@ import { PreviewPane } from '../components/features/CollectionDashboard/PreviewP
 import { ChangeCoverModal } from '../components/features/CollectionDashboard/CoverSettings/ChangeCoverModal';
 import { CollectionDashboardSidebar } from '../components/features/CollectionDashboard/Sidebar/CollectionDashboardSidebar';
 import { SetOptionsMenu } from '../components/features/CollectionDashboard/Sidebar/SetOptionsMenu';
+import { NewSelectionModal } from '../components/features/CollectionDashboard/Modals/NewSelectionModal';
+import { getPublicSiteOrigin } from '../lib/publicSiteUrl';
 import { DeliveryFilmsView } from '../components/features/CollectionDashboard/Films/DeliveryFilmsView';
 import { downloadPhotoFromR2 } from '../lib/downloadPhoto';
 import {
@@ -65,7 +67,7 @@ import {
 } from '../lib/dashboardPhotoSortUi';
 import { normalizeGalleryPhotoSort } from '../lib/galleryPhotoSort';
 import { clientGalleryEmailTemplatesService } from '../services/clientGalleryEmailTemplates.service';
-import { COVER_IMAGE_ACCEPT, MEDIA_FILE_INPUT_ACCEPT, pickMediaFilesOrFallback } from '../lib/mediaFilePicker';
+import { COVER_IMAGE_ACCEPT, MEDIA_FILE_INPUT_ACCEPT, VIDEO_FILE_INPUT_ACCEPT, VIDEO_FILE_PICKER_TYPES, PHOTO_FILE_INPUT_ACCEPT, PHOTO_FILE_PICKER_TYPES, pickMediaFilesOrFallback } from '../lib/mediaFilePicker';
 import { setCoverPhotoDragData, endCoverPhotoDrag, isGalleryImagePhoto } from '../lib/coverPhotoDrag';
 import { DatePicker } from '../components/ui/DatePicker';
 import './CollectionDashboard.css';
@@ -595,6 +597,7 @@ const CollectionDashboard = () => {
     const [storeOrderItems, setStoreOrderItems] = useState([]);
     const [storeOrdersLoading, setStoreOrdersLoading] = useState(false);
     const [editingFavoriteList, setEditingFavoriteList] = useState(null);
+    const [savingFavoriteList, setSavingFavoriteList] = useState(false);
     const [selectedFavoriteListId, setSelectedFavoriteListId] = useState(null);
     const [favoriteDetailRows, setFavoriteDetailRows] = useState([]);
     const [favoriteDetailLoading, setFavoriteDetailLoading] = useState(false);
@@ -632,38 +635,51 @@ const CollectionDashboard = () => {
 
 
 
-    const parseFavoriteMaxSelection = () => {
-        const raw = String(favoriteListMax ?? '').trim();
-        if (!raw) return null;
-        const n = Number(raw);
-        if (!Number.isFinite(n) || n <= 0) return null;
-        return Math.floor(n);
-    };
-
-    const handleCreateFavoriteList = async () => {
-        if (!favoriteListEmail || !favoriteListName) {
-            alert("Email and List Name are required.");
+    const handleCreateFavoriteList = async (payload, { send } = { send: false }) => {
+        const name = String(payload?.name || '').trim();
+        const email = String(payload?.email || '').trim();
+        if (!name || !email) {
+            alert('Name and email are required.');
             return;
         }
-        const maxSel = parseFavoriteMaxSelection();
-        const descTrim = favoriteListDesc.trim() || null;
+        const maxSel = payload?.maxSelection ?? null;
+        const descTrim = String(payload?.description || '').trim() || null;
+        setSavingFavoriteList(true);
         try {
-            if (editingFavoriteList) {
-                await galleryService.updateFavoriteList(editingFavoriteList, {
-                    name: favoriteListName,
+            if (editingFavoriteList?.id) {
+                await galleryService.updateFavoriteList(editingFavoriteList.id, {
+                    name,
                     max_selection: maxSel,
                     description: descTrim,
                 });
-                alert("Favorite list updated successfully.");
+                showToast('Selection updated.');
             } else {
-                const session = await galleryService.createOrGetSession(collectionId, favoriteListEmail, {
+                const session = await galleryService.createOrGetSession(collectionId, email, {
                     ensureDefaultFavoriteList: false,
                 });
-                await galleryService.createFavoriteList(collectionId, session.id, favoriteListName, {
+                await galleryService.createFavoriteList(collectionId, session.id, name, {
                     maxSelection: maxSel,
                     description: descTrim || undefined,
                 });
-                alert("Favorite list created successfully.");
+                if (send) {
+                    try {
+                        await galleryService.sendSelectionListEmail({
+                            collectionSlug: collectionUrl,
+                            recipientEmail: email,
+                            subject: `Your list: ${name}`,
+                            message: payload.message || '',
+                            chooseUrl: payload.chooseUrl || '',
+                            siteOrigin: getPublicSiteOrigin(),
+                        });
+                        showToast('Selection created and email sent.');
+                    } catch (sendErr) {
+                        console.error('Failed to send selection email:', sendErr);
+                        showToast('Selection created, but the email could not be sent.');
+                        alert(sendErr.message || 'Could not send email. Check your SMTP settings.');
+                    }
+                } else {
+                    showToast('Selection created. It will stay unsent until you send it.');
+                }
             }
 
             setShowCreateFavoriteListModal(false);
@@ -672,11 +688,12 @@ const CollectionDashboard = () => {
             setFavoriteListMax('');
             setFavoriteListDesc('');
             setEditingFavoriteList(null);
-
             fetchFavoriteActivity();
         } catch (e) {
-            console.error("Failed to save favorite list. Details:", e);
+            console.error('Failed to save favorite list. Details:', e);
             alert(`Failed to save list: ${e.message || 'Unknown error'}`);
+        } finally {
+            setSavingFavoriteList(false);
         }
     };
 
@@ -931,7 +948,7 @@ const CollectionDashboard = () => {
         setFavoriteListName(item.name);
         setFavoriteListMax(item.max_selection != null && item.max_selection !== '' ? String(item.max_selection) : '');
         setFavoriteListDesc(item.description || '');
-        setEditingFavoriteList(item.id);
+        setEditingFavoriteList(item);
         setShowCreateFavoriteListModal(true);
         setActiveActivityMenu(null);
     };
@@ -3969,9 +3986,11 @@ const CollectionDashboard = () => {
 
     const openMediaFileDialog = (inputRef) => {
         uploadSnapshotRef.current = getUploadTargetSnapshot();
+        const pickerTypes = isFilmsView ? VIDEO_FILE_PICKER_TYPES : PHOTO_FILE_PICKER_TYPES;
         void pickMediaFilesOrFallback({
             multiple: true,
             fallback: () => inputRef.current?.click(),
+            types: pickerTypes,
         }).then((files) => {
             if (files?.length) processSelectedUploadFiles(files);
         });
@@ -4432,7 +4451,10 @@ const CollectionDashboard = () => {
                     }}
                     renderSetMenu={(set) => {
                         const setPhotos = photosInSidebarSet(set);
-                        const bytes = setPhotos.reduce((sum, p) => sum + (Number(p.size_bytes) || 0), 0);
+                        let bytes = setPhotos.reduce((sum, p) => sum + (Number(p.size_bytes) || 0), 0);
+                        if (bytes === 0 && setPhotos.length > 0) {
+                            bytes = setPhotos.length * 3.5 * 1024 * 1024;
+                        }
                         const gb = bytes / (1024 * 1024 * 1024);
                         const sizeLabel = gb >= 0.1
                             ? `${gb.toFixed(1)} GB`
@@ -4456,6 +4478,19 @@ const CollectionDashboard = () => {
                                 sizeLabel={sizeLabel}
                                 anchorEl={setMenuAnchor}
                                 onRename={() => {
+                                    setShowSetMenu(null);
+                                    setSetMenuAnchor(null);
+                                    if (set.isHighlights) {
+                                        openEditSetModal({
+                                            id: 'highlights',
+                                            name: highlightsName,
+                                            description: collection?.description || '',
+                                        });
+                                    } else {
+                                        openEditSetModal(set);
+                                    }
+                                }}
+                                onEditDescription={() => {
                                     setShowSetMenu(null);
                                     setSetMenuAnchor(null);
                                     if (set.isHighlights) {
@@ -4576,9 +4611,11 @@ const CollectionDashboard = () => {
                                 <button type="button" className="cd-sel-action-btn" onClick={handleSelectionStar}>
                                     Star
                                 </button>
-                                <button type="button" className="cd-sel-action-btn" onClick={handleSelectionSetAsCover}>
-                                    Set as cover
-                                </button>
+                                {selectedPhotos.length === 1 && (
+                                    <button type="button" className="cd-sel-action-btn" onClick={handleSelectionSetAsCover}>
+                                        Set as cover
+                                    </button>
+                                )}
                                 <button type="button" className="cd-sel-action-btn" onClick={handleSelectionDownload}>
                                     Download
                                 </button>
@@ -4770,7 +4807,7 @@ const CollectionDashboard = () => {
                                             type="file"
                                             ref={fileInputRef}
                                             style={{ display: 'none' }}
-                                            accept={MEDIA_FILE_INPUT_ACCEPT}
+                                            accept={isFilmsView ? VIDEO_FILE_INPUT_ACCEPT : PHOTO_FILE_INPUT_ACCEPT}
                                             multiple
                                             onChange={handleFileSelect}
                                         />
@@ -4784,7 +4821,7 @@ const CollectionDashboard = () => {
                                                     <line x1="12" y1="15" x2="18" y2="15"></line>
                                                 </svg>
                                             </div>
-                                            <p className="cd-drop-title">Drag photos and videos here to upload</p>
+                                            <p className="cd-drop-title">{isFilmsView ? 'Drag videos here to upload' : 'Drag photos here to upload'}</p>
                                             <p className="cd-drop-subtitle">
                                                 or{' '}
                                                 <span
@@ -4952,6 +4989,7 @@ const CollectionDashboard = () => {
                                 defaultWatermark={defaultWatermark}
                                 watermarks={watermarks}
                                 onSelectWatermark={handleSelectDefaultWatermark}
+                                onManageWatermarks={() => navigate('/settings/protection')}
                                 collectionPassword={collectionPassword}
                                 setCollectionPassword={setCollectionPassword}
                                 showOnShowcase={showOnShowcase}
@@ -4972,6 +5010,11 @@ const CollectionDashboard = () => {
                                         isClientOnly: Boolean(s.is_private),
                                     }))}
                                 onSetClientOnlyChange={handleSetClientOnlyChange}
+                                gdEvent={gdEvent}
+                                guestDeliveryGuests={guestDeliveryGuests}
+                                photographerId={gdEvent?.photographer_id || collection?.photographer_id || user?.id}
+                                onGdEventUpdated={setGdEvent}
+                                onOpenGdQrModal={() => setShowGdQrModal(true)}
                             />
                         )}
 
@@ -5198,58 +5241,35 @@ const CollectionDashboard = () => {
                                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                                     </button>
                                 </div>
-                                <div className="cd-modal-tabs">
-                                    <button className={`cd-modal-tab ${activeMediaTab === 'upload' ? 'active' : ''}`} onClick={() => setActiveMediaTab('upload')}>Upload</button>
-                                    <button className={`cd-modal-tab ${activeMediaTab === 'embed' ? 'active' : ''}`} onClick={() => setActiveMediaTab('embed')}>Embed</button>
-                                </div>
-                                {activeMediaTab === 'upload' ? (
-                                    <>
-                                        <div
-                                            className={`cd-modal-dropzone ${isDraggingModal ? 'dragging' : ''}`}
-                                            onDragOver={handleModalDragOver}
-                                            onDragLeave={handleModalDragLeave}
-                                            onDrop={handleModalDrop}
-                                        >
-                                            <input
-                                                type="file"
-                                                ref={modalFileInputRef}
-                                                style={{ display: 'none' }}
-                                                accept={MEDIA_FILE_INPUT_ACCEPT}
-                                                multiple
-                                                onChange={handleFileSelect}
-                                            />
-                                            <div className="cd-modal-drop-content">
-                                                <div className="cd-modal-drop-icon">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#cfd5d8" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
-                                                        <path d="M4 6h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"></path>
-                                                        <path d="M8 2h12a2 2 0 0 1 2 2v10"></path>
-                                                        <circle cx="15" cy="15" r="5" fill="#fff" stroke="#cfd5d8"></circle>
-                                                        <line x1="15" y1="12" x2="15" y2="18"></line>
-                                                        <line x1="12" y1="15" x2="18" y2="15"></line>
-                                                    </svg>
-                                                </div>
-                                                <p className="cd-modal-drop-text">Drag photos and videos here to upload</p>
-                                                <p className="cd-modal-drop-browse">or <span className="cd-browse-link" onClick={handleModalBrowse}>Browse files</span></p>
-                                            </div>
+                                <div
+                                    className={`cd-modal-dropzone ${isDraggingModal ? 'dragging' : ''}`}
+                                    onDragOver={handleModalDragOver}
+                                    onDragLeave={handleModalDragLeave}
+                                    onDrop={handleModalDrop}
+                                    style={{ marginTop: '20px' }}
+                                >
+                                    <input
+                                        type="file"
+                                        ref={modalFileInputRef}
+                                        style={{ display: 'none' }}
+                                        accept={isFilmsView ? VIDEO_FILE_INPUT_ACCEPT : PHOTO_FILE_INPUT_ACCEPT}
+                                        multiple
+                                        onChange={handleFileSelect}
+                                    />
+                                    <div className="cd-modal-drop-content">
+                                        <div className="cd-modal-drop-icon">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#cfd5d8" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M4 6h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"></path>
+                                                <path d="M8 2h12a2 2 0 0 1 2 2v10"></path>
+                                                <circle cx="15" cy="15" r="5" fill="#fff" stroke="#cfd5d8"></circle>
+                                                <line x1="15" y1="12" x2="15" y2="18"></line>
+                                                <line x1="12" y1="15" x2="18" y2="15"></line>
+                                            </svg>
                                         </div>
-                                    </>
-                                ) : (
-                                    <div className="cd-modal-embed">
-                                        <div className="cd-embed-input-wrapper">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
-                                            <input type="text" placeholder="Add a YouTube or Vimeo Video URL" />
-                                        </div>
-                                        <p className="cd-embed-helper">Add a video from YouTube or Vimeo by entering the full video URL. <span className="settings-link">Learn more</span></p>
-                                        <div className="cd-embed-logos">
-                                            <svg className="cd-youtube-logo" viewBox="0 0 24 24" fill="#ff0000" width="30" height="30"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.5 12 3.5 12 3.5s-7.505 0-9.377.55a3.016 3.016 0 0 0-2.122 2.136C0 8.083 0 12 0 12s0 3.917.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.55 9.376.55 9.376.55s7.505 0 9.377-.55a3.016 3.016 0 0 0 2.122-2.136C24 15.917 24 12 24 12s0-3.917-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" /></svg>
-                                            <svg className="cd-vimeo-logo" viewBox="0 0 24 24" fill="#1ab7ea" width="30" height="30"><path d="M22.396 7.164c-.093 2.026-1.507 4.8-4.245 8.32C15.32 19.161 12.93 21 11.002 21c-1.332 0-2.436-1.378-3.308-4.136-.582-2.613-1.096-5.59-1.636-7.85-1.026-4.634-1.921-1.652-3.876.104l-1.066-1.341c2.148-2.036 4.356-4.225 5.952-4.428 1.968-.25 3.12 1.343 3.454 4.777.424 4.295.666 4.975 1.505 4.975.766 0 1.956-2.08 2.87-4.482.724-1.916.638-3.32-.42-3.32-.61 0-1.272.186-1.908.498 1.258-4.116 3.98-5.807 7.025-4.832 2.164.693 2.887 2.859 2.796 4.881z" /></svg>
-                                        </div>
-                                        <div className="cd-embed-actions">
-                                            <button className="cd-cancel-btn" onClick={() => setShowUploadModal(false)}>Cancel</button>
-                                            <button className="cd-save-btn disabled">Add Video</button>
-                                        </div>
+                                        <p className="cd-modal-drop-text">{isFilmsView ? 'Drag videos here to upload' : 'Drag photos here to upload'}</p>
+                                        <p className="cd-modal-drop-browse">or <span className="cd-browse-link" onClick={handleModalBrowse}>Browse files</span></p>
                                     </div>
-                                )}
+                                </div>
                             </div>
                         </div>
                     )
@@ -5346,112 +5366,20 @@ const CollectionDashboard = () => {
                 </div>
             )}
 
-            {/* Create Favorite List Modal (single overlay — matches preset list flow) */}
-            {showCreateFavoriteListModal && (
-                <div
-                    className="favorite-list-form-modal-overlay fixed inset-0 flex items-center justify-center bg-black/50 p-4"
-                    onClick={() => setShowCreateFavoriteListModal(false)}
-                    role="presentation"
-                >
-                    <div
-                        className="flex w-full max-w-[600px] flex-col rounded-lg bg-white shadow-xl"
-                        onClick={(e) => e.stopPropagation()}
-                        role="dialog"
-                        aria-labelledby="favorite-list-modal-title"
-                    >
-                        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-5">
-                            <h3 id="favorite-list-modal-title" className="text-[16px] font-bold uppercase tracking-[0.12em] text-gray-900">
-                                {editingFavoriteList ? 'Edit favorite list' : 'Create favorite list'}
-                            </h3>
-                            <button
-                                type="button"
-                                onClick={() => setShowCreateFavoriteListModal(false)}
-                                className="text-gray-400 transition-colors hover:text-gray-600"
-                                aria-label="Close"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-                            </button>
-                        </div>
-
-                        <div className="max-h-[70vh] overflow-y-auto px-6 py-6">
-                            <div className="mb-6">
-                                <label className="mb-2 block text-[16px] font-semibold text-gray-900">Client email</label>
-                                <input
-                                    type="email"
-                                    disabled={!!editingFavoriteList}
-                                    className="w-full rounded border border-gray-200 p-3 text-[16px] text-gray-900 placeholder:text-gray-400 focus:border-[#1ABC9C] focus:outline-none focus:ring-1 focus:ring-[#1ABC9C] disabled:cursor-not-allowed disabled:bg-gray-50"
-                                    placeholder="e.g. client@email.com"
-                                    value={favoriteListEmail}
-                                    onChange={(e) => setFavoriteListEmail(e.target.value)}
-                                />
-                                <p className="mt-2 text-[14px] text-gray-500">
-                                    Your client is required to sign in using this email to see this favorite list
-                                </p>
-                            </div>
-
-                            <div className="mb-6 flex flex-col gap-6 sm:flex-row sm:gap-6">
-                                <div className="min-w-0 flex-1">
-                                    <label className="mb-2 block text-[16px] font-semibold text-gray-900">Favorite list name</label>
-                                    <input
-                                        type="text"
-                                        className="w-full rounded border border-gray-200 p-3 text-[16px] text-gray-900 placeholder:text-gray-400 focus:border-[#1ABC9C] focus:outline-none focus:ring-1 focus:ring-[#1ABC9C]"
-                                        placeholder="e.g. For retouching"
-                                        value={favoriteListName}
-                                        onChange={(e) => setFavoriteListName(e.target.value)}
-                                    />
-                                    <p className="mt-2 text-[14px] text-gray-500">Your clients will see this name</p>
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                    <label className="mb-2 block text-[16px] font-semibold text-gray-900">Max selection</label>
-                                    <input
-                                        type="number"
-                                        min={0}
-                                        className="w-full rounded border border-gray-200 p-3 text-[16px] text-gray-900 placeholder:text-gray-400 focus:border-[#1ABC9C] focus:outline-none focus:ring-1 focus:ring-[#1ABC9C]"
-                                        placeholder="e.g. 30"
-                                        value={favoriteListMax}
-                                        onChange={(e) => setFavoriteListMax(e.target.value)}
-                                    />
-                                    <p className="mt-2 text-[14px] text-gray-500">Limit the number of photos your clients can pick</p>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="mb-2 block text-[16px] font-semibold text-gray-900">List description</label>
-                                <div className="relative">
-                                    <textarea
-                                        className="h-32 w-full resize-none rounded border border-gray-200 p-3 pb-8 text-[16px] text-gray-900 placeholder:text-gray-400 focus:border-[#1ABC9C] focus:outline-none focus:ring-1 focus:ring-[#1ABC9C]"
-                                        placeholder="Optional"
-                                        maxLength={500}
-                                        value={favoriteListDesc}
-                                        onChange={(e) => setFavoriteListDesc(e.target.value)}
-                                    />
-                                    <span className="pointer-events-none absolute bottom-2 left-3 text-[14px] text-gray-400">
-                                        {favoriteListDesc.length} / 500
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="flex justify-end gap-3 border-t border-gray-100 px-6 py-5">
-                            <button
-                                type="button"
-                                onClick={() => setShowCreateFavoriteListModal(false)}
-                                className="px-2 py-2 text-[16px] font-medium text-gray-600 transition-colors hover:text-gray-900"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="button"
-                                onClick={handleCreateFavoriteList}
-                                disabled={!favoriteListEmail?.trim() || !favoriteListName?.trim()}
-                                className="rounded bg-[#1ABC9C] px-6 py-2 text-[16px] font-medium text-white transition-colors hover:bg-[#16a085] disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                                {editingFavoriteList ? 'Save' : 'Create'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            {/* New selection modal */}
+            <NewSelectionModal
+                isOpen={showCreateFavoriteListModal}
+                onClose={() => {
+                    setShowCreateFavoriteListModal(false);
+                    setEditingFavoriteList(null);
+                }}
+                onSubmit={handleCreateFavoriteList}
+                editingList={editingFavoriteList}
+                collectionSlug={collectionUrl}
+                profile={profile}
+                studioName={profile?.business_name || profile?.display_name || 'Your studio'}
+                saving={savingFavoriteList}
+            />
             {/* Change Cover Modal */}
             <input
                 ref={coverModalFileInputRef}

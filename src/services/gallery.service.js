@@ -2332,16 +2332,55 @@ export const galleryService = {
   },
 
   /**
+   * Public gallery email registration (once per visitor).
+   * Stores email / name / phone on the session and studio contacts list.
+   */
+  async registerGalleryVisitor({ collectionId, email, name, phone } = {}) {
+    const trimmedEmail = String(email || '').trim().toLowerCase();
+    const trimmedName = String(name || '').trim() || null;
+    const trimmedPhone = String(phone || '').trim() || null;
+    if (!collectionId || !trimmedEmail.includes('@')) {
+      throw new Error('A valid email address is required');
+    }
+
+    const { data, error } = await supabase.rpc('register_gallery_visitor', {
+      p_collection_id: collectionId,
+      p_email: trimmedEmail,
+      p_name: trimmedName,
+      p_phone: trimmedPhone,
+    });
+
+    if (error) {
+      const msg = `${error.message || ''} ${error.details || ''} ${error.hint || ''}`;
+      if (!/function .* does not exist|Could not find the function/i.test(msg)) {
+        throw new Error(error.message || 'Could not save your details');
+      }
+    } else if (data?.session_id) {
+      return this.createOrGetSession(collectionId, trimmedEmail, {
+        name: trimmedName,
+        phone: trimmedPhone,
+      });
+    }
+
+    return this.createOrGetSession(collectionId, trimmedEmail, {
+      name: trimmedName,
+      phone: trimmedPhone,
+    });
+  },
+
+  /**
    * Create or get a client session for favorites/downloads
    * @param {string} collectionId
    * @param {string} email
-   * @param {{ ensureDefaultFavoriteList?: boolean }} [options] Pass `{ ensureDefaultFavoriteList: false }` when the caller will insert their own preset list (e.g. dashboard "Create favorite list") so a duplicate "My Favorites" row is not created.
+   * @param {{ ensureDefaultFavoriteList?: boolean, name?: string|null, phone?: string|null }} [options] Pass `{ ensureDefaultFavoriteList: false }` when the caller will insert their own preset list (e.g. dashboard "Create favorite list") so a duplicate "My Favorites" row is not created.
    */
   async createOrGetSession(collectionId, email, options = {}) {
-    const { ensureDefaultFavoriteList = true } = options;
+    const { ensureDefaultFavoriteList = true, name = null, phone = null } = options;
     if (!collectionId || !email) {
       throw new Error('Delivery ID and email are required');
     }
+    const visitorName = name != null && String(name).trim() ? String(name).trim() : null;
+    const visitorPhone = phone != null && String(phone).trim() ? String(phone).trim() : null;
 
     try {
       console.log('createOrGetSession starting:', { collectionId, email, ensureDefaultFavoriteList });
@@ -2361,19 +2400,41 @@ export const galleryService = {
 
       if (session) {
         console.log('Existing session found:', session);
+        if (visitorName || visitorPhone) {
+          const patch = {};
+          if (visitorName) patch.visitor_name = visitorName;
+          if (visitorPhone) patch.visitor_phone = visitorPhone;
+          const { error: patchError } = await supabase
+            .from('client_sessions')
+            .update(patch)
+            .eq('id', session.id);
+          if (patchError && !isMissingDbColumnError(patchError, 'visitor_')) {
+            console.warn('Could not save visitor name/phone on existing session:', patchError);
+          }
+        }
       } else {
         // 2. Create new session (Blind insert to handle RLS)
         const insertData = {
           collection_id: collectionId,
           visitor_email: email,
           access_level: 'guest',
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
+          ...(visitorName ? { visitor_name: visitorName } : {}),
+          ...(visitorPhone ? { visitor_phone: visitorPhone } : {}),
         };
 
         console.log('Attempting blind insert for session:', insertData);
-        const { error: insertError } = await supabase
+        let { error: insertError } = await supabase
           .from('client_sessions')
           .insert([insertData]);
+
+        if (insertError && isMissingDbColumnError(insertError, 'visitor_')) {
+          const fallbackInsert = { ...insertData };
+          delete fallbackInsert.visitor_name;
+          delete fallbackInsert.visitor_phone;
+          const retry = await supabase.from('client_sessions').insert([fallbackInsert]);
+          insertError = retry.error;
+        }
 
         if (insertError && insertError.code !== '23505') { // Ignore unique constraint violation
           console.error('Session insertion failed:', insertError);
@@ -2406,7 +2467,12 @@ export const galleryService = {
           await this.logActivity(collectionId, 'email_register', {
             email,
             photographerId: col?.photographer_id || col?.user_id,
-            metadata: { source: 'Gallery Registration', type: 'email' },
+            metadata: {
+              source: 'Gallery Registration',
+              type: 'email',
+              ...(visitorName ? { name: visitorName } : {}),
+              ...(visitorPhone ? { phone: visitorPhone } : {}),
+            },
           });
         } catch (logErr) {
           console.warn('email_register activity log skipped:', logErr);
@@ -3283,11 +3349,21 @@ export const galleryService = {
   async getEmailRegistrationActivity(collectionId) {
     if (!collectionId) return [];
     try {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('client_sessions')
-        .select('id, visitor_email, created_at, access_level, download_count')
+        .select('id, visitor_email, visitor_name, visitor_phone, created_at, access_level, download_count')
         .eq('collection_id', collectionId)
         .order('created_at', { ascending: false });
+
+      if (error && isMissingDbColumnError(error, 'visitor_')) {
+        const fallback = await supabase
+          .from('client_sessions')
+          .select('id, visitor_email, created_at, access_level, download_count')
+          .eq('collection_id', collectionId)
+          .order('created_at', { ascending: false });
+        data = fallback.data;
+        error = fallback.error;
+      }
 
       if (error) {
         console.error('getEmailRegistrationActivity error:', error);
@@ -3314,6 +3390,8 @@ export const galleryService = {
         .map((row) => ({
           id: row.id,
           email: row.visitor_email,
+          name: row.visitor_name || null,
+          phone: row.visitor_phone || null,
           date: row.created_at,
           accessLevel: row.access_level || 'guest',
           downloadCount: Number(row.download_count) || 0,
@@ -3519,6 +3597,43 @@ export const galleryService = {
         recipientEmail,
         senderEmail,
         personalMessage,
+      },
+    });
+
+    if (error) {
+      throw new Error(error.message || 'Could not send email');
+    }
+    if (data?.error) {
+      throw new Error(data.error);
+    }
+    return data;
+  },
+
+  /**
+   * Send a selection-list invite email to a client (photographer dashboard).
+   */
+  async sendSelectionListEmail({ collectionSlug, recipientEmail, subject, message, chooseUrl, siteOrigin }) {
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
+
+    if (sessionError || !session?.access_token) {
+      throw new Error('You must be signed in to send emails.');
+    }
+
+    const { data, error } = await supabase.functions.invoke('send-selection-email', {
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: {
+        collectionSlug,
+        recipientEmail,
+        subject,
+        message,
+        chooseUrl,
+        siteOrigin,
+        accessToken: session.access_token,
       },
     });
 

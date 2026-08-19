@@ -3148,12 +3148,7 @@
 }
 
 .style-left .preview-title {
-    top: 8px;
-    left: 8px;
-    bottom: auto;
-    font-size: 8px;
-    letter-spacing: 0.2em;
-    opacity: 0.9;
+    display: none !important;
 }
 
 .style-left .preview-content::after {
@@ -6575,6 +6570,25 @@
     width: 100%;
     max-width: 760px;
     margin: 0 auto;
+}
+
+/* More and Share Popup UI Updates */
+.cd-more-dropdown,
+.cd-share-dropdown,
+.cd-preset-flyout,
+.cd-set-dropdown {
+    border-radius: 12px !important;
+    box-shadow: 0 18px 48px rgba(32, 24, 16, 0.16), 0 0 0 1px rgba(32, 24, 16, 0.06) !important;
+    border: none !important;
+    background-color: #ffffff !important;
+}
+
+.cd-more-dropdown > .cd-ctx-item:hover,
+.cd-preset-flyout .cd-ctx-item:hover,
+.cd-ctx-item-trigger:hover,
+.cd-ctx-item--has-flyout.is-open,
+.cd-share-item:hover {
+    background-color: #f6f3ee !important;
 }
 
 

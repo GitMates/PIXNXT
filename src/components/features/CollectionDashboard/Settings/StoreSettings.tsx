@@ -1,9 +1,161 @@
 import React from 'react';
 import { galleryService } from '../../../../services/gallery.service';
 import { StoreSettingsProps } from './Settings.types';
-import { SettingsCard, ToggleRow } from './settingsCardKit';
+import { Toggle } from './settingsCardKit';
 import './BasicsSettings.css';
-import './SettingsCards.css';
+import './DownloadSettings.css';
+
+const PRICE_LISTS = [
+  { id: 'studio', label: 'Studio default' },
+  { id: 'wedding', label: 'Wedding premium' },
+  { id: 'custom', label: 'Custom' },
+] as const;
+
+type PriceListId = (typeof PRICE_LISTS)[number]['id'];
+
+function ChevronDown() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+}
+
+function GridGlyph() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a39a92" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="3" y="3" width="7" height="7" rx="1.5" />
+      <rect x="14" y="3" width="7" height="7" rx="1.5" />
+      <rect x="3" y="14" width="7" height="7" rx="1.5" />
+      <rect x="14" y="14" width="7" height="7" rx="1.5" />
+    </svg>
+  );
+}
+
+function useMenu() {
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!open) return undefined;
+    const onDoc = (event: MouseEvent) => {
+      if (!ref.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [open]);
+
+  return { open, setOpen, ref };
+}
+
+function Row({
+  title,
+  desc,
+  control,
+}: {
+  title: string;
+  desc?: string;
+  control: React.ReactNode;
+}) {
+  return (
+    <div className="cd-dl-row">
+      <div className="cd-dl-row__copy">
+        <p className="cd-dl-row__title">{title}</p>
+        {desc ? <p className="cd-dl-row__desc">{desc}</p> : null}
+      </div>
+      <div className="cd-dl-row__control">{control}</div>
+    </div>
+  );
+}
+
+function RadioMenu({
+  value,
+  options,
+  header,
+  onChange,
+}: {
+  value: string;
+  options: { id: string; label: string }[];
+  header: string;
+  onChange: (id: string) => void;
+}) {
+  const { open, setOpen, ref } = useMenu();
+  const label = options.find((item) => item.id === value)?.label || value;
+
+  return (
+    <div className={`cd-dl-select${open ? ' is-open' : ''}`} ref={ref}>
+      <button
+        type="button"
+        className="cd-dl-select__btn"
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+      >
+        <span>{label}</span>
+        <ChevronDown />
+      </button>
+      {open ? (
+        <div className="cd-dl-pop" role="listbox">
+          <p className="cd-dl-pop__head">{header}</p>
+          {options.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className="cd-dl-opt"
+              onClick={() => {
+                onChange(item.id);
+                setOpen(false);
+              }}
+            >
+              <span className={`cd-dl-radio${item.id === value ? ' is-on' : ''}`} />
+              <span className="cd-dl-opt__copy">
+                <span className="cd-dl-opt__title">{item.label}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function PercentField({
+  value,
+  onChange,
+  onBlur,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  onBlur: () => void;
+}) {
+  return (
+    <label className="cd-dl-pct">
+      <input
+        type="number"
+        min={0}
+        max={999}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        onBlur={onBlur}
+        aria-label="Your margin"
+      />
+      <span className="cd-dl-pct__suffix">%</span>
+    </label>
+  );
+}
+
+function priceListStorageKey(collectionId: string) {
+  return `pixnxt_print_price_list_${collectionId}`;
+}
+
+function readStoredPriceList(collectionId: string): PriceListId {
+  try {
+    const stored = localStorage.getItem(priceListStorageKey(collectionId));
+    if (stored && PRICE_LISTS.some((item) => item.id === stored)) return stored as PriceListId;
+  } catch {
+    /* ignore */
+  }
+  return 'studio';
+}
 
 export const StoreSettings: React.FC<StoreSettingsProps> = ({
   collectionId,
@@ -11,19 +163,21 @@ export const StoreSettings: React.FC<StoreSettingsProps> = ({
   setCollection,
   storeEnabled,
   setStoreEnabled,
-  setActiveSidebarTab,
-  setActiveActivitySubTab,
 }) => {
-  const [openCard, setOpenCard] = React.useState<string | null>(null);
   const [guestPrints, setGuestPrints] = React.useState(collection?.guest_prints_enabled !== false);
   const [markup, setMarkup] = React.useState(
     collection?.print_markup_percent != null ? String(collection.print_markup_percent) : '40',
   );
+  const [priceList, setPriceList] = React.useState<PriceListId>(() => readStoredPriceList(collectionId));
 
   React.useEffect(() => {
     setGuestPrints(collection?.guest_prints_enabled !== false);
     setMarkup(collection?.print_markup_percent != null ? String(collection.print_markup_percent) : '40');
   }, [collection?.guest_prints_enabled, collection?.print_markup_percent]);
+
+  React.useEffect(() => {
+    setPriceList(readStoredPriceList(collectionId));
+  }, [collectionId]);
 
   const persist = async (patch: Record<string, unknown>) => {
     try {
@@ -34,127 +188,113 @@ export const StoreSettings: React.FC<StoreSettingsProps> = ({
     }
   };
 
-  const toggleCard = (id: string) => setOpenCard((current) => (current === id ? null : id));
-  const coverUrl = collection?.cover_url || '';
-  const markupLabel = `${Number(markup) || 0}%`;
+  const choosePriceList = (id: string) => {
+    const next = (PRICE_LISTS.some((item) => item.id === id) ? id : 'studio') as PriceListId;
+    setPriceList(next);
+    try {
+      localStorage.setItem(priceListStorageKey(collectionId), next);
+    } catch {
+      /* ignore */
+    }
+  };
 
-  const sellingSummary = (
+  const sellingSummary = storeEnabled ? (
+    guestPrints ? (
+      <>
+        Prints are <strong>on</strong>, and guests are offered them on <strong>their own photographs</strong>.
+      </>
+    ) : (
+      <>
+        Prints are <strong>on</strong>, and only your client is offered them — <strong>guests see no prints</strong>.
+      </>
+    )
+  ) : (
     <>
-      Prints are <strong>{storeEnabled ? 'on' : 'off'}</strong>.{' '}
-      {storeEnabled ? (
-        guestPrints ? (
-          <>Guests are offered them on <strong>their own photographs</strong> after guest delivery.</>
-        ) : (
-          <>Only your client is offered them — <strong>guests see no prints</strong>.</>
-        )
-      ) : (
-        <>Nothing can be ordered from inside this gallery.</>
-      )}
-    </>
-  );
-
-  const pricingSummary = (
-    <>
-      Your <strong>studio default</strong> list, at <strong>{markupLabel}</strong> above lab cost.
+      Prints are <strong>off</strong>. Nothing can be ordered from inside this gallery.
     </>
   );
 
   return (
-    <div className="cd-general-settings-view cd-basics">
+    <div className="cd-general-settings-view cd-basics cd-dl">
       <header className="cd-basics__header">
         <h2 className="cd-basics__title">Print Lab</h2>
         <p className="cd-basics__kicker">this delivery</p>
         <p className="cd-basics__lead">What your client can order without leaving the gallery.</p>
       </header>
 
-      <div className="cd-basics__cards">
-        <SettingsCard
-          id="selling"
-          openId={openCard}
-          onToggle={toggleCard}
-          title="Selling from this delivery"
-          summary={sellingSummary}
-          icon={(
-            <span className="cd-basics-card__icon cd-basics-card__icon--frame">
-              <span className="cd-basics-frame" />
-              <span className="cd-basics-card__brand">{storeEnabled ? 'Prints on' : 'Prints off'}</span>
-            </span>
-          )}
-        >
-          <div className="cd-basics-toggles">
-            <ToggleRow
+      <div className="cd-dl-shell is-first">
+        <div className="cd-dl-box">
+          <div className="cd-dl-status">
+            <div className="cd-basics-card-badge">
+              <GridGlyph />
+              <span className="cd-basics-card-badge__text">
+                {storeEnabled ? 'Prints on' : 'Prints off'}
+              </span>
+            </div>
+            <div className="cd-dl-status__copy">
+              <h3 className="cd-dl-status__title">Selling prints</h3>
+              <p className="cd-dl-status__desc">{sellingSummary}</p>
+            </div>
+          </div>
+
+          <div className={`cd-dl-master${storeEnabled ? ' is-on' : ''}`}>
+            <Row
               title="Print Lab"
               desc="Visitors can order prints and products from inside the gallery."
-              checked={storeEnabled}
-              onChange={setStoreEnabled}
-            />
-            <ToggleRow
-              title="Offer prints to guests"
-              desc={'"Take these home" appears on each guest\'s own photographs after guest delivery.'}
-              checked={guestPrints}
-              onChange={(next) => {
-                setGuestPrints(next);
-                void persist({ guest_prints_enabled: next });
-              }}
+              control={<Toggle checked={storeEnabled} onChange={setStoreEnabled} label="Print Lab" />}
             />
           </div>
-          <p className="cd-basics-hint">
-            Print Lab is part of the gallery, not a separate store — same header, same palette, no second
-            link to share.
-          </p>
-        </SettingsCard>
 
-        <SettingsCard
-          id="pricing"
-          openId={openCard}
-          onToggle={toggleCard}
-          title="Pricing"
-          summary={pricingSummary}
-          icon={(
-            <span className="cd-basics-card__icon cd-basics-card__icon--cover">
-              {coverUrl ? <img src={coverUrl} alt="" /> : null}
-              <span className="cd-basics-card__brand">{markupLabel} margin</span>
-            </span>
-          )}
-        >
-          <div className="cd-basics-field">
-            <span className="cd-basics-label">Margin above lab cost</span>
-            <div className="cd-basics-input-row">
-              <input
-                type="number"
-                min={0}
-                className="cd-basics-input cd-basics-input--sm"
-                value={markup}
-                onChange={(e) => setMarkup(e.target.value)}
-                onBlur={() => void persist({ print_markup_percent: markup === '' ? null : Number(markup) })}
+          <div className="cd-dl-body">
+            <div className="cd-dl-card">
+              <Row
+                title="Offer prints to guests"
+                desc={'‘Take these home’ on each guest’s own photographs after guest delivery.'}
+                control={(
+                  <Toggle
+                    checked={guestPrints}
+                    onChange={(next) => {
+                      setGuestPrints(next);
+                      void persist({ guest_prints_enabled: next });
+                    }}
+                    label="Offer prints to guests"
+                  />
+                )}
               />
-              <button
-                type="button"
-                className="cd-basics-btn"
-                onClick={() => window.open('/store/orders', '_blank', 'noopener,noreferrer')}
-              >
-                Open price list
-              </button>
+              <Row
+                title="Price list"
+                desc="Built once in your Profile settings and reused. This picks which applies here."
+                control={(
+                  <RadioMenu
+                    header="Price list"
+                    value={priceList}
+                    options={[...PRICE_LISTS]}
+                    onChange={choosePriceList}
+                  />
+                )}
+              />
+              <Row
+                title="Your margin"
+                desc="Above lab cost."
+                control={(
+                  <PercentField
+                    value={markup}
+                    onChange={setMarkup}
+                    onBlur={() => {
+                      const parsed = markup === '' ? null : Number(markup);
+                      void persist({ print_markup_percent: parsed });
+                    }}
+                  />
+                )}
+              />
             </div>
-            <p className="cd-basics-hint">
-              Every product in the studio default list is sold at this margin unless you price it yourself.
-            </p>
           </div>
-
-          <div className="cd-basics-actions-row">
-            <button
-              type="button"
-              className="cd-basics-btn"
-              onClick={() => {
-                setActiveSidebarTab('activity');
-                setActiveActivitySubTab('store');
-              }}
-            >
-              Print Lab activity
-            </button>
-          </div>
-        </SettingsCard>
+        </div>
       </div>
+
+      <p className="cd-dl-after">
+        Print Lab is part of the gallery, not a separate store — same header, same palette, no second link to share.
+      </p>
     </div>
   );
 };

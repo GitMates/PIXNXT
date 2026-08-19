@@ -86,6 +86,14 @@ import {
 import { filterPhotosByIds } from '../../lib/photoAiSearch';
 import { useGalleryPeople } from '../../hooks/useGalleryPeople';
 import { GalleryPeopleStrip } from '../../components/features/Gallery/GalleryPeopleStrip/GalleryPeopleStrip';
+import { GalleryEmailGate } from '../../components/features/Gallery/GalleryEmailGate/GalleryEmailGate';
+import {
+  captureModeNeedsName,
+  captureModeNeedsPhone,
+  knownGalleryVisitorEmail,
+  readGalleryRegistration,
+  writeGalleryRegistration,
+} from '../../lib/galleryEmailRegistration';
 
 function resolveDownloadSetAllowlist(selectedDownloadSets, namedSets = []) {
   if (!selectedDownloadSets?.length) return null;
@@ -124,6 +132,9 @@ const GalleryView = () => {
   const [showNoImageShopModal, setShowNoImageShopModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [email, setEmail] = useState('');
+  const [emailGatePassed, setEmailGatePassed] = useState(false);
+  const [emailGateSaving, setEmailGateSaving] = useState(false);
+  const [emailGateError, setEmailGateError] = useState('');
 
   // Sales campaigns loaded from StoreDashboard localStorage for client site banner rendering
   const [campaigns, setCampaigns] = useState(() => {
@@ -778,6 +789,57 @@ const GalleryView = () => {
     return `${name} (${favoritedPhotos.length})`;
   }, [sessionId, activeFavoriteList, favoritedPhotos.length]);
 
+  const handleEmailGateSubmit = async ({ email: nextEmail, name, phone }) => {
+    if (!collection?.id) return;
+    const trimmedEmail = String(nextEmail || '').trim();
+    const trimmedName = String(name || '').trim();
+    const trimmedPhone = String(phone || '').trim();
+    const mode = collection.email_capture_mode;
+
+    if (!trimmedEmail.includes('@')) {
+      setEmailGateError('Please enter a valid email address.');
+      return;
+    }
+    if (captureModeNeedsName(mode) && !trimmedName) {
+      setEmailGateError('Please enter your name.');
+      return;
+    }
+    if (captureModeNeedsPhone(mode) && !trimmedPhone) {
+      setEmailGateError('Please enter your phone number.');
+      return;
+    }
+
+    setEmailGateSaving(true);
+    setEmailGateError('');
+    try {
+      const session = await galleryService.registerGalleryVisitor({
+        collectionId: collection.id,
+        email: trimmedEmail,
+        name: trimmedName,
+        phone: trimmedPhone,
+      });
+      writeGalleryRegistration(collection.id, {
+        email: trimmedEmail,
+        name: trimmedName,
+        phone: trimmedPhone,
+      });
+      setEmail(trimmedEmail);
+      if (session?.id) {
+        setSessionId(session.id);
+        await refreshSelectionList(session.id, listId || null);
+      }
+      const channel = new BroadcastChannel('pixnxt-gallery-update');
+      channel.postMessage({ type: 'ACTIVITY_UPDATED', collectionId: collection.id });
+      channel.close();
+      setEmailGatePassed(true);
+    } catch (err) {
+      console.error('Failed to register visitor:', err);
+      setEmailGateError(err.message || 'Could not save your details. Please try again.');
+    } finally {
+      setEmailGateSaving(false);
+    }
+  };
+
   const handleFavoriteEmailSubmit = async () => {
     if (!email || !collection || collection.favorites_enabled === false) return;
     try {
@@ -1025,7 +1087,8 @@ const GalleryView = () => {
         return;
       }
 
-      const needsEmail = !!collection?.email_capture_enabled || !!collection?.restrict_to_emails;
+      const savedEmail = knownGalleryVisitorEmail(collection.id, email);
+      const needsEmail = (!!collection?.email_capture_enabled || !!collection?.restrict_to_emails) && !savedEmail;
 
       // When PIN is ON, require it for single photo downloads too
       const pinRequiredForSingle = collection?.require_pin_for_single_photo !== false;
@@ -1207,17 +1270,26 @@ const GalleryView = () => {
           }
         }
 
-        // Check for existing session email
-        const savedEmail = localStorage.getItem(`pixnxt_fav_email_${data.id}`);
-        if (savedEmail) {
+        // Restore a previous registration, or require the one-time gate.
+        const savedReg = readGalleryRegistration(data.id);
+        const skipGate = !data.email_capture_enabled || (isClientExclusiveEnabled(data) && isClientSessionActive(data.id));
+        if (savedReg?.email) {
+          setEmailGatePassed(true);
           try {
-            const session = await galleryService.createOrGetSession(data.id, savedEmail);
+            const session = await galleryService.createOrGetSession(data.id, savedReg.email, {
+              name: savedReg.name,
+              phone: savedReg.phone,
+            });
             setSessionId(session.id);
-            setEmail(savedEmail);
+            setEmail(savedReg.email);
             await refreshSelectionList(session.id, listId || null);
           } catch (e) {
             console.error("Failed to restore session:", e);
           }
+        } else if (skipGate) {
+          setEmailGatePassed(true);
+        } else {
+          setEmailGatePassed(false);
         }
       } catch (err) {
         console.error('Gallery Fetch Error:', err);
@@ -1878,6 +1950,20 @@ const GalleryView = () => {
       <a href="/" className="text-[6px] font-bold underline uppercase tracking-[0.4em]">Back to Home</a>
     </div>
   );
+
+  if (collection.email_capture_enabled && !emailGatePassed) {
+    return (
+      <GalleryEmailGate
+        collectionName={collection.name}
+        coverUrl={collection.cover_url}
+        studioName={photographer?.business_name || photographer?.display_name}
+        captureMode={collection.email_capture_mode}
+        saving={emailGateSaving}
+        error={emailGateError}
+        onSubmit={handleEmailGateSubmit}
+      />
+    );
+  }
 
   return (
     <div
@@ -2627,6 +2713,7 @@ const GalleryView = () => {
         initialPhoto={selectedDownloadPhoto}
         watermarkOptions={getWatermarkOptions()}
         initialSetId={activeSetId}
+        visitorEmail={email}
       />
 
       <ShareCollectionModal

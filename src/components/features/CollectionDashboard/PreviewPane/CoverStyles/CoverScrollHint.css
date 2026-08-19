@@ -313,14 +313,21 @@
     left: 50%;
   }
 
+  .gallery-view-page.style-divider .cover-scroll-hint {
+    left: 25%;
+  }
+
   .gallery-view-page.style-novel .cover-scroll-hint {
     bottom: clamp(1.25rem, 3vh, 2rem);
   }
 }
 
-.cd-design-preview-pane.mobile .cd-preview-gallery-card.style-novel .cover-scroll-hint,
-.cd-design-preview-pane.mobile .cd-preview-gallery-card.style-divider .cover-scroll-hint {
+.cd-design-preview-pane.mobile .cd-preview-gallery-card.style-novel .cover-scroll-hint {
   left: 50%;
+}
+
+.cd-design-preview-pane.mobile .cd-preview-gallery-card.style-divider .cover-scroll-hint {
+  left: 25%;
 }
 
 .cd-design-preview-pane.mobile .cd-preview-gallery-card.style-novel .cover-scroll-hint {

@@ -113,6 +113,8 @@ export type Database = {
           id: string
           ip_hash: string | null
           visitor_email: string | null
+          visitor_name: string | null
+          visitor_phone: string | null
         }
         Insert: {
           access_level?: string
@@ -124,6 +126,8 @@ export type Database = {
           id?: string
           ip_hash?: string | null
           visitor_email?: string | null
+          visitor_name?: string | null
+          visitor_phone?: string | null
         }
         Update: {
           access_level?: string
@@ -135,6 +139,8 @@ export type Database = {
           id?: string
           ip_hash?: string | null
           visitor_email?: string | null
+          visitor_name?: string | null
+          visitor_phone?: string | null
         }
         Relationships: [
           {
@@ -334,6 +340,7 @@ export type Database = {
           download_resolutions: Database["public"]["Enums"]["download_resolution"][]
           downloads_enabled: boolean
           email_capture_enabled: boolean
+          email_capture_mode: string
           event_date: string | null
           favorites_allow_comments: boolean
           favorites_enabled: boolean
@@ -390,6 +397,7 @@ export type Database = {
           download_resolutions?: Database["public"]["Enums"]["download_resolution"][]
           downloads_enabled?: boolean
           email_capture_enabled?: boolean
+          email_capture_mode?: string
           event_date?: string | null
           favorites_allow_comments?: boolean
           favorites_enabled?: boolean
@@ -446,6 +454,7 @@ export type Database = {
           download_resolutions?: Database["public"]["Enums"]["download_resolution"][]
           downloads_enabled?: boolean
           email_capture_enabled?: boolean
+          email_capture_mode?: string
           event_date?: string | null
           favorites_allow_comments?: boolean
           favorites_enabled?: boolean

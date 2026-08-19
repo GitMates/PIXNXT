@@ -171,21 +171,23 @@ function GridChoiceRow({
   value: string;
   onChange: (id: string) => void;
 }) {
+  const selected = options.find((opt) => opt.id === value) ?? options[0];
   return (
-    <div className="cd-design-panel__grid-row">
+    <div className="cd-design-panel__thumb-row">
       {options.map((option) => (
         <button
           key={option.id}
           type="button"
-          className={cn('cd-design-panel__grid-card', value === option.id && 'active')}
+          className={cn('cd-design-panel__thumb-btn', value === option.id && 'active')}
           onClick={() => onChange(option.id)}
+          aria-label={option.name}
         >
-          <span className="cd-design-panel__grid-icon" aria-hidden>
-            {option.icon}
-          </span>
-          <span className="cd-design-panel__grid-label">{option.name}</span>
+          {option.icon}
         </button>
       ))}
+      <p className="cd-design-panel__thumb-hint">
+        <strong>{selected.name}</strong>
+      </p>
     </div>
   );
 }
@@ -195,7 +197,7 @@ const GRID_STYLE_OPTIONS = [
     id: 'vertical',
     name: galleryGridStyleLabel('vertical'),
     icon: (
-      <svg width="40" height="40" viewBox="0 0 40 40" fill="currentColor">
+      <svg width="24" height="24" viewBox="0 0 40 40" fill="currentColor">
         <rect x="8" y="8" width="10" height="10" />
         <rect x="8" y="22" width="10" height="10" />
         <rect x="22" y="8" width="10" height="24" />
@@ -206,7 +208,7 @@ const GRID_STYLE_OPTIONS = [
     id: 'horizontal',
     name: galleryGridStyleLabel('horizontal'),
     icon: (
-      <svg width="40" height="40" viewBox="0 0 40 40" fill="currentColor">
+      <svg width="24" height="24" viewBox="0 0 40 40" fill="currentColor">
         <rect x="8" y="8" width="24" height="10" />
         <rect x="8" y="22" width="10" height="10" />
         <rect x="22" y="22" width="10" height="10" />
@@ -218,9 +220,9 @@ const GRID_STYLE_OPTIONS = [
 const GRID_SPACING_OPTIONS = [
   {
     id: 'regular',
-    name: 'Regular',
+    name: 'Regular spacing',
     icon: (
-      <svg width="40" height="40" viewBox="0 0 40 40" fill="currentColor">
+      <svg width="24" height="24" viewBox="0 0 40 40" fill="currentColor">
         <rect x="11" y="11" width="6" height="6" />
         <rect x="23" y="11" width="6" height="6" />
         <rect x="11" y="23" width="6" height="6" />
@@ -230,9 +232,9 @@ const GRID_SPACING_OPTIONS = [
   },
   {
     id: 'large',
-    name: 'Large',
+    name: 'Large spacing',
     icon: (
-      <svg width="40" height="40" viewBox="0 0 40 40" fill="currentColor">
+      <svg width="24" height="24" viewBox="0 0 40 40" fill="currentColor">
         <rect x="14" y="14" width="12" height="12" />
       </svg>
     ),

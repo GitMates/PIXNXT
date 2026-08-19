@@ -1,5 +1,6 @@
 import { buildGmailComposeUrl } from './gmailComposeUrl';
 import { generateCollectionSlug } from './collectionSlug';
+import { getPhotographerPublicOrigin } from './customDomain';
 import { getPublicGalleryUrl, getPublicSiteOrigin, getShareUrlWarning } from './publicSiteUrl';
 
 export { getShareUrlWarning };
@@ -17,6 +18,17 @@ export function getShareUrlForCollection(collection) {
     if (collection.slug) return getCollectionShareUrl(collection.slug);
     if (collection.name) return getCollectionShareUrl(generateCollectionSlug(collection.name));
     return getCollectionShareUrl('');
+}
+
+/** Client-facing selection link (branded /g/:slug/choose path). */
+export function getSelectionChooseUrl(slug, photographerProfile) {
+    const safeSlug = String(slug || '').trim().replace(/^\/+|\/+$/g, '');
+    const origin = getPhotographerPublicOrigin(photographerProfile).replace(/\/+$/, '');
+    const href = safeSlug ? `${origin}/g/${encodeURIComponent(safeSlug)}/choose` : `${origin}/g/choose`;
+    return {
+        href,
+        displayPath: href.replace(/^https?:\/\//, ''),
+    };
 }
 
 export function openShareByEmail(url, title = 'Photo Gallery') {

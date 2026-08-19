@@ -56,7 +56,6 @@ export function filterSetsForViewer(
   collection: ClientExclusiveCollection | null | undefined,
   isClient: boolean
 ): ClientExclusiveSet[] {
-  if (!isClientExclusiveEnabled(collection) || isClient) return sets;
   return sets.filter((s) => !s.is_private);
 }
 

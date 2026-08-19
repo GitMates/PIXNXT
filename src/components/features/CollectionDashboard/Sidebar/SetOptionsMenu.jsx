@@ -12,6 +12,7 @@ export function SetOptionsMenu({
   sizeLabel = '0 GB',
   anchorEl,
   onRename,
+  onEditDescription,
   onDuplicate,
   onToggleHidden,
   onMoveAllTo,

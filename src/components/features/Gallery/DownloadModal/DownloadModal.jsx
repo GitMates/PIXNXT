@@ -11,6 +11,7 @@ import {
   DEFAULT_DOWNLOAD_CONCURRENCY,
 } from '@/lib/downloadPhoto';
 import { galleryService } from '@/services/gallery.service';
+import { knownGalleryVisitorEmail } from '@/lib/galleryEmailRegistration';
 import {
   isGoogleDriveConfigured,
   getGoogleDriveSetupMessage,
@@ -68,7 +69,8 @@ export const DownloadModal = ({
   sets = [],
   initialPhoto = null,
   watermarkOptions = null,
-  initialSetId = 'all'
+  initialSetId = 'all',
+  visitorEmail = '',
 }) => {
   const [step, setStep] = useState('auth'); // auth -> selection -> preparing -> complete
   const [email, setEmail] = useState('');
@@ -116,12 +118,12 @@ export const DownloadModal = ({
   // Initial step determination
   useEffect(() => {
     if (isOpen && collection) {
-      const needsEmail = !!collection?.email_capture_enabled || !!collection?.restrict_to_emails;
+      const knownEmail = knownGalleryVisitorEmail(collection?.id, visitorEmail);
+      const needsEmailField = (!!collection?.email_capture_enabled || !!collection?.restrict_to_emails) && !knownEmail;
       const isSingle = !!initialPhoto;
       const pinRequiredForSingle = collection?.require_pin_for_single_photo !== false;
       const hasPin = !!(collection?.download_pin || collection?.pin_value || collection?.pinValue || collection?.download_pin_hash);
       const needsPin = hasPin && (!isSingle || pinRequiredForSingle);
-      const hasDownloadLimit = !!collection?.download_limit_gallery;
       const hasPinUsageLimit = !!(needsPin && collection?.pin_usage_limit);
 
       // Reset fields and set initial step only on initial open
@@ -131,13 +133,12 @@ export const DownloadModal = ({
         setProgress(0);
         setIsProcessing(false);
         setPinDigits(['', '', '', '']);
-        setEmail('');
+        setEmail(knownEmail);
         setSelectedSet(initialPhoto ? 'single' : (initialSetId || 'all'));
         setResolutionChoice(offeredPhotoResolutions[0] || 'full');
         setDownloadDestination('local');
 
-        // Show auth step if any form of gate is required
-        if (needsEmail || needsPin || hasDownloadLimit || hasPinUsageLimit) {
+        if (needsEmailField || needsPin || hasPinUsageLimit) {
           setStep('auth');
         } else {
           setStep('selection');
@@ -200,7 +201,10 @@ export const DownloadModal = ({
   };
 
   const handleAuth = async () => {
-    if (collection?.email_capture_enabled && !email.trim()) {
+    const knownEmail = knownGalleryVisitorEmail(collection?.id, visitorEmail || email);
+    const resolvedEmail = (email.trim() || knownEmail).trim();
+
+    if ((collection?.email_capture_enabled || collection?.restrict_to_emails) && !resolvedEmail.includes('@')) {
       setError('Please enter your email address.');
       return;
     }
@@ -219,8 +223,7 @@ export const DownloadModal = ({
     // Check email restriction
     if (collection?.restrict_to_emails) {
       const allowedEmails = collection.restrict_to_emails.split(',').map(e => e.trim().toLowerCase());
-      const enteredEmail = email.trim().toLowerCase();
-      if (!enteredEmail || !allowedEmails.includes(enteredEmail)) {
+      if (!allowedEmails.includes(resolvedEmail.toLowerCase())) {
         setError('Your email is not authorized to download this delivery.');
         return;
       }
@@ -228,6 +231,7 @@ export const DownloadModal = ({
 
     setIsProcessing(true);
     setError('');
+    if (resolvedEmail && resolvedEmail !== email) setEmail(resolvedEmail);
 
     try {
       // ── Check PIN Usage Limit ─────────────────────────────
@@ -240,7 +244,7 @@ export const DownloadModal = ({
         }
         // Log successful PIN use
         await galleryService.logActivity(collection.id, 'password_attempt', {
-          email: email.trim(),
+          email: resolvedEmail,
           photographerId: collection.user_id,
           metadata: { success: true, type: 'download_pin' }
         });
@@ -410,6 +414,14 @@ export const DownloadModal = ({
     const isStale = () => runId !== downloadRunIdRef.current;
 
     try {
+      if (collection?.download_limit_gallery) {
+        const downloadCount = await galleryService.getDownloadCount(collection.id);
+        if (downloadCount >= collection.download_limit_gallery) {
+          throw new Error(
+            `Download limit reached. This delivery can only be downloaded ${collection.download_limit_gallery} time${collection.download_limit_gallery !== 1 ? 's' : ''}.`
+          );
+        }
+      }
       const zip = new JSZip();
       let photosToDownload = [];
 
@@ -600,7 +612,7 @@ export const DownloadModal = ({
       const loggedPhoto = total === 1 ? photosToDownload[0] : initialPhoto;
       try {
         await galleryService.logActivity(collection.id, 'download', {
-          email: email.trim(),
+          email: (email.trim() || knownGalleryVisitorEmail(collection?.id, visitorEmail) || 'Visitor'),
           photographerId: collection.user_id || collection.photographer_id,
           photoId: loggedPhoto?.id,
           resolution: 'original',
@@ -675,7 +687,8 @@ export const DownloadModal = ({
 
   if (!isOpen) return null;
 
-  const needsEmail = !!collection?.email_capture_enabled || !!collection?.restrict_to_emails;
+  const knownEmail = knownGalleryVisitorEmail(collection?.id, visitorEmail || email);
+  const needsEmail = (!!collection?.email_capture_enabled || !!collection?.restrict_to_emails) && !knownEmail;
   const hasPin = !!(collection?.download_pin || collection?.pin_value || collection?.pinValue || collection?.download_pin_hash);
   const pinRequiredForSingle = collection?.require_pin_for_single_photo !== false;
   const needsPin = hasPin && (!initialPhoto || pinRequiredForSingle);

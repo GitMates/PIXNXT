@@ -7,6 +7,9 @@ import { RAW_IMAGE_EXTENSIONS, RAW_IMAGE_ACCEPT_STRING } from './rawImageFormats
 /** Fallback file input: omit accept so the OS dialog defaults to All Files. */
 export const MEDIA_FILE_INPUT_ACCEPT = undefined;
 
+/** File input accept string for video-only uploads. */
+export const VIDEO_FILE_INPUT_ACCEPT = 'video/mp4,video/quicktime,video/webm,video/x-matroska,video/avi,video/x-m4v,video/x-ms-wmv,.mp4,.mov,.webm,.mkv,.avi,.m4v,.wmv';
+
 const IMAGE_EXTENSIONS = [
   '.jpg',
   '.jpeg',
@@ -63,12 +66,50 @@ export const MEDIA_FILE_PICKER_TYPES = [
   },
 ];
 
+/** Video-only picker types for the Films tab. */
+export const VIDEO_FILE_PICKER_TYPES = [
+  {
+    description: 'Videos',
+    accept: {
+      'video/*': VIDEO_EXTENSIONS,
+    },
+  },
+];
+
+/** File input accept string for photo-only uploads. */
+export const PHOTO_FILE_INPUT_ACCEPT =
+  'image/jpeg,image/png,image/webp,image/heic,image/heif,image/bmp,image/tiff,image/gif,.gif,' +
+  RAW_IMAGE_ACCEPT_STRING + ',' +
+  IMAGE_EXTENSIONS.join(',');
+
+/** Photo-only picker types for photo sets. */
+export const PHOTO_FILE_PICKER_TYPES = [
+  {
+    description: 'Images',
+    accept: {
+      'image/*': IMAGE_EXTENSIONS,
+    },
+  },
+  {
+    description: 'GIF',
+    accept: {
+      'image/gif': ['.gif'],
+    },
+  },
+  {
+    description: 'Raw files',
+    accept: {
+      'application/octet-stream': RAW_IMAGE_EXTENSIONS,
+    },
+  },
+];
+
 /**
  * Open OS file picker: All Files (default), then Images / Videos / GIF / Raw files.
  * @param {{ multiple?: boolean }} [options]
  * @returns {Promise<File[]|null>} Selected files, null if cancelled or API unavailable
  */
-export async function pickMediaFiles({ multiple = true } = {}) {
+export async function pickMediaFiles({ multiple = true, types } = {}) {
   if (typeof window === 'undefined' || typeof window.showOpenFilePicker !== 'function') {
     return null;
   }
@@ -77,7 +118,7 @@ export async function pickMediaFiles({ multiple = true } = {}) {
     const handles = await window.showOpenFilePicker({
       multiple,
       excludeAcceptAllOption: true,
-      types: MEDIA_FILE_PICKER_TYPES,
+      types: types || MEDIA_FILE_PICKER_TYPES,
     });
     return Promise.all(handles.map((handle) => handle.getFile()));
   } catch (err) {
@@ -91,9 +132,9 @@ export async function pickMediaFiles({ multiple = true } = {}) {
  * @param {{ multiple?: boolean, fallback: () => void }} options
  * @returns {Promise<File[]|undefined>}
  */
-export async function pickMediaFilesOrFallback({ multiple = true, fallback }) {
+export async function pickMediaFilesOrFallback({ multiple = true, fallback, types }) {
   try {
-    const files = await pickMediaFiles({ multiple });
+    const files = await pickMediaFiles({ multiple, types });
     if (files?.length) return files;
   } catch (err) {
     console.warn('Media file picker failed, using fallback input:', err);

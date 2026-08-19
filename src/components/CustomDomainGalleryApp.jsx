@@ -80,6 +80,8 @@ export function CustomDomainGalleryApp({ hostname }) {
       <Routes>
         <Route path="/" element={<CollectionList slug={slug} photographerProfile={profile} />} />
         <Route path="/gallery/:slug/f" element={<GalleryFavoritesHub />} />
+        <Route path="/gallery/:slug/choose" element={<GalleryFavoritesHub />} />
+        <Route path="/g/:slug/choose" element={<GalleryFavoritesHub />} />
         <Route path="/gallery/:slug" element={<GalleryView />} />
         <Route path="/m/:slug/pwa" element={<MobileGalleryClient />} />
         <Route path="/m/:slug/view" element={<MobileGalleryViewRedirect />} />
