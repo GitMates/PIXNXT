@@ -34,3 +34,30 @@ export function formatCollectionHeaderDate(dateStr) {
     return '...';
   }
 }
+
+/** Sidebar delivery date — "12 August 2026" */
+export function formatSidebarDeliveryDate(dateStr) {
+  if (!dateStr) return '...';
+  try {
+    const date = new Date(dateStr);
+    if (Number.isNaN(date.getTime())) return '...';
+    const day = date.getDate();
+    const month = date.toLocaleString('en-GB', { month: 'long' });
+    const year = date.getFullYear();
+    return `${day} ${month} ${year}`;
+  } catch {
+    return '...';
+  }
+}
+
+/** Last saved time for topbar — "15:46" */
+export function formatLastSavedTime(dateStr) {
+  if (!dateStr) return '';
+  try {
+    const date = new Date(dateStr);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+  } catch {
+    return '';
+  }
+}

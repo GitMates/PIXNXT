@@ -151,6 +151,8 @@ function App() {
     location.pathname === '/auth' ||
     location.pathname === '/dashboard' ||
     location.pathname === '/client-gallery' ||
+    location.pathname === '/client_gallery' ||
+    location.pathname === '/clientgallery' ||
     location.pathname.startsWith('/album-proofer') ||
     location.pathname.startsWith('/smart-albums') ||
     location.pathname.startsWith('/mobile-gallery') ||
@@ -221,6 +223,8 @@ function App() {
           <Routes>
             <Route path="/" element={<CollectionList slug={activeSlug} />} />
             <Route path="/gallery/:slug/f" element={<GalleryFavoritesHub />} />
+            <Route path="/gallery/:slug/choose" element={<GalleryFavoritesHub />} />
+            <Route path="/g/:slug/choose" element={<GalleryFavoritesHub />} />
             <Route path="/gallery/:slug" element={<GalleryView />} />
             <Route path="/m/:slug/pwa" element={<MobileGalleryClient />} />
             <Route path="/m/:slug/view" element={<MobileGalleryViewRedirect />} />
@@ -241,13 +245,15 @@ function App() {
       <div className="app">
         {!hideLayout && <Header />}
 
-        <Routes>
+        <Routes location={location} key={location.pathname}>
           <Route path="/" element={<Home />} />
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/login" element={<Navigate to="/auth" replace />} />
           <Route path="/signup" element={<Navigate to="/auth?mode=signup" replace />} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          <Route path="/client-gallery" element={<ClientGallery />} />
+          <Route path="/client-gallery" element={<ProtectedRoute><ClientGallery /></ProtectedRoute>} />
+          <Route path="/client_gallery" element={<Navigate to="/client-gallery" replace />} />
+          <Route path="/clientgallery" element={<Navigate to="/client-gallery" replace />} />
           <Route path="/album-proofer/*" element={<ProtectedRoute><SmartAlbums /></ProtectedRoute>} />
           <Route
             path="/smart-albums/*"
@@ -309,6 +315,8 @@ function App() {
           />
           <Route path="/collections" element={<Navigate to="/deliveries" replace />} />
           <Route path="/gallery/:slug/f" element={<GalleryFavoritesHub />} />
+          <Route path="/gallery/:slug/choose" element={<GalleryFavoritesHub />} />
+          <Route path="/g/:slug/choose" element={<GalleryFavoritesHub />} />
           <Route path="/gallery/:slug" element={<GalleryView />} />
           <Route path="/m/:slug/pwa" element={<MobileGalleryClient />} />
           <Route path="/m/:slug/view" element={<MobileGalleryViewRedirect />} />

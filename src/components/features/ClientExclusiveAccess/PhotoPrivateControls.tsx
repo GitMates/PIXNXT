@@ -53,7 +53,7 @@ export const PhotoPrivateControls: React.FC<PhotoPrivateControlsProps> = ({
               onClick={onFavorite}
               aria-label={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
             >
-              <Heart size={16} strokeWidth={1.5} fill={isFavorited ? 'currentColor' : 'none'} />
+              <Heart size={12} strokeWidth={1.75} fill={isFavorited ? 'currentColor' : 'none'} />
             </button>
           )}
           {showDownload && (
@@ -63,7 +63,7 @@ export const PhotoPrivateControls: React.FC<PhotoPrivateControlsProps> = ({
               onClick={onDownload}
               aria-label="Download"
             >
-              <Download size={16} strokeWidth={1.5} />
+              <Download size={12} strokeWidth={1.75} />
             </button>
           )}
           {showPrivateToggle && (
@@ -76,7 +76,7 @@ export const PhotoPrivateControls: React.FC<PhotoPrivateControlsProps> = ({
               }}
               aria-label={isPrivate ? 'Mark as public' : 'Mark as private'}
             >
-              <EyeOff size={16} strokeWidth={1.5} />
+              <EyeOff size={12} strokeWidth={1.75} />
             </button>
           )}
           {showShare && (
@@ -86,7 +86,7 @@ export const PhotoPrivateControls: React.FC<PhotoPrivateControlsProps> = ({
               onClick={onShare}
               aria-label="Share"
             >
-              <Share2 size={16} strokeWidth={1.5} />
+              <Share2 size={12} strokeWidth={1.75} />
             </button>
           )}
         </div>

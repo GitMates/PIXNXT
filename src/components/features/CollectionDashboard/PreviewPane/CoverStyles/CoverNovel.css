@@ -206,30 +206,30 @@
 @media (max-width: 768px) {
   .gallery-view-hero .cover-novel-layout {
     flex-direction: column-reverse;
+    height: 100% !important;
+    min-height: 100% !important;
   }
 
   .gallery-view-hero .cover-novel-layout__text,
   .gallery-view-hero .cover-novel-layout__media {
     width: 100% !important;
-    flex: none !important;
     min-height: 0;
   }
 
   .gallery-view-hero .cover-novel-layout__media {
     flex: 1 1 58% !important;
-    min-height: 52vh;
     padding: 1rem !important;
   }
 
   .gallery-view-hero .cover-novel-layout__text {
-    flex: 0 0 auto !important;
+    flex: 1 1 42% !important;
     padding: 2.5rem 1.5rem 3rem !important;
   }
 
   .gallery-view-hero .cover-novel-layout__image-frame {
     width: min(96%, 1960px) !important;
     max-width: min(96%, 1960px) !important;
-    max-height: min(72vh, 3150px) !important;
+    max-height: 100% !important;
     padding: clamp(14px, 1.75vw, 22px) !important;
   }
 
@@ -254,8 +254,20 @@
   width: 100% !important;
 }
 
+.cd-design-frame--mobile .cd-preview-gallery-card.style-novel .cover-novel-layout__media {
+  flex: 1 1 58%;
+  min-height: 0;
+  padding: 6px !important;
+}
+
+.cd-design-frame--mobile .cd-preview-gallery-card.style-novel .cover-novel-layout__text {
+  flex: 1 1 42%;
+  min-height: 0;
+  padding: 16px 12px 20px !important;
+}
+
 .cd-design-preview-pane.mobile .cd-preview-gallery-card.style-novel .cover-novel-layout__media {
-  min-height: 140px;
+  min-height: 0;
   padding: 6px !important;
 }
 

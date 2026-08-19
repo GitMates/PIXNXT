@@ -1,0 +1,127 @@
+.geg-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+  background: #f5f4f1;
+}
+
+.geg-card {
+  width: 100%;
+  max-width: 420px;
+  padding: 36px 32px 28px;
+  background: #fff;
+  border: 1px solid #ece8e2;
+  border-radius: 16px;
+  box-shadow: 0 18px 50px rgba(42, 36, 30, 0.1);
+  text-align: center;
+}
+
+.geg-cover {
+  width: 88px;
+  height: 88px;
+  margin: 0 auto 18px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #f3f0eb;
+}
+
+.geg-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.geg-kicker {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #b0a89e;
+}
+
+.geg-title {
+  margin: 0 0 8px;
+  font-family: 'Fraunces', Georgia, 'Times New Roman', serif;
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: #2a241e;
+}
+
+.geg-lead {
+  margin: 0 0 22px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #8f8986;
+}
+
+.geg-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  text-align: left;
+}
+
+.geg-field span {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 650;
+  color: #6f665d;
+}
+
+.geg-field input {
+  width: 100%;
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid #e6e1d9;
+  border-radius: 8px;
+  background: #fff;
+  font-family: inherit;
+  font-size: 14.5px;
+  color: #2a241e;
+  box-sizing: border-box;
+}
+
+.geg-field input:focus {
+  outline: none;
+  border-color: #c8c0b6;
+}
+
+.geg-error {
+  margin: 0;
+  font-size: 12.5px;
+  color: #8d3a32;
+}
+
+.geg-submit {
+  height: 44px;
+  margin-top: 4px;
+  border: none;
+  border-radius: 8px;
+  background: #1d1916;
+  color: #fff;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.geg-submit:hover:not(:disabled) {
+  background: #2c2520;
+}
+
+.geg-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.geg-hint {
+  margin: 16px 0 0;
+  font-size: 12px;
+  color: #9a9188;
+}

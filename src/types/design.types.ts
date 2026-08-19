@@ -14,7 +14,7 @@ export type CoverStyleId =
 
 export type FontId = 'sans' | 'serif' | 'modern' | 'timeless' | 'bold' | 'subtle';
 
-export type PaletteId = 'light' | 'gold' | 'rose' | 'terracotta' | 'sand' | 'olive' | 'agave' | 'sea' | 'dark';
+export type PaletteId = 'light' | 'gold' | 'rose' | 'terracotta' | 'sand' | 'agave' | 'sea' | 'dark';
 
 export type AspectRatioId = 'original' | 'square' | '3-2' | '4-5' | '16-9';
 

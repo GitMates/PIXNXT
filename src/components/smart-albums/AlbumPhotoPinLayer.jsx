@@ -15,6 +15,8 @@ import VoiceRecordingBar from './VoiceRecordingBar';
 import {
     ALBUM_PIN_POPOVER_CLOSE_EVENT,
 } from './albumPinPopoverEvents';
+import { clearPhotoPinPeek } from './albumPhotoPins';
+import { clearSwapMarkPeek } from './albumSwapMarks';
 
 const SPOT_DRAFT_OPEN_EVENT = 'album-spot-draft-open';
 const SPOT_PIN_OPEN_EVENT = 'album-spot-pin-open';
@@ -661,6 +663,22 @@ export default function AlbumPhotoPinLayer({
         const allPins = [...(pins || []), ...(swapPins || [])];
         if (!allPins.some((p) => p?.id === openPinId)) {
             setOpenPinId(null);
+        }
+    }, [openPinId, pins, swapPins]);
+
+    const prevOpenPinIdRef = useRef(null);
+    useEffect(() => {
+        const prev = prevOpenPinIdRef.current;
+        prevOpenPinIdRef.current = openPinId;
+        if (!prev || openPinId) return;
+        const allPins = [...(pins || []), ...(swapPins || [])];
+        const closed = allPins.find((p) => p?.id === prev);
+        if (!closed) return;
+        const markId = closed.swapGroup || closed.markId;
+        if (markId) {
+            clearSwapMarkPeek(null, markId);
+        } else {
+            clearPhotoPinPeek(null, prev);
         }
     }, [openPinId, pins, swapPins]);
 

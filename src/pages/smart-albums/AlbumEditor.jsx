@@ -145,6 +145,7 @@ import {
     SWAP_MARKS_CHANGED_EVENT,
     SWAP_MARKS_SEEN_CHANGED_EVENT,
     isSwapMarkUnseen,
+    peekSwapMarkIfDone,
 } from '../../components/smart-albums/albumSwapMarks';
 import {
     getPhotoPins,
@@ -152,6 +153,7 @@ import {
     PHOTO_PINS_CHANGED_EVENT,
     PHOTO_PINS_SEEN_CHANGED_EVENT,
     isPhotoPinUnseen,
+    peekPhotoPinIfDone,
 } from '../../components/smart-albums/albumPhotoPins';
 import {
     COMMENTS_CHANGED_EVENT,
@@ -161,6 +163,7 @@ import {
     smartAlbumCommentsService,
 } from '../../services/smartAlbumComments.service';
 import { hydrateAlbumClientFeedback } from '../../components/smart-albums/hydrateAlbumClientFeedback';
+import { useAlbumFeedbackRealtime } from '../../components/smart-albums/useAlbumFeedbackRealtime';
 import { useAuth } from '../../hooks/useAuth';
 import { getUserDisplayLabel } from '../../lib/userInitials';
 import { computePageCountFromPhotoCount } from './createAlbumLayout';
@@ -865,6 +868,12 @@ export default function AlbumEditor({
         };
     }, [albumId, user?.id]);
 
+    useAlbumFeedbackRealtime(albumId, {
+        enabled: Boolean(albumId),
+        viewerRole: 'photographer',
+        viewerKey: user?.id || 'default',
+    });
+
     useEffect(() => {
         setSwapMarks(getSwapMarks(albumId));
     }, [albumId]);
@@ -1065,6 +1074,7 @@ export default function AlbumEditor({
     const handleNavigateToPin = useCallback(
         (pin) => {
             if (!pin) return;
+            peekPhotoPinIfDone(albumId, pin);
             const spreadIdx = pageToSpreadIndex(pin.pageNum, spreadCtx);
             const page = spreadIndexToPage(spreadIdx, spreadCtx);
             const clamped = Math.max(0, Math.min(page, Math.max(0, totalPages - 1)));
@@ -1077,7 +1087,7 @@ export default function AlbumEditor({
                 }));
             }, 120);
         },
-        [handleBookPageChange, totalPages]
+        [albumId, handleBookPageChange, totalPages, spreadCtx]
     );
     const handleNavigateToSwapSlotKey = useCallback(
         (slotKey) => {
@@ -1094,6 +1104,7 @@ export default function AlbumEditor({
     const handleNavigateToSwapMark = useCallback(
         (mark, endpoint = 'A') => {
             if (!mark) return;
+            peekSwapMarkIfDone(albumId, mark);
             const slotKey = endpoint === 'B' ? mark.b : mark.a;
             if (slotKey) {
                 const { pageNum } = parseSlotKey(slotKey);
@@ -1114,7 +1125,7 @@ export default function AlbumEditor({
                 );
             }, 120);
         },
-        [handleBookPageChange, totalPages]
+        [albumId, handleBookPageChange, totalPages, spreadCtx]
     );
 
     const handleGridEditSetChange = useCallback(

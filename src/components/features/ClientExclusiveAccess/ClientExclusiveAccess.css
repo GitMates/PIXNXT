@@ -99,13 +99,13 @@
 /* â€”â€” Gallery: hover action bar (client) â€”â€” */
 .cea-photo-actions {
   position: absolute;
-  bottom: 12px;
-  right: 12px;
+  bottom: 8px;
+  right: 8px;
   z-index: 20;
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   opacity: 0;
   transform: translateY(8px);
   pointer-events: none;
@@ -124,8 +124,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
+  width: 24px;
+  height: 24px;
   border: none;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.22);
@@ -133,6 +133,11 @@
   color: #fff;
   cursor: pointer;
   transition: background 0.2s, color 0.2s, transform 0.15s;
+}
+
+.cea-photo-action-btn svg {
+  width: 12px;
+  height: 12px;
 }
 
 .cea-photo-action-btn:hover {
@@ -145,20 +150,69 @@
   color: #111;
 }
 
+.preview-mobile .cea-photo-actions,
+.cd-preview-gallery-body--mobile-frame .cea-photo-actions,
+.cd-design-preview-pane.mobile .cea-photo-actions,
+.gallery-view-page[data-gallery-viewport='mobile'] .cea-photo-actions {
+  bottom: 6px;
+  right: 6px;
+  gap: 4px;
+}
+
+.preview-mobile .cea-photo-action-btn,
+.cd-preview-gallery-body--mobile-frame .cea-photo-action-btn,
+.cd-design-preview-pane.mobile .cea-photo-action-btn,
+.gallery-view-page[data-gallery-viewport='mobile'] .cea-photo-action-btn {
+  width: 16px !important;
+  height: 16px !important;
+  min-width: 16px !important;
+  min-height: 16px !important;
+  padding: 0 !important;
+}
+
+.preview-mobile .cea-photo-action-btn svg,
+.cd-preview-gallery-body--mobile-frame .cea-photo-action-btn svg,
+.cd-design-preview-pane.mobile .cea-photo-action-btn svg,
+.gallery-view-page[data-gallery-viewport='mobile'] .cea-photo-action-btn svg {
+  width: 8px !important;
+  height: 8px !important;
+}
+
+@media (max-width: 768px) {
+  .cea-photo-actions {
+    bottom: 6px;
+    right: 6px;
+    gap: 4px;
+  }
+
+  .cea-photo-action-btn {
+    width: 16px !important;
+    height: 16px !important;
+    min-width: 16px !important;
+    min-height: 16px !important;
+    padding: 0 !important;
+  }
+
+  .cea-photo-action-btn svg {
+    width: 8px !important;
+    height: 8px !important;
+  }
+}
+
 /* â€”â€” Toast: "This photo is now private" â€”â€” */
 .cea-toast {
   position: fixed;
-  bottom: 28px;
-  left: 50%;
-  transform: translateX(-50%);
+  right: 24px;
+  bottom: 24px;
   z-index: 200;
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 16px 10px 10px;
-  background: #fff;
-  border-radius: 4px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  border-radius: 14px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18);
   max-width: min(90vw, 360px);
   pointer-events: none;
 }
@@ -168,14 +222,15 @@
   height: 40px;
   object-fit: cover;
   flex-shrink: 0;
+  border-radius: 10px;
   background: #f0f0f0;
 }
 
 .cea-toast-message {
-  font-size: 15px;
-  font-weight: 500;
+  font-size: 14px;
+  font-weight: 600;
   color: #111;
-  line-height: 1.35;
+  line-height: 1.45;
 }
 
 /* â€”â€” Client login modal â€”â€” */

@@ -6,9 +6,15 @@ export type CategoryTagsFieldProps = {
   tags: string[];
   onChange: (tags: string[]) => void;
   disabled?: boolean;
+  placeholder?: string;
 };
 
-export function CategoryTagsField({ tags, onChange, disabled }: CategoryTagsFieldProps) {
+export function CategoryTagsField({
+  tags,
+  onChange,
+  disabled,
+  placeholder,
+}: CategoryTagsFieldProps) {
   const [input, setInput] = useState('');
 
   const addTag = (raw: string) => {
@@ -46,14 +52,16 @@ export function CategoryTagsField({ tags, onChange, disabled }: CategoryTagsFiel
             disabled={disabled}
             onClick={() => removeTag(tag)}
           >
-            ×
+            <svg width="9" height="9" viewBox="0 0 10 10" fill="none" aria-hidden>
+              <path d="M2 2l6 6M8 2L2 8" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" />
+            </svg>
           </button>
         </span>
       ))}
       <input
         type="text"
         className="category-tags-input"
-        placeholder={tags.length ? 'Add another tag' : 'Select or enter tags'}
+        placeholder={placeholder || 'Add a tag and press Enter'}
         value={input}
         disabled={disabled}
         onChange={(e) => setInput(e.target.value)}

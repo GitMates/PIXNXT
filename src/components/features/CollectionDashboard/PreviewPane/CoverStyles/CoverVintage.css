@@ -210,4 +210,19 @@
   }
 }
 
+.cd-design-frame--mobile .cd-preview-gallery-card.style-vintage .cover-vintage-layout__media {
+  flex: 1 1 62%;
+  min-height: 0;
+}
+
+.cd-design-frame--mobile .cd-preview-gallery-card.style-vintage .cover-vintage-layout__image-frame {
+  height: 100% !important;
+  aspect-ratio: auto !important;
+}
+
+.cd-design-frame--mobile .cd-preview-gallery-card.style-vintage .cover-vintage-layout__panel {
+  flex: 1 1 38%;
+  min-height: 0;
+}
+
 

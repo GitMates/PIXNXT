@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import ThemeCoverContent from './ThemeCoverContent';
 import MobileGalleryPhotoGrid from './MobileGalleryPhotoGrid';
 import { getAppDesignSettings, getDesignPreviewBackgroundUrl, getThemeById } from '../../lib/mobileGalleryDesign';
+import { coverImageCssStyle } from '../../lib/focalPoint';
 
 export default function MobileGalleryClientHome({
   app,
@@ -20,20 +21,12 @@ export default function MobileGalleryClientHome({
 
   const showCoverImage = coverUrl && design.cover_style !== 'none';
   const coverImageStyle = showCoverImage
-    ? {
-        backgroundImage: `url(${coverUrl})`,
-        backgroundSize: 'cover',
-        backgroundPosition: `${focalX}% ${focalY}%`,
-      }
+    ? coverImageCssStyle(coverUrl, focalX, focalY)
     : undefined;
 
   const fullCoverStyle =
     design.cover_style === 'full'
-      ? {
-          backgroundImage: coverUrl ? `url(${coverUrl})` : undefined,
-          backgroundSize: 'cover',
-          backgroundPosition: `${focalX}% ${focalY}%`,
-        }
+      ? coverImageCssStyle(coverUrl, focalX, focalY)
       : undefined;
 
   return (

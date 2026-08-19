@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
     Search,
     Plus,
@@ -14,6 +14,11 @@ import SidebarLayout from '../components/SidebarLayout';
 import { cn } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
+import {
+    buildDeliveryStatusPatch,
+    deliveryStatusDotClass,
+    deliveryStatusLabel,
+} from '../lib/deliveryStatus';
 import { openSpaPath } from '../lib/spaNavigation';
 import { openShareByEmail, openWhatsAppShare, getShareUrlForCollection } from '../lib/shareCollection';
 import { CollectionCardCover } from '../components/features/ClientGallery/CollectionCardCover';
@@ -55,13 +60,12 @@ import { ClientGalleryFilterBar } from '../components/features/ClientGallery/Cli
 import { getFolderStudioUrl } from '../lib/folderStudioUrl';
 
 function getStatusDotClass(status) {
-    if (status === 'published') return 'cg-status-dot--live';
-    if (status === 'archived') return 'cg-status-dot--hidden';
-    return 'cg-status-dot--draft';
+    return deliveryStatusDotClass(status);
 }
 
 const ClientGallery = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const { user } = useAuth();
     const [collections, setCollections] = useState([]);
     const [folders, setFolders] = useState([]);
@@ -76,7 +80,6 @@ const ClientGallery = () => {
 
     const [showSortDropdown, setShowSortDropdown] = useState(false);
     const [showFilterPanel, setShowFilterPanel] = useState(false);
-    const [displayPlaceholder, setDisplayPlaceholder] = useState('');
     const [activeView, setActiveView] = useState('grid');
     const [activeSort, setActiveSort] = useState('created-new');
     const [selectedCards, setSelectedCards] = useState([]);
@@ -122,7 +125,13 @@ const ClientGallery = () => {
         setBulkApplying(true);
         try {
             await Promise.all(
-                selectedCards.map((id) => galleryService.updateCollection(id, payload))
+                selectedCards.map((id) => {
+                    const col = collections.find((c) => c.id === id);
+                    const nextPayload = payload.status
+                        ? { ...payload, ...buildDeliveryStatusPatch(payload.status, col) }
+                        : payload;
+                    return galleryService.updateCollection(id, nextPayload);
+                })
             );
             setCollections((prev) =>
                 prev.map((c) => (selectedCards.includes(c.id) ? { ...c, ...payload } : c))
@@ -260,24 +269,11 @@ const ClientGallery = () => {
         };
     }, [collections]);
 
-    useEffect(() => {
-        const fullText = 'Search deliveries or clients…';
-        let index = 0;
-        const interval = window.setInterval(() => {
-            if (index <= fullText.length) {
-                setDisplayPlaceholder(fullText.slice(0, index));
-                index += 1;
-            } else {
-                window.clearInterval(interval);
-            }
-        }, 80);
-        return () => window.clearInterval(interval);
-    }, []);
-
     const closeContextMenu = useCallback(() => {
         setContextMenuId(null);
         setContextMenuAnchor(null);
     }, []);
+
     const closeFolderContextMenu = useCallback(() => {
         setFolderContextMenuId(null);
         setFolderMenuAnchor(null);
@@ -426,7 +422,14 @@ const ClientGallery = () => {
         if (!editCollection) return;
         setEditSaving(true);
         try {
-            const updated = await galleryService.updateCollection(editCollection.id, payload);
+            const { status: nextStatus, ...rest } = payload;
+            const statusPatch = nextStatus
+                ? buildDeliveryStatusPatch(nextStatus, editCollection)
+                : {};
+            const updated = await galleryService.updateCollection(editCollection.id, {
+                ...rest,
+                ...statusPatch,
+            });
             setCollections((prev) =>
                 prev.map((c) => (c.id === updated.id ? { ...c, ...updated, photo_count: c.photo_count } : c))
             );
@@ -480,7 +483,6 @@ const ClientGallery = () => {
                 variant={variant}
                 onPreview={() => handlePreviewCollection(collection)}
                 onQuickEdit={() => handleQuickEdit(collection)}
-                onMoveTo={() => { closeContextMenu(); setMoveToCollection(collection); }}
                 onDuplicate={() => { closeContextMenu(); setDuplicateCollection(collection); }}
                 onDelete={() => { closeContextMenu(); handleDeleteCollection(collection.id); }}
                 onShareByEmail={() => handleShareByEmail(collection)}
@@ -503,7 +505,9 @@ const ClientGallery = () => {
             });
             return;
         }
-        navigate(`/deliveries/manage?id=${collection.id}`);
+        navigate(`/deliveries/manage?id=${collection.id}`, {
+            state: { from: `${location.pathname}${location.search}` },
+        });
     };
 
     const handleCoverUpload = async (collectionId, e) => {
@@ -613,7 +617,7 @@ const ClientGallery = () => {
                                 type="search"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                placeholder={displayPlaceholder}
+                                placeholder="Search deliveries or clients…"
                                 aria-label="Search deliveries, folders, and photo filenames"
                                 className="neu-inset h-10 w-full rounded-full border-0 pl-9 pr-3 text-sm text-[#1A1A1A] outline-none placeholder:text-[#71717A]"
                             />
@@ -845,8 +849,8 @@ const ClientGallery = () => {
                                             <span>•</span>
                                             <span
                                                 className={cn('size-2 rounded-full', getStatusDotClass(item.collection.status))}
-                                                title={item.collection.status || 'draft'}
-                                                aria-label={item.collection.status || 'draft'}
+                                                title={deliveryStatusLabel(item.collection.status)}
+                                                aria-label={deliveryStatusLabel(item.collection.status)}
                                             />
                                             {item.collection.guest_delivery_enabled && (
                                                 <span className="cg-gd-badge" title="Guest Delivery enabled">GD</span>
@@ -941,7 +945,7 @@ const ClientGallery = () => {
                                                 {formatStorageBytes(item.collection.storage_bytes)}
                                             </span>
                                         </div>
-                                        <span className={`cg-style-77 ${item.collection.status === 'published' ? 'bg-[#eefaf9] text-[#44aaa7] border border-[#bceceb]' : 'bg-[#f0f2f3] text-[#666]'}`}>{item.collection.status?.toUpperCase() || 'DRAFT'}</span>
+                                        <span className={`cg-style-77 ${item.collection.status === 'published' ? 'bg-[#eefaf9] text-[#44aaa7] border border-[#bceceb]' : 'bg-[#f0f2f3] text-[#666]'}`}>{deliveryStatusLabel(item.collection.status).toUpperCase()}</span>
                                     </div>
                                     <div className="cg-style-49">
                                         <span className="cg-style-46">-</span>
@@ -1028,7 +1032,9 @@ const ClientGallery = () => {
                     isOpen={Boolean(editCollection)}
                     onClose={() => setEditCollection(null)}
                     onSave={handleEditSave}
-                    onAdvanced={(c) => navigate(`/deliveries/manage?id=${c.id}`)}
+                    onAdvanced={(c) => navigate(`/deliveries/manage?id=${c.id}`, {
+                        state: { from: `${location.pathname}${location.search}` },
+                    })}
                     saving={editSaving}
                 />
                 <CollectionDirectLinkModal

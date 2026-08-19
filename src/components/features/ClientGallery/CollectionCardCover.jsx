@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { getCollectionCardCoverCandidates } from '../../../lib/photoDisplayUrl';
+import { getCoverFocalForSurface } from '../../../lib/focalPoint';
 
 /**
  * Delivery list cover — tries /thumb/ first, then /web/, then the stored URL.
@@ -9,6 +10,7 @@ export function CollectionCardCover({ collection, alt = '', className, style }) 
   const candidates = getCollectionCardCoverCandidates(collection);
   const [index, setIndex] = useState(0);
   const [failed, setFailed] = useState(false);
+  const cardFocal = useMemo(() => getCoverFocalForSurface(collection, 'card'), [collection]);
 
   useEffect(() => {
     setIndex(0);
@@ -23,7 +25,7 @@ export function CollectionCardCover({ collection, alt = '', className, style }) 
       src={src}
       alt={alt}
       className={className}
-      style={style}
+      style={{ objectPosition: `${cardFocal.x}% ${cardFocal.y}%`, ...style }}
       loading="lazy"
       decoding="async"
       onError={() => {

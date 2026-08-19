@@ -1,6 +1,32 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createClient } from '@supabase/supabase-js';
 import { getSupabaseAdmin, getSupabaseUrl } from '../photoAi/supabaseAdmin.js';
 import { pickPublicAlbumForSlug } from '../../src/lib/albumPreviewSlug.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+/** Embedded serif — Sharp/librsvg has no Georgia on Vercel. */
+let frauncesFontBase64 = null;
+function getFrauncesFontBase64() {
+  if (frauncesFontBase64) return frauncesFontBase64;
+  const candidates = [
+    path.join(process.cwd(), 'public', 'fonts', 'Fraunces-Var-latin.woff2'),
+    path.join(__dirname, '..', '..', 'public', 'fonts', 'Fraunces-Var-latin.woff2'),
+  ];
+  for (const file of candidates) {
+    try {
+      if (fs.existsSync(file)) {
+        frauncesFontBase64 = fs.readFileSync(file).toString('base64');
+        return frauncesFontBase64;
+      }
+    } catch {
+      /* try next */
+    }
+  }
+  return null;
+}
 
 /** Square JPEG — fills the WhatsApp share thumbnail (the N-logo slot). */
 export const OG_WIDTH = 1200;
@@ -10,9 +36,11 @@ const LEATHER_PRESETS = {
   tan: { base: '#e07b32', highlight: '#f0a060', shadow: '#b85c28', text: '#8a4018' },
   sky: { base: '#1a3d66', highlight: '#2a5588', shadow: '#0f2844', text: '#8eb8dc' },
   cream: { base: '#f8f8f8', highlight: '#ffffff', shadow: '#d6d6d6', text: '#6e6e6e' },
-  charcoal: { base: '#3a3a3a', highlight: '#525252', shadow: '#222222', text: '#f4f0ea' },
-  burgundy: { base: '#7a4f2a', highlight: '#a87248', shadow: '#523218', text: '#f4f0ea' },
+  charcoal: { base: '#3a3a3a', highlight: '#525252', shadow: '#222222', text: '#141414' },
+  burgundy: { base: '#7a4f2a', highlight: '#a87248', shadow: '#523218', text: '#3d2410' },
 };
+
+const VALID_PRESET_IDS = new Set(Object.keys(LEATHER_PRESETS));
 
 export function getRequestOrigin(req) {
   const forwardedProto = req.headers?.['x-forwarded-proto'];
@@ -158,11 +186,12 @@ export function resolveAlbumCoverPhotoUrl(album) {
 export function resolveAlbumCoverMeta(album) {
   const preview = normalizePreviewData(album?.preview_data);
   const presetRaw = preview.cover_color_preset;
-  const presetId =
+  const presetIdRaw =
     typeof presetRaw === 'string'
       ? presetRaw
       : String(presetRaw?.id || presetRaw?.presetId || 'sky');
-  const preset = LEATHER_PRESETS[presetId] || LEATHER_PRESETS.sky;
+  const presetId = VALID_PRESET_IDS.has(presetIdRaw) ? presetIdRaw : 'sky';
+  const preset = LEATHER_PRESETS[presetId];
   const title = String(preview.cover_text || album?.name || 'Album').trim() || 'Album';
   const photoUrl = resolveAlbumCoverPhotoUrl(album);
   const kind = photoUrl ? 'p' : 'l';
@@ -170,7 +199,7 @@ export function resolveAlbumCoverMeta(album) {
   const stamp = String(preview.updated_at || album?.updated_at || album?.created_at || Date.now())
     .replace(/[^\w.-]/g, '')
     .slice(0, 24);
-  return { title, preset, updated: `${kind}${photoBit}${stamp}`, presetId, photoUrl };
+  return { title, preset, updated: `${kind}${presetId}${photoBit}${stamp}`, presetId, photoUrl };
 }
 
 export function albumCoverImageUrl(origin, slug, updated) {
@@ -303,129 +332,114 @@ function wrapTitleLines(title, maxChars = 18) {
   return lines.slice(0, 4);
 }
 
-function leatherTitleFill(preset) {
-  const base = String(preset?.base || '').toLowerCase();
-  const light =
-    base === '#f8f8f8' || base === '#e07b32' || base === '#f0ebe0' || base === '#ffffff';
-  return light ? '#3a2a1a' : '#f4f0ea';
+function parseHexColor(hex) {
+  const raw = String(hex || '').replace('#', '');
+  if (raw.length !== 6) return { r: 200, g: 200, b: 200 };
+  return {
+    r: parseInt(raw.slice(0, 2), 16),
+    g: parseInt(raw.slice(2, 4), 16),
+    b: parseInt(raw.slice(4, 6), 16),
+  };
 }
 
-/** 5×7 glyphs — no system fonts (Vercel has no Georgia, so SVG <text> was blank). */
-const GLYPHS = {
-  A: ['01110', '10001', '10001', '11111', '10001', '10001', '10001'],
-  B: ['11110', '10001', '10001', '11110', '10001', '10001', '11110'],
-  C: ['01111', '10000', '10000', '10000', '10000', '10000', '01111'],
-  D: ['11110', '10001', '10001', '10001', '10001', '10001', '11110'],
-  E: ['11111', '10000', '10000', '11110', '10000', '10000', '11111'],
-  F: ['11111', '10000', '10000', '11110', '10000', '10000', '10000'],
-  G: ['01111', '10000', '10000', '10111', '10001', '10001', '01110'],
-  H: ['10001', '10001', '10001', '11111', '10001', '10001', '10001'],
-  I: ['11111', '00100', '00100', '00100', '00100', '00100', '11111'],
-  J: ['00111', '00010', '00010', '00010', '00010', '10010', '01100'],
-  K: ['10001', '10010', '10100', '11000', '10100', '10010', '10001'],
-  L: ['10000', '10000', '10000', '10000', '10000', '10000', '11111'],
-  M: ['10001', '11011', '10101', '10101', '10001', '10001', '10001'],
-  N: ['10001', '11001', '10101', '10011', '10001', '10001', '10001'],
-  O: ['01110', '10001', '10001', '10001', '10001', '10001', '01110'],
-  P: ['11110', '10001', '10001', '11110', '10000', '10000', '10000'],
-  Q: ['01110', '10001', '10001', '10001', '10101', '10010', '01101'],
-  R: ['11110', '10001', '10001', '11110', '10100', '10010', '10001'],
-  S: ['01111', '10000', '10000', '01110', '00001', '00001', '11110'],
-  T: ['11111', '00100', '00100', '00100', '00100', '00100', '00100'],
-  U: ['10001', '10001', '10001', '10001', '10001', '10001', '01110'],
-  V: ['10001', '10001', '10001', '10001', '10001', '01010', '00100'],
-  W: ['10001', '10001', '10001', '10101', '10101', '11011', '10001'],
-  X: ['10001', '10001', '01010', '00100', '01010', '10001', '10001'],
-  Y: ['10001', '10001', '01010', '00100', '00100', '00100', '00100'],
-  Z: ['11111', '00001', '00010', '00100', '01000', '10000', '11111'],
-  '0': ['01110', '10001', '10011', '10101', '11001', '10001', '01110'],
-  '1': ['00100', '01100', '00100', '00100', '00100', '00100', '01110'],
-  '2': ['01110', '10001', '00001', '00010', '00100', '01000', '11111'],
-  '3': ['11110', '00001', '00001', '01110', '00001', '00001', '11110'],
-  '4': ['00010', '00110', '01010', '10010', '11111', '00010', '00010'],
-  '5': ['11111', '10000', '11110', '00001', '00001', '10001', '01110'],
-  '6': ['01110', '10000', '10000', '11110', '10001', '10001', '01110'],
-  '7': ['11111', '00001', '00010', '00100', '01000', '01000', '01000'],
-  '8': ['01110', '10001', '10001', '01110', '10001', '10001', '01110'],
-  '9': ['01110', '10001', '10001', '01111', '00001', '00001', '01110'],
-  '-': ['00000', '00000', '00000', '11111', '00000', '00000', '00000'],
-  "'": ['00100', '00100', '01000', '00000', '00000', '00000', '00000'],
-};
-
-function glyphRects(text, originX, originY, cell, fill) {
-  const rows = 7;
-  const cols = 5;
-  const advance = (cols + 1) * cell;
-  let x = originX;
-  const rects = [];
-  for (const raw of String(text || '').toUpperCase()) {
-    if (raw === ' ') {
-      x += advance;
-      continue;
-    }
-    const glyph = GLYPHS[raw];
-    if (!glyph) {
-      x += advance;
-      continue;
-    }
-    for (let r = 0; r < rows; r += 1) {
-      for (let c = 0; c < cols; c += 1) {
-        if (glyph[r][c] !== '1') continue;
-        rects.push(
-          `<rect x="${x + c * cell}" y="${originY + r * cell}" width="${cell}" height="${cell}" fill="${fill}"/>`
-        );
-      }
-    }
-    x += advance;
-  }
-  return rects.join('');
+function mixRgb(a, b, t) {
+  const k = Math.max(0, Math.min(1, t));
+  return {
+    r: Math.round(a.r + (b.r - a.r) * k),
+    g: Math.round(a.g + (b.g - a.g) * k),
+    b: Math.round(a.b + (b.b - a.b) * k),
+  };
 }
 
-function titleGlyphMarkup(title, fill) {
-  const lines = wrapTitleLines(title, 16);
+function rgbToHex({ r, g, b }) {
+  const clamp = (n) => Math.max(0, Math.min(255, n));
+  return `#${[clamp(r), clamp(g), clamp(b)]
+    .map((n) => n.toString(16).padStart(2, '0'))
+    .join('')}`;
+}
+
+function grooveTitleColor(preset) {
+  if (preset?.text) return preset.text;
+  const baseRgb = parseHexColor(preset?.base);
+  const shadowRgb = parseHexColor(preset?.shadow);
+  return rgbToHex(mixRgb(baseRgb, shadowRgb, 0.68));
+}
+
+function titleFontSize(lines) {
   const longest = Math.max(...lines.map((line) => line.length), 1);
-  const cell = longest > 16 ? 9 : longest > 12 ? 11 : 13;
-  const advance = 6 * cell;
-  const lineHeight = 9 * cell;
-  const blockH = lines.length * lineHeight - 2 * cell;
-  const startY = 600 - blockH / 2;
-  return lines
-    .map((line, index) => {
-      const width = line.replace(/ /g, ' ').length * advance - cell;
-      const x = Math.round(600 - width / 2);
-      const y = Math.round(startY + index * lineHeight);
-      return glyphRects(line, x, y, cell, fill);
-    })
-    .join('');
+  if (longest > 22) return 42;
+  if (longest > 16) return 52;
+  if (longest > 12) return 60;
+  return 70;
+}
+
+function buildDebossedTitleMarkup(title, preset) {
+  const lines = wrapTitleLines(title, 18);
+  const fontSize = titleFontSize(lines);
+  const lineGap = fontSize * 1.22;
+  const startY = OG_HEIGHT / 2 - ((lines.length - 1) * lineGap) / 2;
+  const depth = Math.max(2, fontSize * 0.042);
+  const groove = grooveTitleColor(preset);
+  const baseRgb = parseHexColor(preset.base);
+  const shadowFill = rgbToHex(mixRgb(baseRgb, { r: 0, g: 0, b: 0 }, 0.48));
+  const strokeFill = rgbToHex(mixRgb(baseRgb, { r: 0, g: 0, b: 0 }, 0.55));
+
+  const tspans = (dyFirst) =>
+    lines
+      .map((line, index) => {
+        const dy = index === 0 ? dyFirst : lineGap;
+        return `<tspan x="${OG_WIDTH / 2}" dy="${dy}">${escapeXml(line)}</tspan>`;
+      })
+      .join('');
+
+  const fontFamily = getFrauncesFontBase64() ? 'PixNxtFraunces, Georgia, serif' : 'Georgia, serif';
+  const common = `font-family="${fontFamily}" font-size="${fontSize}" font-weight="500" letter-spacing="0.08em" text-anchor="middle"`;
+
+  return `
+  <text x="${OG_WIDTH / 2 - depth * 1.1}" y="${startY - depth * 1.1}" fill="${shadowFill}" fill-opacity="0.62" ${common}>${tspans(0)}</text>
+  <text x="${OG_WIDTH / 2 + depth * 0.75}" y="${startY + depth * 0.75}" fill="#ffffff" fill-opacity="0.5" ${common}>${tspans(0)}</text>
+  <text x="${OG_WIDTH / 2}" y="${startY}" fill="${groove}" stroke="${strokeFill}" stroke-width="${Math.max(
+    0.5,
+    fontSize * 0.011
+  )}" stroke-opacity="0.42" paint-order="stroke fill" ${common}>${tspans(0)}</text>`;
+}
+
+function leatherSurfaceDefs(preset) {
+  const fontBase64 = getFrauncesFontBase64();
+  const fontFace = fontBase64
+    ? `<style>@font-face{font-family:'PixNxtFraunces';src:url('data:font/woff2;base64,${fontBase64}') format('woff2');font-weight:100 900;font-style:normal;}</style>`
+    : '';
+
+  return `${fontFace}
+    <linearGradient id="leatherBase" x1="12%" y1="0%" x2="88%" y2="100%">
+      <stop offset="0%" stop-color="${preset.highlight}"/>
+      <stop offset="35%" stop-color="${preset.base}"/>
+      <stop offset="100%" stop-color="${preset.base}"/>
+    </linearGradient>
+    <radialGradient id="leatherSpot" cx="36%" cy="20%" r="72%">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.16)"/>
+      <stop offset="40%" stop-color="rgba(255,255,255,0.05)"/>
+      <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+    </radialGradient>
+    <filter id="leatherGrain" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="4" seed="14" result="noise"/>
+      <feColorMatrix in="noise" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.28 0" result="alphaNoise"/>
+      <feBlend in="SourceGraphic" in2="alphaNoise" mode="multiply"/>
+    </filter>`;
 }
 
 export function buildLeatherCoverSvg(title, preset) {
-  const fill = leatherTitleFill(preset);
-  const glyphs = titleGlyphMarkup(title, fill);
-  const lines = wrapTitleLines(title, 16);
-  const longest = Math.max(...lines.map((line) => line.length), 1);
-  const fontSize = longest > 16 ? 52 : longest > 12 ? 60 : 70;
-  const lineGap = fontSize + 18;
-  const startY = 600 - ((lines.length - 1) * lineGap) / 2;
-  const tspans = lines
-    .map((line, index) => {
-      const dy = index === 0 ? 0 : lineGap;
-      return `<tspan x="600" dy="${dy}">${escapeXml(line)}</tspan>`;
-    })
-    .join('');
+  const groove = grooveTitleColor(preset);
+  const titleMarkup = buildDebossedTitleMarkup(title, preset);
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${OG_WIDTH}" height="${OG_HEIGHT}" viewBox="0 0 ${OG_WIDTH} ${OG_HEIGHT}">
-  <defs>
-    <linearGradient id="leather" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="${preset.highlight}"/>
-      <stop offset="45%" stop-color="${preset.base}"/>
-      <stop offset="100%" stop-color="${preset.shadow}"/>
-    </linearGradient>
-  </defs>
-  <rect width="100%" height="100%" fill="url(#leather)"/>
-  <rect x="72" y="72" width="1056" height="1056" fill="none" stroke="${fill}" stroke-opacity="0.28" stroke-width="4"/>
-  ${glyphs}
-  <text x="600" y="${startY}" fill="${fill}" stroke="${preset.shadow}" stroke-width="8" stroke-linejoin="round" paint-order="stroke fill" font-family="Times New Roman, Times, Liberation Serif, DejaVu Serif, Georgia, serif" font-size="${fontSize}" font-weight="600" letter-spacing="6" text-anchor="middle">${tspans}</text>
+  <defs>${leatherSurfaceDefs(preset)}</defs>
+  <g filter="url(#leatherGrain)">
+    <rect width="100%" height="100%" fill="url(#leatherBase)"/>
+    <rect width="100%" height="100%" fill="url(#leatherSpot)"/>
+  </g>
+  <rect x="72" y="72" width="1056" height="1056" fill="none" stroke="${groove}" stroke-opacity="0.22" stroke-width="3"/>
+  ${titleMarkup}
 </svg>`;
 }

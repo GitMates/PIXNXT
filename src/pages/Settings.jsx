@@ -76,6 +76,8 @@ const Settings = () => {
             navigate('/settings/upload-defaults', { replace: true });
         } else if (activeTab === 'branding') {
             navigate('/account/studio-identity', { replace: true });
+        } else if (activeTab === 'showcase_page') {
+            navigate('/settings/showcase-page', { replace: true });
         }
     }, [activeTab, navigate]);
 
@@ -175,10 +177,12 @@ const Settings = () => {
                         {activeTab === 'protection' && <WatermarkTab profile={profile} updateProfile={updateProfile} />}
                         {activeTab === 'delivery-messages' && <EmailTemplatesTab profile={profile} />}
                         {activeTab === 'upload-defaults' && <PreferencesTab profile={profile} updateProfile={updateProfile} />}
-                        {activeTab === 'showcase-page' && <ShowcasePageTab profile={profile} updateProfile={updateProfile} />}
+                        {activeTab === 'showcase-page' && (
+                            <ShowcasePageTab profile={profile} user={user} updateProfile={updateProfile} />
+                        )}
                         {activeTab === 'guest-delivery' && <GuestDeliveryTab />}
                         {activeTab === 'face-matching' && <FaceMatchingTab />}
-                        {activeTab === 'access-defaults' && <PlaceholderTab title="Access defaults" desc="Set up default password protection, email access rules, and download limits." />}
+                        {activeTab === 'access-defaults' && <AccessDefaultsTab />}
                     </div>
                 </div>
             </div>
@@ -752,6 +756,101 @@ const FaceMatchingTab = () => {
     );
 };
 
+/* ── Access defaults (static UI) ── */
+const AD_OPEN_OPTIONS = [
+    {
+        value: 'anyone',
+        title: 'Anyone with the link',
+        desc: 'No PIN. Fewest support messages, and the right default for most weddings.',
+    },
+    {
+        value: 'link_pin',
+        title: 'Link + PIN',
+        desc: 'A 4-digit code travels with the link in the same message.',
+    },
+    {
+        value: 'named_email',
+        title: 'Named email addresses only',
+        desc: 'For commercial work where you must know who opened it.',
+    },
+];
+
+const AccessDefaultsTab = () => {
+    const [whoCanOpen, setWhoCanOpen] = useState('anyone');
+    const [askAbovePhotos, setAskAbovePhotos] = useState('40');
+
+    return (
+        <div className="ad-panel">
+            <h2 className="ad-title">Access defaults</h2>
+            <p className="ad-lead">
+                Who can open a new delivery, and what they must give you first. Every delivery can override
+                this.
+            </p>
+
+            <section className="gd-section ad-section">
+                <span className="gd-overline">WHO CAN OPEN A NEW DELIVERY</span>
+                <div className="gd-radio-cards">
+                    {AD_OPEN_OPTIONS.map((opt) => {
+                        const active = whoCanOpen === opt.value;
+                        return (
+                            <button
+                                key={opt.value}
+                                type="button"
+                                className={`gd-radio-card${active ? ' gd-radio-card--active' : ''}`}
+                                onClick={() => setWhoCanOpen(opt.value)}
+                                aria-pressed={active}
+                            >
+                                <span className="gd-radio-circle" aria-hidden>
+                                    {active ? <span className="gd-radio-dot" /> : null}
+                                </span>
+                                <span className="gd-radio-copy">
+                                    <span className="gd-radio-title">{opt.title}</span>
+                                    <span className="gd-radio-desc">{opt.desc}</span>
+                                </span>
+                            </button>
+                        );
+                    })}
+                </div>
+            </section>
+
+            <div className="gd-divider" />
+
+            <section className="gd-section">
+                <span className="gd-overline">BEFORE A FULL DOWNLOAD</span>
+                <div className="gd-block">
+                    <span className="gd-label">Ask where to send the archive</span>
+                    <p className="gd-desc">
+                        Full sets are built on the server and emailed as a link. Asking for an address first
+                        avoids a half-hour wait on a phone that then loses the file. Below this count, the
+                        browser can handle it alone.
+                    </p>
+                    <label className="ad-threshold">
+                        <span>Ask above</span>
+                        <input
+                            type="text"
+                            inputMode="numeric"
+                            className="ad-threshold-input"
+                            value={askAbovePhotos}
+                            onChange={(e) => setAskAbovePhotos(e.target.value.replace(/[^\d]/g, '').slice(0, 4))}
+                            aria-label="Ask above this many photos"
+                        />
+                        <span>photos</span>
+                    </label>
+                </div>
+            </section>
+
+            <div className="gd-divider" />
+
+            <p className="gd-save-status">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span>Saved a moment ago.</span>
+            </p>
+        </div>
+    );
+};
+
 /* ── PresetsTab (Delivery templates) ── */
 const presetSummaryLine = (settings = {}) => {
     const s = settings || {};
@@ -958,33 +1057,116 @@ const PresetsTab = ({ profile }) => {
 };
 
 /* ── ShowcasePageTab ── */
-const ShowcasePageTab = ({ profile, updateProfile }) => {
+const ShowcasePageTab = ({ profile, user, updateProfile }) => {
     const navigate = useNavigate();
-    const [publishShowcase, setPublishShowcase] = useState(() => {
-        return profile?.showcase_enabled !== false;
-    });
-    const [enquiryForm, setEnquiryForm] = useState(() => {
-        return localStorage.getItem('showcase_enquiry_enabled') !== 'false';
-    });
+    const [publishShowcase, setPublishShowcase] = useState(true);
+    const [enquiryForm, setEnquiryForm] = useState(true);
+    const [featuredCount, setFeaturedCount] = useState(null);
+    const [enquiries, setEnquiries] = useState([]);
+    const [enquiriesLoading, setEnquiriesLoading] = useState(false);
     const [saveStatus, setSaveStatus] = useState('');
+    const [saving, setSaving] = useState(false);
 
-    const showcaseUrl = buildShowcaseUrl(profile, null);
+    useEffect(() => {
+        if (!profile) return;
+        setPublishShowcase(profile.showcase_enabled !== false);
+        setEnquiryForm(profile.showcase_enquiry_enabled !== false);
+    }, [profile]);
+
+    useEffect(() => {
+        if (!profile?.id) return;
+        let cancelled = false;
+        setEnquiriesLoading(true);
+        galleryService
+            .getShowcaseEnquiries(profile.id, 8)
+            .then((rows) => {
+                if (!cancelled) setEnquiries(rows || []);
+            })
+            .catch((err) => {
+                console.error('Failed to load showcase enquiries:', err);
+                if (!cancelled) setEnquiries([]);
+            })
+            .finally(() => {
+                if (!cancelled) setEnquiriesLoading(false);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [profile?.id, enquiryForm]);
+
+    useEffect(() => {
+        if (!profile?.id) return;
+        let cancelled = false;
+        galleryService
+            .getCollections(profile.id)
+            .then((collections) => {
+                if (cancelled) return;
+                const count = (collections || []).filter(
+                    (c) => c.status === 'published' && c.show_on_showcase !== false
+                ).length;
+                setFeaturedCount(count);
+            })
+            .catch((err) => {
+                console.error('Failed to load featured delivery count:', err);
+                if (!cancelled) setFeaturedCount(0);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [profile?.id]);
+
+    const markSaved = () => {
+        setSaveStatus('Saved a moment ago.');
+        window.clearTimeout(markSaved._t);
+        markSaved._t = window.setTimeout(() => setSaveStatus(''), 4000);
+    };
+
+    const showcaseUrl = buildShowcaseUrl(profile, user);
 
     const handlePublishToggle = async () => {
+        if (saving) return;
         const next = !publishShowcase;
+        const prev = publishShowcase;
         setPublishShowcase(next);
-        await updateProfile({ showcase_enabled: next });
-        setSaveStatus('Saved a moment ago.');
-        setTimeout(() => setSaveStatus(''), 4000);
+        setSaving(true);
+        try {
+            await updateProfile({ showcase_enabled: next }, { silent: true });
+            markSaved();
+        } catch (err) {
+            console.error('Failed to update showcase publish setting:', err);
+            setPublishShowcase(prev);
+            alert('Failed to save. Please try again.');
+        } finally {
+            setSaving(false);
+        }
     };
 
-    const handleEnquiryToggle = () => {
+    const handleEnquiryToggle = async () => {
+        if (saving) return;
         const next = !enquiryForm;
+        const prev = enquiryForm;
         setEnquiryForm(next);
-        localStorage.setItem('showcase_enquiry_enabled', next.toString());
-        setSaveStatus('Saved a moment ago.');
-        setTimeout(() => setSaveStatus(''), 4000);
+        setSaving(true);
+        try {
+            await updateProfile({ showcase_enquiry_enabled: next }, { silent: true });
+            markSaved();
+        } catch (err) {
+            console.error('Failed to update enquiry form setting:', err);
+            setEnquiryForm(prev);
+            alert('Failed to save. Please try again.');
+        } finally {
+            setSaving(false);
+        }
     };
+
+    const featuredLabel =
+        featuredCount === null
+            ? 'Loading featured deliveries…'
+            : featuredCount === 0
+              ? 'None chosen yet. Turn on “Show in Showcase” on each delivery.'
+              : featuredCount === 1
+                ? '1 chosen. Order is drag-and-drop on the Showcase page itself.'
+                : `${featuredCount} chosen. Order is drag-and-drop on the Showcase page itself.`;
 
     return (
         <div className="lc-panel">
@@ -1001,13 +1183,31 @@ const ShowcasePageTab = ({ profile, updateProfile }) => {
                 <div className="si-branding-text">
                     <strong className="settings-field-title" style={{ fontSize: '15px' }}>Publish Showcase</strong>
                     <p className="settings-right-desc" style={{ marginTop: '2px', fontSize: '13.5px' }}>
-                        Live at <a href={showcaseUrl} target="_blank" rel="noreferrer" style={{ color: '#c46a3a', textDecoration: 'underline' }}>{showcaseUrl.replace(/^https?:\/\//, '')}</a>. Turn off and the address returns nothing.
+                        {publishShowcase ? (
+                            <>
+                                Live at{' '}
+                                <a
+                                    href={showcaseUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    style={{ color: '#c46a3a', textDecoration: 'underline' }}
+                                >
+                                    {showcaseUrl.replace(/^https?:\/\//, '')}
+                                </a>
+                                . Turn off and the address returns nothing.
+                            </>
+                        ) : (
+                            'Showcase is off. Your public address shows nothing until you turn this back on.'
+                        )}
                     </p>
                 </div>
                 <button
                     type="button"
                     className={`settings-toggle ${publishShowcase ? 'settings-toggle--on' : ''}`}
                     onClick={handlePublishToggle}
+                    disabled={saving}
+                    aria-pressed={publishShowcase}
+                    aria-label={publishShowcase ? 'Turn off Publish Showcase' : 'Turn on Publish Showcase'}
                 >
                     <span className="settings-toggle-thumb" />
                 </button>
@@ -1018,7 +1218,7 @@ const ShowcasePageTab = ({ profile, updateProfile }) => {
                 <div className="si-branding-text">
                     <strong className="settings-field-title" style={{ fontSize: '15px' }}>Featured deliveries</strong>
                     <p className="settings-right-desc" style={{ marginTop: '2px', fontSize: '13.5px' }}>
-                        Six chosen. Order is drag-and-drop on the Showcase page itself.
+                        {featuredLabel}
                     </p>
                 </div>
                 <button
@@ -1036,17 +1236,79 @@ const ShowcasePageTab = ({ profile, updateProfile }) => {
                 <div className="si-branding-text">
                     <strong className="settings-field-title" style={{ fontSize: '15px' }}>Enquiry form</strong>
                     <p className="settings-right-desc" style={{ marginTop: '2px', fontSize: '13.5px' }}>
-                        Messages arrive in your inbox and in People.
+                        {enquiryForm
+                            ? 'Shows a contact form on your public Showcase. New messages appear in the list below.'
+                            : 'Hidden on your Showcase. Turn on to let visitors send you a message.'}
                     </p>
                 </div>
                 <button
                     type="button"
                     className={`settings-toggle ${enquiryForm ? 'settings-toggle--on' : ''}`}
                     onClick={handleEnquiryToggle}
+                    disabled={saving}
+                    aria-pressed={enquiryForm}
+                    aria-label={enquiryForm ? 'Turn off enquiry form' : 'Turn on enquiry form'}
                 >
                     <span className="settings-toggle-thumb" />
                 </button>
             </div>
+
+            {enquiryForm && (
+                <div style={{ paddingTop: 20 }}>
+                    <div className="si-branding-row" style={{ alignItems: 'center', marginBottom: 12 }}>
+                        <strong className="settings-field-title" style={{ fontSize: '14px' }}>Recent messages</strong>
+                        <button
+                            type="button"
+                            className="settings-pill-btn"
+                            onClick={() => navigate('/portal')}
+                            style={{ borderRadius: '24px', padding: '6px 18px', fontSize: '13px' }}
+                        >
+                            Open Portal
+                        </button>
+                    </div>
+                    {enquiriesLoading ? (
+                        <p className="settings-right-desc" style={{ fontSize: '13.5px' }}>Loading messages…</p>
+                    ) : enquiries.length === 0 ? (
+                        <p className="settings-right-desc" style={{ fontSize: '13.5px' }}>
+                            No enquiries yet. When someone submits the form on your Showcase, it will appear here.
+                        </p>
+                    ) : (
+                        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                            {enquiries.map((row) => (
+                                <li
+                                    key={row.id}
+                                    style={{
+                                        padding: '14px 16px',
+                                        border: '1px solid #e8e4de',
+                                        borderRadius: 12,
+                                        background: '#faf9f7',
+                                    }}
+                                >
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 6 }}>
+                                        <strong style={{ fontSize: '14px', color: '#1a1a1a' }}>{row.sender_name}</strong>
+                                        <span style={{ fontSize: '12px', color: '#8c857e', whiteSpace: 'nowrap' }}>
+                                            {new Date(row.created_at).toLocaleDateString(undefined, {
+                                                month: 'short',
+                                                day: 'numeric',
+                                                year: 'numeric',
+                                            })}
+                                        </span>
+                                    </div>
+                                    <a
+                                        href={`mailto:${row.sender_email}`}
+                                        style={{ fontSize: '13px', color: '#c46a3a', textDecoration: 'none' }}
+                                    >
+                                        {row.sender_email}
+                                    </a>
+                                    <p style={{ margin: '8px 0 0', fontSize: '13.5px', lineHeight: 1.45, color: '#5c5650' }}>
+                                        {row.message}
+                                    </p>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
+            )}
 
             {saveStatus && (
                 <div className="si-save-status" style={{ marginTop: '24px', color: '#8c857e' }}>
@@ -1453,6 +1715,7 @@ const PreferencesTab = ({ profile, updateProfile }) => {
         } catch (e) {
             console.error('Upload defaults save failed:', e);
             alert(`Failed to save: ${e.message || 'Unknown error'}`);
+            throw e;
         } finally {
             setSaving(false);
         }
@@ -1464,13 +1727,19 @@ const PreferencesTab = ({ profile, updateProfile }) => {
     };
 
     const handleRawToggle = async () => {
+        if (saving) return;
         if (!rawAllowed && !rawToggle) {
-            alert('Accept RAW files is available on Studio and Pro plans.');
+            alert('Accept RAW files is available on Studio (Plus) and Pro plans.');
             return;
         }
         const next = !rawToggle;
+        const prev = rawToggle;
         setRawToggle(next);
-        await persist({ raw_photo_support: next }, { rawToggle: next });
+        try {
+            await persist({ raw_photo_support: next }, { rawToggle: next });
+        } catch {
+            setRawToggle(prev);
+        }
     };
 
     const handleSharpenToggle = async () => {
@@ -1542,14 +1811,21 @@ const PreferencesTab = ({ profile, updateProfile }) => {
                         </div>
                         <p className="ud-file-desc">
                             Include RAW files alongside JPEGs in a delivery. Available on Studio and Pro.
+                            {!rawAllowed && !rawToggle && (
+                                <span style={{ display: 'block', marginTop: 4, color: '#94783e' }}>
+                                    Upgrade to Studio or Pro to enable this.
+                                </span>
+                            )}
                         </p>
                     </div>
                     <button
                         type="button"
                         className={`settings-toggle ${rawToggle ? 'settings-toggle--on' : ''}`}
                         onClick={handleRawToggle}
+                        disabled={saving || (!rawAllowed && !rawToggle)}
                         aria-pressed={rawToggle}
                         aria-label="Accept RAW files"
+                        aria-disabled={!rawAllowed && !rawToggle}
                     >
                         <span className="settings-toggle-thumb" />
                     </button>

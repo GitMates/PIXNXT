@@ -8,7 +8,11 @@ export type DashboardPhotoSort =
   | "name-az"
   | "name-za"
   | "random"
-  | "custom";
+  | "custom"
+  | "starred-first"
+  | "starred-first-asc"
+  | "camera-az"
+  | "camera-za";
 
 export const DASHBOARD_PHOTO_SORT_OPTIONS: {
   value: DashboardPhotoSort;
@@ -39,6 +43,14 @@ function shuffleInPlace<T>(arr: T[]): void {
     const j = Math.floor(Math.random() * (i + 1));
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
+}
+
+function cameraName(p: Photo): string {
+  return (p.exif_camera || "").trim().toLowerCase();
+}
+
+function starredRank(p: Photo): number {
+  return p.is_starred ? 1 : 0;
 }
 
 export function sortDashboardPhotos(
@@ -75,6 +87,42 @@ export function sortDashboardPhotos(
       break;
     case "random":
       shuffleInPlace(sorted);
+      break;
+    case "starred-first":
+      sorted.sort(
+        (a, b) =>
+          starredRank(b) - starredRank(a) ||
+          takenDate(b) - takenDate(a) ||
+          (a.position || 0) - (b.position || 0) ||
+          (a.id || "").localeCompare(b.id || "")
+      );
+      break;
+    case "starred-first-asc":
+      sorted.sort(
+        (a, b) =>
+          starredRank(a) - starredRank(b) ||
+          takenDate(a) - takenDate(b) ||
+          (a.position || 0) - (b.position || 0) ||
+          (a.id || "").localeCompare(b.id || "")
+      );
+      break;
+    case "camera-az":
+      sorted.sort(
+        (a, b) =>
+          cameraName(a).localeCompare(cameraName(b), undefined, { sensitivity: "base" }) ||
+          takenDate(b) - takenDate(a) ||
+          (a.position || 0) - (b.position || 0) ||
+          (a.id || "").localeCompare(b.id || "")
+      );
+      break;
+    case "camera-za":
+      sorted.sort(
+        (a, b) =>
+          cameraName(b).localeCompare(cameraName(a), undefined, { sensitivity: "base" }) ||
+          takenDate(b) - takenDate(a) ||
+          (a.position || 0) - (b.position || 0) ||
+          (a.id || "").localeCompare(b.id || "")
+      );
       break;
     case "custom":
       sorted.sort((a, b) => (a.position || 0) - (b.position || 0) || (a.id || "").localeCompare(b.id || ""));

@@ -47,9 +47,9 @@ function shareCoverHtml({ title, description, imageUrl, pageUrl }) {
   <meta property="og:image:url" content="${safeImage}" />
   <meta property="og:image:type" content="image/jpeg" />
   <meta property="og:image:width" content="1200" />
-  <meta property="og:image:height" content="1200" />
+  <meta property="og:image:height" content="630" />
   <meta property="og:image:alt" content="${safeTitle}" />
-  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="${safeTitle}" />
   <meta name="twitter:description" content="${safeDescription}" />
   <meta name="twitter:image" content="${safeImage}" />
@@ -84,8 +84,8 @@ function injectShareMeta(html, { title, description, imageUrl, pageUrl }) {
   next = setMeta(next, 'property', 'og:image:url', imageUrl);
   next = setMeta(next, 'property', 'og:image:type', 'image/jpeg');
   next = setMeta(next, 'property', 'og:image:width', '1200');
-  next = setMeta(next, 'property', 'og:image:height', '1200');
-  next = setMeta(next, 'name', 'twitter:card', 'summary');
+  next = setMeta(next, 'property', 'og:image:height', '630');
+  next = setMeta(next, 'name', 'twitter:card', 'summary_large_image');
   next = setMeta(next, 'name', 'twitter:title', title);
   next = setMeta(next, 'name', 'twitter:description', description);
   next = setMeta(next, 'name', 'twitter:image', imageUrl);
@@ -159,23 +159,49 @@ async function resolveSharePayload(req) {
     }
   }
 
-  return { title, description, imageUrl, pageUrl };
+  return { title, description, imageUrl, pageUrl, slug };
+}
+
+function redirectHumansToSpa(req, res, pageUrl) {
+  const dest = new URL(pageUrl);
+  const query = req.query || {};
+  for (const [key, value] of Object.entries(query)) {
+    if (key === 'slug') continue;
+    if (value == null) continue;
+    const raw = Array.isArray(value) ? value[0] : value;
+    if (raw == null || raw === '') continue;
+    dest.searchParams.set(key, String(raw));
+  }
+  dest.searchParams.set('app', '1');
+  const location = `${dest.pathname}?${dest.searchParams.toString()}`;
+  res.writeHead(302, {
+    Location: location,
+    'Cache-Control': 'private, no-store',
+  });
+  res.end();
 }
 
 export default async function handler(req, res) {
   const share = await resolveSharePayload(req);
-  let html = shareCoverHtml(share);
 
   if (!isShareCrawler(req)) {
     try {
       const spa = await loadSpaHtml(getRequestOrigin(req));
-      if (spa) html = injectShareMeta(spa, share);
+      if (spa) {
+        const html = injectShareMeta(spa, share);
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300');
+        res.status(200).send(html);
+        return;
+      }
     } catch (err) {
       console.error('[gallery/og] spa inject failed', err);
     }
+    redirectHumansToSpa(req, res, share.pageUrl);
+    return;
   }
 
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300');
-  res.status(200).send(html);
+  res.status(200).send(shareCoverHtml(share));
 }

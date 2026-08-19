@@ -1,21 +1,36 @@
 import React, { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
+import { DELIVERY_PRODUCT_HOME, deliveryStudioBackPath } from '../lib/deliveryIds';
+import {
+    DELIVERY_STATUS,
+    deliveryStatusLabel,
+    hasBeenPublished,
+    uiDeliveryStatus,
+} from '../lib/deliveryStatus';
 import { Heart, Play } from 'lucide-react';
 import { galleryService } from '../services/gallery.service';
 import { photoAiService } from '../services/photoAi.service';
 import {
     filterPhotosByPerson,
     filterPhotosByIds,
+    peopleInPhoto,
 } from '../lib/photoAiSearch';
-import { CollectionPhotoAiToolbar } from '../components/features/CollectionDashboard/Photos/CollectionPhotoAiToolbar';
-import '../components/features/CollectionDashboard/Photos/CollectionPhotoAiToolbar.css';
+import { CollectionPhotosWorkspaceHeader } from '../components/features/CollectionDashboard/Photos/CollectionPhotosWorkspaceHeader';
+import '../components/features/CollectionDashboard/Photos/CollectionPhotosWorkspaceHeader.css';
+import { PhotoOptionsMenu } from '../components/features/CollectionDashboard/Media/PhotoOptionsMenu';
+import '../components/features/CollectionDashboard/Media/PhotoOptionsMenu.css';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase/client';
 import { DesignTab } from '../components/features/CollectionDashboard/DesignTab';
+import '../components/features/CollectionDashboard/DesignTab/DesignWorkspace.css';
 import { PreviewPane } from '../components/features/CollectionDashboard/PreviewPane';
 import { ChangeCoverModal } from '../components/features/CollectionDashboard/CoverSettings/ChangeCoverModal';
-import { SidebarCoverUpload } from '../components/features/CollectionDashboard/CoverSettings/SidebarCoverUpload';
+import { CollectionDashboardSidebar } from '../components/features/CollectionDashboard/Sidebar/CollectionDashboardSidebar';
+import { SetOptionsMenu } from '../components/features/CollectionDashboard/Sidebar/SetOptionsMenu';
+import { NewSelectionModal } from '../components/features/CollectionDashboard/Modals/NewSelectionModal';
+import { getPublicSiteOrigin } from '../lib/publicSiteUrl';
+import { DeliveryFilmsView } from '../components/features/CollectionDashboard/Films/DeliveryFilmsView';
 import { downloadPhotoFromR2 } from '../lib/downloadPhoto';
 import {
   resolvePhotosForDownloadActivity,
@@ -29,19 +44,30 @@ import {
 } from '../lib/downloadActivityExport';
 import { exportFavoriteListExcel } from '../lib/favoriteListExport';
 import { openSpaPath } from '../lib/spaNavigation';
+import {
+    chromeFromDelivery,
+    gridSettingsFromDelivery,
+    toDeliveryDesignPatch,
+} from '../lib/designSettingsPersist';
 import { openShareByEmail, openWhatsAppShare, getCollectionShareUrl, getQrCodeImageUrl } from '../lib/shareCollection';
-import { resolveUploadDefaults, syncUploadDefaultsToLocalStorage } from '../lib/uploadDefaults';
+import { resolveUploadDefaults, syncUploadDefaultsToLocalStorage, isRawUploadEnabled } from '../lib/uploadDefaults';
 import { CollectionQrModal, CollectionDuplicateModal } from '../components/features/ClientGallery/CollectionShareModals';
 import { GuestDeliveryQrModal } from '../components/features/CollectionDashboard/GuestDeliveryQrModal';
 import '../components/features/CollectionDashboard/GuestDeliveryQrModal.css';
+import { GuestDeliveryPublishedPopup } from '../components/features/CollectionDashboard/GuestDeliveryPublishedPopup';
+import '../components/features/CollectionDashboard/GuestDeliveryPublishedPopup.css';
 import { guestDeliveryService } from '../services/guestDelivery.service';
 import { guestDeliveryPublishService } from '../services/guestDeliveryPublish.service';
 import EventGuestsPanel from '../components/guest-delivery/EventGuestsPanel';
 import '../pages/guest-delivery/GuestDelivery.css';
 import { sortDashboardPhotos } from '../utils/sortDashboardPhotos';
+import {
+  optionToSortUi,
+  sortFieldToOption,
+} from '../lib/dashboardPhotoSortUi';
 import { normalizeGalleryPhotoSort } from '../lib/galleryPhotoSort';
 import { clientGalleryEmailTemplatesService } from '../services/clientGalleryEmailTemplates.service';
-import { COVER_IMAGE_ACCEPT, MEDIA_FILE_INPUT_ACCEPT, pickMediaFilesOrFallback } from '../lib/mediaFilePicker';
+import { COVER_IMAGE_ACCEPT, MEDIA_FILE_INPUT_ACCEPT, VIDEO_FILE_INPUT_ACCEPT, VIDEO_FILE_PICKER_TYPES, PHOTO_FILE_INPUT_ACCEPT, PHOTO_FILE_PICKER_TYPES, pickMediaFilesOrFallback } from '../lib/mediaFilePicker';
 import { setCoverPhotoDragData, endCoverPhotoDrag, isGalleryImagePhoto } from '../lib/coverPhotoDrag';
 import { DatePicker } from '../components/ui/DatePicker';
 import './CollectionDashboard.css';
@@ -51,8 +77,10 @@ import '../components/features/CollectionDashboard/Activity/DownloadActivity.css
 import '../components/features/CollectionDashboard/Activity/FavoriteActivity.css';
 import '../components/features/CollectionDashboard/Activity/StoreOrdersActivity.css';
 import '../components/features/CollectionDashboard/Activity/EmailRegistrationActivity.css';
+import '../components/features/CollectionDashboard/Activity/ActivityFeed.css';
 import '../components/features/CollectionDashboard/Settings/Settings.css';
 import { ActivityView } from '../components/features/CollectionDashboard/Activity/ActivityView';
+import { guestDeliveryGuestsService } from '../services/guestDeliveryGuests.service';
 import { DownloadSettings } from '../components/features/CollectionDashboard/Settings/DownloadSettings';
 import { FavoriteSettings } from '../components/features/CollectionDashboard/Settings/FavoriteSettings';
 import { GeneralSettings } from '../components/features/CollectionDashboard/Settings/GeneralSettings';
@@ -68,15 +96,14 @@ import { clearMediaUrlCache } from '../lib/imageLoadCache';
 import { categoryTagsFromCollection, categoryTagsToDb } from '../lib/categoryTags';
 import { isMissingDbColumnError } from '../lib/focalPoint';
 import {
-    appendFocalToCoverUrl,
-    focalPercentToElementStyle,
-    focalPointFromPointer,
+    appendCoverFocalsToCoverUrl,
     getCollectionFocal,
+    getCollectionFocals,
+    getDefaultCoverFocals,
     stripMediaUrlHash,
 } from '../lib/focalPoint';
 import { CollectionGridPhoto } from '../components/features/CollectionDashboard/Media/CollectionGridPhoto';
 import CollectionPhotoSortableGrid from '../components/features/CollectionDashboard/Media/CollectionPhotoSortableGrid';
-import { DashboardMediaFilter } from '../components/features/CollectionDashboard/Media/DashboardMediaFilter';
 import { RawPhotoPlaceholder } from '../components/features/CollectionDashboard/Media/RawPhotoPlaceholder';
 import {
     getPhotoFullDisplayUrl,
@@ -84,11 +111,10 @@ import {
     hasRawDisplayPreview,
     isRawMedia,
 } from '../lib/photoDisplayUrl';
-import { formatCoverDate, formatCollectionHeaderDate } from '../lib/formatCoverDate.js';
+import { formatCoverDate, formatSidebarDeliveryDate, formatLastSavedTime } from '../lib/formatCoverDate.js';
 import {
     countGalleryMedia,
     filterGalleryMediaByType,
-    shouldShowGalleryMediaFilter,
 } from '../lib/galleryMediaType';
 import {
     normalizeCoverStyleId,
@@ -176,7 +202,9 @@ const CollectionDashboard = () => {
     const [saving, setSaving] = useState(false);
     const [showUploadModal, setShowUploadModal] = useState(false);
     const [activeMediaTab, setActiveMediaTab] = useState('upload');
-    const [status, setStatus] = useState('DRAFT'); // DRAFT or PUBLISHED
+    const [status, setStatus] = useState(DELIVERY_STATUS.draft);
+    const [showStatusMenu, setShowStatusMenu] = useState(false);
+    const [statusSaving, setStatusSaving] = useState(false);
     const [showShareDropdown, setShowShareDropdown] = useState(false);
     const [isDraggingModal, setIsDraggingModal] = useState(false);
     const [isDraggingDropzone, setIsDraggingDropzone] = useState(false);
@@ -184,6 +212,18 @@ const CollectionDashboard = () => {
     const [showGridSettings, setShowGridSettings] = useState(false);
     const [gridSize, setGridSize] = useState('small');
     const [showFilename, setShowFilename] = useState(() => resolveUploadDefaults(null).filenameDisplay === 'show');
+    const [showCameraBadges, setShowCameraBadges] = useState(
+        () => localStorage.getItem('cd_show_camera_badges') === '1'
+    );
+    const [showUnmatchedPeople, setShowUnmatchedPeople] = useState(false);
+    const [showClientFavorited, setShowClientFavorited] = useState(
+        () => localStorage.getItem('cd_show_client_favorited') === '1'
+    );
+    const [showInSelectionList, setShowInSelectionList] = useState(
+        () => localStorage.getItem('cd_show_selection_list') === '1'
+    );
+    const [clientFavoritedPhotoIds, setClientFavoritedPhotoIds] = useState(() => new Set());
+    const [selectionListPhotoIds, setSelectionListPhotoIds] = useState(() => new Set());
     const [showMoreDropdown, setShowMoreDropdown] = useState(false);
     const [photoMenu, setPhotoMenu] = useState(null);
     const [showRenameModal, setShowRenameModal] = useState(false);
@@ -198,10 +238,13 @@ const CollectionDashboard = () => {
     const [targetSetId, setTargetSetId] = useState(null);
     const [moveMode, setMoveMode] = useState('move'); // 'move' or 'copy'
     const [showSetMenu, setShowSetMenu] = useState(null); // set id or null
+    const [setMenuAnchor, setSetMenuAnchor] = useState(null);
+    const [mobileAppSets, setMobileAppSets] = useState({});
     const [showSortMenu, setShowSortMenu] = useState(false);
     const [selectedPhotos, setSelectedPhotos] = useState([]);
 
     const [showPeoplePanel, setShowPeoplePanel] = useState(false);
+    const [photoSearchQuery, setPhotoSearchQuery] = useState('');
     const [activePersonId, setActivePersonId] = useState(null);
     const [photoAiRows, setPhotoAiRows] = useState([]);
     const [photoAiPeople, setPhotoAiPeople] = useState([]);
@@ -213,15 +256,18 @@ const CollectionDashboard = () => {
   const [photoAiTableMissing, setPhotoAiTableMissing] = useState(false);
   const [photoAiIndexing, setPhotoAiIndexing] = useState(false);
     const [showGdQrModal, setShowGdQrModal] = useState(false);
+    const [showGdPublishedPopup, setShowGdPublishedPopup] = useState(false);
     const [gdEvent, setGdEvent] = useState(null);
     const [gdGuestCount, setGdGuestCount] = useState(0);
     const [gdPublishing, setGdPublishing] = useState(false);
+    const [gdUnpublishing, setGdUnpublishing] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [photosToDelete, setPhotosToDelete] = useState([]);
     const [showSelectionMore, setShowSelectionMore] = useState(false);
     const [showSelectAllMenu, setShowSelectAllMenu] = useState(false);
     const [showMoveToSetMenu, setShowMoveToSetMenu] = useState(false);
     const [moveMenuPosition, setMoveMenuPosition] = useState(null);
+    const [selectionMoreMenuPosition, setSelectionMoreMenuPosition] = useState(null);
     const [photoMenuPosition, setPhotoMenuPosition] = useState(null);
     const [photoMenuAlignLeft, setPhotoMenuAlignLeft] = useState(false);
 
@@ -230,6 +276,10 @@ const CollectionDashboard = () => {
     const [showQrCodeModal, setShowQrCodeModal] = useState(false);
     const [quickShareShowQr, setQuickShareShowQr] = useState(false);
     const [showEmailHistoryModal, setShowEmailHistoryModal] = useState(false);
+    const [emailHistory, setEmailHistory] = useState([]);
+    const [emailHistoryLoading, setEmailHistoryLoading] = useState(false);
+    const [emailHistoryError, setEmailHistoryError] = useState('');
+    const [emailHistoryHelpOpen, setEmailHistoryHelpOpen] = useState(false);
     const [showPresetsSubmenu, setShowPresetsSubmenu] = useState(false);
     const [showApplyPresetModal, setShowApplyPresetModal] = useState(false);
     const [showSavePresetModal, setShowSavePresetModal] = useState(false);
@@ -279,6 +329,59 @@ const CollectionDashboard = () => {
         }
     };
 
+    const designGridStorageKey = (id) => (id ? `pixnxt-design-grid:${id}` : null);
+
+    const readCachedDesignGrid = (id) => {
+        const key = designGridStorageKey(id);
+        if (!key) return null;
+        try {
+            const raw = localStorage.getItem(key);
+            if (!raw) return null;
+            const parsed = JSON.parse(raw);
+            if (!parsed || typeof parsed !== 'object') return null;
+            return {
+                style: parsed.style === 'horizontal' ? 'horizontal' : 'vertical',
+                size: parsed.size === 'large' || parsed.size === 'small' ? parsed.size : 'regular',
+                spacing: parsed.spacing === 'large' ? 'large' : 'regular',
+                navigation: parsed.navigation === 'text' ? 'text' : 'icon',
+                fontFamily: parsed.fontFamily ? normalizeFontId(parsed.fontFamily) : null,
+                colorPalette: parsed.colorPalette ? normalizePaletteId(parsed.colorPalette) : null,
+            };
+        } catch {
+            return null;
+        }
+    };
+
+    const writeCachedDesignGrid = (id, grid, chrome = {}) => {
+        const key = designGridStorageKey(id);
+        if (!key || !grid) return;
+        try {
+            localStorage.setItem(key, JSON.stringify({
+                style: grid.style,
+                size: grid.size,
+                spacing: grid.spacing,
+                navigation: grid.navigation,
+                fontFamily: normalizeFontId(chrome.fontFamily),
+                colorPalette: normalizePaletteId(chrome.colorPalette),
+            }));
+        } catch {
+            /* ignore quota / private mode */
+        }
+    };
+
+    useEffect(() => {
+        if (!collectionId) {
+            setMobileAppSets({});
+            return;
+        }
+        try {
+            const raw = localStorage.getItem(`pixnxt_mobile_app_sets_${collectionId}`);
+            setMobileAppSets(raw ? JSON.parse(raw) : {});
+        } catch {
+            setMobileAppSets({});
+        }
+    }, [collectionId]);
+
     const persistSidebarOrder = async (id, orderIds) => {
         if (!id || !Array.isArray(orderIds)) return;
         const normalized = orderIds.map(String);
@@ -304,6 +407,7 @@ const CollectionDashboard = () => {
         const setItems = sets.map((s) => ({
             ...s,
             isHighlights: false,
+            isPrivate: s.is_private === true,
             photoCount: photos.filter((p) => p.set_id === s.id).length,
         }));
         const highlightsItem = highlightsEnabled
@@ -387,7 +491,8 @@ const CollectionDashboard = () => {
 
     // SORT STATE
     const [sortOption, setSortOption] = useState('custom');
-    const [mediaFilter, setMediaFilter] = useState('photos');
+    const [photoSortField, setPhotoSortField] = useState('capture-time');
+    const [photoSortReverse, setPhotoSortReverse] = useState(false);
 
     // TAB STATES
     const [activeSidebarTab, setActiveSidebarTab] = useState('photos'); // photos, design, settings, activity
@@ -413,15 +518,11 @@ const CollectionDashboard = () => {
         navigation: 'icon'
     });
     const [previewMode, setPreviewMode] = useState('desktop'); // desktop, mobile
-    const [showFocalModal, setShowFocalModal] = useState(false);
-    const [focalX, setFocalX] = useState(50);
-    const [focalY, setFocalY] = useState(50);
-    const [isDraggingFocal, setIsDraggingFocal] = useState(false);
-    const [focalCrosshairStyle, setFocalCrosshairStyle] = useState({ left: '50%', top: '50%' });
-    const focalImageRef = useRef(null);
     const [showCoverModal, setShowCoverModal] = useState(false);
+    const [coverModalInitialView, setCoverModalInitialView] = useState('edit');
     /** 'all' | 'highlights' | set uuid */
     const [coverModalScope, setCoverModalScope] = useState('all');
+    const [coverModalPhotoOverride, setCoverModalPhotoOverride] = useState(null);
     const [isCoverUploading, setIsCoverUploading] = useState(false);
     const coverModalFileInputRef = useRef(null);
     const [activeSettingsTab, setActiveSettingsTab] = useState('general'); // general, privacy, download, favorite
@@ -462,7 +563,7 @@ const CollectionDashboard = () => {
     // Additional options states
     const [galleryDownload, setGalleryDownload] = useState(true);
     const [singlePhotoDownload, setSinglePhotoDownload] = useState(true);
-    const [requirePinForSinglePhoto, setRequirePinForSinglePhoto] = useState(false);
+    const [requirePinForSinglePhoto, setRequirePinForSinglePhoto] = useState(true);
     const [restrictSinglePhotoSizes, setRestrictSinglePhotoSizes] = useState(false);
 
     // Advanced settings states
@@ -487,6 +588,8 @@ const CollectionDashboard = () => {
     const [favoriteActivity, setFavoriteActivity] = useState([]);
     const [downloadActivity, setDownloadActivity] = useState([]);
     const [emailRegistrationActivity, setEmailRegistrationActivity] = useState([]);
+    const [galleryOpenActivity, setGalleryOpenActivity] = useState([]);
+    const [guestDeliveryGuests, setGuestDeliveryGuests] = useState([]);
     const [loadingActivity, setLoadingActivity] = useState(false);
     
     // Store Orders State
@@ -494,6 +597,7 @@ const CollectionDashboard = () => {
     const [storeOrderItems, setStoreOrderItems] = useState([]);
     const [storeOrdersLoading, setStoreOrdersLoading] = useState(false);
     const [editingFavoriteList, setEditingFavoriteList] = useState(null);
+    const [savingFavoriteList, setSavingFavoriteList] = useState(false);
     const [selectedFavoriteListId, setSelectedFavoriteListId] = useState(null);
     const [favoriteDetailRows, setFavoriteDetailRows] = useState([]);
     const [favoriteDetailLoading, setFavoriteDetailLoading] = useState(false);
@@ -531,38 +635,51 @@ const CollectionDashboard = () => {
 
 
 
-    const parseFavoriteMaxSelection = () => {
-        const raw = String(favoriteListMax ?? '').trim();
-        if (!raw) return null;
-        const n = Number(raw);
-        if (!Number.isFinite(n) || n <= 0) return null;
-        return Math.floor(n);
-    };
-
-    const handleCreateFavoriteList = async () => {
-        if (!favoriteListEmail || !favoriteListName) {
-            alert("Email and List Name are required.");
+    const handleCreateFavoriteList = async (payload, { send } = { send: false }) => {
+        const name = String(payload?.name || '').trim();
+        const email = String(payload?.email || '').trim();
+        if (!name || !email) {
+            alert('Name and email are required.');
             return;
         }
-        const maxSel = parseFavoriteMaxSelection();
-        const descTrim = favoriteListDesc.trim() || null;
+        const maxSel = payload?.maxSelection ?? null;
+        const descTrim = String(payload?.description || '').trim() || null;
+        setSavingFavoriteList(true);
         try {
-            if (editingFavoriteList) {
-                await galleryService.updateFavoriteList(editingFavoriteList, {
-                    name: favoriteListName,
+            if (editingFavoriteList?.id) {
+                await galleryService.updateFavoriteList(editingFavoriteList.id, {
+                    name,
                     max_selection: maxSel,
                     description: descTrim,
                 });
-                alert("Favorite list updated successfully.");
+                showToast('Selection updated.');
             } else {
-                const session = await galleryService.createOrGetSession(collectionId, favoriteListEmail, {
+                const session = await galleryService.createOrGetSession(collectionId, email, {
                     ensureDefaultFavoriteList: false,
                 });
-                await galleryService.createFavoriteList(collectionId, session.id, favoriteListName, {
+                await galleryService.createFavoriteList(collectionId, session.id, name, {
                     maxSelection: maxSel,
                     description: descTrim || undefined,
                 });
-                alert("Favorite list created successfully.");
+                if (send) {
+                    try {
+                        await galleryService.sendSelectionListEmail({
+                            collectionSlug: collectionUrl,
+                            recipientEmail: email,
+                            subject: `Your list: ${name}`,
+                            message: payload.message || '',
+                            chooseUrl: payload.chooseUrl || '',
+                            siteOrigin: getPublicSiteOrigin(),
+                        });
+                        showToast('Selection created and email sent.');
+                    } catch (sendErr) {
+                        console.error('Failed to send selection email:', sendErr);
+                        showToast('Selection created, but the email could not be sent.');
+                        alert(sendErr.message || 'Could not send email. Check your SMTP settings.');
+                    }
+                } else {
+                    showToast('Selection created. It will stay unsent until you send it.');
+                }
             }
 
             setShowCreateFavoriteListModal(false);
@@ -571,11 +688,12 @@ const CollectionDashboard = () => {
             setFavoriteListMax('');
             setFavoriteListDesc('');
             setEditingFavoriteList(null);
-
             fetchFavoriteActivity();
         } catch (e) {
-            console.error("Failed to save favorite list. Details:", e);
+            console.error('Failed to save favorite list. Details:', e);
             alert(`Failed to save list: ${e.message || 'Unknown error'}`);
+        } finally {
+            setSavingFavoriteList(false);
         }
     };
 
@@ -812,6 +930,13 @@ const CollectionDashboard = () => {
         }
     };
 
+    const handleReviewFavoriteList = (list) => {
+        if (!list?.id) return;
+        setActiveSidebarTab('activity');
+        setActiveActivitySubTab('favorite');
+        setSelectedFavoriteListId(list.id);
+    };
+
     const openEditFavoriteListModal = (item) => {
         if (!item) return;
         /* Close Favorite List Details popup so Edit is not hidden behind it (detail overlay z-index 10050). */
@@ -823,7 +948,7 @@ const CollectionDashboard = () => {
         setFavoriteListName(item.name);
         setFavoriteListMax(item.max_selection != null && item.max_selection !== '' ? String(item.max_selection) : '');
         setFavoriteListDesc(item.description || '');
-        setEditingFavoriteList(item.id);
+        setEditingFavoriteList(item);
         setShowCreateFavoriteListModal(true);
         setActiveActivityMenu(null);
     };
@@ -857,9 +982,12 @@ const CollectionDashboard = () => {
     const photoMenuRef = useRef(null);
     const gridSettingsRef = useRef(null);
     const moreRef = useRef(null);
+    const statusRef = useRef(null);
     const sortRef = useRef(null);
     const shareRef = useRef(null);
+    const gdPublishWrapRef = useRef(null);
     const selectionMoreRef = useRef(null);
+    const selectionMorePortalRef = useRef(null);
     const selectAllMenuRef = useRef(null);
     const moveToSetRef = useRef(null);
     const moveMenuPortalRef = useRef(null);
@@ -877,45 +1005,64 @@ const CollectionDashboard = () => {
         return {
             position: 'fixed',
             left,
-            bottom: window.innerHeight - rect.top + 12,
+            top: rect.bottom + 8,
             minWidth: menuWidth,
             zIndex: 1500,
         };
     }, []);
 
-    const computePhotoMenuPosition = useCallback((anchorEl, alignLeft) => {
+    const SELECTION_TOOLBAR_RESERVE = 0;
+
+    const computePhotoMenuPosition = useCallback((anchorEl, alignLeft, bottomReserve = 0, menuHeight = null) => {
         if (!anchorEl) return null;
         const rect = anchorEl.getBoundingClientRect();
         const menuWidth = 240;
-        const estimatedHeight = 420;
         const gutter = 8;
-        const spaceBelow = window.innerHeight - rect.bottom - gutter;
-        const spaceAbove = rect.top - gutter;
-        const openUpward = spaceBelow < Math.min(estimatedHeight, 280) && spaceAbove > spaceBelow;
+        const estimatedHeight = menuHeight ?? 440;
+        const availBelow = window.innerHeight - rect.bottom - gutter - bottomReserve - 6;
+        const availAbove = rect.top - gutter - 6;
+        const openDown = availBelow >= availAbove;
+        const available = Math.max(160, openDown ? availBelow : availAbove);
         const left = alignLeft
             ? Math.min(Math.max(gutter, rect.left), window.innerWidth - menuWidth - gutter)
             : Math.min(Math.max(gutter, rect.right - menuWidth), window.innerWidth - menuWidth - gutter);
 
-        if (openUpward) {
-            return {
-                position: 'fixed',
-                top: 'auto',
-                bottom: window.innerHeight - rect.top + 6,
-                left,
-                minWidth: menuWidth,
-                maxHeight: Math.max(160, spaceAbove - 6),
-                zIndex: 5000,
-            };
+        let top;
+        if (openDown) {
+            top = rect.bottom + 6;
+        } else if (menuHeight != null && menuHeight > available) {
+            top = gutter;
+        } else {
+            const height = Math.min(estimatedHeight, available);
+            top = Math.max(gutter, rect.top - 6 - height);
         }
 
         return {
             position: 'fixed',
-            top: rect.bottom + 6,
+            top,
             bottom: 'auto',
             left,
             minWidth: menuWidth,
-            maxHeight: Math.max(160, spaceBelow - 6),
-            zIndex: 5000,
+            maxHeight: available,
+            zIndex: 6000,
+        };
+    }, []);
+
+    const updateSelectionMoreMenuPosition = useCallback(() => {
+        const anchor = selectionMoreRef.current?.querySelector('.cd-sel-action-btn');
+        if (!anchor) return null;
+        const rect = anchor.getBoundingClientRect();
+        const menuWidth = 280;
+        const left = Math.min(
+            Math.max(8, rect.right - menuWidth),
+            window.innerWidth - menuWidth - 8
+        );
+        return {
+            position: 'fixed',
+            left,
+            bottom: window.innerHeight - rect.top + 12,
+            minWidth: menuWidth,
+            zIndex: 6000,
         };
     }, []);
 
@@ -924,13 +1071,13 @@ const CollectionDashboard = () => {
         setPhotoMenuPosition(null);
     }, []);
 
-    const openPhotoMenuFor = useCallback((photoId, anchorEl, alignLeft) => {
+    const openPhotoMenuFor = useCallback((photoId, anchorEl, alignLeft, bottomReserve = 0) => {
         if (photoMenu === photoId) {
             closePhotoMenu();
             return;
         }
         setPhotoMenuAlignLeft(Boolean(alignLeft));
-        setPhotoMenuPosition(computePhotoMenuPosition(anchorEl, alignLeft));
+        setPhotoMenuPosition(computePhotoMenuPosition(anchorEl, alignLeft, bottomReserve));
         setPhotoMenu(photoId);
     }, [closePhotoMenu, computePhotoMenuPosition, photoMenu]);
 
@@ -950,16 +1097,35 @@ const CollectionDashboard = () => {
     }, [showMoveToSetMenu, sets.length, highlightsName, updateMoveMenuPosition]);
 
     useLayoutEffect(() => {
+        if (!showSelectionMore) {
+            setSelectionMoreMenuPosition(null);
+            return undefined;
+        }
+        const apply = () => setSelectionMoreMenuPosition(updateSelectionMoreMenuPosition());
+        apply();
+        window.addEventListener('resize', apply);
+        window.addEventListener('scroll', apply, true);
+        return () => {
+            window.removeEventListener('resize', apply);
+            window.removeEventListener('scroll', apply, true);
+        };
+    }, [showSelectionMore, updateSelectionMoreMenuPosition]);
+
+    useLayoutEffect(() => {
         if (!photoMenu) {
             setPhotoMenuPosition(null);
             return undefined;
         }
+        const bottomReserve = selectedPhotos.length > 0 ? SELECTION_TOOLBAR_RESERVE : 0;
         const apply = () => {
             const anchor = document.querySelector(
                 `.cd-photo-card--menu-open .cd-photo-more-btn`
             );
             if (!anchor) return;
-            setPhotoMenuPosition(computePhotoMenuPosition(anchor, photoMenuAlignLeft));
+            const menuHeight = photoMenuRef.current?.scrollHeight ?? null;
+            setPhotoMenuPosition(
+                computePhotoMenuPosition(anchor, photoMenuAlignLeft, bottomReserve, menuHeight)
+            );
         };
         apply();
         window.addEventListener('resize', apply);
@@ -968,12 +1134,24 @@ const CollectionDashboard = () => {
             window.removeEventListener('resize', apply);
             window.removeEventListener('scroll', apply, true);
         };
-    }, [photoMenu, photoMenuAlignLeft, computePhotoMenuPosition]);
+    }, [photoMenu, photoMenuAlignLeft, computePhotoMenuPosition, selectedPhotos.length]);
     const favoriteDetailToolbarMenuRef = useRef(null);
     const favoriteDetailPhotoMenuRef = useRef(null);
     const designHydratedRef = useRef(false);
     const settingsHydratedRef = useRef(false);
     const slideshowColumnReadyRef = useRef(false);
+    const designPersistRef = useRef({
+        collectionId: null,
+        selectedCoverStyle: 'novel',
+        selectedFont: 'sans',
+        selectedColorPalette: 'light',
+        gridSettings: {
+            style: 'vertical',
+            size: 'regular',
+            spacing: 'regular',
+            navigation: 'icon',
+        },
+    });
     const favoriteActivitySortMenuRef = useRef(null);
 
 
@@ -998,7 +1176,33 @@ const CollectionDashboard = () => {
             setPhotos(prev => prev.map(p => p.id === photoId ? { ...p, is_starred: updatedPhoto.is_starred } : p));
         } catch (err) {
             console.error('Star toggle failed:', err);
+            alert('Could not update starred. Please try again.');
         }
+    };
+
+    const handleTogglePhotoHidden = async (photo) => {
+        if (!photo?.id) return;
+        const nextHidden = !photo.is_private;
+        try {
+            const updated = await galleryService.updatePhoto(photo.id, { is_private: nextHidden });
+            setPhotos((prev) =>
+                prev.map((p) => (p.id === photo.id ? { ...p, is_private: updated.is_private } : p))
+            );
+        } catch (err) {
+            console.error('Hide from client failed:', err);
+            alert('Could not update visibility. Please try again.');
+        }
+    };
+
+    const handleWhoIsInThis = (photo) => {
+        const matches = peopleInPhoto(photo?.id, photoAiPeople, photoAiMetadataMap);
+        closePhotoMenu();
+        if (!matches.length) {
+            alert('No people found in this photograph yet.');
+            return;
+        }
+        setActivePersonId(matches[0].id);
+        setActiveSidebarTab('photos');
     };
 
     const deleteSelectedPhotos = async (ids = selectedPhotos) => {
@@ -1041,6 +1245,9 @@ const CollectionDashboard = () => {
             setLoadingActivity(true);
             const activity = await galleryService.getFavoriteActivity(collectionId);
             setFavoriteActivity(activity);
+            const overlays = await galleryService.getCollectionFavoriteOverlayPhotoIds(collectionId);
+            setClientFavoritedPhotoIds(new Set(overlays.favoritedPhotoIds));
+            setSelectionListPhotoIds(new Set(overlays.selectionListPhotoIds));
         } catch (err) {
             console.error('Failed to fetch favorite activity:', err);
         } finally {
@@ -1068,6 +1275,17 @@ const CollectionDashboard = () => {
             setEmailRegistrationActivity(activity);
         } catch (err) {
             console.error('Failed to fetch email registration activity:', err);
+        }
+    };
+
+    const fetchGalleryOpenActivity = async () => {
+        if (!collectionId) return;
+        try {
+            const activity = await galleryService.getGalleryOpenActivity(collectionId);
+            setGalleryOpenActivity(activity);
+        } catch (err) {
+            console.error('Failed to fetch gallery open activity:', err);
+            setGalleryOpenActivity([]);
         }
     };
 
@@ -1142,10 +1360,31 @@ const CollectionDashboard = () => {
             fetchFavoriteActivity();
             fetchDownloadActivity();
             fetchEmailRegistrationActivity();
+            fetchGalleryOpenActivity();
             fetchStoreOrders();
             fetchReminders();
         }
     }, [collectionId]);
+
+    useEffect(() => {
+        if (!gdEvent?.id) {
+            setGuestDeliveryGuests([]);
+            return undefined;
+        }
+        let cancelled = false;
+        const photographerId = gdEvent.photographer_id || collection?.photographer_id || user?.id;
+        guestDeliveryGuestsService
+            .getGuests(photographerId, gdEvent.id)
+            .then((rows) => {
+                if (!cancelled) setGuestDeliveryGuests(rows || []);
+            })
+            .catch(() => {
+                if (!cancelled) setGuestDeliveryGuests([]);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [gdEvent?.id, gdEvent?.photographer_id, collection?.photographer_id, user?.id]);
 
     const applyUploadView = useCallback((detail) => {
         if (detail.collectionId && detail.collectionId !== collectionId) return;
@@ -1161,7 +1400,10 @@ const CollectionDashboard = () => {
         const uploadView = location.state?.uploadView;
         if (!uploadView || uploadView.collectionId !== collectionId) return;
         applyUploadView(uploadView);
-        navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
+        navigate(`${location.pathname}${location.search}`, {
+            replace: true,
+            state: location.state?.from ? { from: location.state.from } : null,
+        });
     }, [location.state, location.pathname, location.search, collectionId, applyUploadView, navigate]);
 
     useEffect(() => {
@@ -1179,21 +1421,7 @@ const CollectionDashboard = () => {
     }, [activeActivitySubTab]);
 
     useEffect(() => {
-        if (activeActivitySubTab !== 'favorite') {
-            setSelectedFavoriteListId(null);
-            setFavoriteDetailRows([]);
-            setFavoriteDetailToolbarMenuOpen(false);
-            setFavoriteDetailPhotoMenuPhotoId(null);
-            setFavoriteActivitySortMenuOpen(false);
-        }
-        if (activeActivitySubTab !== 'download') {
-            setSelectedDownloadId(null);
-            setDownloadDetailToolbarMenuOpen(false);
-        }
-    }, [activeActivitySubTab]);
-
-    useEffect(() => {
-        if (!selectedFavoriteListId || activeActivitySubTab !== 'favorite') {
+        if (!selectedFavoriteListId) {
             setFavoriteDetailRows([]);
             return;
         }
@@ -1213,7 +1441,7 @@ const CollectionDashboard = () => {
         return () => {
             cancelled = true;
         };
-    }, [selectedFavoriteListId, activeActivitySubTab]);
+    }, [selectedFavoriteListId]);
 
     useEffect(() => {
         setFavoriteDetailToolbarMenuOpen(false);
@@ -1228,103 +1456,51 @@ const CollectionDashboard = () => {
         }
     }, [favoriteActivity, selectedFavoriteListId]);
 
-    const collectionFocal = useMemo(
-        () => getCollectionFocal(collection),
-        [collection?.cover_focal_x, collection?.cover_focal_y, collection?.cover_url]
+    const collectionFocals = useMemo(
+        () => getCollectionFocals(collection),
+        [collection?.cover_focals, collection?.cover_focal_x, collection?.cover_focal_y, collection?.cover_url]
     );
+    const collectionFocal = collectionFocals.website || getCollectionFocal(collection);
 
-    const syncFocalCrosshair = useCallback((x, y) => {
-        const img = focalImageRef.current;
-        if (!img) {
-            setFocalCrosshairStyle({ left: `${x}%`, top: `${y}%` });
-            return;
+    const coverPhoto = useMemo(() => {
+        if (!photos?.length) return null;
+        const cover = stripMediaUrlHash(collection?.cover_url || '');
+        const urlMatch = (p) => {
+            if (!cover) return false;
+            const urls = [p.full_url, p.web_url, p.thumbnail_url, getPhotoFullDisplayUrl(p)]
+                .filter(Boolean)
+                .map((u) => stripMediaUrlHash(String(u)));
+            return urls.some((u) => u && (u === cover || cover.endsWith(u) || u.endsWith(cover)));
+        };
+        if (cover) {
+            return photos.find(urlMatch) || null;
         }
-        setFocalCrosshairStyle(focalPercentToElementStyle(x, y, img));
-    }, []);
-
-    useEffect(() => {
-        if (showFocalModal) {
-            setFocalX(collectionFocal.x);
-            setFocalY(collectionFocal.y);
-            syncFocalCrosshair(collectionFocal.x, collectionFocal.y);
+        if (collection?.cover_photo_id) {
+            return photos.find((p) => String(p.id) === String(collection.cover_photo_id)) || null;
         }
-    }, [showFocalModal, collectionFocal.x, collectionFocal.y, syncFocalCrosshair]);
-
-    const updateFocalFromPointer = useCallback((clientX, clientY) => {
-        const img = focalImageRef.current;
-        if (!img) return;
-        const { x, y } = focalPointFromPointer(clientX, clientY, img);
-        setFocalX(x);
-        setFocalY(y);
-        setFocalCrosshairStyle(focalPercentToElementStyle(x, y, img));
-    }, []);
-
-    const handleFocalPointerDown = useCallback(
-        (e) => {
-            e.preventDefault();
-            setIsDraggingFocal(true);
-            updateFocalFromPointer(e.clientX, e.clientY);
-        },
-        [updateFocalFromPointer]
-    );
-
-    const handleFocalPointerMove = useCallback(
-        (e) => {
-            if (!isDraggingFocal) return;
-            updateFocalFromPointer(e.clientX, e.clientY);
-        },
-        [isDraggingFocal, updateFocalFromPointer]
-    );
-
-    const handleFocalPointerUp = useCallback(() => {
-        setIsDraggingFocal(false);
-    }, []);
-
-    const handleFocalSave = async () => {
-        try {
-            setSaving(true);
-            const currentCoverUrl = collection?.cover_url || (photos.length > 0 ? photos[0].full_url : '');
-            if (!currentCoverUrl) {
-                setShowFocalModal(false);
-                return;
-            }
-
-            const updated = await galleryService.saveCollectionFocalPoint(
-                collectionId,
-                currentCoverUrl,
-                focalX,
-                focalY
-            );
-            setCollection((prev) => ({
-                ...prev,
-                ...updated,
-                cover_url: updated?.cover_url ?? appendFocalToCoverUrl(currentCoverUrl, focalX, focalY),
-                cover_focal_x: updated?.cover_focal_x ?? focalX,
-                cover_focal_y: updated?.cover_focal_y ?? focalY,
-            }));
-            setShowFocalModal(false);
-        } catch (err) {
-            console.error('Failed to save focal point:', err);
-            const detail = err?.message ? `\n\n${err.message}` : '';
-            alert(`Failed to save focal point.${detail}`);
-        } finally {
-            setSaving(false);
-        }
-    };
+        return null;
+    }, [photos, collection?.cover_photo_id, collection?.cover_url]);
 
     const handleCoverPhotoSelect = async (photo) => {
         const coverUrl = getPhotoFullDisplayUrl(photo) || getPhotoOriginalFileUrl(photo);
         if (!coverUrl || !collectionId) return;
         try {
             setIsCoverUploading(true);
+            const defaultFocals = getDefaultCoverFocals();
             await galleryService.updateCollection(collectionId, {
                 cover_photo_id: photo.id,
                 cover_url: coverUrl,
+                cover_focal_x: 50,
+                cover_focal_y: 50,
+                cover_focals: defaultFocals,
             });
             setCollection((prev) => ({
                 ...prev,
                 cover_url: coverUrl,
                 cover_photo_id: photo.id,
+                cover_focals: defaultFocals,
+                cover_focal_x: 50,
+                cover_focal_y: 50,
             }));
         } catch (err) {
             console.error('Failed to set cover:', err);
@@ -1334,8 +1510,59 @@ const CollectionDashboard = () => {
         }
     };
 
+    const handleCoverModalConfirm = async ({ photo, focals }) => {
+        const coverUrl = photo
+            ? (getPhotoFullDisplayUrl(photo) || getPhotoOriginalFileUrl(photo))
+            : (collection?.cover_url || '');
+        if (!coverUrl || !collectionId) return;
+        try {
+            setIsCoverUploading(true);
+            const extra = photo ? { cover_photo_id: photo.id } : {};
+            const updated = await galleryService.saveCollectionCoverFocals(
+                collectionId,
+                coverUrl,
+                focals,
+                extra
+            );
+            const primary = focals?.desktop || focals?.website || { x: 50, y: 50 };
+            const savedFocals = updated?.cover_focals;
+            const hasSavedFocals =
+                savedFocals && typeof savedFocals === 'object' && Object.keys(savedFocals).length > 0;
+            const savedClean = stripMediaUrlHash(updated?.cover_url || coverUrl);
+            const nextCoverUrl = hasSavedFocals
+                ? savedClean
+                : appendCoverFocalsToCoverUrl(savedClean, focals);
+            setCollection((prev) => ({
+                ...prev,
+                ...updated,
+                cover_url: nextCoverUrl,
+                cover_photo_id: photo?.id ?? prev?.cover_photo_id,
+                cover_focals: hasSavedFocals ? savedFocals : focals,
+                cover_focal_x: updated?.cover_focal_x ?? primary.x,
+                cover_focal_y: updated?.cover_focal_y ?? primary.y,
+            }));
+            setShowCoverModal(false);
+            setCoverModalScope('all');
+        } catch (err) {
+            console.error('Failed to save delivery cover:', err);
+            const detail = err?.message ? `\n\n${err.message}` : '';
+            alert(`Failed to save delivery cover.${detail}`);
+        } finally {
+            setIsCoverUploading(false);
+        }
+    };
+
     const handleSetAsCover = (photo) => {
         void handleCoverPhotoSelect(photo);
+    };
+
+    const handleUseAsDeliveryCover = (photo) => {
+        if (!photo) return;
+        closePhotoMenu();
+        setCoverModalPhotoOverride(photo);
+        setCoverModalScope('all');
+        setCoverModalInitialView('edit');
+        setShowCoverModal(true);
     };
 
     const handleCoverPhotoDropById = (photoId) => {
@@ -1388,11 +1615,17 @@ const CollectionDashboard = () => {
             await galleryService.updateCollection(collectionId, {
                 cover_photo_id: photoData.id,
                 cover_url: coverUrl,
+                cover_focal_x: 50,
+                cover_focal_y: 50,
+                cover_focals: getDefaultCoverFocals(),
             });
             setCollection((prev) => ({
                 ...prev,
                 cover_url: coverUrl,
                 cover_photo_id: photoData.id,
+                cover_focals: getDefaultCoverFocals(),
+                cover_focal_x: 50,
+                cover_focal_y: 50,
             }));
         } catch (err) {
             console.error('Cover file upload failed:', err);
@@ -1404,9 +1637,9 @@ const CollectionDashboard = () => {
 
     const handleDownloadPhoto = async (photo) => {
         const pinRequiredForSingle = collection?.require_pin_for_single_photo !== false;
-        if (collection?.download_pin && pinRequiredForSingle) {
+        if (collection?.download_pin_hash && pinRequiredForSingle) {
             const enteredPin = prompt("Please enter the download PIN to download this photo:");
-            if (enteredPin !== collection.download_pin) {
+            if (enteredPin !== collection.download_pin_hash) {
                 alert("Incorrect PIN.");
                 return;
             }
@@ -1500,8 +1733,7 @@ const CollectionDashboard = () => {
     };
 
     const handlePublishGuestDelivery = async () => {
-        if (!gdEvent) return;
-        if (!window.confirm('This will run face matching on all delivery photos and match them to registered guests, then send delivery emails. Continue?')) return;
+        if (!gdEvent || gdPublishing) return;
         try {
             setGdPublishing(true);
             const result = await guestDeliveryPublishService.publishEvent(gdEvent.id);
@@ -1524,26 +1756,34 @@ const CollectionDashboard = () => {
                 }
             }
 
+            const photographerId = gdEvent.photographer_id || collection?.photographer_id || user?.id;
+            if (photographerId) {
+                try {
+                    const updated = await guestDeliveryService.updateEvent(photographerId, gdEvent.id, {
+                        registration_enabled: false,
+                    });
+                    if (updated) setGdEvent((prev) => (prev ? { ...prev, ...updated } : updated));
+                } catch (err) {
+                    console.error(err);
+                }
+                try {
+                    const rows = await guestDeliveryGuestsService.getGuests(photographerId, gdEvent.id);
+                    setGuestDeliveryGuests(rows || []);
+                    setGdGuestCount((rows || []).length);
+                } catch (err) {
+                    console.error(err);
+                }
+            }
+
             const { summary } = result;
-            let message = `Guest Delivery published!\n\n` +
-                `Photos indexed: ${summary.photosIndexed}\n` +
-                `Guests matched: ${summary.guestsMatched}\n` +
-                `No matches: ${summary.guestsNoMatch}\n` +
-                `Failed: ${summary.guestsFailed}`;
-
-            if (matchedGuests.length) {
-                message += emailErrors.length
-                    ? `\n\nEmails sent with ${emailErrors.length} error(s).`
-                    : '\n\nDelivery emails sent successfully.';
-            } else {
-                message += '\n\nNo delivery emails sent (no matches).';
-            }
-
             if (emailErrors.length) {
-                message += `\n\nEmail error: ${emailErrors[0]}`;
+                setToastMessage(`Sent with ${emailErrors.length} email error(s).`);
+            } else if (matchedGuests.length) {
+                setToastMessage('Guest photos sent.');
+            } else {
+                setToastMessage(`Matched ${summary?.guestsMatched || 0} guest(s). No emails sent.`);
             }
-
-            alert(message);
+            setTimeout(() => setToastMessage(null), 4000);
         } catch (err) {
             alert(`Publish failed: ${err.message}`);
         } finally {
@@ -1552,20 +1792,24 @@ const CollectionDashboard = () => {
     };
 
     const handleSaveExpiryEmail = async () => {
+        if (!collectionId) {
+            alert('This delivery is still loading. Try Save again in a moment.');
+            return;
+        }
         try {
             setSaving(true);
             const reminderData = {
                 collection_id: collectionId,
-                timing: expiryEmailTiming,
-                to_email: expiryEmailTo,
-                subject: expiryEmailSubject,
-                body: expiryEmailBody,
-                include_pin: expiryEmailIncludePin,
-                send_copy: expiryEmailSendCopy,
-                activity_lists: expiryEmailLists,
-                whatsapp_enabled: whatsappEnabled,
-                whatsapp_body: whatsappBody,
-                to_whatsapp: toWhatsapp
+                timing: expiryEmailTiming || '7 days before auto expiry date',
+                to_email: expiryEmailTo || '',
+                subject: expiryEmailSubject || 'The gallery {delivery.name} is about to expire',
+                body: expiryEmailBody || 'Hi,\n\nThe gallery {delivery.name} will expire in {days.prior} on {expiry.date}.',
+                include_pin: !!expiryEmailIncludePin,
+                send_copy: expiryEmailSendCopy !== false,
+                activity_lists: Array.isArray(expiryEmailLists) ? expiryEmailLists : [],
+                whatsapp_enabled: !!whatsappEnabled,
+                whatsapp_body: whatsappBody || '',
+                to_whatsapp: toWhatsapp || '',
             };
 
             if (editingReminderId) {
@@ -1582,7 +1826,8 @@ const CollectionDashboard = () => {
             setTimeout(() => setToastMessage(null), 3000);
         } catch (err) {
             console.error('Failed to save expiry email:', err);
-            alert('Failed to save expiry email settings.');
+            const detail = err?.message || err?.error_description || 'Unknown error';
+            alert(`Failed to save expiry email settings.\n\n${detail}`);
         } finally {
             setSaving(false);
         }
@@ -1661,16 +1906,19 @@ const CollectionDashboard = () => {
         const s = selectedPreset.settings;
         if (!s) return;
 
+        const designPatch = toDeliveryDesignPatch({
+            coverStyle: s.coverStyle || 'center',
+            fontFamily: s.typography,
+            colorPalette: s.colorTheme,
+            grid: {
+                style: s.gridStyle || 'vertical',
+                size: s.thumbnailSize || 'regular',
+                spacing: s.gridSpacing || 'regular',
+                navigation: s.navigationStyle === 'text' ? 'text' : 'icon',
+            },
+        });
         const updatedSettings = {
-            cover_layout: s.coverStyle || 'center',
-            cover_style: (s.coverStyle || 'center') === 'none' ? 'text_only' : 'photo',
-            font_family: s.typography || 'sans',
-            color_palette: s.colorTheme || 'light',
-            grid_style: s.gridStyle || 'vertical',
-            thumbnail_size: s.thumbnailSize || 'regular',
-            grid_spacing: s.gridSpacing || 'regular',
-            nav_style: s.navigationStyle === 'text' ? 'icons_labels' : 'icons',
-            
+            ...designPatch,
             password_enabled: !!s.collectionPassword,
             show_on_showcase: (s.showOnShowcase ?? s.showOnHomepage) !== false,
             
@@ -1711,7 +1959,7 @@ const CollectionDashboard = () => {
             }
             if (s.downloadPin && s.downloadPinValue) {
                 await galleryService.updateCollection(collectionId, {
-                    download_pin: s.downloadPinValue
+                    download_pin_hash: s.downloadPinValue
                 });
                 setPinValue(s.downloadPinValue);
             }
@@ -1720,8 +1968,8 @@ const CollectionDashboard = () => {
 
             // Update local React UI states directly
             setSelectedCoverStyle(s.coverStyle || 'center');
-            setSelectedFont(s.typography || 'sans');
-            setSelectedColorPalette(s.colorTheme || 'light');
+            setSelectedFont(normalizeFontId(s.typography));
+            setSelectedColorPalette(normalizePaletteId(s.colorTheme));
             setGridSettings({
                 style: s.gridStyle || 'vertical',
                 size: s.thumbnailSize || 'regular',
@@ -1871,6 +2119,19 @@ const CollectionDashboard = () => {
         if (updateError) throw updateError;
     };
 
+    /** Access settings: pick the watermark new photos are shown with, without reprocessing existing files. */
+    const handleSelectDefaultWatermark = async (name) => {
+        const next = name || 'No watermark';
+        setDefaultWatermark(next);
+        setSelectedWatermarkId(next === 'No watermark' ? '' : next);
+        try {
+            await galleryService.updateCollection(collectionId, { default_watermark: next });
+            setCollection(prev => prev ? { ...prev, default_watermark: next } : prev);
+        } catch (err) {
+            console.error('Failed to save default watermark:', err);
+        }
+    };
+
     const handleSaveWatermarkSettings = async () => {
         if (!editingPhoto) return;
         try {
@@ -1971,7 +2232,7 @@ const CollectionDashboard = () => {
     useEffect(() => {
         const fetchCollectionData = async () => {
             if (!collectionId) {
-                navigate('/client-gallery');
+                navigate(DELIVERY_PRODUCT_HOME);
                 return;
             }
 
@@ -1991,7 +2252,7 @@ const CollectionDashboard = () => {
                 setCollection(data);
 
                 // Initialize state from collection data
-                if (data.status) setStatus(data.status.toUpperCase());
+                setStatus(uiDeliveryStatus(data));
                 if (data.slug) setCollectionUrl(data.slug);
                 setCategoryTags(categoryTagsFromCollection(data));
                 if (data.guest_password_hash) setCollectionPassword(data.guest_password_hash);
@@ -2007,30 +2268,63 @@ const CollectionDashboard = () => {
 
                 // Map individual columns to state
                 setSelectedCoverStyle(resolveCoverLayoutId(data));
-                setSelectedFont(normalizeFontId(data.font_family));
-                setSelectedColorPalette(normalizePaletteId(data.color_palette));
 
-                setGridSettings({
-                    style: data.grid_style || 'vertical',
-                    size: data.thumbnail_size || 'regular',
-                    spacing: data.grid_spacing || 'regular',
-                    navigation: data.nav_style === 'icons_labels' ? 'text' : 'icon'
-                });
+                const extras = data.design_options && typeof data.design_options === 'object'
+                    ? data.design_options
+                    : {};
+                const chrome = chromeFromDelivery(data);
+                const fromDb = gridSettingsFromDelivery(data);
+                const cached = readCachedDesignGrid(collectionId);
+                setSelectedFont(extras.font_family
+                    ? chrome.fontFamily
+                    : (cached?.fontFamily || chrome.fontFamily));
+                setSelectedColorPalette(extras.color_palette
+                    ? chrome.colorPalette
+                    : (cached?.colorPalette || chrome.colorPalette));
+                setGridSettings(extras.thumbnail_size || extras.grid_style
+                    ? fromDb
+                    : (cached
+                        ? {
+                            style: cached.style,
+                            size: cached.size,
+                            spacing: cached.spacing,
+                            navigation: cached.navigation,
+                        }
+                        : fromDb));
 
-                setSortOption(normalizeGalleryPhotoSort(data.gallery_photo_sort));
+                const normalizedSort = normalizeGalleryPhotoSort(data.gallery_photo_sort);
+                setSortOption(normalizedSort);
+                const sortUi = optionToSortUi(normalizedSort);
+                if (sortUi) {
+                    setPhotoSortField(sortUi.field);
+                    setPhotoSortReverse(sortUi.reverse);
+                }
 
                 // Initialize download settings
                 if (data.downloads_enabled !== undefined) setPhotoDownload(data.downloads_enabled);
-                if (data.download_resolutions) setPhotoDownloadSizes(data.download_resolutions);
-                const dbPin = data.download_pin || data.download_pin_hash;
+                if (data.download_resolutions) {
+                    const mapped = data.download_resolutions.map((s) => (s === 'full' ? 'high' : s));
+                    const sizes = mapped.filter((s) => s === 'web' || s === 'high' || s === 'original' || s === 'video');
+                    if (data.video_downloads_enabled && !sizes.includes('video')) sizes.push('video');
+                    if (sizes.length) setPhotoDownloadSizes(sizes);
+                } else if (data.video_downloads_enabled) {
+                    setPhotoDownloadSizes((prev) => (prev.includes('video') ? prev : [...prev, 'video']));
+                }
+                // Prefer plain PIN when available. Fallback to the legacy hash column (if the DB is still populated that way).
+                const dbPin = data.download_pin ?? data.download_pin_hash;
                 if (dbPin) {
                     setDownloadPin(true);
                     setPinValue(dbPin);
-                } else if (data.download_pin === null || data.download_pin_hash === null) {
+                } else if (data.download_pin === null && data.download_pin_hash === null) {
                     setDownloadPin(false);
                 }
                 
-                if (data.require_pin_for_single_photo !== undefined) setRequirePinForSinglePhoto(data.require_pin_for_single_photo);
+                // When PIN is enabled, always require it for single photo downloads too
+                if (dbPin) {
+                    setRequirePinForSinglePhoto(true);
+                } else if (data.require_pin_for_single_photo !== undefined) {
+                    setRequirePinForSinglePhoto(data.require_pin_for_single_photo);
+                }
                 if (data.email_capture_enabled !== undefined) setEmailRegistration(data.email_capture_enabled);
                 if (data.gallery_download_enabled !== undefined) setGalleryDownload(data.gallery_download_enabled);
                 if (data.single_photo_download_enabled !== undefined) setSinglePhotoDownload(data.single_photo_download_enabled);
@@ -2083,6 +2377,11 @@ const CollectionDashboard = () => {
                 }
                 if (data.auto_expiry) setAutoExpiry(data.auto_expiry);
                 if (data.default_watermark) setDefaultWatermark(data.default_watermark);
+                if (data.language) {
+                    const lang = String(data.language);
+                    const pretty = lang.charAt(0).toUpperCase() + lang.slice(1).toLowerCase();
+                    setLanguage(pretty === 'Hindi' || pretty === 'Tamil' ? pretty : 'English');
+                }
 
                 designHydratedRef.current = true;
                 settingsHydratedRef.current = true;
@@ -2234,7 +2533,12 @@ const CollectionDashboard = () => {
             ) {
                 setFavoriteDetailPhotoMenuPhotoId(null);
             }
-            if (showSelectionMore && selectionMoreRef.current && !selectionMoreRef.current.contains(e.target)) {
+            if (
+                showSelectionMore
+                && selectionMoreRef.current
+                && !selectionMoreRef.current.contains(e.target)
+                && (!selectionMorePortalRef.current || !selectionMorePortalRef.current.contains(e.target))
+            ) {
                 setShowSelectionMore(false);
             }
             if (showSelectAllMenu && selectAllMenuRef.current && !selectAllMenuRef.current.contains(e.target)) {
@@ -2261,18 +2565,20 @@ const CollectionDashboard = () => {
     }, [activeActivityMenu, favoriteDetailPhotoMenuPhotoId, favoriteActivitySortMenuOpen, showSelectionMore, showSelectAllMenu, showMoveToSetMenu]);
 
     // ─── SORT LOGIC ──────────────────────────────────────────
+    const isFilmsView = activeSidebarTab === 'films';
+
     const sortedPhotos = useMemo(() => {
-        // Filter by active set
         let filtered = photos;
-        if (activeSetId) {
+        if (isFilmsView) {
+            filtered = photos;
+        } else if (activeSetId) {
             filtered = photos.filter(p => p.set_id === activeSetId);
         } else {
-            // Highlights: Only photos not assigned to any set
             filtered = photos.filter(p => !p.set_id);
         }
 
         return sortDashboardPhotos(filtered, sortOption);
-    }, [photos, activeSetId, sortOption]);
+    }, [photos, activeSetId, sortOption, isFilmsView]);
 
     const photoAiMetadataMap = useMemo(
         () => photoAiService.metadataToMap(photoAiRows),
@@ -2291,25 +2597,38 @@ const CollectionDashboard = () => {
         } else if (activePerson) {
             result = filterPhotosByPerson(result, photoAiMetadataMap, activePerson);
         }
+        if (showUnmatchedPeople && photoAiRows.length > 0) {
+            result = result.filter((photo) => {
+                const meta = photoAiMetadataMap[photo.id];
+                return !meta?.faces?.length;
+            });
+        }
         return result;
-    }, [sortedPhotos, photoAiMetadataMap, activePerson, selfieMatchPhotoIds]);
+    }, [sortedPhotos, photoAiMetadataMap, activePerson, selfieMatchPhotoIds, showUnmatchedPeople, photoAiRows.length]);
+
+    const totalMediaCounts = useMemo(() => countGalleryMedia(photos), [photos]);
+
+    const sidebarActivityCount = useMemo(
+        () =>
+            (activityCounts.contacts || 0) +
+            (activityCounts.downloaded || 0) +
+            (activityCounts.favorited || 0) +
+            (activityCounts.registered || 0) +
+            (activityCounts.purchased || 0),
+        [activityCounts]
+    );
 
     const activeSetMediaCounts = useMemo(
         () => countGalleryMedia(sortedPhotos),
         [sortedPhotos]
     );
 
-    const showMediaFilter = shouldShowGalleryMediaFilter(activeSetMediaCounts);
-
-    useEffect(() => {
-        if (activeSetMediaCounts.photos > 0) setMediaFilter('photos');
-        else if (activeSetMediaCounts.videos > 0) setMediaFilter('videos');
-    }, [activeSetId, activeSetMediaCounts.photos, activeSetMediaCounts.videos]);
-
     const mediaFilteredPhotos = useMemo(() => {
-        if (!showMediaFilter) return aiFilteredPhotos;
-        return filterGalleryMediaByType(aiFilteredPhotos, mediaFilter);
-    }, [aiFilteredPhotos, showMediaFilter, mediaFilter]);
+        if (isFilmsView) {
+            return filterGalleryMediaByType(aiFilteredPhotos, 'videos');
+        }
+        return filterGalleryMediaByType(aiFilteredPhotos, 'photos');
+    }, [aiFilteredPhotos, isFilmsView]);
 
     const isPhotoAiFilterActive = Boolean(
         activePersonId || selfieMatchPhotoIds.length
@@ -2445,7 +2764,7 @@ const CollectionDashboard = () => {
         try {
             await photoAiService.syncCollection(collectionId);
             await refreshPhotoAiMetadata();
-            if (showPeoplePanel) {
+            if (showPeoplePanel || activeSidebarTab === 'photos') {
                 await loadPhotoAiPeople({ silent: true });
             }
         } catch (err) {
@@ -2459,20 +2778,44 @@ const CollectionDashboard = () => {
         photoAiTableMissing,
         indexablePhotoCount,
         showPeoplePanel,
+        activeSidebarTab,
         refreshPhotoAiMetadata,
         loadPhotoAiPeople,
     ]);
 
-    const prevShowPeoplePanelRef = useRef(false);
+    useEffect(() => {
+        setPhotoSearchQuery('');
+    }, [activeSetId]);
+
+    const sharingOverlaysEnabled = status === DELIVERY_STATUS.published;
+
+    const handlePhotoSortFieldChange = useCallback((field) => {
+        setPhotoSortField(field);
+        setPhotoSortReverse(false);
+        setSortOption(sortFieldToOption(field, false));
+    }, []);
+
+    const handlePhotoSortReverseChange = useCallback((reverse) => {
+        setPhotoSortReverse(reverse);
+        setSortOption(sortFieldToOption(photoSortField, reverse));
+    }, [photoSortField]);
 
     useEffect(() => {
-        const justOpened = showPeoplePanel && !prevShowPeoplePanelRef.current;
-        prevShowPeoplePanelRef.current = showPeoplePanel;
+        if (!collectionId || !sharingOverlaysEnabled) {
+            setClientFavoritedPhotoIds(new Set());
+            setSelectionListPhotoIds(new Set());
+            return;
+        }
+        void galleryService.getCollectionFavoriteOverlayPhotoIds(collectionId).then((overlays) => {
+            setClientFavoritedPhotoIds(new Set(overlays.favoritedPhotoIds));
+            setSelectionListPhotoIds(new Set(overlays.selectionListPhotoIds));
+        });
+    }, [collectionId, sharingOverlaysEnabled]);
 
-        if (!showPeoplePanel || photoAiTableMissing || photoAiRows.length === 0) return;
-
-        void loadPhotoAiPeople({ silent: !justOpened });
-    }, [showPeoplePanel, photoAiTableMissing, photoAiRows.length, loadPhotoAiPeople]);
+    useEffect(() => {
+        if (activeSidebarTab !== 'photos' || photoAiTableMissing || photoAiRows.length === 0) return;
+        void loadPhotoAiPeople({ silent: true });
+    }, [activeSidebarTab, photoAiTableMissing, photoAiRows.length, loadPhotoAiPeople]);
 
     useEffect(() => {
         if (!collectionId || indexablePhotoCount === 0 || photoAiTableMissing) return;
@@ -2570,9 +2913,17 @@ const CollectionDashboard = () => {
         }
     }, [highlightsEnabled, activeSetId, sets]);
 
+    const searchFilteredPhotos = useMemo(() => {
+        const query = photoSearchQuery.trim().toLowerCase();
+        if (!query) return mediaFilteredPhotos;
+        return mediaFilteredPhotos.filter((photo) =>
+            (photo.filename || '').toLowerCase().includes(query)
+        );
+    }, [mediaFilteredPhotos, photoSearchQuery]);
+
     const gridPhotos = useMemo(() => {
         const viewSetId = highlightsEnabled ? activeSetId : (activeSetId ?? sets[0]?.id ?? null);
-        const completedNames = new Set(mediaFilteredPhotos.map((p) => p.filename));
+        const completedNames = new Set(searchFilteredPhotos.map((p) => p.filename));
         const pending = uploadState.files
             .filter(
                 (f) =>
@@ -2591,11 +2942,42 @@ const CollectionDashboard = () => {
                 _uploadPending: true,
                 _uploadProgress: f.progress,
             }));
-        const filteredPending = showMediaFilter
-            ? filterGalleryMediaByType(pending, mediaFilter)
-            : pending;
-        return [...mediaFilteredPhotos, ...filteredPending];
-    }, [mediaFilteredPhotos, uploadState.files, collectionId, highlightsEnabled, activeSetId, sets, showMediaFilter, mediaFilter]);
+        const filteredPending = filterGalleryMediaByType(pending, isFilmsView ? 'videos' : 'photos');
+        return [...searchFilteredPhotos, ...filteredPending];
+    }, [searchFilteredPhotos, uploadState.files, collectionId, highlightsEnabled, activeSetId, sets, isFilmsView]);
+
+    const deliveryFilms = useMemo(() => {
+        const videos = filterGalleryMediaByType(photos, 'videos');
+        return sortDashboardPhotos(videos, sortOption);
+    }, [photos, sortOption]);
+
+    const videoDownloadEnabled = photoDownloadSizes.includes('video');
+
+    const handlePreviewAsClient = useCallback(() => {
+        const params = new URLSearchParams({
+            coverStyle: selectedCoverStyle,
+            font: normalizeFontId(selectedFont),
+            color: normalizePaletteId(selectedColorPalette),
+            grid: gridSettings.style,
+            thumb: gridSettings.size,
+            spacing: gridSettings.spacing,
+            nav: gridSettings.navigation,
+            slideshow: slideshow ? '1' : '0',
+            socialSharing: socialSharing ? '1' : '0',
+        });
+        openSpaPath(`/gallery/${collectionUrl}?${params.toString()}`);
+    }, [
+        selectedCoverStyle,
+        selectedFont,
+        selectedColorPalette,
+        gridSettings.style,
+        gridSettings.size,
+        gridSettings.spacing,
+        gridSettings.navigation,
+        slideshow,
+        socialSharing,
+        collectionUrl,
+    ]);
 
     useEffect(() => {
         if (!pendingUploadScrollRef.current || activeSidebarTab !== 'photos') return;
@@ -2605,28 +2987,17 @@ const CollectionDashboard = () => {
         });
     }, [activeSidebarTab, gridPhotos.length]);
 
-    const activeSetPhotoCount = activeSetId
-        ? photos.filter(p => p.set_id === activeSetId).length
-        : photos.filter(p => !p.set_id).length;
-
-    const activeSetDisplayCount = useMemo(() => {
-        if (isPhotoAiFilterActive) {
-            const typeTotal = showMediaFilter
-                ? activeSetMediaCounts[mediaFilter === 'photos' ? 'photos' : 'videos']
-                : activeSetPhotoCount;
-            return `${mediaFilteredPhotos.length} of ${typeTotal}`;
+    const activeSetCountLabel = useMemo(() => {
+        const typeCount = activeSetMediaCounts.photos;
+        if (isPhotoAiFilterActive || photoSearchQuery.trim()) {
+            return `${gridPhotos.filter((p) => !p._uploadPending).length.toLocaleString()} of ${Number(typeCount).toLocaleString()} photos`;
         }
-        if (showMediaFilter) {
-            return activeSetMediaCounts[mediaFilter === 'photos' ? 'photos' : 'videos'];
-        }
-        return activeSetPhotoCount;
+        return `${Number(typeCount).toLocaleString()} photos`;
     }, [
-        isPhotoAiFilterActive,
-        showMediaFilter,
-        mediaFilter,
-        mediaFilteredPhotos.length,
         activeSetMediaCounts,
-        activeSetPhotoCount,
+        isPhotoAiFilterActive,
+        photoSearchQuery,
+        gridPhotos,
     ]);
 
     const coverModalPhotos = useMemo(() => {
@@ -2635,22 +3006,64 @@ const CollectionDashboard = () => {
         return photos.filter((p) => p.set_id === coverModalScope);
     }, [photos, coverModalScope]);
 
-    const coverModalScopeLabel = useMemo(() => {
-        if (coverModalScope === 'all') return 'All photos';
-        if (coverModalScope === 'highlights') return highlightsName;
-        const set = sets.find((s) => s.id === coverModalScope);
-        return set?.name || 'Set';
-    }, [coverModalScope, highlightsName, sets]);
-
-    const openCoverModal = (scope = 'all') => {
+    const openCoverModal = (scope = 'all', view = 'edit') => {
         setCoverModalScope(scope);
+        setCoverModalInitialView(view);
         setShowCoverModal(true);
     };
 
     const closeCoverModal = () => {
         setShowCoverModal(false);
         setCoverModalScope('all');
+        setCoverModalPhotoOverride(null);
     };
+
+    useEffect(() => {
+        if (!showEmailHistoryModal || !collectionId) return undefined;
+        let cancelled = false;
+        const load = async () => {
+            setEmailHistoryLoading(true);
+            setEmailHistoryError('');
+            try {
+                const rows = await galleryService.getCollectionShareEmailHistory(collectionId);
+                if (cancelled) return;
+                setEmailHistory(
+                    (rows || []).map((item) => {
+                        const raw = String(item.status || 'Sent').trim().toLowerCase();
+                        let status = 'Sent';
+                        if (raw === 'pending' || raw === 'sending' || raw === 'queued') status = 'Pending';
+                        else if (raw === 'rejected' || raw === 'bounced' || raw === 'failed' || raw === 'bounce') status = 'Rejected';
+                        else if (raw === 'scheduled') status = 'Scheduled';
+                        else if (raw === 'sent' || raw === 'delivered') status = 'Sent';
+                        else status = String(item.status || 'Sent').replace(/^\w/, (c) => c.toUpperCase());
+                        return {
+                            id: item.id,
+                            email: item.recipient_email,
+                            subject: item.subject || '—',
+                            date: new Date(item.created_at).toLocaleDateString('en-US', {
+                                month: 'long',
+                                day: 'numeric',
+                                year: 'numeric',
+                            }),
+                            status,
+                        };
+                    })
+                );
+            } catch (err) {
+                console.error('Failed to load email history:', err);
+                if (!cancelled) {
+                    setEmailHistory([]);
+                    setEmailHistoryError(err?.message || 'Failed to load email history.');
+                }
+            } finally {
+                if (!cancelled) setEmailHistoryLoading(false);
+            }
+        };
+        void load();
+        return () => {
+            cancelled = true;
+        };
+    }, [showEmailHistoryModal, collectionId]);
 
     // ─── SET HANDLERS ────────────────────────────────────────
     const handleCreateSet = async () => {
@@ -2843,6 +3256,21 @@ const CollectionDashboard = () => {
         setLightboxOpenIndex(idx >= 0 ? idx : 0);
     };
 
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.code !== 'Space' && e.key !== ' ') return;
+            const target = e.target;
+            const tag = target?.tagName?.toLowerCase();
+            if (tag === 'input' || tag === 'textarea' || tag === 'select' || target?.isContentEditable) return;
+            if (lightboxOpenIndex >= 0) return;
+            if (selectedPhotos.length === 0) return;
+            e.preventDefault();
+            handleSelectionOpen();
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [selectedPhotos, lightboxOpenIndex, sortedPhotos, photos]);
+
     const handleSelectionStar = async () => {
         const sel = getSelectedPhotoRecords();
         if (sel.length === 0) return;
@@ -2912,9 +3340,9 @@ const CollectionDashboard = () => {
         if (sel.length === 0) return;
         closeSelectionChrome();
         const pinRequiredForSingle = collection?.require_pin_for_single_photo !== false;
-        if (collection?.download_pin && pinRequiredForSingle) {
+        if (collection?.download_pin_hash && pinRequiredForSingle) {
             const enteredPin = prompt('Please enter the download PIN to download:');
-            if (enteredPin !== collection.download_pin) {
+            if (enteredPin !== collection.download_pin_hash) {
                 alert('Incorrect PIN.');
                 return;
             }
@@ -2944,20 +3372,12 @@ const CollectionDashboard = () => {
             const reorderedVisible = nextIds.filter((id) => byId.has(id)).map((id) => byId.get(id));
             if (reorderedVisible.length !== draggablePhotos.length) return;
 
-            let newPoolOrder;
-            if (showMediaFilter) {
-                const visibleIdSet = new Set(reorderedVisible.map((p) => p.id));
-                let visibleIndex = 0;
-                newPoolOrder = sortedPhotos.map((p) => {
-                    if (!visibleIdSet.has(p.id)) return p;
-                    return reorderedVisible[visibleIndex++];
-                });
-            } else {
-                newPoolOrder = [
-                    ...reorderedVisible,
-                    ...gridPhotos.filter((p) => p._uploadPending),
-                ];
-            }
+            const visibleIdSet = new Set(reorderedVisible.map((p) => p.id));
+            let visibleIndex = 0;
+            const newPoolOrder = sortedPhotos.map((p) => {
+                if (!visibleIdSet.has(p.id)) return p;
+                return reorderedVisible[visibleIndex++];
+            });
 
             const realPhotos = newPoolOrder.filter((p) => !p._uploadPending);
             const posMap = new Map(realPhotos.map((p, index) => [p.id, index]));
@@ -2983,7 +3403,7 @@ const CollectionDashboard = () => {
                 alert('Failed to reorder photos.');
             }
         },
-        [collection?.gallery_photo_sort, collectionId, gridPhotos, showMediaFilter, sortOption, sortedPhotos]
+        [collection?.gallery_photo_sort, collectionId, gridPhotos, sortOption, sortedPhotos]
     );
 
     const isGridPhotoDraggable = useCallback(
@@ -2991,30 +3411,75 @@ const CollectionDashboard = () => {
         [isPhotoAiFilterActive]
     );
 
-    // Auto-save design settings
+    // Auto-save design settings (cover, type, palette, grid) to deliveries.
     useEffect(() => {
-        if (!collection || loading || !designHydratedRef.current) return;
+        designPersistRef.current = {
+            collectionId,
+            selectedCoverStyle,
+            selectedFont,
+            selectedColorPalette,
+            gridSettings,
+        };
+        if (collectionId && designHydratedRef.current) {
+            writeCachedDesignGrid(collectionId, gridSettings, {
+                fontFamily: selectedFont,
+                colorPalette: selectedColorPalette,
+            });
+        }
+
+        if (!collection || loading || !designHydratedRef.current || !collectionId) return undefined;
 
         const saveSettings = async () => {
             try {
-                await galleryService.updateCollection(collectionId, {
-                    cover_layout: selectedCoverStyle,
-                    cover_style: selectedCoverStyle === 'none' ? 'text_only' : 'photo', // Legacy enum; layout lives in cover_layout
-                    font_family: selectedFont,
-                    color_palette: selectedColorPalette,
-                    grid_style: gridSettings.style,
-                    thumbnail_size: gridSettings.size,
-                    grid_spacing: gridSettings.spacing,
-                    nav_style: gridSettings.navigation === 'icon' ? 'icons' : 'icons_labels'
+                const patch = toDeliveryDesignPatch({
+                    coverStyle: selectedCoverStyle,
+                    fontFamily: selectedFont,
+                    colorPalette: selectedColorPalette,
+                    grid: gridSettings,
                 });
+                const saved = await galleryService.updateCollection(collectionId, patch);
+                if (saved) {
+                    setCollection((prev) => {
+                        if (!prev) return saved;
+                        const next = { ...prev, ...saved };
+                        if (!saved.cover_focals && prev.cover_focals) {
+                            next.cover_focals = prev.cover_focals;
+                        }
+                        if (prev.cover_url && String(prev.cover_url).includes('coverFocals=') && !String(saved.cover_url || '').includes('coverFocals=')) {
+                            next.cover_url = prev.cover_url;
+                        }
+                        return next;
+                    });
+                }
             } catch (err) {
                 console.error('Error auto-saving settings:', err);
             }
         };
 
-        const timeoutId = setTimeout(saveSettings, 1000);
+        const timeoutId = setTimeout(saveSettings, 400);
         return () => clearTimeout(timeoutId);
     }, [selectedCoverStyle, selectedFont, selectedColorPalette, gridSettings, collectionId, collection, loading]);
+
+    useEffect(() => {
+        const flushDesignSettings = () => {
+            if (!designHydratedRef.current) return;
+            const snapshot = designPersistRef.current;
+            if (!snapshot.collectionId) return;
+            const patch = toDeliveryDesignPatch({
+                coverStyle: snapshot.selectedCoverStyle,
+                fontFamily: snapshot.selectedFont,
+                colorPalette: snapshot.selectedColorPalette,
+                grid: snapshot.gridSettings,
+            });
+            void galleryService.updateCollection(snapshot.collectionId, patch).catch(() => {});
+        };
+        window.addEventListener('pagehide', flushDesignSettings);
+        window.addEventListener('beforeunload', flushDesignSettings);
+        return () => {
+            window.removeEventListener('pagehide', flushDesignSettings);
+            window.removeEventListener('beforeunload', flushDesignSettings);
+        };
+    }, []);
 
     // Listen for activity updates from gallery tabs
     useEffect(() => {
@@ -3159,6 +3624,126 @@ const CollectionDashboard = () => {
         }
     };
 
+    const photosInSidebarSet = useCallback((set) => {
+        if (!set) return [];
+        if (set.isHighlights || set.id === 'highlights') return photos.filter((p) => !p.set_id);
+        return photos.filter((p) => p.set_id === set.id);
+    }, [photos]);
+
+    const persistMobileAppSets = useCallback((next) => {
+        setMobileAppSets(next);
+        if (!collectionId) return;
+        try {
+            localStorage.setItem(`pixnxt_mobile_app_sets_${collectionId}`, JSON.stringify(next));
+        } catch {
+            /* ignore */
+        }
+    }, [collectionId]);
+
+    const handleDuplicateSet = async (set) => {
+        if (!collectionId || !collection?.photographer_id || !set) return;
+        const sourcePhotos = photosInSidebarSet(set);
+        const baseName = String(set.name || 'Set').replace(/\s+copy$/i, '');
+        let nextName = `${baseName} copy`;
+        const existing = new Set((sets || []).map((s) => String(s.name || '').toLowerCase()));
+        let n = 2;
+        while (existing.has(nextName.toLowerCase())) {
+            nextName = `${baseName} copy ${n}`;
+            n += 1;
+        }
+        try {
+            const { set: created, photos: copied } = await galleryService.duplicateSet({
+                collectionId,
+                photographerId: collection.photographer_id,
+                name: nextName,
+                description: set.description || null,
+                position: sets.length,
+                photos: sourcePhotos,
+            });
+            setSets((prev) => [...prev, created]);
+            if (copied?.length) {
+                setPhotos((prev) => [...prev, ...copied]);
+            }
+            setOrderedSetIds((prev) => {
+                if (!prev || prev.length === 0) return prev;
+                const next = [...prev, created.id];
+                void persistSidebarOrder(collectionId, next);
+                return next;
+            });
+            setShowSetMenu(null);
+            setSetMenuAnchor(null);
+            setActiveSidebarTab('photos');
+            setActiveSetId(created.id);
+            showToast(`Duplicated “${set.name}”`, 'success');
+        } catch (err) {
+            console.error('Failed to duplicate set:', err);
+            alert(err?.message || 'Failed to duplicate set. Please try again.');
+        }
+    };
+
+    const handleToggleSetHidden = async (set, hidden) => {
+        if (!set) return;
+        if (set.isHighlights || set.id === 'highlights') {
+            setClientOnlyHighlights(hidden);
+            try {
+                await galleryService.updateCollection(collectionId, { client_only_highlights: hidden });
+            } catch (err) {
+                console.error('Failed to hide Highlights:', err);
+            }
+            return;
+        }
+        await handleSetClientOnlyChange(set.id, hidden);
+    };
+
+    const handleMoveAllPhotosFromSet = async (fromSet, targetSetId) => {
+        const sourcePhotos = photosInSidebarSet(fromSet);
+        if (sourcePhotos.length === 0) {
+            showToast('This set has no photos to move', 'error');
+            return;
+        }
+        const ids = sourcePhotos.map((p) => p.id);
+        try {
+            await galleryService.assignPhotosToSet(ids, targetSetId);
+            setPhotos((prev) => prev.map((p) => (ids.includes(p.id) ? { ...p, set_id: targetSetId } : p)));
+            setShowSetMenu(null);
+            setSetMenuAnchor(null);
+            const targetName = targetSetId
+                ? (sets.find((s) => s.id === targetSetId)?.name || 'set')
+                : highlightsName;
+            showToast(`Moved ${ids.length} photo${ids.length === 1 ? '' : 's'} to ${targetName}`, 'success');
+        } catch (err) {
+            console.error('Failed to move photos:', err);
+            alert('Failed to move photos. Please try again.');
+        }
+    };
+
+    const handleDownloadSet = async (set) => {
+        const sourcePhotos = photosInSidebarSet(set).filter((p) => p.full_url);
+        if (sourcePhotos.length === 0) {
+            showToast('This set has no photos to download', 'error');
+            return;
+        }
+        setShowSetMenu(null);
+        setSetMenuAnchor(null);
+        try {
+            for (let i = 0; i < sourcePhotos.length; i += 1) {
+                const p = sourcePhotos[i];
+                await downloadPhotoFromR2(p.full_url, p.filename || 'photo.jpg');
+                if (i < sourcePhotos.length - 1) {
+                    await new Promise((r) => setTimeout(r, 250));
+                }
+            }
+        } catch (err) {
+            console.error('Set download failed:', err);
+            alert('Failed to download some photos.');
+        }
+    };
+
+    const handleToggleSetInApp = (set, enabled) => {
+        if (!set) return;
+        persistMobileAppSets({ ...mobileAppSets, [set.id]: enabled });
+    };
+
     // Auto-save download settings
     useEffect(() => {
         if (!collection || loading) return;
@@ -3167,12 +3752,15 @@ const CollectionDashboard = () => {
             try {
                 await galleryService.updateCollection(collectionId, {
                     downloads_enabled: photoDownload,
-                    download_resolutions: photoDownloadSizes,
+                    download_resolutions: (photoDownloadSizes || [])
+                        .map((s) => (s === 'high' ? 'full' : s))
+                        .filter((s) => s === 'web' || s === 'full' || s === 'original'),
+                    video_downloads_enabled: (photoDownloadSizes || []).includes('video'),
                     download_pin_hash: downloadPin ? pinValue : null,
                     email_capture_enabled: emailRegistration,
                     gallery_download_enabled: galleryDownload,
                     single_photo_download_enabled: singlePhotoDownload,
-                    require_pin_for_single_photo: requirePinForSinglePhoto,
+                    require_pin_for_single_photo: downloadPin ? true : requirePinForSinglePhoto,
                     // Advanced settings
                     download_limit_gallery: downloadLimit ? parseInt(downloadLimit) : null,
                     restrict_to_emails: restrictToEmails || null,
@@ -3190,7 +3778,7 @@ const CollectionDashboard = () => {
                         downloads_enabled: photoDownload,
                         gallery_download_enabled: galleryDownload,
                         single_photo_download_enabled: singlePhotoDownload,
-                        require_pin_for_single_photo: requirePinForSinglePhoto,
+                        require_pin_for_single_photo: downloadPin ? true : requirePinForSinglePhoto,
                         email_capture_enabled: emailRegistration
                     }
                 });
@@ -3296,10 +3884,17 @@ const CollectionDashboard = () => {
     }, [storeEnabled, collectionId, collection, loading]);
 
     // Derived values
+    const backTo = deliveryStudioBackPath({
+        from: location.state?.from,
+        folderId: collection?.folder_id,
+    });
     const collectionName = collection?.name || 'Loading...';
     const collectionDate = collection?.event_date
-        ? formatCollectionHeaderDate(collection.event_date)
-        : '...';
+        ? formatSidebarDeliveryDate(collection.event_date)
+        : collection?.created_at
+            ? formatSidebarDeliveryDate(collection.created_at)
+            : '...';
+    const lastSavedTime = formatLastSavedTime(collection?.updated_at || collection?.created_at);
     const coverDisplayDate = collection?.event_date
         ? formatCoverDate(collection.event_date)
         : collection?.created_at
@@ -3310,6 +3905,10 @@ const CollectionDashboard = () => {
     useEffect(() => {
         const handleClickOutside = (e) => {
             if (shareRef.current && !shareRef.current.contains(e.target)) setShowShareDropdown(false);
+            if (gdPublishWrapRef.current && !gdPublishWrapRef.current.contains(e.target)) {
+                setShowGdPublishedPopup(false);
+            }
+            if (statusRef.current && !statusRef.current.contains(e.target)) setShowStatusMenu(false);
             if (
                 photoMenuRef.current
                 && !photoMenuRef.current.contains(e.target)
@@ -3323,7 +3922,10 @@ const CollectionDashboard = () => {
                 setShowMoreDropdown(false);
                 setShowPresetsSubmenu(false);
             }
-            if (!e.target.closest?.('.cd-set-menu-wrapper')) setShowSetMenu(null);
+            if (!e.target.closest?.('.cd-set-menu-wrapper') && !e.target.closest?.('.cd-set-options')) {
+                setShowSetMenu(null);
+                setSetMenuAnchor(null);
+            }
             if (sortRef.current && !sortRef.current.contains(e.target)) setShowSortMenu(false);
             if (selectionMoreRef.current && !selectionMoreRef.current.contains(e.target)) setShowSelectionMore(false);
             if (selectAllMenuRef.current && !selectAllMenuRef.current.contains(e.target)) setShowSelectAllMenu(false);
@@ -3349,8 +3951,17 @@ const CollectionDashboard = () => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [activeActivityMenu, favoriteDetailPhotoMenuPhotoId, favoriteActivitySortMenuOpen]);
 
+    useEffect(() => {
+        if (!showGdPublishedPopup) return undefined;
+        const onKey = (e) => {
+            if (e.key === 'Escape') setShowGdPublishedPopup(false);
+        };
+        document.addEventListener('keydown', onKey);
+        return () => document.removeEventListener('keydown', onKey);
+    }, [showGdPublishedPopup]);
+
     const processSelectedUploadFiles = (fileList, snapshot) => {
-        const rawSupportEnabled = resolveUploadDefaults(null).rawPhotoSupport;
+        const rawSupportEnabled = isRawUploadEnabled(profile);
         let filesToProcess = Array.from(fileList || []);
         
         if (!rawSupportEnabled) {
@@ -3375,9 +3986,11 @@ const CollectionDashboard = () => {
 
     const openMediaFileDialog = (inputRef) => {
         uploadSnapshotRef.current = getUploadTargetSnapshot();
+        const pickerTypes = isFilmsView ? VIDEO_FILE_PICKER_TYPES : PHOTO_FILE_PICKER_TYPES;
         void pickMediaFilesOrFallback({
             multiple: true,
             fallback: () => inputRef.current?.click(),
+            types: pickerTypes,
         }).then((files) => {
             if (files?.length) processSelectedUploadFiles(files);
         });
@@ -3433,14 +4046,59 @@ const CollectionDashboard = () => {
         }
     };
 
-    const toggleStatus = async () => {
-        const newStatus = status === 'DRAFT' ? 'published' : 'draft';
+    const persistDeliveryStatus = async (nextStatus) => {
+        if (!collectionId || statusSaving) return;
+        if (nextStatus === status) {
+            setShowStatusMenu(false);
+            return;
+        }
+        setStatusSaving(true);
         try {
-            await galleryService.updateCollection(collectionId, { status: newStatus });
-            setStatus(newStatus.toUpperCase());
+            const saved = await galleryService.updateCollectionStatus(collectionId, nextStatus, collection);
+            const next = uiDeliveryStatus(saved);
+            setStatus(next);
+            setCollection((prev) => (prev ? { ...prev, ...saved } : saved));
+            setShowStatusMenu(false);
         } catch (err) {
             console.error('Error updating status:', err);
+            alert(err?.message || 'Could not update delivery status. Please try again.');
+        } finally {
+            setStatusSaving(false);
         }
+    };
+
+    const openGdPublishedPopup = async () => {
+        setShowShareDropdown(false);
+        setShowMoreDropdown(false);
+        setShowPresetsSubmenu(false);
+        setShowStatusMenu(false);
+        if (!hasBeenPublished({ status, published_at: collection?.published_at })) {
+            await persistDeliveryStatus(DELIVERY_STATUS.published);
+        }
+        setShowGdPublishedPopup(true);
+    };
+
+    const handleUnpublishGuestDelivery = async () => {
+        if (gdUnpublishing) return;
+        setGdUnpublishing(true);
+        try {
+            await persistDeliveryStatus(DELIVERY_STATUS.archived);
+            setShowGdPublishedPopup(false);
+        } finally {
+            setGdUnpublishing(false);
+        }
+    };
+
+    const handleStatusBadgeClick = () => {
+        if (statusSaving) return;
+        setShowShareDropdown(false);
+        setShowMoreDropdown(false);
+        setShowPresetsSubmenu(false);
+        if (!hasBeenPublished({ status, published_at: collection?.published_at })) {
+            void persistDeliveryStatus(DELIVERY_STATUS.published);
+            return;
+        }
+        setShowStatusMenu((open) => !open);
     };
 
     if (loading) {
@@ -3464,12 +4122,12 @@ const CollectionDashboard = () => {
                             {error === 'Delivery not found' ? 'Delivery Not Found' : 'Failed to Load Delivery'}
                         </h2>
                         <p className="text-[#666] mb-4">{error || 'This delivery may have been deleted or you may not have permission to access it.'}</p>
-                        <button 
-                            onClick={() => navigate('/client-gallery')}
+                        <Link
+                            to={backTo}
                             className="neu-pill inline-flex h-10 items-center rounded-full px-5 text-sm font-medium"
                         >
                             Back to Deliveries
-                        </button>
+                        </Link>
                     </div>
                 </div>
             </div>
@@ -3479,33 +4137,93 @@ const CollectionDashboard = () => {
     return (
         <div className={`cd-layout-container theme-mono cd-dashboard-shell ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
 
-            {/* Top Navigation Bar ALWAYS Top */}
-            <header className="cd-topbar">
-                <div className="cd-topbar-left">
-                    <button className="cd-back-btn" onClick={() => navigate('/client-gallery')} title="Back to Deliveries">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
-                    </button>
-                    <div className="cd-title-area">
-                        <h1 className="cd-title">{collectionName}</h1>
-                        <span className="cd-subtitle">{collectionDate}</span>
-                    </div>
-                    <div
-                        className={`cd-status-badge ${status === 'PUBLISHED' ? 'published' : ''}`}
-                        onClick={toggleStatus}
+            <div className="cd-shell-header">
+                <div className="cd-shell-brand">
+                    <Link
+                        to={backTo}
+                        className="cd-shell-brand__back"
+                        aria-label="Back to deliveries"
+                        title="Back to Deliveries"
+                        onClick={(e) => {
+                            if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+                            e.preventDefault();
+                            navigate(backTo);
+                        }}
                     >
-                        {status}
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                    </Link>
+                    <div className="cd-shell-brand__text">
+                        <h1 className="cd-shell-brand__title">{collectionName}</h1>
+                        <p className="cd-shell-brand__date">{collectionDate}</p>
                     </div>
+                </div>
+
+                <header className="cd-topbar cd-topbar--shell">
+                <div className="cd-topbar-left">
+                    <div className="cd-status-wrap" ref={statusRef}>
+                        <button
+                            type="button"
+                            className={`cd-status-badge ${
+                                status === DELIVERY_STATUS.published
+                                    ? 'cd-status-badge--published published'
+                                    : status === DELIVERY_STATUS.archived
+                                        ? 'cd-status-badge--hidden'
+                                        : ''
+                            }`}
+                            aria-haspopup={hasBeenPublished({ status, published_at: collection?.published_at }) ? 'menu' : undefined}
+                            aria-expanded={showStatusMenu}
+                            disabled={statusSaving}
+                            title={
+                                hasBeenPublished({ status, published_at: collection?.published_at })
+                                    ? 'Change delivery status'
+                                    : 'Publish this delivery'
+                            }
+                            onClick={handleStatusBadgeClick}
+                        >
+                            <span>{statusSaving ? 'Saving…' : deliveryStatusLabel(status)}</span>
+                            {hasBeenPublished({ status, published_at: collection?.published_at }) ? (
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><polyline points="6 9 12 15 18 9"></polyline></svg>
+                            ) : null}
+                        </button>
+                        {showStatusMenu ? (
+                            <div className="cd-status-dropdown" role="menu">
+                                <button
+                                    type="button"
+                                    role="menuitemradio"
+                                    aria-checked={status === DELIVERY_STATUS.published}
+                                    className={`cd-status-option ${status === DELIVERY_STATUS.published ? 'is-active' : ''}`}
+                                    onClick={() => void persistDeliveryStatus(DELIVERY_STATUS.published)}
+                                >
+                                    Published
+                                </button>
+                                <button
+                                    type="button"
+                                    role="menuitemradio"
+                                    aria-checked={status === DELIVERY_STATUS.archived}
+                                    className={`cd-status-option ${status === DELIVERY_STATUS.archived ? 'is-active' : ''}`}
+                                    onClick={() => void persistDeliveryStatus(DELIVERY_STATUS.archived)}
+                                >
+                                    Hidden
+                                </button>
+                            </div>
+                        ) : null}
+                    </div>
+                    {lastSavedTime ? (
+                        <span className="cd-topbar-save">All changes saved · {lastSavedTime}</span>
+                    ) : null}
                 </div>
 
                 <div className="cd-topbar-right">
                     <div className="cd-more-wrapper" ref={moreRef}>
                         <button
                             type="button"
-                            className="cd-text-btn"
+                            className="cd-topbar-btn"
                             aria-expanded={showMoreDropdown}
                             aria-haspopup="menu"
                             onClick={() => {
                                 setShowShareDropdown(false);
+                                setShowStatusMenu(false);
+                                setShowGdPublishedPopup(false);
                                 if (showMoreDropdown) {
                                     setShowMoreDropdown(false);
                                     setShowPresetsSubmenu(false);
@@ -3569,36 +4287,50 @@ const CollectionDashboard = () => {
                     </div>
                     {collection?.guest_delivery_enabled && (
                         <button
-                            className="cd-text-btn cd-gd-qr-btn"
-                            title="Guest Delivery QR"
-                            onClick={() => setShowGdQrModal(true)}
+                            type="button"
+                            className="cd-topbar-btn cd-topbar-btn--icon"
+                            title="Guest registration QR"
+                            aria-label="Guest registration QR"
+                            onClick={() => {
+                                setShowShareDropdown(false);
+                                setShowMoreDropdown(false);
+                                setShowGdPublishedPopup(false);
+                                setShowGdQrModal(true);
+                            }}
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="3" height="3"/><line x1="21" y1="14" x2="21" y2="14.01"/><line x1="21" y1="21" x2="21" y2="21.01"/><line x1="17" y1="21" x2="17" y2="21.01"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                                <rect x="3" y="3" width="7" height="7" />
+                                <rect x="14" y="3" width="7" height="7" />
+                                <rect x="3" y="14" width="7" height="7" />
+                                <rect x="14" y="14" width="3" height="3" />
+                                <line x1="21" y1="14" x2="21" y2="14.01" />
+                                <line x1="21" y1="21" x2="21" y2="21.01" />
+                                <line x1="17" y1="21" x2="17" y2="21.01" />
+                            </svg>
                         </button>
                     )}
                     <button
-                        className="cd-text-btn"
-                        onClick={() => {
-                            const params = new URLSearchParams({
-                                coverStyle: selectedCoverStyle,
-                                font: selectedFont,
-                                color: selectedColorPalette,
-                                grid: gridSettings.style,
-                                slideshow: slideshow ? '1' : '0',
-                                socialSharing: socialSharing ? '1' : '0',
-                            });
-                            openSpaPath(`/gallery/${collectionUrl}?${params.toString()}`);
-                        }}
+                        className="cd-topbar-btn"
+                        onClick={handlePreviewAsClient}
                     >
                         Preview
                     </button>
                     <div className="cd-share-wrapper" ref={shareRef}>
-                        <div className="cd-share-split-btn">
-                            <button className="cd-share-main" style={{ pointerEvents: 'none', cursor: 'default' }} tabIndex={-1} aria-disabled="true">Share</button>
-                            <button className="cd-share-arrow" onClick={() => { setShowMoreDropdown(false); setShowPresetsSubmenu(false); setShowShareDropdown(!showShareDropdown); }}>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                            </button>
-                        </div>
+                        <button
+                            type="button"
+                            className="cd-topbar-btn"
+                            aria-expanded={showShareDropdown}
+                            aria-haspopup="menu"
+                            onClick={() => {
+                                setShowMoreDropdown(false);
+                                setShowPresetsSubmenu(false);
+                                setShowStatusMenu(false);
+                                setShowGdPublishedPopup(false);
+                                setShowShareDropdown(!showShareDropdown);
+                            }}
+                        >
+                            Share <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        </button>
                         {showShareDropdown && (
                             <div className="cd-share-dropdown">
                                 <div
@@ -3646,396 +4378,308 @@ const CollectionDashboard = () => {
                             </div>
                         )}
                     </div>
-                    {collection?.guest_delivery_enabled && gdEvent && (
-                        <button
-                            className="cd-text-btn cd-gd-publish-btn"
-                            disabled={gdPublishing}
-                            onClick={handlePublishGuestDelivery}
-                        >
-                            {gdPublishing ? 'Publishing…' : 'Publish Guest Delivery'}
-                        </button>
-                    )}
+                    {collection?.guest_delivery_enabled && gdEvent ? (
+                        <div className="cd-gd-publish-wrap" ref={gdPublishWrapRef}>
+                            <button
+                                type="button"
+                                className="cd-topbar-btn cd-topbar-btn--primary"
+                                aria-expanded={showGdPublishedPopup}
+                                aria-haspopup="dialog"
+                                onClick={() => {
+                                    if (showGdPublishedPopup) {
+                                        setShowGdPublishedPopup(false);
+                                        return;
+                                    }
+                                    void openGdPublishedPopup();
+                                }}
+                            >
+                                Send to {(gdGuestCount || gdEvent?.guest_count || 0).toLocaleString()} guests
+                            </button>
+                            {showGdPublishedPopup ? (
+                                <GuestDeliveryPublishedPopup
+                                    collection={collection}
+                                    event={gdEvent}
+                                    guests={guestDeliveryGuests}
+                                    sending={gdPublishing}
+                                    unpublishing={gdUnpublishing}
+                                    onSend={() => void handlePublishGuestDelivery()}
+                                    onUnpublish={() => void handleUnpublishGuestDelivery()}
+                                />
+                            ) : null}
+                        </div>
+                    ) : null}
                 </div>
             </header>
+            </div>
 
             <div className="cd-layout-body">
-                {/* Left Sidebar */}
-                <aside className="cd-sidebar">
-                    <div className="cd-sidebar-scrollable">
-
-                        <SidebarCoverUpload
-                            coverUrl={collection?.cover_url}
-                            isUpdating={isCoverUploading}
-                            activeSetName={activeSetName}
-                            onPhotoDrop={handleCoverPhotoDropById}
-                            onSelectFromCollection={() => openCoverModal('all')}
-                            onCoverFileSelect={(file) => void handleCoverFileSelect(file)}
-                        />
-
-                        <div className="cd-icon-bar">
-                            <button
-                                className={`cd-icon-bar-btn ${activeSidebarTab === 'photos' ? 'active' : ''}`}
-                                title="Photos"
-                                onClick={() => setActiveSidebarTab('photos')}
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                            </button>
-                            <button
-                                className={`cd-icon-bar-btn ${activeSidebarTab === 'design' ? 'active' : ''}`}
-                                title="Design"
-                                onClick={() => setActiveSidebarTab('design')}
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"></path><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path><path d="M2 2l7.586 7.586"></path><circle cx="11" cy="11" r="2"></circle></svg>
-                            </button>
-                            <button
-                                className={`cd-icon-bar-btn ${activeSidebarTab === 'settings' ? 'active' : ''}`}
-                                title="Settings"
-                                onClick={() => setActiveSidebarTab('settings')}
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-                            </button>
-                            <button
-                                className={`cd-icon-bar-btn ${activeSidebarTab === 'activity' ? 'active' : ''}`}
-                                title="Activity"
-                                onClick={() => setActiveSidebarTab('activity')}
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 11a9 9 0 0 1 9 9"></path><path d="M4 4a16 16 0 0 1 16 16"></path><circle cx="5" cy="19" r="1"></circle></svg>
-                            </button>
-                            {collection?.guest_delivery_enabled && (
-                                <button
-                                    className={`cd-icon-bar-btn ${activeSidebarTab === 'guests' ? 'active' : ''}`}
-                                    title="Guests"
-                                    onClick={() => setActiveSidebarTab('guests')}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                                </button>
-                            )}
-                        </div>
-
-                        {activeSidebarTab === 'photos' && (
-                            <div className="cd-sidebar-photos-section">
-                                <div className="cd-sidebar-photos-header">
-                                    <span className="cd-photos-label">PHOTOS</span>
-                                    <button className="cd-add-set-btn" onClick={() => setShowAddSetModal(true)}>
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
-                                        Add Set
-                                    </button>
-                                </div>
-                                {/* Unified Reorderable Sets List (Highlights & Custom Sets) */}
-                                {sortedSidebarSets.map((set, index) => {
-                                    const isActive = set.isHighlights ? !activeSetId : activeSetId === set.id;
-                                    return (
-                                        <div
-                                            key={set.id}
-                                            className={`cd-set-item ${isActive ? 'active' : ''} ${draggedSetIndex === index ? 'is-dragging' : ''} ${dragOverSetIndex === index && draggedSetIndex !== index ? 'drag-over' : ''}`}
-                                            onClick={() => setActiveSetId(set.isHighlights ? null : set.id)}
-                                            draggable={true}
-                                            onDragStart={(e) => handleSetDragStart(e, index)}
-                                            onDragOver={(e) => handleSetDragOver(e, index)}
-                                            onDragEnd={handleSetDragEnd}
-                                            onDrop={(e) => handleSetDrop(e, index)}
-                                        >
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="cd-drag-handle"><line x1="4" y1="9" x2="20" y2="9"></line><line x1="4" y1="15" x2="20" y2="15"></line></svg>
-                                            <span className="cd-set-name">{set.name} ({set.photoCount})</span>
-                                            <div className="cd-set-actions">
-                                                <div className="cd-set-more-container">
-                                                    <div className="cd-set-menu-wrapper">
-                                                        <button className="cd-set-menu-btn" onClick={(e) => { e.stopPropagation(); setShowSetMenu(showSetMenu === set.id ? null : set.id); }}>
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
-                                                        </button>
-                                                        {showSetMenu === set.id && (
-                                                            <div className="cd-set-dropdown" role="menu">
-                                                                <button type="button" className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); openCoverModal(set.id); }}>
-                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                                                                    <span>Change cover</span>
-                                                                </button>
-                                                                <button type="button" className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); set.isHighlights ? openEditSetModal({ id: 'highlights', name: highlightsName, description: collection?.description || '' }) : openEditSetModal(set); }}>
-                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
-                                                                    <span>Edit set</span>
-                                                                </button>
-                                                                <button type="button" className="cd-ctx-item cd-ctx-delete" role="menuitem" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); handleDeleteSet(set.id); }}>
-                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                                                                    <span>Delete set</span>
-                                                                </button>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-
-                        {activeSidebarTab === 'design' && (
-                            <div className="cd-sidebar-design-section">
-                                <div className="cd-sidebar-design-header">
-                                    <span className="cd-photos-label">DESIGN</span>
-                                </div>
-                                <div
-                                    className={`cd-design-nav-item ${activeDesignTab === 'cover' ? 'active' : ''}`}
-                                    onClick={() => setActiveDesignTab('cover')}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
-                                    <span>Cover</span>
-                                </div>
-                                <div
-                                    className={`cd-design-nav-item ${activeDesignTab === 'typography' ? 'active' : ''}`}
-                                    onClick={() => setActiveDesignTab('typography')}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 7 4 4 20 4 20 7" /><line x1="9" y1="20" x2="15" y2="20" /><line x1="12" y1="4" x2="12" y2="20" /></svg>
-                                    <span>Typography</span>
-                                </div>
-                                <div
-                                    className={`cd-design-nav-item ${activeDesignTab === 'color' ? 'active' : ''}`}
-                                    onClick={() => setActiveDesignTab('color')}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="m19 11-8-8-8.6 8.6a2 2 0 0 0 0 2.8l5.2 5.2c.8.8 2 .8 2.8 0L19 11Z" /><path d="m5 2 5 5" /><path d="M2 22c5-5 5-5 10-5h9" /><path d="M22 22c-5-5-5-5-10-5" /></svg>
-                                    <span>Color</span>
-                                </div>
-                                <div
-                                    className={`cd-design-nav-item ${activeDesignTab === 'grid' ? 'active' : ''}`}
-                                    onClick={() => setActiveDesignTab('grid')}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-                                    <span>Grid</span>
-                                </div>
-                            </div>
-                        )}
-
-                        {activeSidebarTab === 'settings' && (
-                            <div className="cd-sidebar-settings-section">
-                                <div className="cd-sidebar-settings-header">
-                                    <span className="cd-photos-label">SETTINGS</span>
-                                </div>
-                                <div
-                                    className={`cd-design-nav-item ${activeSettingsTab === 'general' ? 'active' : ''}`}
-                                    onClick={() => setActiveSettingsTab('general')}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
-                                    <span>General</span>
-                                </div>
-                                <div
-                                    className={`cd-design-nav-item ${activeSettingsTab === 'privacy' ? 'active' : ''}`}
-                                    onClick={() => setActiveSettingsTab('privacy')}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-                                    <span>Privacy</span>
-                                </div>
-                                <div
-                                    className={`cd-design-nav-item ${activeSettingsTab === 'download' ? 'active' : ''}`}
-                                    onClick={() => setActiveSettingsTab('download')}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                                    <span>Download</span>
-                                    <span className={`tab-badge${photoDownload ? '' : ' off'}`}>
-                                        {photoDownload ? 'ON' : 'OFF'}
-                                    </span>
-                                </div>
-                                <div
-                                    className={`cd-design-nav-item ${activeSettingsTab === 'favorite' ? 'active' : ''}`}
-                                    onClick={() => setActiveSettingsTab('favorite')}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
-                                    <span>Favorite</span>
-                                    <span className={`tab-badge${favoritePhotos ? '' : ' off'}`}>
-                                        {favoritePhotos ? 'ON' : 'OFF'}
-                                    </span>
-                                </div>
-                                <div
-                                    className={`cd-design-nav-item ${activeSettingsTab === 'shop' ? 'active' : ''}`}
-                                    onClick={() => setActiveSettingsTab('shop')}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" /><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" /></svg>
-                                    <span>Print Lab</span>
-                                    <span className={`tab-badge${storeEnabled ? '' : ' off'}`}>
-                                        {storeEnabled ? 'ON' : 'OFF'}
-                                    </span>
-                                </div>
-
-                            </div>
-                        )}
-
-                        {activeSidebarTab === 'activity' && (
-                            <div className="cd-sidebar-activity-section">
-                                <div className="cd-sidebar-activity-header">
-                                    <span className="cd-photos-label">ACTIVITIES</span>
-                                </div>
-                                <div
-                                    className={`cd-design-nav-item ${activeActivitySubTab === 'download' ? 'active' : ''}`}
-                                    onClick={() => setActiveActivitySubTab('download')}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                                    <span>Download Activity</span>
-                                </div>
-                                <div
-                                    className={`cd-design-nav-item ${activeActivitySubTab === 'favorite' ? 'active' : ''}`}
-                                    onClick={() => setActiveActivitySubTab('favorite')}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
-                                    <span>Favorite Activity</span>
-                                </div>
-
-                                <div
-                                    className={`cd-design-nav-item ${activeActivitySubTab === 'store' ? 'active' : ''}`}
-                                    onClick={() => setActiveActivitySubTab('store')}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" /><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" /></svg>
-                                    <span>Store Orders</span>
-                                </div>
-
-                                <div
-                                    className={`cd-design-nav-item ${activeActivitySubTab === 'email' ? 'active' : ''}`}
-                                    onClick={() => setActiveActivitySubTab('email')}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
-                                    <span>Email Registration</span>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Bottom Collapse Toggle */}
-                    <div className="cd-sidebar-bottom-action">
-                        <button
-                            className="cd-collapse-toggle"
-                            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                            title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-                        >
-                            {isSidebarCollapsed ? (
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="13 17 18 12 13 7"></polyline><polyline points="6 17 11 12 6 7"></polyline></svg>
-                            ) : (
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="11 17 6 12 11 7"></polyline><polyline points="18 17 13 12 18 7"></polyline></svg>
-                            )}
-                        </button>
-                    </div>
-                </aside>
+                <CollectionDashboardSidebar
+                    coverUrl={collection?.cover_url}
+                    coverFocalX={collectionFocals.desktop?.x ?? collectionFocal.x}
+                    coverFocalY={collectionFocals.desktop?.y ?? collectionFocal.y}
+                    isCoverUploading={isCoverUploading}
+                    onCoverPhotoDrop={handleCoverPhotoDropById}
+                    onSelectCoverFromCollection={() =>
+                        openCoverModal('all', collection?.cover_url ? 'edit' : 'pick')
+                    }
+                    onCoverFileSelect={(file) => void handleCoverFileSelect(file)}
+                    isCollapsed={isSidebarCollapsed}
+                    onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                    activeSidebarTab={activeSidebarTab}
+                    onSidebarTabChange={setActiveSidebarTab}
+                    sortedSidebarSets={sortedSidebarSets.map((s) => (
+                        s.isHighlights ? { ...s, isPrivate: clientOnlyHighlights === true } : s
+                    ))}
+                    activeSetId={activeSetId}
+                    onSetSelect={setActiveSetId}
+                    onAddSet={() => setShowAddSetModal(true)}
+                    draggedSetIndex={draggedSetIndex}
+                    dragOverSetIndex={dragOverSetIndex}
+                    onSetDragStart={handleSetDragStart}
+                    onSetDragOver={handleSetDragOver}
+                    onSetDragEnd={handleSetDragEnd}
+                    onSetDrop={handleSetDrop}
+                    showSetMenu={showSetMenu}
+                    onSetMenuToggle={(setId, anchor) => {
+                        if (showSetMenu === setId) {
+                            setShowSetMenu(null);
+                            setSetMenuAnchor(null);
+                        } else {
+                            setShowSetMenu(setId);
+                            setSetMenuAnchor(anchor || null);
+                        }
+                    }}
+                    renderSetMenu={(set) => {
+                        const setPhotos = photosInSidebarSet(set);
+                        let bytes = setPhotos.reduce((sum, p) => sum + (Number(p.size_bytes) || 0), 0);
+                        if (bytes === 0 && setPhotos.length > 0) {
+                            bytes = setPhotos.length * 3.5 * 1024 * 1024;
+                        }
+                        const gb = bytes / (1024 * 1024 * 1024);
+                        const sizeLabel = gb >= 0.1
+                            ? `${gb.toFixed(1)} GB`
+                            : bytes >= 1024 * 1024
+                                ? `${Math.max(1, Math.round(bytes / (1024 * 1024)))} MB`
+                                : '0 GB';
+                        const hidden = set.isHighlights
+                            ? clientOnlyHighlights
+                            : set.isPrivate === true;
+                        const visibleCount = sortedSidebarSets.filter((s) => (
+                            s.isHighlights ? !clientOnlyHighlights : s.isPrivate !== true
+                        )).length;
+                        return (
+                            <SetOptionsMenu
+                                set={set}
+                                photoCount={set.photoCount ?? setPhotos.length}
+                                visibleSetCount={visibleCount}
+                                otherSets={sortedSidebarSets.filter((s) => s.id !== set.id)}
+                                hidden={hidden}
+                                inApp={mobileAppSets[set.id] !== false}
+                                sizeLabel={sizeLabel}
+                                anchorEl={setMenuAnchor}
+                                onRename={() => {
+                                    setShowSetMenu(null);
+                                    setSetMenuAnchor(null);
+                                    if (set.isHighlights) {
+                                        openEditSetModal({
+                                            id: 'highlights',
+                                            name: highlightsName,
+                                            description: collection?.description || '',
+                                        });
+                                    } else {
+                                        openEditSetModal(set);
+                                    }
+                                }}
+                                onEditDescription={() => {
+                                    setShowSetMenu(null);
+                                    setSetMenuAnchor(null);
+                                    if (set.isHighlights) {
+                                        openEditSetModal({
+                                            id: 'highlights',
+                                            name: highlightsName,
+                                            description: collection?.description || '',
+                                        });
+                                    } else {
+                                        openEditSetModal(set);
+                                    }
+                                }}
+                                onDuplicate={() => handleDuplicateSet(set)}
+                                onToggleHidden={(nextHidden) => handleToggleSetHidden(set, nextHidden)}
+                                onMoveAllTo={(targetId) => handleMoveAllPhotosFromSet(
+                                    set,
+                                    targetId === 'highlights' ? null : targetId
+                                )}
+                                onDownload={() => handleDownloadSet(set)}
+                                onToggleInApp={(enabled) => handleToggleSetInApp(set, enabled)}
+                                onDelete={() => {
+                                    setShowSetMenu(null);
+                                    setSetMenuAnchor(null);
+                                    handleDeleteSet(set.isHighlights ? 'highlights' : set.id);
+                                }}
+                                onClose={() => {
+                                    setShowSetMenu(null);
+                                    setSetMenuAnchor(null);
+                                }}
+                            />
+                        );
+                    }}
+                    activeDesignTab={activeDesignTab}
+                    onDesignTabChange={setActiveDesignTab}
+                    activeSettingsTab={activeSettingsTab}
+                    onSettingsTabChange={setActiveSettingsTab}
+                    activeActivitySubTab={activeActivitySubTab}
+                    onActivitySubTabChange={setActiveActivitySubTab}
+                    photoCount={totalMediaCounts.photos}
+                    filmCount={totalMediaCounts.videos}
+                    guestCount={gdGuestCount || gdEvent?.guest_count || 0}
+                    activityCount={sidebarActivityCount}
+                    guestDeliveryEnabled={collection?.guest_delivery_enabled}
+                    photoDownload={photoDownload}
+                    favoritePhotos={favoritePhotos}
+                    storeEnabled={storeEnabled}
+                    accountBackLabel={collectionName}
+                />
 
                 {/* Main Content Wrapper */}
                 <div className="cd-main-wrapper">
-                    <main className="cd-main-area">
+                    {selectedPhotos.length > 0 && activeSidebarTab === 'photos' && (
+                        <div className="cd-selection-toolbar" role="toolbar" aria-label="Photo selection">
+                            <div className="cd-selection-left">
+                                <div
+                                    className="cd-selection-count-wrapper"
+                                    onClick={() => setShowSelectAllMenu(!showSelectAllMenu)}
+                                    ref={selectAllMenuRef}
+                                >
+                                    <span className="cd-selection-count">{selectedPhotos.length} selected</span>
+                                    {showSelectAllMenu && (
+                                        <div className="cd-selection-menu">
+                                            <div className="cd-ctx-item" onClick={selectAll}>Select All</div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="cd-selection-actions" onClick={(e) => e.stopPropagation()}>
+                                <div className={`cd-selection-move-wrapper${showMoveToSetMenu ? ' is-open' : ''}`} ref={moveToSetRef}>
+                                    <button
+                                        type="button"
+                                        className="cd-sel-action-btn"
+                                        aria-label="Move to set"
+                                        aria-expanded={showMoveToSetMenu}
+                                        aria-haspopup="menu"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setShowSelectionMore(false);
+                                            setShowMoveToSetMenu((open) => !open);
+                                        }}
+                                    >
+                                        Move to set
+                                    </button>
+                                </div>
+                                {showMoveToSetMenu && moveMenuPosition && createPortal(
+                                    <div
+                                        ref={moveMenuPortalRef}
+                                        className="cd-selection-move-dropdown cd-selection-move-dropdown--portal"
+                                        role="menu"
+                                        style={moveMenuPosition}
+                                        onMouseDown={(e) => e.stopPropagation()}
+                                    >
+                                        <div className="cd-sort-label">Move to set</div>
+                                        <button
+                                            type="button"
+                                            role="menuitem"
+                                            className={`cd-ctx-item${!activeSetId ? ' disabled' : ''}`}
+                                            disabled={!activeSetId}
+                                            onClick={() => handleMovePhotosToSet(null)}
+                                        >
+                                            {highlightsName}
+                                        </button>
+                                        {sets.map((s) => (
+                                            <button
+                                                key={s.id}
+                                                type="button"
+                                                role="menuitem"
+                                                className={`cd-ctx-item${activeSetId === s.id ? ' disabled' : ''}`}
+                                                disabled={activeSetId === s.id}
+                                                onClick={() => handleMovePhotosToSet(s.id)}
+                                            >
+                                                {s.name}
+                                            </button>
+                                        ))}
+                                    </div>,
+                                    document.body
+                                )}
+                                <button type="button" className="cd-sel-action-btn" onClick={handleSelectionStar}>
+                                    Star
+                                </button>
+                                {selectedPhotos.length === 1 && (
+                                    <button type="button" className="cd-sel-action-btn" onClick={handleSelectionSetAsCover}>
+                                        Set as cover
+                                    </button>
+                                )}
+                                <button type="button" className="cd-sel-action-btn" onClick={handleSelectionDownload}>
+                                    Download
+                                </button>
+                                <button type="button" className="cd-sel-action-btn" onClick={() => deleteSelectedPhotos()}>
+                                    Remove
+                                </button>
+                                <button type="button" className="cd-selection-clear" onClick={clearSelection}>
+                                    Clear
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                    <main className={`cd-main-area${activeSidebarTab === 'photos' ? ' cd-main-area--photos' : ''}${activeSidebarTab === 'design' ? ' cd-main-area--design' : ''}${activeSidebarTab === 'guests' ? ' cd-main-area--guests' : ''}${activeSidebarTab === 'activity' ? ' cd-main-area--activity' : ''}${activeSidebarTab === 'settings' ? ' cd-main-area--settings' : ''}`}>
                         {activeSidebarTab === 'photos' && (
                             <>
-                                <div className="cd-main-header">
-                                    <div className="cd-main-header-left">
-                                        <h2 className="cd-main-title">{activeSetName} ({activeSetDisplayCount})</h2>
-                                        {showMediaFilter && (
-                                            <DashboardMediaFilter
-                                                value={mediaFilter}
-                                                onChange={setMediaFilter}
-                                                photoCount={activeSetMediaCounts.photos}
-                                                videoCount={activeSetMediaCounts.videos}
-                                            />
-                                        )}
-                                    </div>
-                                    <div className={`cd-main-actions${showPeoplePanel ? ' cd-main-actions--ai-panel-open' : ''}`}>
-                                        <CollectionPhotoAiToolbar
-                                            showPeople={showPeoplePanel}
-                                            onTogglePeople={() => {
-                                                setShowPeoplePanel((v) => !v);
-                                                setShowSortMenu(false);
-                                                setShowGridSettings(false);
-                                            }}
-                                            people={photoAiPeople}
-                                            activePersonId={activePersonId}
-                                            onSelectPerson={(id) => {
-                                                setActivePersonId((current) => (current === id ? null : id));
-                                                setSelfieMatchPhotoIds([]);
-                                                setSelfieMessage('');
-                                                setSelfiePreview('');
-                                            }}
-                                            onClearPerson={() => {
-                                                setActivePersonId(null);
-                                                handleClearSelfie();
-                                            }}
-                                            loadingPeople={photoAiLoadingPeople}
-                                            selfiePreview={selfiePreview}
-                                            selfieSearching={selfieSearching}
-                                            selfieMessage={selfieMessage}
-                                            onSelfieSearch={handleSelfieSearch}
-                                            onClearSelfie={handleClearSelfie}
-                                            onTogglePersonHidden={handleTogglePersonHidden}
-                                            onClosePanels={() => {
-                                                setShowPeoplePanel(false);
-                                            }}
-                                            analyzing={photoAiIndexing}
-                                            indexedCount={photoAiRows.length}
-                                            tableMissing={photoAiTableMissing}
-                                        />
-                                        <div className={`cd-sort-wrapper${showSortMenu ? ' cd-sort-wrapper--open' : ''}`} ref={sortRef}>
-                                            <button type="button" className="cd-icon-btn sort-btn" onClick={() => { setShowGridSettings(false); setShowSortMenu(!showSortMenu); }}>
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="16" y2="12"></line><line x1="8" y1="18" x2="12" y2="18"></line><line x1="3" y1="6" x2="3" y2="18"></line><polyline points="1 15 3 18 5 15"></polyline></svg>
-                                            </button>
-                                            {showSortMenu && (
-                                                <div className="cd-sort-dropdown">
-                                                    <div className="cd-sort-label">Sort by</div>
-                                                    <div className={`cd-sort-option ${sortOption === 'upload-new-old' ? 'selected' : ''}`} onClick={() => { setSortOption('upload-new-old'); setShowSortMenu(false); }}>Uploaded: New → Old</div>
-                                                    <div className={`cd-sort-option ${sortOption === 'upload-old-new' ? 'selected' : ''}`} onClick={() => { setSortOption('upload-old-new'); setShowSortMenu(false); }}>Uploaded: Old → New</div>
-                                                    <div className={`cd-sort-option ${sortOption === 'taken-new-old' ? 'selected' : ''}`} onClick={() => { setSortOption('taken-new-old'); setShowSortMenu(false); }}>Date Taken: New → Old</div>
-                                                    <div className={`cd-sort-option ${sortOption === 'taken-old-new' ? 'selected' : ''}`} onClick={() => { setSortOption('taken-old-new'); setShowSortMenu(false); }}>Date Taken: Old → New</div>
-                                                    <div className={`cd-sort-option ${sortOption === 'name-az' ? 'selected' : ''}`} onClick={() => { setSortOption('name-az'); setShowSortMenu(false); }}>Name: A-Z</div>
-                                                    <div className={`cd-sort-option ${sortOption === 'name-za' ? 'selected' : ''}`} onClick={() => { setSortOption('name-za'); setShowSortMenu(false); }}>Name: Z-A</div>
-                                                    <div className={`cd-sort-option ${sortOption === 'random' ? 'selected' : ''}`} onClick={() => { setSortOption('random'); setShowSortMenu(false); }}>Random</div>
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div className={`cd-grid-settings-wrapper${showGridSettings ? ' cd-grid-settings-wrapper--open' : ''}`} ref={gridSettingsRef}>
-                                            <button type="button" className="cd-icon-btn active grid-btn" onClick={() => { setShowSortMenu(false); setShowGridSettings(!showGridSettings); }}>
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-                                            </button>
-                                            {showGridSettings && (
-                                                <div className="cd-grid-dropdown" role="menu">
-                                                    <div className="cd-grid-section-label">Grid Size</div>
-                                                    <div
-                                                        className={`cd-grid-option ${gridSize === 'small' ? 'selected' : ''}`}
-                                                        role="menuitemradio"
-                                                        aria-checked={gridSize === 'small'}
-                                                        onClick={() => setGridSize('small')}
-                                                    >
-                                                        <span>Small</span>
-                                                        {gridSize === 'small' && (
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                                                        )}
-                                                    </div>
-                                                    <div
-                                                        className={`cd-grid-option ${gridSize === 'large' ? 'selected' : ''}`}
-                                                        role="menuitemradio"
-                                                        aria-checked={gridSize === 'large'}
-                                                        onClick={() => setGridSize('large')}
-                                                    >
-                                                        <span>Large</span>
-                                                        {gridSize === 'large' && (
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        <div className="cd-toolbar-toggle-row">
-                                            <span>Filename</span>
-                                            <label className="cd-toggle" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={showFilename}
-                                                    onChange={() => {
-                                                        const nextValue = !showFilename;
-                                                        setShowFilename(nextValue);
-                                                        localStorage.setItem('filename_display', nextValue ? 'show' : 'hide');
-                                                    }}
-                                                />
-                                                <span className="cd-toggle-slider"></span>
-                                            </label>
-                                        </div>
-
-                                        <div className="cd-main-actions-divider"></div>
-                                        <button className="cd-add-media-btn" onClick={() => setShowUploadModal(true)}>
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
-                                            Add Media
-                                        </button>
-                                    </div>
-                                </div>
+                                <CollectionPhotosWorkspaceHeader
+                                    setName={activeSetName}
+                                    countLabel={activeSetCountLabel}
+                                    searchQuery={photoSearchQuery}
+                                    onSearchQueryChange={setPhotoSearchQuery}
+                                    sortField={photoSortField}
+                                    sortReverse={photoSortReverse}
+                                    onSortFieldChange={handlePhotoSortFieldChange}
+                                    onSortReverseChange={handlePhotoSortReverseChange}
+                                    showFilename={showFilename}
+                                    onShowFilenameChange={(nextValue) => {
+                                        setShowFilename(nextValue);
+                                        localStorage.setItem('filename_display', nextValue ? 'show' : 'hide');
+                                    }}
+                                    showCameraBadges={showCameraBadges}
+                                    onShowCameraBadgesChange={(nextValue) => {
+                                        setShowCameraBadges(nextValue);
+                                        localStorage.setItem('cd_show_camera_badges', nextValue ? '1' : '0');
+                                    }}
+                                    showUnmatchedPeople={showUnmatchedPeople}
+                                    onShowUnmatchedPeopleChange={setShowUnmatchedPeople}
+                                    showClientFavorited={showClientFavorited}
+                                    onShowClientFavoritedChange={(nextValue) => {
+                                        setShowClientFavorited(nextValue);
+                                        localStorage.setItem('cd_show_client_favorited', nextValue ? '1' : '0');
+                                    }}
+                                    showInSelectionList={showInSelectionList}
+                                    onShowInSelectionListChange={(nextValue) => {
+                                        setShowInSelectionList(nextValue);
+                                        localStorage.setItem('cd_show_selection_list', nextValue ? '1' : '0');
+                                    }}
+                                    sharingOverlaysEnabled={sharingOverlaysEnabled}
+                                    onAddMedia={() => setShowUploadModal(true)}
+                                    people={photoAiPeople}
+                                    activePersonId={activePersonId}
+                                    onSelectPerson={(id) => {
+                                        setActivePersonId((current) => (current === id ? null : id));
+                                        setSelfieMatchPhotoIds([]);
+                                        setSelfieMessage('');
+                                        setSelfiePreview('');
+                                    }}
+                                    onClearPerson={() => {
+                                        setActivePersonId(null);
+                                        handleClearSelfie();
+                                    }}
+                                    loadingPeople={photoAiLoadingPeople}
+                                    analyzing={photoAiIndexing}
+                                    indexedCount={photoAiRows.length}
+                                />
 
                                 {gridPhotos.length > 0 ? (
                                     <CollectionPhotoSortableGrid
@@ -4051,7 +4695,7 @@ const CollectionDashboard = () => {
                                             const isPending = Boolean(photo._uploadPending);
                                             return (
                                             <div
-                                                className={`cd-photo-card ${selectedPhotos.includes(photo.id) ? 'selected' : ''} ${photoMenu === photo.id ? 'cd-photo-card--menu-open' : ''} ${isPending ? 'cd-photo-card--pending' : ''}${isDragging ? ' cd-photo-card--sort-dragging' : ''}`}
+                                                className={`cd-photo-card ${selectedPhotos.includes(photo.id) ? 'selected' : ''} ${photoMenu === photo.id ? 'cd-photo-card--menu-open' : ''} ${photo.is_starred ? 'cd-photo-card--starred' : ''} ${photo.is_private ? 'cd-photo-card--hidden' : ''} ${isPending ? 'cd-photo-card--pending' : ''}${isDragging ? ' cd-photo-card--sort-dragging' : ''}`}
                                                 onClick={() => {
                                                     if (consumeClick?.()) return;
                                                     togglePhotoSelection(photo.id);
@@ -4064,31 +4708,74 @@ const CollectionDashboard = () => {
                                                             index={index}
                                                             containInCell
                                                         />
+                                                        {showCameraBadges && photo.exif_camera ? (
+                                                            <span className="cd-photo-overlay-badge cd-photo-overlay-badge--camera">
+                                                                {photo.exif_camera}
+                                                            </span>
+                                                        ) : null}
+                                                        {showClientFavorited && clientFavoritedPhotoIds.has(photo.id) ? (
+                                                            <span className="cd-photo-overlay-badge cd-photo-overlay-badge--fav">
+                                                                Favourited
+                                                            </span>
+                                                        ) : null}
+                                                        {showInSelectionList && selectionListPhotoIds.has(photo.id) ? (
+                                                            <span className="cd-photo-overlay-badge cd-photo-overlay-badge--list">
+                                                                In list
+                                                            </span>
+                                                        ) : null}
+                                                        {photo.is_private ? (
+                                                            <span className="cd-photo-overlay-badge cd-photo-overlay-badge--hidden">
+                                                                Hidden
+                                                            </span>
+                                                        ) : null}
                                                     </div>
                                                     {!isPending && (
                                                     <>
-                                                    <div className="cd-photo-actions">
                                                     <button
                                                         type="button"
-                                                        className="cd-photo-more-btn"
-                                                        aria-haspopup="menu"
-                                                        aria-expanded={photoMenu === photo.id}
+                                                        className={`cd-photo-check ${selectedPhotos.includes(photo.id) ? 'is-checked' : ''}`}
+                                                        aria-label={selectedPhotos.includes(photo.id) ? 'Deselect photograph' : 'Select photograph'}
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            openPhotoMenuFor(photo.id, e.currentTarget, menuAlignLeft);
+                                                            togglePhotoSelection(photo.id);
                                                         }}
                                                     >
-                                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+                                                        {selectedPhotos.includes(photo.id) ? (
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                                        ) : null}
                                                     </button>
-                                                </div>
-                                                <button
-                                                    className={`cd-photo-star ${photo.is_starred ? 'active' : ''}`}
-                                                    onClick={(e) => { e.stopPropagation(); handleToggleStar(photo.id, photo.is_starred); }}
-                                                >
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill={photo.is_starred ? "#FFC107" : "none"} stroke={photo.is_starred ? "#FFC107" : "#bbb"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-                                                </button>
-                                                </>
-                                                )}
+                                                    <div className={`cd-photo-hover-tools${photo.is_starred ? ' cd-photo-hover-tools--starred' : ''}`}>
+                                                        <button
+                                                            type="button"
+                                                            className={`cd-photo-star ${photo.is_starred ? 'active' : ''}`}
+                                                            aria-label={photo.is_starred ? 'Unstar photograph' : 'Star photograph'}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleToggleStar(photo.id, photo.is_starred);
+                                                            }}
+                                                        >
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill={photo.is_starred ? "#FFC107" : "none"} stroke={photo.is_starred ? "#FFC107" : "#fff"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            className="cd-photo-more-btn"
+                                                            aria-haspopup="menu"
+                                                            aria-expanded={photoMenu === photo.id}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                openPhotoMenuFor(
+                                                                    photo.id,
+                                                                    e.currentTarget,
+                                                                    menuAlignLeft,
+                                                                    selectedPhotos.length > 0 ? SELECTION_TOOLBAR_RESERVE : 0
+                                                                );
+                                                            }}
+                                                        >
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"></circle><circle cx="12" cy="12" r="1.6"></circle><circle cx="12" cy="19" r="1.6"></circle></svg>
+                                                        </button>
+                                                    </div>
+                                                    </>
+                                                    )}
                                                 </div>
                                                 {showFilename && (
                                                     <div
@@ -4104,7 +4791,9 @@ const CollectionDashboard = () => {
                                     />
                                 ) : sortedPhotos.length > 0 ? (
                                     <p className="cd-media-filter-empty">
-                                        {showMediaFilter ? `No ${mediaFilter} in this set` : 'No matching photos'}
+                                        {photoSearchQuery.trim()
+                                            ? 'No photos match your search'
+                                            : 'No matching photos'}
                                     </p>
                                 ) : (
                                     <div
@@ -4118,7 +4807,7 @@ const CollectionDashboard = () => {
                                             type="file"
                                             ref={fileInputRef}
                                             style={{ display: 'none' }}
-                                            accept={MEDIA_FILE_INPUT_ACCEPT}
+                                            accept={isFilmsView ? VIDEO_FILE_INPUT_ACCEPT : PHOTO_FILE_INPUT_ACCEPT}
                                             multiple
                                             onChange={handleFileSelect}
                                         />
@@ -4132,7 +4821,7 @@ const CollectionDashboard = () => {
                                                     <line x1="12" y1="15" x2="18" y2="15"></line>
                                                 </svg>
                                             </div>
-                                            <p className="cd-drop-title">Drag photos and videos here to upload</p>
+                                            <p className="cd-drop-title">{isFilmsView ? 'Drag videos here to upload' : 'Drag photos here to upload'}</p>
                                             <p className="cd-drop-subtitle">
                                                 or{' '}
                                                 <span
@@ -4156,28 +4845,23 @@ const CollectionDashboard = () => {
                             </>
                         )}
 
+                        {activeSidebarTab === 'films' && (
+                            <DeliveryFilmsView
+                                films={deliveryFilms}
+                                videoDownloadEnabled={videoDownloadEnabled}
+                                onAddFilm={() => setShowUploadModal(true)}
+                                onPreviewAsClient={handlePreviewAsClient}
+                                onFilmMenu={(film, anchorEl) => {
+                                    openPhotoMenuFor(film.id, anchorEl, false, 0);
+                                }}
+                            />
+                        )}
+
                         {/* --- DESIGN VIEW --- */}
                         {activeSidebarTab === 'design' && (
                             <div className="cd-design-split-view">
-                                <DesignTab
-                                    activeTab={activeDesignTab}
-                                    settings={{
-                                        coverStyle: selectedCoverStyle,
-                                        fontFamily: selectedFont,
-                                        colorPalette: selectedColorPalette,
-                                        grid: gridSettings
-                                    }}
-                                    coverPhotoUrl={collection?.cover_url || (photos.length > 0 ? photos[0].full_url : null)}
-                                    onSettingsChange={(newSettings) => {
-                                        setSelectedCoverStyle(newSettings.coverStyle);
-                                        setSelectedFont(newSettings.fontFamily);
-                                        setSelectedColorPalette(newSettings.colorPalette);
-                                        setGridSettings(newSettings.grid);
-                                    }}
-                                    onOpenCoverModal={() => setShowCoverModal(true)}
-                                    onOpenFocalModal={() => setShowFocalModal(true)}
-                                />
                                 <PreviewPane
+                                    dualPreview
                                     settings={{
                                         coverStyle: selectedCoverStyle,
                                         fontFamily: selectedFont,
@@ -4191,15 +4875,16 @@ const CollectionDashboard = () => {
                                             ? sets.find((s) => s.id === activeSetId)?.description || ''
                                             : (collection?.description || sets[0]?.description || '')
                                     }
-                                    coverPhotoUrl={collection?.cover_url || (photos.length > 0 ? photos[0].full_url : null)}
+                                    coverPhotoUrl={stripMediaUrlHash(collection?.cover_url || '') || (photos.length > 0 ? photos[0].full_url : null)}
                                     gridPhotos={photos}
                                     previewMode={previewMode}
                                     onPreviewModeChange={setPreviewMode}
                                     photographerName={profile?.business_name || user?.display_name || 'PHOTOGRAPHER'}
                                     coverLogoUrl={profile?.cover_logo_url || ''}
                                     dashboardState={{
-                                        focalX: collectionFocal.x,
-                                        focalY: collectionFocal.y,
+                                        focalX: collectionFocals.desktop?.x ?? collectionFocal.x,
+                                        focalY: collectionFocals.desktop?.y ?? collectionFocal.y,
+                                        coverFocals: collectionFocals,
                                         activeSetId: activeSetId,
                                         sets: sets,
                                         highlightsName,
@@ -4219,12 +4904,39 @@ const CollectionDashboard = () => {
                                         slideshow: slideshow,
                                         downloadPin: downloadPin,
                                         pinValue: pinValue,
-                                        requirePinForSinglePhoto: requirePinForSinglePhoto,
+                                        requirePinForSinglePhoto: downloadPin ? true : requirePinForSinglePhoto,
+                                        restrictToEmails: restrictToEmails,
+                                        downloadLimit: downloadLimit,
+                                        pinUsageLimit: pinUsageLimit,
+                                        photoDownloadSizes: photoDownloadSizes,
+                                        videoDownloadResolution: collection?.video_download_resolution,
+                                        videoDownloadEnabled: photoDownloadSizes.includes('video'),
                                         emailTracking: emailRegistration,
                                         galleryPhotoSort: sortOption,
                                         selectedDownloadSets,
                                     }}
                                     onSetActiveSet={setActiveSetId}
+                                />
+                                <DesignTab
+                                    settings={{
+                                        coverStyle: selectedCoverStyle,
+                                        fontFamily: selectedFont,
+                                        colorPalette: selectedColorPalette,
+                                        grid: gridSettings
+                                    }}
+                                    coverPhotoUrl={stripMediaUrlHash(collection?.cover_url || '') || (photos.length > 0 ? photos[0].full_url : null)}
+                                    coverFocalX={collectionFocals.desktop?.x ?? collectionFocal.x}
+                                    coverFocalY={collectionFocals.desktop?.y ?? collectionFocal.y}
+                                    onSettingsChange={(newSettings) => {
+                                        setSelectedCoverStyle(newSettings.coverStyle);
+                                        setSelectedFont(normalizeFontId(newSettings.fontFamily));
+                                        setSelectedColorPalette(normalizePaletteId(newSettings.colorPalette));
+                                        setGridSettings(newSettings.grid);
+                                    }}
+                                    onOpenCoverModal={() => openCoverModal('all', 'pick')}
+                                    onOpenFocalModal={() =>
+                                        openCoverModal('all', collection?.cover_url ? 'edit' : 'pick')
+                                    }
                                 />
                             </div>
                         )}
@@ -4233,6 +4945,7 @@ const CollectionDashboard = () => {
                                 collectionId={collectionId}
                                 collection={collection}
                                 setCollection={setCollection}
+                                profile={profile}
                                 collectionUrl={collectionUrl}
                                 setCollectionUrl={setCollectionUrl}
                                 defaultWatermark={defaultWatermark}
@@ -4244,6 +4957,7 @@ const CollectionDashboard = () => {
                                 onEditReminder={openEditReminder}
                                 onDeleteReminder={handleDeleteReminder}
                                 onAddReminder={openAddReminder}
+                                onRemindersChange={fetchReminders}
                                 emailRegistration={emailRegistration}
                                 setEmailRegistration={setEmailRegistration}
                                 galleryAssist={galleryAssist}
@@ -4263,6 +4977,19 @@ const CollectionDashboard = () => {
                         )}
                         {activeSidebarTab === 'settings' && activeSettingsTab === 'privacy' && (
                             <PrivacySettings
+                                collectionId={collectionId}
+                                collection={collection}
+                                setCollection={setCollection}
+                                collectionUrl={collectionUrl}
+                                profile={profile}
+                                emailRegistration={emailRegistration}
+                                setEmailRegistration={setEmailRegistration}
+                                downloadPin={downloadPin}
+                                pinValue={pinValue}
+                                defaultWatermark={defaultWatermark}
+                                watermarks={watermarks}
+                                onSelectWatermark={handleSelectDefaultWatermark}
+                                onManageWatermarks={() => navigate('/settings/protection')}
                                 collectionPassword={collectionPassword}
                                 setCollectionPassword={setCollectionPassword}
                                 showOnShowcase={showOnShowcase}
@@ -4283,15 +5010,28 @@ const CollectionDashboard = () => {
                                         isClientOnly: Boolean(s.is_private),
                                     }))}
                                 onSetClientOnlyChange={handleSetClientOnlyChange}
+                                gdEvent={gdEvent}
+                                guestDeliveryGuests={guestDeliveryGuests}
+                                photographerId={gdEvent?.photographer_id || collection?.photographer_id || user?.id}
+                                onGdEventUpdated={setGdEvent}
+                                onOpenGdQrModal={() => setShowGdQrModal(true)}
                             />
                         )}
 
                         {activeSidebarTab === 'settings' && activeSettingsTab === 'download' && (
                             <DownloadSettings
+                                collectionId={collectionId}
+                                collection={collection}
+                                setCollection={setCollection}
+                                photos={photos}
+                                photoDownloadSizes={photoDownloadSizes}
+                                setPhotoDownloadSizes={setPhotoDownloadSizes}
+                                highResChoice={highResChoice}
+                                setHighResChoice={setHighResChoice}
+                                webSizeChoice={webSizeChoice}
+                                setWebSizeChoice={setWebSizeChoice}
                                 photoDownload={photoDownload}
                                 setPhotoDownload={setPhotoDownload}
-                                showAdditionalOptions={showAdditionalOptions}
-                                setShowAdditionalOptions={setShowAdditionalOptions}
                                 galleryDownload={galleryDownload}
                                 setGalleryDownload={setGalleryDownload}
                                 singlePhotoDownload={singlePhotoDownload}
@@ -4316,8 +5056,6 @@ const CollectionDashboard = () => {
                                 sets={sets}
                                 pinUsageLimit={pinUsageLimit}
                                 setPinUsageLimit={setPinUsageLimit}
-                                activeDownloadTab={activeDownloadTab}
-                                setActiveDownloadTab={setActiveDownloadTab}
                                 setActiveSidebarTab={setActiveSidebarTab}
                                 setActiveActivitySubTab={setActiveActivitySubTab}
                             />
@@ -4325,10 +5063,18 @@ const CollectionDashboard = () => {
 
                         {activeSidebarTab === 'settings' && activeSettingsTab === 'favorite' && (
                             <FavoriteSettings
+                                collectionId={collectionId}
+                                collection={collection}
+                                setCollection={setCollection}
+                                collectionUrl={collectionUrl}
+                                profile={profile}
                                 favoritePhotos={favoritePhotos}
                                 setFavoritePhotos={setFavoritePhotos}
                                 favoriteNotes={favoriteNotes}
                                 setFavoriteNotes={setFavoriteNotes}
+                                favoriteLists={sortedFavoriteActivity}
+                                onReviewList={handleReviewFavoriteList}
+                                onEditList={openEditFavoriteListModal}
                                 setShowCreateFavoriteListModal={setShowCreateFavoriteListModal}
                                 setActiveSidebarTab={setActiveSidebarTab}
                                 setActiveActivitySubTab={setActiveActivitySubTab}
@@ -4337,6 +5083,9 @@ const CollectionDashboard = () => {
 
                         {activeSidebarTab === 'settings' && activeSettingsTab === 'shop' && (
                             <StoreSettings
+                                collectionId={collectionId}
+                                collection={collection}
+                                setCollection={setCollection}
                                 storeEnabled={storeEnabled}
                                 setStoreEnabled={setStoreEnabled}
                                 setActiveSidebarTab={setActiveSidebarTab}
@@ -4391,6 +5140,8 @@ const CollectionDashboard = () => {
                             storeOrderItems={storeOrderItems}
                             storeOrdersLoading={storeOrdersLoading}
                             emailRegistrationActivity={emailRegistrationActivity}
+                            galleryOpenActivity={galleryOpenActivity}
+                            guestDeliveryGuests={guestDeliveryGuests}
                             favoriteActivitySortMenuRef={favoriteActivitySortMenuRef}
                             favoriteActivityMenuRef={favoriteActivityMenuRef}
                             favoriteDetailToolbarMenuRef={favoriteDetailToolbarMenuRef}
@@ -4415,8 +5166,9 @@ const CollectionDashboard = () => {
                             <div className="cd-guests-main">
                                 {gdEvent ? (
                                     <EventGuestsPanel
+                                        key={gdEvent.id}
                                         event={gdEvent}
-                                        photographerId={user?.id}
+                                        photographerId={gdEvent.photographer_id || collection?.photographer_id || user?.id}
                                         onGuestCountChange={setGdGuestCount}
                                     />
                                 ) : (
@@ -4430,189 +5182,53 @@ const CollectionDashboard = () => {
                         const menuPhoto = gridPhotos.find((p) => p.id === photoMenu) || photos.find((p) => p.id === photoMenu);
                         if (!menuPhoto) return null;
                         const menuIndex = gridPhotos.findIndex((p) => p.id === menuPhoto.id);
+                        const peopleCount = peopleInPhoto(menuPhoto.id, photoAiPeople, photoAiMetadataMap).length;
+                        const isCover = Boolean(
+                            (collection?.cover_photo_id && String(collection.cover_photo_id) === String(menuPhoto.id))
+                            || coverPhoto?.id === menuPhoto.id
+                        );
                         return createPortal(
                             <div
-                                className={`cd-photo-menu cd-photo-menu--portal${photoMenuAlignLeft ? ' cd-photo-menu--align-left' : ''}`}
+                                className={`cd-photo-menu cd-photo-menu--portal cd-photo-menu--pixnxt${photoMenuAlignLeft ? ' cd-photo-menu--align-left' : ''}`}
                                 ref={photoMenuRef}
                                 role="menu"
                                 style={photoMenuPosition}
                                 onMouseDown={(e) => e.stopPropagation()}
                                 onClick={(e) => e.stopPropagation()}
                             >
-                                {showFilename && menuPhoto.filename && (
-                                    <>
-                                        <div className="cd-photo-menu-filename-hint" title={menuPhoto.filename}>
-                                            {menuPhoto.filename}
-                                        </div>
-                                        <div className="cd-ctx-divider" />
-                                    </>
-                                )}
-                                <div className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); closePhotoMenu(); setLightboxOpenIndex(menuIndex >= 0 ? menuIndex : 0); }}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
-                                    <span>Open</span>
-                                </div>
-                                <div className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); closePhotoMenu(); handleQuickShare(menuPhoto); }}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
-                                    <span>Quick share</span>
-                                </div>
-                                <div className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); closePhotoMenu(); handleDownloadPhoto(menuPhoto); }}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                                    <span>Download</span>
-                                </div>
-                                <div className="cd-ctx-divider"></div>
-                                <div className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); closePhotoMenu(); setEditingPhoto(menuPhoto); setTargetSetId(menuPhoto.set_id); setMoveMode('move'); setShowMoveModal(true); }}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
-                                    <span>Move/Copy</span>
-                                </div>
-                                <div className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); closePhotoMenu(); handleCopyFilename(menuPhoto); }}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                                    <span>Copy filenames</span>
-                                </div>
-                                <div className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); closePhotoMenu(); handleSetAsCover(menuPhoto); }}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                                    <span>Set as cover</span>
-                                </div>
-                                <div className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); closePhotoMenu(); setEditingPhoto(menuPhoto); setNewPhotoName(menuPhoto.filename); setShowRenameModal(true); }}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
-                                    <span>Rename</span>
-                                </div>
-                                <div className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); closePhotoMenu(); setEditingPhoto(menuPhoto); setShowReplaceModal(true); }}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9"></path></svg>
-                                    <span>Replace photo</span>
-                                </div>
-                                <div className="cd-ctx-divider"></div>
-                                <div className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); closePhotoMenu(); setEditingPhoto(menuPhoto); setShowWatermarkModal(true); }}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M14.83 14.83a4 4 0 1 1 0-5.66"></path></svg>
-                                    <span>Watermark</span>
-                                </div>
-                                <div className="cd-ctx-divider"></div>
-                                <div className="cd-ctx-item cd-ctx-delete" role="menuitem" onClick={(e) => { e.stopPropagation(); closePhotoMenu(); deleteSelectedPhotos([menuPhoto.id]); }}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                                    <span>Delete</span>
-                                </div>
+                                <PhotoOptionsMenu
+                                    photo={menuPhoto}
+                                    photographNumber={menuIndex >= 0 ? menuIndex + 1 : 1}
+                                    peopleCount={peopleCount}
+                                    isCover={isCover}
+                                    onToggleStar={(p) => handleToggleStar(p.id, p.is_starred)}
+                                    onUseAsCover={handleUseAsDeliveryCover}
+                                    onMoveToSet={(p) => {
+                                        closePhotoMenu();
+                                        setEditingPhoto(p);
+                                        setTargetSetId(p.set_id);
+                                        setMoveMode('move');
+                                        setShowMoveModal(true);
+                                    }}
+                                    onToggleHidden={(p) => {
+                                        closePhotoMenu();
+                                        void handleTogglePhotoHidden(p);
+                                    }}
+                                    onDownloadOriginal={(p) => {
+                                        closePhotoMenu();
+                                        void handleDownloadPhoto(p);
+                                    }}
+                                    onWhoIsInThis={handleWhoIsInThis}
+                                    onRemove={(p) => {
+                                        closePhotoMenu();
+                                        void deleteSelectedPhotos([p.id]);
+                                    }}
+                                />
                             </div>,
                             document.body
                         );
                     })()}
 
-                    {/* Multi-Selection Toolbar */}
-                    {selectedPhotos.length > 0 && (
-                        <div className="cd-selection-toolbar">
-                            <div className="cd-selection-left">
-                                <button type="button" className="cd-selection-close" onClick={clearSelection}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                                </button>
-                                <div className="cd-selection-count-wrapper" onClick={() => setShowSelectAllMenu(!showSelectAllMenu)} ref={selectAllMenuRef}>
-                                    <span className="cd-selection-count">{selectedPhotos.length} selected</span>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="cd-selection-chevron"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                                    {showSelectAllMenu && (
-                                        <div className="cd-selection-menu">
-                                            <div className="cd-ctx-item" onClick={selectAll}>Select All</div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                            <div className="cd-selection-actions" onClick={(e) => e.stopPropagation()}>
-                                <button type="button" className="cd-sel-action-btn" data-tooltip="Add to Starred" aria-label="Add to Starred" onClick={handleSelectionStar}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-                                </button>
-                                <button type="button" className="cd-sel-action-btn" data-tooltip="Share link" aria-label="Share link" onClick={handleSelectionShareLink}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
-                                </button>
-                                <div className={`cd-selection-move-wrapper${showMoveToSetMenu ? ' is-open' : ''}`} ref={moveToSetRef}>
-                                    <button
-                                        type="button"
-                                        className="cd-sel-action-btn"
-                                        data-tooltip="Move to set"
-                                        aria-label="Move to set"
-                                        aria-expanded={showMoveToSetMenu}
-                                        aria-haspopup="menu"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setShowSelectionMore(false);
-                                            setShowMoveToSetMenu((open) => !open);
-                                        }}
-                                    >
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M13.8 12H3" /></svg>
-                                    </button>
-                                </div>
-                                {showMoveToSetMenu && moveMenuPosition && createPortal(
-                                    <div
-                                        ref={moveMenuPortalRef}
-                                        className="cd-selection-move-dropdown cd-selection-move-dropdown--portal"
-                                        role="menu"
-                                        style={moveMenuPosition}
-                                        onMouseDown={(e) => e.stopPropagation()}
-                                    >
-                                        <div className="cd-sort-label">Move to set</div>
-                                        <button
-                                            type="button"
-                                            role="menuitem"
-                                            className={`cd-ctx-item${!activeSetId ? ' disabled' : ''}`}
-                                            disabled={!activeSetId}
-                                            onClick={() => handleMovePhotosToSet(null)}
-                                        >
-                                            {highlightsName}
-                                        </button>
-                                        {sets.map((s) => (
-                                            <button
-                                                key={s.id}
-                                                type="button"
-                                                role="menuitem"
-                                                className={`cd-ctx-item${activeSetId === s.id ? ' disabled' : ''}`}
-                                                disabled={activeSetId === s.id}
-                                                onClick={() => handleMovePhotosToSet(s.id)}
-                                            >
-                                                {s.name}
-                                            </button>
-                                        ))}
-                                    </div>,
-                                    document.body
-                                )}
-                                <button type="button" className="cd-sel-action-btn" data-tooltip="Delete" aria-label="Delete" onClick={() => deleteSelectedPhotos()}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
-                                </button>
-                                <div className="cd-selection-more-wrap" ref={selectionMoreRef}>
-                                    <button type="button" className="cd-sel-action-btn" data-tooltip="More" aria-label="More" onClick={(e) => { e.stopPropagation(); setShowMoveToSetMenu(false); setShowSelectionMore(!showSelectionMore); }}>
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
-                                    </button>
-                                    {showSelectionMore && (
-                                        <div className="cd-selection-more-dropdown" role="menu">
-                                            <button type="button" className="cd-ctx-item" role="menuitem" onClick={handleSelectionOpen}>
-                                                <div className="cd-ctx-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="m21 21-6-6m6 6v-4.8m0 4.8h-4.8M3 3l6 6M3 3v4.8M3 3h4.8M21 3l-6 6M21 3v4.8M21 3h-4.8M3 21l6-6M3 21v-4.8M3 21h4.8" /></svg></div>
-                                                <span className="cd-ctx-text">Open</span>
-                                                <span className="cd-ctx-hotkey">spacebar</span>
-                                            </button>
-                                            <button type="button" className="cd-ctx-item" role="menuitem" onClick={handleSelectionDownload}>
-                                                <div className="cd-ctx-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg></div>
-                                                <span className="cd-ctx-text">Download</span>
-                                            </button>
-                                            <button type="button" className="cd-ctx-item" role="menuitem" onClick={handleSelectionCopyFilenames}>
-                                                <div className="cd-ctx-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></div>
-                                                <span className="cd-ctx-text">Copy filenames</span>
-                                            </button>
-                                            <button type="button" className="cd-ctx-item" role="menuitem" onClick={handleSelectionSetAsCover}>
-                                                <div className="cd-ctx-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg></div>
-                                                <span className="cd-ctx-text">Set as cover</span>
-                                            </button>
-                                            <button type="button" className="cd-ctx-item" role="menuitem" onClick={handleSelectionRename}>
-                                                <div className="cd-ctx-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></div>
-                                                <span className="cd-ctx-text">Rename</span>
-                                            </button>
-                                            <button type="button" className="cd-ctx-item" role="menuitem" onClick={handleSelectionReplace}>
-                                                <div className="cd-ctx-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 2l4 4-4 4M3 6h18M7 22l-4-4 4-4M21 18H3" /></svg></div>
-                                                <span className="cd-ctx-text">Replace photo</span>
-                                            </button>
-                                            <button type="button" className="cd-ctx-item" role="menuitem" onClick={handleSelectionWatermark}>
-                                                <div className="cd-ctx-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M14.5 9a2.5 2.5 0 0 0-5 0v6a2.5 2.5 0 0 0 5 0" /><path d="M10 12h4.5" /></svg></div>
-                                                <span className="cd-ctx-text">Watermark</span>
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    )}
                 </div>
                 {/* Add Media Modal */}
                 {
@@ -4625,129 +5241,40 @@ const CollectionDashboard = () => {
                                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                                     </button>
                                 </div>
-                                <div className="cd-modal-tabs">
-                                    <button className={`cd-modal-tab ${activeMediaTab === 'upload' ? 'active' : ''}`} onClick={() => setActiveMediaTab('upload')}>Upload</button>
-                                    <button className={`cd-modal-tab ${activeMediaTab === 'embed' ? 'active' : ''}`} onClick={() => setActiveMediaTab('embed')}>Embed</button>
-                                </div>
-                                {activeMediaTab === 'upload' ? (
-                                    <>
-                                        <div
-                                            className={`cd-modal-dropzone ${isDraggingModal ? 'dragging' : ''}`}
-                                            onDragOver={handleModalDragOver}
-                                            onDragLeave={handleModalDragLeave}
-                                            onDrop={handleModalDrop}
-                                        >
-                                            <input
-                                                type="file"
-                                                ref={modalFileInputRef}
-                                                style={{ display: 'none' }}
-                                                accept={MEDIA_FILE_INPUT_ACCEPT}
-                                                multiple
-                                                onChange={handleFileSelect}
-                                            />
-                                            <div className="cd-modal-drop-content">
-                                                <div className="cd-modal-drop-icon">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#cfd5d8" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
-                                                        <path d="M4 6h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"></path>
-                                                        <path d="M8 2h12a2 2 0 0 1 2 2v10"></path>
-                                                        <circle cx="15" cy="15" r="5" fill="#fff" stroke="#cfd5d8"></circle>
-                                                        <line x1="15" y1="12" x2="15" y2="18"></line>
-                                                        <line x1="12" y1="15" x2="18" y2="15"></line>
-                                                    </svg>
-                                                </div>
-                                                <p className="cd-modal-drop-text">Drag photos and videos here to upload</p>
-                                                <p className="cd-modal-drop-browse">or <span className="cd-browse-link" onClick={handleModalBrowse}>Browse files</span></p>
-                                            </div>
+                                <div
+                                    className={`cd-modal-dropzone ${isDraggingModal ? 'dragging' : ''}`}
+                                    onDragOver={handleModalDragOver}
+                                    onDragLeave={handleModalDragLeave}
+                                    onDrop={handleModalDrop}
+                                    style={{ marginTop: '20px' }}
+                                >
+                                    <input
+                                        type="file"
+                                        ref={modalFileInputRef}
+                                        style={{ display: 'none' }}
+                                        accept={isFilmsView ? VIDEO_FILE_INPUT_ACCEPT : PHOTO_FILE_INPUT_ACCEPT}
+                                        multiple
+                                        onChange={handleFileSelect}
+                                    />
+                                    <div className="cd-modal-drop-content">
+                                        <div className="cd-modal-drop-icon">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#cfd5d8" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M4 6h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"></path>
+                                                <path d="M8 2h12a2 2 0 0 1 2 2v10"></path>
+                                                <circle cx="15" cy="15" r="5" fill="#fff" stroke="#cfd5d8"></circle>
+                                                <line x1="15" y1="12" x2="15" y2="18"></line>
+                                                <line x1="12" y1="15" x2="18" y2="15"></line>
+                                            </svg>
                                         </div>
-                                    </>
-                                ) : (
-                                    <div className="cd-modal-embed">
-                                        <div className="cd-embed-input-wrapper">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
-                                            <input type="text" placeholder="Add a YouTube or Vimeo Video URL" />
-                                        </div>
-                                        <p className="cd-embed-helper">Add a video from YouTube or Vimeo by entering the full video URL. <span className="settings-link">Learn more</span></p>
-                                        <div className="cd-embed-logos">
-                                            <svg className="cd-youtube-logo" viewBox="0 0 24 24" fill="#ff0000" width="30" height="30"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.5 12 3.5 12 3.5s-7.505 0-9.377.55a3.016 3.016 0 0 0-2.122 2.136C0 8.083 0 12 0 12s0 3.917.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.55 9.376.55 9.376.55s7.505 0 9.377-.55a3.016 3.016 0 0 0 2.122-2.136C24 15.917 24 12 24 12s0-3.917-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" /></svg>
-                                            <svg className="cd-vimeo-logo" viewBox="0 0 24 24" fill="#1ab7ea" width="30" height="30"><path d="M22.396 7.164c-.093 2.026-1.507 4.8-4.245 8.32C15.32 19.161 12.93 21 11.002 21c-1.332 0-2.436-1.378-3.308-4.136-.582-2.613-1.096-5.59-1.636-7.85-1.026-4.634-1.921-1.652-3.876.104l-1.066-1.341c2.148-2.036 4.356-4.225 5.952-4.428 1.968-.25 3.12 1.343 3.454 4.777.424 4.295.666 4.975 1.505 4.975.766 0 1.956-2.08 2.87-4.482.724-1.916.638-3.32-.42-3.32-.61 0-1.272.186-1.908.498 1.258-4.116 3.98-5.807 7.025-4.832 2.164.693 2.887 2.859 2.796 4.881z" /></svg>
-                                        </div>
-                                        <div className="cd-embed-actions">
-                                            <button className="cd-cancel-btn" onClick={() => setShowUploadModal(false)}>Cancel</button>
-                                            <button className="cd-save-btn disabled">Add Video</button>
-                                        </div>
+                                        <p className="cd-modal-drop-text">{isFilmsView ? 'Drag videos here to upload' : 'Drag photos here to upload'}</p>
+                                        <p className="cd-modal-drop-browse">or <span className="cd-browse-link" onClick={handleModalBrowse}>Browse files</span></p>
                                     </div>
-                                )}
+                                </div>
                             </div>
                         </div>
                     )
                 }
             </div >
-            {/* Focal Point Modal */}
-            {
-                showFocalModal && (
-                    <div className="cd-modal-overlay">
-                        <div className="cd-modal focal-modal">
-                            <div className="cd-modal-header">
-                                <h3 className="cd-modal-title">Set Focal Point</h3>
-                                <button className="cd-modal-close" onClick={() => setShowFocalModal(false)}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                                </button>
-                            </div>
-                            <div className="cd-set-modal-body">
-                                <div className="focal-point-container">
-                                    {collection?.cover_url || photos.length > 0 ? (
-                                        <div
-                                            className="focal-image-wrapper"
-                                            onMouseDown={handleFocalPointerDown}
-                                            onMouseMove={handleFocalPointerMove}
-                                            onMouseUp={handleFocalPointerUp}
-                                            onMouseLeave={handleFocalPointerUp}
-                                            onTouchStart={(e) => {
-                                                const t = e.touches[0];
-                                                if (t) handleFocalPointerDown({ preventDefault: () => e.preventDefault(), clientX: t.clientX, clientY: t.clientY });
-                                            }}
-                                            onTouchMove={(e) => {
-                                                const t = e.touches[0];
-                                                if (t && isDraggingFocal) {
-                                                    e.preventDefault();
-                                                    updateFocalFromPointer(t.clientX, t.clientY);
-                                                }
-                                            }}
-                                            onTouchEnd={handleFocalPointerUp}
-                                        >
-                                            <img
-                                                ref={focalImageRef}
-                                                src={stripMediaUrlHash(collection?.cover_url || photos[0]?.full_url)}
-                                                alt="Focal"
-                                                draggable={false}
-                                                onLoad={() => syncFocalCrosshair(focalX, focalY)}
-                                            />
-                                            <div
-                                                className="focal-crosshair"
-                                                style={focalCrosshairStyle}
-                                            >
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" style={{ filter: 'drop-shadow(0px 2px 4px rgba(0,0,0,0.15))' }}>
-                                                    <circle cx="16" cy="16" r="12" fill="rgba(255, 255, 255, 0.85)" />
-                                                    <circle cx="16" cy="16" r="5" fill="#26a69a" />
-                                                </svg>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div className="focal-empty">No cover photo set</div>
-                                    )}
-                                </div>
-                                <p className="focal-instruction">Drag the crosshair to set the focal point for your cover photo and grid.</p>
-                            </div>
-                            <div className="cd-set-modal-footer">
-                                <button className="cd-cancel-btn" onClick={() => setShowFocalModal(false)}>Cancel</button>
-                                <button className="cd-save-btn" onClick={handleFocalSave} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
-                            </div>
-                        </div>
-                    </div>
-                )
-            }
-
-
             {/* Add Set Modal */}
             {showAddSetModal && (
                 <div className="cd-modal-overlay" onClick={() => setShowAddSetModal(false)}>
@@ -4839,112 +5366,20 @@ const CollectionDashboard = () => {
                 </div>
             )}
 
-            {/* Create Favorite List Modal (single overlay — matches preset list flow) */}
-            {showCreateFavoriteListModal && (
-                <div
-                    className="favorite-list-form-modal-overlay fixed inset-0 flex items-center justify-center bg-black/50 p-4"
-                    onClick={() => setShowCreateFavoriteListModal(false)}
-                    role="presentation"
-                >
-                    <div
-                        className="flex w-full max-w-[600px] flex-col rounded-lg bg-white shadow-xl"
-                        onClick={(e) => e.stopPropagation()}
-                        role="dialog"
-                        aria-labelledby="favorite-list-modal-title"
-                    >
-                        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-5">
-                            <h3 id="favorite-list-modal-title" className="text-[16px] font-bold uppercase tracking-[0.12em] text-gray-900">
-                                {editingFavoriteList ? 'Edit favorite list' : 'Create favorite list'}
-                            </h3>
-                            <button
-                                type="button"
-                                onClick={() => setShowCreateFavoriteListModal(false)}
-                                className="text-gray-400 transition-colors hover:text-gray-600"
-                                aria-label="Close"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-                            </button>
-                        </div>
-
-                        <div className="max-h-[70vh] overflow-y-auto px-6 py-6">
-                            <div className="mb-6">
-                                <label className="mb-2 block text-[16px] font-semibold text-gray-900">Client email</label>
-                                <input
-                                    type="email"
-                                    disabled={!!editingFavoriteList}
-                                    className="w-full rounded border border-gray-200 p-3 text-[16px] text-gray-900 placeholder:text-gray-400 focus:border-[#1ABC9C] focus:outline-none focus:ring-1 focus:ring-[#1ABC9C] disabled:cursor-not-allowed disabled:bg-gray-50"
-                                    placeholder="e.g. client@email.com"
-                                    value={favoriteListEmail}
-                                    onChange={(e) => setFavoriteListEmail(e.target.value)}
-                                />
-                                <p className="mt-2 text-[14px] text-gray-500">
-                                    Your client is required to sign in using this email to see this favorite list
-                                </p>
-                            </div>
-
-                            <div className="mb-6 flex flex-col gap-6 sm:flex-row sm:gap-6">
-                                <div className="min-w-0 flex-1">
-                                    <label className="mb-2 block text-[16px] font-semibold text-gray-900">Favorite list name</label>
-                                    <input
-                                        type="text"
-                                        className="w-full rounded border border-gray-200 p-3 text-[16px] text-gray-900 placeholder:text-gray-400 focus:border-[#1ABC9C] focus:outline-none focus:ring-1 focus:ring-[#1ABC9C]"
-                                        placeholder="e.g. For retouching"
-                                        value={favoriteListName}
-                                        onChange={(e) => setFavoriteListName(e.target.value)}
-                                    />
-                                    <p className="mt-2 text-[14px] text-gray-500">Your clients will see this name</p>
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                    <label className="mb-2 block text-[16px] font-semibold text-gray-900">Max selection</label>
-                                    <input
-                                        type="number"
-                                        min={0}
-                                        className="w-full rounded border border-gray-200 p-3 text-[16px] text-gray-900 placeholder:text-gray-400 focus:border-[#1ABC9C] focus:outline-none focus:ring-1 focus:ring-[#1ABC9C]"
-                                        placeholder="e.g. 30"
-                                        value={favoriteListMax}
-                                        onChange={(e) => setFavoriteListMax(e.target.value)}
-                                    />
-                                    <p className="mt-2 text-[14px] text-gray-500">Limit the number of photos your clients can pick</p>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="mb-2 block text-[16px] font-semibold text-gray-900">List description</label>
-                                <div className="relative">
-                                    <textarea
-                                        className="h-32 w-full resize-none rounded border border-gray-200 p-3 pb-8 text-[16px] text-gray-900 placeholder:text-gray-400 focus:border-[#1ABC9C] focus:outline-none focus:ring-1 focus:ring-[#1ABC9C]"
-                                        placeholder="Optional"
-                                        maxLength={500}
-                                        value={favoriteListDesc}
-                                        onChange={(e) => setFavoriteListDesc(e.target.value)}
-                                    />
-                                    <span className="pointer-events-none absolute bottom-2 left-3 text-[14px] text-gray-400">
-                                        {favoriteListDesc.length} / 500
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="flex justify-end gap-3 border-t border-gray-100 px-6 py-5">
-                            <button
-                                type="button"
-                                onClick={() => setShowCreateFavoriteListModal(false)}
-                                className="px-2 py-2 text-[16px] font-medium text-gray-600 transition-colors hover:text-gray-900"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="button"
-                                onClick={handleCreateFavoriteList}
-                                disabled={!favoriteListEmail?.trim() || !favoriteListName?.trim()}
-                                className="rounded bg-[#1ABC9C] px-6 py-2 text-[16px] font-medium text-white transition-colors hover:bg-[#16a085] disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                                {editingFavoriteList ? 'Save' : 'Create'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            {/* New selection modal */}
+            <NewSelectionModal
+                isOpen={showCreateFavoriteListModal}
+                onClose={() => {
+                    setShowCreateFavoriteListModal(false);
+                    setEditingFavoriteList(null);
+                }}
+                onSubmit={handleCreateFavoriteList}
+                editingList={editingFavoriteList}
+                collectionSlug={collectionUrl}
+                profile={profile}
+                studioName={profile?.business_name || profile?.display_name || 'Your studio'}
+                saving={savingFavoriteList}
+            />
             {/* Change Cover Modal */}
             <input
                 ref={coverModalFileInputRef}
@@ -4966,16 +5401,14 @@ const CollectionDashboard = () => {
                 isOpen={showCoverModal}
                 onClose={closeCoverModal}
                 photos={coverModalPhotos}
-                scopeLabel={coverModalScopeLabel}
-                isUploading={isCoverUploading}
-                onBrowseFiles={() => coverModalFileInputRef.current?.click()}
-                onDropCoverFile={(file) => {
-                    void handleCoverFileSelect(file);
-                    closeCoverModal();
-                }}
-                onSelectPhoto={(photo) => {
-                    void handleCoverPhotoSelect(photo);
-                }}
+                coverUrl={collection?.cover_url}
+                coverPhoto={coverModalPhotoOverride || coverPhoto}
+                initialFocals={collectionFocals}
+                initialView={coverModalInitialView}
+                sets={sets}
+                highlightsName={highlightsName}
+                saving={isCoverUploading}
+                onConfirm={handleCoverModalConfirm}
             />
 
             {/* Get Direct Link Modal */}
@@ -5031,39 +5464,135 @@ const CollectionDashboard = () => {
             {showGdQrModal && collection?.guest_delivery_enabled && gdEvent && (
                 <GuestDeliveryQrModal
                     slug={gdEvent.slug}
+                    event={gdEvent}
+                    guests={guestDeliveryGuests}
+                    photographerId={gdEvent.photographer_id || collection?.photographer_id || user?.id}
                     onClose={() => setShowGdQrModal(false)}
+                    onOpenGuestList={() => setActiveSidebarTab('guests')}
+                    onEventUpdated={(updated) => {
+                        if (updated) setGdEvent(updated);
+                    }}
                 />
             )}
 
             {/* Email History Modal */}
             {showEmailHistoryModal && (
-                <div className="cd-modal-overlay" onClick={() => setShowEmailHistoryModal(false)}>
-                    <div className="cd-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '700px' }}>
+                <div className="cd-modal-overlay" onClick={() => { setShowEmailHistoryModal(false); setEmailHistoryHelpOpen(false); }}>
+                    <div className="cd-modal cd-email-history-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '720px' }}>
                         <div className="cd-modal-header">
-                            <h3 className="cd-modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>EMAIL HISTORY <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg></h3>
-                            <button className="cd-modal-close" onClick={() => setShowEmailHistoryModal(false)}>
+                            <h3 className="cd-modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                EMAIL HISTORY
+                                <button
+                                    type="button"
+                                    className="cd-email-history-help-btn"
+                                    aria-expanded={emailHistoryHelpOpen}
+                                    aria-label="About email statuses"
+                                    onClick={() => setEmailHistoryHelpOpen((v) => !v)}
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                                </button>
+                            </h3>
+                            <button className="cd-modal-close" onClick={() => { setShowEmailHistoryModal(false); setEmailHistoryHelpOpen(false); }}>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                             </button>
                         </div>
                         <div className="cd-modal-body" style={{ padding: '24px' }}>
-                            <p style={{ fontSize: '13px', color: '#666', marginBottom: '20px' }}>Please note it may take a few minutes for new email history to appear.</p>
-                            <div style={{ border: '1px solid #eee', borderRadius: '6px', overflow: 'hidden' }}>
-                                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                                    <thead style={{ backgroundColor: '#f9f9f9', borderBottom: '1px solid #eee' }}>
+                            <p className="cd-email-history-intro">
+                                Emails sent for this delivery will be listed here. Note that email history might take up to a few minutes to show up.
+                            </p>
+
+                            {emailHistoryHelpOpen && (
+                                <div className="cd-email-history-help">
+                                    <div className="cd-email-history-help-block">
+                                        <h4>Pending</h4>
+                                        <p>After you click Send, the invite may show as Pending while it is still being delivered. This can take up to a couple of minutes. Once delivered, the status updates to Sent.</p>
+                                    </div>
+                                    <div className="cd-email-history-help-block">
+                                        <h4>Sent</h4>
+                                        <p>The email was accepted for delivery. If your client still does not see it, ask them to check junk/spam/promotions, or wait for their email provider to finish delivery.</p>
+                                    </div>
+                                    <div className="cd-email-history-help-block">
+                                        <h4>Rejected</h4>
+                                        <p>The email bounced and was rejected by the recipient’s server (soft bounce: temporary issues like a full mailbox; hard bounce: invalid address or permanent block). Rejected emails are not re-delivered — send again with a corrected address if needed.</p>
+                                    </div>
+                                    <div className="cd-email-history-help-block">
+                                        <h4>DIY personal invite</h4>
+                                        <p>If email delivery is unreliable, share a direct link instead (text message, WhatsApp, etc.).</p>
+                                        <button
+                                            type="button"
+                                            className="cd-email-history-link-btn"
+                                            onClick={() => {
+                                                setShowEmailHistoryModal(false);
+                                                setEmailHistoryHelpOpen(false);
+                                                setShowGetDirectLinkModal(true);
+                                            }}
+                                        >
+                                            Get direct link
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="cd-email-history-table-wrap">
+                                <table className="cd-email-history-table">
+                                    <thead>
                                         <tr>
-                                            <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: '600', color: '#555', letterSpacing: '0.5px' }}>EMAIL</th>
-                                            <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: '600', color: '#555', letterSpacing: '0.5px' }}>SUBJECT</th>
-                                            <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: '600', color: '#555', letterSpacing: '0.5px' }}>DATE SENT</th>
-                                            <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: '600', color: '#555', letterSpacing: '0.5px' }}>STATUS</th>
+                                            <th>Email</th>
+                                            <th>Subject</th>
+                                            <th>Date Sent</th>
+                                            <th>Status</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <tr>
-                                            <td colSpan="4" style={{ padding: '30px', textAlign: 'center', color: '#888', fontSize: '14px' }}>No email history found.</td>
-                                        </tr>
+                                        {emailHistoryLoading ? (
+                                            <tr>
+                                                <td colSpan="4" className="cd-email-history-empty">Loading…</td>
+                                            </tr>
+                                        ) : emailHistoryError ? (
+                                            <tr>
+                                                <td colSpan="4" className="cd-email-history-empty cd-email-history-empty--error">{emailHistoryError}</td>
+                                            </tr>
+                                        ) : emailHistory.length === 0 ? (
+                                            <tr>
+                                                <td colSpan="4" className="cd-email-history-empty">No email history found.</td>
+                                            </tr>
+                                        ) : (
+                                            emailHistory.map((item) => (
+                                                <tr key={item.id}>
+                                                    <td>{item.email}</td>
+                                                    <td>{item.subject}</td>
+                                                    <td>{item.date}</td>
+                                                    <td>
+                                                        <span className={`cd-email-status cd-email-status--${item.status.toLowerCase()}`}>
+                                                            {item.status}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
                                     </tbody>
                                 </table>
                             </div>
+
+                            <div className="cd-email-history-diy">
+                                <span>Having trouble with email delivery?</span>
+                                <button
+                                    type="button"
+                                    className="cd-email-history-link-btn"
+                                    onClick={() => {
+                                        setShowEmailHistoryModal(false);
+                                        setEmailHistoryHelpOpen(false);
+                                        setShowGetDirectLinkModal(true);
+                                    }}
+                                >
+                                    Get direct link
+                                </button>
+                            </div>
+                        </div>
+                        <div className="cd-modal-footer">
+                            <button type="button" className="cd-cancel-btn" onClick={() => { setShowEmailHistoryModal(false); setEmailHistoryHelpOpen(false); }}>
+                                Close
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -5223,7 +5752,7 @@ const CollectionDashboard = () => {
                                     try {
                                         setSaving(true);
                                         await galleryService.deleteCollection(collectionId);
-                                        navigate('/client-gallery');
+                                        navigate(backTo);
                                     } catch (err) {
                                         console.error('Failed to delete collection:', err);
                                         alert('Failed to delete delivery. Please try again.');

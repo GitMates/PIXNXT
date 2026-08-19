@@ -2,9 +2,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
     getReplacementCurrentVersion,
     getReplacementVersion,
-    resolveReplacementPreviewUrl,
     sortSpreadReplacements,
 } from './albumImageReplacements';
+import { ReplacementVersionShotButton } from './ReplacementVersionImageLightbox';
 import './SpreadVersionHistory.css';
 
 function formatHistoryWhen(iso) {
@@ -35,33 +35,6 @@ function formatBarSummary({ label, when = null }) {
     return parts.join(' · ');
 }
 
-function VersionThumb({
-    albumId,
-    url,
-    storagePath,
-    itemId = null,
-    preferLive = false,
-    current = false,
-}) {
-    const src = resolveReplacementPreviewUrl(albumId, url, storagePath, {
-        itemId,
-        preferLive,
-    });
-    return (
-        <span
-            className={`ae-version-history__thumb${
-                current ? ' ae-version-history__thumb--current' : ''
-            }`}
-        >
-            {src ? (
-                <img src={src} alt="" draggable={false} />
-            ) : (
-                <span className="ae-version-history__thumb-ph" />
-            )}
-        </span>
-    );
-}
-
 /**
  * Collapsed bar + expandable version list above the note compose (matches editor mock).
  * Always shows at least v1 when the spread has a preview or onNewVersion is available,
@@ -77,6 +50,12 @@ export default function SpreadVersionHistory({
     forceExpandToken = 0,
     authorLabel = 'you',
     createdAt = null,
+    spreadIndex = null,
+    photoPins = [],
+    imageReplacements = [],
+    spreadOpts = {},
+    album = null,
+    totalPages = 0,
 }) {
     const [expanded, setExpanded] = useState(false);
     const rows = useMemo(() => sortSpreadReplacements(replacements), [replacements]);
@@ -142,6 +121,15 @@ export default function SpreadVersionHistory({
         return entries;
     }, [rows, latest, currentVersion, livePreviewUrl, onNewVersion]);
 
+    const resolvedSpreadIndex =
+        spreadIndex != null
+            ? spreadIndex
+            : latest?.spreadIndex != null
+              ? Number(latest.spreadIndex)
+              : null;
+    const allReplacements =
+        imageReplacements?.length > 0 ? imageReplacements : replacements;
+
     // Nothing to show until there is a photo or a way to upload a version.
     if (!rows.length && !livePreviewUrl && !onNewVersion) return null;
 
@@ -190,13 +178,22 @@ export default function SpreadVersionHistory({
                 <ul className="ae-version-history__list">
                     {historyEntries.map((entry) => (
                         <li key={entry.key} className="ae-version-history__row">
-                            <VersionThumb
+                            <ReplacementVersionShotButton
                                 albumId={albumId}
                                 url={entry.url}
                                 storagePath={entry.storagePath}
                                 itemId={entry.itemId}
                                 preferLive={entry.preferLive}
                                 current={entry.current}
+                                tag={`v${entry.version}`}
+                                variant="history"
+                                spreadIndex={resolvedSpreadIndex}
+                                version={entry.version}
+                                photoPins={photoPins}
+                                imageReplacements={allReplacements}
+                                spreadOpts={spreadOpts}
+                                album={album}
+                                totalPages={totalPages}
                             />
                             <div className="ae-version-history__meta">
                                 <span className="ae-version-history__label">

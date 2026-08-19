@@ -35,5 +35,5 @@ export async function rasterizeGalleryCoverImage(collection, photos = []) {
   }
 
   const svg = buildLeatherCoverSvg(title, CHARCOAL);
-  return sharp(Buffer.from(svg)).jpeg({ quality: 84 }).toBuffer();
+  return sharp(Buffer.from(svg), { density: 150 }).jpeg({ quality: 86 }).toBuffer();
 }

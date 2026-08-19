@@ -15,9 +15,6 @@ const IconEye = () => (
 const IconEdit = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" /></svg>
 );
-const IconMove = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="M12 5l7 7-7 7" /><line x1="19" y1="12" x2="19" y2="5" /></svg>
-);
 const IconDuplicate = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="8" y="8" width="14" height="14" rx="2" ry="2" /><path d="M4 16V4a2 2 0 0 1 2-2h12" /></svg>
 );
@@ -162,7 +159,6 @@ export function CollectionContextMenu({
     variant = 'grid',
     onPreview,
     onQuickEdit,
-    onMoveTo,
     onDuplicate,
     onDelete,
     onShareByEmail,
@@ -240,10 +236,6 @@ export function CollectionContextMenu({
             <button type="button" className="cg-ctx-item" onClick={run(onQuickEdit)}>
                 <IconEdit />
                 Quick edit
-            </button>
-            <button type="button" className="cg-ctx-item" onClick={run(onMoveTo)}>
-                <IconMove />
-                Move to
             </button>
             <button type="button" className="cg-ctx-item" onClick={run(onDuplicate)}>
                 <IconDuplicate />

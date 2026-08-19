@@ -5,6 +5,54 @@ import React from 'react';
 export const SALES_CAMPAIGNS_STORAGE_KEY = 'pixnxt_sales_campaigns';
 export const SALES_CAMPAIGNS_UPDATED_EVENT = 'pixnxt_sales_campaigns_updated';
 
+export function readSalesCampaignsFromStorage() {
+  if (typeof window === 'undefined') return [];
+  try {
+    const stored = localStorage.getItem(SALES_CAMPAIGNS_STORAGE_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function parseGalleryCampaignsFromStoreBanner(storeBannerText) {
+  if (!storeBannerText) return null;
+  const txt = String(storeBannerText);
+  if (!txt.startsWith('[') && !txt.startsWith('{')) return null;
+  try {
+    const parsed = JSON.parse(txt);
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function campaignsHaveLiveBanner(campaigns) {
+  return campaigns?.some(
+    (c) => c.enabled || Object.values(c.banners || {}).some((b) => b?.enabled)
+  );
+}
+
+export function resolveGalleryCampaigns(localCampaigns, dbCampaigns) {
+  if (!dbCampaigns?.length) return localCampaigns || [];
+  if (!localCampaigns?.length) return dbCampaigns;
+  if (campaignsHaveLiveBanner(dbCampaigns) || !campaignsHaveLiveBanner(localCampaigns)) {
+    return mergeGalleryCampaignsFromDb(localCampaigns, dbCampaigns);
+  }
+  return localCampaigns;
+}
+
+export function pickActiveSalesCampaign(campaigns) {
+  if (!campaigns?.length) return null;
+  const explicitlyEnabled = campaigns.find((c) => c.enabled);
+  if (explicitlyEnabled) return explicitlyEnabled;
+  return (
+    campaigns.find((c) =>
+      Object.values(c.banners || {}).some((b) => b?.enabled)
+    ) || null
+  );
+}
+
 function stripDataUrlsFromValue(val) {
   if (typeof val === 'string') {
     return val.startsWith('data:') ? '' : val;

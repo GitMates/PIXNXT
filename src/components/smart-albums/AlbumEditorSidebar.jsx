@@ -607,6 +607,8 @@ export default function AlbumEditorSidebar({
                                         photoRevision={workspaceRevision}
                                         businessName={photographerName}
                                         spreadOpts={spreadOpts}
+                                        photoPins={photoPins}
+                                        imageReplacements={imageReplacements}
                                         proofMode
                                         seenTick={proofSeenTick}
                                         onNavigateToPin={onNavigateToPin}
@@ -636,6 +638,12 @@ export default function AlbumEditorSidebar({
                                         forceExpandToken={versionExpandToken}
                                         authorLabel="you"
                                         createdAt={album?.created_at || album?.updated_at || null}
+                                        spreadIndex={currentSpreadIndex}
+                                        photoPins={photoPins}
+                                        imageReplacements={imageReplacements}
+                                        spreadOpts={spreadOpts}
+                                        album={album}
+                                        totalPages={totalPages}
                                         onNewVersion={handleNewVersionUpload}
                                         onRestore={onRestoreImageReplacement}
                                         onDelete={(row) => {

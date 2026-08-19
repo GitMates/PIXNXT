@@ -58,12 +58,12 @@ export async function rasterizeAlbumCoverImage(album) {
 
   try {
     const svg = buildLeatherCoverSvg(title, preset);
-    return await sharp(Buffer.from(svg)).jpeg({ quality: 84 }).toBuffer();
+    return await sharp(Buffer.from(svg), { density: 150 }).jpeg({ quality: 86 }).toBuffer();
   } catch (err) {
     console.error('[album-preview-cover] leather svg failed, using solid fill', err?.message || err);
     const svg = buildLeatherCoverSvg(title, preset);
     try {
-      return await sharp(Buffer.from(svg), { density: 120 }).jpeg({ quality: 84 }).toBuffer();
+      return await sharp(Buffer.from(svg), { density: 150 }).jpeg({ quality: 86 }).toBuffer();
     } catch {
       return sharp({
         create: {

@@ -16,6 +16,7 @@ import {
 import {
   distributePhotosToShortestColumns,
   getGalleryMasonryColumnCount,
+  getThumbnailSizeColumnCount,
 } from '../../../../lib/masonryColumnDistribution';
 import { isRowMasonryGridStyle } from '../../../../lib/galleryGridStyle';
 import './MasonryGrid.css';
@@ -57,8 +58,11 @@ export function MasonryGrid({
   const [dynamicAspectRatios, setDynamicAspectRatios] = useState({});
   const [colsCount, setColsCount] = useState(() => {
     if (customColumnCount != null) return customColumnCount;
-    if (typeof window !== 'undefined') return getGalleryMasonryColumnCount(window.innerWidth);
-    return 3;
+    const mobile = Boolean(isPreviewMobile || isMobileViewport);
+    if (typeof window !== 'undefined') {
+      return getGalleryMasonryColumnCount(window.innerWidth, gridSettings?.size);
+    }
+    return getThumbnailSizeColumnCount(gridSettings?.size, mobile);
   });
 
   const displayPhotos = useMemo(() => {
@@ -76,6 +80,8 @@ export function MasonryGrid({
     let insertAt = Math.min(1, result.length);
     if (result.length >= columns + centerCol) {
       insertAt = columns + centerCol;
+    } else if (columns === 2 && result.length >= columns) {
+      insertAt = columns;
     } else if (result.length >= 2) {
       insertAt = Math.min(centerCol, result.length);
     } else {
@@ -169,10 +175,10 @@ export function MasonryGrid({
       if (width > 0) setGridContainerWidth(width);
     };
 
-    updateWidth(el.getBoundingClientRect().width);
+    updateWidth(el.offsetWidth);
 
     const ro = new ResizeObserver((entries) => {
-      const width = entries[0]?.contentRect?.width ?? 0;
+      const width = entries[0]?.contentRect?.width ?? el.offsetWidth;
       updateWidth(width);
     });
     ro.observe(el);
@@ -320,6 +326,7 @@ export function MasonryGrid({
     if (customColumnCount != null) {
       return {
         '--desktop-columns': customColumnCount,
+        '--mobile-columns': customColumnCount,
         columnGap: `${gap}px`,
       };
     }
@@ -329,6 +336,8 @@ export function MasonryGrid({
           : size === 'small' ? 240
             : 200;
     return {
+      '--desktop-columns': getThumbnailSizeColumnCount(size, false),
+      '--mobile-columns': getThumbnailSizeColumnCount(size, true),
       columnWidth: `${w}px`,
       columnGap: `${gap}px`,
     };
@@ -372,13 +381,18 @@ export function MasonryGrid({
       return;
     }
     const updateCols = () => {
-      setColsCount(getGalleryMasonryColumnCount(window.innerWidth));
+      const mobile = Boolean(isPreviewMobile || isMobileViewport);
+      setColsCount(
+        mobile
+          ? getThumbnailSizeColumnCount(gridSettings?.size, true)
+          : getGalleryMasonryColumnCount(window.innerWidth, gridSettings?.size)
+      );
     };
-    
+
     updateCols();
     window.addEventListener('resize', updateCols);
     return () => window.removeEventListener('resize', updateCols);
-  }, [customColumnCount]);
+  }, [customColumnCount, gridSettings?.size, isPreviewMobile, isMobileViewport]);
 
   // columns built below for masonry distribution
 
@@ -798,12 +812,12 @@ export function MasonryGrid({
                 onFavorite?.(photo);
               }}
               className={cn(
-                'absolute z-[14] flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-rose-400 shadow-sm backdrop-blur-sm transition-colors hover:bg-black/55 hover:text-rose-300',
-                privateBadgeBlocksTopLeft ? 'left-3 top-12' : 'left-3 top-3'
+                'gallery-masonry-action-btn absolute z-[14] flex items-center justify-center rounded-full bg-black/40 text-rose-400 shadow-sm backdrop-blur-sm transition-colors hover:bg-black/55 hover:text-rose-300',
+                privateBadgeBlocksTopLeft ? 'left-2.5 top-11' : 'left-2.5 top-2.5'
               )}
               aria-label="Remove from favorites"
             >
-              <Heart size={18} strokeWidth={1.75} fill="currentColor" className="drop-shadow-sm" />
+              <Heart size={12} strokeWidth={1.75} fill="currentColor" className="drop-shadow-sm" />
             </button>
           ) : null}
           <div className="gallery-masonry-tile-overlay absolute inset-0 z-[10] bg-black/0">
@@ -832,7 +846,7 @@ export function MasonryGrid({
                 }}
               />
             ) : (
-            <div className="gallery-masonry-actions absolute bottom-4 right-4 z-[12] flex gap-2">
+            <div className="gallery-masonry-actions absolute bottom-2.5 right-2.5 z-[12] flex gap-1.5">
               {showShop && (
                 <button
                   type="button"
@@ -840,10 +854,10 @@ export function MasonryGrid({
                     e.stopPropagation();
                     onShop?.(photo);
                   }}
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 backdrop-blur-md text-white hover:bg-white hover:text-black transition-all"
+                  className="gallery-masonry-action-btn flex items-center justify-center rounded-full bg-white/20 backdrop-blur-md text-white hover:bg-white hover:text-black transition-all"
                   aria-label="Shop"
                 >
-                  <ShoppingBag size={16} strokeWidth={1.5} />
+                  <ShoppingBag size={12} strokeWidth={1.75} />
                 </button>
               )}
               {showDownload && (
@@ -853,16 +867,16 @@ export function MasonryGrid({
                     e.stopPropagation();
                     onDownload?.(photo);
                   }}
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 backdrop-blur-md text-white hover:bg-white hover:text-black transition-all"
+                  className="gallery-masonry-action-btn flex items-center justify-center rounded-full bg-white/20 backdrop-blur-md text-white hover:bg-white hover:text-black transition-all"
                   aria-label="Download"
                 >
                   {isPaidDownload ? (
                     <span className="relative">
-                      <ArrowDownToLine size={16} strokeWidth={1.5} />
-                      <span style={{ position: 'absolute', top: '-4px', right: '-6px', fontSize: '6px', fontWeight: 800, lineHeight: 1, background: 'currentColor', color: 'var(--gallery-bg, #fff)', borderRadius: '3px', padding: '1px 2px' }}>₹</span>
+                      <ArrowDownToLine size={12} strokeWidth={1.75} />
+                      <span style={{ position: 'absolute', top: '-3px', right: '-5px', fontSize: '5px', fontWeight: 800, lineHeight: 1, background: 'currentColor', color: 'var(--gallery-bg, #fff)', borderRadius: '2px', padding: '1px 2px' }}>₹</span>
                     </span>
                   ) : (
-                    <Download size={16} strokeWidth={1.5} />
+                    <Download size={12} strokeWidth={1.75} />
                   )}
                 </button>
               )}
@@ -875,14 +889,14 @@ export function MasonryGrid({
                     onFavorite?.(photo);
                   }}
                   className={cn(
-                    'flex h-9 w-9 items-center justify-center rounded-full backdrop-blur-md transition-all',
+                    'gallery-masonry-action-btn flex items-center justify-center rounded-full backdrop-blur-md transition-all',
                     isFav
                       ? 'bg-white text-black'
                       : 'bg-white/20 text-white hover:bg-white hover:text-black'
                   )}
                   aria-label={isFav ? 'Remove from favorites' : 'Add to favorites'}
                 >
-                  <Heart size={16} strokeWidth={1.5} fill={isFav ? 'currentColor' : 'none'} />
+                  <Heart size={12} strokeWidth={1.75} fill={isFav ? 'currentColor' : 'none'} />
                 </button>
               )}
               {showShare && (
@@ -892,10 +906,10 @@ export function MasonryGrid({
                     e.stopPropagation();
                     onShare?.(photo);
                   }}
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 backdrop-blur-md text-white hover:bg-white hover:text-black transition-all"
+                  className="gallery-masonry-action-btn flex items-center justify-center rounded-full bg-white/20 backdrop-blur-md text-white hover:bg-white hover:text-black transition-all"
                   aria-label="Share"
                 >
-                  <Share2 size={16} strokeWidth={1.5} />
+                  <Share2 size={12} strokeWidth={1.75} />
                 </button>
               )}
             </div>

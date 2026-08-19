@@ -21,8 +21,10 @@ import {
     getInnerSpreadCount,
     isDraggableOverviewSpread,
     isEndHalfSpreadIndex,
+    isInsideCoverLeftPage,
     isInsideCoverSpreadLeft,
     isPreBackHalfSpreadIndex,
+    isPreBackHalfSpreadRightPage,
     isWholeSpreadLayout,
     formatOverviewSpreadLabel,
     formatBookSpreadMetaLabel,
@@ -56,8 +58,11 @@ import {
     SWAP_MARKS_SEEN_CHANGED_EVENT,
     hydrateSwapMarks,
     isSwapMarkUnseen,
+    filterSpreadVisibleSwapMarkInfos,
+    SWAP_MARKS_PEEK_CHANGED_EVENT,
     parseSlotKey,
     removeSwapMark,
+    getSwapMarksForCurrentSpreadVersion,
 } from './albumSwapMarks';
 import {
     addPhotoPin,
@@ -68,7 +73,15 @@ import {
     removePhotoPin,
     hydratePhotoPins,
     isPhotoPinUnseen,
+    filterSpreadVisiblePhotoPins,
+    PHOTO_PINS_PEEK_CHANGED_EVENT,
 } from './albumPhotoPins';
+import {
+    getImageReplacements,
+    getReplacementCurrentVersion,
+    getPhotoPinsForCurrentSpreadVersion,
+    IMAGE_REPLACEMENTS_CHANGED_EVENT,
+} from './albumImageReplacements';
 import {
     albumHadClientFeedbackBefore,
     notifyClientFeedbackEvent,
@@ -89,11 +102,6 @@ import BookWrapSpineImage from './BookWrapSpineImage';
 import OverviewLeatherCover from './OverviewLeatherCover';
 import OverviewSortableGrid from './OverviewSortableGrid';
 import AlbumFocusView from './AlbumFocusView';
-import {
-    getImageReplacements,
-    getReplacementCurrentVersion,
-    IMAGE_REPLACEMENTS_CHANGED_EVENT,
-} from './albumImageReplacements';
 
 const FLIP_TIME_MS = 900;
 const FLIP_CORNER = 'bottom';
@@ -129,6 +137,9 @@ function OverviewBookWrapSegment({ src, side, layout, transform }) {
 function getOverviewPageImage(album, pageNum, totalPages, showSamples) {
     const albumId = album?.id;
     const spreadOpts = getSpreadContext(album, totalPages);
+    // Structural blanks — never show a photo or sample on these halves.
+    if (isInsideCoverLeftPage(pageNum, totalPages, spreadOpts)) return null;
+    if (isPreBackHalfSpreadRightPage(pageNum, totalPages, spreadOpts)) return null;
     if (pageNum === 0 && spreadOpts.hasCovers) {
         return resolveCoverImageSrc(album, { showSamples });
     }
@@ -150,6 +161,7 @@ function resolveOverviewSpreadVisual(album, overviewSpreadIndex, totalPages, spr
     const isEndSpread = isEndHalfSpreadIndex(overviewSpreadIndex, totalPages, spreadOpts);
     const isInsideCover = isInsideCoverSpreadLeft(left, totalPages, spreadOpts);
     const isPreBack = isPreBackHalfSpreadIndex(overviewSpreadIndex, totalPages, spreadOpts);
+    // Never treat inside-cover / pre-back as a single panoramic thumb — blanks must show.
     const spreadSrc =
         !isCover && !isEndSpread && !isInsideCover && !isPreBack
             ? getSpreadPhotoOverride(album?.id, left)
@@ -177,7 +189,7 @@ function resolveOverviewSpreadVisual(album, overviewSpreadIndex, totalPages, spr
         bookWrapSrc,
         leftSrc,
         rightSrc,
-        showSpreadFull: Boolean(spreadSrc),
+        showSpreadFull: Boolean(spreadSrc) && !isInsideCover && !isPreBack,
     };
 }
 
@@ -388,10 +400,14 @@ const AlbumBook = ({
         window.addEventListener(COMMENTS_SEEN_CHANGED_EVENT, onSeen);
         window.addEventListener(PHOTO_PINS_SEEN_CHANGED_EVENT, onSeen);
         window.addEventListener(SWAP_MARKS_SEEN_CHANGED_EVENT, onSeen);
+        window.addEventListener(PHOTO_PINS_PEEK_CHANGED_EVENT, onSeen);
+        window.addEventListener(SWAP_MARKS_PEEK_CHANGED_EVENT, onSeen);
         return () => {
             window.removeEventListener(COMMENTS_SEEN_CHANGED_EVENT, onSeen);
             window.removeEventListener(PHOTO_PINS_SEEN_CHANGED_EVENT, onSeen);
             window.removeEventListener(SWAP_MARKS_SEEN_CHANGED_EVENT, onSeen);
+            window.removeEventListener(PHOTO_PINS_PEEK_CHANGED_EVENT, onSeen);
+            window.removeEventListener(SWAP_MARKS_PEEK_CHANGED_EVENT, onSeen);
         };
     }, [album?.id]);
     const { left: leftNum, right: rightNum } = getSpreadPages(spreadIndex, totalPages, spreadOpts);
@@ -451,6 +467,7 @@ const AlbumBook = ({
     }, [imageReplacements, spreadIndex]);
 
     const needActionCount = useMemo(() => {
+        const spreadOptsCtx = { ...spreadOpts, totalPages };
         let count = 0;
         if (spreadCommentsBySpread && album?.id) {
             count += Object.values(spreadCommentsBySpread).reduce((sum, rows) => {
@@ -467,15 +484,37 @@ const AlbumBook = ({
             }, 0);
         }
         if (photoPins && album?.id) {
-            count += photoPins.filter((pin) => isPhotoPinUnseen(album.id, pin)).length;
+            count += photoPins.filter((pin) => {
+                if (!isPhotoPinUnseen(album.id, pin)) return false;
+                const idx = pageToSpreadIndex(pin.pageNum, spreadOptsCtx);
+                const currentPins = getPhotoPinsForCurrentSpreadVersion(
+                    [pin],
+                    imageReplacements,
+                    idx,
+                    spreadOpts
+                );
+                return currentPins.length > 0;
+            }).length;
         }
         if (swapMarks && album?.id) {
-            count += swapMarks.filter((mark) => isSwapMarkUnseen(album.id, mark)).length;
+            count += swapMarks.filter((mark) => {
+                if (!isSwapMarkUnseen(album.id, mark)) return false;
+                const slot = parseSlotKey(mark.a);
+                const idx = pageToSpreadIndex(slot.pageNum, spreadOptsCtx);
+                const currentMarks = getSwapMarksForCurrentSpreadVersion(
+                    [mark],
+                    imageReplacements,
+                    idx,
+                    spreadOpts
+                );
+                return currentMarks.length > 0;
+            }).length;
         }
         return count;
-    }, [spreadCommentsBySpread, photoPins, swapMarks, album?.id, proofSeenTick]);
+    }, [spreadCommentsBySpread, photoPins, swapMarks, album?.id, proofSeenTick, imageReplacements, spreadOpts, totalPages]);
 
     const needActionSpreadIndices = useMemo(() => {
+        const spreadOptsCtx = { ...spreadOpts, totalPages };
         const indices = new Set();
         if (spreadCommentsBySpread && album?.id) {
             Object.keys(spreadCommentsBySpread).forEach((k) => {
@@ -497,34 +536,39 @@ const AlbumBook = ({
         }
         if (photoPins && album?.id) {
             photoPins.forEach((pin) => {
-                if (isPhotoPinUnseen(album.id, pin)) {
-                    const idx =
-                        pin.spreadIndex != null
-                            ? pin.spreadIndex
-                            : pageToSpreadIndex(pin.pageNum, { ...spreadOpts, totalPages });
-                    if (Number.isFinite(idx)) {
-                        indices.add(idx);
-                    }
-                }
+                if (!isPhotoPinUnseen(album.id, pin)) return;
+                const idx =
+                    pin.spreadIndex != null
+                        ? pin.spreadIndex
+                        : pageToSpreadIndex(pin.pageNum, spreadOptsCtx);
+                if (!Number.isFinite(idx)) return;
+                const currentPins = getPhotoPinsForCurrentSpreadVersion(
+                    [pin],
+                    imageReplacements,
+                    idx,
+                    spreadOpts
+                );
+                if (currentPins.length) indices.add(idx);
             });
         }
         if (swapMarks && album?.id) {
             swapMarks.forEach((mark) => {
-                if (isSwapMarkUnseen(album.id, mark)) {
-                    const idx = Number.isFinite(mark.spreadA)
-                        ? mark.spreadA
-                        : Number.isFinite(mark.spreadB)
-                          ? mark.spreadB
-                          : mark.a
-                            ? pageToSpreadIndex(parseSlotKey(mark.a).pageNum, {
-                                  ...spreadOpts,
-                                  totalPages,
-                              })
-                            : 0;
-                    if (Number.isFinite(idx)) {
-                        indices.add(idx);
-                    }
-                }
+                if (!isSwapMarkUnseen(album.id, mark)) return;
+                const idx = Number.isFinite(mark.spreadA)
+                    ? mark.spreadA
+                    : Number.isFinite(mark.spreadB)
+                      ? mark.spreadB
+                      : mark.a
+                        ? pageToSpreadIndex(parseSlotKey(mark.a).pageNum, spreadOptsCtx)
+                        : 0;
+                if (!Number.isFinite(idx)) return;
+                const currentMarks = getSwapMarksForCurrentSpreadVersion(
+                    [mark],
+                    imageReplacements,
+                    idx,
+                    spreadOpts
+                );
+                if (currentMarks.length) indices.add(idx);
             });
         }
         return Array.from(indices).sort((a, b) => a - b);
@@ -533,9 +577,10 @@ const AlbumBook = ({
         photoPins,
         swapMarks,
         album?.id,
-        totalPages,
-        spreadOpts,
         proofSeenTick,
+        imageReplacements,
+        spreadOpts,
+        totalPages,
     ]);
 
     const pageRangeLabel = useMemo(() => {
@@ -1689,36 +1734,73 @@ const AlbumBook = ({
     );
 
     const getSwapMarkInfo = useCallback(
-        (pageNum, cellId, spreadLeft) =>
-            getSwapMarkForSlot(swapMarks, pageNum, cellId, {
+        (pageNum, cellId, spreadLeft) => {
+            const spreadOptsCtx = { ...spreadOpts, totalPages };
+            const idx = pageToSpreadIndex(spreadLeft ?? pageNum, spreadOptsCtx);
+            const versionMarks = getSwapMarksForCurrentSpreadVersion(
+                swapMarks,
+                imageReplacements,
+                idx,
+                spreadOpts
+            );
+            const info = getSwapMarkForSlot(versionMarks, pageNum, cellId, {
                 placementMode,
                 spreadLeft,
                 gridLayout: album?.grid_layout || 'two-page',
                 album,
                 totalPages,
-            }),
-        [swapMarks, placementMode, album, totalPages]
+            });
+            if (!album?.id || !info) return info;
+            const visible = filterSpreadVisibleSwapMarkInfos(album.id, swapMarks, [info]);
+            return visible[0] || null;
+        },
+        [swapMarks, placementMode, album, totalPages, proofSeenTick, imageReplacements, spreadOpts]
     );
 
     const getSwapMarkInfos = useCallback(
-        (pageNum, cellId, spreadLeft) =>
-            getSwapMarksForSlot(swapMarks, pageNum, cellId, {
-                placementMode,
-                spreadLeft,
-                gridLayout: album?.grid_layout || 'two-page',
-                album,
-                totalPages,
-            }),
-        [swapMarks, placementMode, album, totalPages]
+        (pageNum, cellId, spreadLeft) => {
+            const spreadOptsCtx = { ...spreadOpts, totalPages };
+            const idx = pageToSpreadIndex(spreadLeft ?? pageNum, spreadOptsCtx);
+            const versionMarks = getSwapMarksForCurrentSpreadVersion(
+                swapMarks,
+                imageReplacements,
+                idx,
+                spreadOpts
+            );
+            return filterSpreadVisibleSwapMarkInfos(
+                album?.id,
+                swapMarks,
+                getSwapMarksForSlot(versionMarks, pageNum, cellId, {
+                    placementMode,
+                    spreadLeft,
+                    gridLayout: album?.grid_layout || 'two-page',
+                    album,
+                    totalPages,
+                })
+            );
+        },
+        [swapMarks, placementMode, album, totalPages, proofSeenTick, imageReplacements, spreadOpts]
     );
 
     const getSlotPins = useCallback(
-        (pageNum, cellId, spreadLeft) =>
-            getPinsForSlot(photoPins, pageNum, cellId, {
-                placementMode,
-                spreadLeft,
-            }),
-        [photoPins, placementMode]
+        (pageNum, cellId, spreadLeft) => {
+            const spreadOptsCtx = { ...spreadOpts, totalPages };
+            const idx = pageToSpreadIndex(spreadLeft ?? pageNum, spreadOptsCtx);
+            const versionPins = getPhotoPinsForCurrentSpreadVersion(
+                photoPins,
+                imageReplacements,
+                idx,
+                spreadOpts
+            );
+            return filterSpreadVisiblePhotoPins(
+                album?.id,
+                getPinsForSlot(versionPins, pageNum, cellId, {
+                    placementMode,
+                    spreadLeft,
+                })
+            );
+        },
+        [photoPins, placementMode, album?.id, proofSeenTick, imageReplacements, spreadOpts, totalPages]
     );
 
     const handlePinPlace = useCallback((placement) => {

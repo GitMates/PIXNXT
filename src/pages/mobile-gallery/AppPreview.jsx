@@ -14,6 +14,7 @@ import {
 } from '../../lib/mobileGalleryPreviewFormat';
 import { getAppCtaLink } from '../../lib/mobileGalleryAppSettings';
 import { getAppDesignSettings } from '../../lib/mobileGalleryDesign';
+import { coverImageCssStyle } from '../../lib/focalPoint';
 import MobileGalleryPhotoGrid, { useMobileGalleryGridPhotos } from '../../components/mobile-gallery/MobileGalleryPhotoGrid';
 import './MobileGallery.css';
 
@@ -109,7 +110,7 @@ function PreviewHomeFeed({ app, coverUrl, photos, ctaLink, photosRef, scrollRef,
     <div className="mg-preview-home-scroll" ref={scrollRef}>
       <div
         className="mg-preview-home"
-        style={coverUrl ? { backgroundImage: `url(${coverUrl})` } : undefined}
+        style={coverUrl ? coverImageCssStyle(coverUrl) : undefined}
       >
         <div className="mg-preview-home-overlay" />
         <div className="mg-preview-home-content">

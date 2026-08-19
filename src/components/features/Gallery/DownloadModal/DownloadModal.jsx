@@ -11,6 +11,7 @@ import {
   DEFAULT_DOWNLOAD_CONCURRENCY,
 } from '@/lib/downloadPhoto';
 import { galleryService } from '@/services/gallery.service';
+import { knownGalleryVisitorEmail } from '@/lib/galleryEmailRegistration';
 import {
   isGoogleDriveConfigured,
   getGoogleDriveSetupMessage,
@@ -35,6 +36,18 @@ function isDownloadSetAllowed(allowlist, key) {
   return allowlist.some((item) => String(item) === String(key));
 }
 
+function isPhotoInAllowedDownloadSet(photo, allowlist, sets = [], highlightsName = 'Highlights') {
+  if (!allowlist) return true;
+  if (!photo?.set_id) {
+    return isDownloadSetAllowed(allowlist, 'Highlights') || isDownloadSetAllowed(allowlist, highlightsName);
+  }
+  const matchedSet = sets.find((set) => String(set.id) === String(photo.set_id));
+  return (
+    isDownloadSetAllowed(allowlist, photo.set_id) ||
+    isDownloadSetAllowed(allowlist, matchedSet?.name)
+  );
+}
+
 function preparingStatusText(done, total, phase = 'download') {
   if (total <= 1) {
     if (phase === 'save') return 'Saving your photo…';
@@ -56,12 +69,24 @@ export const DownloadModal = ({
   sets = [],
   initialPhoto = null,
   watermarkOptions = null,
-  initialSetId = 'all'
+  initialSetId = 'all',
+  visitorEmail = '',
 }) => {
   const [step, setStep] = useState('auth'); // auth -> selection -> preparing -> complete
   const [email, setEmail] = useState('');
   const [pinDigits, setPinDigits] = useState(['', '', '', '']);
   const [selectedSet, setSelectedSet] = useState(initialPhoto ? 'single' : (initialSetId || 'all'));
+  // Resolution choice for photographs (films use `video_download_resolution` on the delivery; not selectable here yet).
+  const offeredPhotoResolutions = useMemo(() => {
+    const raw = collection?.download_resolutions;
+    if (!Array.isArray(raw) || raw.length === 0) return ['web', 'full'];
+    // DB stores: web | full | original. UI wants: web | full | original.
+    const mapped = raw
+      .map((s) => (s === 'high' ? 'full' : s))
+      .filter((s) => s === 'web' || s === 'full' || s === 'original');
+    return Array.from(new Set(mapped.length ? mapped : ['web', 'full']));
+  }, [collection?.download_resolutions]);
+  const [resolutionChoice, setResolutionChoice] = useState('full'); // web | full | original
   const [downloadDestination, setDownloadDestination] = useState('local'); // local | google_drive
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -93,12 +118,12 @@ export const DownloadModal = ({
   // Initial step determination
   useEffect(() => {
     if (isOpen && collection) {
-      const needsEmail = !!collection?.email_capture_enabled || !!collection?.restrict_to_emails;
+      const knownEmail = knownGalleryVisitorEmail(collection?.id, visitorEmail);
+      const needsEmailField = (!!collection?.email_capture_enabled || !!collection?.restrict_to_emails) && !knownEmail;
       const isSingle = !!initialPhoto;
       const pinRequiredForSingle = collection?.require_pin_for_single_photo !== false;
       const hasPin = !!(collection?.download_pin || collection?.pin_value || collection?.pinValue || collection?.download_pin_hash);
       const needsPin = hasPin && (!isSingle || pinRequiredForSingle);
-      const hasDownloadLimit = !!collection?.download_limit_gallery;
       const hasPinUsageLimit = !!(needsPin && collection?.pin_usage_limit);
 
       // Reset fields and set initial step only on initial open
@@ -108,12 +133,12 @@ export const DownloadModal = ({
         setProgress(0);
         setIsProcessing(false);
         setPinDigits(['', '', '', '']);
-        setEmail('');
+        setEmail(knownEmail);
         setSelectedSet(initialPhoto ? 'single' : (initialSetId || 'all'));
+        setResolutionChoice(offeredPhotoResolutions[0] || 'full');
         setDownloadDestination('local');
 
-        // Show auth step if any form of gate is required
-        if (needsEmail || needsPin || hasDownloadLimit || hasPinUsageLimit) {
+        if (needsEmailField || needsPin || hasPinUsageLimit) {
           setStep('auth');
         } else {
           setStep('selection');
@@ -145,6 +170,17 @@ export const DownloadModal = ({
         .filter((s) => photos.some((p) => String(p.set_id) === String(s.id))),
     [sets, downloadSetAllowlist, photos]
   );
+  const allowedPhotos = useMemo(
+    () =>
+      photos.filter((photo) =>
+        isPhotoInAllowedDownloadSet(photo, downloadSetAllowlist, sets, collection?.highlights_name || 'Highlights')
+      ),
+    [photos, downloadSetAllowlist, sets, collection?.highlights_name]
+  );
+  const allowedHighlightsCount = useMemo(
+    () => allowedPhotos.filter((p) => !p.set_id).length,
+    [allowedPhotos]
+  );
 
   const handlePinInput = (index, value) => {
     if (!/^\d*$/.test(value)) return;
@@ -165,7 +201,10 @@ export const DownloadModal = ({
   };
 
   const handleAuth = async () => {
-    if (collection?.email_capture_enabled && !email.trim()) {
+    const knownEmail = knownGalleryVisitorEmail(collection?.id, visitorEmail || email);
+    const resolvedEmail = (email.trim() || knownEmail).trim();
+
+    if ((collection?.email_capture_enabled || collection?.restrict_to_emails) && !resolvedEmail.includes('@')) {
       setError('Please enter your email address.');
       return;
     }
@@ -184,8 +223,7 @@ export const DownloadModal = ({
     // Check email restriction
     if (collection?.restrict_to_emails) {
       const allowedEmails = collection.restrict_to_emails.split(',').map(e => e.trim().toLowerCase());
-      const enteredEmail = email.trim().toLowerCase();
-      if (!enteredEmail || !allowedEmails.includes(enteredEmail)) {
+      if (!allowedEmails.includes(resolvedEmail.toLowerCase())) {
         setError('Your email is not authorized to download this delivery.');
         return;
       }
@@ -193,6 +231,7 @@ export const DownloadModal = ({
 
     setIsProcessing(true);
     setError('');
+    if (resolvedEmail && resolvedEmail !== email) setEmail(resolvedEmail);
 
     try {
       // ── Check PIN Usage Limit ─────────────────────────────
@@ -205,7 +244,7 @@ export const DownloadModal = ({
         }
         // Log successful PIN use
         await galleryService.logActivity(collection.id, 'password_attempt', {
-          email: email.trim(),
+          email: resolvedEmail,
           photographerId: collection.user_id,
           metadata: { success: true, type: 'download_pin' }
         });
@@ -375,21 +414,45 @@ export const DownloadModal = ({
     const isStale = () => runId !== downloadRunIdRef.current;
 
     try {
+      if (collection?.download_limit_gallery) {
+        const downloadCount = await galleryService.getDownloadCount(collection.id);
+        if (downloadCount >= collection.download_limit_gallery) {
+          throw new Error(
+            `Download limit reached. This delivery can only be downloaded ${collection.download_limit_gallery} time${collection.download_limit_gallery !== 1 ? 's' : ''}.`
+          );
+        }
+      }
       const zip = new JSZip();
       let photosToDownload = [];
 
       if (selectedSet === 'single' && initialPhoto) {
-        photosToDownload = [initialPhoto];
+        photosToDownload = isPhotoInAllowedDownloadSet(
+          initialPhoto,
+          downloadSetAllowlist,
+          sets,
+          collection?.highlights_name || 'Highlights'
+        )
+          ? [initialPhoto]
+          : [];
       } else if (selectedSet === 'all') {
-        photosToDownload = photos;
+        photosToDownload = allowedPhotos;
       } else if (selectedSet === null) {
-        photosToDownload = photos.filter((p) => !p.set_id);
+        photosToDownload = allowedPhotos.filter((p) => !p.set_id);
       } else {
-        photosToDownload = photos.filter((p) => String(p.set_id) === String(selectedSet));
+        photosToDownload = allowedPhotos.filter((p) => String(p.set_id) === String(selectedSet));
+      }
+
+      // Films can be configured as watch-only. If so, remove them from the downloadable set.
+      const videoAllowed = collection?.video_downloads_enabled !== false;
+      if (!videoAllowed) {
+        if (initialPhoto?.media_type === 'video') {
+          throw new Error('This film is watch-only for this delivery.');
+        }
+        photosToDownload = photosToDownload.filter((p) => p?.media_type !== 'video');
       }
 
       if (photosToDownload.length === 0) {
-        throw new Error('No photos found in this selection.');
+        throw new Error('This set is not available for download.');
       }
 
       const setName = selectedSet === 'all' ? 'All Photos' : 
@@ -478,7 +541,11 @@ export const DownloadModal = ({
         const photo = photosToDownload[0];
         setProgressMonotonic(50);
         setStatusText(preparingStatusText(0, 1));
-        await downloadSinglePhotoFile(photo, { preferOriginal: true, watermarkOptions });
+        await downloadSinglePhotoFile(photo, {
+          resolution: resolutionChoice,
+          videoResolution: collection?.video_download_resolution,
+          watermarkOptions,
+        });
         if (isStale()) return;
         setProgressMonotonic(100);
         setStatusText(preparingStatusText(1, 1, 'save'));
@@ -486,7 +553,8 @@ export const DownloadModal = ({
       } else {
         const zipResult = await downloadPhotosToZip(zip, photosToDownload, {
           concurrency: DEFAULT_DOWNLOAD_CONCURRENCY,
-          preferOriginal: true,
+          resolution: resolutionChoice,
+          videoResolution: collection?.video_download_resolution,
           isStale,
           watermarkOptions,
           onProgress: (done) => {
@@ -544,7 +612,7 @@ export const DownloadModal = ({
       const loggedPhoto = total === 1 ? photosToDownload[0] : initialPhoto;
       try {
         await galleryService.logActivity(collection.id, 'download', {
-          email: email.trim(),
+          email: (email.trim() || knownGalleryVisitorEmail(collection?.id, visitorEmail) || 'Visitor'),
           photographerId: collection.user_id || collection.photographer_id,
           photoId: loggedPhoto?.id,
           resolution: 'original',
@@ -619,7 +687,8 @@ export const DownloadModal = ({
 
   if (!isOpen) return null;
 
-  const needsEmail = !!collection?.email_capture_enabled || !!collection?.restrict_to_emails;
+  const knownEmail = knownGalleryVisitorEmail(collection?.id, visitorEmail || email);
+  const needsEmail = (!!collection?.email_capture_enabled || !!collection?.restrict_to_emails) && !knownEmail;
   const hasPin = !!(collection?.download_pin || collection?.pin_value || collection?.pinValue || collection?.download_pin_hash);
   const pinRequiredForSingle = collection?.require_pin_for_single_photo !== false;
   const needsPin = hasPin && (!initialPhoto || pinRequiredForSingle);
@@ -862,7 +931,7 @@ export const DownloadModal = ({
                           : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
                       )}
                     >
-                      All Photos ({photos.length})
+                      All Photos ({allowedPhotos.length})
                     </button>
 
                     {/* Highlights (photos with no set_id) */}
@@ -876,7 +945,7 @@ export const DownloadModal = ({
                             : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
                         )}
                       >
-                        Highlights ({highlightsCount})
+                        Highlights ({allowedHighlightsCount})
                       </button>
                     )}
 
@@ -892,7 +961,7 @@ export const DownloadModal = ({
                               : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
                           )}
                         >
-                          {set.name} ({photos.filter(p => p.set_id === set.id).length})
+                          {set.name} ({allowedPhotos.filter(p => String(p.set_id) === String(set.id)).length})
                         </button>
                       ))}
                   </div>
@@ -906,6 +975,60 @@ export const DownloadModal = ({
                     <span>{error}</span>
                   </div>
                 )}
+                {/* Resolution they can pick (photographs only). */}
+                {offeredPhotoResolutions.length > 1 && !(
+                  initialPhoto && initialPhoto.media_type === 'video'
+                ) ? (
+                  <div className="mb-8">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-400 mb-4">
+                      Sizes offered
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {offeredPhotoResolutions.includes('web') ? (
+                        <button
+                          type="button"
+                          onClick={() => setResolutionChoice('web')}
+                          className={cn(
+                            'rounded-full px-5 py-2.5 text-[14px] font-bold transition-all',
+                            resolutionChoice === 'web'
+                              ? 'bg-[#111] text-white'
+                              : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                          )}
+                        >
+                          Web size
+                        </button>
+                      ) : null}
+                      {offeredPhotoResolutions.includes('full') ? (
+                        <button
+                          type="button"
+                          onClick={() => setResolutionChoice('full')}
+                          className={cn(
+                            'rounded-full px-5 py-2.5 text-[14px] font-bold transition-all',
+                            resolutionChoice === 'full'
+                              ? 'bg-[#111] text-white'
+                              : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                          )}
+                        >
+                          Full resolution
+                        </button>
+                      ) : null}
+                      {offeredPhotoResolutions.includes('original') ? (
+                        <button
+                          type="button"
+                          onClick={() => setResolutionChoice('original')}
+                          className={cn(
+                            'rounded-full px-5 py-2.5 text-[14px] font-bold transition-all',
+                            resolutionChoice === 'original'
+                              ? 'bg-[#111] text-white'
+                              : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                          )}
+                        >
+                          Original file
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
 
                 <button
                   onClick={handleStartDownloadClick}

@@ -1,5 +1,6 @@
 import { buildGmailComposeUrl } from './gmailComposeUrl';
 import { generateCollectionSlug } from './collectionSlug';
+import { getPhotographerPublicOrigin } from './customDomain';
 import { getPublicGalleryUrl, getPublicSiteOrigin, getShareUrlWarning } from './publicSiteUrl';
 
 export { getShareUrlWarning };
@@ -19,6 +20,17 @@ export function getShareUrlForCollection(collection) {
     return getCollectionShareUrl('');
 }
 
+/** Client-facing selection link (branded /g/:slug/choose path). */
+export function getSelectionChooseUrl(slug, photographerProfile) {
+    const safeSlug = String(slug || '').trim().replace(/^\/+|\/+$/g, '');
+    const origin = getPhotographerPublicOrigin(photographerProfile).replace(/\/+$/, '');
+    const href = safeSlug ? `${origin}/g/${encodeURIComponent(safeSlug)}/choose` : `${origin}/g/choose`;
+    return {
+        href,
+        displayPath: href.replace(/^https?:\/\//, ''),
+    };
+}
+
 export function openShareByEmail(url, title = 'Photo Gallery') {
     const body = `Hi,\n\nI'd like to share my photo gallery with you:\n${url}\n\nEnjoy!`;
     window.open(buildGmailComposeUrl(body, { subject: title }), '_blank', 'noopener,noreferrer');
@@ -29,6 +41,7 @@ export function openWhatsAppShare(url, title = 'Gallery') {
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
 }
 
-export function getQrCodeImageUrl(url, size = 220) {
-    return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(url)}`;
+export function getQrCodeImageUrl(url, size = 220, format = 'png') {
+    const fmt = format && format !== 'png' ? `&format=${encodeURIComponent(format)}` : '';
+    return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(url)}${fmt}`;
 }

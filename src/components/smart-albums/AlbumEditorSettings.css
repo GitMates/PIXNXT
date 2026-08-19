@@ -39,7 +39,7 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 18px 20px 32px;
+  padding: 4px 20px 10px;
   scrollbar-width: thin;
   scrollbar-color: #b0aaa4 transparent;
 }
@@ -72,9 +72,14 @@
 }
 
 .ae-settings-section:first-of-type {
-  margin-top: 20px;
+  margin-top: 0;
   padding-top: 0;
   border-top: none;
+}
+
+.ae-settings-section:last-of-type {
+  margin-bottom: 0;
+  padding-bottom: 0;
 }
 
 .ae-settings-section__label {

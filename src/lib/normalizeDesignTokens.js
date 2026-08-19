@@ -1,4 +1,4 @@
-const VALID_PALETTES = ['light', 'gold', 'rose', 'terracotta', 'sand', 'olive', 'agave', 'sea', 'dark'];
+const VALID_PALETTES = ['light', 'gold', 'rose', 'terracotta', 'sand', 'agave', 'sea', 'dark'];
 const VALID_FONTS = ['sans', 'serif', 'modern', 'timeless', 'bold', 'subtle'];
 const VALID_COVER_UI = [
   'center', 'left', 'novel', 'vintage', 'frame', 'stripe', 'divider',
@@ -9,6 +9,7 @@ const VALID_COVER_UI = [
 export function normalizePaletteId(raw) {
   if (!raw) return 'light';
   const base = String(raw).replace(/_1$/, '');
+  if (base === 'olive') return 'agave';
   return VALID_PALETTES.includes(base) ? base : 'light';
 }
 
@@ -16,6 +17,16 @@ export function normalizeFontId(raw) {
   if (!raw) return 'sans';
   const base = String(raw).replace(/_1$/, '');
   return VALID_FONTS.includes(base) ? base : 'sans';
+}
+
+/** deliveries.font_family historically stores sans_1, serif_1, … */
+export function fontIdToDb(raw) {
+  return `${normalizeFontId(raw)}_1`;
+}
+
+/** deliveries.color_palette historically stores light_1, dark_1, … */
+export function paletteIdToDb(raw) {
+  return `${normalizePaletteId(raw)}_1`;
 }
 
 /** DB cover_style `photo` is not a layout id — map to default UI cover */

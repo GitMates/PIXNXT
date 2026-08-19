@@ -6,6 +6,7 @@ export interface DashboardMediaFilterProps {
   onChange: (value: GalleryMediaFilterValue) => void;
   photoCount: number;
   videoCount: number;
+  className?: string;
 }
 
 export function DashboardMediaFilter({
@@ -13,11 +14,12 @@ export function DashboardMediaFilter({
   onChange,
   photoCount,
   videoCount,
+  className = '',
 }: DashboardMediaFilterProps) {
   if (photoCount <= 0 && videoCount <= 0) return null;
 
   return (
-    <div className="cd-media-filter" role="tablist" aria-label="Filter by media type">
+    <div className={`cd-media-filter${className ? ` ${className}` : ''}`} role="tablist" aria-label="Filter by media type">
       <button
         type="button"
         role="tab"

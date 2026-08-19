@@ -673,6 +673,14 @@ function mapAlbumRow(row, photographerId) {
   const pageCountFromOverride = pageCountOverrides[row.id];
   const gridOverrides = photographerId ? readGridSettingsOverrides(photographerId)[row.id] : null;
 
+  const preview =
+    withSettings.preview_data && typeof withSettings.preview_data === 'object'
+      ? withSettings.preview_data
+      : null;
+
+  const previewHasCovers = preview?.has_covers;
+  const previewBlankCovers = preview?.blank_covers;
+
   return {
 
     ...withSettings,
@@ -692,8 +700,8 @@ function mapAlbumRow(row, photographerId) {
         ) {
             return gridOverrides.has_covers === true;
         }
-        if (withSettings.has_covers === false) return false;
-        if (withSettings.has_covers === true) return true;
+        if (withSettings.has_covers === false || previewHasCovers === false) return false;
+        if (withSettings.has_covers === true || previewHasCovers === true) return true;
         return true;
     })(),
 
@@ -704,8 +712,16 @@ function mapAlbumRow(row, photographerId) {
         ) {
             return gridOverrides.blank_covers === true;
         }
-        return withSettings.blank_covers === true;
+        return withSettings.blank_covers === true || previewBlankCovers === true;
     })(),
+
+    cover_color_preset:
+      withSettings.cover_color_preset ||
+      (typeof preview?.cover_color_preset === 'string' ? preview.cover_color_preset : null),
+
+    cover_text:
+      withSettings.cover_text ||
+      (typeof preview?.cover_text === 'string' ? preview.cover_text : null),
 
     comments_enabled: withSettings.comments_enabled !== false,
 

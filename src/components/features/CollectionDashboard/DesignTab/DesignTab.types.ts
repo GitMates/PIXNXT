@@ -1,9 +1,10 @@
-import { DesignSettings, CoverStyleId, FontId, PaletteId, GridSettings as IGridSettings } from '../../../../types/design.types';
+import { DesignSettings } from '../../../../types/design.types';
 
 export interface DesignTabProps {
-  activeTab: 'cover' | 'typography' | 'color' | 'grid';
   settings: DesignSettings;
   coverPhotoUrl?: string | null;
+  coverFocalX?: number;
+  coverFocalY?: number;
   onSettingsChange: (settings: DesignSettings) => void;
   onOpenCoverModal: () => void;
   onOpenFocalModal: () => void;

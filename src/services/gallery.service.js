@@ -8,6 +8,7 @@ import { extractRawPreviewBlob } from '../lib/rawImagePreview';
 import { hasRawDisplayPreview, isRawMedia, resolveMediaUrl, toThumbDerivativeUrl } from '../lib/photoDisplayUrl';
 import { generateCollectionSlug } from '../lib/collectionSlug';
 import { DELIVERY_R2_MODULE } from '../lib/deliveryIds';
+import { buildDeliveryStatusPatch, toDbDeliveryStatus } from '../lib/deliveryStatus';
 import {
   resolveUploadDefaults,
   webMaxEdgeForQuality,
@@ -19,12 +20,132 @@ import {
   resolveOriginalStoragePath,
 } from '../components/features/CollectionDashboard/Upload/uploadUtils';
 import {
+  appendCoverFocalsToCoverUrl,
   appendFocalToCoverUrl,
+  focalsToDbPayload,
   isMissingDbColumnError,
   isNumericOverflowError,
   normalizeFocalForDb,
   normalizeFocalPercent,
+  stripMediaUrlHash,
 } from '../lib/focalPoint.js';
+
+function toggleDesignTokenSuffix(value) {
+  if (typeof value !== 'string' || !value) return null;
+  return value.endsWith('_1') ? value.slice(0, -2) : `${value}_1`;
+}
+
+function retryDesignTokenPayload(payload, error) {
+  const message = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`;
+  const next = { ...payload };
+  let changed = false;
+  for (const key of ['font_family', 'color_palette']) {
+    if (!(key in next)) continue;
+    const current = next[key];
+    if (!message.includes(key) && !message.includes(String(current))) continue;
+    const alt = toggleDesignTokenSuffix(current);
+    if (alt && alt !== current) {
+      next[key] = alt;
+      changed = true;
+    }
+  }
+  return changed ? next : null;
+}
+
+function omitFailedUpdateField(payload, error) {
+  const message = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`;
+  const keys = Object.keys(payload);
+  if (keys.length <= 1) return null;
+
+  const columnMatch =
+    message.match(/Could not find the '([^']+)' column/i) ||
+    message.match(/column "([^"]+)"/i);
+  if (columnMatch?.[1] && columnMatch[1] in payload) {
+    const next = { ...payload };
+    delete next[columnMatch[1]];
+    return next;
+  }
+
+  const enumMatch = message.match(/invalid input value for enum (\w+): "([^"]+)"/i);
+  if (enumMatch?.[1] && enumMatch[1] in payload) {
+    const next = { ...payload };
+    delete next[enumMatch[1]];
+    return next;
+  }
+
+  const checkMatch = message.match(/check constraint ["']?(\w+)["']?/i);
+  if (checkMatch?.[1]) {
+    const constraint = checkMatch[1];
+    const key = keys.find((k) => constraint.includes(k));
+    if (key) {
+      const next = { ...payload };
+      delete next[key];
+      return next;
+    }
+  }
+
+  return null;
+}
+
+const REMINDER_TABLES = ['delivery_reminders', 'collection_reminders'];
+
+const DEFAULT_REMINDER = {
+  timing: '7 days before auto expiry date',
+  subject: 'The gallery {delivery.name} is about to expire',
+  body: 'Hi,\n\nThe gallery {delivery.name} will expire in {days.prior} on {expiry.date}. You will no longer be able to access this gallery after the expiry date.\n\nIf you have any questions, please don\'t hesitate to get in touch!',
+  include_pin: false,
+  send_copy: true,
+  activity_lists: [],
+  whatsapp_enabled: true,
+  whatsapp_body: 'Hi, the gallery {delivery.name} is expiring on {expiry.date}. View it here: {delivery.url}',
+};
+
+function sanitizeReminderPayload(data) {
+  const payload = { ...data };
+  if (!payload.subject) payload.subject = DEFAULT_REMINDER.subject;
+  if (!payload.body) payload.body = DEFAULT_REMINDER.body;
+  if (!Array.isArray(payload.activity_lists)) payload.activity_lists = [];
+  if (payload.to_email == null) payload.to_email = '';
+  if (payload.include_pin == null) payload.include_pin = false;
+  if (payload.send_copy == null) payload.send_copy = true;
+  if (payload.whatsapp_enabled == null) payload.whatsapp_enabled = false;
+  if (payload.whatsapp_body == null) payload.whatsapp_body = DEFAULT_REMINDER.whatsapp_body;
+  if (payload.to_whatsapp == null) payload.to_whatsapp = '';
+  return payload;
+}
+
+function isMissingRelationError(error) {
+  const msg = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`.toLowerCase();
+  return (
+    error?.code === 'PGRST205' ||
+    error?.code === '42P01' ||
+    ((msg.includes('does not exist') || msg.includes('not find the table')) &&
+      (msg.includes('relation') || msg.includes('table')))
+  );
+}
+
+async function reminderQuery(run) {
+  let lastError = null;
+  for (const table of REMINDER_TABLES) {
+    const result = await run(table);
+    if (!result.error) return result;
+    lastError = result.error;
+    if (!isMissingRelationError(result.error)) break;
+  }
+  return { data: null, error: lastError };
+}
+
+async function reminderMutate(run, payload) {
+  let next = { ...payload };
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const result = await reminderQuery((table) => run(table, next));
+    if (!result.error) return result;
+    const stripped = omitFailedUpdateField(next, result.error);
+    if (!stripped) return result;
+    next = stripped;
+  }
+  return reminderQuery((table) => run(table, next));
+}
 
 function getUploadVariantOptions() {
   const defaults = resolveUploadDefaults(null);
@@ -549,6 +670,48 @@ export const galleryService = {
     return attachMissingListCovers(mapped);
   },
 
+  /** Public Showcase enquiry form submission */
+  async submitShowcaseEnquiry({ photographerId, name, email, message }) {
+    if (!photographerId) throw new Error('Photographer is required.');
+    const trimmedName = String(name || '').trim();
+    const trimmedEmail = String(email || '').trim();
+    const trimmedMessage = String(message || '').trim();
+    if (!trimmedName || !trimmedEmail || !trimmedMessage) {
+      throw new Error('Name, email, and message are required.');
+    }
+
+    const { data, error } = await supabase
+      .from('showcase_enquiries')
+      .insert({
+        photographer_id: photographerId,
+        sender_name: trimmedName,
+        sender_email: trimmedEmail,
+        message: trimmedMessage,
+      })
+      .select('id, created_at')
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /** Studio inbox: recent Showcase enquiries */
+  async getShowcaseEnquiries(photographerId, limit = 20) {
+    if (!photographerId) return [];
+    const { data, error } = await supabase
+      .from('showcase_enquiries')
+      .select('id, sender_name, sender_email, message, created_at, read_at')
+      .eq('photographer_id', photographerId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      if (error.code === '42P01') return [];
+      throw error;
+    }
+    return data || [];
+  },
+
   /**
    * Create a new delivery
    */
@@ -688,6 +851,7 @@ export const galleryService = {
       cover_url: source.cover_url ?? null,
       cover_focal_x: source.cover_focal_x ?? null,
       cover_focal_y: source.cover_focal_y ?? null,
+      cover_focals: source.cover_focals ?? null,
       download_pin_hash: source.download_pin_hash ?? null,
       downloads_enabled: source.downloads_enabled,
       download_resolutions: source.download_resolutions,
@@ -800,18 +964,120 @@ export const galleryService = {
   },
 
   /**
+   * Save per-surface cover focals (website / desktop / phone / card / email).
+   * cover_focal_x/y stay in sync with the website point for older readers.
+   */
+  async saveCollectionCoverFocals(collectionId, coverUrl, focals, extra = {}) {
+    const payload = focalsToDbPayload(focals);
+    const primary = payload.desktop || payload.website || { x: 50, y: 50 };
+    const cleanUrl = stripMediaUrlHash(coverUrl);
+    const hashedUrl = appendCoverFocalsToCoverUrl(cleanUrl, payload);
+    const fullPatch = {
+      ...extra,
+      cover_url: cleanUrl,
+      cover_focal_x: primary.x,
+      cover_focal_y: primary.y,
+      cover_focals: payload,
+    };
+
+    try {
+      return await this.updateCollection(collectionId, fullPatch);
+    } catch (err) {
+      if (isMissingDbColumnError(err, 'cover_focals')) {
+        console.warn(
+          'cover_focals column missing — saving focals on cover_url. Run migration 20260816150000_cover_focals.sql'
+        );
+        const { cover_focals: _ignored, ...withoutJson } = { ...fullPatch, cover_url: hashedUrl };
+        try {
+          return await this.updateCollection(collectionId, withoutJson);
+        } catch (inner) {
+          void inner;
+          return this.saveCollectionFocalPoint(collectionId, cleanUrl, primary.x, primary.y);
+        }
+      }
+      if (isMissingDbColumnError(err, 'cover_focal') || isNumericOverflowError(err)) {
+        return this.saveCollectionFocalPoint(collectionId, cleanUrl, primary.x, primary.y);
+      }
+      throw err;
+    }
+  },
+
+  /**
    * Update an existing collection
    */
+  /**
+   * Update an existing collection.
+   * Drops unknown columns / invalid enum values and retries so one bad field
+   * cannot block the rest of a design autosave.
+   */
   async updateCollection(id, updateData) {
-    const { data, error } = await supabase
-      .from('deliveries')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single();
+    let payload = { ...updateData };
+    let lastError = null;
+    const triedTokens = new Set();
 
-    if (error) throw error;
-    return data;
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const { data, error } = await supabase
+        .from('deliveries')
+        .update(payload)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (!error) return data;
+      lastError = error;
+
+      const tokenSig = `${payload.font_family}|${payload.color_palette}`;
+      triedTokens.add(tokenSig);
+      const tokenRetry = retryDesignTokenPayload(payload, error);
+      if (tokenRetry) {
+        const nextSig = `${tokenRetry.font_family}|${tokenRetry.color_palette}`;
+        if (!triedTokens.has(nextSig)) {
+          payload = tokenRetry;
+          continue;
+        }
+      }
+
+      const next = omitFailedUpdateField(payload, error);
+      if (!next) break;
+      if ('status' in payload && !('status' in next)) break;
+      payload = next;
+    }
+
+    throw lastError;
+  },
+
+  /**
+   * Persist delivery visibility (`draft` | `published` | `archived` / Hidden).
+   * Never drops `status` on retry — design autosave stripping must not apply here.
+   */
+  async updateCollectionStatus(id, status, collection) {
+    const payload = buildDeliveryStatusPatch(status, collection);
+    payload.status = toDbDeliveryStatus(payload.status);
+
+    let next = { ...payload };
+    let lastError = null;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const { data, error } = await supabase
+        .from('deliveries')
+        .update(next)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (!error) return data;
+      lastError = error;
+
+      const message = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`;
+      if (next.published_at && /published_at/i.test(message)) {
+        const stripped = { ...next };
+        delete stripped.published_at;
+        next = stripped;
+        continue;
+      }
+      break;
+    }
+
+    throw lastError;
   },
 
   /**
@@ -1048,6 +1314,52 @@ export const galleryService = {
       .in('id', photoIds);
 
     if (error) throw error;
+  },
+
+  /**
+   * Duplicate a set and copy its photo rows (same storage URLs, new records).
+   */
+  async duplicateSet({
+    collectionId,
+    photographerId,
+    name,
+    description,
+    position,
+    photos = [],
+  }) {
+    const created = await this.createSet({
+      collectionId,
+      photographerId,
+      name,
+      description: description || null,
+      position: position ?? 0,
+    });
+
+    if (!photos.length) return { set: created, photos: [] };
+
+    const rows = photos.map((p, index) => ({
+      collection_id: collectionId,
+      photographer_id: photographerId,
+      set_id: created.id,
+      filename: p.filename,
+      full_url: p.full_url,
+      web_url: p.web_url,
+      thumbnail_url: p.thumbnail_url,
+      original_storage_path: p.original_storage_path,
+      size_bytes: p.size_bytes,
+      width: p.width,
+      height: p.height,
+      media_type: p.media_type ?? 'image',
+      position: p.position ?? index,
+      status: p.status ?? 'ready',
+      is_starred: p.is_starred ?? false,
+      exif_taken_at: p.exif_taken_at ?? null,
+      is_private: p.is_private ?? false,
+    }));
+
+    const { data, error } = await supabase.from('photos').insert(rows).select();
+    if (error) throw error;
+    return { set: created, photos: data || [] };
   },
 
   // ─── PHOTO OPERATIONS ─────────────────────────────────────
@@ -2020,16 +2332,55 @@ export const galleryService = {
   },
 
   /**
+   * Public gallery email registration (once per visitor).
+   * Stores email / name / phone on the session and studio contacts list.
+   */
+  async registerGalleryVisitor({ collectionId, email, name, phone } = {}) {
+    const trimmedEmail = String(email || '').trim().toLowerCase();
+    const trimmedName = String(name || '').trim() || null;
+    const trimmedPhone = String(phone || '').trim() || null;
+    if (!collectionId || !trimmedEmail.includes('@')) {
+      throw new Error('A valid email address is required');
+    }
+
+    const { data, error } = await supabase.rpc('register_gallery_visitor', {
+      p_collection_id: collectionId,
+      p_email: trimmedEmail,
+      p_name: trimmedName,
+      p_phone: trimmedPhone,
+    });
+
+    if (error) {
+      const msg = `${error.message || ''} ${error.details || ''} ${error.hint || ''}`;
+      if (!/function .* does not exist|Could not find the function/i.test(msg)) {
+        throw new Error(error.message || 'Could not save your details');
+      }
+    } else if (data?.session_id) {
+      return this.createOrGetSession(collectionId, trimmedEmail, {
+        name: trimmedName,
+        phone: trimmedPhone,
+      });
+    }
+
+    return this.createOrGetSession(collectionId, trimmedEmail, {
+      name: trimmedName,
+      phone: trimmedPhone,
+    });
+  },
+
+  /**
    * Create or get a client session for favorites/downloads
    * @param {string} collectionId
    * @param {string} email
-   * @param {{ ensureDefaultFavoriteList?: boolean }} [options] Pass `{ ensureDefaultFavoriteList: false }` when the caller will insert their own preset list (e.g. dashboard "Create favorite list") so a duplicate "My Favorites" row is not created.
+   * @param {{ ensureDefaultFavoriteList?: boolean, name?: string|null, phone?: string|null }} [options] Pass `{ ensureDefaultFavoriteList: false }` when the caller will insert their own preset list (e.g. dashboard "Create favorite list") so a duplicate "My Favorites" row is not created.
    */
   async createOrGetSession(collectionId, email, options = {}) {
-    const { ensureDefaultFavoriteList = true } = options;
+    const { ensureDefaultFavoriteList = true, name = null, phone = null } = options;
     if (!collectionId || !email) {
       throw new Error('Delivery ID and email are required');
     }
+    const visitorName = name != null && String(name).trim() ? String(name).trim() : null;
+    const visitorPhone = phone != null && String(phone).trim() ? String(phone).trim() : null;
 
     try {
       console.log('createOrGetSession starting:', { collectionId, email, ensureDefaultFavoriteList });
@@ -2049,19 +2400,41 @@ export const galleryService = {
 
       if (session) {
         console.log('Existing session found:', session);
+        if (visitorName || visitorPhone) {
+          const patch = {};
+          if (visitorName) patch.visitor_name = visitorName;
+          if (visitorPhone) patch.visitor_phone = visitorPhone;
+          const { error: patchError } = await supabase
+            .from('client_sessions')
+            .update(patch)
+            .eq('id', session.id);
+          if (patchError && !isMissingDbColumnError(patchError, 'visitor_')) {
+            console.warn('Could not save visitor name/phone on existing session:', patchError);
+          }
+        }
       } else {
         // 2. Create new session (Blind insert to handle RLS)
         const insertData = {
           collection_id: collectionId,
           visitor_email: email,
           access_level: 'guest',
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
+          ...(visitorName ? { visitor_name: visitorName } : {}),
+          ...(visitorPhone ? { visitor_phone: visitorPhone } : {}),
         };
 
         console.log('Attempting blind insert for session:', insertData);
-        const { error: insertError } = await supabase
+        let { error: insertError } = await supabase
           .from('client_sessions')
           .insert([insertData]);
+
+        if (insertError && isMissingDbColumnError(insertError, 'visitor_')) {
+          const fallbackInsert = { ...insertData };
+          delete fallbackInsert.visitor_name;
+          delete fallbackInsert.visitor_phone;
+          const retry = await supabase.from('client_sessions').insert([fallbackInsert]);
+          insertError = retry.error;
+        }
 
         if (insertError && insertError.code !== '23505') { // Ignore unique constraint violation
           console.error('Session insertion failed:', insertError);
@@ -2094,7 +2467,12 @@ export const galleryService = {
           await this.logActivity(collectionId, 'email_register', {
             email,
             photographerId: col?.photographer_id || col?.user_id,
-            metadata: { source: 'Gallery Registration', type: 'email' },
+            metadata: {
+              source: 'Gallery Registration',
+              type: 'email',
+              ...(visitorName ? { name: visitorName } : {}),
+              ...(visitorPhone ? { phone: visitorPhone } : {}),
+            },
           });
         } catch (logErr) {
           console.warn('email_register activity log skipped:', logErr);
@@ -2457,6 +2835,57 @@ export const galleryService = {
     } catch (error) {
       console.error('Error in getFavoriteActivity:', error);
       return [];
+    }
+  },
+
+  /**
+   * Photo ids used in client favorite / selection-list overlays (dashboard View menu).
+   */
+  async getCollectionFavoriteOverlayPhotoIds(collectionId) {
+    if (!collectionId) {
+      return { favoritedPhotoIds: [], selectionListPhotoIds: [] };
+    }
+
+    try {
+      const { data: lists, error: listsError } = await supabase
+        .from('favorite_lists')
+        .select('id, submitted_at')
+        .eq('collection_id', collectionId);
+
+      if (listsError) throw listsError;
+      if (!lists?.length) {
+        return { favoritedPhotoIds: [], selectionListPhotoIds: [] };
+      }
+
+      const listIds = lists.map((list) => list.id);
+      const submittedListIds = new Set(
+        lists.filter((list) => list.submitted_at).map((list) => list.id)
+      );
+
+      const { data: items, error: itemsError } = await supabase
+        .from('favorite_items')
+        .select('photo_id, list_id')
+        .in('list_id', listIds);
+
+      if (itemsError) throw itemsError;
+
+      const favorited = new Set();
+      const selection = new Set();
+      for (const item of items || []) {
+        if (!item?.photo_id) continue;
+        favorited.add(item.photo_id);
+        if (submittedListIds.has(item.list_id)) {
+          selection.add(item.photo_id);
+        }
+      }
+
+      return {
+        favoritedPhotoIds: [...favorited],
+        selectionListPhotoIds: [...selection],
+      };
+    } catch (error) {
+      console.warn('getCollectionFavoriteOverlayPhotoIds failed:', error);
+      return { favoritedPhotoIds: [], selectionListPhotoIds: [] };
     }
   },
 
@@ -2920,11 +3349,21 @@ export const galleryService = {
   async getEmailRegistrationActivity(collectionId) {
     if (!collectionId) return [];
     try {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('client_sessions')
-        .select('id, visitor_email, created_at, access_level, download_count')
+        .select('id, visitor_email, visitor_name, visitor_phone, created_at, access_level, download_count')
         .eq('collection_id', collectionId)
         .order('created_at', { ascending: false });
+
+      if (error && isMissingDbColumnError(error, 'visitor_')) {
+        const fallback = await supabase
+          .from('client_sessions')
+          .select('id, visitor_email, created_at, access_level, download_count')
+          .eq('collection_id', collectionId)
+          .order('created_at', { ascending: false });
+        data = fallback.data;
+        error = fallback.error;
+      }
 
       if (error) {
         console.error('getEmailRegistrationActivity error:', error);
@@ -2951,6 +3390,8 @@ export const galleryService = {
         .map((row) => ({
           id: row.id,
           email: row.visitor_email,
+          name: row.visitor_name || null,
+          phone: row.visitor_phone || null,
           date: row.created_at,
           accessLevel: row.access_level || 'guest',
           downloadCount: Number(row.download_count) || 0,
@@ -2965,6 +3406,43 @@ export const galleryService = {
   /**
    * Get aggregate counts for different activity types (for Expiry Reminder modal)
    */
+  async getGalleryOpenActivity(collectionId) {
+    try {
+      const { data, error } = await supabase
+        .from('activity_log')
+        .select('id, visitor_email, created_at, metadata')
+        .eq('collection_id', collectionId)
+        .eq('event_type', 'gallery_view')
+        .order('created_at', { ascending: false })
+        .limit(200);
+
+      if (error) throw error;
+
+      const visitCounts = new Map();
+      const chronological = [...(data || [])].sort(
+        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      );
+      return chronological
+        .map((row) => {
+          const email = row.visitor_email || 'Unknown visitor';
+          const key = String(email).toLowerCase();
+          const visitCount = (visitCounts.get(key) || 0) + 1;
+          visitCounts.set(key, visitCount);
+          return {
+            id: row.id,
+            email,
+            date: row.created_at,
+            visitCount,
+            source: 'gallery_view',
+          };
+        })
+        .reverse();
+    } catch (err) {
+      console.error('Error fetching gallery open activity:', err);
+      return [];
+    }
+  },
+
   async getActivityCounts(collectionId) {
     if (!collectionId) return { contacts: 0, downloaded: 0, registered: 0, favorited: 0, purchased: 0 };
 
@@ -3037,11 +3515,13 @@ export const galleryService = {
    * Fetch all expiry reminders for a collection
    */
   async getCollectionReminders(collectionId) {
-    const { data, error } = await supabase
-      .from('delivery_reminders')
-      .select('*')
-      .eq('collection_id', collectionId)
-      .order('created_at', { ascending: true });
+    const { data, error } = await reminderQuery((table) =>
+      supabase
+        .from(table)
+        .select('*')
+        .eq('collection_id', collectionId)
+        .order('created_at', { ascending: true })
+    );
 
     if (error) throw error;
     return data ?? [];
@@ -3051,11 +3531,11 @@ export const galleryService = {
    * Create a new expiry reminder
    */
   async createCollectionReminder(reminderData) {
-    const { data, error } = await supabase
-      .from('delivery_reminders')
-      .insert([reminderData])
-      .select()
-      .single();
+    const payload = sanitizeReminderPayload(reminderData);
+    const { data, error } = await reminderMutate(
+      (table, row) => supabase.from(table).insert([row]).select().single(),
+      payload,
+    );
 
     if (error) throw error;
     return data;
@@ -3065,12 +3545,14 @@ export const galleryService = {
    * Update an existing expiry reminder
    */
   async updateCollectionReminder(id, updateData) {
-    const { data, error } = await supabase
-      .from('delivery_reminders')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single();
+    const payload = { ...updateData };
+    if ('activity_lists' in payload && !Array.isArray(payload.activity_lists)) {
+      payload.activity_lists = [];
+    }
+    const { data, error } = await reminderMutate(
+      (table, row) => supabase.from(table).update(row).eq('id', id).select().single(),
+      payload,
+    );
 
     if (error) throw error;
     return data;
@@ -3080,12 +3562,29 @@ export const galleryService = {
    * Delete an expiry reminder
    */
   async deleteCollectionReminder(id) {
-    const { error } = await supabase
-      .from('delivery_reminders')
-      .delete()
-      .eq('id', id);
+    const { error } = await reminderQuery((table) =>
+      supabase.from(table).delete().eq('id', id)
+    );
 
     if (error) throw error;
+  },
+
+  /**
+   * Create a default reminder if this delivery has none yet.
+   */
+  async ensureCollectionReminder(collectionId, patch = {}) {
+    const existing = await this.getCollectionReminders(collectionId);
+    if (existing[0]) {
+      if (patch && Object.keys(patch).length) {
+        return this.updateCollectionReminder(existing[0].id, patch);
+      }
+      return existing[0];
+    }
+    return this.createCollectionReminder({
+      collection_id: collectionId,
+      ...DEFAULT_REMINDER,
+      ...patch,
+    });
   },
 
   /**
@@ -3098,6 +3597,43 @@ export const galleryService = {
         recipientEmail,
         senderEmail,
         personalMessage,
+      },
+    });
+
+    if (error) {
+      throw new Error(error.message || 'Could not send email');
+    }
+    if (data?.error) {
+      throw new Error(data.error);
+    }
+    return data;
+  },
+
+  /**
+   * Send a selection-list invite email to a client (photographer dashboard).
+   */
+  async sendSelectionListEmail({ collectionSlug, recipientEmail, subject, message, chooseUrl, siteOrigin }) {
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
+
+    if (sessionError || !session?.access_token) {
+      throw new Error('You must be signed in to send emails.');
+    }
+
+    const { data, error } = await supabase.functions.invoke('send-selection-email', {
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: {
+        collectionSlug,
+        recipientEmail,
+        subject,
+        message,
+        chooseUrl,
+        siteOrigin,
+        accessToken: session.access_token,
       },
     });
 

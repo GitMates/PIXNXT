@@ -2,284 +2,416 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
-import clientGalleryGif from '../assets/icons/photograph_17904525.gif';
-import smartAlbumsGif from '../assets/icons/folder_15944871.gif';
-import balancePng from '../assets/icons/client gallery.png';
-import helpPng from '../assets/icons/help.png';
-import notificationPng from '../assets/icons/notification.png';
-import dashboardHelpPng from '../assets/icons/dashboard help.png';
-import heartPng from '../assets/icons/heart.png';
-import recentCollectionsGif from '../assets/icons/recent collections.gif';
-import recentOrdersGif from '../assets/icons/recent orders.gif';
-import notificationGif from '../assets/icons/notification.gif';
-import referAFriendGif from '../assets/icons/refer a friend.gif';
+import { loadStudioDashboard } from '../services/studioDashboard.service';
+import { userStorageService } from '../services/userStorage.service';
+import { getThemeMode, setThemeMode, THEME_CHANGE_EVENT } from '../lib/appearanceTheme';
+import { navigateToAccount } from '../lib/accountBackNav';
+import AlbumListCoverThumb from '../components/smart-albums/AlbumListCoverThumb';
+import DashboardCommandSearch from '../components/dashboard/DashboardCommandSearch';
+import { coverImageCssStyle } from '../lib/focalPoint';
 import './Dashboard.css';
 
-/* ===== SVG Icon Components ===== */
-// ... (icons remain the same)
+const STUDIO_STATS = [
+  { label: 'OWED TO YOU', value: '₹1,45,000', sub: '2 invoices · oldest 21 days' },
+  { label: 'BOOKED THIS MONTH', value: '₹6,80,000', sub: '₹2,15,000 received' },
+  { label: 'LIVE DELIVERIES', value: '24', sub: '18 galleries · 6 albums' },
+  { label: 'SHOOTS THIS MONTH', value: '9', sub: 'Across 5 projects' },
+];
 
-/* ===== SVG Icon Components ===== */
-const GridIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" />
-    <rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
-  </svg>
-);
-
-const ChevronDown = () => (
-  <svg className="chevron-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="6 9 12 15 18 9" />
-  </svg>
-);
-
-const HelpIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" />
-  </svg>
-);
-
-const BellIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" />
-  </svg>
-);
-
-const UserIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
-  </svg>
-);
-
-const GiftIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="20 12 20 22 4 22 4 12" /><rect x="2" y="7" width="20" height="5" />
-    <line x1="12" y1="22" x2="12" y2="7" /><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" />
-    <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" />
-  </svg>
-);
-
-const CreditCardIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="1" y="4" width="22" height="16" rx="2" ry="2" /><line x1="1" y1="10" x2="23" y2="10" />
-  </svg>
-);
-
-const SettingsIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="3" />
-    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-  </svg>
-);
-
-const LogoutIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" />
-  </svg>
-);
-
-const LinkIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-  </svg>
-);
-
-const HeartIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-  </svg>
-);
-
-const LifeBuoyIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="4" />
-    <line x1="4.93" y1="4.93" x2="9.17" y2="9.17" /><line x1="14.83" y1="14.83" x2="19.07" y2="19.07" />
-    <line x1="14.83" y1="9.17" x2="19.07" y2="4.93" /><line x1="4.93" y1="19.07" x2="9.17" y2="14.83" />
-  </svg>
-);
-
-const UsersIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
-    <path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
-  </svg>
-);
-
-/* ===== Product Icon SVGs ===== */
-const GalleryIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" />
-    <polyline points="21 15 16 10 5 21" />
-  </svg>
-);
-
-const GlobeIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" />
-    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-  </svg>
-);
-
-const ShoppingBagIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" /><line x1="3" y1="6" x2="21" y2="6" />
-    <path d="M16 10a4 4 0 0 1-8 0" />
-  </svg>
-);
-
-const BriefcaseIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="2" y="7" width="20" height="14" rx="2" ry="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
-  </svg>
-);
-
-const SmartphoneIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="5" y="2" width="14" height="20" rx="2" ry="2" /><line x1="12" y1="18" x2="12.01" y2="18" />
-  </svg>
-);
-
-const AlbumIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-    <line x1="8" y1="6" x2="16" y2="6" />
-    <line x1="8" y1="10" x2="14" y2="10" />
-  </svg>
-);
-
-const FolderIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-  </svg>
-);
-
-const PackageIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <line x1="16.5" y1="9.4" x2="7.5" y2="4.21" />
-    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-    <polyline points="3.27 6.96 12 12.01 20.73 6.96" /><line x1="12" y1="22.08" x2="12" y2="12" />
-  </svg>
-);
-
-const ScanFaceIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M4 8V4h4" /><path d="M20 8V4h-4" /><path d="M4 16v4h4" /><path d="M20 16v4h-4" />
-    <circle cx="9" cy="10" r="1.5" /><circle cx="15" cy="10" r="1.5" />
-    <path d="M9.5 15.5c.83.83 1.94 1.25 3 1.25s2.17-.42 3-1.25" />
-  </svg>
-);
-
-const products = [
+const NEEDS_YOU = [
   {
-    name: 'Client Gallery',
-    color: 'teal',
-    icon: <img src={clientGalleryGif} alt="Client Gallery" className="dash-product-image-gif" loading="lazy" decoding="async" />,
-    route: '/client-gallery',
-    links: [
-      { label: 'Manage Deliveries', path: '/client-gallery' },
-      { label: 'Create Delivery', path: '/deliveries/create' },
-      { label: 'View Showcase', path: '/showcase' },
-      { label: 'Settings', path: '/settings' },
+    group: 'OWED A REPLY',
+    items: [
+      {
+        channel: 'PORTAL',
+        title: 'Meera & Rohan',
+        sub: 'Proposal opened · no reply',
+        status: 'Waiting 2 days',
+        tone: 'warn',
+        action: 'Reply on WhatsApp →',
+        route: '/portal',
+      },
+      {
+        channel: 'GUEST DELIVERY',
+        title: 'Ananya Sangeet',
+        sub: '28 faces need review',
+        status: 'Waiting 1 day',
+        tone: 'warn',
+        action: 'Review matches →',
+        route: '/guest-delivery',
+      },
     ],
   },
   {
-    name: 'Album Proofer',
-    color: 'purple',
-    icon: <img src={smartAlbumsGif} alt="Album Proofer" className="dash-product-image-gif" loading="lazy" decoding="async" />,
-    route: '/album-proofer',
-    links: [
-      { label: 'Manage Albums', path: '/album-proofer' },
-      { label: 'Create Album', path: '/album-proofer/create' },
+    group: 'MONEY',
+    items: [
+      {
+        channel: 'INVOICE',
+        title: 'INV-2041 · Priya & Karthik',
+        sub: 'Balance ₹45,000',
+        status: '6 days past due',
+        tone: 'warn',
+        action: 'Send UPI reminder →',
+        route: '/portal',
+      },
     ],
   },
   {
-    name: 'Pixnxt Portal',
-    color: 'blue',
-    icon: <BriefcaseIcon />,
-    route: '/portal',
-    links: [
-      { label: 'Pipeline / Leads', path: '/portal' },
-      { label: 'Studio Calendar', path: '/portal' },
-      { label: 'Settings', path: '/portal' },
-    ],
-  },
-  {
-    name: 'Mobile Gallery',
-    color: 'yellow',
-    icon: <SmartphoneIcon />,
-    route: '/mobile-gallery',
-    links: [
-      { label: 'Manage Apps', path: '/mobile-gallery' },
-      { label: 'Create App', path: '/mobile-gallery?create=1' },
-      { label: 'Settings', path: '/mobile-gallery/settings' },
-    ],
-  },
-  {
-    name: 'Guest Delivery',
-    color: 'orange',
-    icon: <ScanFaceIcon />,
-    route: '/guest-delivery',
-    links: [
-      { label: 'Manage Events', path: '/guest-delivery' },
-      { label: 'Create Event', path: '/guest-delivery?create=1' },
-    ],
-  },
-  {
-    name: 'Store',
-    color: 'red',
-    icon: <ShoppingBagIcon />,
-    route: '/store/orders',
-    links: [
-      { label: 'View Orders', path: '/store/orders' },
-      { label: 'Settings', path: '/store/orders?tab=settings' },
+    group: 'ON YOUR DESK',
+    items: [
+      {
+        channel: 'ALBUM',
+        title: 'Priya & Karthik — Album v2',
+        sub: 'Client left 4 comments',
+        status: 'Waiting 9 days',
+        tone: 'warn',
+        action: 'Open album →',
+        route: '/album-proofer',
+      },
     ],
   },
 ];
 
-/* ===== Dashboard Component ===== */
+const THIS_WEEK = [
+  {
+    day: 'WED',
+    date: '13',
+    title: 'Nithya & Arun',
+    detail: 'Sangeet · 1 of 3 · 4:30 PM · Chennai',
+    status: '3 of 5 ready',
+    tone: 'warn',
+    progress: 3,
+    total: 5,
+  },
+  {
+    day: 'FRI',
+    date: '15',
+    title: 'Meera & Rohan',
+    detail: 'Engagement · 1 of 1 · 10:00 AM · Coimbatore',
+    status: 'Ready',
+    tone: 'ok',
+    progress: 4,
+    total: 4,
+  },
+  {
+    day: 'SAT',
+    date: '16',
+    title: 'Studio day',
+    detail: 'Portraits · 2 slots · 11 AM & 3 PM',
+    status: '1 of 2 ready',
+    tone: 'warn',
+    progress: 1,
+    total: 2,
+  },
+];
+
+const NEW_MENU = [
+  {
+    label: 'Delivery',
+    description: 'A set of photographs with a link',
+    icon: 'delivery',
+    path: '/deliveries/create',
+  },
+  {
+    label: 'Album',
+    description: 'Spreads for the client to proof',
+    icon: 'album',
+    path: '/album-proofer/create',
+  },
+  {
+    label: 'Project',
+    description: 'A wedding or shoot, with its days',
+    icon: 'project',
+    path: '/portal?newProject=1',
+  },
+  {
+    label: 'Enquiry',
+    description: 'Log a lead — about fifteen seconds',
+    icon: 'enquiry',
+    path: '/portal?newProject=1',
+  },
+  {
+    label: 'Print order',
+    description: 'On behalf of a client',
+    icon: 'print',
+    path: '/store/orders',
+  },
+  {
+    isDivider: true,
+  },
+  {
+    label: 'Invoice',
+    description: 'Standalone, outside a project',
+    icon: 'invoice',
+    path: '/portal',
+  },
+];
+
+const getMenuIcon = (iconName) => {
+  const strokeWidth = 1.75;
+  const common = {
+    width: 18,
+    height: 18,
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth,
+    strokeLinecap: 'round',
+    strokeLinejoin: 'round',
+    'aria-hidden': true,
+  };
+  switch (iconName) {
+    case 'delivery':
+      return (
+        <svg {...common}>
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <circle cx="8.5" cy="8.5" r="1.5" />
+          <path d="M21 15l-5-5L5 21" />
+        </svg>
+      );
+    case 'album':
+      return (
+        <svg {...common}>
+          <rect x="4" y="3" width="7" height="18" rx="1.5" />
+          <rect x="13" y="3" width="7" height="18" rx="1.5" />
+        </svg>
+      );
+    case 'project':
+      return (
+        <svg {...common}>
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <path d="M3 9h18" />
+          <path d="M9 21V9" />
+        </svg>
+      );
+    case 'enquiry':
+      return (
+        <svg {...common}>
+          <rect x="2" y="4" width="20" height="16" rx="2" />
+          <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+        </svg>
+      );
+    case 'print':
+      return (
+        <svg {...common}>
+          <polyline points="6 9 6 2 18 2 18 9" />
+          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+          <rect x="6" y="14" width="12" height="8" />
+        </svg>
+      );
+    case 'invoice':
+      return (
+        <svg {...common} strokeWidth={2}>
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
+      );
+    default:
+      return null;
+  }
+};
+
+function ModuleIcon({ type }) {
+  const common = {
+    width: 18,
+    height: 18,
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: '1.7',
+    strokeLinecap: 'round',
+    strokeLinejoin: 'round',
+    'aria-hidden': true,
+  };
+  if (type === 'gallery') {
+    return (
+      <svg {...common}>
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <circle cx="8.5" cy="8.5" r="1.5" />
+        <path d="M21 15l-5-5L5 21" />
+      </svg>
+    );
+  }
+  if (type === 'album') {
+    return (
+      <svg {...common}>
+        <rect x="4" y="3" width="7" height="18" rx="1.5" />
+        <rect x="13" y="3" width="7" height="18" rx="1.5" />
+      </svg>
+    );
+  }
+  if (type === 'portal') {
+    return (
+      <svg {...common}>
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <path d="M3 9h18" />
+        <path d="M9 21V9" />
+      </svg>
+    );
+  }
+  if (type === 'guest') {
+    return (
+      <svg {...common}>
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <line x1="19" y1="8" x2="19" y2="14" />
+        <line x1="22" y1="11" x2="16" y2="11" />
+      </svg>
+    );
+  }
+  if (type === 'mobile') {
+    return (
+      <svg {...common}>
+        <rect x="7" y="2" width="10" height="20" rx="2" />
+        <circle cx="12" cy="18" r="1" fill="currentColor" stroke="none" />
+      </svg>
+    );
+  }
+  return (
+    <svg {...common}>
+      <polyline points="6 9 6 2 18 2 18 9" />
+      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+      <rect x="6" y="14" width="12" height="8" />
+    </svg>
+  );
+}
+
+function firstNameFrom(profile, user) {
+  const raw =
+    profile?.display_name ||
+    user?.user_metadata?.display_name ||
+    user?.user_metadata?.full_name ||
+    user?.email?.split('@')[0] ||
+    'there';
+  return String(raw).trim().split(/\s+/)[0];
+}
+
+function initialsFrom(profile, user) {
+  const name = profile?.display_name || user?.user_metadata?.full_name || '';
+  if (name.trim()) {
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+  return (user?.email?.[0] || 'U').toUpperCase();
+}
+
+function studioHost(profile) {
+  const slug = (profile?.showcase_slug || profile?.display_name || 'studio')
+    .toString()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '')
+    .slice(0, 40);
+  return `${slug || 'studio'}.pixnxt.in`;
+}
+
+function greetingForNow() {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
+function formatTodayLine() {
+  return new Date().toLocaleDateString('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+}
+
+function storageLimitBytes(profile) {
+  if (profile?.storage_limit_bytes) return profile.storage_limit_bytes;
+  const tier = String(profile?.plan || '').toLowerCase();
+  if (tier === 'pro') return 100 * 1024 * 1024 * 1024;
+  if (tier === 'premium') return 500 * 1024 * 1024 * 1024;
+  if (tier === 'free') return 5 * 1024 * 1024 * 1024;
+  return 10 * 1024 * 1024 * 1024;
+}
+
+function formatStorageAmount(bytes) {
+  if (!bytes || bytes <= 0) return '0 MB';
+  const tb = 1024 * 1024 * 1024 * 1024;
+  const gb = 1024 * 1024 * 1024;
+  if (bytes >= tb) {
+    const n = bytes / tb;
+    return `${n >= 10 ? n.toFixed(0) : n.toFixed(2).replace(/\.?0+$/, '')} TB`;
+  }
+  if (bytes >= gb) {
+    const n = bytes / gb;
+    return `${n >= 10 ? n.toFixed(0) : n.toFixed(n < 1 ? 1 : 0)} GB`;
+  }
+  return `${(bytes / (1024 * 1024)).toFixed(0)} MB`;
+}
+
 const Dashboard = () => {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
-  const [collections, setCollections] = useState([]);
+  const [modules, setModules] = useState([]);
+  const [recentWork, setRecentWork] = useState([]);
   const [loading, setLoading] = useState(true);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [newOpen, setNewOpen] = useState(false);
+  const [appearance, setAppearance] = useState(() => getThemeMode());
+  const [realStorageBytes, setRealStorageBytes] = useState(null);
   const profileRef = useRef(null);
-  const navigate = useNavigate();
+  const newRef = useRef(null);
 
-  // Load dashboard data
+  const handleAppearanceChange = (mode) => {
+    setAppearance(setThemeMode(mode));
+  };
+
   useEffect(() => {
-    const loadDashboardData = async () => {
+    const sync = () => setAppearance(getThemeMode());
+    window.addEventListener(THEME_CHANGE_EVENT, sync);
+    return () => window.removeEventListener(THEME_CHANGE_EVENT, sync);
+  }, []);
+
+  useEffect(() => {
+    const load = async () => {
       if (!user) return;
-      
       try {
         setLoading(true);
-        const [profileData, collectionsData] = await Promise.all([
+        const [profileData, dash] = await Promise.all([
           galleryService.getPhotographerProfile(user.id),
-          galleryService.getCollections(user.id)
+          loadStudioDashboard(user.id),
         ]);
-        
         setProfile(profileData);
-        setCollections(collectionsData);
-      } catch (error) {
-        console.error('Error loading dashboard data:', error);
+        setModules(dash.modules || []);
+        setRecentWork(dash.recentWork || []);
+      } catch (e) {
+        console.error('Error loading dashboard:', e);
       } finally {
         setLoading(false);
       }
     };
-
-    loadDashboardData();
+    load();
   }, [user]);
 
-  // Close dropdown on outside click
   useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (profileRef.current && !profileRef.current.contains(e.target)) {
-        setProfileOpen(false);
-      }
+    if (!user?.id) return;
+    let cancelled = false;
+    userStorageService
+      .calculateUserStorageBytes(user, profile)
+      .then((bytes) => {
+        if (!cancelled && typeof bytes === 'number' && bytes >= 0) {
+          setRealStorageBytes(bytes);
+        }
+      })
+      .catch((err) => console.error('Error calculating real storage:', err));
+    return () => {
+      cancelled = true;
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [user?.id]);
+
+  useEffect(() => {
+    const onDoc = (e) => {
+      if (profileRef.current && !profileRef.current.contains(e.target)) setProfileOpen(false);
+      if (newRef.current && !newRef.current.contains(e.target)) setNewOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
   }, []);
 
   const handleLogout = async () => {
@@ -288,211 +420,378 @@ const Dashboard = () => {
     navigate('/');
   };
 
+  const usedBytes = realStorageBytes ?? profile?.storage_used_bytes ?? 0;
+  const maxBytes = storageLimitBytes(profile);
+  const storagePct = Math.min(100, maxBytes > 0 ? (usedBytes / maxBytes) * 100 : 0);
+  const storageUsedLabel = formatStorageAmount(usedBytes);
+  const storageTotalLabel = `of ${formatStorageAmount(maxBytes)}`;
+
   if (loading && !profile) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-[#fafbfc]">
-        <div className="w-10 h-10 border-4 border-[#8e8e93] border-t-transparent rounded-full animate-spin"></div>
+      <div className="sd-loading">
+        <div className="sd-spinner" />
       </div>
     );
   }
 
+  const firstName = firstNameFrom(profile, user);
+  const initials = initialsFrom(profile, user);
+  const studioName = profile?.display_name || 'Your studio';
+  const host = studioHost(profile);
+  const mark = (studioName.trim()[0] || 'S').toUpperCase();
+
+  const goMenu = (path) => {
+    setProfileOpen(false);
+    if (String(path).startsWith('/account')) {
+      navigateToAccount(navigate, path, '/dashboard');
+    } else {
+      navigate(path);
+    }
+  };
+
   return (
-    <div className="dashboard-page">
-      {/* ===== Top Navbar ===== */}
-      <nav className="dash-navbar">
-        <div className="dash-navbar-left">
-          <Link to="/" className="dash-logo">PIXNXT</Link>
+    <div className="sd-page">
+      <header className="sd-topbar">
+        <div className="sd-brand">
+          <span className="sd-brand-mark" aria-hidden>
+            {mark}
+          </span>
+          <div className="sd-brand-text">
+            <span className="sd-brand-name">{studioName}</span>
+            <span className="sd-brand-host">{host}</span>
+          </div>
         </div>
 
-        <div className="dash-navbar-right">
-          <button className="dash-nav-icon" title="Help">
-            <img src={helpPng} alt="Help" className="dash-nav-icon-img" />
-          </button>
-          <button className="dash-nav-icon" title="Notifications">
-            <img src={notificationPng} alt="Notifications" className="dash-nav-icon-img" />
+        <DashboardCommandSearch />
+
+        <div className="sd-topbar-right">
+          <button type="button" className="sd-icon-btn" title="Notifications" aria-label="Notifications">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+            </svg>
+            <span className="sd-icon-btn-dot" aria-hidden />
           </button>
 
-          <div className="dash-profile-wrapper" ref={profileRef}>
+          <div className="sd-profile-wrap" ref={profileRef}>
             <button
-              className="dash-profile-btn"
-              onClick={() => setProfileOpen(!profileOpen)}
+              type="button"
+              className="sd-avatar"
+              onClick={() => setProfileOpen((v) => !v)}
+              aria-expanded={profileOpen}
               title="Profile"
             >
-              {profile?.display_name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
+              {initials}
             </button>
-
             {profileOpen && (
-              <div className="dash-profile-dropdown">
-                <div className="dash-dropdown-header">
-                  <div className="dash-dropdown-avatar">
-                    {profile?.display_name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
+              <div className="sd-menu" role="menu">
+                <div className="sd-menu-section">
+                  <div className="sd-menu-overline">STORAGE</div>
+                  <div className="sd-menu-storage">
+                    <span className="sd-menu-storage-used">{storageUsedLabel}</span>
+                    <span className="sd-menu-storage-total">{storageTotalLabel}</span>
                   </div>
-                  <div className="dash-dropdown-user-info">
-                    <h4>{profile?.display_name || 'Photographer'}</h4>
-                    <p>{user?.email || 'No email'}</p>
+                  <div className="sd-menu-storage-bar" aria-hidden>
+                    <span className="sd-menu-storage-fill" style={{ width: `${storagePct}%` }} />
                   </div>
                 </div>
-                <div className="dash-dropdown-items">
-                  <button className="dash-dropdown-item">
-                    <GiftIcon /> Refer a studio · ₹1,500
+
+                <div className="sd-menu-divider" />
+
+                <div className="sd-menu-section">
+                  <div className="sd-menu-overline">APPEARANCE</div>
+                  <div className="sd-appearance" role="group" aria-label="Appearance">
+                    {['light', 'auto', 'dark'].map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        className={`sd-appearance-btn${appearance === mode ? ' is-active' : ''}`}
+                        aria-pressed={appearance === mode}
+                        onClick={() => handleAppearanceChange(mode)}
+                      >
+                        {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="sd-menu-divider" />
+
+                <div className="sd-menu-section sd-menu-section--links">
+                  <button type="button" className="sd-menu-item" role="menuitem" onClick={() => goMenu('/account/studio-identity')}>
+                    Studio profile
                   </button>
-                  <div className="dash-dropdown-divider" />
-                  <button className="dash-dropdown-item">
-                    <UserIcon /> Profile
+                  <button type="button" className="sd-menu-item" role="menuitem" onClick={() => goMenu('/client-gallery')}>
+                    Library
                   </button>
-                  <button className="dash-dropdown-item">
-                    <CreditCardIcon /> Billing
+                  <button type="button" className="sd-menu-item" role="menuitem" onClick={() => goMenu('/settings')}>
+                    Settings
                   </button>
-                  <button className="dash-dropdown-item">
-                    <SettingsIcon /> Advanced Settings
+                </div>
+
+                <div className="sd-menu-divider" />
+
+                <div className="sd-menu-section sd-menu-section--links">
+                  <button type="button" className="sd-menu-item" role="menuitem" onClick={() => goMenu('/account/account')}>
+                    Your account
                   </button>
-                  <div className="dash-dropdown-divider" />
-                  <button className="dash-dropdown-item">
-                    <UserIcon /> Account
-                  </button>
-                  <button className="dash-dropdown-item" onClick={handleLogout}>
-                    <LogoutIcon /> Logout
+                  <button type="button" className="sd-menu-item" role="menuitem" onClick={handleLogout}>
+                    Sign out
                   </button>
                 </div>
               </div>
             )}
           </div>
         </div>
-      </nav>
+      </header>
 
-      {/* ===== Main Content ===== */}
-      <main className="dash-main">
-        <div className="dash-content">
-          <h1 className="dash-title">Dashboard</h1>
+      <main className="sd-main">
+        <section className="sd-hero">
+          <div className="sd-hero-copy">
+            <h1 className="sd-greeting">
+              {greetingForNow()}, {firstName}.
+            </h1>
+            <p className="sd-status">
+              {formatTodayLine()}. <strong>Two clients are waiting on a reply</strong>, and one invoice is
+              six days past due. Everything else is moving.
+            </p>
+          </div>
 
-          {/* Products */}
-          <p className="dash-section-label">PRODUCTS</p>
-          <div className="dash-products-grid">
-            {products.map((product) => (
-              <div
-                className={`dash-product-card ${product.route ? 'clickable' : ''}`}
-                key={product.name}
-                onClick={() => product.route && navigate(product.route)}
-              >
-                <div className={`dash-product-icon ${product.color}`}>
-                  {product.icon}
-                </div>
-                <p className="dash-product-name">{product.name}</p>
-                <div className="dash-product-divider" />
-                <ul className="dash-product-links">
-                  {product.links.map((link) => {
-                    const label = typeof link === 'string' ? link : link.label;
-                    const path = typeof link === 'string' ? product.route : link.path;
-                    return (
-                      <li key={label}>
-                        <a
-                          href="#"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            if (path) navigate(path);
-                          }}
-                        >
-                          {label}
-                        </a>
-                      </li>
-                    );
-                  })}
-                </ul>
+          <div className="sd-new-wrap" ref={newRef}>
+            <button
+              type="button"
+              className="sd-new-btn"
+              onClick={() => setNewOpen((v) => !v)}
+              aria-expanded={newOpen}
+            >
+              New
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+            {newOpen && (
+              <div className="sd-new-menu">
+                <div className="sd-new-menu-header">CREATE</div>
+                {NEW_MENU.map((item, idx) => {
+                  if (item.isDivider) {
+                    return <div key={`div-${idx}`} className="sd-new-menu-divider" />;
+                  }
+                  return (
+                    <button
+                      key={item.label}
+                      type="button"
+                      className="sd-new-menu-item"
+                      onClick={() => {
+                        setNewOpen(false);
+                        navigate(item.path);
+                      }}
+                    >
+                      <span className="sd-new-menu-icon">
+                        {getMenuIcon(item.icon)}
+                      </span>
+                      <span className="sd-new-menu-text">
+                        <span className="sd-new-menu-label">{item.label}</span>
+                        <span className="sd-new-menu-desc">{item.description}</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section className="sd-modules" aria-label="Products">
+          {modules.map((mod) => (
+            <button
+              key={mod.id}
+              type="button"
+              className="sd-module"
+              onClick={() => navigate(mod.route)}
+            >
+              <span className="sd-module-icon">
+                <ModuleIcon type={mod.icon} />
+              </span>
+              <span className="sd-module-copy">
+                <span className="sd-module-title">{mod.title}</span>
+                <span className="sd-module-metric">{mod.metric}</span>
+              </span>
+              <span className={`sd-module-status sd-tone-${mod.tone}`}>
+                <span className="sd-dot" aria-hidden />
+                {mod.status}
+              </span>
+            </button>
+          ))}
+        </section>
+
+        <section className="sd-section">
+          <div className="sd-section-head">
+            <span className="sd-overline">RECENT WORK</span>
+            <Link to="/client-gallery" className="sd-link">
+              All deliveries
+            </Link>
+          </div>
+          {recentWork.length > 0 ? (
+            <div className="sd-recent-grid">
+              {recentWork.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className="sd-recent-card"
+                  onClick={() => navigate(item.route)}
+                >
+                  {item.type === 'album-proofer' && item.album ? (
+                    <span className="sd-recent-thumb sd-recent-thumb--album">
+                      <AlbumListCoverThumb album={item.album} alt={item.title} />
+                    </span>
+                  ) : (
+                    <span
+                      className="sd-recent-thumb"
+                      style={
+                        item.coverUrl
+                          ? coverImageCssStyle(item.coverUrl)
+                          : { background: item.gradient }
+                      }
+                    />
+                  )}
+                  <span className="sd-recent-title">{item.title}</span>
+                  <span className="sd-recent-meta">{item.meta}</span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="sd-recent-empty">
+              <p>No recent work yet. Create a delivery, album, or guest event to see it here.</p>
+              <button type="button" className="sd-new-btn" onClick={() => navigate('/deliveries/create')}>
+                New delivery
+              </button>
+            </div>
+          )}
+        </section>
+
+        <section className="sd-section">
+          <div className="sd-section-head">
+            <span className="sd-overline sd-overline--accent">THE STUDIO</span>
+          </div>
+          <div className="sd-studio">
+            {STUDIO_STATS.map((stat) => (
+              <div key={stat.label} className="sd-studio-cell">
+                <span className="sd-studio-label">{stat.label}</span>
+                <span className="sd-studio-value">{stat.value}</span>
+                <span className="sd-studio-sub">{stat.sub}</span>
               </div>
             ))}
           </div>
+        </section>
 
-          {/* Quick Access */}
-          <p className="dash-section-label">QUICK ACCESS</p>
-          <div className="dash-quick-grid">
-            {/* Recent Deliveries */}
-            <div className="dash-quick-card">
-              <div className="dash-quick-card-header teal-icon">
-                <img src={recentCollectionsGif} alt="Recent Deliveries" /> RECENT DELIVERIES
+        <section className="sd-split">
+          <div className="sd-panel">
+            <div className="sd-panel-head">
+              <div className="sd-panel-title-wrap">
+                <span className="sd-panel-title">NEEDS YOU</span>
+                <span className="sd-badge">4</span>
               </div>
-              <div className="dash-quick-card-body">
-                {collections.length > 0 ? (
-                  <>
-                    <h3>You have {collections.length} active {collections.length === 1 ? 'delivery' : 'deliveries'}</h3>
-                    <p>Keep showcasing your beautiful work to your clients.</p>
-                    <button className="dash-get-started-btn" onClick={() => navigate('/client-gallery')}>
-                      Manage Deliveries
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <h3>Create your first Delivery</h3>
-                    <p>Create your beautiful client gallery in 3 steps</p>
-                    <button className="dash-get-started-btn" onClick={() => navigate('/deliveries/get-started')}>
-                      Get Started
-                    </button>
-                  </>
-                )}
-              </div>
+              <Link to="/portal" className="sd-link">
+                Open Portal
+              </Link>
             </div>
-
-            {/* Recent Orders */}
-            <div className="dash-quick-card">
-              <div className="dash-quick-card-header red-icon">
-                <img src={recentOrdersGif} alt="Recent Orders" /> RECENT ORDERS
-              </div>
-              <div className="dash-quick-card-body">
-                <h3>Start selling prints</h3>
-                <p>Four steps to turn a delivery into an order.</p>
-                <button className="dash-get-started-btn">Get Started</button>
-              </div>
-            </div>
-
-            {/* Notifications */}
-            <div className="dash-quick-card">
-              <div className="dash-quick-card-header dark-icon">
-                <img src={notificationGif} alt="Notifications" /> NOTIFICATIONS
-              </div>
-              <div className="dash-quick-card-body">
-                <h3>Your latest Notifications</h3>
-                <p>All your latest client activity will be shown here</p>
-              </div>
-            </div>
-
-            {/* Refer a Friend */}
-            <div className="dash-quick-card">
-              <div className="dash-quick-card-header dark-icon">
-                <img src={referAFriendGif} alt="Refer a Friend" /> REFER A FRIEND
-              </div>
-              <div className="dash-quick-card-body">
-                <h3>Refer a studio</h3>
-                <p>Both of you get ₹1,500 in credit — once they publish their first delivery.</p>
-                <button className="dash-get-started-btn" onClick={() => navigate('/account/refer')}>
-                  Refer a Friend
-                </button>
+            <div className="sd-needs">
+              {NEEDS_YOU.map((group) => (
+                <div key={group.group} className="sd-needs-group">
+                  <div className="sd-needs-group-label">{group.group}</div>
+                  {group.items.map((item) => (
+                    <div key={item.title} className="sd-needs-row">
+                      <span className="sd-needs-channel">{item.channel}</span>
+                      <div className="sd-needs-main">
+                        <span className="sd-needs-title">{item.title}</span>
+                        <span className="sd-needs-sub">{item.sub}</span>
+                      </div>
+                      <span className={`sd-needs-status sd-tone-${item.tone}`}>
+                        <span className="sd-dot" aria-hidden />
+                        {item.status}
+                      </span>
+                      <button
+                        type="button"
+                        className="sd-needs-action"
+                        onClick={() => navigate(item.route)}
+                      >
+                        {item.action}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ))}
+              <div className="sd-panel-foot">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 7v5l3 2" />
+                </svg>
+                <span>
+                  Three things are waiting on clients. Nothing for you to do on them.{' '}
+                  <Link to="/portal" className="sd-link">
+                    See them
+                  </Link>
+                </span>
               </div>
             </div>
           </div>
 
-          {/* Footer Info */}
-          <div className="dash-footer-info">
-            <div className="dash-footer-block">
-              <div className="dash-footer-block-icon">
-                <img src={dashboardHelpPng} alt="Help Center" />
+          <div className="sd-panel">
+            <div className="sd-panel-head">
+              <div className="sd-panel-title-wrap">
+                <span className="sd-panel-title">THIS WEEK</span>
+                <span className="sd-badge">3</span>
               </div>
-              <h3>We're Here for You</h3>
-              <p>
-                Stuck on something? Search the guides, or message us — we reply in a few hours, IST.
-              </p>
+              <Link to="/portal" className="sd-link">
+                Open calendar
+              </Link>
             </div>
-            <div className="dash-footer-block">
-              <div className="dash-footer-block-icon">
-                <img src={heartPng} alt="Refer a studio" />
+            <div className="sd-week">
+              {THIS_WEEK.map((ev) => (
+                <div key={`${ev.day}-${ev.date}`} className="sd-week-row">
+                  <div className="sd-week-date">
+                    <span className="sd-week-day">{ev.day}</span>
+                    <span className="sd-week-num">{ev.date}</span>
+                  </div>
+                  <div className="sd-week-body">
+                    <div className="sd-week-top">
+                      <span className="sd-week-title">{ev.title}</span>
+                      <span className={`sd-week-status sd-tone-${ev.tone}`}>
+                        <span className="sd-dot" aria-hidden />
+                        {ev.status}
+                      </span>
+                    </div>
+                    <div className="sd-week-bottom">
+                      <span className="sd-week-detail">{ev.detail}</span>
+                      <span className={`sd-week-bars sd-week-bars--${ev.tone}`} aria-hidden>
+                        {Array.from({ length: ev.total }).map((_, i) => (
+                          <span
+                            key={i}
+                            className={`sd-week-bar${i < ev.progress ? ' sd-week-bar--on' : ''}`}
+                          />
+                        ))}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              <div className="sd-panel-foot">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                  <rect x="3" y="4" width="18" height="18" rx="2" />
+                  <line x1="16" y1="2" x2="16" y2="6" />
+                  <line x1="8" y1="2" x2="8" y2="6" />
+                  <line x1="3" y1="10" x2="21" y2="10" />
+                </svg>
+                <span>
+                  The rest of the week is clear.{' '}
+                  <Link to="/portal" className="sd-link">
+                    Open calendar
+                  </Link>
+                </span>
               </div>
-              <h3>Refer a studio</h3>
-              <p>
-                Both of you get ₹1,500 in credit — once they publish their first delivery.{' '}
-                <a href="#">Refer a studio</a>.
-              </p>
             </div>
           </div>
-        </div>
+        </section>
       </main>
     </div>
   );

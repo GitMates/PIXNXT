@@ -168,7 +168,7 @@
 
 /* Top Navigation Bar */
 .cd-topbar {
-    height: 79px;
+    height: 64px;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -351,6 +351,8 @@
     display: flex;
     align-items: center;
     gap: 6px;
+    appearance: none;
+    -webkit-appearance: none;
     background-color: #f2f3f4;
     color: #333;
     padding: 6px 14px;
@@ -362,6 +364,22 @@
     cursor: pointer;
     border: 1px solid transparent;
     transition: all 0.2s;
+    font-family: inherit;
+    text-transform: uppercase;
+}
+
+.cd-status-wrap {
+    position: relative;
+    margin-left: 20px;
+}
+
+.cd-status-wrap .cd-status-badge {
+    margin-left: 0;
+}
+
+.cd-status-badge:disabled {
+    cursor: wait;
+    opacity: 0.7;
 }
 
 .cd-status-badge:hover {
@@ -377,6 +395,54 @@
 .cd-status-badge.published:hover {
     background-color: rgba(139, 223, 221, 0.25);
     border-color: #8BDFDD;
+}
+
+.cd-status-badge--hidden {
+    background-color: #ececec;
+    color: #555;
+    border: 1px solid #ddd;
+}
+
+.cd-status-badge--hidden:hover {
+    background-color: #e4e4e4;
+}
+
+.cd-status-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    min-width: 160px;
+    background: #fff;
+    border: 1px solid #f0f0f0;
+    border-radius: 8px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12);
+    z-index: 8000;
+    padding: 6px;
+    animation: cdFadeIn 0.12s ease;
+}
+
+.cd-status-option {
+    display: block;
+    width: 100%;
+    border: none;
+    background: transparent;
+    text-align: left;
+    padding: 9px 12px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.cd-status-option:hover {
+    background: #f5f5f5;
+}
+
+.cd-status-option.is-active {
+    background: rgba(139, 223, 221, 0.16);
+    color: #111;
 }
 
 .cd-topbar-right {
@@ -968,6 +1034,31 @@
     padding: 32px 40px;
 }
 
+.cd-main-area--photos {
+    background-color: #fbf9f6;
+}
+
+.cd-main-area--design {
+    background-color: #f9f7f2;
+    padding: 0;
+    overflow: hidden;
+}
+
+.cd-main-area--guests {
+    background-color: #f9f7f2;
+    padding: 0;
+}
+
+.cd-main-area--activity {
+    background-color: #f9f7f2;
+    padding: 0;
+}
+
+.cd-main-area--settings {
+    background-color: #faf9f5;
+    padding: 40px 48px 80px;
+}
+
 .cd-main-header {
     display: flex;
     align-items: center;
@@ -1178,7 +1269,7 @@
     display: grid;
     grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: 12px;
-    padding: 4px 24px 32px;
+    padding: 20px 0 32px;
     align-items: start;
     box-sizing: border-box;
     width: 100%;
@@ -1187,7 +1278,7 @@
 .cd-photo-grid--manage.grid-large {
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 14px;
-    padding: 4px 24px 36px;
+    padding: 20px 0 36px;
 }
 
 .cd-photo-grid--dragging .cd-photo-sortable-wrap:not(.cd-photo-sortable-wrap--dragging) {
@@ -1283,8 +1374,8 @@
     max-width: 100%;
     background: var(--cd-manage-cell-bg);
     border: 2px solid transparent;
-    border-radius: 0;
-    overflow: visible;
+    border-radius: 8px;
+    overflow: hidden;
     cursor: pointer;
     position: relative;
     box-sizing: border-box;
@@ -1311,14 +1402,14 @@
 }
 
 .cd-photo-grid--manage .cd-photo-card.selected {
-    border-color: #111111;
+    border-color: #e07030;
     outline: none;
     box-shadow: none;
     z-index: 11;
 }
 
 .cd-photo-grid--manage.cd-photo-grid--filenames .cd-photo-card.selected {
-    border-color: #111111;
+    border-color: #e07030;
     outline: none;
     box-shadow: none;
 }
@@ -1333,6 +1424,46 @@
     align-items: center;
     justify-content: center;
     background: #f2faf8;
+}
+
+.cd-photo-grid--manage .cd-photo-overlay-badge {
+    position: absolute;
+    z-index: 4;
+    max-width: calc(100% - 8px);
+    padding: 3px 7px;
+    border-radius: 999px;
+    background: rgba(26, 26, 26, 0.82);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    pointer-events: none;
+}
+
+.cd-photo-grid--manage .cd-photo-overlay-badge--camera {
+    left: 6px;
+    bottom: 6px;
+}
+
+.cd-photo-grid--manage .cd-photo-overlay-badge--fav {
+    top: 6px;
+    left: 6px;
+    background: rgba(196, 106, 58, 0.92);
+}
+
+.cd-photo-grid--manage .cd-photo-overlay-badge--list {
+    top: 6px;
+    right: 6px;
+    background: rgba(46, 125, 50, 0.92);
+}
+
+.cd-photo-grid--manage .cd-photo-overlay-badge--hidden {
+    left: 6px;
+    bottom: 6px;
+    background: rgba(80, 80, 80, 0.9);
 }
 
 .cd-photo-grid--manage.cd-photo-grid--filenames .cd-photo-thumb-shell {
@@ -1405,7 +1536,7 @@
     display: block;
     overflow: hidden;
     background: var(--cd-manage-cell-bg);
-    border-radius: 0;
+    border-radius: 6px;
 }
 
 .cd-photo-grid--manage .cd-photo-card-inner--contain .smooth-media-wrap {
@@ -1531,7 +1662,7 @@
 
 /* Selected state — full black box on every side (no outer ring for neighbors to cover) */
 .cd-photo-card.selected {
-    outline: 2px solid #111111;
+    outline: 2px solid #e07030;
     outline-offset: -2px;
 }
 
@@ -1539,7 +1670,7 @@
 .cd-photo-grid--manage.cd-photo-grid--filenames .cd-photo-card.selected {
     outline: none;
     outline-offset: 0;
-    border-color: #111111;
+    border-color: #e07030;
     box-shadow: none;
     z-index: 11;
 }
@@ -2059,6 +2190,154 @@
     padding: 32px;
 }
 
+/* Email history (More → View email history) */
+.cd-email-history-help-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px;
+    border: none;
+    background: transparent;
+    color: #888;
+    cursor: pointer;
+    border-radius: 999px;
+}
+
+.cd-email-history-help-btn:hover,
+.cd-email-history-help-btn[aria-expanded="true"] {
+    color: #111;
+    background: #f3f4f6;
+}
+
+.cd-email-history-intro {
+    margin: 0 0 16px;
+    font-size: 13px;
+    color: #666;
+    line-height: 1.5;
+}
+
+.cd-email-history-help {
+    margin: 0 0 18px;
+    padding: 14px 16px;
+    border: 1px solid #eee;
+    border-radius: 8px;
+    background: #fafafa;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.cd-email-history-help-block h4 {
+    margin: 0 0 4px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #111;
+}
+
+.cd-email-history-help-block p {
+    margin: 0;
+    font-size: 13px;
+    color: #555;
+    line-height: 1.5;
+}
+
+.cd-email-history-table-wrap {
+    border: 1px solid #eee;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.cd-email-history-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+.cd-email-history-table thead {
+    background: #f9f9f9;
+    border-bottom: 1px solid #eee;
+}
+
+.cd-email-history-table th {
+    padding: 12px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #555;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.cd-email-history-table td {
+    padding: 12px 16px;
+    font-size: 14px;
+    color: #333;
+    border-top: 1px solid #f0f0f0;
+    vertical-align: middle;
+}
+
+.cd-email-history-empty {
+    padding: 30px !important;
+    text-align: center;
+    color: #888;
+    font-size: 14px;
+}
+
+.cd-email-history-empty--error {
+    color: #b91c1c !important;
+}
+
+.cd-email-status {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    background: #f3f4f6;
+    color: #555;
+}
+
+.cd-email-status--pending,
+.cd-email-status--scheduled {
+    background: #fff7ed;
+    color: #c2410c;
+}
+
+.cd-email-status--sent {
+    background: #ecfdf5;
+    color: #0f766e;
+}
+
+.cd-email-status--rejected {
+    background: #fef2f2;
+    color: #b91c1c;
+}
+
+.cd-email-history-diy {
+    margin-top: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    font-size: 13px;
+    color: #666;
+}
+
+.cd-email-history-link-btn {
+    border: none;
+    background: none;
+    padding: 0;
+    color: #2b78c5;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.cd-email-history-link-btn:hover {
+    text-decoration: underline;
+}
+
 /* Form Styles inside Modals */
 .cd-form-group {
     margin-bottom: 24px;
@@ -2310,40 +2589,24 @@
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
 }
 
-/* Multi-Selection Toolbar */
+/* Multi-Selection Toolbar — spans the main column from the sidebar edge */
 .cd-selection-toolbar {
-    position: fixed;
-    bottom: 28px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(17, 17, 17, 0.92);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    height: 56px;
-    padding: 0 12px 0 16px;
-    border-radius: 999px;
+    position: relative;
+    flex-shrink: 0;
+    width: 100%;
+    min-height: 44px;
+    height: auto;
+    padding: 6px 20px;
+    background: #111111;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    width: min(640px, calc(100vw - 32px));
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(255, 255, 255, 0.08);
-    z-index: 1100;
-    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    animation: cdToolbarSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    gap: 16px;
+    z-index: 90;
     border: none;
+    border-radius: 0;
+    box-shadow: none;
     overflow: visible;
-}
-
-@keyframes cdToolbarSlideUp {
-    from {
-        transform: translate(-50%, 100%);
-        opacity: 0;
-    }
-
-    to {
-        transform: translate(-50%, 0);
-        opacity: 1;
-    }
 }
 
 .cd-selection-left {
@@ -2351,63 +2614,45 @@
     align-items: center;
     gap: 16px;
     height: 100%;
+    flex-shrink: 0;
 }
 
 .cd-selection-count {
     color: #fff;
-    font-size: 15px;
+    font-size: 13px;
     font-weight: 600;
     letter-spacing: 0.01em;
+    white-space: nowrap;
 }
 
 .cd-selection-close {
-    background: none;
-    border: none;
-    color: #fff;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 8px;
-    border-radius: 0;
-    transition: background 0.2s;
-    opacity: 0.8;
-}
-
-.cd-selection-close:hover {
-    background-color: rgba(255, 255, 255, 0.1);
-    opacity: 1;
+    display: none;
 }
 
 .cd-selection-count-wrapper {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 8px 12px;
+    padding: 0;
     cursor: pointer;
     border-radius: 0;
-    transition: background 0.2s;
     position: relative;
     user-select: none;
     color: #fff;
 }
 
 .cd-selection-count-wrapper:hover {
-    background-color: rgba(255, 255, 255, 0.1);
-}
-
-.cd-selection-count {
-    font-size: 15px;
-    font-weight: 600;
-    white-space: nowrap;
+    background-color: transparent;
 }
 
 .cd-selection-actions {
     display: flex;
     align-items: center;
-    gap: 4px;
+    justify-content: flex-end;
+    gap: 6px;
     height: 100%;
     overflow: visible;
+    flex-wrap: wrap;
 }
 
 .cd-selection-move-wrapper {
@@ -2475,18 +2720,24 @@
 }
 
 .cd-sel-action-btn {
-    background: transparent;
+    background: #3a3a3a;
     border: none;
     color: #fff;
     cursor: pointer;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 42px;
-    height: 42px;
-    border-radius: 8px;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    opacity: 0.85;
+    width: auto;
+    height: 28px;
+    padding: 0 11px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    transition: background 0.15s ease;
+    opacity: 1;
     position: relative;
 }
 
@@ -2536,14 +2787,31 @@
 }
 
 .cd-sel-action-btn:hover {
-    background: rgba(255, 255, 255, 0.15);
+    background: #4a4a4a;
     opacity: 1;
-    transform: translateY(-2px);
+    transform: none;
 }
 
 .cd-sel-action-btn svg {
     stroke: #fff;
     stroke-width: 2;
+}
+
+.cd-selection-clear {
+    background: none;
+    border: none;
+    color: #c8c8c8;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    height: 28px;
+    padding: 0 4px 0 6px;
+    white-space: nowrap;
+}
+
+.cd-selection-clear:hover {
+    color: #fff;
 }
 
 /* Tooltips on selection toolbar action buttons only (not inside open menus) */
@@ -2583,8 +2851,8 @@
     z-index: 1300;
 }
 
-.cd-selection-toolbar .cd-sel-action-btn:hover::after,
-.cd-selection-toolbar .cd-sel-action-btn:hover::before {
+.cd-selection-toolbar .cd-sel-action-btn[data-tooltip]:hover::after,
+.cd-selection-toolbar .cd-sel-action-btn[data-tooltip]:hover::before {
     opacity: 1;
     transform: translateX(-50%) translateY(0);
 }
@@ -2601,7 +2869,8 @@
 .cd-selection-menu,
 .cd-selection-more-dropdown {
     position: absolute;
-    bottom: calc(100% + 12px);
+    top: calc(100% + 8px);
+    bottom: auto;
     background-color: #ffffff;
     border-radius: 8px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
@@ -2619,7 +2888,8 @@
 
 .cd-selection-more-dropdown {
     position: absolute;
-    bottom: calc(100% + 12px);
+    top: calc(100% + 8px);
+    bottom: auto;
     right: 0;
     left: auto;
     background-color: #ffffff;
@@ -2629,8 +2899,19 @@
     padding: 8px 0;
     z-index: 1250;
     color: #333;
-    overflow: hidden;
+    overflow-y: auto;
+    overflow-x: hidden;
     text-align: left;
+}
+
+.cd-selection-more-dropdown--portal {
+    position: fixed;
+    top: auto;
+    right: auto;
+    bottom: auto;
+    left: auto;
+    z-index: 6000;
+    max-height: min(70vh, calc(100vh - 24px));
 }
 
 .cd-ctx-item {
@@ -2867,12 +3148,7 @@
 }
 
 .style-left .preview-title {
-    top: 8px;
-    left: 8px;
-    bottom: auto;
-    font-size: 8px;
-    letter-spacing: 0.2em;
-    opacity: 0.9;
+    display: none !important;
 }
 
 .style-left .preview-content::after {
@@ -3710,11 +3986,19 @@
    ============================================================ */
 
 /* Settings view - use grid layout with proper spacing */
-.cd-general-settings-view {
+.cd-general-settings-view:not(.cd-basics) {
     padding: 0 !important;
     max-width: 100% !important;
     background-color: #ffffff !important;
     min-height: 100% !important;
+}
+
+.cd-general-settings-view.cd-basics {
+    padding: 8px 8px 80px !important;
+    max-width: 840px !important;
+    margin: 0 auto !important;
+    background-color: transparent !important;
+    min-height: 0 !important;
 }
 
 /* Settings form - grid layout with consistent gap */
@@ -4143,7 +4427,7 @@
     .cd-photo-context-menu,
     .cd-more-dropdown,
     .cd-share-dropdown,
-    .cd-selection-more-dropdown {
+    .cd-selection-more-dropdown:not(.cd-selection-more-dropdown--portal) {
         z-index: 9999 !important;
         position: absolute !important;
         right: 0 !important;
@@ -4246,12 +4530,14 @@
         border-radius: 8px !important;
     }
 
-    /* --- Task 3: Fix selection toolbar width --- */
+    /* --- Task 3: Selection toolbar stays full-width under the header --- */
     .cd-selection-toolbar {
-        width: calc(100% - 32px) !important;
+        width: 100% !important;
         min-width: 0 !important;
-        padding: 0 12px !important;
-        bottom: 16px !important;
+        padding: 8px 14px !important;
+        bottom: auto !important;
+        left: auto !important;
+        transform: none !important;
         justify-content: space-between !important;
     }
 
@@ -4695,7 +4981,7 @@
     top: auto;
     right: auto;
     left: auto;
-    z-index: 5000;
+    z-index: 6000;
     max-height: min(72vh, calc(100vh - 24px));
 }
 
@@ -4740,6 +5026,22 @@
     width: 17px;
     height: 17px;
     color: #444;
+}
+
+.cd-photo-menu .cd-ctx-text {
+    flex: 1;
+}
+
+.cd-photo-menu .cd-ctx-hotkey {
+    margin-left: auto;
+    font-size: 13px;
+    color: #999;
+    background: #fafafa;
+    padding: 2px 6px;
+    border-radius: 0;
+    border: 1px solid #eee;
+    font-family: 'Roboto', system-ui, sans-serif;
+    text-transform: none;
 }
 
 .cd-photo-menu-filename-hint {
@@ -4805,37 +5107,134 @@
 }
 
 .cd-photo-more-btn {
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
-    background: #ffffff;
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    background: #2c2c2c;
     border: none;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    color: #333;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 0 1px rgba(0, 0, 0, 0.1);
+    color: #fff;
+    box-shadow: none;
+    flex-shrink: 0;
 }
 
 .cd-photo-more-btn:hover {
-    background: #ffffff;
-    transform: scale(1.05);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+    background: #3a3a3a;
+    transform: none;
+    box-shadow: none;
+    color: #fff;
 }
 
-.cd-photo-actions {
+.cd-photo-check {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    z-index: 60;
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    box-sizing: border-box;
+    border-radius: 3px;
+    border: 1.5px solid rgba(255, 255, 255, 0.92);
+    background: rgba(255, 255, 255, 0.18);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.cd-photo-check svg {
+    width: 10px;
+    height: 10px;
+    display: block;
+}
+
+.cd-photo-card:hover .cd-photo-check,
+.cd-photo-card.selected .cd-photo-check,
+.cd-photo-card--menu-open .cd-photo-check {
+    opacity: 1;
+}
+
+.cd-photo-check.is-checked {
+    background: #e07030;
+    border-color: #e07030;
+}
+
+.cd-photo-hover-tools {
     position: absolute;
     top: 8px;
     right: 8px;
-    z-index: 50;
+    left: auto;
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    border-radius: 0;
+    padding: 0;
     opacity: 0;
-    transition: opacity 0.2s;
+    transition: opacity 0.15s ease;
 }
 
-.cd-photo-card:hover .cd-photo-actions {
+.cd-photo-hover-tools--starred {
     opacity: 1;
+}
+
+.cd-photo-hover-tools--starred .cd-photo-more-btn {
+    display: none;
+}
+
+.cd-photo-card:hover .cd-photo-hover-tools--starred .cd-photo-more-btn,
+.cd-photo-card--menu-open .cd-photo-hover-tools--starred .cd-photo-more-btn {
+    display: flex;
+}
+
+.cd-photo-card:hover .cd-photo-hover-tools,
+.cd-photo-card--menu-open .cd-photo-hover-tools,
+.cd-photo-card--starred .cd-photo-hover-tools {
+    opacity: 1;
+}
+
+.cd-photo-card.selected .cd-photo-hover-tools:not(.cd-photo-hover-tools--starred) {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.cd-photo-card.selected:hover .cd-photo-hover-tools,
+.cd-photo-card.selected.cd-photo-card--menu-open .cd-photo-hover-tools,
+.cd-photo-card.selected .cd-photo-hover-tools--starred {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.cd-photo-hover-tools .cd-photo-star {
+    position: static;
+    top: auto;
+    left: auto;
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    background: #2c2c2c;
+    box-shadow: none;
+    opacity: 1;
+}
+
+.cd-photo-hover-tools .cd-photo-star:hover {
+    background: #3a3a3a;
+    transform: none;
+}
+
+.cd-photo-hover-tools .cd-photo-star.active {
+    background: #2c2c2c;
+}
+
+.cd-photo-actions {
+    display: none;
 }
 
 .cd-photo-star {
@@ -5823,6 +6222,13 @@
     border-color: rgba(139, 223, 221, 0.6) !important;
 }
 
+.cd-status-badge--hidden {
+    text-transform: uppercase !important;
+    letter-spacing: 0.8px !important;
+    font-weight: 700 !important;
+    font-family: 'Roboto', system-ui, sans-serif !important;
+}
+
 /* 2. Premium Lift for Share & Add Buttons */
 .cd-share-split-btn {
     border-radius: 4px !important;
@@ -5831,8 +6237,8 @@
 }
 
 .cd-share-split-btn:hover {
-    transform: translateY(-1.5px);
-    box-shadow: 0 6px 20px rgba(139, 223, 221, 0.35) !important;
+    transform: none;
+    box-shadow: none !important;
 }
 
 .cd-share-split-btn:active {
@@ -5948,7 +6354,8 @@
 
 /* 5. Stunning Photo Cards Grid & Selection glow */
 .cd-photo-grid--manage .cd-photo-card {
-    border-radius: 6px !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
     transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.4s ease, box-shadow 0.4s ease !important;
     border: 2px solid transparent !important;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02) !important;
@@ -5963,27 +6370,50 @@
 }
 
 .cd-photo-grid--manage .cd-photo-card.selected {
-    border-color: #111111 !important;
+    border-color: #e07030 !important;
     outline: none !important;
-    /* Border lives inside the card — adjacent cells can no longer hide the left/right edges. */
     box-shadow: none !important;
     z-index: 11 !important;
 }
 
 .cd-photo-grid--manage.cd-photo-grid--filenames .cd-photo-card.selected {
-    border-color: #111111 !important;
+    border-color: #e07030 !important;
     outline: none !important;
     box-shadow: none !important;
 }
 
 .cd-photo-grid--manage .cd-photo-thumb-shell {
-    border-radius: 4px !important;
+    border-radius: 6px !important;
     transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1) !important;
     background-color: #fafbfc !important;
 }
 
 .cd-photo-grid--manage .cd-photo-card:hover .cd-photo-thumb-shell {
     transform: scale(1.04);
+}
+
+.cd-photo-grid--manage .cd-photo-card.selected:hover {
+    transform: none;
+}
+
+.cd-photo-grid--manage .cd-photo-card--menu-open .cd-photo-hover-tools {
+    opacity: 1 !important;
+}
+
+.cd-photo-grid--manage .cd-photo-card.selected .cd-photo-hover-tools:not(.cd-photo-hover-tools--starred) {
+    opacity: 0 !important;
+    pointer-events: none;
+}
+
+.cd-photo-grid--manage .cd-photo-card.selected:hover .cd-photo-hover-tools,
+.cd-photo-grid--manage .cd-photo-card.selected.cd-photo-card--menu-open .cd-photo-hover-tools,
+.cd-photo-grid--manage .cd-photo-card.selected .cd-photo-hover-tools--starred {
+    opacity: 1 !important;
+    pointer-events: auto;
+}
+
+.cd-photo-grid--manage .cd-photo-card.selected:hover .cd-photo-thumb-shell {
+    transform: none !important;
 }
 
 .cd-photo-grid--manage.cd-photo-grid--filenames .cd-photo-filename {
@@ -6128,17 +6558,37 @@
 }
 
 .cd-guests-main {
-    padding: 28px 40px 48px;
+    display: flex;
+    justify-content: center;
+    padding: 36px 48px 64px;
     width: 100%;
     box-sizing: border-box;
+    background: #f9f7f2;
 }
 
-.cd-guests-main .gd-panel {
-    max-width: 100%;
-}
-
-.cd-guests-main .gd-guest-table-wrap {
+.cd-guests-main .gd-guest-board {
     width: 100%;
+    max-width: 760px;
+    margin: 0 auto;
+}
+
+/* More and Share Popup UI Updates */
+.cd-more-dropdown,
+.cd-share-dropdown,
+.cd-preset-flyout,
+.cd-set-dropdown {
+    border-radius: 12px !important;
+    box-shadow: 0 18px 48px rgba(32, 24, 16, 0.16), 0 0 0 1px rgba(32, 24, 16, 0.06) !important;
+    border: none !important;
+    background-color: #ffffff !important;
+}
+
+.cd-more-dropdown > .cd-ctx-item:hover,
+.cd-preset-flyout .cd-ctx-item:hover,
+.cd-ctx-item-trigger:hover,
+.cd-ctx-item--has-flyout.is-open,
+.cd-share-item:hover {
+    background-color: #f6f3ee !important;
 }
 
 

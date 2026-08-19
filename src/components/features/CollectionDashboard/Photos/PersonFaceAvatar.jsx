@@ -3,11 +3,13 @@ import React from 'react';
 /**
  * Circular face avatar cropped from a photo using Rekognition bounding box (0–1 normalized).
  */
-export function PersonFaceAvatar({ imageUrl, boundingBox, size = 72, className = '' }) {
+export function PersonFaceAvatar({ imageUrl, boundingBox, size = 72, className = '', variant = 'default' }) {
+  const variantClass = variant === 'strip' ? ' cd-person-face-avatar--strip' : '';
+
   if (!imageUrl) {
     return (
       <span
-        className={`cd-person-face-avatar cd-person-face-avatar--empty ${className}`}
+        className={`cd-person-face-avatar cd-person-face-avatar--empty${variantClass} ${className}`}
         style={{ width: size, height: size }}
         aria-hidden
       />
@@ -17,7 +19,7 @@ export function PersonFaceAvatar({ imageUrl, boundingBox, size = 72, className =
   if (!boundingBox?.Width || !boundingBox?.Height) {
     return (
       <span
-        className={`cd-person-face-avatar ${className}`}
+        className={`cd-person-face-avatar${variantClass} ${className}`}
         style={{ width: size, height: size }}
       >
         <img src={imageUrl} alt="" />
@@ -32,7 +34,7 @@ export function PersonFaceAvatar({ imageUrl, boundingBox, size = 72, className =
 
   return (
     <span
-      className={`cd-person-face-avatar cd-person-face-avatar--crop ${className}`}
+      className={`cd-person-face-avatar cd-person-face-avatar--crop${variantClass} ${className}`}
       style={{
         width: size,
         height: size,

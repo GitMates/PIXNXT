@@ -224,15 +224,27 @@ export const storageService = {
     const normalized = String(prefix || '').replace(/^\/+/, '');
     const objects = [];
     let continuationToken;
+    const seenTokens = new Set();
+    let pages = 0;
+    const maxPages = Math.max(1, Math.ceil(maxKeys / 1000) + 2);
 
     do {
+      if (continuationToken) {
+        if (seenTokens.has(continuationToken) || pages >= maxPages) break;
+        seenTokens.add(continuationToken);
+      }
+      pages += 1;
+      const remaining = maxKeys - objects.length;
+      if (remaining <= 0) break;
+
       const command = new ListObjectsV2Command({
         Bucket: R2_BUCKET_NAME,
         Prefix: normalized,
-        MaxKeys: Math.min(maxKeys - objects.length, 1000),
+        MaxKeys: Math.min(remaining, 1000),
         ContinuationToken: continuationToken,
       });
       const response = await r2Client.send(command);
+      const before = objects.length;
       (response.Contents || []).forEach((entry) => {
         if (entry.Key && !entry.Key.endsWith('/')) {
           objects.push({
@@ -242,6 +254,7 @@ export const storageService = {
         }
       });
       continuationToken = response.IsTruncated ? response.NextContinuationToken : undefined;
+      if (objects.length === before && continuationToken) break;
     } while (continuationToken && objects.length < maxKeys);
 
     return objects;

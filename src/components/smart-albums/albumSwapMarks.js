@@ -14,6 +14,12 @@ import {
 } from './albumSpreadUtils';
 import { getSampleImageForPage } from './sampleAlbumImages';
 import {
+    getSpreadCurrentVersionNumber,
+    getSpreadVersionTimeWindow,
+    isFeedbackActiveDuringVersion,
+} from './albumImageReplacements';
+import { pageToSpreadIndex } from './albumSpreadUtils';
+import {
     remapPageForSpreadMove,
     remapSpreadIndexAfterOverviewReorder,
     spreadIndexForPageNum,
@@ -28,9 +34,15 @@ import {
 /** In-memory cache hydrated from Supabase (shared client + photographer). */
 const marksByAlbum = Object.create(null);
 const seenByAlbum = Object.create(null);
+const peekedMarkIdsByAlbum = Object.create(null);
+const peekedMarkAlbumById = Object.create(null);
+const peekMarkTimersById = Object.create(null);
 
 export const SWAP_MARKS_CHANGED_EVENT = 'pixnxt-album-swap-marks-changed';
 export const SWAP_MARKS_SEEN_CHANGED_EVENT = 'pixnxt-album-swap-marks-seen-changed';
+export const SWAP_MARKS_PEEK_CHANGED_EVENT = 'pixnxt-album-swap-marks-peek-changed';
+
+const DEFAULT_SWAP_PEEK_MS = 5000;
 
 export function makeSlotKey(pageNum, cellId = 0) {
     return `${pageNum}:${cellId}`;
@@ -200,6 +212,53 @@ export function notifySwapMarksSeenChanged(albumId) {
     }
 }
 
+function notifySwapMarksPeekChanged(albumId) {
+    try {
+        window.dispatchEvent(
+            new CustomEvent(SWAP_MARKS_PEEK_CHANGED_EVENT, { detail: { albumId } })
+        );
+    } catch {
+        /* ignore */
+    }
+}
+
+export function isSwapMarkPeeked(albumId, markId) {
+    if (!albumId || !markId) return false;
+    return Boolean(peekedMarkIdsByAlbum[albumId]?.has(markId));
+}
+
+export function clearSwapMarkPeek(albumId, markId) {
+    if (!markId) return;
+    if (peekMarkTimersById[markId]) {
+        clearTimeout(peekMarkTimersById[markId]);
+        delete peekMarkTimersById[markId];
+    }
+    const resolvedAlbumId = albumId || peekedMarkAlbumById[markId];
+    if (!resolvedAlbumId) return;
+    peekedMarkIdsByAlbum[resolvedAlbumId]?.delete(markId);
+    delete peekedMarkAlbumById[markId];
+    notifySwapMarksPeekChanged(resolvedAlbumId);
+}
+
+/** Briefly show a done swap mark on the spread (e.g. when opened from the sidebar). */
+export function peekSwapMarkForSpread(albumId, markId, { durationMs = DEFAULT_SWAP_PEEK_MS } = {}) {
+    if (!albumId || !markId) return;
+    clearSwapMarkPeek(albumId, markId);
+    if (!peekedMarkIdsByAlbum[albumId]) peekedMarkIdsByAlbum[albumId] = new Set();
+    peekedMarkIdsByAlbum[albumId].add(markId);
+    peekedMarkAlbumById[markId] = albumId;
+    notifySwapMarksPeekChanged(albumId);
+    peekMarkTimersById[markId] = setTimeout(() => {
+        clearSwapMarkPeek(albumId, markId);
+    }, durationMs);
+}
+
+export function peekSwapMarkIfDone(albumId, mark) {
+    if (!albumId || !mark?.id) return;
+    if (isSwapMarkUnseen(albumId, mark)) return;
+    peekSwapMarkForSpread(albumId, mark.id);
+}
+
 export function isSwapMarkUnseen(albumId, mark) {
     if (!albumId || !mark?.id) return false;
     const seenAt = seenByAlbum[albumId]?.[mark.id];
@@ -211,6 +270,61 @@ export function isSwapMarkUnseen(albumId, mark) {
 
 export function countUnseenSwapMarks(albumId, marks) {
     return (marks || []).filter((mark) => isSwapMarkUnseen(albumId, mark)).length;
+}
+
+function isSwapMarkInfoVisible(albumId, marks, info) {
+    if (!info?.markId) return true;
+    if (isSwapMarkPeeked(albumId, info.markId)) return true;
+    const mark = (marks || []).find((m) => m.id === info.markId);
+    if (!mark) return true;
+    return isSwapMarkUnseen(albumId, mark);
+}
+
+/** Swap mark pin overlays that should still show on the spread canvas. */
+export function filterSpreadVisibleSwapMarkInfos(albumId, marks, infos) {
+    if (!albumId) return infos || [];
+    return (infos || []).filter((info) => isSwapMarkInfoVisible(albumId, marks, info));
+}
+
+export function swapMarkTouchesSpread(mark, spreadIndex, spreadOpts = {}) {
+    if (!mark || spreadIndex == null) return false;
+    const a = parseSlotKey(mark.a);
+    const b = parseSlotKey(mark.b);
+    const idxA = pageToSpreadIndex(a.pageNum, spreadOpts);
+    const idxB = pageToSpreadIndex(b.pageNum, spreadOpts);
+    return idxA === spreadIndex || idxB === spreadIndex;
+}
+
+/** Swap marks that belonged to a spread while that version was current. */
+export function getSwapMarksForSpreadVersion(
+    marks,
+    replacements,
+    spreadIndex,
+    version,
+    spreadOpts = {}
+) {
+    const window = getSpreadVersionTimeWindow(replacements, spreadIndex, version);
+    return (marks || []).filter((mark) => {
+        if (!swapMarkTouchesSpread(mark, spreadIndex, spreadOpts)) return false;
+        if (!mark.createdAt) return Number(version) === window.currentVersion;
+        return isFeedbackActiveDuringVersion(mark.createdAt, window);
+    });
+}
+
+/** Swap marks that belong to the spread's current version only. */
+export function getSwapMarksForCurrentSpreadVersion(
+    marks,
+    replacements,
+    spreadIndex,
+    spreadOpts = {}
+) {
+    return getSwapMarksForSpreadVersion(
+        marks,
+        replacements,
+        spreadIndex,
+        getSpreadCurrentVersionNumber(replacements, spreadIndex),
+        spreadOpts
+    );
 }
 
 export function markSwapMarksSeen(

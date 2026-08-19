@@ -36,12 +36,13 @@ function isCoverImageFile(file) {
 }
 
 /**
- * Cover slot: drag from the active set, browse from device, or pick from the delivery.
+ * Cover slot: browse from device or pick from the delivery.
  */
 export function SidebarCoverUpload({
   coverUrl,
+  coverFocalX = 50,
+  coverFocalY = 50,
   isUpdating = false,
-  activeSetName = 'this set',
   onPhotoDrop,
   onSelectFromCollection,
   onCoverFileSelect,
@@ -146,7 +147,7 @@ export function SidebarCoverUpload({
       )}
       role="button"
       tabIndex={isUpdating ? -1 : 0}
-      aria-label={`Set delivery cover. Drag a photo from ${activeSetName}, browse files, or select from delivery.`}
+      aria-label="Set delivery cover. Browse files or select from delivery."
       onClick={handleBrowseClick}
       onKeyDown={handleDropzoneKeyDown}
     >
@@ -154,17 +155,11 @@ export function SidebarCoverUpload({
         {COVER_DROP_ICON}
       </div>
       <p className="cd-sidebar-cover-drop-label">Delivery cover</p>
-      <p className="cd-sidebar-cover-drop-title">
-        {isUpdating ? (
-          'Updating cover…'
-        ) : isDragging ? (
-          'Drop to set cover'
-        ) : (
-          <>
-            Drag from <span className="cd-sidebar-cover-set-name">{activeSetName}</span>
-          </>
-        )}
-      </p>
+      {(isUpdating || isDragging) && (
+        <p className="cd-sidebar-cover-drop-title">
+          {isUpdating ? 'Updating cover…' : 'Drop to set cover'}
+        </p>
+      )}
       {!isUpdating && !isDragging && (
         <div className="cd-sidebar-cover-actions">
           <button
@@ -203,7 +198,12 @@ export function SidebarCoverUpload({
 
       {hasCover ? (
         <>
-          <img src={coverUrl.split('#')[0]} alt="Delivery cover" draggable={false} />
+          <img
+            src={coverUrl.split('#')[0]}
+            alt="Delivery cover"
+            draggable={false}
+            style={{ objectPosition: `${coverFocalX}% ${coverFocalY}%` }}
+          />
           <div
             className={cn(
               'cd-sidebar-cover-dropzone cd-sidebar-cover-dropzone--overlay',
@@ -211,30 +211,17 @@ export function SidebarCoverUpload({
             )}
             aria-hidden
           />
-          <button
-            type="button"
-            className="cd-cover-hover-overlay"
-            onClick={onSelectFromCollection}
-            disabled={isUpdating}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden
+          <div className="cd-sidebar-cover-caption" aria-hidden>
+            <span className="cd-sidebar-cover-caption__label">Delivery cover</span>
+            <button
+              type="button"
+              className="cd-sidebar-cover-caption__change"
+              onClick={onSelectFromCollection}
+              disabled={isUpdating}
             >
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="17 8 12 3 7 8" />
-              <line x1="12" y1="3" x2="12" y2="15" />
-            </svg>
-            <span>{isUpdating ? 'Updating…' : 'Change cover'}</span>
-          </button>
+              {isUpdating ? 'Updating…' : 'Change'}
+            </button>
+          </div>
         </>
       ) : (
         emptyDropzone

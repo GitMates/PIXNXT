@@ -255,9 +255,7 @@ export function buildAlbumPreviewSnapshot(
         snapshot.spread_grid_size = album.spread_grid_size ?? null;
     }
 
-    if (coverColorPreset) {
-        snapshot.cover_color_preset = coverColorPreset;
-    }
+    snapshot.cover_color_preset = coverColorPreset || 'sky';
 
     if (
         spineBounds &&

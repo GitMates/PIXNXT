@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import './DatePicker.css';
@@ -39,7 +40,9 @@ const DatePicker = ({
 
   const [isOpen, setIsOpen] = useState(false);
   const [viewDate, setViewDate] = useState(() => parseDateLocal(value) || new Date());
+  const [dropdownPos, setDropdownPos] = useState(null);
   const containerRef = useRef(null);
+  const dropdownRef = useRef(null);
 
   // Sync viewDate when value changes externally
   useEffect(() => {
@@ -52,13 +55,53 @@ const DatePicker = ({
   // Close on click outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (containerRef.current && !containerRef.current.contains(event.target)) {
-        setIsOpen(false);
+      const target = event.target;
+      if (containerRef.current?.contains(target) || dropdownRef.current?.contains(target)) {
+        return;
       }
+      setIsOpen(false);
     };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') setIsOpen(false);
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
   }, []);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setDropdownPos(null);
+      return undefined;
+    }
+
+    const updatePosition = () => {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const width = showQuickSearch ? 520 : 308;
+      const estimatedHeight = showQuickSearch ? 380 : 340;
+      let left = rect.left;
+      let top = rect.bottom + 8;
+      if (left + width > window.innerWidth - 12) {
+        left = Math.max(12, window.innerWidth - width - 12);
+      }
+      if (top + estimatedHeight > window.innerHeight - 12) {
+        top = Math.max(12, rect.top - estimatedHeight - 8);
+      }
+      setDropdownPos({ top, left, width });
+    };
+
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [isOpen, showQuickSearch]);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -185,25 +228,20 @@ const DatePicker = ({
       const month = String(d.getMonth() + 1).padStart(2, '0');
       return `${day}-${month}-${d.getFullYear()}`;
     }
+    if (displayFormat === 'long') {
+      return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+    }
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   }, [value, displayFormat]);
 
   const safeViewDate = (viewDate && !isNaN(viewDate.getTime())) ? viewDate : new Date();
 
-  return (
-    <div className={cn("custom-datepicker", className)} ref={containerRef}>
-      <div 
-        className={cn("dp-input-field", isOpen && "focused")} 
-        onClick={() => setIsOpen(!isOpen)}
-      >
-        <span className={cn("dp-value", !value && "placeholder")}>
-          {value ? displayValue : placeholder}
-        </span>
-        <CalendarIcon className="dp-icon" size={18} />
-      </div>
-
-      {isOpen && (
-        <div className="dp-dropdown">
+  const dropdown = isOpen && dropdownPos ? (
+        <div
+          ref={dropdownRef}
+          className={cn('dp-dropdown', 'dp-dropdown--portal', !showQuickSearch && 'dp-dropdown--simple')}
+          style={{ top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width }}
+        >
           <div className="dp-calendar-section">
             <div className="calendar-header">
               <div className="month-year">
@@ -264,7 +302,20 @@ const DatePicker = ({
             </div>
           )}
         </div>
-      )}
+  ) : null;
+
+  return (
+    <div className={cn("custom-datepicker", className)} ref={containerRef}>
+      <div 
+        className={cn("dp-input-field", isOpen && "focused")} 
+        onClick={() => setIsOpen((open) => !open)}
+      >
+        <span className={cn("dp-value", !value && "placeholder")}>
+          {value ? displayValue : placeholder}
+        </span>
+        <CalendarIcon className="dp-icon" size={18} />
+      </div>
+      {dropdown ? createPortal(dropdown, document.body) : null}
     </div>
   );
 };

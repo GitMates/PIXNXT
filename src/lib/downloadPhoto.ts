@@ -3,6 +3,8 @@ import {
   getPhotoDownloadFilename,
   getPhotoDownloadUrl,
   getPhotoDownloadUrlCandidates,
+  getWebResolutionUrl,
+  resolveMediaUrl,
   isVideoMedia,
 } from './photoDisplayUrl';
 import { getStoreOriginalDownloadUrlCandidates } from './storePhotoQuality';
@@ -128,6 +130,64 @@ function isLikelyImageUrl(url: string): boolean {
 export interface FetchPhotoBlobOptions {
   /** Prefer full/original CDN URL first (free gallery / social downloads). Default keeps existing candidate order. */
   preferOriginal?: boolean;
+  /** Select which quality derivative to download for photographs. */
+  resolution?: 'web' | 'full' | 'original';
+  /** Select which quality derivative to download for films/videos. */
+  videoResolution?: '1080p' | '4k' | 'none' | string;
+}
+
+function pushResolvedUrl(out: string[], seen: Set<string>, url: string | undefined | null) {
+  if (!url) return;
+  const resolved = resolveMediaUrl(String(url));
+  if (!resolved || seen.has(resolved)) return;
+  seen.add(resolved);
+  out.push(resolved);
+}
+
+function getPhotoDownloadCandidatesByResolution(
+  photo: BulkDownloadPhoto,
+  resolution: 'web' | 'full' | 'original',
+  videoResolution?: FetchPhotoBlobOptions['videoResolution']
+) {
+  if (isVideoMedia(photo)) {
+    // Heuristic: `full_url` is higher quality, `web_url` is the web-optimized derivative.
+    // If the delivery says 1080p, prefer `web_url`. Otherwise (4k / original), prefer `full_url`.
+    const out: string[] = [];
+    const seen = new Set<string>();
+    const order =
+      videoResolution === '1080p'
+        ? [photo.web_url, photo.full_url, photo.thumbnail_url]
+        : [photo.full_url, photo.web_url, photo.thumbnail_url];
+
+    for (const candidate of order) {
+      pushResolvedUrl(out, seen, candidate as any);
+    }
+    return out.length ? out : getPhotoDownloadUrlCandidates(photo);
+  }
+
+  if (resolution === 'original') {
+    return getStoreOriginalDownloadUrlCandidates(photo);
+  }
+
+  const out: string[] = [];
+  const seen = new Set<string>();
+
+  if (resolution === 'web') {
+    pushResolvedUrl(out, seen, getWebResolutionUrl(photo));
+    pushResolvedUrl(out, seen, photo.web_url);
+    pushResolvedUrl(out, seen, photo.thumbnail_url);
+    pushResolvedUrl(out, seen, photo.web_storage_path);
+    pushResolvedUrl(out, seen, photo.thumbnail_storage_path);
+    return out;
+  }
+
+  // resolution === 'full'
+  pushResolvedUrl(out, seen, photo.full_url);
+  pushResolvedUrl(out, seen, photo.web_url);
+  pushResolvedUrl(out, seen, photo.thumbnail_url);
+  pushResolvedUrl(out, seen, photo.web_storage_path);
+  pushResolvedUrl(out, seen, photo.thumbnail_storage_path);
+  return out;
 }
 
 /** Try each CDN URL until one succeeds (fetch, then canvas for images). */
@@ -135,9 +195,15 @@ export async function fetchPhotoBlob(
   photo: BulkDownloadPhoto,
   options: FetchPhotoBlobOptions = {}
 ): Promise<Blob | null> {
-  const candidates = options.preferOriginal
-    ? getStoreOriginalDownloadUrlCandidates(photo)
-    : getPhotoDownloadUrlCandidates(photo);
+  const preferOriginal = Boolean(options.preferOriginal);
+  const resolution: 'web' | 'full' | 'original' =
+    options.resolution ?? (preferOriginal ? 'original' : 'full');
+  const videoResolution = options.videoResolution;
+
+  const candidates =
+    resolution === 'original'
+      ? getStoreOriginalDownloadUrlCandidates(photo)
+      : getPhotoDownloadCandidatesByResolution(photo, resolution, videoResolution);
   const urls =
     candidates.length > 0
       ? candidates
@@ -184,8 +250,8 @@ async function addPhotoToZip(
   usedNames: Set<string>,
   options: DownloadPhotosToZipOptions = {}
 ): Promise<boolean> {
-  const { preferOriginal = false, watermarkOptions } = options;
-  let blob = await fetchPhotoBlob(photo, { preferOriginal });
+  const { preferOriginal = false, resolution, videoResolution, watermarkOptions } = options;
+  let blob = await fetchPhotoBlob(photo, { preferOriginal, resolution, videoResolution });
   if (!blob?.size) return false;
   if (watermarkOptions) {
     blob = await applyWatermarkToBlob(blob, watermarkOptions);
@@ -207,7 +273,9 @@ export async function downloadPhotosToZip(
     concurrency = DEFAULT_DOWNLOAD_CONCURRENCY,
     onProgress,
     isStale,
+    resolution,
     preferOriginal = false,
+    videoResolution,
     watermarkOptions,
   } = options;
 
@@ -219,7 +287,7 @@ export async function downloadPhotosToZip(
   let completed = 0;
   const total = photos.length;
   const failedIndices: number[] = [];
-  const zipOpts = { preferOriginal, watermarkOptions };
+  const zipOpts = { preferOriginal, resolution, videoResolution, watermarkOptions };
 
   const report = () => onProgress?.(completed, total);
 
@@ -281,8 +349,8 @@ export async function downloadSinglePhotoFile(
   photo: BulkDownloadPhoto,
   options: DownloadSinglePhotoOptions = {}
 ): Promise<void> {
-  const { preferOriginal = false, watermarkOptions } = options;
-  let blob = await fetchPhotoBlob(photo, { preferOriginal });
+  const { preferOriginal = false, resolution, videoResolution, watermarkOptions } = options;
+  let blob = await fetchPhotoBlob(photo, { preferOriginal, resolution, videoResolution });
   if (!blob) {
     throw new Error('Failed to download this file. Please try again.');
   }

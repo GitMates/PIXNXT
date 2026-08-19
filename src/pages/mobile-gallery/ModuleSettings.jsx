@@ -245,24 +245,15 @@ const ModuleSettings = () => {
                 placeholder="www.yourdomain.com"
                 value={customDomainDraft}
                 readOnly
-                disabled={!isUpgraded}
               />
             </div>
-            {!isUpgraded && (
-              <button type="button" className="mg-settings-upgrade-btn neu-pill" onClick={handleUpgrade}>
-                Upgrade to enable
-              </button>
-            )}
           </div>
           <p className="mg-settings-help">
-            Use your own custom domain for your mobile gallery apps. Connect it in{' '}
-            <Link to="/settings/branding" className="mg-settings-link">
-              Settings → Branding
+            Use your own custom domain for galleries and mobile apps. Connect it in{' '}
+            <Link to="/account/studio-identity" className="mg-settings-link">
+              Account → Studio identity
             </Link>
-            . This feature is available with an upgraded account.{' '}
-            <button type="button" className="mg-settings-link mg-settings-link--btn" onClick={handleUpgrade}>
-              Learn more
-            </button>
+            .
           </p>
         </div>
       </section>

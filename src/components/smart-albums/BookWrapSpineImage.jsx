@@ -16,6 +16,7 @@ export default function BookWrapSpineImage({
     transform,
     className = '',
     panoramic = null,
+    onError,
 }) {
     const hostRef = useRef(null);
     const [segmentUrl, setSegmentUrl] = useState(null);
@@ -125,6 +126,7 @@ export default function BookWrapSpineImage({
                 alt=""
                 className={`${sideClass} ab-book-wrap-segment-img${className ? ` ${className}` : ''}`}
                 draggable={false}
+                onError={onError}
                 style={{
                     display: 'block',
                     width: '100%',
@@ -164,6 +166,7 @@ export default function BookWrapSpineImage({
             alt=""
             className={`${sideClass}${className ? ` ${className}` : ''}`}
             draggable={false}
+            onError={onError}
             style={style}
         />
     );

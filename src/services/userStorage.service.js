@@ -1,127 +1,110 @@
 import { supabase } from '../lib/supabase/client';
-import { storageService } from './storage.service';
-import { DELIVERY_R2_MODULE, DELIVERY_R2_MODULE_LEGACY } from '../lib/deliveryIds';
 
-function safePathSegment(value, fallback = 'item') {
-  return String(value || fallback)
-    .trim()
-    .toLowerCase()
-    .replace(/\.[^.]+$/, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 64) || fallback;
+const inFlightByUser = new Map();
+
+async function sumStorageBytes(table, photographerId) {
+  const { data, error } = await supabase
+    .from(table)
+    .select('storage_bytes')
+    .eq('photographer_id', photographerId);
+  if (error || !Array.isArray(data)) return 0;
+  return data.reduce((acc, row) => acc + (Number(row.storage_bytes) || 0), 0);
+}
+
+const GB = 1024 * 1024 * 1024;
+
+/** Plan cap used by the global sidebar storage meter. */
+export function getStorageLimitBytes(profile) {
+  const limitBytes = Number(profile?.storage_limit_bytes);
+  if (limitBytes > 0) return limitBytes;
+  const limitGb = Number(profile?.storage_limit_gb);
+  if (limitGb > 0) return limitGb * GB;
+  const tier = String(profile?.plan || '').toLowerCase();
+  if (tier === 'pro') return 100 * GB;
+  if (tier === 'premium') return 500 * GB;
+  if (tier === 'free') return 5 * GB;
+  return 10 * GB;
+}
+
+function formatGb(bytes) {
+  const gb = Math.max(0, Number(bytes) / GB);
+  if (gb >= 10) return `${Math.round(gb)}`;
+  if (gb >= 1) return gb.toFixed(1).replace(/\.0$/, '');
+  if (gb < 0.05) return '0';
+  return gb.toFixed(1);
+}
+
+/** Sidebar meter label, e.g. "0.4 / 1 GB". */
+export function formatStorageMeter(used, max) {
+  const usedBytes = Number(used) || 0;
+  const maxBytes = Number(max) > 0 ? Number(max) : GB;
+  return `${formatGb(usedBytes)} / ${formatGb(maxBytes)} GB`;
 }
 
 /**
- * Service to calculate real-time storage used by a photographer across modules:
- * - deliveries (and legacy clientgallery)
- * - guestdelivery
- * - mobilegallery
- * - album-proofer (and legacy smart-album / smart-albums paths)
+ * Studio storage footer: sum from the database.
+ * Do not ListObjects on R2 from the browser — that floods Chrome with S3 GETs
+ * (ERR_INSUFFICIENT_RESOURCES) and then every other fetch/upload/delete fails.
  */
 export const userStorageService = {
   async calculateUserStorageBytes(user, profile) {
     if (!user?.id) return 0;
 
-    const uniqueFolders = new Set();
-    uniqueFolders.add(user.id);
+    const existing = inFlightByUser.get(user.id);
+    if (existing) return existing;
 
-    if (user.email) {
-      const emailPrefix = user.email.split('@')[0];
-      if (emailPrefix) {
-        uniqueFolders.add(emailPrefix);
-        uniqueFolders.add(safePathSegment(emailPrefix));
-      }
-    }
+    const run = (async () => {
+      const cached = this.getCachedStorageBytes(user.id);
+      let dbTotalBytes = 0;
 
-    if (profile?.email) {
-      const pEmailPrefix = profile.email.split('@')[0];
-      if (pEmailPrefix) {
-        uniqueFolders.add(pEmailPrefix);
-        uniqueFolders.add(safePathSegment(pEmailPrefix));
-      }
-    }
+      dbTotalBytes += await sumStorageBytes('deliveries', user.id);
 
-    if (profile?.display_name) {
-      const slug = safePathSegment(profile.display_name);
-      if (slug) uniqueFolders.add(slug);
-    }
-
-    if (profile?.business_name) {
-      const bSlug = safePathSegment(profile.business_name);
-      if (bSlug) uniqueFolders.add(bSlug);
-    }
-
-    let r2TotalBytes = 0;
-    const seenKeys = new Set();
-
-    // Scan R2 object storage for each possible user folder prefix
-    for (const folder of uniqueFolders) {
-      if (!folder) continue;
-
-      // Scan root user folder
       try {
-        const objects = await storageService.listByPrefix(`users/${folder}/`, { maxKeys: 5000 });
-        for (const obj of objects) {
-          if (!seenKeys.has(obj.key)) {
-            seenKeys.add(obj.key);
-            r2TotalBytes += Number(obj.size) || 0;
-          }
-        }
-      } catch (err) {
-        // Explicit module subfolders fallback
-        const modules = [
-          DELIVERY_R2_MODULE,
-          DELIVERY_R2_MODULE_LEGACY,
-          'guestdelivery',
-          'mobilegallery',
-          'album-proofer',
-          'smart-album',
-          'smart-albums',
-        ];
-        for (const mod of modules) {
-          try {
-            const objects = await storageService.listByPrefix(`users/${folder}/${mod}/`, { maxKeys: 5000 });
-            for (const obj of objects) {
-              if (!seenKeys.has(obj.key)) {
-                seenKeys.add(obj.key);
-                r2TotalBytes += Number(obj.size) || 0;
-              }
-            }
-          } catch (_) {}
+        dbTotalBytes += await sumStorageBytes('smart_albums', user.id);
+      } catch {
+        /* table may not exist in this project */
+      }
+
+      let profileBytes = Number(profile?.storage_used_bytes) || 0;
+      if (!profileBytes) {
+        try {
+          const { data } = await supabase
+            .from('photographers')
+            .select('storage_used_bytes')
+            .eq('id', user.id)
+            .maybeSingle();
+          profileBytes = Number(data?.storage_used_bytes) || 0;
+        } catch {
+          /* ignore */
         }
       }
-    }
 
-    // Query Supabase deliveries / photos as a fallback or database measure
-    let dbTotalBytes = 0;
-    try {
-      const { data: collections } = await supabase
-        .from('deliveries')
-        .select('storage_bytes')
-        .eq('photographer_id', user.id);
+      const finalTotalBytes = Math.max(dbTotalBytes, profileBytes, cached);
 
-      if (collections && Array.isArray(collections)) {
-        dbTotalBytes += collections.reduce((acc, c) => acc + (Number(c.storage_bytes) || 0), 0);
+      try {
+        localStorage.setItem(`user_real_storage_bytes_${user.id}`, String(finalTotalBytes));
+      } catch {
+        /* ignore */
       }
-    } catch (_) {}
 
-    const finalTotalBytes = Math.max(r2TotalBytes, dbTotalBytes);
+      if (dbTotalBytes > 0 && dbTotalBytes !== profileBytes) {
+        try {
+          await supabase
+            .from('photographers')
+            .update({ storage_used_bytes: dbTotalBytes })
+            .eq('id', user.id);
+        } catch {
+          /* ignore */
+        }
+      }
 
-    // Cache locally for instant loading
-    try {
-      localStorage.setItem(`user_real_storage_bytes_${user.id}`, String(finalTotalBytes));
-    } catch (_) {}
+      return finalTotalBytes;
+    })().finally(() => {
+      inFlightByUser.delete(user.id);
+    });
 
-    // Synchronize Supabase photographers table storage_used_bytes
-    try {
-      await supabase
-        .from('photographers')
-        .update({ storage_used_bytes: finalTotalBytes })
-        .eq('id', user.id);
-    } catch (_) {}
-
-    return finalTotalBytes;
+    inFlightByUser.set(user.id, run);
+    return run;
   },
 
   getCachedStorageBytes(userId) {
@@ -129,7 +112,9 @@ export const userStorageService = {
     try {
       const cached = localStorage.getItem(`user_real_storage_bytes_${userId}`);
       if (cached !== null) return Number(cached) || 0;
-    } catch (_) {}
+    } catch {
+      /* ignore */
+    }
     return 0;
   },
 };

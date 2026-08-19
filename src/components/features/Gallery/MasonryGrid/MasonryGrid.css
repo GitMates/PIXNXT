@@ -64,6 +64,72 @@
     opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+.gallery-masonry-action-btn {
+  box-sizing: border-box;
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  min-height: 22px;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.gallery-masonry-action-btn svg {
+  width: 11px;
+  height: 11px;
+}
+
+/* Phone layout (live gallery + Design tab preview). Do not use viewport media
+   queries alone — the Design phone frame is still a desktop window. */
+.preview-mobile .gallery-masonry-actions,
+.cd-preview-gallery-body--mobile-frame .gallery-masonry-actions,
+.cd-design-preview-pane.mobile .gallery-masonry-actions,
+.gallery-view-page[data-gallery-viewport='mobile'] .gallery-masonry-actions {
+  bottom: 6px;
+  right: 6px;
+  gap: 4px;
+}
+
+.preview-mobile .gallery-masonry-action-btn,
+.cd-preview-gallery-body--mobile-frame .gallery-masonry-action-btn,
+.cd-design-preview-pane.mobile .gallery-masonry-action-btn,
+.gallery-view-page[data-gallery-viewport='mobile'] .gallery-masonry-action-btn {
+  width: 16px !important;
+  height: 16px !important;
+  min-width: 16px !important;
+  min-height: 16px !important;
+  padding: 0 !important;
+}
+
+.preview-mobile .gallery-masonry-action-btn svg,
+.cd-preview-gallery-body--mobile-frame .gallery-masonry-action-btn svg,
+.cd-design-preview-pane.mobile .gallery-masonry-action-btn svg,
+.gallery-view-page[data-gallery-viewport='mobile'] .gallery-masonry-action-btn svg {
+  width: 8px !important;
+  height: 8px !important;
+}
+
+@media (max-width: 768px) {
+  .gallery-masonry-actions {
+    bottom: 6px;
+    right: 6px;
+    gap: 4px;
+  }
+
+  .gallery-masonry-action-btn {
+    width: 16px !important;
+    height: 16px !important;
+    min-width: 16px !important;
+    min-height: 16px !important;
+    padding: 0 !important;
+  }
+
+  .gallery-masonry-action-btn svg {
+    width: 8px !important;
+    height: 8px !important;
+  }
+}
+
 @media (hover: hover) and (pointer: fine) {
   .group:hover .gallery-masonry-actions {
     opacity: 1;

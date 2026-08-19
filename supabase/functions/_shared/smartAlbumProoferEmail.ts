@@ -9,6 +9,17 @@ export type ProoferSettings = {
   clientStartedFeedbackTemplate?: string;
 };
 
+/** smtp@v0.7.0 still calls Deno.writeAll; newer Deno runtimes omit it. */
+if (!(Deno as { writeAll?: unknown }).writeAll) {
+  // @ts-expect-error Deno.writeAll removed in newer runtimes
+  Deno.writeAll = async (w: Deno.Writer, data: Uint8Array) => {
+    let nwritten = 0;
+    while (nwritten < data.length) {
+      nwritten += await w.write(data.subarray(nwritten));
+    }
+  };
+}
+
 export const DEFAULT_PROOFER_SETTINGS: ProoferSettings = {
   photographerAlerts: 'digest',
   enableClientNudges: true,

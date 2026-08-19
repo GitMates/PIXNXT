@@ -2,11 +2,44 @@ import React from 'react';
 import { PreviewPaneProps } from './PreviewPane.types';
 import { GalleryPreview } from './GalleryPreview';
 import { cn } from '../../../../lib/utils';
+import '../DesignTab/DesignWorkspace.css';
 import './PreviewPane.css';
 
-export const PreviewPane: React.FC<PreviewPaneProps> = ({ 
-  settings, 
-  collectionTitle, 
+function PreviewFrame({
+  className,
+  isMobile,
+  fontFamily,
+  children,
+}: {
+  className?: string;
+  isMobile: boolean;
+  fontFamily?: string;
+  children: React.ReactNode;
+}) {
+  if (isMobile) {
+    return (
+      <div className={cn('cd-design-frame', className)}>
+        <div className="cd-design-frame__mobile-scaler">
+          <div className={cn('cd-design-preview-pane', 'mobile', fontFamily && `font-${fontFamily}`)}>
+            <div className="cd-preview-workspace cd-preview-workspace--dual">
+              <div className="cd-preview-canvas">{children}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={cn('cd-design-frame', className)}>
+      <div className="cd-design-frame__canvas">{children}</div>
+    </div>
+  );
+}
+
+export const PreviewPane: React.FC<PreviewPaneProps> = ({
+  settings,
+  collectionTitle,
   collectionDate,
   collectionDescription,
   coverPhotoUrl,
@@ -16,24 +49,61 @@ export const PreviewPane: React.FC<PreviewPaneProps> = ({
   dashboardState,
   onSetActiveSet,
   photographerName,
-  coverLogoUrl
+  coverLogoUrl,
+  dualPreview = false,
 }) => {
+  const galleryProps = {
+    settings,
+    collectionTitle,
+    collectionDate,
+    collectionDescription,
+    coverPhotoUrl,
+    gridPhotos,
+    dashboardState,
+    onSetActiveSet,
+    photographerName,
+    coverLogoUrl,
+  };
+
+  if (dualPreview) {
+    return (
+      <div className="cd-design-preview-column">
+        <div className="cd-design-page-intro">
+          <h1 className="cd-design-page-title">Design</h1>
+          <p className="cd-design-page-subtitle">how your client sees this delivery</p>
+        </div>
+
+        <div className="cd-design-dual-preview">
+          <div className="cd-design-dual-preview__frames">
+            <div className="cd-design-dual-preview__scale">
+              <PreviewFrame className="cd-design-frame--desktop" isMobile={false}>
+                <GalleryPreview {...galleryProps} isPreviewMobile={false} />
+              </PreviewFrame>
+              <PreviewFrame
+                className="cd-design-frame--mobile"
+                isMobile
+                fontFamily={settings.fontFamily}
+              >
+                <GalleryPreview {...galleryProps} isPreviewMobile />
+              </PreviewFrame>
+            </div>
+          </div>
+          <p className="cd-design-dual-preview__note">
+            Both frames show the same delivery — desktop at 16:10, mobile scaled to fit beside it at
+            true 375px layout.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={cn('cd-design-preview-pane', previewMode, `font-${settings.fontFamily}`)}>
       <div className="cd-preview-workspace">
         <div className="cd-preview-canvas">
-          <GalleryPreview 
-            settings={settings}
-            collectionTitle={collectionTitle}
-            collectionDate={collectionDate}
-            collectionDescription={collectionDescription}
-            coverPhotoUrl={coverPhotoUrl}
-            gridPhotos={gridPhotos}
-            dashboardState={dashboardState}
-            onSetActiveSet={onSetActiveSet}
+          <GalleryPreview
+            {...galleryProps}
             isPreviewMobile={previewMode === 'mobile'}
-            photographerName={photographerName}
-            coverLogoUrl={coverLogoUrl}
           />
         </div>
       </div>

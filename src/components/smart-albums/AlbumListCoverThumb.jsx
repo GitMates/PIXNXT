@@ -5,7 +5,7 @@ import {
     hydrateAlbumPreviewData,
 } from './albumPreviewData';
 import { resolveCoverImageSrc, resolveBookWrapSpreadSrc, getAlbumListThumbnailUrl } from './albumPagePhotos';
-import { albumHasBlankCovers } from './albumSpreadUtils';
+import { albumHasBlankCovers, albumShowsLeatherCover } from './albumSpreadUtils';
 import {
     COVER_COLOR_CHANGED_EVENT,
     getAlbumCoverColor,
@@ -28,24 +28,21 @@ function resolveThumbSrc(album) {
         hydrateAlbumPreviewData(album.id, album.preview_data);
     }
 
-    if (album?.has_covers === true) {
-        const blankCovers = albumHasBlankCovers(album);
-
-        if (blankCovers) {
-            const wrapSrc = resolveBookWrapSpreadSrc(album, { showSamples: false });
-            if (wrapSrc) return wrapSrc;
-            return null;
-        }
-    }
+    const wrapSrc = resolveBookWrapSpreadSrc(album, { showSamples: false });
+    if (wrapSrc) return wrapSrc;
 
     const coverSrc = resolveCoverImageSrc(album, { showSamples: false });
     if (coverSrc) return coverSrc;
+
     const fromSnapshot = deriveFrontCoverUrlFromSnapshot(album?.preview_data, {
-        blankCovers: false,
+        blankCovers: albumHasBlankCovers(album),
     });
     if (fromSnapshot) return fromSnapshot;
+
     if (album?.cover_image_url) return album.cover_image_url;
-    if (album?.has_covers === true) return null;
+    if (album?.preview_cover_url) return album.preview_cover_url;
+
+    if (albumShowsLeatherCover(album, null)) return null;
 
     const derived = deriveCoverUrlFromSnapshot(album?.preview_data);
     if (derived) return derived;
@@ -71,6 +68,7 @@ function FrontCoverThumbFrame({ children, variant = 'photo' }) {
 export default function AlbumListCoverThumb({ album, alt = '', variant = 'grid' }) {
     const albumId = album?.id;
     const [coverTick, setCoverTick] = useState(0);
+    const [photoFailed, setPhotoFailed] = useState(false);
 
     useEffect(() => {
         if (!albumId) return undefined;
@@ -95,17 +93,22 @@ export default function AlbumListCoverThumb({ album, alt = '', variant = 'grid' 
         return resolveThumbSrc(album);
     }, [album, coverTick]);
 
+    useEffect(() => {
+        setPhotoFailed(false);
+    }, [src]);
+
     const layout = useMemo(
-        () => (album?.has_covers === true ? getBookWrapSpineLayout(album) : null),
+        () => (album?.has_covers !== false ? getBookWrapSpineLayout(album) : null),
         [album]
     );
-    const hasCovers = album?.has_covers === true;
-    const blankCovers = albumHasBlankCovers(album);
+    const hasCovers = album?.has_covers !== false;
     const pageAspect = parseGridSizeAspect(album?.grid_size || 'square');
     const coverColorId = useMemo(() => {
         void coverTick;
+        const fromRow = album?.cover_color_preset || album?.preview_data?.cover_color_preset;
+        if (fromRow && typeof fromRow === 'string') return fromRow;
         return albumId ? getAlbumCoverColor(albumId) : DEFAULT_COVER_COLOR_PRESET_ID;
-    }, [albumId, coverTick]);
+    }, [album, albumId, coverTick]);
     const coverText = useMemo(() => {
         void coverTick;
         if (!albumId) return String(album?.name ?? '').trim();
@@ -117,8 +120,10 @@ export default function AlbumListCoverThumb({ album, alt = '', variant = 'grid' 
             ? 'sa-album-list-thumb sa-album-list-thumb--list'
             : 'sa-album-list-thumb';
 
+    const showLeather = albumShowsLeatherCover(album, photoFailed ? null : src);
+
     if (hasCovers) {
-        if (src) {
+        if (src && !photoFailed && !showLeather) {
             return (
                 <div className={rootClass}>
                     <FrontCoverThumbFrame variant="photo">
@@ -128,13 +133,14 @@ export default function AlbumListCoverThumb({ album, alt = '', variant = 'grid' 
                             layout={layout || getBookWrapSpineLayout(album)}
                             transform={{ x: 0, y: 0, scaleX: 1, scaleY: 1 }}
                             className="sa-album-list-thumb-img ab-book-wrap-cover-img"
+                            onError={() => setPhotoFailed(true)}
                         />
                     </FrontCoverThumbFrame>
                 </div>
             );
         }
 
-        if (blankCovers) {
+        if (showLeather) {
             const leatherStyle = {
                 ...getCoverLeatherSurfaceStyle(coverColorId, {
                     aspect: pageAspect,
@@ -155,17 +161,9 @@ export default function AlbumListCoverThumb({ album, alt = '', variant = 'grid' 
                 </div>
             );
         }
-
-        return (
-            <div className={rootClass}>
-                <FrontCoverThumbFrame variant="blank">
-                    <div className="sa-album-list-thumb-front sa-album-list-thumb-front--blank" aria-hidden />
-                </FrontCoverThumbFrame>
-            </div>
-        );
     }
 
-    if (!src) {
+    if (!src || photoFailed) {
         return (
             <div className={`${rootClass} cg-style-38 sa-album-thumb-placeholder`}>
                 <svg
@@ -189,7 +187,13 @@ export default function AlbumListCoverThumb({ album, alt = '', variant = 'grid' 
 
     return (
         <div className={rootClass}>
-            <img src={src} alt={alt} className="sa-album-list-thumb-img" loading="lazy" />
+            <img
+                src={src}
+                alt={alt}
+                className="sa-album-list-thumb-img"
+                loading="lazy"
+                onError={() => setPhotoFailed(true)}
+            />
         </div>
     );
 }

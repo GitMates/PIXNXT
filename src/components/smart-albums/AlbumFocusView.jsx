@@ -7,7 +7,6 @@ import {
     getAlbumSpreadOptions,
     getFlipbookStoragePages,
     getTotalSpreads,
-    isEndHalfSpreadIndex,
     normalizeStoragePageIndex,
     pageToSpreadIndex,
     storagePageToFlipbookIndex,
@@ -30,8 +29,7 @@ function getFocusBookDimensions(gridSize = 'square') {
     const w = window.innerWidth;
     const h = window.innerHeight;
     const aspect = parseGridSizeAspect(gridSize);
-    /* Arrow (52) + gap from book (~20) + stage pad (20) each side */
-    const navInset = 96;
+    const navInset = 56;
     const verticalInset = 20;
     const availW = Math.max(320, w - navInset * 2);
     const availH = Math.max(240, h - verticalInset * 2);
@@ -86,15 +84,6 @@ export default function AlbumFocusView({
     const currentFlipIndex = storagePageToFlipbookIndex(pageIndex, totalPages, spreadOpts);
     const atStart = currentFlipIndex <= 0;
     const atEnd = spreadIndex >= totalSpreads - 1;
-    const hasCovers = album?.has_covers === true;
-    const showFrontCoverOnly =
-        hasCovers && spreadIndex === 0 && !bookFlipping;
-    const showEndCoverOnly =
-        hasCovers &&
-        isEndHalfSpreadIndex(spreadIndex, totalPages, spreadOpts) &&
-        !bookFlipping;
-    const sceneWidth =
-        showFrontCoverOnly || showEndCoverOnly ? dims.width : dims.width * 2;
 
     const refreshDims = useCallback(() => {
         setDims(getFocusBookDimensions(album?.grid_size));
@@ -297,63 +286,34 @@ export default function AlbumFocusView({
                 </svg>
             </button>
 
-            <button
-                type="button"
-                ref={prevNavRef}
-                className={`ab-focus-nav ab-focus-nav--prev${
-                    !(atStart || !bookReady) ? ' ab-focus-nav--enabled' : ''
-                }`}
-                onClick={(e) => {
-                    e.stopPropagation();
-                    navigateSpread('prev');
-                }}
-                disabled={atStart || !bookReady}
-                aria-label="Previous spread"
-                aria-hidden={atStart || !bookReady}
-            >
-                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="15 18 9 12 15 6" />
-                </svg>
-            </button>
-
-            <button
-                type="button"
-                ref={nextNavRef}
-                className={`ab-focus-nav ab-focus-nav--next${
-                    !(atEnd || !bookReady) ? ' ab-focus-nav--enabled' : ''
-                }`}
-                onClick={(e) => {
-                    e.stopPropagation();
-                    navigateSpread('next');
-                }}
-                disabled={atEnd || !bookReady}
-                aria-label="Next spread"
-                aria-hidden={atEnd || !bookReady}
-            >
-                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="9 18 15 12 9 6" />
-                </svg>
-            </button>
-
             <div className="ab-focus-stage" onClick={(e) => e.stopPropagation()}>
+                <button
+                    type="button"
+                    ref={prevNavRef}
+                    className="ab-nav ab-nav--prev ab-focus-nav"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        navigateSpread('prev');
+                    }}
+                    disabled={atStart || !bookReady}
+                    aria-label="Previous spread"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="15 18 9 12 15 6" />
+                    </svg>
+                </button>
+
                 <div
                     className={`ab-book-3d-scene${
                         bookFlipping ? ' ab-book-3d-scene--flipping' : ''
-                    }${showFrontCoverOnly ? ' ab-book-3d-scene--front-cover-only' : ''}${
-                        showEndCoverOnly ? ' ab-book-3d-scene--end-cover-only' : ''
                     }`}
-                    style={{ width: sceneWidth, height: dims.height }}
                 >
+                    <div className="ab-book-spine" aria-hidden />
                     <div
                         className={`ab-focus-flipbook-wrap ab-flipbook-wrap ab-flipbook-wrap--book-3d${
                             !bookFlipping ? ' ab-flipbook-wrap--book-3d-idle' : ''
-                        }${bookFlipping ? ' ab-flipbook-wrap--flipping' : ''}${
-                            showFrontCoverOnly ? ' ab-flipbook-wrap--front-cover-only' : ''
-                        }${showEndCoverOnly ? ' ab-flipbook-wrap--end-cover-only' : ''}`}
-                        style={{
-                            width: dims.width * 2,
-                            height: dims.height,
-                        }}
+                        }${bookFlipping ? ' ab-flipbook-wrap--flipping' : ''}`}
+                        style={{ width: dims.width * 2, height: dims.height }}
                     >
                         <HTMLFlipBook
                             key={`focus-${album?.id}-${totalPages}-${flipStartPage}-${dims.width}x${dims.height}`}
@@ -407,6 +367,22 @@ export default function AlbumFocusView({
                         </HTMLFlipBook>
                     </div>
                 </div>
+
+                <button
+                    type="button"
+                    ref={nextNavRef}
+                    className="ab-nav ab-nav--next ab-focus-nav"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        navigateSpread('next');
+                    }}
+                    disabled={atEnd || !bookReady}
+                    aria-label="Next spread"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="9 18 15 12 9 6" />
+                    </svg>
+                </button>
             </div>
         </div>,
         document.body

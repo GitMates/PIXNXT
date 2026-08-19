@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion as Motion } from 'framer-motion';
 import * as Covers from '../../components/features/CollectionDashboard/PreviewPane/CoverStyles';
+import { CoverScrollHint, coverUsesEmbeddedScroll } from '../../components/features/CollectionDashboard/PreviewPane/CoverStyles/CoverScrollHint';
 import { supabase } from '../../lib/supabase/client';
 
 import { MasonryGrid } from '../../components/features/Gallery/MasonryGrid/MasonryGrid';
@@ -15,7 +16,7 @@ import { DownloadModal } from '../../components/features/Gallery/DownloadModal/D
 import { ShareCollectionModal } from '../../components/features/Gallery/ShareCollectionModal/ShareCollectionModal';
 import { downloadSinglePhotoFile } from '../../lib/downloadPhoto';
 import { formatCoverDate } from '../../lib/formatCoverDate.js';
-import { getCollectionFocal } from '../../lib/focalPoint';
+import { getCollectionFocal, getCollectionFocals, stripMediaUrlHash } from '../../lib/focalPoint';
 import {
   GalleryStickyNav,
   GallerySetDescription,
@@ -42,6 +43,7 @@ import './GalleryView.css';
 import { useIsMobileViewport } from '../../hooks/useIsMobileViewport';
 import { normalizeGalleryPhotoSort, sortPhotosForGallery } from '../../lib/galleryPhotoSort';
 import { normalizeNavigationStyle } from '../../lib/navStyle';
+import { getThumbnailSizeColumnCount } from '../../lib/masonryColumnDistribution';
 import {
   normalizePaletteId,
   normalizeFontId,
@@ -84,6 +86,29 @@ import {
 import { filterPhotosByIds } from '../../lib/photoAiSearch';
 import { useGalleryPeople } from '../../hooks/useGalleryPeople';
 import { GalleryPeopleStrip } from '../../components/features/Gallery/GalleryPeopleStrip/GalleryPeopleStrip';
+import { GalleryEmailGate } from '../../components/features/Gallery/GalleryEmailGate/GalleryEmailGate';
+import {
+  captureModeNeedsName,
+  captureModeNeedsPhone,
+  knownGalleryVisitorEmail,
+  readGalleryRegistration,
+  writeGalleryRegistration,
+} from '../../lib/galleryEmailRegistration';
+
+function resolveDownloadSetAllowlist(selectedDownloadSets, namedSets = []) {
+  if (!selectedDownloadSets?.length) return null;
+  const hasNamedSets = namedSets.some((s) => s.name?.toLowerCase() !== 'highlights');
+  const isLegacyHighlightsOnly =
+    selectedDownloadSets.length === 1 &&
+    String(selectedDownloadSets[0]).toLowerCase() === 'highlights' &&
+    hasNamedSets;
+  return isLegacyHighlightsOnly ? null : selectedDownloadSets;
+}
+
+function isDownloadSetAllowed(allowlist, key) {
+  if (!allowlist) return true;
+  return allowlist.some((item) => String(item) === String(key));
+}
 
 /** Stable string ids so Supabase UUIDs match `photo.id` from the collection payload. */
 function normalizeFavoritePhotoId(id) {
@@ -107,6 +132,9 @@ const GalleryView = () => {
   const [showNoImageShopModal, setShowNoImageShopModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [email, setEmail] = useState('');
+  const [emailGatePassed, setEmailGatePassed] = useState(false);
+  const [emailGateSaving, setEmailGateSaving] = useState(false);
+  const [emailGateError, setEmailGateError] = useState('');
 
   // Sales campaigns loaded from StoreDashboard localStorage for client site banner rendering
   const [campaigns, setCampaigns] = useState(() => {
@@ -639,6 +667,7 @@ const GalleryView = () => {
   const [showClientLogin, setShowClientLogin] = useState(false);
   const [privateToast, setPrivateToast] = useState(null);
   const [privateToastThumb, setPrivateToastThumb] = useState(null);
+  const [downloadBlockedToast, setDownloadBlockedToast] = useState(null);
 
   // Preference Settings from localStorage
   const [showTosModal, setShowTosModal] = useState(false);
@@ -759,6 +788,57 @@ const GalleryView = () => {
     if (max != null) return `${name} (${favoritedPhotos.length}/${max})`;
     return `${name} (${favoritedPhotos.length})`;
   }, [sessionId, activeFavoriteList, favoritedPhotos.length]);
+
+  const handleEmailGateSubmit = async ({ email: nextEmail, name, phone }) => {
+    if (!collection?.id) return;
+    const trimmedEmail = String(nextEmail || '').trim();
+    const trimmedName = String(name || '').trim();
+    const trimmedPhone = String(phone || '').trim();
+    const mode = collection.email_capture_mode;
+
+    if (!trimmedEmail.includes('@')) {
+      setEmailGateError('Please enter a valid email address.');
+      return;
+    }
+    if (captureModeNeedsName(mode) && !trimmedName) {
+      setEmailGateError('Please enter your name.');
+      return;
+    }
+    if (captureModeNeedsPhone(mode) && !trimmedPhone) {
+      setEmailGateError('Please enter your phone number.');
+      return;
+    }
+
+    setEmailGateSaving(true);
+    setEmailGateError('');
+    try {
+      const session = await galleryService.registerGalleryVisitor({
+        collectionId: collection.id,
+        email: trimmedEmail,
+        name: trimmedName,
+        phone: trimmedPhone,
+      });
+      writeGalleryRegistration(collection.id, {
+        email: trimmedEmail,
+        name: trimmedName,
+        phone: trimmedPhone,
+      });
+      setEmail(trimmedEmail);
+      if (session?.id) {
+        setSessionId(session.id);
+        await refreshSelectionList(session.id, listId || null);
+      }
+      const channel = new BroadcastChannel('pixnxt-gallery-update');
+      channel.postMessage({ type: 'ACTIVITY_UPDATED', collectionId: collection.id });
+      channel.close();
+      setEmailGatePassed(true);
+    } catch (err) {
+      console.error('Failed to register visitor:', err);
+      setEmailGateError(err.message || 'Could not save your details. Please try again.');
+    } finally {
+      setEmailGateSaving(false);
+    }
+  };
 
   const handleFavoriteEmailSubmit = async () => {
     if (!email || !collection || collection.favorites_enabled === false) return;
@@ -990,9 +1070,27 @@ const GalleryView = () => {
     const photo = (photoOrEvent && photoOrEvent.id) ? photoOrEvent : null;
 
     if (photo) {
-      const needsEmail = !!collection?.email_capture_enabled || !!collection?.restrict_to_emails;
+      const matchedSet = downloadableSets.find((set) => String(set.id) === String(photo?.set_id));
+      const photoDownloadAllowed = !photo?.set_id
+        ? isDownloadSetAllowed(downloadSetAllowlist, 'Highlights')
+        : isDownloadSetAllowed(downloadSetAllowlist, photo?.set_id) ||
+          isDownloadSetAllowed(downloadSetAllowlist, matchedSet?.name);
+      if (!photoDownloadAllowed) {
+        setDownloadBlockedToast('This set is not available for download.');
+        window.setTimeout(() => setDownloadBlockedToast(null), 4000);
+        return;
+      }
 
-      // Check if PIN is required for single photo downloads
+      // Films can be "watch only" even when photo downloads are enabled.
+      if (photo?.media_type === 'video' && collection?.video_downloads_enabled === false) {
+        alert('This film is watch-only for this delivery.');
+        return;
+      }
+
+      const savedEmail = knownGalleryVisitorEmail(collection.id, email);
+      const needsEmail = (!!collection?.email_capture_enabled || !!collection?.restrict_to_emails) && !savedEmail;
+
+      // When PIN is ON, require it for single photo downloads too
       const pinRequiredForSingle = collection?.require_pin_for_single_photo !== false;
       const hasPin = !!(collection?.download_pin || collection?.pin_value || collection?.pinValue || collection?.download_pin_hash);
       const needsPin = hasPin && (!photo || pinRequiredForSingle);
@@ -1002,7 +1100,20 @@ const GalleryView = () => {
       if (!needsEmail && !needsPin && !hasDownloadLimit) {
         // Single photo: download immediately from Cloudflare R2 if no auth required
         const watermarkOptions = getWatermarkOptions();
-        await downloadSinglePhotoFile(photo, { preferOriginal: true, watermarkOptions });
+        const offered = Array.isArray(collection?.download_resolutions) ? collection?.download_resolutions : [];
+        const resolution = offered.includes('web')
+          ? 'web'
+          : offered.includes('full')
+            ? 'full'
+            : offered.includes('original')
+              ? 'original'
+              : 'full';
+        await downloadSinglePhotoFile(photo, {
+          resolution,
+          videoResolution: collection?.video_download_resolution,
+          watermarkOptions,
+        });
+        // Resolution selection applies to photographs; videos use `video_download_resolution`.
 
         // Log activity for direct download
         const savedEmail = localStorage.getItem(`pixnxt_fav_email_${collection.id}`) || 'Visitor';
@@ -1060,6 +1171,9 @@ const GalleryView = () => {
   const previewFont = searchParams.get('font');
   const previewColor = searchParams.get('color');
   const previewGrid = searchParams.get('grid');
+  const previewThumb = searchParams.get('thumb');
+  const previewSpacing = searchParams.get('spacing');
+  const previewNav = searchParams.get('nav');
   const previewSlideshow = searchParams.get('slideshow');
 
   const getEffectiveSettings = () => {
@@ -1068,16 +1182,23 @@ const GalleryView = () => {
       font_family: 'sans',
       color_palette: 'light',
       grid_style: 'vertical',
+      thumbnail_size: 'regular',
+      grid_spacing: 'regular',
       nav_style: 'icons'
     };
+    const extras = collection.design_options && typeof collection.design_options === 'object'
+      ? collection.design_options
+      : {};
     return {
       cover_style: previewCoverStyle
         ? normalizeCoverStyleId(previewCoverStyle)
         : resolveCoverLayoutId(collection),
-      font_family: normalizeFontId(previewFont || collection.font_family || 'sans'),
-      color_palette: normalizePaletteId(previewColor || collection.color_palette || 'light'),
-      grid_style: previewGrid || collection.grid_style || 'vertical',
-      nav_style: collection.nav_style || 'icons'
+      font_family: normalizeFontId(previewFont || extras.font_family || collection.font_family || 'sans'),
+      color_palette: normalizePaletteId(previewColor || extras.color_palette || collection.color_palette || 'light'),
+      grid_style: previewGrid || extras.grid_style || collection.grid_style || 'vertical',
+      thumbnail_size: previewThumb || extras.thumbnail_size || collection.thumbnail_size || 'regular',
+      grid_spacing: previewSpacing || extras.grid_spacing || collection.grid_spacing || 'regular',
+      nav_style: previewNav || extras.nav_style || collection.nav_style || 'icons'
     };
   };
 
@@ -1149,17 +1270,26 @@ const GalleryView = () => {
           }
         }
 
-        // Check for existing session email
-        const savedEmail = localStorage.getItem(`pixnxt_fav_email_${data.id}`);
-        if (savedEmail) {
+        // Restore a previous registration, or require the one-time gate.
+        const savedReg = readGalleryRegistration(data.id);
+        const skipGate = !data.email_capture_enabled || (isClientExclusiveEnabled(data) && isClientSessionActive(data.id));
+        if (savedReg?.email) {
+          setEmailGatePassed(true);
           try {
-            const session = await galleryService.createOrGetSession(data.id, savedEmail);
+            const session = await galleryService.createOrGetSession(data.id, savedReg.email, {
+              name: savedReg.name,
+              phone: savedReg.phone,
+            });
             setSessionId(session.id);
-            setEmail(savedEmail);
+            setEmail(savedReg.email);
             await refreshSelectionList(session.id, listId || null);
           } catch (e) {
             console.error("Failed to restore session:", e);
           }
+        } else if (skipGate) {
+          setEmailGatePassed(true);
+        } else {
+          setEmailGatePassed(false);
         }
       } catch (err) {
         console.error('Gallery Fetch Error:', err);
@@ -1291,10 +1421,11 @@ const GalleryView = () => {
   const photosForActiveSet = useMemo(() => {
     if (!collection) return [];
     if (isFavoriteListMode) return favoriteListPhotos || [];
+    const source = (collection.photos || []).filter((p) => isClientViewer || !p.is_private);
     return activeSetId
-      ? (collection.photos || []).filter((p) => p.set_id === activeSetId)
-      : (collection.photos || []).filter((p) => !p.set_id);
-  }, [collection, activeSetId, isFavoriteListMode, favoriteListPhotos]);
+      ? source.filter((p) => p.set_id === activeSetId)
+      : source.filter((p) => !p.set_id);
+  }, [collection, activeSetId, isFavoriteListMode, favoriteListPhotos, isClientViewer]);
 
   const visibleSets = useMemo(() => {
     if (!collection?.sets) return [];
@@ -1315,6 +1446,10 @@ const GalleryView = () => {
     if (!collection?.sets) return [];
     return filterSetsForViewer(collection.sets, collection, isClientViewer);
   }, [collection, isClientViewer]);
+  const downloadSetAllowlist = useMemo(
+    () => resolveDownloadSetAllowlist(collection?.selected_download_sets, downloadableSets),
+    [collection?.selected_download_sets, downloadableSets]
+  );
 
   const filteredPhotosBase = useMemo(() => {
     let base = photosForActiveSet;
@@ -1466,29 +1601,29 @@ const GalleryView = () => {
   const galleryGridSettings = useMemo(
     () => ({
       style: effectiveSettings.grid_style || 'vertical',
-      size: collection?.thumbnail_size || 'regular',
-      spacing: collection?.grid_spacing || 'regular',
+      size: effectiveSettings.thumbnail_size || 'regular',
+      spacing: effectiveSettings.grid_spacing || 'regular',
       aspectRatio: collection?.aspect_ratio || 'original',
     }),
     [
       effectiveSettings.grid_style,
-      collection?.thumbnail_size,
-      collection?.grid_spacing,
+      effectiveSettings.thumbnail_size,
+      effectiveSettings.grid_spacing,
       collection?.aspect_ratio,
     ]
   );
 
   const galleryCustomRowHeight =
-    collection?.thumbnail_size === 'large'
+    effectiveSettings.thumbnail_size === 'large'
       ? 420
-      : collection?.thumbnail_size === 'regular'
+      : effectiveSettings.thumbnail_size === 'regular'
         ? 300
-        : collection?.thumbnail_size === 'small'
+        : effectiveSettings.thumbnail_size === 'small'
           ? 200
           : 140;
 
-  // Column count is viewport-driven inside MasonryGrid (4 cols above 1600px).
-  // Do not pass a fixed customColumnCount — thumbnail_size only affects tile height.
+  // Column count comes from thumbnail size inside MasonryGrid:
+  // large 4/2, regular 6/3, small 8/4 (web / mobile).
 
   const handleStartSlideshow = useCallback(() => {
     if (filteredPhotos.length < 1) return;
@@ -1816,6 +1951,20 @@ const GalleryView = () => {
     </div>
   );
 
+  if (collection.email_capture_enabled && !emailGatePassed) {
+    return (
+      <GalleryEmailGate
+        collectionName={collection.name}
+        coverUrl={collection.cover_url}
+        studioName={photographer?.business_name || photographer?.display_name}
+        captureMode={collection.email_capture_mode}
+        saving={emailGateSaving}
+        error={emailGateError}
+        onSubmit={handleEmailGateSubmit}
+      />
+    );
+  }
+
   return (
     <div
       className={cn('gallery-view-page min-h-screen transition-colors duration-500', `theme-${effectiveSettings.color_palette}`, `font-${effectiveSettings.font_family}`, `nav-style-${navigationStyle}`, `style-${effectiveSettings.cover_style}`)}
@@ -1905,11 +2054,11 @@ const GalleryView = () => {
 
       {/* Hero Section */}
       <div
-        className="gallery-view-hero w-full h-[100dvh] [&>div]:!h-full"
+        className="gallery-view-hero relative w-full h-[100dvh] [&>div]:!h-full"
         data-cover-text-scale={isMobileViewport ? 'compact' : 'large'}
       >
         {(() => {
-          let activePhotoUrl = collection.cover_url || '';
+          let activePhotoUrl = stripMediaUrlHash(collection.cover_url || '');
           if (activePhotoUrl) {
             activePhotoUrl = resolveMediaUrl(activePhotoUrl);
             if (activePhotoUrl.includes('/original/')) {
@@ -1918,7 +2067,10 @@ const GalleryView = () => {
           } else {
             activePhotoUrl = collection.photos?.[0] ? getWebResolutionUrl(collection.photos[0]) : '';
           }
-          const { x: focalX, y: focalY } = getCollectionFocal(collection);
+          const focals = getCollectionFocals(collection);
+          const { x: focalX, y: focalY } = isMobileViewport
+            ? (focals.phone || focals.desktop || getCollectionFocal(collection))
+            : (focals.desktop || focals.website || getCollectionFocal(collection));
 
           const props = {
             title: collection.name,
@@ -1948,6 +2100,13 @@ const GalleryView = () => {
             default: return <Covers.NovelCover {...props} />;
           }
         })()}
+        {effectiveSettings.cover_style !== 'classic' && !coverUsesEmbeddedScroll(effectiveSettings.cover_style) ? (
+          <CoverScrollHint
+            coverStyle={effectiveSettings.cover_style}
+            onClick={scrollToGallery}
+            isGalleryView
+          />
+        ) : null}
       </div>
 
       {/* Sticky Header */}
@@ -2193,6 +2352,10 @@ const GalleryView = () => {
               onShop: handleShopClick,
               favoritedPhotoIds: favoritedPhotos,
               customRowHeight: galleryCustomRowHeight,
+              customColumnCount: getThumbnailSizeColumnCount(
+                galleryGridSettings.size,
+                isMobileViewport
+              ),
               showFilename: false,
               className: 'mt-2',
             };
@@ -2203,7 +2366,7 @@ const GalleryView = () => {
                 {largeBannerMarkup}
 
                 <MasonryGrid
-                  key={`grid-single-${activeSetId ?? 'highlights'}-${mediaFilter}-${effectiveSettings.grid_style}`}
+                  key={`grid-single-${activeSetId ?? 'highlights'}-${mediaFilter}-${effectiveSettings.grid_style}-${effectiveSettings.thumbnail_size}-${effectiveSettings.grid_spacing}`}
                   photos={filteredPhotos}
                   onImageClick={handleGridImageClick}
                   activeCampaign={activeCampaign}
@@ -2550,6 +2713,7 @@ const GalleryView = () => {
         initialPhoto={selectedDownloadPhoto}
         watermarkOptions={getWatermarkOptions()}
         initialSetId={activeSetId}
+        visitorEmail={email}
       />
 
       <ShareCollectionModal
@@ -2572,6 +2736,7 @@ const GalleryView = () => {
       />
 
       <ClientExclusiveToast message={privateToast} thumbnailUrl={privateToastThumb} />
+      <ClientExclusiveToast message={downloadBlockedToast} />
 
       {/* No Image Selected Shop Modal */}
       {showNoImageShopModal && (

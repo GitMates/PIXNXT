@@ -1,0 +1,366 @@
+/* Shared primitives for the card-style settings pages (Access, Downloads,
+   Selections, Print Lab). Builds on the base card system in BasicsSettings.css. */
+
+.cd-basics-card__icon--muted {
+  background: linear-gradient(135deg, #dcd7cf 0%, #cec7bd 100%);
+}
+
+.cd-basics-card__icon--frame {
+  background: linear-gradient(135deg, #bda78f 0%, #9c8268 100%);
+  padding: 7px;
+}
+
+.cd-basics-card__icon--frame span.cd-basics-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 2px solid #fff;
+  border-radius: 2px;
+  background: #c9b49b;
+}
+
+.cd-basics-card__brand--light {
+  background: rgba(255, 255, 255, 0.9);
+  color: #3a342f;
+}
+
+.cd-basics-card__corner {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: rgba(24, 20, 16, 0.82);
+  color: #fff;
+}
+
+.cd-basics-card__center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #3a342f;
+}
+
+.cd-basics-card__center--dark {
+  background: rgba(24, 20, 16, 0.85);
+  color: #fff;
+  width: 24px;
+  height: 24px;
+}
+
+.cd-basics-card__chips {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  display: flex;
+  gap: 4px;
+}
+
+.cd-basics-card__chips i {
+  display: block;
+  width: 13px;
+  height: 9px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.cd-basics-card__chips i:last-child {
+  width: 9px;
+}
+
+.cd-basics-grid-icon--alt span:nth-child(1) { background: #b09378; }
+.cd-basics-grid-icon--alt span:nth-child(2) { background: #97a396; }
+.cd-basics-grid-icon--alt span:nth-child(3) { background: #b8a189; }
+.cd-basics-grid-icon--alt span:nth-child(4) { background: #e2ddd4; }
+
+/* Section card (title + description inside the white card) */
+.cd-basics-section-card {
+  background: #ffffff;
+  border: 1px solid #e8e4de;
+  border-radius: 12px;
+  padding: 18px 20px 20px;
+}
+
+.cd-basics-section-card__title {
+  margin: 0;
+  font-family: var(--font-display, Georgia, serif);
+  font-size: 17px;
+  font-weight: 500;
+  color: #2a241e;
+}
+
+.cd-basics-section-card__desc {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #9a9188;
+}
+
+.cd-basics-section-card__desc strong {
+  font-weight: 600;
+  color: #3f3a35;
+}
+
+.cd-basics-section-card .cd-basics-toggles {
+  margin-top: 12px;
+}
+
+/* Message / client-screen preview */
+.cd-basics-msg {
+  margin: 6px 0 0;
+  padding: 14px 16px;
+  border: 1px solid #efeae3;
+  border-radius: 10px;
+  background: #faf8f5;
+  font-size: 13px;
+  line-height: 1.65;
+  color: #3a342f;
+}
+
+.cd-basics-msg p {
+  margin: 0;
+}
+
+.cd-basics-msg strong {
+  font-weight: 600;
+  color: #2a241e;
+}
+
+.cd-basics-msg__link {
+  color: #c46a3a;
+  word-break: break-all;
+}
+
+.cd-basics-msg__sign {
+  margin-top: 14px !important;
+  color: #8a8278;
+}
+
+.cd-basics-msg--row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.cd-basics-msg--row .cd-basics-msg__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.cd-basics-msg__actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.cd-basics-caplabel {
+  display: block;
+  margin: 18px 0 6px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #b0a89e;
+}
+
+/* Buttons */
+.cd-basics-btn--primary {
+  border-color: #c46a3a;
+  background: #c46a3a;
+  color: #fff;
+  font-weight: 600;
+}
+
+.cd-basics-btn--primary:hover {
+  border-color: #b25f31;
+  background: #b25f31;
+}
+
+.cd-basics-btn--sm {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 12.5px;
+}
+
+.cd-basics-iconbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  border: 1px solid #e6e1d9;
+  border-radius: 10px;
+  background: #fff;
+  color: #8a8278;
+  cursor: pointer;
+}
+
+.cd-basics-iconbtn:hover {
+  background: #faf8f4;
+  color: #2a241e;
+}
+
+/* Lists table */
+.cd-basics-table-wrap {
+  margin-top: 14px;
+  border: 1px solid #efeae3;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.cd-basics-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.cd-basics-table thead th {
+  padding: 9px 14px;
+  background: #f6f3ee;
+  border-bottom: 1px solid #efeae3;
+  font-size: 8.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #a39a90;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.cd-basics-table thead th.is-num,
+.cd-basics-table tbody td.is-num {
+  text-align: right;
+}
+
+.cd-basics-table thead th.is-action,
+.cd-basics-table tbody td.is-action {
+  text-align: right;
+}
+
+.cd-basics-table tbody td {
+  padding: 11px 14px;
+  border-bottom: 1px solid #f4f0ea;
+  color: #3a342f;
+  vertical-align: middle;
+}
+
+.cd-basics-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.cd-basics-table tbody tr.is-submitted {
+  background: #f5f8f2;
+}
+
+.cd-basics-table__name {
+  font-weight: 600;
+  color: #2a241e;
+}
+
+.cd-basics-table__sub {
+  margin: 2px 0 0;
+  font-size: 11.5px;
+  color: #a39a90;
+}
+
+.cd-basics-table__picked {
+  font-weight: 600;
+  color: #2a241e;
+}
+
+.cd-basics-table__muted {
+  color: #a39a90;
+}
+
+.cd-basics-table__empty {
+  padding: 18px 14px;
+  font-size: 12.5px;
+  color: #a39a90;
+}
+
+/* Status badges */
+.cd-basics-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 8.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  background: #f0ede7;
+  color: #8a8278;
+}
+
+.cd-basics-badge--done {
+  background: #e7f0e3;
+  color: #4b7040;
+}
+
+.cd-basics-badge--busy {
+  background: #fbf0dd;
+  color: #9a7433;
+}
+
+.cd-basics-actions-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.cd-basics-foot {
+  margin: 14px 0 0;
+  font-size: 12px;
+  line-height: 1.55;
+  color: #a39a90;
+}
+
+.cd-basics-foot strong {
+  font-weight: 600;
+  color: #6f665d;
+}
+
+/* Price / number field rows */
+.cd-basics-money-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.cd-basics-money {
+  min-width: 150px;
+}
+
+.cd-basics-money .cd-basics-input {
+  max-width: 150px;
+}
+
+.cd-basics-input--sm {
+  max-width: 150px;
+}
+
+@media (max-width: 720px) {
+  .cd-basics-table-wrap {
+    overflow-x: auto;
+  }
+
+  .cd-basics-msg--row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

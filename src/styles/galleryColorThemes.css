@@ -219,6 +219,7 @@
 
 /* Vintage cover */
 [class*='theme-'] .cover-vintage-layout {
+  --vintage-bg: var(--gallery-bg);
   --vintage-text: var(--gallery-text);
   --vintage-muted: var(--gallery-meta-text);
 }

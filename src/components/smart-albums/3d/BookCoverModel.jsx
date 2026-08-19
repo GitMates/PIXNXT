@@ -8,11 +8,23 @@ import {
     DEFAULT_COVER_COLOR_PRESET_ID,
     resolveCoverLeatherPreset,
 } from '../albumCoverColor';
-import { resolveBookWrapSpreadSrc } from '../albumPagePhotos';
+import {
+    getGridSlotPhoto,
+    getPagePhotoOverride,
+    getSpreadPhotoOverride,
+    resolveBookWrapSpreadSrc,
+} from '../albumPagePhotos';
 import { getSpreadPhotoTransform } from '../albumPageTransforms';
-import { getSpreadContext, getTotalSpreads, albumShowsLeatherCover } from '../albumSpreadUtils';
+import { getSpreadLeftPageIndex } from '../albumSpreadGrid';
+import {
+    albumShowsLeatherCover,
+    getSpreadContext,
+    getTotalSpreads,
+    isWholeSpreadLayout,
+} from '../albumSpreadUtils';
 import { getBookWrapSpineLayout } from '../bookWrapSpine';
 import { SPINE_BOUNDS_CHANGED_EVENT } from '../albumSpineSettings';
+import { getSampleImageForPage } from '../sampleAlbumImages';
 import {
     getBook3dDimensions,
     shouldUseWrapCrop,
@@ -21,13 +33,79 @@ import {
     SPINE_DARK,
     PAGE_WHITE,
 } from './book3dTextures';
-import { useBlankCoverTitleTexture, useBlankLeatherPanelTexture, useCanvasWrapTexture } from './book3dPageCanvas';
+import {
+    useBlankCoverTitleTexture,
+    useBlankLeatherPanelTexture,
+    useCanvasPageTexture,
+    useCanvasSpreadTexture,
+    useCanvasWrapTexture,
+} from './book3dPageCanvas';
 
 const COVER_THICK = 0.045;
 const SPINE_EMPTY = '#e4e7ec';
 /** Idle open angle (rad) for the turn-page invitation. */
 const TURN_HINT_MAX_YAW = 0.28;
 const TURN_HINT_SPEED = 1.05;
+
+/**
+ * First photo/spread visible when the front cover peels open in the 3D hint.
+ * With covers: skip blank inside-left (page 2), prefer page 3 then later pages.
+ */
+function resolveFirstPeekContent(album, totalPages, showSamples = false) {
+    const albumId = album?.id;
+    if (!albumId) return null;
+    const spreadOpts = getSpreadContext(album, totalPages);
+    const startPage = spreadOpts.hasCovers ? 3 : 0;
+    const lastPage = Math.max(0, totalPages - 1);
+
+    for (let pageNum = startPage; pageNum <= lastPage; pageNum += 1) {
+        if (spreadOpts.hasCovers && pageNum === 2) continue;
+        const spreadLeft = getSpreadLeftPageIndex(pageNum, { ...spreadOpts, totalPages });
+        if (pageNum === spreadLeft) {
+            const spreadSrc = getSpreadPhotoOverride(albumId, spreadLeft);
+            if (spreadSrc) {
+                return {
+                    kind: 'spread',
+                    src: spreadSrc,
+                    left: spreadLeft,
+                    transform: getSpreadPhotoTransform(albumId, spreadLeft),
+                };
+            }
+        }
+        const cellId = pageNum === spreadLeft ? 1 : 2;
+        const slot = getGridSlotPhoto(albumId, pageNum, cellId, spreadLeft, totalPages, {
+            wholeSpread: isWholeSpreadLayout(album?.grid_layout),
+            spreadOpts,
+        });
+        if (slot?.src) {
+            return {
+                kind: 'page',
+                slot,
+                page: pageNum,
+                transform: getSpreadPhotoTransform(albumId, spreadLeft),
+            };
+        }
+        const pageSrc = getPagePhotoOverride(albumId, pageNum);
+        if (pageSrc) {
+            return {
+                kind: 'page',
+                slot: { src: pageSrc },
+                page: pageNum,
+                transform: getSpreadPhotoTransform(albumId, spreadLeft),
+            };
+        }
+    }
+
+    if (showSamples) {
+        return {
+            kind: 'page',
+            slot: { src: getSampleImageForPage(startPage) },
+            page: startPage,
+            transform: null,
+        };
+    }
+    return null;
+}
 
 function CoverPhotoMaterial({ map, side = THREE.FrontSide }) {
     return (
@@ -80,6 +158,8 @@ function ClosedBook({
     frontTexture,
     backTexture,
     spineTexture,
+    insideTexture = null,
+    hasInsidePhoto = false,
     blankCover,
     blankNoPhoto,
     leatherPreset,
@@ -144,6 +224,16 @@ function ClosedBook({
             <mesh>
                 <boxGeometry args={[width, height, pageDepth]} />
                 <PageEdgeMaterial />
+            </mesh>
+
+            {/* First spread / page showing under the cover when it peels open */}
+            <mesh position={[0, 0, pageDepth / 2 + 0.0015]} castShadow>
+                <planeGeometry args={[width, height]} />
+                {hasInsidePhoto && insideTexture ? (
+                    <CoverPhotoMaterial map={insideTexture} />
+                ) : (
+                    <meshBasicMaterial color={PAGE_WHITE} toneMapped={false} />
+                )}
             </mesh>
 
             <mesh position={[0, 0, -(outerZ - COVER_THICK / 2)]} castShadow>
@@ -283,6 +373,14 @@ export default function BookCoverModel({
         return totalDepth / coverH;
     }, [pageDepth, coverH]);
 
+    const peekContent = useMemo(
+        () => resolveFirstPeekContent(album, totalPages, showSamples),
+        [album, totalPages, showSamples]
+    );
+    const peekPageSlot = peekContent?.kind === 'page' ? peekContent.slot : null;
+    const peekSpreadSrc = peekContent?.kind === 'spread' ? peekContent.src : null;
+    const peekTransform = peekContent?.transform || null;
+
     const blankTitleFrontTex = useBlankCoverTitleTexture(coverTitle, pageAspect, coverColorId);
     const blankLeatherBackTex = useBlankLeatherPanelTexture(pageAspect, coverColorId, { spine: false });
     const blankLeatherSpineTex = useBlankLeatherPanelTexture(spineBindingAspect, coverColorId, {
@@ -311,6 +409,12 @@ export default function BookCoverModel({
         coverTransform,
         spineBindingAspect
     );
+    const peekPageTex = useCanvasPageTexture(peekPageSlot, pageAspect, {
+        transform: peekTransform,
+    });
+    const peekSpreadTex = useCanvasSpreadTexture(peekSpreadSrc, pageAspect, peekTransform);
+    const insideTexture = peekContent?.kind === 'spread' ? peekSpreadTex : peekPageTex;
+    const hasInsidePhoto = Boolean(peekContent?.kind === 'spread' ? peekSpreadSrc : peekPageSlot?.src);
 
     useLayoutEffect(() => {
         const root = groupRef.current;
@@ -340,6 +444,8 @@ export default function BookCoverModel({
                 frontTexture={coverSrc ? closedFrontTex : blankTitleFrontTex}
                 backTexture={blankNoPhoto ? blankLeatherBackTex : closedBackTex}
                 spineTexture={blankNoPhoto ? blankLeatherSpineTex : closedSpineTex}
+                insideTexture={insideTexture}
+                hasInsidePhoto={hasInsidePhoto}
                 blankCover={blankCover}
                 blankNoPhoto={blankNoPhoto}
                 leatherPreset={leatherPreset}
