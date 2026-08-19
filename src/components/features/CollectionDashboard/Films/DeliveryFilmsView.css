@@ -7,7 +7,7 @@
 }
 
 .dfv-header {
-  margin-bottom: 22px;
+  margin-bottom: 16px;
 }
 
 .dfv-title {
@@ -21,7 +21,7 @@
 }
 
 .dfv-subtitle {
-  margin: 8px 0 0;
+  margin: 6px 0 0;
   font-size: 0.875rem;
   line-height: 1.45;
   color: #8c827a;
@@ -32,8 +32,8 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 24px;
-  margin-bottom: 28px;
-  padding: 18px 20px;
+  margin-bottom: 20px;
+  padding: 14px 18px;
   border: 1px solid #e8e2d8;
   border-radius: 12px;
   background: #f7f3ec;
@@ -106,7 +106,7 @@
   grid-template-columns: minmax(280px, 1.8fr) 100px 180px 140px 44px;
   gap: 12px;
   align-items: center;
-  padding: 12px 18px;
+  padding: 10px 18px;
   border-bottom: 1px solid #eceae6;
   background: #faf9f7;
 }
@@ -135,7 +135,7 @@
   grid-template-columns: minmax(280px, 1.8fr) 100px 180px 140px 44px;
   gap: 12px;
   align-items: center;
-  padding: 14px 18px;
+  padding: 10px 18px;
   border-bottom: 1px solid #f0eee8;
 }
 
@@ -325,4 +325,108 @@
     position: relative;
     padding-right: 52px;
   }
+}
+
+/* Thumbnail duration badge */
+.dfv-thumb__duration {
+  position: absolute;
+  bottom: 5px;
+  right: 5px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 5px;
+  border-radius: 4px;
+  line-height: 1;
+}
+
+/* What happens to a 4K film section */
+.dfv-info-section {
+  margin-top: 48px;
+  border-top: 1px solid #f0eee8;
+  padding-top: 40px;
+  max-width: 800px;
+}
+
+.dfv-info-section__title {
+  margin: 0;
+  font-family: var(--font-display, Georgia, 'Times New Roman', serif);
+  font-size: 1.25rem;
+  font-weight: 500;
+  color: #1a1a1a;
+}
+
+.dfv-info-section__subtitle {
+  margin: 8px 0 24px;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: #8c827a;
+}
+
+.dfv-info-table {
+  border: 1px solid #eceae6;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+  margin-bottom: 24px;
+}
+
+.dfv-info-table__head {
+  display: grid;
+  grid-template-columns: 120px 1.5fr 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 16px;
+  border-bottom: 1px solid #eceae6;
+  background: #faf9f7;
+}
+
+.dfv-info-table__col {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #a39a90;
+}
+
+.dfv-info-table__body {
+  display: flex;
+  flex-direction: column;
+}
+
+.dfv-info-table__row {
+  display: grid;
+  grid-template-columns: 120px 1.5fr 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid #f0eee8;
+}
+
+.dfv-info-table__row:last-child {
+  border-bottom: none;
+}
+
+.dfv-info-table__cell {
+  font-size: 0.875rem;
+  color: #5c564f;
+}
+
+.dfv-info-table__cell--bold {
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.dfv-info-section__footer-text {
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: #8c827a;
+  margin: 0;
+}
+
+.dfv-content {
+  width: 100%;
+  max-width: 840px;
+  margin: 0 auto;
 }

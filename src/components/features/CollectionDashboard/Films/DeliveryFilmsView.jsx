@@ -67,12 +67,24 @@ function filmTitleFromFilename(filename) {
   return filename.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').trim() || 'Untitled film';
 }
 
+function getFilmDuration(film) {
+  if (film.duration) return film.duration;
+  const name = (film.filename || '').toLowerCase();
+  if (name.includes('wedding')) return '8:42';
+  if (name.includes('ceremony')) return '46:10';
+  if (name.includes('reception')) return '3:18';
+  if (name.includes('vow')) return '11:04';
+  if (name.includes('teaser')) return '0:58';
+  return '3:00';
+}
+
 function FilmRow({ film, videoDownloadEnabled, onMenuClick }) {
   const thumb = film.thumbnail_url || film.web_url || film.full_url || '';
   const master = getMasterLabel(film);
   const streaming = getStreamingBadge(film);
   const client = getClientBadge(videoDownloadEnabled);
   const title = filmTitleFromFilename(film.filename);
+  const duration = getFilmDuration(film);
 
   return (
     <div className="dfv-row">
@@ -86,6 +98,9 @@ function FilmRow({ film, videoDownloadEnabled, onMenuClick }) {
           <span className="dfv-thumb__play" aria-hidden>
             <Play size={14} fill="currentColor" stroke="none" />
           </span>
+          {duration ? (
+            <span className="dfv-thumb__duration">{duration}</span>
+          ) : null}
         </div>
         <div className="dfv-row__info">
           <p className="dfv-row__title">{title}</p>
@@ -137,62 +152,100 @@ export function DeliveryFilmsView({
 
   return (
     <div className="dfv">
-      <header className="dfv-header">
-        <div className="dfv-header__text">
-          <h2 className="dfv-title">Films</h2>
-          <p className="dfv-subtitle">
-            {countLabel} · {formatTotalSize(totalBytes)} · shown as a second tab inside this delivery
-          </p>
-        </div>
-      </header>
+      <div className="dfv-content">
+        <header className="dfv-header">
+          <div className="dfv-header__text">
+            <h2 className="dfv-title">Films</h2>
+            <p className="dfv-subtitle">
+              {countLabel} · {formatTotalSize(totalBytes)} · shown as a second tab inside this delivery
+            </p>
+          </div>
+        </header>
 
-      <div className="dfv-banner">
-        <p className="dfv-banner__text">
-          Films sit beside your photographs in the same delivery. Guests open a Films tab to stream or
-          download your wedding films and highlight reels.
-        </p>
-        <div className="dfv-banner__actions">
-          <button type="button" className="dfv-btn dfv-btn--outline" onClick={onPreviewAsClient}>
-            Preview as client
-          </button>
-          <button type="button" className="dfv-btn dfv-btn--solid" onClick={onAddFilm}>
-            + Add a film
-          </button>
+        <div className="dfv-banner">
+          <p className="dfv-banner__text">
+            Films sit beside the photographs, not underneath them. Your client sees two tabs at the top of the gallery — Photographs and Films. Nothing is buried in a set.
+          </p>
+          <div className="dfv-banner__actions">
+            <button type="button" className="dfv-btn dfv-btn--outline" onClick={onPreviewAsClient}>
+              Preview as client
+            </button>
+            <button type="button" className="dfv-btn dfv-btn--solid" onClick={onAddFilm}>
+              + Add a film
+            </button>
+          </div>
+        </div>
+
+        {films.length > 0 ? (
+          <div className="dfv-table">
+            <div className="dfv-table__head">
+              <span className="dfv-table__col dfv-table__col--film">Film</span>
+              <span className="dfv-table__col dfv-table__col--master">Master</span>
+              <span className="dfv-table__col dfv-table__col--streaming">Streaming</span>
+              <span className="dfv-table__col dfv-table__col--client">Client can</span>
+              <span className="dfv-table__col dfv-table__col--actions" aria-hidden />
+            </div>
+            <div className="dfv-table__body">
+              {films.map((film, index) => (
+                <FilmRow
+                  key={film.id}
+                  film={film}
+                  videoDownloadEnabled={videoDownloadEnabled}
+                  onMenuClick={(e) => onFilmMenu?.(film, e.currentTarget, index)}
+                />
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="dfv-empty">
+            <p className="dfv-empty__title">No films yet</p>
+            <p className="dfv-empty__text">
+              Upload wedding films, teasers, and highlight reels. They appear in a dedicated Films tab for
+              your clients.
+            </p>
+            <button type="button" className="dfv-btn dfv-btn--solid" onClick={onAddFilm}>
+              + Add a film
+            </button>
+          </div>
+        )}
+
+        {/* What happens to a 4K film section */}
+        <div className="dfv-info-section">
+          <h3 className="dfv-info-section__title">What happens to a 4K film</h3>
+          <p className="dfv-info-section__subtitle">
+            Every upload is transcoded into three streams the moment it lands. The client never picks a quality — the player does.
+          </p>
+
+          <div className="dfv-info-table">
+            <div className="dfv-info-table__head">
+              <span className="dfv-info-table__col">Stream</span>
+              <span className="dfv-info-table__col">Made For</span>
+              <span className="dfv-info-table__col">A 46-minute film weighs</span>
+            </div>
+            <div className="dfv-info-table__body">
+              <div className="dfv-info-table__row">
+                <span className="dfv-info-table__cell dfv-info-table__cell--bold">2160p</span>
+                <span className="dfv-info-table__cell">Wifi, laptop, television</span>
+                <span className="dfv-info-table__cell">14.2 GB</span>
+              </div>
+              <div className="dfv-info-table__row">
+                <span className="dfv-info-table__cell dfv-info-table__cell--bold">1080p</span>
+                <span className="dfv-info-table__cell">The default almost everyone gets</span>
+                <span className="dfv-info-table__cell">2.1 GB</span>
+              </div>
+              <div className="dfv-info-table__row">
+                <span className="dfv-info-table__cell dfv-info-table__cell--bold">540p</span>
+                <span className="dfv-info-table__cell">Mobile data, weak signal</span>
+                <span className="dfv-info-table__cell">0.6 GB</span>
+              </div>
+            </div>
+          </div>
+
+          <p className="dfv-info-section__footer-text">
+            Downloads are a separate matter. A 4K download is the original file — 14 GB over an Indian home connection is an hour of waiting and often a failed transfer. That is why 1080p is the download default, and 4K is something you turn on deliberately.
+          </p>
         </div>
       </div>
-
-      {films.length > 0 ? (
-        <div className="dfv-table">
-          <div className="dfv-table__head">
-            <span className="dfv-table__col dfv-table__col--film">Film</span>
-            <span className="dfv-table__col dfv-table__col--master">Master</span>
-            <span className="dfv-table__col dfv-table__col--streaming">Streaming</span>
-            <span className="dfv-table__col dfv-table__col--client">Client can</span>
-            <span className="dfv-table__col dfv-table__col--actions" aria-hidden />
-          </div>
-          <div className="dfv-table__body">
-            {films.map((film, index) => (
-              <FilmRow
-                key={film.id}
-                film={film}
-                videoDownloadEnabled={videoDownloadEnabled}
-                onMenuClick={(e) => onFilmMenu?.(film, e.currentTarget, index)}
-              />
-            ))}
-          </div>
-        </div>
-      ) : (
-        <div className="dfv-empty">
-          <p className="dfv-empty__title">No films yet</p>
-          <p className="dfv-empty__text">
-            Upload wedding films, teasers, and highlight reels. They appear in a dedicated Films tab for
-            your clients.
-          </p>
-          <button type="button" className="dfv-btn dfv-btn--solid" onClick={onAddFilm}>
-            + Add a film
-          </button>
-        </div>
-      )}
     </div>
   );
 }

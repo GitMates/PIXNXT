@@ -1,5 +1,5 @@
 import React from 'react';
-import { Heart, Share2, Play, Download, Loader2, ShoppingCart, Store, ArrowDownToLine } from 'lucide-react';
+import { Heart, Share2, Play, Download, Loader2, ShoppingCart, ArrowDownToLine, Infinity, Square } from 'lucide-react';
 import { cn } from '../../../../lib/utils';
 import { galleryChromeStyles, GalleryChromeVariant, getGalleryChromeVariant } from './galleryChromeStyles';
 import { NavigationStyleSetting } from '../../../../lib/navStyle';
@@ -197,137 +197,148 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
     </>
   );
 
-  const renderActions = () => (
-    <>
-      {showPrintLab && (
-        <button
-          type="button"
-          className={cn(
-            'flex shrink-0 items-center transition-opacity',
-            isCompact ? 'gap-0.5 opacity-60 hover:opacity-100' : 'gap-1 md:gap-2 hover:opacity-50',
-            !isCompact && 'relative'
-          )}
-          onClick={onPrintLabClick}
-          style={{ color: 'var(--gallery-text)' }}
-        >
-          <span className="text-xs md:text-sm font-medium uppercase tracking-wider underline underline-offset-4 decoration-1">Print Lab</span>
-        </button>
-      )}
-      {showBuyGallery && (
-        <button
-          type="button"
-          className={cn(
-            'flex shrink-0 items-center transition-opacity',
-            isCompact ? 'gap-0.5 opacity-60 hover:opacity-100' : 'gap-1 md:gap-2 hover:opacity-50',
-            !isCompact && 'relative'
-          )}
-          onClick={onBuyGalleryClick}
-          style={{ color: 'var(--gallery-text)' }}
-        >
-          <span className="text-xs md:text-sm font-medium uppercase tracking-wider underline underline-offset-4 decoration-1">
-            {buyGalleryLabel}
-          </span>
-        </button>
-      )}
-      {showShop && (
-        <button
-          type="button"
-          className={cn(
-            'flex shrink-0 items-center transition-opacity',
-            isCompact ? 'gap-0.5 opacity-60 hover:opacity-100' : 'gap-1 md:gap-2 hover:opacity-50',
-            !isCompact && 'relative'
-          )}
-          onClick={onShopClick}
-          style={{ color: 'var(--gallery-text)' }}
-        >
-          <ShoppingCart size={iconSize} />
-          <span className={actionLabelClass(styles.action)}>Cart</span>
-        </button>
-      )}
-      {showFavorites && (
-        <button
-          type="button"
-          className={cn(
-            'flex shrink-0 items-center transition-opacity',
-            isCompact ? 'gap-0.5 opacity-60 hover:opacity-100' : 'gap-1 md:gap-2 hover:opacity-50',
-            !isCompact && 'relative'
-          )}
-          onClick={onFavoriteClick}
-          style={{ color: 'var(--gallery-text)' }}
-        >
-          {isCompact ? (
-            <Heart size={iconSize} fill={favoritedCount > 0 ? 'currentColor' : 'none'} />
-          ) : (
-            <span className="relative inline-flex">
-              <Heart size={iconSize} className={favoritedCount > 0 ? 'fill-current' : ''} />
+  const renderActions = () => {
+    const cartKey = 'pixnxt_printstore_cart';
+    let cartItems = [];
+    try {
+      cartItems = JSON.parse(localStorage.getItem(cartKey) || '[]');
+    } catch (e) {}
+    const cartCount = Array.isArray(cartItems) ? cartItems.length : 0;
+
+    return (
+      <div className="flex items-center gap-4">
+        {showPrintLab && (
+          <button
+            type="button"
+            className={cn(
+              'flex shrink-0 items-center justify-center transition-opacity hover:opacity-60',
+              isCompact 
+                ? 'h-8 w-8 rounded-full border' 
+                : 'gap-1.5 rounded-full border px-4 py-1.5 text-xs font-semibold uppercase tracking-wider'
+            )}
+            onClick={onPrintLabClick}
+            style={{
+              borderColor: 'color-mix(in srgb, var(--gallery-text) 22%, transparent)',
+              color: 'var(--gallery-text)',
+            }}
+          >
+            <Square size={isCompact ? 14 : 13} className="shrink-0 stroke-[2.25]" />
+            {!isCompact && <span>Print</span>}
+          </button>
+        )}
+
+        {showDownload && (
+          <button
+            type="button"
+            className={cn(
+              'flex shrink-0 items-center justify-center transition-opacity hover:opacity-60',
+              isCompact 
+                ? 'h-8 w-8 rounded-full border' 
+                : 'gap-1.5 rounded-full border px-4 py-1.5 text-xs font-semibold uppercase tracking-wider'
+            )}
+            onClick={() => !isDownloadingAll && onDownloadClick?.()}
+            disabled={isDownloadingAll}
+            style={{
+              borderColor: 'color-mix(in srgb, var(--gallery-text) 22%, transparent)',
+              color: 'var(--gallery-text)',
+            }}
+          >
+            {isDownloadingAll ? (
+              <Loader2 size={isCompact ? 14 : 13} className="animate-spin shrink-0" aria-hidden />
+            ) : (
+              <Download size={isCompact ? 14 : 13} className="shrink-0 stroke-[2.25]" />
+            )}
+            {!isCompact && <span>{isDownloadingAll ? 'Downloading' : 'Download'}</span>}
+          </button>
+        )}
+
+        {!isCompact && (showPrintLab || showDownload) && (
+          <div 
+            className="h-6 w-px" 
+            style={{ backgroundColor: 'color-mix(in srgb, var(--gallery-text) 12%, transparent)' }} 
+          />
+        )}
+
+        <div className="flex items-center gap-3 md:gap-4.5">
+          {showFavorites && (
+            <button
+              type="button"
+              className="relative flex shrink-0 items-center transition-opacity hover:opacity-50"
+              onClick={onFavoriteClick}
+              style={{ color: 'var(--gallery-text)' }}
+              title="Favorites"
+            >
+              <Heart size={iconSize} className={cn('stroke-[2.25]', favoritedCount > 0 ? 'fill-current' : '')} />
               {favoritedCount > 0 && (
                 <span
-                  className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-[var(--gallery-bg)]"
-                  aria-hidden
-                />
+                  className="absolute -right-2 -top-2 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold text-white"
+                  style={{ backgroundColor: '#8c827a' }}
+                >
+                  {favoritedCount}
+                </span>
               )}
-            </span>
+            </button>
           )}
-          <span className={actionLabelClass(styles.action)}>Favorites</span>
-        </button>
-      )}
-      {showDownload && (
-        <button
-          type="button"
-          className={cn(
-            'flex shrink-0 items-center transition-opacity',
-            isCompact
-              ? `gap-0.5 ${isDownloadingAll ? 'opacity-100' : 'opacity-60 hover:opacity-100'}`
-              : 'gap-1 md:gap-2 hover:opacity-50',
-            !isCompact && isDownloadingAll && 'disabled:cursor-not-allowed disabled:opacity-40'
+
+          {showShop && (
+            <button
+              type="button"
+              className="relative flex shrink-0 items-center transition-opacity hover:opacity-50"
+              onClick={onShopClick}
+              style={{ color: 'var(--gallery-text)' }}
+              title="Cart"
+            >
+              <ShoppingCart size={iconSize} className="stroke-[2.25]" />
+              {cartCount > 0 && (
+                <span
+                  className="absolute -right-2 -top-2 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold text-white"
+                  style={{ backgroundColor: '#8c827a' }}
+                >
+                  {cartCount}
+                </span>
+              )}
+            </button>
           )}
-          onClick={() => !isDownloadingAll && onDownloadClick?.()}
-          disabled={!isCompact && isDownloadingAll}
-          style={{ color: 'var(--gallery-text)' }}
-        >
-          {isDownloadingAll ? (
-            <Loader2 size={iconSize} className="animate-spin shrink-0" aria-hidden />
-          ) : isPaidDownload ? (
-            <span className="relative shrink-0" style={!isCompact ? { marginRight: '6px' } : undefined}>
-              <ArrowDownToLine size={iconSize} aria-hidden />
-              <span style={{ position: 'absolute', top: '-4px', right: '-6px', fontSize: '7px', fontWeight: 800, lineHeight: 1, background: 'var(--gallery-text)', color: 'var(--gallery-bg)', borderRadius: '3px', padding: '1px 2px' }}>₹</span>
-            </span>
-          ) : (
-            <Download size={iconSize} className="shrink-0" aria-hidden />
+
+          {showShare && (
+            <button
+              type="button"
+              className="flex shrink-0 items-center transition-opacity hover:opacity-50"
+              onClick={onShareClick}
+              style={{ color: 'var(--gallery-text)' }}
+              title="Share"
+            >
+              <Share2 size={iconSize} className="stroke-[2.25]" />
+            </button>
           )}
-          <span className={actionLabelClass(styles.action)}>{isPaidDownload ? 'Buy' : downloadLabel}</span>
-        </button>
-      )}
-      {showShare && (
-        <button
-          type="button"
-          className={cn(
-            'flex shrink-0 items-center transition-opacity',
-            isCompact ? 'gap-0.5 opacity-60 hover:opacity-100' : 'gap-1 md:gap-2 hover:opacity-50'
+
+          {showBuyGallery && (
+            <button
+              type="button"
+              className="flex shrink-0 items-center transition-opacity hover:opacity-50"
+              onClick={onBuyGalleryClick}
+              style={{ color: 'var(--gallery-text)' }}
+              title={buyGalleryLabel || 'Buy Link'}
+            >
+              <Infinity size={iconSize} className="stroke-[2.25]" />
+            </button>
           )}
-          onClick={onShareClick}
-          style={{ color: 'var(--gallery-text)' }}
-        >
-          <Share2 size={iconSize} />
-          <span className={actionLabelClass(styles.action)}>Share</span>
-        </button>
-      )}
-      {showSlideshow && (
-        <button
-          type="button"
-          className={cn(
-            'flex shrink-0 items-center transition-opacity',
-            isCompact ? 'gap-0.5 opacity-60 hover:opacity-100' : 'gap-1 md:gap-2 hover:opacity-50'
+
+          {showSlideshow && (
+            <button
+              type="button"
+              className="flex shrink-0 items-center transition-opacity hover:opacity-50"
+              onClick={onSlideshowClick}
+              style={{ color: 'var(--gallery-text)' }}
+              title="Slideshow"
+            >
+              <Play size={iconSize} className="stroke-[2.25]" fill="currentColor" />
+            </button>
           )}
-          onClick={onSlideshowClick}
-          style={{ color: 'var(--gallery-text)' }}
-        >
-          <Play size={iconSize} fill="currentColor" />
-          <span className={actionLabelClass(styles.action)}>Slideshow</span>
-        </button>
-      )}
-    </>
-  );
+        </div>
+      </div>
+    );
+  };
 
   const renderBrand = () => (
     <>
