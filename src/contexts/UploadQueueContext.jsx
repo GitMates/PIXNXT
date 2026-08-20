@@ -71,7 +71,8 @@ function uploadErrorMessage(err) {
 }
 
 function getUploadPhase(uf, originalContextById) {
-  const uploadContext = uf.uploadContext || originalContextById.get(uf.id);
+  const map = originalContextById.current || originalContextById;
+  const uploadContext = uf.uploadContext || map.get(uf.id);
   if (uploadContext || (uf.progress ?? 0) >= 25) return 'original';
   return 'derivative';
 }
@@ -79,7 +80,8 @@ function getUploadPhase(uf, originalContextById) {
 function requeueUploadFile(uf, phase, pendingDerivativesRef, pendingOriginalsRef, originalContextById) {
   const id = uf.id;
   if (phase === 'original') {
-    const uploadContext = uf.uploadContext || originalContextById.get(id);
+    const map = originalContextById.current || originalContextById;
+    const uploadContext = uf.uploadContext || map.get(id);
     if (!pendingOriginalsRef.current.some((q) => q.id === id)) {
       pendingOriginalsRef.current.push({ ...uf, uploadContext });
       pendingOriginalsRef.current = sortUploadQueueBySizeAsc(pendingOriginalsRef.current);
@@ -750,17 +752,7 @@ export function UploadQueueProvider({ children }) {
     setState((prev) => ({ ...prev, showDetails: !prev.showDetails }));
   }, []);
 
-  /** Close panel shortly after every file uploads successfully (no failures in flight). */
-  useEffect(() => {
-    if (!state.isOpen) return;
-    const total = state.files.length;
-    if (total === 0) return;
-    const { complete, uploading, failed } = uploadTabCounts(state.files);
-    if (uploading > 0 || failed > 0 || complete !== total) return;
 
-    const timer = window.setTimeout(() => dismiss(), 1200);
-    return () => window.clearTimeout(timer);
-  }, [state.isOpen, state.files, dismiss]);
 
   /** Expand panel and show the file list on the Complete tab (used by “View” after uploads finish). */
   const openCompletedUploadDetails = useCallback(() => {
@@ -793,6 +785,39 @@ export function UploadQueueProvider({ children }) {
     };
   }, [destinationLabel]);
 
+  const retryFailed = useCallback(() => {
+    setState((prev) => {
+      const failedFiles = prev.files.filter((f) => f.status === 'error');
+      if (failedFiles.length === 0) return prev;
+
+      const updatedFiles = prev.files.map((f) =>
+        f.status === 'error' ? { ...f, status: 'waiting', errorMessage: undefined } : f
+      );
+
+      failedFiles.forEach((f) => {
+        const uf = { ...f, status: 'waiting', errorMessage: undefined };
+        const phase = uf.uploadContext || originalContextByIdRef.current.has(uf.id) ? 'original' : 'derivative';
+        requeueUploadFile(
+          uf,
+          phase,
+          pendingDerivativesRef,
+          pendingOriginalsRef,
+          originalContextByIdRef
+        );
+      });
+
+      if (!pausedRef.current) {
+        setTimeout(() => pumpQueue(), 0);
+      }
+
+      return {
+        ...prev,
+        files: updatedFiles,
+        activeTab: 'uploading', // switch back to uploading tab on retry
+      };
+    });
+  }, [pumpQueue]);
+
   const value = useMemo(
     () => ({
       state,
@@ -812,6 +837,7 @@ export function UploadQueueProvider({ children }) {
       setActiveTab,
       toggleDetails,
       openCompletedUploadDetails,
+      retryFailed,
     }),
     [
       state,
@@ -831,6 +857,7 @@ export function UploadQueueProvider({ children }) {
       setActiveTab,
       toggleDetails,
       openCompletedUploadDetails,
+      retryFailed,
     ]
   );
 
