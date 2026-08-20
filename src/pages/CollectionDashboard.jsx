@@ -555,8 +555,8 @@ const CollectionDashboard = () => {
     const [photoDownloadSizes, setPhotoDownloadSizes] = useState(['high', 'web']);
     const [highResChoice, setHighResChoice] = useState('3600px'); // original, 3600px
     const [webSizeChoice, setWebSizeChoice] = useState('1024px'); // 2048px, 1024px, 640px
-    const [downloadPin, setDownloadPin] = useState(true);
-    const [pinValue, setPinValue] = useState('1060');
+    const [downloadPin, setDownloadPin] = useState(false);
+    const [pinValue, setPinValue] = useState('');
     const [showAdditionalOptions, setShowAdditionalOptions] = useState(false);
     const [showGeneralAdditionalOptions, setShowGeneralAdditionalOptions] = useState(false);
 
@@ -2335,21 +2335,20 @@ const CollectionDashboard = () => {
                 } else if (data.video_downloads_enabled) {
                     setPhotoDownloadSizes((prev) => (prev.includes('video') ? prev : [...prev, 'video']));
                 }
-                // Prefer plain PIN when available. Fallback to the legacy hash column (if the DB is still populated that way).
-                const dbPin = data.download_pin ?? data.download_pin_hash;
+                const dbPin = data.download_pin_hash;
+                setDownloadPin(!!dbPin);
                 if (dbPin) {
-                    setDownloadPin(true);
-                    setPinValue(dbPin);
-                } else if (data.download_pin === null && data.download_pin_hash === null) {
-                    setDownloadPin(false);
+                    setPinValue(String(dbPin));
+                    setRequirePinForSinglePhoto(true);
+                } else {
+                    setPinValue('');
+                    if (data.require_pin_for_single_photo !== undefined) {
+                        setRequirePinForSinglePhoto(data.require_pin_for_single_photo);
+                    } else {
+                        setRequirePinForSinglePhoto(false);
+                    }
                 }
                 
-                // When PIN is enabled, always require it for single photo downloads too
-                if (dbPin) {
-                    setRequirePinForSinglePhoto(true);
-                } else if (data.require_pin_for_single_photo !== undefined) {
-                    setRequirePinForSinglePhoto(data.require_pin_for_single_photo);
-                }
                 if (data.email_capture_enabled !== undefined) setEmailRegistration(data.email_capture_enabled);
                 if (data.gallery_download_enabled !== undefined) setGalleryDownload(data.gallery_download_enabled);
                 if (data.single_photo_download_enabled !== undefined) setSinglePhotoDownload(data.single_photo_download_enabled);
@@ -3769,59 +3768,91 @@ const CollectionDashboard = () => {
         persistMobileAppSets({ ...mobileAppSets, [set.id]: enabled });
     };
 
+    const persistDownloadSettings = useCallback(async (overrides = {}) => {
+        if (!collectionId || !collection || loading || !settingsHydratedRef.current) return;
+
+        const pinOn = overrides.downloadPin !== undefined ? overrides.downloadPin : downloadPin;
+        const pin = overrides.pinValue !== undefined ? overrides.pinValue : pinValue;
+        const pinHash = pinOn && pin ? pin : null;
+
+        try {
+            const patch = {
+                downloads_enabled: photoDownload,
+                download_resolutions: (photoDownloadSizes || [])
+                    .map((s) => (s === 'high' ? 'full' : s))
+                    .filter((s) => s === 'web' || s === 'full' || s === 'original'),
+                video_downloads_enabled: (photoDownloadSizes || []).includes('video'),
+                download_pin_hash: pinHash,
+                require_pin_for_gallery_download: !!pinOn,
+                email_capture_enabled: emailRegistration,
+                gallery_download_enabled: galleryDownload,
+                single_photo_download_enabled: singlePhotoDownload,
+                require_pin_for_single_photo: pinOn ? true : requirePinForSinglePhoto,
+                download_limit_gallery: downloadLimit ? parseInt(downloadLimit) : null,
+                restrict_to_emails: restrictToEmails || null,
+                selected_download_sets: selectedDownloadSets,
+                pin_usage_limit: pinUsageLimit ? parseInt(pinUsageLimit) : null,
+            };
+
+            await galleryService.updateCollection(collectionId, patch);
+
+            setCollection((prev) => (prev ? { ...prev, ...patch, download_pin: pinHash } : prev));
+
+            const channel = new BroadcastChannel('pixnxt-gallery-update');
+            channel.postMessage({
+                type: 'SETTINGS_UPDATED',
+                collectionId,
+                slug: collectionUrl,
+                settings: {
+                    ...patch,
+                    download_pin: pinHash,
+                },
+            });
+            channel.close();
+        } catch (err) {
+            console.error('Error auto-saving download settings:', err);
+        }
+    }, [
+        collectionId,
+        collection,
+        loading,
+        downloadPin,
+        pinValue,
+        photoDownload,
+        photoDownloadSizes,
+        emailRegistration,
+        galleryDownload,
+        singlePhotoDownload,
+        requirePinForSinglePhoto,
+        downloadLimit,
+        restrictToEmails,
+        selectedDownloadSets,
+        pinUsageLimit,
+        collectionUrl,
+    ]);
+
+    const handleDownloadPinChange = useCallback((next) => {
+        setDownloadPin(next);
+        if (!next) {
+            void persistDownloadSettings({ downloadPin: false, pinValue: '' });
+        }
+    }, [persistDownloadSettings]);
+
     // Auto-save download settings
     useEffect(() => {
-        if (!collection || loading) return;
+        if (!collection || loading || !settingsHydratedRef.current) return;
 
-        const saveDownloadSettings = async () => {
-            try {
-                await galleryService.updateCollection(collectionId, {
-                    downloads_enabled: photoDownload,
-                    download_resolutions: (photoDownloadSizes || [])
-                        .map((s) => (s === 'high' ? 'full' : s))
-                        .filter((s) => s === 'web' || s === 'full' || s === 'original'),
-                    video_downloads_enabled: (photoDownloadSizes || []).includes('video'),
-                    download_pin_hash: downloadPin ? pinValue : null,
-                    email_capture_enabled: emailRegistration,
-                    gallery_download_enabled: galleryDownload,
-                    single_photo_download_enabled: singlePhotoDownload,
-                    require_pin_for_single_photo: downloadPin ? true : requirePinForSinglePhoto,
-                    // Advanced settings
-                    download_limit_gallery: downloadLimit ? parseInt(downloadLimit) : null,
-                    restrict_to_emails: restrictToEmails || null,
-                    selected_download_sets: selectedDownloadSets,
-                    pin_usage_limit: pinUsageLimit ? parseInt(pinUsageLimit) : null
-                });
-
-                // Broadcast update to open gallery tabs
-                const channel = new BroadcastChannel('pixnxt-gallery-update');
-                channel.postMessage({
-                    type: 'SETTINGS_UPDATED',
-                    collectionId,
-                    slug: collectionUrl,
-                    settings: {
-                        downloads_enabled: photoDownload,
-                        gallery_download_enabled: galleryDownload,
-                        single_photo_download_enabled: singlePhotoDownload,
-                        require_pin_for_single_photo: downloadPin ? true : requirePinForSinglePhoto,
-                        email_capture_enabled: emailRegistration
-                    }
-                });
-                channel.close();
-            } catch (err) {
-                console.error('Error auto-saving download settings:', err);
-            }
-        };
-
-        const timeoutId = setTimeout(saveDownloadSettings, 1000);
+        const timeoutId = setTimeout(() => {
+            void persistDownloadSettings();
+        }, 1000);
         return () => clearTimeout(timeoutId);
     }, [
-        photoDownload, galleryDownload, singlePhotoDownload, 
-        photoDownloadSizes, downloadPin, pinValue, 
+        photoDownload, galleryDownload, singlePhotoDownload,
+        photoDownloadSizes, downloadPin, pinValue,
         emailRegistration, requirePinForSinglePhoto, restrictSinglePhotoSizes,
         highResChoice, webSizeChoice, downloadLimit, restrictToEmails,
         selectedDownloadSets, pinUsageLimit,
-        collectionId, collection, loading
+        collectionId, collection, loading, persistDownloadSettings,
     ]);
 
     // Auto-save general gallery visitor settings (slideshow, social sharing)
@@ -5069,6 +5100,7 @@ const CollectionDashboard = () => {
                                 setRestrictSinglePhotoSizes={setRestrictSinglePhotoSizes}
                                 downloadPin={downloadPin}
                                 setDownloadPin={setDownloadPin}
+                                onDownloadPinChange={handleDownloadPinChange}
                                 pinValue={pinValue}
                                 setPinValue={setPinValue}
                                 onPinEnter={handleDownloadPinEnter}

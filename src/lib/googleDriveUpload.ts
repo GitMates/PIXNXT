@@ -1,6 +1,7 @@
 import {
   DEFAULT_DOWNLOAD_CONCURRENCY,
   fetchPhotoBlob,
+  resolveDownloadConcurrency,
   type BulkDownloadPhoto,
   type DownloadPhotosToZipOptions,
 } from './downloadPhoto';
@@ -326,7 +327,7 @@ async function uploadPhotosToDriveFolder(
   photos: BulkDownloadPhoto[],
   options: GoogleDriveGalleryUploadOptions = {}
 ): Promise<DriveFolderUploadResult> {
-  const { concurrency = DEFAULT_DOWNLOAD_CONCURRENCY, onProgress, isStale, onUploadPhase } =
+  const { concurrency = resolveDownloadConcurrency(photos.length), onProgress, isStale, onUploadPhase } =
     options;
 
   if (!photos.length) return { uploaded: 0, requested: 0, failed: 0 };

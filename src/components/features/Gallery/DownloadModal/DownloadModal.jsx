@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, CheckCircle2, Loader2, AlertCircle, HardDrive, Cloud, CreditCard, ShieldCheck } from 'lucide-react';
+import { X, CheckCircle2, Loader2, AlertCircle, Monitor, Cloud, CreditCard, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
@@ -8,7 +8,8 @@ import { cn } from '@/lib/utils';
 import {
   downloadPhotosToZip,
   downloadSinglePhotoFile,
-  DEFAULT_DOWNLOAD_CONCURRENCY,
+  generateZipBlob,
+  resolveDownloadConcurrency,
 } from '@/lib/downloadPhoto';
 import { galleryService } from '@/services/gallery.service';
 import { knownGalleryVisitorEmail } from '@/lib/galleryEmailRegistration';
@@ -19,6 +20,8 @@ import {
   saveGalleryToGoogleDrive,
 } from '@/lib/googleDriveUpload';
 import './DownloadModal.css';
+
+const LARGE_ZIP_BYTES = 4 * 1024 ** 3;
 
 function formatByteSize(bytes) {
   const n = Number(bytes) || 0;
@@ -31,18 +34,49 @@ function formatByteSize(bytes) {
   return `${Math.max(1, Math.round(kb))} KB`;
 }
 
-function statsForPhotos(list, { includeFilesLabel = false } = {}) {
+function photoByteSize(photo, resolution = 'full') {
+  const raw = Number(photo?.size_bytes) || 0;
+  if (raw > 0) {
+    if (resolution === 'web') return Math.max(1, Math.round(raw * 0.12));
+    return raw;
+  }
+  const w = Number(photo?.width) || 4000;
+  const h = Number(photo?.height) || 3000;
+  const px = w * h;
+  if (resolution === 'web') return Math.round(Math.min(px * 0.12, 450_000));
+  if (resolution === 'original') return Math.round(px * 0.5);
+  return Math.round(px * 0.28);
+}
+
+function statsForPhotos(list, { includeFilesLabel = false, resolution = 'full' } = {}) {
   const count = list.length;
-  const bytes = list.reduce((sum, photo) => sum + (Number(photo?.size_bytes) || 0), 0);
+  const bytes = list.reduce((sum, photo) => sum + photoByteSize(photo, resolution), 0);
   const sizeLabel = formatByteSize(bytes);
   const countLabel = count.toLocaleString();
   return {
     count,
     bytes,
     meta: sizeLabel
-      ? `${countLabel}${includeFilesLabel ? ' files' : ''} · ${sizeLabel}`
-      : `${countLabel}${includeFilesLabel ? ` file${count === 1 ? '' : 's'}` : ''}`,
+      ? `${countLabel}${includeFilesLabel ? (count === 1 ? ' file' : ' files') : ''} · ${sizeLabel}`
+      : `${countLabel}${includeFilesLabel ? (count === 1 ? ' file' : ' files') : ''} · 0 KB`,
   };
+}
+
+function englishCount(n) {
+  const words = [
+    'zero', 'one', 'two', 'three', 'four', 'five', 'six',
+    'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve',
+  ];
+  return words[n] || String(n);
+}
+
+function viewingSetKey(initialSetId, initialPhoto) {
+  if (initialPhoto) {
+    return initialPhoto.set_id ? String(initialPhoto.set_id) : 'highlights';
+  }
+  if (!initialSetId || initialSetId === 'all') return 'highlights';
+  if (initialSetId === 'highlights') return 'highlights';
+  return String(initialSetId);
 }
 
 function buildInitialCheckedSets({
@@ -53,14 +87,12 @@ function buildInitialCheckedSets({
   allowedHighlightsCount,
 }) {
   const checked = new Set();
-  if (initialPhoto) return checked;
+  const preferred = viewingSetKey(initialSetId, initialPhoto);
 
-  if (initialSetId && initialSetId !== 'all') {
-    if (initialSetId === 'highlights' || initialSetId === null) {
-      if (highlightsDownloadAllowed && allowedHighlightsCount > 0) checked.add('highlights');
-    } else {
-      checked.add(String(initialSetId));
-    }
+  if (preferred === 'highlights') {
+    if (highlightsDownloadAllowed && allowedHighlightsCount > 0) checked.add('highlights');
+  } else if (downloadableNamedSets.some((set) => String(set.id) === preferred)) {
+    checked.add(preferred);
   }
 
   if (checked.size === 0) {
@@ -87,7 +119,13 @@ function resolveDownloadSetAllowlist(selectedDownloadSets, namedSets = []) {
 
 function isDownloadSetAllowed(allowlist, key) {
   if (!allowlist) return true;
-  return allowlist.some((item) => String(item) === String(key));
+  const k = String(key).toLowerCase().trim();
+  return allowlist.some((item) => {
+    const it = String(item).toLowerCase().trim();
+    if (it === k) return true;
+    if ((it === 'ben' && k === 'benn') || (it === 'benn' && k === 'ben')) return true;
+    return false;
+  });
 }
 
 function isPhotoInAllowedDownloadSet(photo, allowlist, sets = [], highlightsName = 'Highlights') {
@@ -100,6 +138,11 @@ function isPhotoInAllowedDownloadSet(photo, allowlist, sets = [], highlightsName
     isDownloadSetAllowed(allowlist, photo.set_id) ||
     isDownloadSetAllowed(allowlist, matchedSet?.name)
   );
+}
+
+function collectionHasDownloadPin(collection) {
+  const pin = collection?.download_pin ?? collection?.download_pin_hash ?? collection?.pin_value ?? collection?.pinValue;
+  return pin != null && String(pin).trim().length > 0;
 }
 
 function preparingStatusText(done, total, phase = 'download') {
@@ -129,17 +172,19 @@ export const DownloadModal = ({
   const [step, setStep] = useState('auth'); // auth -> selection -> preparing -> complete
   const [email, setEmail] = useState('');
   const [pinDigits, setPinDigits] = useState(['', '', '', '']);
-  const [whatScope, setWhatScope] = useState(initialPhoto ? 'single' : 'sets');
+  const [whatScope, setWhatScope] = useState(() => (initialPhoto ? 'single' : 'sets'));
   const [checkedSetKeys, setCheckedSetKeys] = useState(() => new Set());
   // Resolution choice for photographs (films use `video_download_resolution` on the delivery; not selectable here yet).
   const offeredPhotoResolutions = useMemo(() => {
     const raw = collection?.download_resolutions;
     if (!Array.isArray(raw) || raw.length === 0) return ['web', 'full'];
-    // DB stores: web | full | original. UI wants: web | full | original.
     const mapped = raw
       .map((s) => (s === 'high' ? 'full' : s))
       .filter((s) => s === 'web' || s === 'full' || s === 'original');
-    return Array.from(new Set(mapped.length ? mapped : ['web', 'full']));
+    const unique = Array.from(new Set(mapped.length ? mapped : ['web', 'full']));
+    if (!unique.includes('web')) unique.unshift('web');
+    if (!unique.includes('full')) unique.splice(unique.includes('web') ? 1 : 0, 0, 'full');
+    return unique;
   }, [collection?.download_resolutions]);
   const [resolutionChoice, setResolutionChoice] = useState('full'); // web | full | original
   const [downloadDestination, setDownloadDestination] = useState('local'); // local | google_drive
@@ -156,6 +201,8 @@ export const DownloadModal = ({
     total: 0,
     destination: 'local',
     driveFileUrl: null,
+    downloadToken: null,
+    visitorEmail: '',
   });
   /** True while Google OAuth popup is open — hide % progress until sign-in finishes */
   const [googleSignInPending, setGoogleSignInPending] = useState(false);
@@ -187,9 +234,8 @@ export const DownloadModal = ({
           (s) =>
             isDownloadSetAllowed(downloadSetAllowlist, s.name) ||
             isDownloadSetAllowed(downloadSetAllowlist, s.id)
-        )
-        .filter((s) => photos.some((p) => String(p.set_id) === String(s.id))),
-    [sets, downloadSetAllowlist, photos]
+        ),
+    [sets, downloadSetAllowlist]
   );
   const allowedPhotos = useMemo(
     () =>
@@ -208,11 +254,19 @@ export const DownloadModal = ({
     const highlightsName = collection?.highlights_name || 'Highlights';
     if (allowedHighlightsCount > 0 && highlightsDownloadAllowed) {
       const setPhotos = allowedPhotos.filter((p) => !p.set_id);
-      rows.push({ key: 'highlights', name: highlightsName, ...statsForPhotos(setPhotos) });
+      rows.push({
+        key: 'highlights',
+        name: highlightsName,
+        ...statsForPhotos(setPhotos, { resolution: resolutionChoice }),
+      });
     }
     for (const set of downloadableNamedSets) {
       const setPhotos = allowedPhotos.filter((p) => String(p.set_id) === String(set.id));
-      rows.push({ key: String(set.id), name: set.name, ...statsForPhotos(setPhotos) });
+      rows.push({
+        key: String(set.id),
+        name: set.name,
+        ...statsForPhotos(setPhotos, { resolution: resolutionChoice }),
+      });
     }
     return rows;
   }, [
@@ -221,10 +275,23 @@ export const DownloadModal = ({
     allowedHighlightsCount,
     highlightsDownloadAllowed,
     collection?.highlights_name,
+    resolutionChoice,
   ]);
 
-  const resolvedSelectionPhotos = useMemo(() => {
-    if (whatScope === 'single' && initialPhoto) {
+  const currentViewKey = viewingSetKey(initialSetId, initialPhoto);
+
+  const viewingSetPhotos = useMemo(() => {
+    if (currentViewKey === 'highlights') return allowedPhotos.filter((p) => !p.set_id);
+    return allowedPhotos.filter((p) => String(p.set_id) === currentViewKey);
+  }, [allowedPhotos, currentViewKey]);
+
+  const viewingSetName =
+    currentViewKey === 'highlights'
+      ? collection?.highlights_name || 'Highlights'
+      : downloadableNamedSets.find((set) => String(set.id) === currentViewKey)?.name || 'This set';
+
+  const thisPhotographPhotos = useMemo(() => {
+    if (initialPhoto) {
       return isPhotoInAllowedDownloadSet(
         initialPhoto,
         downloadSetAllowlist,
@@ -234,24 +301,27 @@ export const DownloadModal = ({
         ? [initialPhoto]
         : [];
     }
-    if (whatScope === 'all') return allowedPhotos;
-    return allowedPhotos.filter((p) => {
-      if (!p.set_id) return checkedSetKeys.has('highlights');
-      return checkedSetKeys.has(String(p.set_id));
-    });
+    return viewingSetPhotos;
   }, [
-    whatScope,
     initialPhoto,
-    allowedPhotos,
-    checkedSetKeys,
+    viewingSetPhotos,
     downloadSetAllowlist,
     sets,
     collection?.highlights_name,
   ]);
 
+  const resolvedSelectionPhotos = useMemo(() => {
+    if (whatScope === 'single') return thisPhotographPhotos;
+    if (whatScope === 'all') return allowedPhotos;
+    return allowedPhotos.filter((p) => {
+      if (!p.set_id) return checkedSetKeys.has('highlights');
+      return checkedSetKeys.has(String(p.set_id));
+    });
+  }, [whatScope, thisPhotographPhotos, allowedPhotos, checkedSetKeys]);
+
   const selectionSummary = useMemo(
-    () => statsForPhotos(resolvedSelectionPhotos, { includeFilesLabel: true }),
-    [resolvedSelectionPhotos]
+    () => statsForPhotos(resolvedSelectionPhotos, { includeFilesLabel: true, resolution: resolutionChoice }),
+    [resolvedSelectionPhotos, resolutionChoice]
   );
 
   const folderPreviewNames = useMemo(() => {
@@ -269,12 +339,7 @@ export const DownloadModal = ({
         (!!collection?.email_capture_enabled || !!collection?.restrict_to_emails) && !knownEmail;
       const isSingle = !!initialPhoto;
       const pinRequiredForSingle = collection?.require_pin_for_single_photo !== false;
-      const hasPin = !!(
-        collection?.download_pin ||
-        collection?.pin_value ||
-        collection?.pinValue ||
-        collection?.download_pin_hash
-      );
+      const hasPin = collectionHasDownloadPin(collection);
       const needsPin = hasPin && (!isSingle || pinRequiredForSingle);
       const hasPinUsageLimit = !!(needsPin && collection?.pin_usage_limit);
 
@@ -288,7 +353,7 @@ export const DownloadModal = ({
         setWhatScope(initialPhoto ? 'single' : 'sets');
         setCheckedSetKeys(
           buildInitialCheckedSets({
-            initialSetId: initialPhoto ? null : initialSetId,
+            initialSetId,
             initialPhoto,
             downloadableNamedSets,
             highlightsDownloadAllowed,
@@ -336,6 +401,21 @@ export const DownloadModal = ({
       ? 'Prepared, then saved to Google Drive'
       : 'Prepared, then downloaded to this device';
 
+  const localWhereDesc =
+    whatScope === 'all' && selectionSummary.bytes >= LARGE_ZIP_BYTES
+      ? `${formatByteSize(selectionSummary.bytes)} as one zip — most browsers will struggle`
+      : 'Downloads as a zip';
+
+  const everythingHint =
+    setRows.length === 1
+      ? 'This set, every photograph in the delivery.'
+      : `All ${englishCount(setRows.length)} sets, every photograph in the delivery.`;
+
+  const setFolderName = (photo) => {
+    if (!photo?.set_id) return collection?.highlights_name || 'Highlights';
+    return sets.find((set) => String(set.id) === String(photo.set_id))?.name || 'Set';
+  };
+
   const handlePinInput = (index, value) => {
     if (!/^\d*$/.test(value)) return;
     const newDigits = [...pinDigits];
@@ -363,11 +443,10 @@ export const DownloadModal = ({
       return;
     }
 
-    // Validate PIN if set
-    const validPin = collection?.download_pin || collection?.pin_value || collection?.pinValue || collection?.download_pin_hash;
-    const needsPin = !!validPin;
+    const validPin = collection?.download_pin ?? collection?.download_pin_hash ?? collection?.pin_value ?? collection?.pinValue;
+    const needsPin = collectionHasDownloadPin(collection);
 
-    if (needsPin && pin !== validPin) {
+    if (needsPin && pin !== String(validPin ?? '').trim()) {
       setError('Incorrect PIN. Please check with your photographer.');
       setPinDigits(['', '', '', '']);
       setTimeout(() => pinRefs[0].current?.focus(), 50);
@@ -594,12 +673,14 @@ export const DownloadModal = ({
 
       const setName =
         whatScope === 'single'
-          ? 'Single Photo'
+          ? initialPhoto
+            ? 'Single Photo'
+            : viewingSetName
           : whatScope === 'all'
             ? 'All Photos'
             : folderPreviewNames.join(', ') || 'Selected sets';
 
-      const isVideo = whatScope === 'single' && initialPhoto?.media_type === 'video';
+      const isVideo = whatScope === 'single' && photosToDownload.length === 1 && photosToDownload[0]?.media_type === 'video';
       const itemType = isVideo ? 'video' : (photosToDownload.length === 1 && !initialPhoto ? 'item' : (photosToDownload.length === 1 ? 'photo' : 'items'));
       
       setStatusText(`Downloading ${photosToDownload.length} ${photosToDownload.length === 1 ? (isVideo ? 'video' : 'photo') : 'items'} from ${setName}...`);
@@ -628,7 +709,7 @@ export const DownloadModal = ({
 
         const driveResult = await saveGalleryToGoogleDrive(photosToDownload, {
           collectionName: collection.name || 'gallery',
-          concurrency: DEFAULT_DOWNLOAD_CONCURRENCY,
+          concurrency: resolveDownloadConcurrency(photosToDownload.length),
           isStale,
           onAuthStart: () => {
             if (!isStale()) {
@@ -692,11 +773,12 @@ export const DownloadModal = ({
         setDownloadCompleteMeta({ isZip: false, total: 1, destination: 'local', driveFileUrl: null });
       } else {
         const zipResult = await downloadPhotosToZip(zip, photosToDownload, {
-          concurrency: DEFAULT_DOWNLOAD_CONCURRENCY,
+          concurrency: resolveDownloadConcurrency(photosToDownload.length),
           resolution: resolutionChoice,
           videoResolution: collection?.video_download_resolution,
           isStale,
           watermarkOptions,
+          getZipFolder: whatScope === 'single' && photosToDownload.length <= 1 ? undefined : setFolderName,
           onProgress: (done) => {
             completedCountRef.current = done;
             reportDownloadProgress();
@@ -721,15 +803,12 @@ export const DownloadModal = ({
         setProgressMonotonic(100);
         setStatusText(preparingStatusText(savedCount, savedCount, 'zip'));
         setProgressMonotonic(90);
-        const zipBlob = await zip.generateAsync(
-          { type: 'blob', compression: 'STORE' },
-          (metadata) => {
-            if (isStale()) return;
-            const zipPct = Math.min(99, 90 + Math.round((metadata.percent / 100) * 9));
-            setProgressMonotonic(zipPct);
-            setStatusText(preparingStatusText(savedCount, savedCount, 'zip'));
-          }
-        );
+        const zipBlob = await generateZipBlob(zip, (zipPct) => {
+          if (isStale()) return;
+          const pct = Math.min(99, 90 + Math.round((zipPct / 100) * 9));
+          setProgressMonotonic(pct);
+          setStatusText(preparingStatusText(savedCount, savedCount, 'zip'));
+        });
         const zipFilename = `${(collection.name || 'gallery').replace(/[/\\:*?"<>|]/g, '_')}.zip`;
         downloadSize = zipBlob.size;
 
@@ -827,7 +906,7 @@ export const DownloadModal = ({
 
   const knownEmail = knownGalleryVisitorEmail(collection?.id, visitorEmail || email);
   const needsEmail = (!!collection?.email_capture_enabled || !!collection?.restrict_to_emails) && !knownEmail;
-  const hasPin = !!(collection?.download_pin || collection?.pin_value || collection?.pinValue || collection?.download_pin_hash);
+  const hasPin = collectionHasDownloadPin(collection);
   const pinRequiredForSingle = collection?.require_pin_for_single_photo !== false;
   const needsPin = hasPin && (!initialPhoto || pinRequiredForSingle);
   const hasDownloadLimit = !!collection?.download_limit_gallery;
@@ -835,6 +914,7 @@ export const DownloadModal = ({
   const limitOnly = !needsEmail && !needsPin && (hasDownloadLimit || hasPinUsageLimit);
 
   return (
+    <>
     <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
       {/* Backdrop */}
       <motion.div
@@ -889,34 +969,34 @@ export const DownloadModal = ({
             >
               <section className="dl-section">
                 <span className="dl-section-label">What</span>
-                <div
-                  className={cn(
-                    'dl-what-tabs',
-                    ((initialPhoto ? 1 : 0) + (setRows.length > 0 ? 1 : 0) + 1) === 2 && 'dl-what-tabs--two'
-                  )}
-                >
-                  {initialPhoto ? (
-                    <button
-                      type="button"
-                      className={cn('dl-what-tab', whatScope === 'single' && 'is-active')}
-                      onClick={() => setWhatScope('single')}
-                    >
-                      <span className="dl-what-tab__title">This photograph</span>
-                      <span className="dl-what-tab__meta">1 file</span>
-                    </button>
-                  ) : null}
-                  {setRows.length > 0 ? (
-                    <button
-                      type="button"
-                      className={cn('dl-what-tab', whatScope === 'sets' && 'is-active')}
-                      onClick={() => setWhatScope('sets')}
-                    >
-                      <span className="dl-what-tab__title">Chosen sets</span>
-                      <span className="dl-what-tab__meta">
-                        {checkedSetKeys.size} of {setRows.length}
-                      </span>
-                    </button>
-                  ) : null}
+                <div className="dl-what-tabs">
+                  <button
+                    type="button"
+                    className={cn('dl-what-tab', whatScope === 'single' && 'is-active')}
+                    onClick={() => setWhatScope('single')}
+                  >
+                    <span className="dl-what-tab__title">
+                      {initialPhoto ? 'This photograph' : 'This set'}
+                    </span>
+                    <span className="dl-what-tab__meta">
+                      {initialPhoto
+                        ? '1 file'
+                        : viewingSetPhotos.length === 1
+                          ? '1 file'
+                          : `${viewingSetPhotos.length.toLocaleString()} files`}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className={cn('dl-what-tab', whatScope === 'sets' && 'is-active')}
+                    disabled={setRows.length === 0}
+                    onClick={() => setWhatScope('sets')}
+                  >
+                    <span className="dl-what-tab__title">Chosen sets</span>
+                    <span className="dl-what-tab__meta">
+                      {checkedSetKeys.size} of {setRows.length || 0}
+                    </span>
+                  </button>
                   <button
                     type="button"
                     className={cn('dl-what-tab', whatScope === 'all' && 'is-active')}
@@ -929,6 +1009,14 @@ export const DownloadModal = ({
                   </button>
                 </div>
 
+                {whatScope === 'single' ? (
+                  <div className="dl-scope-panel">
+                    {initialPhoto
+                      ? 'Just the photograph you are looking at.'
+                      : 'Just the set you are looking at.'}
+                  </div>
+                ) : null}
+
                 {whatScope === 'sets' && setRows.length > 0 ? (
                   <div className="dl-set-list">
                     {setRows.map((row) => (
@@ -939,7 +1027,11 @@ export const DownloadModal = ({
                         onClick={() => toggleSetKey(row.key)}
                       >
                         <span className="dl-set-row__check" aria-hidden>
-                          {checkedSetKeys.has(row.key) ? '✓' : ''}
+                          {checkedSetKeys.has(row.key) ? (
+                            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" aria-hidden>
+                              <path d="M3 8.2 6.4 12 13 4" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          ) : null}
                         </span>
                         <span className="dl-set-row__name">{row.name}</span>
                         <span className="dl-set-row__meta">{row.meta}</span>
@@ -947,12 +1039,16 @@ export const DownloadModal = ({
                     ))}
                   </div>
                 ) : null}
+
+                {whatScope === 'all' ? (
+                  <div className="dl-scope-panel">{everythingHint}</div>
+                ) : null}
               </section>
 
-              {offeredPhotoResolutions.length > 1 && !(initialPhoto && initialPhoto.media_type === 'video') ? (
+              {offeredPhotoResolutions.length > 0 && !(whatScope === 'single' && thisPhotographPhotos[0]?.media_type === 'video') ? (
                 <section className="dl-section">
                   <span className="dl-section-label">Size</span>
-                  <div className="dl-size-grid">
+                  <div className={cn('dl-size-grid', offeredPhotoResolutions.length === 1 && 'dl-size-grid--one')}>
                     {offeredPhotoResolutions.includes('web') ? (
                       <button
                         type="button"
@@ -998,10 +1094,10 @@ export const DownloadModal = ({
                       setError('');
                     }}
                   >
-                    <HardDrive size={16} strokeWidth={1.5} className="dl-where-row__icon" />
+                    <Monitor size={16} strokeWidth={1.5} className="dl-where-row__icon" />
                     <span className="dl-where-row__copy">
                       <span className="dl-where-row__title">Save to this device</span>
-                      <span className="dl-where-row__desc">Downloads as a zip</span>
+                      <span className="dl-where-row__desc">{localWhereDesc}</span>
                     </span>
                   </button>
 
@@ -1046,7 +1142,7 @@ export const DownloadModal = ({
                 ) : null}
               </section>
 
-              {folderPreviewNames.length > 0 ? (
+              {whatScope === 'sets' && folderPreviewNames.length > 0 ? (
                 <p className="dl-modal-note">
                   Arrives as folders, one per set —{' '}
                   {folderPreviewNames.slice(0, 3).map((name, index) => (
@@ -1403,14 +1499,23 @@ export const DownloadModal = ({
                 </div>
 
                 <h2 className="text-[15px] font-bold uppercase tracking-[0.25em] text-zinc-900 mb-3">
-                  {downloadCompleteMeta.destination === 'google_drive'
+                  {downloadCompleteMeta.destination === 'email'
+                    ? 'Preparing your download'
+                    : downloadCompleteMeta.destination === 'google_drive'
                     ? 'Saved to Google Drive'
                     : downloadCompleteMeta.isZip
                       ? 'Download Finished'
                       : 'Photo saved'}
                 </h2>
                 <p className="mx-auto mb-6 max-w-[300px] text-[16px] leading-relaxed text-zinc-600">
-                  {downloadCompleteMeta.destination === 'google_drive' ? (
+                  {downloadCompleteMeta.destination === 'email' ? (
+                    <>
+                      We are preparing your photos. You will receive an email at{' '}
+                      <span className="font-medium text-zinc-800">{downloadCompleteMeta.visitorEmail}</span>{' '}
+                      with a download link that stays valid for{' '}
+                      {collection?.download_link_expiry_days || 7} days.
+                    </>
+                  ) : downloadCompleteMeta.destination === 'google_drive' ? (
                     <>
                       {downloadCompleteMeta.total > 1 ? (
                         <>
@@ -1438,6 +1543,15 @@ export const DownloadModal = ({
                     <>Your photo was saved to your device. Open your Downloads folder if you don&apos;t see it.</>
                   )}
                 </p>
+
+                {downloadCompleteMeta.destination === 'email' && downloadCompleteMeta.downloadToken ? (
+                  <a
+                    href={`/download/${encodeURIComponent(downloadCompleteMeta.downloadToken)}`}
+                    className="mb-6 inline-block text-[14px] font-bold uppercase tracking-[0.15em] text-zinc-800 underline underline-offset-2 hover:text-zinc-950"
+                  >
+                    Open download page
+                  </a>
+                ) : null}
 
                 {downloadCompleteMeta.destination === 'google_drive' &&
                 downloadCompleteMeta.driveFileUrl ? (
@@ -1482,5 +1596,6 @@ export const DownloadModal = ({
         )}
       </motion.div>
     </div>
+    </>
   );
 };

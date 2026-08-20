@@ -1105,7 +1105,8 @@ const GalleryView = () => {
 
       // When PIN is ON, require it for single photo downloads too
       const pinRequiredForSingle = collection?.require_pin_for_single_photo !== false;
-      const hasPin = !!(collection?.download_pin || collection?.pin_value || collection?.pinValue || collection?.download_pin_hash);
+      const pinStored = collection?.download_pin ?? collection?.download_pin_hash ?? collection?.pin_value ?? collection?.pinValue;
+      const hasPin = pinStored != null && String(pinStored).trim().length > 0;
       const needsPin = hasPin && (!photo || pinRequiredForSingle);
 
       const hasDownloadLimit = !!collection?.download_limit_gallery;
@@ -1331,15 +1332,29 @@ const GalleryView = () => {
       if (event.data.type !== 'SETTINGS_UPDATED') return;
       if (event.data.slug !== slug && event.data.collectionId !== collection?.id) return;
 
-      if (event.data.settings?.slideshow_enabled !== undefined) {
-        const id = event.data.collectionId ?? collection?.id;
-        applySlideshowSetting(id, event.data.settings.slideshow_enabled !== false);
+      const patch = event.data.settings;
+      if (patch && typeof patch === 'object') {
+        setCollection((prev) => {
+          if (!prev) return prev;
+          const pin = patch.download_pin ?? patch.download_pin_hash;
+          const next = { ...prev, ...patch };
+          if ('download_pin_hash' in patch || 'download_pin' in patch) {
+            next.download_pin = pin ?? null;
+            next.download_pin_hash = patch.download_pin_hash ?? pin ?? null;
+          }
+          return next;
+        });
       }
 
-      if (event.data.settings?.social_sharing_enabled !== undefined) {
+      if (patch?.slideshow_enabled !== undefined) {
+        const id = event.data.collectionId ?? collection?.id;
+        applySlideshowSetting(id, patch.slideshow_enabled !== false);
+      }
+
+      if (patch?.social_sharing_enabled !== undefined) {
         setCollection((prev) =>
           prev
-            ? { ...prev, social_sharing_enabled: event.data.settings.social_sharing_enabled }
+            ? { ...prev, social_sharing_enabled: patch.social_sharing_enabled }
             : prev
         );
       }
@@ -2739,12 +2754,10 @@ const GalleryView = () => {
         initialSenderEmail={email}
         themeClassName={cn(`theme-${effectiveSettings.color_palette}`, `font-${effectiveSettings.font_family}`)}
         downloadRequiresPassword={
-          !!(
-            collection?.download_pin ||
-            collection?.download_pin_hash ||
-            collection?.pin_value ||
-            collection?.pinValue
-          )
+          (() => {
+            const pin = collection?.download_pin ?? collection?.download_pin_hash ?? collection?.pin_value ?? collection?.pinValue;
+            return pin != null && String(pin).trim().length > 0;
+          })()
         }
         activePhotoId={
           lightboxIndex >= 0 && filteredPhotos[lightboxIndex]

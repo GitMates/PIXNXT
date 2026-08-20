@@ -12,7 +12,62 @@ import { getProxiedMediaFetchUrl } from './r2MediaProxy';
 import { applyWatermarkToBlob } from './watermarkUtils';
 
 const DEFAULT_FETCH_TIMEOUT_MS = 120_000;
-export const DEFAULT_DOWNLOAD_CONCURRENCY = 4;
+/** Baseline parallel photo fetches — scaled up by {@link resolveDownloadConcurrency}. */
+export const DEFAULT_DOWNLOAD_CONCURRENCY = 8;
+
+/** Scale parallel downloads with gallery size (capped for browser stability). */
+export function resolveDownloadConcurrency(photoCount: number): number {
+  if (photoCount <= 1) return 1;
+  if (photoCount <= 15) return 8;
+  if (photoCount <= 40) return 10;
+  if (photoCount <= 100) return 12;
+  return 14;
+}
+
+async function runConcurrentWorkers(
+  total: number,
+  concurrency: number,
+  worker: (index: number) => Promise<void>,
+  isStale?: () => boolean
+): Promise<void> {
+  if (total <= 0) return;
+  let nextIndex = 0;
+  const poolSize = Math.min(Math.max(1, concurrency), total);
+
+  const runOne = async () => {
+    while (true) {
+      if (isStale?.()) return;
+      const index = nextIndex;
+      nextIndex += 1;
+      if (index >= total) return;
+      await worker(index);
+    }
+  };
+
+  await Promise.all(Array.from({ length: poolSize }, () => runOne()));
+}
+
+/**
+ * Build a zip blob with STORE (no re-compression) — fastest path for JPEG/PNG galleries.
+ */
+export async function generateZipBlob(
+  zip: JSZip,
+  onProgress?: (percent: number) => void
+): Promise<Blob> {
+  let lastReported = -1;
+  const bytes = await zip.generateAsync(
+    { type: 'uint8array', compression: 'STORE' },
+    (metadata) => {
+      if (!onProgress) return;
+      const pct = Math.floor(metadata.percent);
+      if (pct >= lastReported + 4 || pct >= 100) {
+        lastReported = pct;
+        onProgress(pct);
+      }
+    }
+  );
+  return new Blob([bytes], { type: 'application/zip' });
+}
 
 export interface BulkDownloadPhoto {
   full_url?: string;
@@ -44,10 +99,10 @@ export interface DownloadZipResult {
 /**
  * Fetch with timeout so one slow/hung R2 object cannot block the whole zip.
  */
-export async function fetchBlobWithTimeout(
+export async function fetchArrayBufferWithTimeout(
   url: string,
   timeoutMs = DEFAULT_FETCH_TIMEOUT_MS
-): Promise<Blob> {
+): Promise<ArrayBuffer> {
   const fetchUrl = getProxiedMediaFetchUrl(url);
   let lastError: unknown;
   for (let attempt = 0; attempt < FETCH_ATTEMPTS_PER_URL; attempt += 1) {
@@ -63,18 +118,18 @@ export async function fetchBlobWithTimeout(
         const err = new Error(`HTTP ${response.status}`);
         if (FETCH_RETRY_STATUSES.has(response.status) && attempt < FETCH_ATTEMPTS_PER_URL - 1) {
           lastError = err;
-          await sleep(400 * (attempt + 1));
+          await sleep(200 * (attempt + 1));
           continue;
         }
         throw err;
       }
-      const blob = await response.blob();
-      if (!blob.size) throw new Error('Empty response');
-      return blob;
+      const buffer = await response.arrayBuffer();
+      if (!buffer.byteLength) throw new Error('Empty response');
+      return buffer;
     } catch (err) {
       lastError = err;
       if (attempt < FETCH_ATTEMPTS_PER_URL - 1) {
-        await sleep(400 * (attempt + 1));
+        await sleep(200 * (attempt + 1));
         continue;
       }
       throw err;
@@ -83,6 +138,14 @@ export async function fetchBlobWithTimeout(
     }
   }
   throw lastError instanceof Error ? lastError : new Error('Download fetch failed');
+}
+
+export async function fetchBlobWithTimeout(
+  url: string,
+  timeoutMs = DEFAULT_FETCH_TIMEOUT_MS
+): Promise<Blob> {
+  const buffer = await fetchArrayBufferWithTimeout(url, timeoutMs);
+  return new Blob([buffer], { type: 'application/octet-stream' });
 }
 
 /** Canvas fallback when fetch fails but CDN allows crossOrigin (common for R2 JPEGs). */
@@ -191,10 +254,10 @@ function getPhotoDownloadCandidatesByResolution(
 }
 
 /** Try each CDN URL until one succeeds (fetch, then canvas for images). */
-export async function fetchPhotoBlob(
+export async function fetchPhotoArrayBuffer(
   photo: BulkDownloadPhoto,
   options: FetchPhotoBlobOptions = {}
-): Promise<Blob | null> {
+): Promise<ArrayBuffer | null> {
   const preferOriginal = Boolean(options.preferOriginal);
   const resolution: 'web' | 'full' | 'original' =
     options.resolution ?? (preferOriginal ? 'original' : 'full');
@@ -214,7 +277,7 @@ export async function fetchPhotoBlob(
 
   for (const url of urls) {
     try {
-      return await fetchBlobWithTimeout(url);
+      return await fetchArrayBufferWithTimeout(url);
     } catch (err) {
       console.warn('Download fetch failed, trying next URL:', url, err);
     }
@@ -224,7 +287,7 @@ export async function fetchPhotoBlob(
     if (isVideoMedia(photo) || !isLikelyImageUrl(url)) continue;
     try {
       const viaCanvas = await fetchImageBlobViaCanvas(url);
-      if (viaCanvas?.size) return viaCanvas;
+      if (viaCanvas?.size) return viaCanvas.arrayBuffer();
     } catch {
       /* display-only fallback when proxy unavailable */
     }
@@ -232,11 +295,21 @@ export async function fetchPhotoBlob(
   return null;
 }
 
+export async function fetchPhotoBlob(
+  photo: BulkDownloadPhoto,
+  options: FetchPhotoBlobOptions = {}
+): Promise<Blob | null> {
+  const buffer = await fetchPhotoArrayBuffer(photo, options);
+  if (!buffer?.byteLength) return null;
+  return new Blob([buffer], { type: 'application/octet-stream' });
+}
+
 export interface DownloadPhotosToZipOptions extends FetchPhotoBlobOptions {
   concurrency?: number;
   onProgress?: ProgressCallback;
   isStale?: () => boolean;
   watermarkOptions?: any;
+  getZipFolder?: (photo: BulkDownloadPhoto) => string | null | undefined;
 }
 
 export interface DownloadSinglePhotoOptions extends FetchPhotoBlobOptions {
@@ -250,14 +323,25 @@ async function addPhotoToZip(
   usedNames: Set<string>,
   options: DownloadPhotosToZipOptions = {}
 ): Promise<boolean> {
-  const { preferOriginal = false, resolution, videoResolution, watermarkOptions } = options;
-  let blob = await fetchPhotoBlob(photo, { preferOriginal, resolution, videoResolution });
-  if (!blob?.size) return false;
+  const { preferOriginal = false, resolution, videoResolution, watermarkOptions, getZipFolder } = options;
+  let payload: Blob | ArrayBuffer | null = await fetchPhotoArrayBuffer(photo, {
+    preferOriginal,
+    resolution,
+    videoResolution,
+  });
+  if (!payload) return false;
+
   if (watermarkOptions) {
-    blob = await applyWatermarkToBlob(blob, watermarkOptions);
+    const blob = payload instanceof ArrayBuffer ? new Blob([payload]) : payload;
+    const watermarked = await applyWatermarkToBlob(blob, watermarkOptions);
+    payload = await watermarked.arrayBuffer();
   }
+
   const name = getPhotoDownloadFilename(photo, index, usedNames);
-  zip.file(name, blob);
+  const folder = String(getZipFolder?.(photo) || '')
+    .replace(/[/\\:*?"<>|]/g, '_')
+    .trim();
+  zip.file(folder ? `${folder}/${name}` : name, payload);
   return true;
 }
 
@@ -270,13 +354,14 @@ export async function downloadPhotosToZip(
   options: DownloadPhotosToZipOptions = {}
 ): Promise<DownloadZipResult> {
   const {
-    concurrency = DEFAULT_DOWNLOAD_CONCURRENCY,
+    concurrency = resolveDownloadConcurrency(photos.length),
     onProgress,
     isStale,
     resolution,
     preferOriginal = false,
     videoResolution,
     watermarkOptions,
+    getZipFolder,
   } = options;
 
   if (!photos.length) {
@@ -287,29 +372,28 @@ export async function downloadPhotosToZip(
   let completed = 0;
   const total = photos.length;
   const failedIndices: number[] = [];
-  const zipOpts = { preferOriginal, resolution, videoResolution, watermarkOptions };
+  const zipOpts = { preferOriginal, resolution, videoResolution, watermarkOptions, getZipFolder };
 
   const report = () => onProgress?.(completed, total);
 
-  for (let i = 0; i < photos.length; i += concurrency) {
-    if (isStale?.()) break;
-    const chunk = photos.slice(i, i + concurrency);
-    await Promise.all(
-      chunk.map(async (photo, chunkIndex) => {
-        const index = i + chunkIndex;
-        try {
-          const ok = await addPhotoToZip(zip, photo, index, usedNames, zipOpts);
-          if (!ok) failedIndices.push(index);
-        } catch (err) {
-          console.warn(`Failed to download ${photo.filename || photo.id || index}:`, err);
-          failedIndices.push(index);
-        } finally {
-          completed += 1;
-          report();
-        }
-      })
-    );
-  }
+  await runConcurrentWorkers(
+    total,
+    concurrency,
+    async (index) => {
+      const photo = photos[index];
+      try {
+        const ok = await addPhotoToZip(zip, photo, index, usedNames, zipOpts);
+        if (!ok) failedIndices.push(index);
+      } catch (err) {
+        console.warn(`Failed to download ${photo.filename || photo.id || index}:`, err);
+        failedIndices.push(index);
+      } finally {
+        completed += 1;
+        report();
+      }
+    },
+    isStale
+  );
 
   if (!isStale?.() && failedIndices.length > 0) {
     const stillFailed: number[] = [];
@@ -426,7 +510,7 @@ export async function downloadAllPhotosAsZip(
     console.warn(`ZIP: ${result.fileCount}/${result.requested} photos downloaded`);
   }
 
-  const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
+  const zipBlob = await generateZipBlob(zip);
   const blobUrl = URL.createObjectURL(zipBlob);
   const link = document.createElement('a');
   link.href = blobUrl;
