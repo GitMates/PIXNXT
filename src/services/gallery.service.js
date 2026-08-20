@@ -188,6 +188,32 @@ const DASHBOARD_PHOTO_FIELDS = `
   watermarked_storage_path
 `.replace(/\s+/g, '');
 
+const SELECTION_CARD_ASPECT = 16 / 10;
+
+/** Pick the landscape photo whose aspect ratio best matches the selection card (16:10). */
+function pickBestLandscapeCoverUrl(photos = []) {
+  const usable = photos.filter((p) => p?.url);
+  if (!usable.length) return null;
+
+  const withDims = usable.filter((p) => Number(p.width) > 0 && Number(p.height) > 0);
+  const landscapes = withDims.filter((p) => Number(p.width) >= Number(p.height));
+  const candidates = landscapes.length > 0 ? landscapes : withDims.length > 0 ? withDims : usable;
+
+  let best = candidates[0];
+  let bestScore = Infinity;
+  for (const photo of candidates) {
+    const w = Number(photo.width);
+    const h = Number(photo.height);
+    const aspect = w > 0 && h > 0 ? w / h : SELECTION_CARD_ASPECT;
+    const score = Math.abs(aspect - SELECTION_CARD_ASPECT);
+    if (score < bestScore) {
+      bestScore = score;
+      best = photo;
+    }
+  }
+  return best?.url || null;
+}
+
 const PHOTO_STORAGE_PATH_COLUMNS = [
   'original_storage_path',
   'thumbnail_storage_path',
@@ -2513,7 +2539,7 @@ export const galleryService = {
   },
 
   /**
-   * Active list for a visitor session: prefer photographer preset (max_selection set), else "My Favorites", else oldest list.
+   * Active list for a visitor session: prefer the client's own lists over photographer presets.
    */
   async _resolveDefaultFavoriteList(sessionId) {
     if (!sessionId) return null;
@@ -2525,12 +2551,17 @@ export const galleryService = {
 
     if (error || !lists?.length) return null;
 
-    const withCap = lists.filter((l) => l.max_selection != null && Number(l.max_selection) > 0);
-    if (withCap.length) {
-      return withCap[withCap.length - 1];
-    }
     const my = lists.find((l) => l.name === 'My Favorites');
     if (my) return my;
+
+    const clientLists = lists.filter(
+      (l) => !(l.max_selection != null && Number(l.max_selection) > 0)
+    );
+    if (clientLists.length) return clientLists[clientLists.length - 1];
+
+    const withCap = lists.filter((l) => l.max_selection != null && Number(l.max_selection) > 0);
+    if (withCap.length) return withCap[0];
+
     return lists[0];
   },
 
@@ -2623,6 +2654,28 @@ export const galleryService = {
     }
 
     return true;
+  },
+
+  /**
+   * Reopen a submitted favorite list so the client can edit choices again (clears lock).
+   */
+  async reopenFavoriteList(listId) {
+    if (!listId) throw new Error('List id is required');
+
+    const { data, error } = await supabase
+      .from('favorite_lists')
+      .update({ submitted_at: null })
+      .eq('id', listId)
+      .select('id, name, submitted_at');
+
+    if (error) throw error;
+    const rows = data ?? [];
+    if (rows.length === 0) {
+      throw new Error(
+        'Could not reopen this list. Run the latest Supabase migrations, or add RLS policies so the delivery owner can UPDATE favorite_lists.'
+      );
+    }
+    return rows[0];
   },
 
   /**
@@ -2946,7 +2999,7 @@ export const galleryService = {
     const listIds = lists.map((l) => l.id);
     const { data: items, error: itemsError } = await supabase
       .from('favorite_items')
-      .select('list_id, photo:photos(thumbnail_url, web_url)')
+      .select('list_id, photo:photos(thumbnail_url, web_url, width, height)')
       .in('list_id', listIds);
 
     if (itemsError) {
@@ -2955,20 +3008,29 @@ export const galleryService = {
     }
 
     const countByList = {};
-    const coverByList = {};
+    const photosByList = {};
     (items || []).forEach((it) => {
       const lid = it.list_id;
       countByList[lid] = (countByList[lid] || 0) + 1;
-      if (!coverByList[lid] && it.photo) {
+      if (it.photo) {
         const ph = Array.isArray(it.photo) ? it.photo[0] : it.photo;
-        coverByList[lid] = ph?.thumbnail_url || ph?.web_url || null;
+        const url = ph?.thumbnail_url || ph?.web_url || null;
+        if (url) {
+          if (!photosByList[lid]) photosByList[lid] = [];
+          photosByList[lid].push({
+            url,
+            width: ph?.width ?? null,
+            height: ph?.height ?? null,
+          });
+        }
       }
     });
 
     return lists.map((l) => ({
       ...l,
       photoCount: countByList[l.id] || 0,
-      coverUrl: coverByList[l.id] || null,
+      coverUrl: pickBestLandscapeCoverUrl(photosByList[l.id] || []),
+      previewUrls: (photosByList[l.id] || []).slice(0, 3).map((p) => p.url),
       max_selection: l.max_selection ?? null,
     }));
   },

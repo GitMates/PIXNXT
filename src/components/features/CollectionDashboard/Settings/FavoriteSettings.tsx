@@ -164,7 +164,7 @@ export const FavoriteSettings: React.FC<FavoriteSettingsProps> = ({
         action: (
           <button
             type="button"
-            className="cd-dl-sel-link"
+            className="cd-dl-sel-review"
             onClick={() => onReviewList?.(list)}
           >
             Review
@@ -182,7 +182,7 @@ export const FavoriteSettings: React.FC<FavoriteSettingsProps> = ({
         action: (
           <button
             type="button"
-            className="cd-dl-sel-link"
+            className="cd-dl-sel-remind"
             onClick={() => composeForList(list, 'remind')}
           >
             Remind
@@ -245,8 +245,8 @@ export const FavoriteSettings: React.FC<FavoriteSettingsProps> = ({
           {favoritePhotos ? (
             <div className="cd-dl-body">
               <div className="cd-dl-section__head">
-                <span className="cd-dl-section__count">{listCount}</span>
                 <span className="cd-dl-section__label cd-dl-section__label--inline">What you have asked for</span>
+                <span className="cd-dl-section__count">{listCount}</span>
               </div>
 
               <div className="cd-dl-sel-table-wrap">
@@ -293,7 +293,8 @@ export const FavoriteSettings: React.FC<FavoriteSettingsProps> = ({
                             </td>
                             <td className="is-num">
                               <span className="cd-dl-sel-table__chosen">
-                                {picked}{limit ? ` of ${limit}` : ''}
+                                <strong>{picked}</strong>
+                                {limit ? ` of ${limit}` : ''}
                               </span>
                               {limit > 0 ? (
                                 <div className="cd-dl-sel-progress">
@@ -328,23 +329,23 @@ export const FavoriteSettings: React.FC<FavoriteSettingsProps> = ({
                     )}
                   </tbody>
                 </table>
-              </div>
 
-              <div className="cd-dl-sel-actions-row">
-                <button
-                  type="button"
-                  className="cd-dl-sel-btn cd-dl-sel-btn--dark"
-                  onClick={() => setShowCreateFavoriteListModal(true)}
-                >
-                  + New selection
-                </button>
-                <button
-                  type="button"
-                  className="cd-dl-sel-btn cd-dl-sel-btn--ghost"
-                  onClick={() => setShowTemplates(true)}
-                >
-                  Message templates
-                </button>
+                <div className="cd-dl-sel-actions-row">
+                  <button
+                    type="button"
+                    className="cd-dl-sel-btn cd-dl-sel-btn--dark"
+                    onClick={() => setShowCreateFavoriteListModal(true)}
+                  >
+                    + New selection
+                  </button>
+                  <button
+                    type="button"
+                    className="cd-dl-sel-btn cd-dl-sel-btn--ghost"
+                    onClick={() => setShowTemplates(true)}
+                  >
+                    Message templates
+                  </button>
+                </div>
               </div>
 
               <p className="cd-dl-section__label" style={{ marginTop: 28 }}>How it works</p>

@@ -28,6 +28,7 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
   handleRemovePhotoFromFavoriteList,
   highlightsName,
   openEditFavoriteListModal,
+  handleReopenFavoriteList,
   selectedDownloadId,
   selectedFavoriteListId,
   setActiveActivityMenu,
@@ -164,6 +165,7 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
               }}
               setActiveActivityMenu={setActiveActivityMenu}
               onEditList={openEditFavoriteListModal}
+              onReopenList={handleReopenFavoriteList}
               handleDownloadAllFavoriteList={handleDownloadAllFavoriteList}
               handleExportFavoriteList={handleExportFavoriteList}
               handleLightroomCopyList={handleLightroomCopyList}

@@ -105,28 +105,38 @@ export function NewSelectionModal({
   isOpen,
   onClose,
   onSubmit,
+  onRevokeAccess,
   editingList,
   collectionSlug,
   profile,
   studioName,
   saving,
+  revoking,
 }: {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (payload: NewSelectionPayload, options: { send: boolean }) => Promise<void> | void;
+  onRevokeAccess?: (list: {
+    id: string;
+    name?: string;
+    submitted_at?: string | null;
+  }) => void | Promise<void>;
   editingList?: {
     id: string;
     name?: string;
     email?: string | null;
     max_selection?: number | null;
     description?: string | null;
+    submitted_at?: string | null;
   } | null;
   collectionSlug: string;
   profile?: Record<string, unknown> | null;
   studioName: string;
   saving?: boolean;
+  revoking?: boolean;
 }) {
   const isEdit = Boolean(editingList?.id);
+  const isLocked = Boolean(editingList?.submitted_at);
   const [template, setTemplate] = React.useState<SelectionTemplateId>('album');
   const [name, setName] = React.useState('Album');
   const [count, setCount] = React.useState('60');
@@ -319,14 +329,24 @@ export function NewSelectionModal({
               : 'Leave how many blank if there is no cap.'}
           </p>
           <div className="nsel-foot__actions">
-            <button type="button" className="nsel-btn nsel-btn--ghost" onClick={onClose} disabled={saving}>
+            <button type="button" className="nsel-btn nsel-btn--ghost" onClick={onClose} disabled={saving || revoking}>
               Cancel
             </button>
+            {isEdit && isLocked ? (
+              <button
+                type="button"
+                className="nsel-btn nsel-btn--revoke"
+                disabled={saving || revoking}
+                onClick={() => editingList && void onRevokeAccess?.(editingList)}
+              >
+                {revoking ? 'Revoking…' : 'Revoke access'}
+              </button>
+            ) : null}
             {isEdit ? (
               <button
                 type="button"
                 className="nsel-btn nsel-btn--dark"
-                disabled={!canSave}
+                disabled={!canSave || revoking}
                 onClick={() => void submit(false)}
               >
                 {saving ? 'Saving…' : 'Save'}

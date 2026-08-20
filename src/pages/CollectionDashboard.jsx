@@ -953,6 +953,31 @@ const CollectionDashboard = () => {
         setActiveActivityMenu(null);
     };
 
+    const handleReopenFavoriteList = async (list) => {
+        if (!list?.id) return;
+        if (!list.submitted_at) return;
+        const label = list.name || 'this selection';
+        if (!window.confirm(`Reopen "${label}"? Your client will be able to change their choices again.`)) {
+            return;
+        }
+        try {
+            await galleryService.reopenFavoriteList(list.id);
+            setFavoriteActivity((prev) =>
+                prev.map((a) => (a.id === list.id ? { ...a, submitted_at: null } : a))
+            );
+            setEditingFavoriteList((prev) =>
+                prev?.id === list.id ? { ...prev, submitted_at: null } : prev
+            );
+            setSelectedFavoriteListId(null);
+            setFavoriteDetailRows([]);
+            fetchFavoriteActivity();
+            showToast('Selection reopened. Your client can edit their choices again.');
+        } catch (err) {
+            console.error('Failed to reopen favorite list:', err);
+            alert(err?.message || 'Could not reopen this selection.');
+        }
+    };
+
     const handleExportActivity = (explicitItems) => {
         const items = resolveDownloadActivityExportItems(explicitItems);
         if (!items.length) return;
@@ -5114,6 +5139,7 @@ const CollectionDashboard = () => {
                             handleRemovePhotoFromFavoriteList={handleRemovePhotoFromFavoriteList}
                             highlightsName={highlightsName}
                             openEditFavoriteListModal={openEditFavoriteListModal}
+                            handleReopenFavoriteList={handleReopenFavoriteList}
                             selectedDownloadId={selectedDownloadId}
                             selectedFavoriteListId={selectedFavoriteListId}
                             setActiveActivityMenu={setActiveActivityMenu}
@@ -5374,6 +5400,7 @@ const CollectionDashboard = () => {
                     setEditingFavoriteList(null);
                 }}
                 onSubmit={handleCreateFavoriteList}
+                onRevokeAccess={handleReopenFavoriteList}
                 editingList={editingFavoriteList}
                 collectionSlug={collectionUrl}
                 profile={profile}

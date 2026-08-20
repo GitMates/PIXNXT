@@ -680,6 +680,7 @@ const GalleryView = () => {
 
   const [searchParams] = useSearchParams();
   const listId = searchParams.get('list');
+  const pickListParam = searchParams.get('pickList');
   const photosParam = searchParams.get('photos');
 
   const sharedPhotoIds = useMemo(() => {
@@ -687,22 +688,27 @@ const GalleryView = () => {
     return new Set(photosParam.split(',').map(id => id.trim()).filter(Boolean));
   }, [photosParam]);
 
-  const getPickListId = useCallback(() => {
-    if (!collection?.id) return null;
-    return sessionStorage.getItem(`pixnxt_fav_pick_list_${collection.id}`);
-  }, [collection?.id]);
+  const getPickListId = useCallback(
+    (collectionIdOverride = null) => {
+      const cid = collectionIdOverride || collection?.id;
+      if (!cid) return null;
+      return sessionStorage.getItem(`pixnxt_fav_pick_list_${cid}`);
+    },
+    [collection?.id]
+  );
 
   const refreshSelectionList = useCallback(
-    async (sid, explicitListId = null) => {
+    async (sid, explicitListId = null, collectionIdOverride = null) => {
       if (!sid) {
         setActiveFavoriteList(null);
         setFavoritedPhotos([]);
         return;
       }
       try {
-        const pickListId = getPickListId();
+        const pickListId = getPickListId(collectionIdOverride);
         const targetListId =
           explicitListId ||
+          pickListParam ||
           pickListId ||
           listId ||
           (await galleryService.getSessionDefaultFavoriteList(sid))?.id;
@@ -725,8 +731,13 @@ const GalleryView = () => {
         setFavoritedPhotos([]);
       }
     },
-    [listId, getPickListId]
+    [listId, pickListParam, getPickListId]
   );
+
+  useEffect(() => {
+    if (!collection?.id || !pickListParam) return;
+    sessionStorage.setItem(`pixnxt_fav_pick_list_${collection.id}`, pickListParam);
+  }, [collection?.id, pickListParam]);
 
   useEffect(() => {
     const faviconUrl = photographer?.favicon_url || localStorage.getItem('custom_favicon_url');
@@ -774,9 +785,10 @@ const GalleryView = () => {
 
   useEffect(() => {
     refreshSelectionList(sessionId, null);
-  }, [sessionId, listId, collection?.id, refreshSelectionList]);
+  }, [sessionId, listId, pickListParam, collection?.id, refreshSelectionList]);
 
-  const selectionListId = activeFavoriteList?.id || listId || null;
+  const selectionListId =
+    activeFavoriteList?.id || pickListParam || getPickListId() || listId || null;
   const favoritesLocked = Boolean(activeFavoriteList?.submitted_at);
   const favoriteLightboxLabel = useMemo(() => {
     if (!sessionId) return null;
@@ -849,10 +861,11 @@ const GalleryView = () => {
       localStorage.setItem(`pixnxt_fav_email_${collection.id}`, email);
 
       const targetList =
+        pickListParam ||
         getPickListId() ||
         listId ||
         (await galleryService.getSessionDefaultFavoriteList(session.id))?.id;
-      await refreshSelectionList(session.id, targetList || null);
+      await refreshSelectionList(session.id, targetList || null, collection.id);
       let newFavs = (await galleryService.getFavorites(session.id, targetList))
         .map(normalizeFavoritePhotoId)
         .filter(Boolean);
@@ -918,7 +931,7 @@ const GalleryView = () => {
       setShowFavoriteModal(true);
       return;
     }
-    navigate(`/gallery/${slug}/f`);
+    navigate(`/gallery/${slug}/choose`);
   };
 
   /** Heart on a photo (grid overlay or lightbox) — toggles that photo only. */
@@ -1282,7 +1295,7 @@ const GalleryView = () => {
             });
             setSessionId(session.id);
             setEmail(savedReg.email);
-            await refreshSelectionList(session.id, listId || null);
+            await refreshSelectionList(session.id, listId || null, data.id);
           } catch (e) {
             console.error("Failed to restore session:", e);
           }
@@ -2725,6 +2738,20 @@ const GalleryView = () => {
         isDark={isGalleryDark}
         initialSenderEmail={email}
         themeClassName={cn(`theme-${effectiveSettings.color_palette}`, `font-${effectiveSettings.font_family}`)}
+        downloadRequiresPassword={
+          !!(
+            collection?.download_pin ||
+            collection?.download_pin_hash ||
+            collection?.pin_value ||
+            collection?.pinValue
+          )
+        }
+        activePhotoId={
+          lightboxIndex >= 0 && filteredPhotos[lightboxIndex]
+            ? filteredPhotos[lightboxIndex].id
+            : null
+        }
+        activePhotoIndex={lightboxIndex >= 0 ? lightboxIndex : null}
       />
 
 

@@ -816,21 +816,27 @@
 .cd-dl-section__head {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
-  margin: 0 0 8px 2px;
+  margin: 0 0 10px 2px;
 }
 
 .cd-dl-section__label--inline {
   margin: 0;
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #b0a89e;
 }
 
 .cd-dl-section__count {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 7px;
   border-radius: 999px;
   background: #f0ede7;
   font-size: 11px;
@@ -841,19 +847,20 @@
 
 .cd-dl-sel-table-wrap {
   border: 1px solid #e6e1d9;
-  border-radius: 12px;
+  border-radius: 14px;
   overflow: hidden;
-  background: #fff;
+  background: #faf8f5;
 }
 
 .cd-dl-sel-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
+  background: #fff;
 }
 
 .cd-dl-sel-table thead th {
-  padding: 10px 16px;
+  padding: 11px 18px;
   background: #f6f3ee;
   border-bottom: 1px solid #ece8e2;
   font-size: 9px;
@@ -873,21 +880,22 @@
 .cd-dl-sel-table thead th.is-action,
 .cd-dl-sel-table tbody td.is-action {
   text-align: right;
-  width: 120px;
+  width: 148px;
 }
 
 .cd-dl-sel-table tbody td {
-  padding: 14px 16px;
+  padding: 16px 18px;
   border-bottom: 1px solid #f4f0ea;
   color: #3a342f;
   vertical-align: middle;
+  background: #fff;
 }
 
 .cd-dl-sel-table tbody tr:last-child td {
   border-bottom: none;
 }
 
-.cd-dl-sel-table tbody tr.is-submitted {
+.cd-dl-sel-table tbody tr.is-submitted td {
   background: #f8faf6;
 }
 
@@ -898,43 +906,51 @@
   font: inherit;
   font-size: 14px;
   font-weight: 650;
-  color: #2a241e;
+  color: #1a1a1a;
   cursor: pointer;
   text-align: left;
 }
 
 .cd-dl-sel-table__name:hover {
-  color: #d67d3a;
+  color: #c87941;
 }
 
 .cd-dl-sel-table__sub {
-  margin: 2px 0 0;
+  margin: 3px 0 0;
   font-size: 12px;
+  line-height: 1.4;
   color: #a39a90;
 }
 
 .cd-dl-sel-table__chosen {
   display: block;
   font-size: 13px;
-  font-weight: 600;
-  color: #2a241e;
+  font-weight: 400;
+  color: #6b6560;
+}
+
+.cd-dl-sel-table__chosen strong {
+  font-weight: 700;
+  color: #1a1a1a;
 }
 
 .cd-dl-sel-table__muted {
   color: #a39a90;
   font-size: 12.5px;
+  font-style: italic;
 }
 
 .cd-dl-sel-table__empty {
-  padding: 20px 16px;
+  padding: 24px 18px;
   font-size: 13px;
   color: #a39a90;
 }
 
 .cd-dl-sel-progress {
-  width: 88px;
+  width: 100%;
+  max-width: 108px;
   height: 4px;
-  margin-top: 6px;
+  margin-top: 7px;
   margin-left: auto;
   border-radius: 999px;
   background: #ece8e2;
@@ -952,13 +968,13 @@
 }
 
 .cd-dl-sel-progress__fill.is-choosing {
-  background: #d67d3a;
+  background: #c87941;
 }
 
 .cd-dl-sel-badge {
   display: inline-flex;
   align-items: center;
-  padding: 4px 9px;
+  padding: 5px 10px;
   border-radius: 999px;
   font-size: 9px;
   font-weight: 650;
@@ -989,6 +1005,45 @@
   gap: 8px;
 }
 
+.cd-dl-sel-review,
+.cd-dl-sel-send {
+  height: 34px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 999px;
+  background: #c87941;
+  font-family: var(--font-sans, inherit);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.cd-dl-sel-review:hover,
+.cd-dl-sel-send:hover {
+  background: #b56d38;
+}
+
+.cd-dl-sel-remind {
+  height: 34px;
+  padding: 0 16px;
+  border: 1px solid #e6e1d9;
+  border-radius: 999px;
+  background: #fff;
+  font-family: var(--font-sans, inherit);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #1a1a1a;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.cd-dl-sel-remind:hover {
+  background: #faf9f7;
+  border-color: #d8d4ce;
+}
+
 .cd-dl-sel-link {
   padding: 0;
   border: none;
@@ -996,29 +1051,12 @@
   font-family: var(--font-sans, inherit);
   font-size: 13px;
   font-weight: 600;
-  color: #d67d3a;
+  color: #c87941;
   cursor: pointer;
 }
 
 .cd-dl-sel-link:hover {
-  color: #bf6d2f;
-}
-
-.cd-dl-sel-send {
-  height: 32px;
-  padding: 0 14px;
-  border: none;
-  border-radius: 8px;
-  background: #1d1916;
-  font-family: var(--font-sans, inherit);
-  font-size: 12.5px;
-  font-weight: 600;
-  color: #fff;
-  cursor: pointer;
-}
-
-.cd-dl-sel-send:hover {
-  background: #2c2520;
+  color: #b56d38;
 }
 
 .cd-dl-sel-more {
@@ -1043,13 +1081,16 @@
 .cd-dl-sel-actions-row {
   display: flex;
   gap: 10px;
-  margin-top: 16px;
+  margin-top: 0;
+  padding: 14px 18px 16px;
+  border-top: 1px solid #f4f0ea;
+  background: #fff;
 }
 
 .cd-dl-sel-btn {
-  height: 38px;
-  padding: 0 16px;
-  border-radius: 8px;
+  height: 40px;
+  padding: 0 18px;
+  border-radius: 999px;
   font-family: var(--font-sans, inherit);
   font-size: 13px;
   font-weight: 600;

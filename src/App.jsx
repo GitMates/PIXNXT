@@ -31,6 +31,7 @@ import { ProtectedRoute } from './components/features/Auth';
 import CollectionList from './pages/public/CollectionList';
 import GalleryView from './pages/public/GalleryView';
 import GalleryFavoritesHub from './pages/public/GalleryFavoritesHub';
+import GallerySelectionDetail from './pages/public/GallerySelectionDetail';
 import MobileGalleryInstall from './pages/public/MobileGalleryInstall';
 import MobileGalleryClient from './pages/public/MobileGalleryClient';
 import EventGuestRegister from './pages/public/EventGuestRegister';
@@ -224,7 +225,9 @@ function App() {
             <Route path="/" element={<CollectionList slug={activeSlug} />} />
             <Route path="/gallery/:slug/f" element={<GalleryFavoritesHub />} />
             <Route path="/gallery/:slug/choose" element={<GalleryFavoritesHub />} />
+            <Route path="/gallery/:slug/choose/:listId" element={<GallerySelectionDetail />} />
             <Route path="/g/:slug/choose" element={<GalleryFavoritesHub />} />
+            <Route path="/g/:slug/choose/:listId" element={<GallerySelectionDetail />} />
             <Route path="/gallery/:slug" element={<GalleryView />} />
             <Route path="/m/:slug/pwa" element={<MobileGalleryClient />} />
             <Route path="/m/:slug/view" element={<MobileGalleryViewRedirect />} />
@@ -316,7 +319,9 @@ function App() {
           <Route path="/collections" element={<Navigate to="/deliveries" replace />} />
           <Route path="/gallery/:slug/f" element={<GalleryFavoritesHub />} />
           <Route path="/gallery/:slug/choose" element={<GalleryFavoritesHub />} />
+          <Route path="/gallery/:slug/choose/:listId" element={<GallerySelectionDetail />} />
           <Route path="/g/:slug/choose" element={<GalleryFavoritesHub />} />
+          <Route path="/g/:slug/choose/:listId" element={<GallerySelectionDetail />} />
           <Route path="/gallery/:slug" element={<GalleryView />} />
           <Route path="/m/:slug/pwa" element={<MobileGalleryClient />} />
           <Route path="/m/:slug/view" element={<MobileGalleryViewRedirect />} />

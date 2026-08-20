@@ -955,6 +955,15 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
         isDark={isPreviewDark}
         initialSenderEmail={email}
         themeClassName={`font-${fontFamily} theme-${colorPalette}`}
+        downloadRequiresPassword={Boolean(
+          dashboardState?.downloadPin && dashboardState?.pinValue
+        )}
+        activePhotoId={
+          lightboxIndex >= 0 && filteredPhotos[lightboxIndex]
+            ? filteredPhotos[lightboxIndex].id
+            : null
+        }
+        activePhotoIndex={lightboxIndex >= 0 ? lightboxIndex : null}
       />
     </div>
   );

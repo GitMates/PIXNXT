@@ -12,6 +12,7 @@ export interface FavoriteListDetail {
   max_selection?: number | null;
   updated_at?: string;
   description?: string;
+  submitted_at?: string | null;
 }
 
 export interface FavoriteDetailRow {
@@ -46,6 +47,7 @@ export interface FavoriteActivityDetailModalProps {
   setActiveActivityMenu: (id: string | number | null) => void;
   /** Closes details popup, then opens the edit form modal */
   onEditList: (detail: FavoriteListDetail) => void;
+  onReopenList: (detail: FavoriteListDetail) => void | Promise<void>;
   handleDownloadAllFavoriteList: (listId: string | number) => void;
   handleExportFavoriteList: (listId: string | number, name?: string) => void;
   handleLightroomCopyList: (listId: string | number) => void;
@@ -73,6 +75,7 @@ export function FavoriteActivityDetailModal({
   onClose,
   setActiveActivityMenu,
   onEditList,
+  onReopenList,
   handleDownloadAllFavoriteList,
   handleExportFavoriteList,
   handleLightroomCopyList,
@@ -138,6 +141,8 @@ export function FavoriteActivityDetailModal({
         })
         .replace(',', '')}`
     : '—';
+
+  const isLocked = Boolean(detail.submitted_at);
 
   return (
     <AnimatePresence>
@@ -241,7 +246,9 @@ export function FavoriteActivityDetailModal({
               </div>
               <div className="favorite-detail-fact-row">
                 <span className="favorite-detail-fact-label">Locked</span>
-                <span className="favorite-detail-fact-value">Yes, on submission</span>
+                <span className="favorite-detail-fact-value">
+                  {isLocked ? 'Yes, on submission' : 'No'}
+                </span>
               </div>
               <div className="favorite-detail-fact-row">
                 <span className="favorite-detail-fact-label">Notes</span>
@@ -257,9 +264,23 @@ export function FavoriteActivityDetailModal({
           </div>
 
           <div className="favorite-detail-drawer__footer">
-            <button type="button" className="favorite-detail-footer-secondary" onClick={() => onEditList(detail)}>
-              Reopen the list
-            </button>
+            {isLocked ? (
+              <button
+                type="button"
+                className="favorite-detail-footer-secondary"
+                onClick={() => void onReopenList(detail)}
+              >
+                Reopen the list
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="favorite-detail-footer-secondary"
+                onClick={() => onEditList(detail)}
+              >
+                Edit the list
+              </button>
+            )}
             <button
               type="button"
               className="favorite-detail-footer-primary"

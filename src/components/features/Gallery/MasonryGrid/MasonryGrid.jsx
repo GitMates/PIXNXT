@@ -120,7 +120,7 @@ export function MasonryGrid({
   const size = gridSettings?.size || 'regular';
   const spacing = gridSettings?.spacing || 'regular';
 
-  const gapBase = spacing === 'none' ? 0 : spacing === 'small' ? 4 : spacing === 'regular' ? 12 : 24;
+  const gapBase = spacing === 'none' ? 0 : spacing === 'small' ? 4 : spacing === 'regular' ? 6 : 24;
   const gap = customRowHeight ? (gapBase * (customRowHeight / (size === 'large' ? 420 : size === 'regular' ? 300 : size === 'small' ? 200 : 140))) : gapBase;
 
   // Standardized row heights to ensure parity between dashboard and public view
