@@ -20,7 +20,7 @@ export function getShareUrlForCollection(collection) {
     return getCollectionShareUrl('');
 }
 
-/** Client-facing selection link (branded /g/:slug/choose path). */
+/** Client-facing selection link (/gallery/:slug/choose path). */
 export function getSelectionChooseUrl(slug, photographerProfile) {
     const safeSlug = String(slug || '').trim().replace(/^\/+|\/+$/g, '');
     const origin = (
@@ -28,7 +28,9 @@ export function getSelectionChooseUrl(slug, photographerProfile) {
             ? getPhotographerPublicOrigin(photographerProfile)
             : getPublicSiteOrigin()
     ).replace(/\/+$/, '');
-    const href = safeSlug ? `${origin}/g/${encodeURIComponent(safeSlug)}/choose` : `${origin}/g/choose`;
+    const href = safeSlug
+        ? `${origin}/gallery/${encodeURIComponent(safeSlug)}/choose`
+        : `${origin}/gallery/choose`;
     return {
         href,
         displayPath: href.replace(/^https?:\/\//, ''),
