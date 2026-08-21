@@ -67,6 +67,18 @@
   -ms-overflow-style: none;
 }
 
+.cd-activity-feed__tabs::after {
+  /* persistent thin divider under the tabs to match design */
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: #f0ebe4;
+  z-index: 1;
+}
+
 .cd-activity-feed__tabs::-webkit-scrollbar {
   display: none;
 }
@@ -128,6 +140,22 @@
   border: 1px solid #e6e1d9;
   border-radius: 12px;
   padding: 22px 24px 24px;
+  position: relative;
+}
+
+.cd-activity-feed__box::before {
+  /* thin top divider that sits under the tabs but above the card content */
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: #f0ebe4;
+  z-index: 2;
+  pointer-events: none;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
 }
 
 .cd-activity-feed__shell.is-first .cd-activity-feed__box {
@@ -161,7 +189,8 @@
 }
 
 .cd-activity-feed__row:last-child {
-  border-bottom: none;
+  /* keep the bottom divider so the list shows a final separating line */
+  border-bottom: 1px solid #f0ebe4;
 }
 
 .cd-activity-feed__row--highlight {

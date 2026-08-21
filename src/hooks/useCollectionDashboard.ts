@@ -52,7 +52,7 @@ export function useCollectionDashboard(collectionId: string | null) {
     "high",
     "web",
   ]);
-  const [downloadPin, setDownloadPin] = useState(true);
+  const [downloadPin, setDownloadPin] = useState(false);
   const [pinValue, setPinValue] = useState("");
   const [emailTracking, setEmailTracking] = useState(true);
 

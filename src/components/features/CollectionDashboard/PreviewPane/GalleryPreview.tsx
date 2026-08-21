@@ -503,7 +503,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
     const needsEmail = !!dashboardState?.emailTracking;
 
     // downloadPin is a boolean toggle; only consider PIN required if toggle is ON and a PIN value exists
-    const hasPin = !!((dashboardState?.downloadPin && dashboardState?.pinValue) || dashboardState?.collection?.download_pin || dashboardState?.collection?.download_pin_hash);
+    const hasPin = !!(dashboardState?.downloadPin && dashboardState?.pinValue);
 
     // When PIN is ON, require it for single photo downloads too
     const pinRequiredForSingle = dashboardState?.requirePinForSinglePhoto !== false;
@@ -955,6 +955,15 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
         isDark={isPreviewDark}
         initialSenderEmail={email}
         themeClassName={`font-${fontFamily} theme-${colorPalette}`}
+        downloadRequiresPassword={Boolean(
+          dashboardState?.downloadPin && dashboardState?.pinValue
+        )}
+        activePhotoId={
+          lightboxIndex >= 0 && filteredPhotos[lightboxIndex]
+            ? filteredPhotos[lightboxIndex].id
+            : null
+        }
+        activePhotoIndex={lightboxIndex >= 0 ? lightboxIndex : null}
       />
     </div>
   );

@@ -47,6 +47,7 @@ export interface DownloadSettingsProps {
   setRestrictSinglePhotoSizes: (val: boolean) => void;
   downloadPin: boolean;
   setDownloadPin: (val: boolean) => void;
+  onDownloadPinChange?: (enabled: boolean) => void;
   pinValue: string;
   setPinValue: (val: string) => void;
   onPinEnter?: (pin: string) => void;

@@ -428,9 +428,9 @@
   position: absolute;
   top: calc(100% + 10px);
   right: 0;
-  width: 260px;
+  width: 255px;
   padding: 12px 0 8px;
-  background: #fff;
+  background: #ffffff;
   border: 1px solid rgba(26, 22, 20, 0.06);
   border-radius: 14px;
   box-shadow: 0 16px 48px rgba(26, 22, 20, 0.12);
@@ -438,7 +438,7 @@
 }
 
 .sd-menu-section {
-  padding: 0 14px;
+  padding: 0 12px;
 }
 
 .sd-menu-section--links {
@@ -448,14 +448,19 @@
   gap: 0;
 }
 
-.sd-menu-overline {
+.sd-menu-section--appearance {
+  padding: 6px 12px 2px;
+}
+
+.sd-menu-section-title {
   font-family: var(--sd-font);
-  font-size: 10px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: #9a9289;
-  margin-bottom: 8px;
+  padding: 4px 10px 8px;
+  display: block;
 }
 
 .sd-menu-storage {
@@ -530,26 +535,40 @@
 
 .sd-menu-item {
   width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   text-align: left;
   border: none;
   background: transparent;
   border-radius: 8px;
-  padding: 8px 10px;
+  padding: 9px 10px;
   font-family: var(--sd-font);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 500;
   color: var(--sd-ink);
   cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.sd-menu-item svg {
+  color: #2d2b29;
+  flex-shrink: 0;
 }
 
 .sd-menu-item:hover {
   background: #f1f0ee;
 }
 
+.sd-menu-item--logout {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
 .sd-menu-divider {
   height: 1px;
   background: #ece8e2;
-  margin: 8px 14px;
+  margin: 10px 12px;
 }
 
 /* ── Main ── */
@@ -1506,8 +1525,8 @@ body.dark-theme .sd-cmd-panel {
 
 /* Profile menu */
 body.dark-theme .sd-menu {
-  background: var(--sd-menu);
-  border-color: rgba(245, 244, 241, 0.08);
+  background: #ffffff;
+  border-color: rgba(26, 22, 20, 0.06);
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
 }
 
@@ -1553,8 +1572,16 @@ body.dark-theme .sd-menu-item {
   color: #f5f4f1;
 }
 
+body.dark-theme .sd-menu-item svg {
+  color: #f5f4f1;
+}
+
 body.dark-theme .sd-menu-item:hover {
   background: #2a2825;
+}
+
+body.dark-theme .sd-menu-item:hover svg {
+  color: #f5f4f1;
 }
 
 body.dark-theme .sd-menu-divider {

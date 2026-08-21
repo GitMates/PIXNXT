@@ -52,6 +52,7 @@ import {
 import { openShareByEmail, openWhatsAppShare, getCollectionShareUrl, getQrCodeImageUrl } from '../lib/shareCollection';
 import { resolveUploadDefaults, syncUploadDefaultsToLocalStorage, isRawUploadEnabled } from '../lib/uploadDefaults';
 import { CollectionQrModal, CollectionDuplicateModal } from '../components/features/ClientGallery/CollectionShareModals';
+import { formatStorageBytes } from '../utils/formatStorageBytes';
 import { GuestDeliveryQrModal } from '../components/features/CollectionDashboard/GuestDeliveryQrModal';
 import '../components/features/CollectionDashboard/GuestDeliveryQrModal.css';
 import { GuestDeliveryPublishedPopup } from '../components/features/CollectionDashboard/GuestDeliveryPublishedPopup';
@@ -293,6 +294,10 @@ const CollectionDashboard = () => {
     const [showDuplicateModal, setShowDuplicateModal] = useState(false);
     const [showDeleteCollectionModal, setShowDeleteCollectionModal] = useState(false);
     const [deleteCollectionConfirm, setDeleteCollectionConfirm] = useState(false);
+    const [showRenameDeliveryModal, setShowRenameDeliveryModal] = useState(false);
+    const [renameDeliveryName, setRenameDeliveryName] = useState('');
+    const [showArchiveConfirmModal, setShowArchiveConfirmModal] = useState(false);
+    const [showPushToAppModal, setShowPushToAppModal] = useState(false);
     // SET STATES
     const [sets, setSets] = useState([]);
     const [activeSetId, setActiveSetId] = useState(null); // null = Highlights (all photos)
@@ -440,6 +445,26 @@ const CollectionDashboard = () => {
         return sorted;
     }, [highlightsEnabled, highlightsName, sets, photos, orderedSetIds]);
 
+    const deliveryStorageLabel = useMemo(() => {
+        const fromPhotos = (photos || []).reduce((sum, p) => sum + (Number(p.size_bytes) || 0), 0);
+        const fromCollection = Number(collection?.total_size_bytes) || 0;
+        const bytes = fromPhotos > 0 ? fromPhotos : fromCollection;
+        return formatStorageBytes(bytes);
+    }, [photos, collection?.total_size_bytes]);
+
+    const mobileAppSetsLiveCount = useMemo(() => {
+        const list = sortedSidebarSets.length > 0 ? sortedSidebarSets : sets;
+        if (!list.length) return 0;
+        return list.filter((set) => mobileAppSets[set.id] !== false).length;
+    }, [sortedSidebarSets, sets, mobileAppSets]);
+
+    const duplicateShortcutLabel = useMemo(() => {
+        if (typeof navigator === 'undefined') return 'Ctrl+D';
+        const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent || '');
+        // Mac ⌘D kept for Apple devices; Windows/Linux use Ctrl+D
+        return isMac ? '⌘D' : 'Ctrl+D';
+    }, []);
+
     const handleSetDragStart = (e, index) => {
         setDraggedSetIndex(index);
         e.dataTransfer.effectAllowed = 'move';
@@ -555,8 +580,8 @@ const CollectionDashboard = () => {
     const [photoDownloadSizes, setPhotoDownloadSizes] = useState(['high', 'web']);
     const [highResChoice, setHighResChoice] = useState('3600px'); // original, 3600px
     const [webSizeChoice, setWebSizeChoice] = useState('1024px'); // 2048px, 1024px, 640px
-    const [downloadPin, setDownloadPin] = useState(true);
-    const [pinValue, setPinValue] = useState('1060');
+    const [downloadPin, setDownloadPin] = useState(false);
+    const [pinValue, setPinValue] = useState('');
     const [showAdditionalOptions, setShowAdditionalOptions] = useState(false);
     const [showGeneralAdditionalOptions, setShowGeneralAdditionalOptions] = useState(false);
 
@@ -951,6 +976,31 @@ const CollectionDashboard = () => {
         setEditingFavoriteList(item);
         setShowCreateFavoriteListModal(true);
         setActiveActivityMenu(null);
+    };
+
+    const handleReopenFavoriteList = async (list) => {
+        if (!list?.id) return;
+        if (!list.submitted_at) return;
+        const label = list.name || 'this selection';
+        if (!window.confirm(`Reopen "${label}"? Your client will be able to change their choices again.`)) {
+            return;
+        }
+        try {
+            await galleryService.reopenFavoriteList(list.id);
+            setFavoriteActivity((prev) =>
+                prev.map((a) => (a.id === list.id ? { ...a, submitted_at: null } : a))
+            );
+            setEditingFavoriteList((prev) =>
+                prev?.id === list.id ? { ...prev, submitted_at: null } : prev
+            );
+            setSelectedFavoriteListId(null);
+            setFavoriteDetailRows([]);
+            fetchFavoriteActivity();
+            showToast('Selection reopened. Your client can edit their choices again.');
+        } catch (err) {
+            console.error('Failed to reopen favorite list:', err);
+            alert(err?.message || 'Could not reopen this selection.');
+        }
     };
 
     const handleExportActivity = (explicitItems) => {
@@ -2310,21 +2360,20 @@ const CollectionDashboard = () => {
                 } else if (data.video_downloads_enabled) {
                     setPhotoDownloadSizes((prev) => (prev.includes('video') ? prev : [...prev, 'video']));
                 }
-                // Prefer plain PIN when available. Fallback to the legacy hash column (if the DB is still populated that way).
-                const dbPin = data.download_pin ?? data.download_pin_hash;
+                const dbPin = data.download_pin_hash;
+                setDownloadPin(!!dbPin);
                 if (dbPin) {
-                    setDownloadPin(true);
-                    setPinValue(dbPin);
-                } else if (data.download_pin === null && data.download_pin_hash === null) {
-                    setDownloadPin(false);
+                    setPinValue(String(dbPin));
+                    setRequirePinForSinglePhoto(true);
+                } else {
+                    setPinValue('');
+                    if (data.require_pin_for_single_photo !== undefined) {
+                        setRequirePinForSinglePhoto(data.require_pin_for_single_photo);
+                    } else {
+                        setRequirePinForSinglePhoto(false);
+                    }
                 }
                 
-                // When PIN is enabled, always require it for single photo downloads too
-                if (dbPin) {
-                    setRequirePinForSinglePhoto(true);
-                } else if (data.require_pin_for_single_photo !== undefined) {
-                    setRequirePinForSinglePhoto(data.require_pin_for_single_photo);
-                }
                 if (data.email_capture_enabled !== undefined) setEmailRegistration(data.email_capture_enabled);
                 if (data.gallery_download_enabled !== undefined) setGalleryDownload(data.gallery_download_enabled);
                 if (data.single_photo_download_enabled !== undefined) setSinglePhotoDownload(data.single_photo_download_enabled);
@@ -3271,6 +3320,23 @@ const CollectionDashboard = () => {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [selectedPhotos, lightboxOpenIndex, sortedPhotos, photos]);
 
+    // Duplicate delivery: Ctrl+D (Windows/Linux) / ⌘D (Mac)
+    useEffect(() => {
+        const handleDuplicateShortcut = (e) => {
+            if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'd') return;
+            const target = e.target;
+            const tag = target?.tagName?.toLowerCase();
+            if (tag === 'input' || tag === 'textarea' || tag === 'select' || target?.isContentEditable) return;
+            if (!collectionId) return;
+            e.preventDefault();
+            setShowMoreDropdown(false);
+            setShowPresetsSubmenu(false);
+            setShowDuplicateModal(true);
+        };
+        window.addEventListener('keydown', handleDuplicateShortcut);
+        return () => window.removeEventListener('keydown', handleDuplicateShortcut);
+    }, [collectionId]);
+
     const handleSelectionStar = async () => {
         const sel = getSelectedPhotoRecords();
         if (sel.length === 0) return;
@@ -3744,59 +3810,91 @@ const CollectionDashboard = () => {
         persistMobileAppSets({ ...mobileAppSets, [set.id]: enabled });
     };
 
+    const persistDownloadSettings = useCallback(async (overrides = {}) => {
+        if (!collectionId || !collection || loading || !settingsHydratedRef.current) return;
+
+        const pinOn = overrides.downloadPin !== undefined ? overrides.downloadPin : downloadPin;
+        const pin = overrides.pinValue !== undefined ? overrides.pinValue : pinValue;
+        const pinHash = pinOn && pin ? pin : null;
+
+        try {
+            const patch = {
+                downloads_enabled: photoDownload,
+                download_resolutions: (photoDownloadSizes || [])
+                    .map((s) => (s === 'high' ? 'full' : s))
+                    .filter((s) => s === 'web' || s === 'full' || s === 'original'),
+                video_downloads_enabled: (photoDownloadSizes || []).includes('video'),
+                download_pin_hash: pinHash,
+                require_pin_for_gallery_download: !!pinOn,
+                email_capture_enabled: emailRegistration,
+                gallery_download_enabled: galleryDownload,
+                single_photo_download_enabled: singlePhotoDownload,
+                require_pin_for_single_photo: pinOn ? true : requirePinForSinglePhoto,
+                download_limit_gallery: downloadLimit ? parseInt(downloadLimit) : null,
+                restrict_to_emails: restrictToEmails || null,
+                selected_download_sets: selectedDownloadSets,
+                pin_usage_limit: pinUsageLimit ? parseInt(pinUsageLimit) : null,
+            };
+
+            await galleryService.updateCollection(collectionId, patch);
+
+            setCollection((prev) => (prev ? { ...prev, ...patch, download_pin: pinHash } : prev));
+
+            const channel = new BroadcastChannel('pixnxt-gallery-update');
+            channel.postMessage({
+                type: 'SETTINGS_UPDATED',
+                collectionId,
+                slug: collectionUrl,
+                settings: {
+                    ...patch,
+                    download_pin: pinHash,
+                },
+            });
+            channel.close();
+        } catch (err) {
+            console.error('Error auto-saving download settings:', err);
+        }
+    }, [
+        collectionId,
+        collection,
+        loading,
+        downloadPin,
+        pinValue,
+        photoDownload,
+        photoDownloadSizes,
+        emailRegistration,
+        galleryDownload,
+        singlePhotoDownload,
+        requirePinForSinglePhoto,
+        downloadLimit,
+        restrictToEmails,
+        selectedDownloadSets,
+        pinUsageLimit,
+        collectionUrl,
+    ]);
+
+    const handleDownloadPinChange = useCallback((next) => {
+        setDownloadPin(next);
+        if (!next) {
+            void persistDownloadSettings({ downloadPin: false, pinValue: '' });
+        }
+    }, [persistDownloadSettings]);
+
     // Auto-save download settings
     useEffect(() => {
-        if (!collection || loading) return;
+        if (!collection || loading || !settingsHydratedRef.current) return;
 
-        const saveDownloadSettings = async () => {
-            try {
-                await galleryService.updateCollection(collectionId, {
-                    downloads_enabled: photoDownload,
-                    download_resolutions: (photoDownloadSizes || [])
-                        .map((s) => (s === 'high' ? 'full' : s))
-                        .filter((s) => s === 'web' || s === 'full' || s === 'original'),
-                    video_downloads_enabled: (photoDownloadSizes || []).includes('video'),
-                    download_pin_hash: downloadPin ? pinValue : null,
-                    email_capture_enabled: emailRegistration,
-                    gallery_download_enabled: galleryDownload,
-                    single_photo_download_enabled: singlePhotoDownload,
-                    require_pin_for_single_photo: downloadPin ? true : requirePinForSinglePhoto,
-                    // Advanced settings
-                    download_limit_gallery: downloadLimit ? parseInt(downloadLimit) : null,
-                    restrict_to_emails: restrictToEmails || null,
-                    selected_download_sets: selectedDownloadSets,
-                    pin_usage_limit: pinUsageLimit ? parseInt(pinUsageLimit) : null
-                });
-
-                // Broadcast update to open gallery tabs
-                const channel = new BroadcastChannel('pixnxt-gallery-update');
-                channel.postMessage({
-                    type: 'SETTINGS_UPDATED',
-                    collectionId,
-                    slug: collectionUrl,
-                    settings: {
-                        downloads_enabled: photoDownload,
-                        gallery_download_enabled: galleryDownload,
-                        single_photo_download_enabled: singlePhotoDownload,
-                        require_pin_for_single_photo: downloadPin ? true : requirePinForSinglePhoto,
-                        email_capture_enabled: emailRegistration
-                    }
-                });
-                channel.close();
-            } catch (err) {
-                console.error('Error auto-saving download settings:', err);
-            }
-        };
-
-        const timeoutId = setTimeout(saveDownloadSettings, 1000);
+        const timeoutId = setTimeout(() => {
+            void persistDownloadSettings();
+        }, 1000);
         return () => clearTimeout(timeoutId);
     }, [
-        photoDownload, galleryDownload, singlePhotoDownload, 
-        photoDownloadSizes, downloadPin, pinValue, 
+        photoDownload, galleryDownload, singlePhotoDownload,
+        photoDownloadSizes, downloadPin, pinValue,
         emailRegistration, requirePinForSinglePhoto, restrictSinglePhotoSizes,
         highResChoice, webSizeChoice, downloadLimit, restrictToEmails,
         selectedDownloadSets, pinUsageLimit,
-        collectionId, collection, loading
+        collectionId, collection, loading, persistDownloadSettings,
     ]);
 
     // Auto-save general gallery visitor settings (slideshow, social sharing)
@@ -4236,50 +4334,130 @@ const CollectionDashboard = () => {
                         </button>
                         {showMoreDropdown && (
                             <div className="cd-more-dropdown" role="menu">
-                                <button type="button" className="cd-ctx-item" role="menuitem" onClick={() => { setShowMoreDropdown(false); setShowPresetsSubmenu(false); setShowGetDirectLinkModal(true); }}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
-                                    <span>Get direct link</span>
-                                </button>
-                                <button type="button" className="cd-ctx-item" role="menuitem" onClick={() => { setShowMoreDropdown(false); setShowPresetsSubmenu(false); setShowEmailHistoryModal(true); }}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 4v6h6" /><path d="M3.32 14A9 9 0 1 0 3 10l-2 1" /></svg>
-                                    <span>View email history</span>
-                                </button>
-                                <div className={`cd-ctx-item--has-flyout ${showPresetsSubmenu ? 'is-open' : ''}`}>
-                                    <button
-                                        type="button"
-                                        className="cd-ctx-item-trigger"
-                                        aria-expanded={showPresetsSubmenu}
-                                        aria-haspopup="menu"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setShowPresetsSubmenu((open) => !open);
-                                        }}
-                                    >
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="4" y1="21" y2="14" /><line x1="4" x2="4" y1="10" y2="3" /><line x1="12" x2="12" y1="21" y2="12" /><line x1="12" x2="12" y1="8" y2="3" /><line x1="20" x2="20" y1="21" y2="16" /><line x1="20" x2="20" y1="12" y2="3" /><line x1="2" x2="6" y1="14" y2="14" /><line x1="10" x2="14" y1="8" y2="8" /><line x1="18" x2="22" y1="12" y2="12" /></svg>
-                                        <span>Manage presets</span>
-                                        <svg className="cd-ctx-item-chevron" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><polyline points="9 18 15 12 9 6" /></svg>
-                                    </button>
-                                    {showPresetsSubmenu && (
-                                        <div className="cd-preset-flyout" role="menu" onClick={(e) => e.stopPropagation()}>
-                                            <button type="button" className="cd-ctx-item" role="menuitem" onClick={() => { setShowMoreDropdown(false); setShowPresetsSubmenu(false); setShowApplyPresetModal(true); }}>
-                                                <span>Apply preset</span>
-                                            </button>
-                                            <button type="button" className="cd-ctx-item" role="menuitem" onClick={() => { setShowMoreDropdown(false); setShowPresetsSubmenu(false); setShowSavePresetModal(true); }}>
-                                                <span>Save as preset</span>
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                                <button type="button" className="cd-ctx-item" role="menuitem" onClick={() => { setShowMoreDropdown(false); setShowPresetsSubmenu(false); setShowMoveToModal(true); }}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 12H3" /><path d="m11 18 6-6-6-6" /><path d="M21 5v14" /></svg>
-                                    <span>Move to</span>
-                                </button>
-                                <button type="button" className="cd-ctx-item" role="menuitem" onClick={() => { setShowMoreDropdown(false); setShowPresetsSubmenu(false); setShowDuplicateModal(true); }}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+                                <div className="cd-dropdown-section-title">THIS DELIVERY</div>
+                                <button
+                                    type="button"
+                                    className="cd-ctx-item"
+                                    role="menuitem"
+                                    onClick={() => {
+                                        setShowMoreDropdown(false);
+                                        setShowPresetsSubmenu(false);
+                                        setShowDuplicateModal(true);
+                                    }}
+                                >
                                     <span>Duplicate</span>
+                                    <span className="cd-dropdown-right-label">{duplicateShortcutLabel}</span>
                                 </button>
-                                <button type="button" className="cd-ctx-item" role="menuitem" onClick={() => { setShowMoreDropdown(false); setShowPresetsSubmenu(false); setShowDeleteCollectionModal(true); setDeleteCollectionConfirm(false); }}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
+                                <button
+                                    type="button"
+                                    className="cd-ctx-item"
+                                    role="menuitem"
+                                    onClick={() => {
+                                        setShowMoreDropdown(false);
+                                        setShowPresetsSubmenu(false);
+                                        setRenameDeliveryName(collection?.name || '');
+                                        setShowRenameDeliveryModal(true);
+                                    }}
+                                >
+                                    <span>Rename</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    className="cd-ctx-item"
+                                    role="menuitem"
+                                    onClick={() => {
+                                        setShowMoreDropdown(false);
+                                        setShowPresetsSubmenu(false);
+                                        setShowMoveToModal(true);
+                                    }}
+                                >
+                                    <span>Move to folder</span>
+                                </button>
+
+                                <div className="cd-dropdown-divider" />
+                                <div className="cd-dropdown-section-title">MOBILE APP</div>
+                                <button
+                                    type="button"
+                                    className="cd-ctx-item"
+                                    role="menuitem"
+                                    onClick={() => {
+                                        setShowMoreDropdown(false);
+                                        setShowPresetsSubmenu(false);
+                                        setShowPushToAppModal(true);
+                                    }}
+                                >
+                                    <span>Push to the app...</span>
+                                    <span className="cd-dropdown-right-label">
+                                        {mobileAppSetsLiveCount === 1
+                                            ? '1 set live'
+                                            : `${mobileAppSetsLiveCount} sets live`}
+                                    </span>
+                                </button>
+
+                                <div className="cd-dropdown-divider" />
+                                <div className="cd-dropdown-section-title">EXPORT</div>
+                                <button
+                                    type="button"
+                                    className="cd-ctx-item"
+                                    role="menuitem"
+                                    onClick={() => {
+                                        setShowMoreDropdown(false);
+                                        setShowPresetsSubmenu(false);
+                                        setActiveSidebarTab('settings');
+                                        setActiveSettingsTab('download');
+                                    }}
+                                >
+                                    <span>Download everything</span>
+                                    <span className="cd-dropdown-right-label">{deliveryStorageLabel}</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    className="cd-ctx-item"
+                                    role="menuitem"
+                                    onClick={() => {
+                                        setShowMoreDropdown(false);
+                                        setShowPresetsSubmenu(false);
+                                    }}
+                                >
+                                    <span>Download a set...</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    className="cd-ctx-item"
+                                    role="menuitem"
+                                    onClick={() => {
+                                        setShowMoreDropdown(false);
+                                        setShowPresetsSubmenu(false);
+                                    }}
+                                >
+                                    <span>Export guest list (CSV)</span>
+                                </button>
+
+                                <div className="cd-dropdown-divider" />
+                                <div className="cd-dropdown-section-title">DANGER</div>
+                                <button
+                                    type="button"
+                                    className="cd-ctx-item"
+                                    role="menuitem"
+                                    onClick={() => {
+                                        setShowMoreDropdown(false);
+                                        setShowPresetsSubmenu(false);
+                                        setShowArchiveConfirmModal(true);
+                                    }}
+                                >
+                                    <span>Archive</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    className="cd-ctx-item cd-dropdown-danger-item"
+                                    role="menuitem"
+                                    onClick={() => {
+                                        setShowMoreDropdown(false);
+                                        setShowPresetsSubmenu(false);
+                                        setShowDeleteCollectionModal(true);
+                                        setDeleteCollectionConfirm(false);
+                                    }}
+                                >
                                     <span>Delete delivery</span>
                                 </button>
                             </div>
@@ -4340,7 +4518,7 @@ const CollectionDashboard = () => {
                                         navigate(`/deliveries/manage/share?id=${collectionId}`);
                                     }}
                                 >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
                                     <span>Share by email</span>
                                 </div>
                                 <div
@@ -4350,7 +4528,7 @@ const CollectionDashboard = () => {
                                         setShowGetDirectLinkModal(true);
                                     }}
                                 >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
                                     <span>Get direct link</span>
                                 </div>
                                 <div
@@ -4360,7 +4538,7 @@ const CollectionDashboard = () => {
                                         setShowQrCodeModal(true);
                                     }}
                                 >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><rect x="7" y="7" width="3" height="3"></rect><rect x="14" y="7" width="3" height="3"></rect><rect x="7" y="14" width="3" height="3"></rect><rect x="14" y="14" width="3" height="3"></rect></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><rect x="7" y="7" width="3" height="3"></rect><rect x="14" y="7" width="3" height="3"></rect><rect x="7" y="14" width="3" height="3"></rect><rect x="14" y="14" width="3" height="3"></rect></svg>
                                     <span>Get QR code</span>
                                 </div>
                                 <div
@@ -4372,7 +4550,10 @@ const CollectionDashboard = () => {
                                         }
                                     }}
                                 >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="#25D366" aria-hidden><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" fill="currentColor" /></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                                        <path d="M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9L3 21" />
+                                        <path d="M16.5 14.2v.4c0 .9-.7 1.6-1.6 1.7-2.7.2-5.3-1-7-3.2-1.6-2-2.3-4.6-1.7-7.1.2-.9 1-1.5 1.9-1.5h.4c.4 0 .7.2.8.6l.5 1.7c.1.3 0 .6-.2.8l-.5.5c-.1.1-.1.3 0 .4 1 1.4 2.3 2.5 3.8 3.2.1.1.3 0 .4-.1l.5-.5c.2-.2.5-.3.8-.2l1.7.5c.4.1.6.4.6.8z" />
+                                    </svg>
                                     <span>Share on WhatsApp</span>
                                 </div>
                             </div>
@@ -5044,6 +5225,7 @@ const CollectionDashboard = () => {
                                 setRestrictSinglePhotoSizes={setRestrictSinglePhotoSizes}
                                 downloadPin={downloadPin}
                                 setDownloadPin={setDownloadPin}
+                                onDownloadPinChange={handleDownloadPinChange}
                                 pinValue={pinValue}
                                 setPinValue={setPinValue}
                                 onPinEnter={handleDownloadPinEnter}
@@ -5114,6 +5296,7 @@ const CollectionDashboard = () => {
                             handleRemovePhotoFromFavoriteList={handleRemovePhotoFromFavoriteList}
                             highlightsName={highlightsName}
                             openEditFavoriteListModal={openEditFavoriteListModal}
+                            handleReopenFavoriteList={handleReopenFavoriteList}
                             selectedDownloadId={selectedDownloadId}
                             selectedFavoriteListId={selectedFavoriteListId}
                             setActiveActivityMenu={setActiveActivityMenu}
@@ -5374,6 +5557,7 @@ const CollectionDashboard = () => {
                     setEditingFavoriteList(null);
                 }}
                 onSubmit={handleCreateFavoriteList}
+                onRevokeAccess={handleReopenFavoriteList}
                 editingList={editingFavoriteList}
                 collectionSlug={collectionUrl}
                 profile={profile}
@@ -5714,6 +5898,114 @@ const CollectionDashboard = () => {
                             <button className="cd-save-btn" style={{ backgroundColor: '#009070', color: 'white', border: 'none', padding: '10px 24px', borderRadius: '4px', fontWeight: '500' }} onClick={confirmDeleteSet} disabled={saving}>
                                 {saving ? 'Deleting...' : 'Delete'}
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Rename Delivery Modal */}
+            {showRenameDeliveryModal && (
+                <div className="cd-modal-overlay" onClick={() => setShowRenameDeliveryModal(false)}>
+                    <div className="cd-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px' }}>
+                        <div className="cd-modal-header">
+                            <h3 className="cd-modal-title">RENAME DELIVERY</h3>
+                            <button className="cd-modal-close" onClick={() => setShowRenameDeliveryModal(false)}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                            </button>
+                        </div>
+                        <div className="cd-modal-body" style={{ padding: '24px' }}>
+                            <label style={{ fontSize: '11px', fontWeight: 600, color: '#666', letterSpacing: '0.5px', display: 'block', marginBottom: '8px' }}>DELIVERY NAME</label>
+                            <input
+                                type="text"
+                                value={renameDeliveryName}
+                                onChange={(e) => setRenameDeliveryName(e.target.value)}
+                                style={{ width: '100%', padding: '10px 12px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }}
+                                autoFocus
+                            />
+                            <div style={{ display: 'flex', gap: '8px', marginTop: '20px', justifyContent: 'flex-end' }}>
+                                <button className="cd-btn-secondary" onClick={() => setShowRenameDeliveryModal(false)}>Cancel</button>
+                                <button
+                                    className="cd-btn-primary"
+                                    disabled={saving || !renameDeliveryName.trim()}
+                                    onClick={async () => {
+                                        setSaving(true);
+                                        try {
+                                            await galleryService.updateCollection(collectionId, { name: renameDeliveryName.trim() });
+                                            setShowRenameDeliveryModal(false);
+                                            window.location.reload();
+                                        } catch (err) {
+                                            alert('Failed to rename delivery.');
+                                        } finally {
+                                            setSaving(false);
+                                        }
+                                    }}
+                                >
+                                    {saving ? 'Saving...' : 'Save'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Archive Delivery Modal */}
+            {showArchiveConfirmModal && (
+                <div className="cd-modal-overlay" onClick={() => setShowArchiveConfirmModal(false)}>
+                    <div className="cd-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px' }}>
+                        <div className="cd-modal-header">
+                            <h3 className="cd-modal-title">ARCHIVE DELIVERY</h3>
+                            <button className="cd-modal-close" onClick={() => setShowArchiveConfirmModal(false)}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                            </button>
+                        </div>
+                        <div className="cd-modal-body" style={{ padding: '24px' }}>
+                            <p style={{ margin: 0, fontSize: '14.5px', color: '#555', lineHeight: 1.5 }}>Are you sure you want to archive <strong>{collection?.name}</strong>? This will hide it from active views. You can restore it later.</p>
+                            <div style={{ display: 'flex', gap: '8px', marginTop: '20px', justifyContent: 'flex-end' }}>
+                                <button className="cd-btn-secondary" onClick={() => setShowArchiveConfirmModal(false)}>Cancel</button>
+                                <button
+                                    className="cd-btn-primary"
+                                    disabled={saving}
+                                    onClick={async () => {
+                                        setSaving(true);
+                                        try {
+                                            await persistDeliveryStatus(DELIVERY_STATUS.archived);
+                                            setShowArchiveConfirmModal(false);
+                                        } catch (err) {
+                                            alert('Failed to archive delivery.');
+                                        } finally {
+                                            setSaving(false);
+                                        }
+                                    }}
+                                >
+                                    {saving ? 'Archiving...' : 'Archive'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Push to App Modal */}
+            {showPushToAppModal && (
+                <div className="cd-modal-overlay" onClick={() => setShowPushToAppModal(false)}>
+                    <div className="cd-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px' }}>
+                        <div className="cd-modal-header">
+                            <h3 className="cd-modal-title">PUSH TO THE APP</h3>
+                            <button className="cd-modal-close" onClick={() => setShowPushToAppModal(false)}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                            </button>
+                        </div>
+                        <div className="cd-modal-body" style={{ padding: '24px' }}>
+                            <p style={{ margin: 0, fontSize: '14.5px', color: '#555', lineHeight: 1.5 }}>Push the sets from this delivery to the PIXNXT mobile app. Your client will receive a notification to view the gallery on their phone.</p>
+                            <p style={{ margin: '12px 0 0', fontSize: '13px', color: '#a39b92' }}>
+                                {mobileAppSetsLiveCount === 1
+                                    ? '1 set currently live in the app.'
+                                    : `${mobileAppSetsLiveCount} sets currently live in the app.`}
+                            </p>
+                            <div style={{ display: 'flex', gap: '8px', marginTop: '20px', justifyContent: 'flex-end' }}>
+                                <button className="cd-btn-secondary" onClick={() => setShowPushToAppModal(false)}>Cancel</button>
+                                <button className="cd-btn-primary" onClick={() => { setShowPushToAppModal(false); }}>Push to app</button>
+                            </div>
                         </div>
                     </div>
                 </div>

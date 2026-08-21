@@ -276,6 +276,7 @@ export const DownloadSettings: React.FC<DownloadSettingsProps> = ({
   setSinglePhotoDownload,
   downloadPin,
   setDownloadPin,
+  onDownloadPinChange,
   pinValue,
   setPinValue,
   onPinEnter,
@@ -588,7 +589,11 @@ export const DownloadSettings: React.FC<DownloadSettingsProps> = ({
                     <Toggle
                       checked={downloadPin}
                       onChange={(next) => {
-                        setDownloadPin(next);
+                        if (onDownloadPinChange) {
+                          onDownloadPinChange(next);
+                        } else {
+                          setDownloadPin(next);
+                        }
                         if (next && !pinValue) generatePin();
                       }}
                       label="Ask for a PIN"

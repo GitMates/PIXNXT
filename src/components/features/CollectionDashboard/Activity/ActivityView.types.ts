@@ -18,6 +18,7 @@ export interface ActivityViewProps {
   handleRemovePhotoFromFavoriteList: any;
   highlightsName: any;
   openEditFavoriteListModal: any;
+  handleReopenFavoriteList: any;
   selectedDownloadId: any;
   selectedFavoriteListId: any;
   setActiveActivityMenu: any;

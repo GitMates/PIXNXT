@@ -673,7 +673,8 @@
 .download-detail-drawer__head {
     padding: 22px 24px 16px;
     flex-shrink: 0;
-    background: #fdfcf9;
+    background: #ffffff;
+    border-bottom: 1px solid #ece8e2;
 }
 
 .download-detail-drawer__head-top {

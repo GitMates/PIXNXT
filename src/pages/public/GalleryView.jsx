@@ -680,6 +680,7 @@ const GalleryView = () => {
 
   const [searchParams] = useSearchParams();
   const listId = searchParams.get('list');
+  const pickListParam = searchParams.get('pickList');
   const photosParam = searchParams.get('photos');
 
   const sharedPhotoIds = useMemo(() => {
@@ -687,22 +688,27 @@ const GalleryView = () => {
     return new Set(photosParam.split(',').map(id => id.trim()).filter(Boolean));
   }, [photosParam]);
 
-  const getPickListId = useCallback(() => {
-    if (!collection?.id) return null;
-    return sessionStorage.getItem(`pixnxt_fav_pick_list_${collection.id}`);
-  }, [collection?.id]);
+  const getPickListId = useCallback(
+    (collectionIdOverride = null) => {
+      const cid = collectionIdOverride || collection?.id;
+      if (!cid) return null;
+      return sessionStorage.getItem(`pixnxt_fav_pick_list_${cid}`);
+    },
+    [collection?.id]
+  );
 
   const refreshSelectionList = useCallback(
-    async (sid, explicitListId = null) => {
+    async (sid, explicitListId = null, collectionIdOverride = null) => {
       if (!sid) {
         setActiveFavoriteList(null);
         setFavoritedPhotos([]);
         return;
       }
       try {
-        const pickListId = getPickListId();
+        const pickListId = getPickListId(collectionIdOverride);
         const targetListId =
           explicitListId ||
+          pickListParam ||
           pickListId ||
           listId ||
           (await galleryService.getSessionDefaultFavoriteList(sid))?.id;
@@ -725,8 +731,13 @@ const GalleryView = () => {
         setFavoritedPhotos([]);
       }
     },
-    [listId, getPickListId]
+    [listId, pickListParam, getPickListId]
   );
+
+  useEffect(() => {
+    if (!collection?.id || !pickListParam) return;
+    sessionStorage.setItem(`pixnxt_fav_pick_list_${collection.id}`, pickListParam);
+  }, [collection?.id, pickListParam]);
 
   useEffect(() => {
     const faviconUrl = photographer?.favicon_url || localStorage.getItem('custom_favicon_url');
@@ -774,9 +785,10 @@ const GalleryView = () => {
 
   useEffect(() => {
     refreshSelectionList(sessionId, null);
-  }, [sessionId, listId, collection?.id, refreshSelectionList]);
+  }, [sessionId, listId, pickListParam, collection?.id, refreshSelectionList]);
 
-  const selectionListId = activeFavoriteList?.id || listId || null;
+  const selectionListId =
+    activeFavoriteList?.id || pickListParam || getPickListId() || listId || null;
   const favoritesLocked = Boolean(activeFavoriteList?.submitted_at);
   const favoriteLightboxLabel = useMemo(() => {
     if (!sessionId) return null;
@@ -849,10 +861,11 @@ const GalleryView = () => {
       localStorage.setItem(`pixnxt_fav_email_${collection.id}`, email);
 
       const targetList =
+        pickListParam ||
         getPickListId() ||
         listId ||
         (await galleryService.getSessionDefaultFavoriteList(session.id))?.id;
-      await refreshSelectionList(session.id, targetList || null);
+      await refreshSelectionList(session.id, targetList || null, collection.id);
       let newFavs = (await galleryService.getFavorites(session.id, targetList))
         .map(normalizeFavoritePhotoId)
         .filter(Boolean);
@@ -918,7 +931,7 @@ const GalleryView = () => {
       setShowFavoriteModal(true);
       return;
     }
-    navigate(`/gallery/${slug}/f`);
+    navigate(`/gallery/${slug}/choose`);
   };
 
   /** Heart on a photo (grid overlay or lightbox) — toggles that photo only. */
@@ -1092,7 +1105,8 @@ const GalleryView = () => {
 
       // When PIN is ON, require it for single photo downloads too
       const pinRequiredForSingle = collection?.require_pin_for_single_photo !== false;
-      const hasPin = !!(collection?.download_pin || collection?.pin_value || collection?.pinValue || collection?.download_pin_hash);
+      const pinStored = collection?.download_pin ?? collection?.download_pin_hash ?? collection?.pin_value ?? collection?.pinValue;
+      const hasPin = pinStored != null && String(pinStored).trim().length > 0;
       const needsPin = hasPin && (!photo || pinRequiredForSingle);
 
       const hasDownloadLimit = !!collection?.download_limit_gallery;
@@ -1282,7 +1296,7 @@ const GalleryView = () => {
             });
             setSessionId(session.id);
             setEmail(savedReg.email);
-            await refreshSelectionList(session.id, listId || null);
+            await refreshSelectionList(session.id, listId || null, data.id);
           } catch (e) {
             console.error("Failed to restore session:", e);
           }
@@ -1318,15 +1332,29 @@ const GalleryView = () => {
       if (event.data.type !== 'SETTINGS_UPDATED') return;
       if (event.data.slug !== slug && event.data.collectionId !== collection?.id) return;
 
-      if (event.data.settings?.slideshow_enabled !== undefined) {
-        const id = event.data.collectionId ?? collection?.id;
-        applySlideshowSetting(id, event.data.settings.slideshow_enabled !== false);
+      const patch = event.data.settings;
+      if (patch && typeof patch === 'object') {
+        setCollection((prev) => {
+          if (!prev) return prev;
+          const pin = patch.download_pin ?? patch.download_pin_hash;
+          const next = { ...prev, ...patch };
+          if ('download_pin_hash' in patch || 'download_pin' in patch) {
+            next.download_pin = pin ?? null;
+            next.download_pin_hash = patch.download_pin_hash ?? pin ?? null;
+          }
+          return next;
+        });
       }
 
-      if (event.data.settings?.social_sharing_enabled !== undefined) {
+      if (patch?.slideshow_enabled !== undefined) {
+        const id = event.data.collectionId ?? collection?.id;
+        applySlideshowSetting(id, patch.slideshow_enabled !== false);
+      }
+
+      if (patch?.social_sharing_enabled !== undefined) {
         setCollection((prev) =>
           prev
-            ? { ...prev, social_sharing_enabled: event.data.settings.social_sharing_enabled }
+            ? { ...prev, social_sharing_enabled: patch.social_sharing_enabled }
             : prev
         );
       }
@@ -2725,6 +2753,18 @@ const GalleryView = () => {
         isDark={isGalleryDark}
         initialSenderEmail={email}
         themeClassName={cn(`theme-${effectiveSettings.color_palette}`, `font-${effectiveSettings.font_family}`)}
+        downloadRequiresPassword={
+          (() => {
+            const pin = collection?.download_pin ?? collection?.download_pin_hash ?? collection?.pin_value ?? collection?.pinValue;
+            return pin != null && String(pin).trim().length > 0;
+          })()
+        }
+        activePhotoId={
+          lightboxIndex >= 0 && filteredPhotos[lightboxIndex]
+            ? filteredPhotos[lightboxIndex].id
+            : null
+        }
+        activePhotoIndex={lightboxIndex >= 0 ? lightboxIndex : null}
       />
 
 

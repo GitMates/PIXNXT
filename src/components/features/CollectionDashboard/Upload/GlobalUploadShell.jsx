@@ -27,6 +27,7 @@ export function GlobalUploadShell() {
     activeCollectionId,
     uploadTargetSetId,
     getUploadTarget,
+    retryFailed,
   } = useUploadQueueContext();
 
   const counts = useMemo(() => uploadTabCounts(state.files), [state.files]);
@@ -40,9 +41,6 @@ export function GlobalUploadShell() {
   );
 
   if (!state.isOpen) return null;
-
-  const showExpanded = !state.isMinimized;
-  const showFab = state.isMinimized;
 
   const handleViewCompleted = () => {
     const target = getUploadTarget();
@@ -88,62 +86,25 @@ export function GlobalUploadShell() {
       );
     }
 
-    // Keep the upload panel open on the Complete tab so “View” shows the finished file list.
     openCompletedUploadDetails();
   };
 
-  const handleFabClick = () => {
-    expand();
-  };
-
   return (
-    <>
-      {showExpanded && (
-        <UploadManager
-          state={state}
-          destinationLabel={destinationLabel || 'Delivery'}
-          isPaused={state.isPaused}
-          onMinimize={minimize}
-          onExpand={expand}
-          onClose={closeWidget}
-          onDismiss={isAllComplete ? dismiss : undefined}
-          onPause={pause}
-          onResume={resume}
-          onCancel={cancel}
-          onTabChange={setActiveTab}
-          onToggleDetails={toggleDetails}
-          onViewCompleted={handleViewCompleted}
-        />
-      )}
-
-      {showFab && (
-        <button
-          type="button"
-          className={`upload-fab${inProgress > 0 ? ' upload-fab--active' : ''}${isAllComplete ? ' upload-fab--done' : ''}`}
-          onClick={handleFabClick}
-          aria-label={
-            isAllComplete
-              ? `${completeSummary || `${counts.complete} uploads complete`}. Open upload panel`
-              : `${inProgressTitle || `Uploading ${inProgress} items`}. Open upload panel`
-          }
-        >
-          <span className="upload-fab-icon" aria-hidden>
-            {isAllComplete ? (
-              <CheckCircle2 size={26} strokeWidth={2} />
-            ) : inProgress > 0 ? (
-              <Loader2 size={26} strokeWidth={2} className="upload-fab-spin" />
-            ) : (
-              <CloudUpload size={26} strokeWidth={1.75} />
-            )}
-          </span>
-          {inProgress > 0 && (
-            <span className="upload-fab-badge">{inProgress}</span>
-          )}
-          {isAllComplete && !inProgress && (
-            <span className="upload-fab-badge upload-fab-badge--done">{counts.complete}</span>
-          )}
-        </button>
-      )}
-    </>
+    <UploadManager
+      state={state}
+      destinationLabel={destinationLabel || 'Delivery'}
+      isPaused={state.isPaused}
+      onMinimize={minimize}
+      onExpand={expand}
+      onClose={closeWidget}
+      onDismiss={isAllComplete ? dismiss : undefined}
+      onPause={pause}
+      onResume={resume}
+      onCancel={cancel}
+      onTabChange={setActiveTab}
+      onToggleDetails={toggleDetails}
+      onViewCompleted={handleViewCompleted}
+      onRetry={retryFailed}
+    />
   );
 }

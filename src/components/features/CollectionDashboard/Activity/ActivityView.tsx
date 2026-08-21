@@ -2,7 +2,7 @@ import React, { useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
-import { downloadPhotosToZip } from '../../../../lib/downloadPhoto';
+import { downloadPhotosToZip, generateZipBlob } from '../../../../lib/downloadPhoto';
 import { DownloadActivityDetailModal } from './DownloadActivityDetailModal';
 import { FavoriteActivityDetailModal } from './FavoriteActivityDetailModal';
 import { ActivityFeed } from './ActivityFeed';
@@ -28,6 +28,7 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
   handleRemovePhotoFromFavoriteList,
   highlightsName,
   openEditFavoriteListModal,
+  handleReopenFavoriteList,
   selectedDownloadId,
   selectedFavoriteListId,
   setActiveActivityMenu,
@@ -74,7 +75,7 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
         window.alert('No photos could be downloaded.');
         return;
       }
-      const blob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
+      const blob = await generateZipBlob(zip);
       const base = String(collection?.name || 'delivery').replace(/[/\\:*?"<>|]/g, '_');
       saveAs(blob, `${base}.zip`);
     } catch {
@@ -164,6 +165,7 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
               }}
               setActiveActivityMenu={setActiveActivityMenu}
               onEditList={openEditFavoriteListModal}
+              onReopenList={handleReopenFavoriteList}
               handleDownloadAllFavoriteList={handleDownloadAllFavoriteList}
               handleExportFavoriteList={handleExportFavoriteList}
               handleLightroomCopyList={handleLightroomCopyList}

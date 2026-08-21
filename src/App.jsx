@@ -31,6 +31,8 @@ import { ProtectedRoute } from './components/features/Auth';
 import CollectionList from './pages/public/CollectionList';
 import GalleryView from './pages/public/GalleryView';
 import GalleryFavoritesHub from './pages/public/GalleryFavoritesHub';
+import GallerySelectionDetail from './pages/public/GallerySelectionDetail';
+import GalleryDownloadReady from './pages/public/GalleryDownloadReady';
 import MobileGalleryInstall from './pages/public/MobileGalleryInstall';
 import MobileGalleryClient from './pages/public/MobileGalleryClient';
 import EventGuestRegister from './pages/public/EventGuestRegister';
@@ -169,6 +171,7 @@ function App() {
     location.pathname.startsWith('/settings') ||
     location.pathname.startsWith('/account') ||
     location.pathname.startsWith('/gallery/') ||
+    location.pathname.startsWith('/download/') ||
     location.pathname.startsWith('/m/') ||
     location.pathname.startsWith('/e/') ||
     location.pathname.startsWith('/album-preview/') ||
@@ -224,8 +227,11 @@ function App() {
             <Route path="/" element={<CollectionList slug={activeSlug} />} />
             <Route path="/gallery/:slug/f" element={<GalleryFavoritesHub />} />
             <Route path="/gallery/:slug/choose" element={<GalleryFavoritesHub />} />
+            <Route path="/gallery/:slug/choose/:listId" element={<GallerySelectionDetail />} />
             <Route path="/g/:slug/choose" element={<GalleryFavoritesHub />} />
+            <Route path="/g/:slug/choose/:listId" element={<GallerySelectionDetail />} />
             <Route path="/gallery/:slug" element={<GalleryView />} />
+            <Route path="/download/:token" element={<GalleryDownloadReady />} />
             <Route path="/m/:slug/pwa" element={<MobileGalleryClient />} />
             <Route path="/m/:slug/view" element={<MobileGalleryViewRedirect />} />
             <Route path="/m/:slug" element={<MobileGalleryInstall />} />
@@ -316,8 +322,11 @@ function App() {
           <Route path="/collections" element={<Navigate to="/deliveries" replace />} />
           <Route path="/gallery/:slug/f" element={<GalleryFavoritesHub />} />
           <Route path="/gallery/:slug/choose" element={<GalleryFavoritesHub />} />
+          <Route path="/gallery/:slug/choose/:listId" element={<GallerySelectionDetail />} />
           <Route path="/g/:slug/choose" element={<GalleryFavoritesHub />} />
+          <Route path="/g/:slug/choose/:listId" element={<GallerySelectionDetail />} />
           <Route path="/gallery/:slug" element={<GalleryView />} />
+          <Route path="/download/:token" element={<GalleryDownloadReady />} />
           <Route path="/m/:slug/pwa" element={<MobileGalleryClient />} />
           <Route path="/m/:slug/view" element={<MobileGalleryViewRedirect />} />
           <Route path="/m/:slug" element={<MobileGalleryInstall />} />

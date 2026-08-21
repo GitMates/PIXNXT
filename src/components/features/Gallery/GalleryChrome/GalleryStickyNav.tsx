@@ -112,7 +112,7 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
     : isCompact
       ? galleryChromeStyles.preview
       : null;
-  const iconSize = isMobilePreviewNav ? 10 : isMobileGalleryNav ? 12 : styles.actionIcon;
+  const iconSize = isMobilePreviewNav ? 10 : isMobileGalleryNav ? 16 : styles.actionIcon;
 
   const showActionLabels = navigationStyle === 'text' && !useMobileNavLayout;
 
@@ -205,16 +205,22 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
     } catch (e) {}
     const cartCount = Array.isArray(cartItems) ? cartItems.length : 0;
 
+    const pillIconSize = isCompact ? 10 : isMobileGalleryNav ? 14 : 13;
+    const pillClass = isCompact
+      ? 'gap-1 rounded-full border px-2.5 py-1 text-[6px] font-semibold uppercase tracking-wider'
+      : isMobileGalleryNav
+        ? 'gap-1 rounded-full border px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider'
+        : 'gap-1.5 rounded-full border px-4 py-1.5 text-xs font-semibold uppercase tracking-wider';
+    const showSeparator = showPrintLab || showDownload;
+
     return (
-      <div className="flex items-center gap-4">
+      <div className={cn("flex items-center", isCompact ? "gap-1.5" : isMobileGalleryNav ? "gap-2" : "gap-4")}>
         {showPrintLab && (
           <button
             type="button"
             className={cn(
               'flex shrink-0 items-center justify-center transition-opacity hover:opacity-60',
-              isCompact 
-                ? 'h-8 w-8 rounded-full border' 
-                : 'gap-1.5 rounded-full border px-4 py-1.5 text-xs font-semibold uppercase tracking-wider'
+              pillClass
             )}
             onClick={onPrintLabClick}
             style={{
@@ -222,8 +228,19 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
               color: 'var(--gallery-text)',
             }}
           >
-            <Square size={isCompact ? 14 : 13} className="shrink-0 stroke-[2.25]" />
-            {!isCompact && <span>Print</span>}
+            <svg 
+              width={pillIconSize} 
+              height={pillIconSize} 
+              viewBox="0 0 24 24" 
+              fill="none" 
+              stroke="currentColor" 
+              strokeWidth="2.25" 
+              className="shrink-0"
+            >
+              <rect x="3" y="3" width="18" height="18" rx="1.5" />
+              <rect x="8" y="8" width="8" height="8" />
+            </svg>
+            <span>Print</span>
           </button>
         )}
 
@@ -232,9 +249,7 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
             type="button"
             className={cn(
               'flex shrink-0 items-center justify-center transition-opacity hover:opacity-60',
-              isCompact 
-                ? 'h-8 w-8 rounded-full border' 
-                : 'gap-1.5 rounded-full border px-4 py-1.5 text-xs font-semibold uppercase tracking-wider'
+              pillClass
             )}
             onClick={() => !isDownloadingAll && onDownloadClick?.()}
             disabled={isDownloadingAll}
@@ -244,22 +259,22 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
             }}
           >
             {isDownloadingAll ? (
-              <Loader2 size={isCompact ? 14 : 13} className="animate-spin shrink-0" aria-hidden />
+              <Loader2 size={pillIconSize} className="animate-spin shrink-0" aria-hidden />
             ) : (
-              <Download size={isCompact ? 14 : 13} className="shrink-0 stroke-[2.25]" />
+              <Download size={pillIconSize} className="shrink-0 stroke-[2.25]" />
             )}
-            {!isCompact && <span>{isDownloadingAll ? 'Downloading' : 'Download'}</span>}
+            <span>{isDownloadingAll ? 'Downloading' : 'Download'}</span>
           </button>
         )}
 
-        {!isCompact && (showPrintLab || showDownload) && (
+        {showSeparator && (
           <div 
-            className="h-6 w-px" 
+            className={cn("w-px", isCompact ? "h-4" : "h-6")}
             style={{ backgroundColor: 'color-mix(in srgb, var(--gallery-text) 12%, transparent)' }} 
           />
         )}
 
-        <div className="flex items-center gap-3 md:gap-4.5">
+        <div className={cn("flex items-center", isCompact ? "gap-3" : isMobileGalleryNav ? "gap-4" : "gap-5 md:gap-7")}>
           {showFavorites && (
             <button
               type="button"
@@ -268,11 +283,16 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
               style={{ color: 'var(--gallery-text)' }}
               title="Favorites"
             >
-              <Heart size={iconSize} className={cn('stroke-[2.25]', favoritedCount > 0 ? 'fill-current' : '')} />
+              <Heart size={iconSize} className="stroke-[2.25]" />
               {favoritedCount > 0 && (
                 <span
-                  className="absolute -right-2 -top-2 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold text-white"
-                  style={{ backgroundColor: '#8c827a' }}
+                  className={cn(
+                    'absolute flex items-center justify-center rounded-full font-bold text-white',
+                    isCompact
+                      ? '-right-1.5 -top-1.5 h-3 w-3 text-[6px]'
+                      : '-right-2 -top-2 h-4 w-4 text-[9px]'
+                  )}
+                  style={{ backgroundColor: '#c57d4c' }}
                 >
                   {favoritedCount}
                 </span>
@@ -291,8 +311,13 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
               <ShoppingCart size={iconSize} className="stroke-[2.25]" />
               {cartCount > 0 && (
                 <span
-                  className="absolute -right-2 -top-2 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold text-white"
-                  style={{ backgroundColor: '#8c827a' }}
+                  className={cn(
+                    "absolute flex items-center justify-center rounded-full font-bold text-white",
+                    isCompact 
+                      ? "-right-1.5 -top-1.5 h-3.5 w-3.5 text-[7px]" 
+                      : "-right-2 -top-2 h-4 w-4 text-[9px]"
+                  )}
+                  style={{ backgroundColor: '#c57d4c' }}
                 >
                   {cartCount}
                 </span>
@@ -332,7 +357,7 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
               style={{ color: 'var(--gallery-text)' }}
               title="Slideshow"
             >
-              <Play size={iconSize} className="stroke-[2.25]" fill="currentColor" />
+              <Play size={iconSize} className="stroke-[2.25]" />
             </button>
           )}
         </div>

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Play } from 'lucide-react';
 import { openSpaPath } from '../../../../lib/spaNavigation';
@@ -12,6 +12,7 @@ export interface FavoriteListDetail {
   max_selection?: number | null;
   updated_at?: string;
   description?: string;
+  submitted_at?: string | null;
 }
 
 export interface FavoriteDetailRow {
@@ -46,6 +47,7 @@ export interface FavoriteActivityDetailModalProps {
   setActiveActivityMenu: (id: string | number | null) => void;
   /** Closes details popup, then opens the edit form modal */
   onEditList: (detail: FavoriteListDetail) => void;
+  onReopenList: (detail: FavoriteListDetail) => void | Promise<void>;
   handleDownloadAllFavoriteList: (listId: string | number) => void;
   handleExportFavoriteList: (listId: string | number, name?: string) => void;
   handleLightroomCopyList: (listId: string | number) => void;
@@ -73,6 +75,7 @@ export function FavoriteActivityDetailModal({
   onClose,
   setActiveActivityMenu,
   onEditList,
+  onReopenList,
   handleDownloadAllFavoriteList,
   handleExportFavoriteList,
   handleLightroomCopyList,
@@ -81,6 +84,7 @@ export function FavoriteActivityDetailModal({
   handleDeleteFavoriteActivity,
 }: FavoriteActivityDetailModalProps) {
   const detail = favoriteActivity.find((a) => a.id === selectedFavoriteListId);
+  const [showAll, setShowAll] = useState(false);
 
   const sortedRows = [...favoriteDetailRows].sort((a, b) => {
     const fa = a.photo?.filename || '';
@@ -105,10 +109,9 @@ export function FavoriteActivityDetailModal({
 
   const lastModified = detail.updated_at
     ? new Date(detail.updated_at)
-        .toLocaleString('en-US', {
-          month: 'short',
+        .toLocaleString('en-GB', {
           day: 'numeric',
-          year: 'numeric',
+          month: 'short',
           hour: 'numeric',
           minute: '2-digit',
           hour12: true,
@@ -121,8 +124,8 @@ export function FavoriteActivityDetailModal({
       ? `${detail.photoCount} of ${detail.max_selection}`
       : String(detail.photoCount ?? 0);
 
-  const heroPhotos = sortedRows.slice(0, 18);
-  const overflowCount = Math.max(0, sortedRows.length - heroPhotos.length);
+  const heroPhotos = showAll ? sortedRows : sortedRows.slice(0, 18);
+  const overflowCount = showAll ? 0 : Math.max(0, sortedRows.length - 18);
   const submittedLabel = detail.max_selection != null && Number(detail.max_selection) > 0
     ? `${detail.photoCount ?? 0} of ${detail.max_selection} · complete`
     : `${detail.photoCount ?? 0} selected`;
@@ -138,6 +141,8 @@ export function FavoriteActivityDetailModal({
         })
         .replace(',', '')}`
     : '—';
+
+  const isLocked = Boolean(detail.submitted_at);
 
   return (
     <AnimatePresence>
@@ -162,9 +167,8 @@ export function FavoriteActivityDetailModal({
           transition={{ duration: 0.28, ease: [0.19, 1, 0.22, 1] }}
         >
           <div className="favorite-detail-drawer__head">
-            <div className="favorite-detail-drawer__head-top">
-              <span className="favorite-detail-drawer__badge">Selection</span>
-              <button type="button" className="favorite-detail-drawer__close" onClick={onClose} aria-label="Close">
+            <div className="favorite-detail-drawer__head-top" style={{ marginBottom: 0 }}>
+              <button type="button" className="favorite-detail-drawer__close" onClick={onClose} aria-label="Close" style={{ marginLeft: 'auto' }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
                   <line x1="18" y1="6" x2="6" y2="18" />
                   <line x1="6" y1="6" x2="18" y2="18" />
@@ -180,7 +184,45 @@ export function FavoriteActivityDetailModal({
           </div>
 
           <div className="favorite-detail-drawer__body">
-            <div className="favorite-detail-drawer__section-head">
+            <div className="favorite-detail-drawer__section-head favorite-detail-drawer__section-head--detail" style={{ paddingTop: '24px' }}>
+              <span className="download-detail-photos-title">Detail</span>
+            </div>
+
+            <div className="favorite-detail-facts">
+              <div className="favorite-detail-fact-row">
+                <span className="favorite-detail-fact-label">Who</span>
+                <span className="favorite-detail-fact-value">{detail.name || detail.email || 'Client'}</span>
+              </div>
+              <div className="favorite-detail-fact-row">
+                <span className="favorite-detail-fact-label">List</span>
+                <span className="favorite-detail-fact-value">
+                  <strong>{detail.name || 'Album'}</strong>
+                  {detail.description?.trim() ? ` — ${detail.description.trim()}` : ''}
+                </span>
+              </div>
+              <div className="favorite-detail-fact-row">
+                <span className="favorite-detail-fact-label">Picked</span>
+                <span className="favorite-detail-fact-value">{submittedLabel}</span>
+              </div>
+              <div className="favorite-detail-fact-row">
+                <span className="favorite-detail-fact-label">Locked</span>
+                <span className="favorite-detail-fact-value">
+                  {isLocked ? 'Yes, on submission' : 'No'}
+                </span>
+              </div>
+              <div className="favorite-detail-fact-row">
+                <span className="favorite-detail-fact-label">Notes</span>
+                <span className="favorite-detail-fact-value">
+                  {noteCount > 0 ? `${noteCount} photograph${noteCount === 1 ? '' : 's'} carry a note` : 'None'}
+                </span>
+              </div>
+              <div className="favorite-detail-fact-row">
+                <span className="favorite-detail-fact-label">When</span>
+                <span className="favorite-detail-fact-value">{whenLabel || lastModified}</span>
+              </div>
+            </div>
+
+            <div className="favorite-detail-drawer__section-head favorite-detail-drawer__section-head--photos" style={{ paddingTop: '28px' }}>
               <span className="download-detail-photos-title">
                 The photographs <span className="favorite-detail-drawer__section-count">{detail.photoCount ?? 0}</span>
               </span>
@@ -213,53 +255,36 @@ export function FavoriteActivityDetailModal({
                     );
                   })}
                   {overflowCount > 0 ? (
-                    <div className="favorite-detail-photo-grid__cell favorite-detail-photo-grid__cell--more">+{overflowCount}</div>
+                    <div
+                      className="favorite-detail-photo-grid__cell favorite-detail-photo-grid__cell--more cursor-pointer"
+                      onClick={() => setShowAll(true)}
+                    >
+                      +{overflowCount}
+                    </div>
                   ) : null}
                 </>
               )}
             </div>
-
-            <div className="favorite-detail-drawer__section-head favorite-detail-drawer__section-head--detail">
-              <span className="download-detail-photos-title">Detail</span>
-            </div>
-
-            <div className="favorite-detail-facts">
-              <div className="favorite-detail-fact-row">
-                <span className="favorite-detail-fact-label">Who</span>
-                <span className="favorite-detail-fact-value">{detail.name || detail.email || 'Client'}</span>
-              </div>
-              <div className="favorite-detail-fact-row">
-                <span className="favorite-detail-fact-label">List</span>
-                <span className="favorite-detail-fact-value">
-                  <strong>{detail.name || 'Album'}</strong>
-                  {detail.description?.trim() ? ` — ${detail.description.trim()}` : ''}
-                </span>
-              </div>
-              <div className="favorite-detail-fact-row">
-                <span className="favorite-detail-fact-label">Picked</span>
-                <span className="favorite-detail-fact-value">{submittedLabel}</span>
-              </div>
-              <div className="favorite-detail-fact-row">
-                <span className="favorite-detail-fact-label">Locked</span>
-                <span className="favorite-detail-fact-value">Yes, on submission</span>
-              </div>
-              <div className="favorite-detail-fact-row">
-                <span className="favorite-detail-fact-label">Notes</span>
-                <span className="favorite-detail-fact-value">
-                  {noteCount > 0 ? `${noteCount} photograph${noteCount === 1 ? '' : 's'} carry a note` : 'None'}
-                </span>
-              </div>
-              <div className="favorite-detail-fact-row">
-                <span className="favorite-detail-fact-label">When</span>
-                <span className="favorite-detail-fact-value">{whenLabel || lastModified}</span>
-              </div>
-            </div>
           </div>
 
           <div className="favorite-detail-drawer__footer">
-            <button type="button" className="favorite-detail-footer-secondary" onClick={() => onEditList(detail)}>
-              Reopen the list
-            </button>
+            {isLocked ? (
+              <button
+                type="button"
+                className="favorite-detail-footer-secondary"
+                onClick={() => void onReopenList(detail)}
+              >
+                Reopen the list
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="favorite-detail-footer-secondary"
+                onClick={() => onEditList(detail)}
+              >
+                Edit the list
+              </button>
+            )}
             <button
               type="button"
               className="favorite-detail-footer-primary"

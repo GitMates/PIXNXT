@@ -56,6 +56,16 @@ export function MasonryGrid({
   packagePickLimit = 0,
 }) {
   const [dynamicAspectRatios, setDynamicAspectRatios] = useState({});
+  const [showTooltip, setShowTooltip] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return !localStorage.getItem('pixnxt_gallery_visited');
+  });
+
+  const dismissTooltip = useCallback(() => {
+    setShowTooltip(false);
+    localStorage.setItem('pixnxt_gallery_visited', 'true');
+  }, []);
+
   const [colsCount, setColsCount] = useState(() => {
     if (customColumnCount != null) return customColumnCount;
     const mobile = Boolean(isPreviewMobile || isMobileViewport);
@@ -120,7 +130,7 @@ export function MasonryGrid({
   const size = gridSettings?.size || 'regular';
   const spacing = gridSettings?.spacing || 'regular';
 
-  const gapBase = spacing === 'none' ? 0 : spacing === 'small' ? 4 : spacing === 'regular' ? 12 : 24;
+  const gapBase = spacing === 'none' ? 0 : spacing === 'small' ? 4 : spacing === 'regular' ? 6 : 24;
   const gap = customRowHeight ? (gapBase * (customRowHeight / (size === 'large' ? 420 : size === 'regular' ? 300 : size === 'small' ? 200 : 140))) : gapBase;
 
   // Standardized row heights to ensure parity between dashboard and public view
@@ -448,7 +458,10 @@ export function MasonryGrid({
           width: '100%',
           aspectRatio: '1 / 1',
         }}
-        onClick={() => onVisitShop?.()}
+        onClick={() => {
+          dismissTooltip();
+          onVisitShop?.();
+        }}
         data-sales-banner={isPhotoBanner ? 'photo' : 'store_rotator'}
       >
         <div style={{
@@ -700,8 +713,17 @@ export function MasonryGrid({
           width: '100%',
           '--ar': String(tileAspectRatio),
         })}
-        onClick={() => onImageClick(photo._originalIndex)}
+        onClick={() => {
+          dismissTooltip();
+          onImageClick(photo._originalIndex);
+        }}
       >
+        {/* First-visit tooltip — above the first tile only */}
+        {index === 0 && showTooltip && (
+          <div className="gallery-tile-tooltip">
+            Hover any photo — favourite it, or print it
+          </div>
+        )}
         <div
           className={cn(
             'min-w-0',
@@ -804,23 +826,27 @@ export function MasonryGrid({
               {photo.filename || `photo-${index + 1}.jpg`}
             </div>
           )}
-          {showFavorite && isFav && !useClientActionBar ? (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onFavorite?.(photo);
-              }}
-              className={cn(
-                'gallery-masonry-action-btn absolute z-[14] flex items-center justify-center rounded-full bg-black/40 text-rose-400 shadow-sm backdrop-blur-sm transition-colors hover:bg-black/55 hover:text-rose-300',
-                privateBadgeBlocksTopLeft ? 'left-2.5 top-11' : 'left-2.5 top-2.5'
-              )}
-              aria-label="Remove from favorites"
-            >
-              <Heart size={12} strokeWidth={1.75} fill="currentColor" className="drop-shadow-sm" />
-            </button>
-          ) : null}
-          <div className="gallery-masonry-tile-overlay absolute inset-0 z-[10] bg-black/0">
+
+          {/* Favourited heart — stays visible at rest (not inside the hover-only overlay) */}
+          {showFavorite && isFav && !useClientActionBar && (
+            <div className="gallery-masonry-actions gallery-masonry-fav-always absolute top-2.5 left-2.5 z-[14] flex gap-1.5">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  dismissTooltip();
+                  onFavorite?.(photo);
+                }}
+                className="gallery-masonry-action-btn flex items-center justify-center rounded-full transition-all"
+                aria-label="Remove from favorites"
+              >
+                <Heart size={13} strokeWidth={1.75} fill="currentColor" />
+              </button>
+            </div>
+          )}
+
+          {/* Overlay — gradient fades in on hover via CSS */}
+          <div className="gallery-masonry-tile-overlay absolute inset-0 z-[10]">
             {showPrivateBadge && isPrivate ? <PhotoPrivateBadge visible /> : null}
             {useClientActionBar ? (
               <PhotoPrivateControls
@@ -834,30 +860,34 @@ export function MasonryGrid({
                 onTogglePrivate={() => onTogglePrivate?.(photo)}
                 onFavorite={(e) => {
                   e.stopPropagation();
+                  dismissTooltip();
                   onFavorite?.(photo);
                 }}
                 onDownload={(e) => {
                   e.stopPropagation();
+                  dismissTooltip();
                   onDownload?.(photo);
                 }}
                 onShare={(e) => {
                   e.stopPropagation();
+                  dismissTooltip();
                   onShare?.(photo);
                 }}
               />
             ) : (
             <div className="gallery-masonry-actions absolute bottom-2.5 right-2.5 z-[12] flex gap-1.5">
-              {showShop && (
+              {showFavorite && (
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onShop?.(photo);
+                    dismissTooltip();
+                    onFavorite?.(photo);
                   }}
-                  className="gallery-masonry-action-btn flex items-center justify-center rounded-full bg-white/20 backdrop-blur-md text-white hover:bg-white hover:text-black transition-all"
-                  aria-label="Shop"
+                  className="gallery-masonry-action-btn flex items-center justify-center rounded-full transition-all"
+                  aria-label={isFav ? 'Remove from favorites' : 'Add to favorites'}
                 >
-                  <ShoppingBag size={12} strokeWidth={1.75} />
+                  <Heart size={13} strokeWidth={1.75} fill={isFav ? 'currentColor' : 'none'} style={isFav ? { color: '#C4703A' } : undefined} />
                 </button>
               )}
               {showDownload && (
@@ -865,38 +895,34 @@ export function MasonryGrid({
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
+                    dismissTooltip();
                     onDownload?.(photo);
                   }}
-                  className="gallery-masonry-action-btn flex items-center justify-center rounded-full bg-white/20 backdrop-blur-md text-white hover:bg-white hover:text-black transition-all"
+                  className="gallery-masonry-action-btn flex items-center justify-center rounded-full transition-all"
                   aria-label="Download"
                 >
                   {isPaidDownload ? (
                     <span className="relative">
-                      <ArrowDownToLine size={12} strokeWidth={1.75} />
+                      <ArrowDownToLine size={13} strokeWidth={1.75} />
                       <span style={{ position: 'absolute', top: '-3px', right: '-5px', fontSize: '5px', fontWeight: 800, lineHeight: 1, background: 'currentColor', color: 'var(--gallery-bg, #fff)', borderRadius: '2px', padding: '1px 2px' }}>₹</span>
                     </span>
                   ) : (
-                    <Download size={12} strokeWidth={1.75} />
+                    <Download size={13} strokeWidth={1.75} />
                   )}
                 </button>
               )}
-
-              {showFavorite && (
+              {showShop && (
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onFavorite?.(photo);
+                    dismissTooltip();
+                    onShop?.(photo);
                   }}
-                  className={cn(
-                    'gallery-masonry-action-btn flex items-center justify-center rounded-full backdrop-blur-md transition-all',
-                    isFav
-                      ? 'bg-white text-black'
-                      : 'bg-white/20 text-white hover:bg-white hover:text-black'
-                  )}
-                  aria-label={isFav ? 'Remove from favorites' : 'Add to favorites'}
+                  className="gallery-masonry-action-btn flex items-center justify-center rounded-full transition-all"
+                  aria-label="Shop"
                 >
-                  <Heart size={12} strokeWidth={1.75} fill={isFav ? 'currentColor' : 'none'} />
+                  <ShoppingBag size={13} strokeWidth={1.75} />
                 </button>
               )}
               {showShare && (
@@ -904,12 +930,13 @@ export function MasonryGrid({
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
+                    dismissTooltip();
                     onShare?.(photo);
                   }}
-                  className="gallery-masonry-action-btn flex items-center justify-center rounded-full bg-white/20 backdrop-blur-md text-white hover:bg-white hover:text-black transition-all"
+                  className="gallery-masonry-action-btn flex items-center justify-center rounded-full transition-all"
                   aria-label="Share"
                 >
-                  <Share2 size={12} strokeWidth={1.75} />
+                  <Share2 size={13} strokeWidth={1.75} />
                 </button>
               )}
             </div>
