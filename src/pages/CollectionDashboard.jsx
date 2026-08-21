@@ -3667,19 +3667,6 @@ const CollectionDashboard = () => {
         [collection, collectionId, categoryTags, showToast]
     );
 
-    const handleDownloadPinEnter = useCallback(
-        (pin) => {
-            const digits = String(pin || '').replace(/\D/g, '');
-            if (digits.length !== 4) {
-                showToast('Enter a 4-digit PIN', 'error');
-                return;
-            }
-            setPinValue(digits);
-            showToast('PIN set successfully', 'success');
-        },
-        [showToast]
-    );
-
     const handleSetClientOnlyChange = async (setId, isClientOnly) => {
         setSets((prev) => prev.map((s) => (s.id === setId ? { ...s, is_private: isClientOnly } : s)));
         try {
@@ -3810,47 +3797,66 @@ const CollectionDashboard = () => {
         persistMobileAppSets({ ...mobileAppSets, [set.id]: enabled });
     };
 
-    const persistDownloadSettings = useCallback(async (overrides = {}) => {
-        if (!collectionId || !collection || loading || !settingsHydratedRef.current) return;
-
-        const pinOn = overrides.downloadPin !== undefined ? overrides.downloadPin : downloadPin;
-        const pin = overrides.pinValue !== undefined ? overrides.pinValue : pinValue;
-        const pinHash = pinOn && pin ? pin : null;
-
+    const broadcastDownloadSettings = useCallback((patch) => {
+        if (!collectionId) return;
+        const settings = {
+            ...patch,
+            download_pin: patch.download_pin_hash ?? null,
+        };
         try {
-            const patch = {
-                downloads_enabled: photoDownload,
-                download_resolutions: (photoDownloadSizes || [])
-                    .map((s) => (s === 'high' ? 'full' : s))
-                    .filter((s) => s === 'web' || s === 'full' || s === 'original'),
-                video_downloads_enabled: (photoDownloadSizes || []).includes('video'),
-                download_pin_hash: pinHash,
-                require_pin_for_gallery_download: !!pinOn,
-                email_capture_enabled: emailRegistration,
-                gallery_download_enabled: galleryDownload,
-                single_photo_download_enabled: singlePhotoDownload,
-                require_pin_for_single_photo: pinOn ? true : requirePinForSinglePhoto,
-                download_limit_gallery: downloadLimit ? parseInt(downloadLimit) : null,
-                restrict_to_emails: restrictToEmails || null,
-                selected_download_sets: selectedDownloadSets,
-                pin_usage_limit: pinUsageLimit ? parseInt(pinUsageLimit) : null,
-            };
-
-            await galleryService.updateCollection(collectionId, patch);
-
-            setCollection((prev) => (prev ? { ...prev, ...patch, download_pin: pinHash } : prev));
-
+            localStorage.setItem(
+                `pixnxt-gallery-settings:${collectionId}`,
+                JSON.stringify({ collectionId, slug: collectionUrl, settings, at: Date.now() })
+            );
+        } catch {
+            /* ignore quota */
+        }
+        try {
             const channel = new BroadcastChannel('pixnxt-gallery-update');
             channel.postMessage({
                 type: 'SETTINGS_UPDATED',
                 collectionId,
                 slug: collectionUrl,
-                settings: {
-                    ...patch,
-                    download_pin: pinHash,
-                },
+                settings,
             });
             channel.close();
+        } catch {
+            /* BroadcastChannel optional */
+        }
+    }, [collectionId, collectionUrl]);
+
+    const persistDownloadSettings = useCallback(async (overrides = {}) => {
+        if (!collectionId || !collection || loading || !settingsHydratedRef.current) return;
+
+        const pinOn = overrides.downloadPin !== undefined ? overrides.downloadPin : downloadPin;
+        const pin = overrides.pinValue !== undefined ? overrides.pinValue : pinValue;
+        const pinHash = pinOn && pin ? String(pin).replace(/\D/g, '').slice(0, 4) || null : null;
+        if (pinOn && (!pinHash || pinHash.length !== 4)) return;
+
+        const patch = {
+            downloads_enabled: photoDownload,
+            download_resolutions: (photoDownloadSizes || [])
+                .map((s) => (s === 'high' ? 'full' : s))
+                .filter((s) => s === 'web' || s === 'full' || s === 'original'),
+            video_downloads_enabled: (photoDownloadSizes || []).includes('video'),
+            download_pin_hash: pinHash,
+            require_pin_for_gallery_download: !!pinOn,
+            email_capture_enabled: emailRegistration,
+            gallery_download_enabled: galleryDownload,
+            single_photo_download_enabled: singlePhotoDownload,
+            require_pin_for_single_photo: pinOn ? true : requirePinForSinglePhoto,
+            download_limit_gallery: downloadLimit ? parseInt(downloadLimit) : null,
+            restrict_to_emails: restrictToEmails || null,
+            selected_download_sets: selectedDownloadSets,
+            pin_usage_limit: pinUsageLimit ? parseInt(pinUsageLimit) : null,
+        };
+
+        // Push to open client galleries immediately (before DB round-trip).
+        setCollection((prev) => (prev ? { ...prev, ...patch, download_pin: pinHash } : prev));
+        broadcastDownloadSettings(patch);
+
+        try {
+            await galleryService.updateCollection(collectionId, patch);
         } catch (err) {
             console.error('Error auto-saving download settings:', err);
         }
@@ -3870,15 +3876,35 @@ const CollectionDashboard = () => {
         restrictToEmails,
         selectedDownloadSets,
         pinUsageLimit,
-        collectionUrl,
+        broadcastDownloadSettings,
     ]);
 
     const handleDownloadPinChange = useCallback((next) => {
         setDownloadPin(next);
         if (!next) {
+            setPinValue('');
             void persistDownloadSettings({ downloadPin: false, pinValue: '' });
+            return;
         }
-    }, [persistDownloadSettings]);
+        if (pinValue && String(pinValue).replace(/\D/g, '').length === 4) {
+            void persistDownloadSettings({ downloadPin: true, pinValue });
+        }
+    }, [persistDownloadSettings, pinValue]);
+
+    const handleDownloadPinEnter = useCallback(
+        (pin) => {
+            const digits = String(pin || '').replace(/\D/g, '').slice(0, 4);
+            if (digits.length !== 4) {
+                showToast('Enter a 4-digit PIN', 'error');
+                return;
+            }
+            setPinValue(digits);
+            setDownloadPin(true);
+            void persistDownloadSettings({ downloadPin: true, pinValue: digits });
+            showToast('PIN set successfully', 'success');
+        },
+        [showToast, persistDownloadSettings]
+    );
 
     // Auto-save download settings
     useEffect(() => {
@@ -3886,7 +3912,7 @@ const CollectionDashboard = () => {
 
         const timeoutId = setTimeout(() => {
             void persistDownloadSettings();
-        }, 1000);
+        }, 400);
         return () => clearTimeout(timeoutId);
     }, [
         photoDownload, galleryDownload, singlePhotoDownload,
