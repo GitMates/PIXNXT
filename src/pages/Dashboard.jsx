@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Home, FileText, CreditCard, User, LogOut } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
@@ -485,21 +486,33 @@ const Dashboard = () => {
             </button>
             {profileOpen && (
               <div className="sd-menu" role="menu">
-                <div className="sd-menu-section">
-                  <div className="sd-menu-overline">STORAGE</div>
-                  <div className="sd-menu-storage">
-                    <span className="sd-menu-storage-used">{storageUsedLabel}</span>
-                    <span className="sd-menu-storage-total">{storageTotalLabel}</span>
-                  </div>
-                  <div className="sd-menu-storage-bar" aria-hidden>
-                    <span className="sd-menu-storage-fill" style={{ width: `${storagePct}%` }} />
-                  </div>
+                <div className="sd-menu-section sd-menu-section--links">
+                  <div className="sd-menu-section-title">STUDIO</div>
+                  <button type="button" className="sd-menu-item" role="menuitem" onClick={() => goMenu('/account/studio-identity')}>
+                    <Home size={16} strokeWidth={1.8} />
+                    <span>Studio identity</span>
+                  </button>
+                  <button type="button" className="sd-menu-item" role="menuitem" onClick={() => goMenu('/account/legal-consent')}>
+                    <FileText size={16} strokeWidth={1.8} />
+                    <span>Legal &amp; consent</span>
+                  </button>
+                  <button type="button" className="sd-menu-item" role="menuitem" onClick={() => goMenu('/account/billing')}>
+                    <CreditCard size={16} strokeWidth={1.8} />
+                    <span>Plan &amp; billing</span>
+                  </button>
                 </div>
 
                 <div className="sd-menu-divider" />
 
-                <div className="sd-menu-section">
-                  <div className="sd-menu-overline">APPEARANCE</div>
+                <div className="sd-menu-section sd-menu-section--links">
+                  <div className="sd-menu-section-title">YOU</div>
+                  <button type="button" className="sd-menu-item" role="menuitem" onClick={() => goMenu('/account/account')}>
+                    <User size={16} strokeWidth={1.8} />
+                    <span>Your account</span>
+                  </button>
+                </div>
+
+                <div className="sd-menu-section sd-menu-section--appearance">
                   <div className="sd-appearance" role="group" aria-label="Appearance">
                     {['light', 'auto', 'dark'].map((mode) => (
                       <button
@@ -518,25 +531,9 @@ const Dashboard = () => {
                 <div className="sd-menu-divider" />
 
                 <div className="sd-menu-section sd-menu-section--links">
-                  <button type="button" className="sd-menu-item" role="menuitem" onClick={() => goMenu('/account/studio-identity')}>
-                    Studio profile
-                  </button>
-                  <button type="button" className="sd-menu-item" role="menuitem" onClick={() => goMenu('/client-gallery')}>
-                    Library
-                  </button>
-                  <button type="button" className="sd-menu-item" role="menuitem" onClick={() => goMenu('/settings')}>
-                    Settings
-                  </button>
-                </div>
-
-                <div className="sd-menu-divider" />
-
-                <div className="sd-menu-section sd-menu-section--links">
-                  <button type="button" className="sd-menu-item" role="menuitem" onClick={() => goMenu('/account/account')}>
-                    Your account
-                  </button>
-                  <button type="button" className="sd-menu-item" role="menuitem" onClick={handleLogout}>
-                    Sign out
+                  <button type="button" className="sd-menu-item sd-menu-item--logout" role="menuitem" onClick={handleLogout}>
+                    <LogOut size={16} strokeWidth={1.8} />
+                    <span>Sign out</span>
                   </button>
                 </div>
               </div>

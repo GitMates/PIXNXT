@@ -323,9 +323,10 @@ const SidebarLayout = ({
         <div ref={appDropdownRef} className="relative">
             <button
                 type="button"
-                onClick={() => setShowAppDropdown((v) => !v)}
+                onClick={() => { navigate('/dashboard'); setShowAppDropdown(false); setIsMobileMenuOpen(false); }}
+                onContextMenu={(e) => { e.preventDefault(); setShowAppDropdown((v) => !v); }}
                 className="sb-icon-btn"
-                aria-label="Home / switch products"
+                aria-label="Home"
                 aria-expanded={showAppDropdown}
             >
                 <Home className="size-4" strokeWidth={1.75} />

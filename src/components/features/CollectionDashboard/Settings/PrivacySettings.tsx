@@ -639,7 +639,7 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
                   </div>
                 ) : null}
 
-                <p className="cd-dl-section__label">What the share message says</p>
+                <p className="cd-dl-section__label" style={{ marginTop: 12 }}>What the share message says</p>
                 <div className="cd-dl-card">
                   <div className="cd-dl-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
                     <p className="cd-dl-row__title">Preview</p>
@@ -680,7 +680,7 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
                   />
                 </div>
 
-                <p className="cd-dl-section__label">Client access</p>
+                <p className="cd-dl-section__label" style={{ marginTop: 28 }}>Client access</p>
                 <div className="cd-dl-card">
                   <Row
                     title="Client exclusive access"

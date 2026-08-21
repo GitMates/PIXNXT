@@ -349,7 +349,7 @@ export const FavoriteSettings: React.FC<FavoriteSettingsProps> = ({
               </div>
 
               <p className="cd-dl-section__label" style={{ marginTop: 28 }}>How it works</p>
-              <div className="cd-dl-card">
+              <div className="cd-dl-card" style={{ marginBottom: 18 }}>
                 <Row
                   title="Lock it once submitted"
                   desc="They cannot change their choices afterwards without asking you to reopen it. This is what stops the wrong album going to print."
