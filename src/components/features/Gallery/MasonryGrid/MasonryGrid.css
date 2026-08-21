@@ -1,4 +1,4 @@
-﻿/* Mild, slow zoom on grid tile hover (public gallery + design preview) */
+/* Mild, slow zoom on grid tile hover (public gallery + design preview) */
 .masonry-grid-tile {
   position: relative;
   overflow: hidden;
@@ -44,43 +44,76 @@
   transform: scale(1.03);
 }
 
+/* ── Overlay ── */
+/* Rest: fully transparent. Hover: top+bottom gradient fades in over 150 ms. */
 .gallery-masonry-tile-overlay {
   pointer-events: none;
-  transition: background-color 0.75s cubic-bezier(0.22, 1, 0.36, 1);
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.16) 0%,
+    transparent 30%,
+    transparent 60%,
+    rgba(0, 0, 0, 0.30) 100%
+  );
+  opacity: 0;
+  transition: opacity 150ms ease;
 }
 
 @media (hover: hover) and (pointer: fine) {
   .group:hover .gallery-masonry-tile-overlay {
-    background-color: rgb(0 0 0 / 0.1);
+    opacity: 1;
   }
 }
 
+/* ── Actions row ── */
+/* Rest: hidden. Hover: slide up + fade in over 150 ms. */
 .gallery-masonry-actions {
   opacity: 0;
-  transform: translateY(10px);
+  transform: translateY(6px);
   pointer-events: none;
   transition:
-    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+    transform 150ms ease,
+    opacity 150ms ease;
 }
 
+/* ── Action buttons — 27 px circles ── */
 .gallery-masonry-action-btn {
   box-sizing: border-box;
-  width: 22px;
-  height: 22px;
-  min-width: 22px;
-  min-height: 22px;
+  width: 27px;
+  height: 27px;
+  min-width: 27px;
+  min-height: 27px;
   padding: 0;
   flex-shrink: 0;
+  border: none;
+  background: rgba(255, 255, 255, 0.94);
+  color: #1a1a1a;
+  transition: background 150ms ease;
+}
+
+/* Only the circle under the cursor changes */
+.gallery-masonry-action-btn:hover {
+  background: #ffffff;
 }
 
 .gallery-masonry-action-btn svg {
-  width: 11px;
-  height: 11px;
+  width: 13px;
+  height: 13px;
 }
 
-/* Phone layout (live gallery + Design tab preview). Do not use viewport media
-   queries alone — the Design phone frame is still a desktop window. */
+/* ── Favourited heart ── */
+/* Stays visible at rest so a guest can see what they marked. */
+.gallery-masonry-fav-always {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  transform: none !important;
+}
+
+.gallery-masonry-fav-always .gallery-masonry-action-btn {
+  color: #C4703A;
+}
+
+/* Phone layout (live gallery + Design tab preview). */
 .preview-mobile .gallery-masonry-actions,
 .cd-preview-gallery-body--mobile-frame .gallery-masonry-actions,
 .cd-design-preview-pane.mobile .gallery-masonry-actions,
@@ -94,10 +127,10 @@
 .cd-preview-gallery-body--mobile-frame .gallery-masonry-action-btn,
 .cd-design-preview-pane.mobile .gallery-masonry-action-btn,
 .gallery-view-page[data-gallery-viewport='mobile'] .gallery-masonry-action-btn {
-  width: 16px !important;
-  height: 16px !important;
-  min-width: 16px !important;
-  min-height: 16px !important;
+  width: 20px !important;
+  height: 20px !important;
+  min-width: 20px !important;
+  min-height: 20px !important;
   padding: 0 !important;
 }
 
@@ -105,8 +138,8 @@
 .cd-preview-gallery-body--mobile-frame .gallery-masonry-action-btn svg,
 .cd-design-preview-pane.mobile .gallery-masonry-action-btn svg,
 .gallery-view-page[data-gallery-viewport='mobile'] .gallery-masonry-action-btn svg {
-  width: 8px !important;
-  height: 8px !important;
+  width: 10px !important;
+  height: 10px !important;
 }
 
 @media (max-width: 768px) {
@@ -117,16 +150,16 @@
   }
 
   .gallery-masonry-action-btn {
-    width: 16px !important;
-    height: 16px !important;
-    min-width: 16px !important;
-    min-height: 16px !important;
+    width: 20px !important;
+    height: 20px !important;
+    min-width: 20px !important;
+    min-height: 20px !important;
     padding: 0 !important;
   }
 
   .gallery-masonry-action-btn svg {
-    width: 8px !important;
-    height: 8px !important;
+    width: 10px !important;
+    height: 10px !important;
   }
 }
 
@@ -136,6 +169,35 @@
     transform: translateY(0);
     pointer-events: auto;
   }
+}
+
+/* ── First-visit tooltip ── */
+.gallery-tile-tooltip {
+  position: absolute;
+  top: -36px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  white-space: nowrap;
+  background: #1a1a1a;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 14px;
+  border-radius: 6px;
+  pointer-events: none;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+}
+
+.gallery-tile-tooltip::after {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid #1a1a1a;
 }
 
 .gallery-masonry-play-btn {

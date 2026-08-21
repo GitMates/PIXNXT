@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Play } from 'lucide-react';
 import { openSpaPath } from '../../../../lib/spaNavigation';
@@ -84,6 +84,7 @@ export function FavoriteActivityDetailModal({
   handleDeleteFavoriteActivity,
 }: FavoriteActivityDetailModalProps) {
   const detail = favoriteActivity.find((a) => a.id === selectedFavoriteListId);
+  const [showAll, setShowAll] = useState(false);
 
   const sortedRows = [...favoriteDetailRows].sort((a, b) => {
     const fa = a.photo?.filename || '';
@@ -108,10 +109,9 @@ export function FavoriteActivityDetailModal({
 
   const lastModified = detail.updated_at
     ? new Date(detail.updated_at)
-        .toLocaleString('en-US', {
-          month: 'short',
+        .toLocaleString('en-GB', {
           day: 'numeric',
-          year: 'numeric',
+          month: 'short',
           hour: 'numeric',
           minute: '2-digit',
           hour12: true,
@@ -124,8 +124,8 @@ export function FavoriteActivityDetailModal({
       ? `${detail.photoCount} of ${detail.max_selection}`
       : String(detail.photoCount ?? 0);
 
-  const heroPhotos = sortedRows.slice(0, 18);
-  const overflowCount = Math.max(0, sortedRows.length - heroPhotos.length);
+  const heroPhotos = showAll ? sortedRows : sortedRows.slice(0, 18);
+  const overflowCount = showAll ? 0 : Math.max(0, sortedRows.length - 18);
   const submittedLabel = detail.max_selection != null && Number(detail.max_selection) > 0
     ? `${detail.photoCount ?? 0} of ${detail.max_selection} · complete`
     : `${detail.photoCount ?? 0} selected`;
@@ -167,9 +167,8 @@ export function FavoriteActivityDetailModal({
           transition={{ duration: 0.28, ease: [0.19, 1, 0.22, 1] }}
         >
           <div className="favorite-detail-drawer__head">
-            <div className="favorite-detail-drawer__head-top">
-              <span className="favorite-detail-drawer__badge">Selection</span>
-              <button type="button" className="favorite-detail-drawer__close" onClick={onClose} aria-label="Close">
+            <div className="favorite-detail-drawer__head-top" style={{ marginBottom: 0 }}>
+              <button type="button" className="favorite-detail-drawer__close" onClick={onClose} aria-label="Close" style={{ marginLeft: 'auto' }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
                   <line x1="18" y1="6" x2="6" y2="18" />
                   <line x1="6" y1="6" x2="18" y2="18" />
@@ -185,46 +184,7 @@ export function FavoriteActivityDetailModal({
           </div>
 
           <div className="favorite-detail-drawer__body">
-            <div className="favorite-detail-drawer__section-head">
-              <span className="download-detail-photos-title">
-                The photographs <span className="favorite-detail-drawer__section-count">{detail.photoCount ?? 0}</span>
-              </span>
-            </div>
-
-            <div className="favorite-detail-photo-grid">
-              {favoriteDetailLoading ? (
-                <p className="favorite-detail-empty">Loading…</p>
-              ) : heroPhotos.length === 0 ? (
-                <p className="favorite-detail-empty">No photos in this list yet.</p>
-              ) : (
-                <>
-                  {heroPhotos.map((row, index) => {
-                    const ph = row.photo;
-                    const thumb = ph?.thumbnail_url || ph?.web_url || ph?.full_url;
-                    const isVideo = /\.(mp4|webm|ogg|mov)$/i.test(ph?.filename || ph?.full_url || '');
-                    return (
-                      <div key={`${ph?.id || index}-${row.itemCreatedAt || index}`} className="favorite-detail-photo-grid__cell">
-                        {thumb && !isVideo ? (
-                          <img src={thumb} alt="" />
-                        ) : (
-                          <span className={`favorite-detail-photo-grid__placeholder favorite-detail-photo-grid__placeholder--${index % 6}`} />
-                        )}
-                        {thumb && isVideo ? (
-                          <span className="favorite-detail-photo-grid__video">
-                            <Play size={14} fill="white" stroke="white" />
-                          </span>
-                        ) : null}
-                      </div>
-                    );
-                  })}
-                  {overflowCount > 0 ? (
-                    <div className="favorite-detail-photo-grid__cell favorite-detail-photo-grid__cell--more">+{overflowCount}</div>
-                  ) : null}
-                </>
-              )}
-            </div>
-
-            <div className="favorite-detail-drawer__section-head favorite-detail-drawer__section-head--detail">
+            <div className="favorite-detail-drawer__section-head favorite-detail-drawer__section-head--detail" style={{ paddingTop: '24px' }}>
               <span className="download-detail-photos-title">Detail</span>
             </div>
 
@@ -260,6 +220,50 @@ export function FavoriteActivityDetailModal({
                 <span className="favorite-detail-fact-label">When</span>
                 <span className="favorite-detail-fact-value">{whenLabel || lastModified}</span>
               </div>
+            </div>
+
+            <div className="favorite-detail-drawer__section-head favorite-detail-drawer__section-head--photos" style={{ paddingTop: '28px' }}>
+              <span className="download-detail-photos-title">
+                The photographs <span className="favorite-detail-drawer__section-count">{detail.photoCount ?? 0}</span>
+              </span>
+            </div>
+
+            <div className="favorite-detail-photo-grid">
+              {favoriteDetailLoading ? (
+                <p className="favorite-detail-empty">Loading…</p>
+              ) : heroPhotos.length === 0 ? (
+                <p className="favorite-detail-empty">No photos in this list yet.</p>
+              ) : (
+                <>
+                  {heroPhotos.map((row, index) => {
+                    const ph = row.photo;
+                    const thumb = ph?.thumbnail_url || ph?.web_url || ph?.full_url;
+                    const isVideo = /\.(mp4|webm|ogg|mov)$/i.test(ph?.filename || ph?.full_url || '');
+                    return (
+                      <div key={`${ph?.id || index}-${row.itemCreatedAt || index}`} className="favorite-detail-photo-grid__cell">
+                        {thumb && !isVideo ? (
+                          <img src={thumb} alt="" />
+                        ) : (
+                          <span className={`favorite-detail-photo-grid__placeholder favorite-detail-photo-grid__placeholder--${index % 6}`} />
+                        )}
+                        {thumb && isVideo ? (
+                          <span className="favorite-detail-photo-grid__video">
+                            <Play size={14} fill="white" stroke="white" />
+                          </span>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                  {overflowCount > 0 ? (
+                    <div
+                      className="favorite-detail-photo-grid__cell favorite-detail-photo-grid__cell--more cursor-pointer"
+                      onClick={() => setShowAll(true)}
+                    >
+                      +{overflowCount}
+                    </div>
+                  ) : null}
+                </>
+              )}
             </div>
           </div>
 

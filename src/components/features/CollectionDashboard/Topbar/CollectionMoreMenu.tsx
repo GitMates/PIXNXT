@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { galleryService } from '@/services/gallery.service';
+import { formatStorageBytes } from '@/utils/formatStorageBytes';
 import { MoveCollectionModal } from '@/components/features/Collections/MoveCollectionModal';
 import { CollectionDuplicateModal } from '@/components/features/ClientGallery/CollectionShareModals';
+import { supabase } from '@/lib/supabase/client';
+import { guestDeliveryGuestsService } from '@/services/guestDeliveryGuests.service';
 
 export interface CollectionMoreMenuProps {
   collectionId?: string | null;
@@ -54,6 +57,153 @@ export function CollectionMoreMenu({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [setsLiveCount, setSetsLiveCount] = useState<number | null>(null);
+  const [storageLabel, setStorageLabel] = useState<string>('');
+  const [shortcutLabel, setShortcutLabel] = useState<string>('⌘D');
+  const [statsLoading, setStatsLoading] = useState(false);
+
+  // New menu feature states
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [newName, setNewName] = useState(collectionName);
+  const [pushOpen, setPushOpen] = useState(false);
+  const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
+
+  // Sync rename input when collectionName changes
+  useEffect(() => {
+    setNewName(collectionName);
+  }, [collectionName]);
+
+  // Ctrl+D on Windows/Linux; ⌘D on Mac
+  useEffect(() => {
+    const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.platform || '');
+    setShortcutLabel(isMac ? '⌘D' : 'Ctrl+D');
+
+    const handleKeydown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName || '';
+      const isEditable =
+        tag === 'INPUT' ||
+        tag === 'TEXTAREA' ||
+        tag === 'SELECT' ||
+        (target && target.getAttribute && target.getAttribute('contenteditable') === 'true');
+      if (isEditable) return;
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
+        e.preventDefault();
+        setDuplicateOpen(true);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeydown);
+    return () => window.removeEventListener('keydown', handleKeydown);
+  }, []);
+
+  // Load dynamic counts & storage when menu opens
+  useEffect(() => {
+    if (!open || !collectionId) return undefined;
+    let cancelled = false;
+    const load = async () => {
+      try {
+        setStatsLoading(true);
+        const data = await galleryService.getCollectionById(collectionId);
+        if (cancelled) return;
+        const setsCount = Array.isArray(data.sets) ? data.sets.length : 0;
+        setSetsLiveCount(setsCount);
+
+        let bytes = 0;
+        if (Number(data.total_size_bytes) > 0) {
+          bytes = Number(data.total_size_bytes);
+        } else if (Array.isArray(data.photos)) {
+          bytes = data.photos.reduce((s, p) => s + (Number(p.size_bytes) || 0), 0);
+        }
+        const label = formatStorageBytes(bytes);
+        setStorageLabel(label);
+        console.debug('Collection stats loaded', { collectionId, setsCount, bytes, label });
+      } catch (err) {
+        console.error('Failed to load collection stats:', err);
+      } finally {
+        setStatsLoading(false);
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, collectionId]);
+
+  const handleRename = async () => {
+    if (!newName.trim() || !collectionId) return;
+    setBusy(true);
+    try {
+      await galleryService.updateCollection(collectionId, { name: newName.trim() });
+      setRenameOpen(false);
+      window.location.reload();
+    } catch (err) {
+      alert('Failed to rename delivery.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleArchive = async () => {
+    if (!collectionId) return;
+    setBusy(true);
+    try {
+      await galleryService.updateCollection(collectionId, { delivery_status: 'archived' });
+      setArchiveConfirmOpen(false);
+      alert('Delivery archived successfully!');
+      window.location.reload();
+    } catch (err) {
+      alert('Failed to archive delivery.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleExportGuests = async () => {
+    if (!collectionId) return;
+    try {
+      const { data: events } = await supabase
+        .from('guest_delivery_events')
+        .select('id, photographer_id')
+        .eq('collection_id', collectionId);
+
+      if (!events || events.length === 0) {
+        alert('No guest registrations found for this delivery.');
+        return;
+      }
+
+      const event = events[0];
+      const guests = await guestDeliveryGuestsService.getGuests(event.photographer_id, event.id);
+
+      if (!guests || guests.length === 0) {
+        alert('No registered guests found.');
+        return;
+      }
+
+      const headers = ['Name', 'Email', 'Phone', 'Registered At', 'Delivery Status', 'Matched Photos'];
+      const rows = guests.map((g) => [
+        g.name || '',
+        g.email || '',
+        g.phone || '',
+        g.registered_at ? new Date(g.registered_at).toLocaleString() : '',
+        g.delivery_status || '',
+        g.matched_photo_count || 0
+      ]);
+
+      const csvContent = [headers, ...rows].map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(",")).join("\n");
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.setAttribute("download", `${generateSlug(collectionName)}_guests.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to export guest list.');
+    }
+  };
 
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
@@ -139,104 +289,9 @@ export function CollectionMoreMenu({
       </button>
       {open && (
         <div className="cd-more-dropdown" role="menu">
-          <div
-            className="cd-ctx-item"
-            role="menuitem"
-            onClick={() => {
-              closeAll();
-              setLinkOpen(true);
-            }}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-            </svg>
-            <span>Get direct link</span>
-          </div>
-          <div
-            className="cd-ctx-item"
-            role="menuitem"
-            onClick={() => {
-              closeAll();
-              setEmailOpen(true);
-            }}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M1 4v6h6" />
-              <path d="M3.32 14A9 9 0 1 0 3 10l-2 1" />
-            </svg>
-            <span>View email history</span>
-          </div>
-          <div className={`cd-ctx-item--has-flyout ${presetsOpen ? 'is-open' : ''}`}>
-            <button
-              type="button"
-              className="cd-ctx-item-trigger"
-              aria-expanded={presetsOpen}
-              aria-haspopup="menu"
-              onClick={(e) => {
-                e.stopPropagation();
-                setPresetsOpen((p) => !p);
-              }}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="4" x2="4" y1="21" y2="14" />
-                <line x1="4" x2="4" y1="10" y2="3" />
-                <line x1="12" x2="12" y1="21" y2="12" />
-                <line x1="12" x2="12" y1="8" y2="3" />
-                <line x1="20" x2="20" y1="21" y2="16" />
-                <line x1="20" x2="20" y1="12" y2="3" />
-                <line x1="2" x2="6" y1="14" y2="14" />
-                <line x1="10" x2="14" y1="8" y2="8" />
-                <line x1="18" x2="22" y1="12" y2="12" />
-              </svg>
-              <span>Manage presets</span>
-              <svg className="cd-ctx-item-chevron" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <polyline points="9 18 15 12 9 6" />
-              </svg>
-            </button>
-            {presetsOpen && (
-              <div className="cd-preset-flyout" role="menu" onClick={(e) => e.stopPropagation()}>
-                <button
-                  type="button"
-                  className="cd-ctx-item"
-                  role="menuitem"
-                  onClick={() => {
-                    closeAll();
-                    setApplyPresetOpen(true);
-                  }}
-                >
-                  <span>Apply preset</span>
-                </button>
-                <button
-                  type="button"
-                  className="cd-ctx-item"
-                  role="menuitem"
-                  onClick={() => {
-                    closeAll();
-                    setSavePresetOpen(true);
-                  }}
-                >
-                  <span>Save as preset</span>
-                </button>
-              </div>
-            )}
-          </div>
-          <div
-            className="cd-ctx-item"
-            role="menuitem"
-            onClick={() => {
-              closeAll();
-              setMoveOpen(true);
-            }}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M17 12H3" />
-              <path d="m11 18 6-6-6-6" />
-              <path d="M21 5v14" />
-            </svg>
-            <span>Move to</span>
-          </div>
-          <div
+          <div className="cd-dropdown-section-title">THIS DELIVERY</div>
+          <button
+            type="button"
             className="cd-ctx-item"
             role="menuitem"
             onClick={() => {
@@ -244,14 +299,100 @@ export function CollectionMoreMenu({
               setDuplicateOpen(true);
             }}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-            </svg>
             <span>Duplicate</span>
-          </div>
-          <div
+            <span className="cd-dropdown-right-label">{shortcutLabel}</span>
+          </button>
+          <button
+            type="button"
             className="cd-ctx-item"
+            role="menuitem"
+            onClick={() => {
+              closeAll();
+              setRenameOpen(true);
+            }}
+          >
+            <span>Rename</span>
+          </button>
+          <button
+            type="button"
+            className="cd-ctx-item"
+            role="menuitem"
+            onClick={() => {
+              closeAll();
+              setMoveOpen(true);
+            }}
+          >
+            <span>Move to folder</span>
+          </button>
+
+          <div className="cd-dropdown-divider" />
+          <div className="cd-dropdown-section-title">MOBILE APP</div>
+          <button
+            type="button"
+            className="cd-ctx-item"
+            role="menuitem"
+            onClick={() => {
+              closeAll();
+              setPushOpen(true);
+            }}
+          >
+            <span>Push to the app...</span>
+            <span className="cd-dropdown-right-label">{statsLoading ? 'Loading...' : (setsLiveCount != null ? `${setsLiveCount} sets live` : '—')}</span>
+          </button>
+
+          <div className="cd-dropdown-divider" />
+          <div className="cd-dropdown-section-title">EXPORT</div>
+          <button
+            type="button"
+            className="cd-ctx-item"
+            role="menuitem"
+            onClick={() => {
+              closeAll();
+              onOpenDownloadSettings?.();
+            }}
+          >
+            <span>Download everything</span>
+            <span className="cd-dropdown-right-label">{statsLoading ? 'Loading...' : (storageLabel || '—')}</span>
+          </button>
+          <button
+            type="button"
+            className="cd-ctx-item"
+            role="menuitem"
+            onClick={() => {
+              closeAll();
+              onOpenDownloadSettings?.();
+            }}
+          >
+            <span>Download a set...</span>
+          </button>
+          <button
+            type="button"
+            className="cd-ctx-item"
+            role="menuitem"
+            onClick={() => {
+              closeAll();
+              void handleExportGuests();
+            }}
+          >
+            <span>Export guest list (CSV)</span>
+          </button>
+
+          <div className="cd-dropdown-divider" />
+          <div className="cd-dropdown-section-title">DANGER</div>
+          <button
+            type="button"
+            className="cd-ctx-item"
+            role="menuitem"
+            onClick={() => {
+              closeAll();
+              setArchiveConfirmOpen(true);
+            }}
+          >
+            <span>Archive</span>
+          </button>
+          <button
+            type="button"
+            className="cd-ctx-item cd-dropdown-danger-item"
             role="menuitem"
             onClick={() => {
               closeAll();
@@ -259,11 +400,87 @@ export function CollectionMoreMenu({
               setDeleteOpen(true);
             }}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="3 6 5 6 21 6" />
-              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-            </svg>
             <span>Delete delivery</span>
+          </button>
+        </div>
+      )}
+
+      {renameOpen && (
+        <div className="cd-modal-overlay" onClick={() => setRenameOpen(false)}>
+          <div className="cd-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px' }}>
+            <div className="cd-modal-header">
+              <h3 className="cd-modal-title">Rename Delivery</h3>
+              <button type="button" className="cd-modal-close" onClick={() => setRenameOpen(false)} aria-label="Close">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+            <div className="cd-modal-body" style={{ padding: '24px' }}>
+              <input
+                type="text"
+                className="cd-basics-input"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                style={{ width: '100%', boxSizing: 'border-box' }}
+                placeholder="Enter new name"
+              />
+              <div style={{ display: 'flex', gap: '8px', marginTop: '20px', justifyContent: 'flex-end' }}>
+                <button type="button" className="cd-basics-btn" onClick={() => setRenameOpen(false)}>Cancel</button>
+                <button type="button" className="cd-basics-btn" style={{ backgroundColor: '#2c2520', color: '#fff' }} onClick={handleRename} disabled={busy}>Save</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {archiveConfirmOpen && (
+        <div className="cd-modal-overlay" onClick={() => setArchiveConfirmOpen(false)}>
+          <div className="cd-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px' }}>
+            <div className="cd-modal-header">
+              <h3 className="cd-modal-title">Archive Delivery</h3>
+              <button type="button" className="cd-modal-close" onClick={() => setArchiveConfirmOpen(false)} aria-label="Close">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+            <div className="cd-modal-body" style={{ padding: '24px' }}>
+              <p style={{ margin: 0, fontSize: '14.5px', color: '#555', lineHeight: 1.5 }}>Are you sure you want to archive this delivery? This will hide it from active views.</p>
+              <div style={{ display: 'flex', gap: '8px', marginTop: '20px', justifyContent: 'flex-end' }}>
+                <button type="button" className="cd-basics-btn" onClick={() => setArchiveConfirmOpen(false)}>Cancel</button>
+                <button type="button" className="cd-basics-btn" style={{ backgroundColor: '#2c2520', color: '#fff' }} onClick={handleArchive} disabled={busy}>Archive</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pushOpen && (
+        <div className="cd-modal-overlay" onClick={() => setPushOpen(false)}>
+          <div className="cd-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px' }}>
+            <div className="cd-modal-header">
+              <h3 className="cd-modal-title">Mobile App Sync</h3>
+              <button type="button" className="cd-modal-close" onClick={() => setPushOpen(false)} aria-label="Close">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+            <div className="cd-modal-body" style={{ padding: '24px' }}>
+              <p style={{ margin: 0, fontSize: '14.5px', color: '#555', lineHeight: 1.5 }}>
+                Pushing this delivery sets to the client mobile app.
+                {setsLiveCount != null
+                  ? ` (${setsLiveCount === 1 ? '1 set live' : `${setsLiveCount} sets live`})`
+                  : ''}
+              </p>
+              <div style={{ display: 'flex', gap: '8px', marginTop: '20px', justifyContent: 'flex-end' }}>
+                <button type="button" className="cd-basics-btn" style={{ backgroundColor: '#2c2520', color: '#fff' }} onClick={() => setPushOpen(false)}>Close</button>
+              </div>
+            </div>
           </div>
         </div>
       )}

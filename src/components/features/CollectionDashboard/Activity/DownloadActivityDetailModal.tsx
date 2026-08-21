@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { formatDownloadDestination } from '@/lib/downloadActivityResolve';
 import { countPhotosForDownloadActivity } from '@/lib/downloadActivityResolve';
@@ -112,6 +112,7 @@ export function DownloadActivityDetailModal({
   onDownloadSameSet,
 }: DownloadActivityDetailModalProps) {
   const detail = downloadActivity.find((a) => a.id === selectedDownloadId);
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -138,8 +139,8 @@ export function DownloadActivityDetailModal({
     return countPhotosForDownloadActivity(detail, downloadDetailPhotos, sets);
   }, [detail, downloadDetailPhotos, sets]);
 
-  const gridPhotos = downloadDetailPhotos.slice(0, GRID_VISIBLE);
-  const overflowCount = Math.max(0, downloadDetailPhotos.length - GRID_VISIBLE);
+  const gridPhotos = showAll ? downloadDetailPhotos : downloadDetailPhotos.slice(0, GRID_VISIBLE);
+  const overflowCount = showAll ? 0 : Math.max(0, downloadDetailPhotos.length - GRID_VISIBLE);
 
   if (!detail) return null;
 
@@ -177,9 +178,8 @@ export function DownloadActivityDetailModal({
           aria-labelledby="download-detail-drawer-title"
         >
           <div className="download-detail-drawer__head">
-            <div className="download-detail-drawer__head-top">
-              <span className="download-detail-drawer__badge">Download</span>
-              <button type="button" className="download-detail-drawer__close" onClick={onClose} aria-label="Close">
+            <div className="download-detail-drawer__head-top" style={{ marginBottom: 0 }}>
+              <button type="button" className="download-detail-drawer__close" onClick={onClose} aria-label="Close" style={{ marginLeft: 'auto' }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
                   <line x1="18" y1="6" x2="6" y2="18" />
                   <line x1="6" y1="6" x2="18" y2="18" />
@@ -195,45 +195,7 @@ export function DownloadActivityDetailModal({
           </div>
 
           <div className="download-detail-drawer__body">
-            <div className="download-detail-drawer__section-head">
-              <span className="download-detail-photos-title">The photographs</span>
-              {photoCount > 0 ? (
-                <span className="download-detail-drawer__section-count">{photoCount}</span>
-              ) : null}
-            </div>
-
-            <div className="download-detail-photo-grid">
-              {gridPhotos.length === 0 ? (
-                <p className="download-detail-empty">No photos found for this download.</p>
-              ) : (
-                <>
-                  {gridPhotos.map((ph, index) => {
-                    const thumb = ph?.thumbnail_url || ph?.web_url || ph?.full_url;
-                    const isVideo =
-                      ph?.media_type === 'video' ||
-                      /\.(mp4|webm|ogg|mov)$/i.test(ph?.filename || ph?.full_url || '');
-                    return (
-                      <div key={ph?.id || index} className="download-detail-photo-grid__cell">
-                        {thumb && !isVideo ? (
-                          <img src={thumb} alt="" />
-                        ) : (
-                          <span
-                            className={`download-detail-photo-grid__placeholder download-detail-photo-grid__placeholder--${PLACEHOLDER_MODS[index % PLACEHOLDER_MODS.length]}`}
-                          />
-                        )}
-                      </div>
-                    );
-                  })}
-                  {overflowCount > 0 ? (
-                    <div className="download-detail-photo-grid__cell download-detail-photo-grid__cell--more">
-                      +{overflowCount}
-                    </div>
-                  ) : null}
-                </>
-              )}
-            </div>
-
-            <div className="download-detail-drawer__section-head download-detail-drawer__section-head--detail">
+            <div className="download-detail-drawer__section-head download-detail-drawer__section-head--detail" style={{ paddingTop: '24px' }}>
               <span className="download-detail-photos-title">Detail</span>
             </div>
 
@@ -266,6 +228,47 @@ export function DownloadActivityDetailModal({
                 <span className="download-detail-fact-label">When</span>
                 <span className="download-detail-fact-value">{formatWhen(detail.date)}</span>
               </div>
+            </div>
+
+            <div className="download-detail-drawer__section-head download-detail-drawer__section-head--photos" style={{ paddingTop: '28px' }}>
+              <span className="download-detail-photos-title">The photographs</span>
+              {photoCount > 0 ? (
+                <span className="download-detail-drawer__section-count">{photoCount}</span>
+              ) : null}
+            </div>
+
+            <div className="download-detail-photo-grid">
+              {gridPhotos.length === 0 ? (
+                <p className="download-detail-empty">No photos found for this download.</p>
+              ) : (
+                <>
+                  {gridPhotos.map((ph, index) => {
+                    const thumb = ph?.thumbnail_url || ph?.web_url || ph?.full_url;
+                    const isVideo =
+                      ph?.media_type === 'video' ||
+                      /\.(mp4|webm|ogg|mov)$/i.test(ph?.filename || ph?.full_url || '');
+                    return (
+                      <div key={ph?.id || index} className="download-detail-photo-grid__cell">
+                        {thumb && !isVideo ? (
+                           <img src={thumb} alt="" />
+                        ) : (
+                          <span
+                            className={`download-detail-photo-grid__placeholder download-detail-photo-grid__placeholder--${PLACEHOLDER_MODS[index % PLACEHOLDER_MODS.length]}`}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                  {overflowCount > 0 ? (
+                    <div
+                      className="download-detail-photo-grid__cell download-detail-photo-grid__cell--more cursor-pointer"
+                      onClick={() => setShowAll(true)}
+                    >
+                      +{overflowCount}
+                    </div>
+                  ) : null}
+                </>
+              )}
             </div>
           </div>
 
