@@ -1327,27 +1327,29 @@ const GalleryView = () => {
   }, []);
 
   useEffect(() => {
-    const channel = new BroadcastChannel('pixnxt-gallery-update');
-    const onMessage = (event) => {
-      if (event.data.type !== 'SETTINGS_UPDATED') return;
-      if (event.data.slug !== slug && event.data.collectionId !== collection?.id) return;
+    const applySettingsPatch = (eventData) => {
+      if (!eventData || eventData.type !== 'SETTINGS_UPDATED') return;
+      if (eventData.slug !== slug && eventData.collectionId !== collection?.id) return;
 
-      const patch = event.data.settings;
+      const patch = eventData.settings;
       if (patch && typeof patch === 'object') {
         setCollection((prev) => {
           if (!prev) return prev;
-          const pin = patch.download_pin ?? patch.download_pin_hash;
           const next = { ...prev, ...patch };
           if ('download_pin_hash' in patch || 'download_pin' in patch) {
-            next.download_pin = pin ?? null;
-            next.download_pin_hash = patch.download_pin_hash ?? pin ?? null;
+            const pin =
+              patch.download_pin_hash === null || patch.download_pin === null
+                ? null
+                : (patch.download_pin ?? patch.download_pin_hash ?? null);
+            next.download_pin = pin;
+            next.download_pin_hash = pin;
           }
           return next;
         });
       }
 
       if (patch?.slideshow_enabled !== undefined) {
-        const id = event.data.collectionId ?? collection?.id;
+        const id = eventData.collectionId ?? collection?.id;
         applySlideshowSetting(id, patch.slideshow_enabled !== false);
       }
 
@@ -1359,9 +1361,80 @@ const GalleryView = () => {
         );
       }
     };
-    channel.onmessage = onMessage;
-    return () => channel.close();
+
+    const channel = new BroadcastChannel('pixnxt-gallery-update');
+    channel.onmessage = (event) => applySettingsPatch(event.data);
+
+    const onStorage = (event) => {
+      if (!event.key?.startsWith('pixnxt-gallery-settings:')) return;
+      if (!event.newValue) return;
+      try {
+        applySettingsPatch(JSON.parse(event.newValue));
+      } catch {
+        /* ignore */
+      }
+    };
+    window.addEventListener('storage', onStorage);
+
+    return () => {
+      channel.close();
+      window.removeEventListener('storage', onStorage);
+    };
   }, [slug, collection?.id, applySlideshowSetting]);
+
+  // Live download/PIN settings from dashboard saves (works across devices/origins).
+  useEffect(() => {
+    if (!collection?.id) return undefined;
+
+    const channel = supabase
+      .channel(`gallery-download-settings:${collection.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'deliveries',
+          filter: `id=eq.${collection.id}`,
+        },
+        (payload) => {
+          const row = payload.new;
+          if (!row) return;
+          setCollection((prev) => {
+            if (!prev || prev.id !== collection.id) return prev;
+            const pin = row.download_pin_hash ?? null;
+            return {
+              ...prev,
+              download_pin_hash: pin,
+              download_pin: pin,
+              downloads_enabled: row.downloads_enabled ?? prev.downloads_enabled,
+              download_resolutions: row.download_resolutions ?? prev.download_resolutions,
+              video_downloads_enabled: row.video_downloads_enabled ?? prev.video_downloads_enabled,
+              gallery_download_enabled: row.gallery_download_enabled ?? prev.gallery_download_enabled,
+              single_photo_download_enabled:
+                row.single_photo_download_enabled ?? prev.single_photo_download_enabled,
+              require_pin_for_single_photo:
+                row.require_pin_for_single_photo ?? prev.require_pin_for_single_photo,
+              email_capture_enabled: row.email_capture_enabled ?? prev.email_capture_enabled,
+              download_limit_gallery: row.download_limit_gallery ?? prev.download_limit_gallery,
+              restrict_to_emails: row.restrict_to_emails ?? prev.restrict_to_emails,
+              selected_download_sets: row.selected_download_sets ?? prev.selected_download_sets,
+              pin_usage_limit: row.pin_usage_limit ?? prev.pin_usage_limit,
+              slideshow_enabled:
+                row.slideshow_enabled !== undefined ? row.slideshow_enabled : prev.slideshow_enabled,
+              social_sharing_enabled:
+                row.social_sharing_enabled !== undefined
+                  ? row.social_sharing_enabled
+                  : prev.social_sharing_enabled,
+            };
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [collection?.id]);
 
   useEffect(() => {
     const onSlideshowChanged = (event) => {
