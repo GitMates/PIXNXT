@@ -11,6 +11,7 @@ import {
 import { getPhotoPins } from './albumPhotoPins';
 import { getSwapMarks } from './albumSwapMarks';
 import { notifyAlbumProofStatusChanged } from './albumProofStatus';
+import { getPublicSiteOrigin } from '../../lib/publicSiteUrl';
 
 /** Whether the album already has client photo comments, swaps, or spread comments. */
 export function albumHadClientFeedbackBefore(albumId) {
@@ -44,7 +45,8 @@ export function notifyClientFeedbackEvent(
     if (!albumId) return;
 
     const guest = getGuestProfile(albumId);
-    const siteOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+    // Photographer emails link to the album editor on the platform host.
+    const siteOrigin = getPublicSiteOrigin();
     const guestName = guest?.name?.trim() || 'Album client';
     const guestEmail = guest?.email?.trim() || null;
 

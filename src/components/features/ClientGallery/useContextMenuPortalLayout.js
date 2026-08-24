@@ -1,6 +1,6 @@
 import { useLayoutEffect, useState } from 'react';
 
-const MENU_WIDTH = 228;
+const MENU_WIDTH = 268;
 
 /** Fixed viewport position for portaled card context menus (avoids scroll/overflow clipping). */
 export function useContextMenuPortalLayout(anchorEl, variant = 'grid') {
@@ -14,7 +14,7 @@ export function useContextMenuPortalLayout(anchorEl, variant = 'grid') {
 
     const update = () => {
       const anchorRect = anchorEl.getBoundingClientRect();
-      const card = anchorEl.closest?.('.cg-style-73');
+      const card = anchorEl.closest?.('.dl-card, .dl-row, .cg-style-73, .cg-style-52');
       const cardRect = card?.getBoundingClientRect() ?? anchorRect;
       const viewportPad = 8;
 

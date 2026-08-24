@@ -151,6 +151,39 @@ body.dark-theme .sb-profile-menu__item--danger svg {
   stroke: #f87171;
 }
 
+body.dark-theme .theme-mono.cg-shell .sb-profile-menu {
+  background: #1c1c1c;
+  border-color: #333333;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+}
+
+body.dark-theme .theme-mono.cg-shell .sb-profile-menu__section-title {
+  color: #8a847e;
+}
+
+body.dark-theme .theme-mono.cg-shell .sb-profile-menu__item {
+  color: #ece9e2;
+}
+
+body.dark-theme .theme-mono.cg-shell .sb-profile-menu__item svg {
+  color: #c4beb6;
+  stroke: #c4beb6;
+}
+
+body.dark-theme .theme-mono.cg-shell .sb-profile-menu__item:hover,
+body.dark-theme .theme-mono.cg-shell .sb-profile-menu__item--active {
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+}
+
+body.dark-theme .theme-mono.cg-shell .sb-profile-menu__divider {
+  background: #2e2c29;
+}
+
+body.dark-theme .theme-mono.cg-shell .sb-profile-btn .mix-blend-multiply {
+  mix-blend-mode: normal;
+}
+
 /* ── Product sidebar (Album Proofer / shared shell) ───────────── */
 
 body.dark-theme .theme-mono.cg-shell {

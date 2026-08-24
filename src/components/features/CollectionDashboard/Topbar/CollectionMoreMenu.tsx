@@ -13,6 +13,7 @@ export interface CollectionMoreMenuProps {
   collectionSlug?: string | null;
   collectionName: string;
   photographerId?: string | null;
+  photographerProfile?: Record<string, unknown> | null;
   currentFolderId?: string | null;
   eventDate?: string | null;
   pinValue?: string;
@@ -21,7 +22,6 @@ export interface CollectionMoreMenuProps {
   onOpenAccessSettings?: () => void;
   onPasswordChange?: (value: string) => void;
   onPinChange?: (value: string) => void;
-  photographerProfile?: unknown;
 }
 
 function generateSlug(text: string) {
@@ -37,6 +37,7 @@ export function CollectionMoreMenu({
   collectionSlug,
   collectionName,
   photographerId,
+  photographerProfile = null,
   currentFolderId = null,
   eventDate,
   pinValue = '',

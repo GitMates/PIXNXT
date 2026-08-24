@@ -9,6 +9,7 @@ import {
   sendSmtpEmail,
   templateToHtmlParagraphs,
 } from '../_shared/smartAlbumProoferEmail.ts';
+import { resolveClientFacingOrigin } from '../_shared/clientFacingOrigin.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -33,7 +34,11 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const siteOrigin = (Deno.env.get('PUBLIC_SITE_URL') || '').replace(/\/$/, '');
+    const platformOrigin = (Deno.env.get('PUBLIC_SITE_URL') || Deno.env.get('VITE_PUBLIC_SITE_URL') || '').replace(
+      /\/$/,
+      '',
+    );
+    const photographerCache = new Map<string, { origin: string; name: string }>();
     const { data: albums, error } = await supabaseAdmin
       .from('album_proofer_albums')
       .select(
@@ -106,7 +111,24 @@ serve(async (req) => {
       }
 
       const clientName = album.client_contact_name?.trim() || 'there';
-      const albumLink = buildAlbumPreviewUrl(album, albumProofer, siteOrigin);
+      let cached = photographerCache.get(album.photographer_id);
+      if (!cached) {
+        const { data: photographerRow } = await supabaseAdmin
+          .from('photographers')
+          .select('display_name, custom_domain, custom_domain_status')
+          .eq('id', album.photographer_id)
+          .maybeSingle();
+        cached = {
+          origin: resolveClientFacingOrigin({
+            siteOrigin: platformOrigin,
+            customDomain: photographerRow?.custom_domain,
+            customDomainStatus: photographerRow?.custom_domain_status,
+          }),
+          name: photographerRow?.display_name?.trim() || 'Your photographer',
+        };
+        photographerCache.set(album.photographer_id, cached);
+      }
+      const albumLink = buildAlbumPreviewUrl(album, albumProofer, cached.origin);
       const template = settings.clientReminderTemplate || '';
       const plainBody = applyTemplate(template, {
         client_name: clientName,
@@ -116,14 +138,8 @@ serve(async (req) => {
         days_inactive: inactiveDays,
       });
 
-      const { data: photographer } = await supabaseAdmin
-        .from('photographers')
-        .select('display_name')
-        .eq('id', album.photographer_id)
-        .maybeSingle();
-
       const html = buildClientTemplateEmailHtml({
-        photographerName: photographer?.display_name?.trim() || 'Your photographer',
+        photographerName: cached.name,
         albumName: album.name || 'your album',
         bodyHtml: templateToHtmlParagraphs(plainBody),
         ctaUrl: albumLink,

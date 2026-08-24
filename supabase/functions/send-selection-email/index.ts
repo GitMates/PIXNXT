@@ -50,9 +50,11 @@ function resolveSiteOrigin(siteOrigin: string | null | undefined): string {
   );
   const fromClient = String(siteOrigin || '').replace(/\/$/, '');
 
+  // Local/dev: keep client origin so emails are testable without deploy.
   if (fromClient && isLocalOrigin(fromClient)) return fromClient;
-  if (fromSecret) return fromSecret;
+  // Prefer client-facing origin (verified custom domain) over the platform secret.
   if (fromClient && !/vercel\.app/i.test(fromClient)) return fromClient;
+  if (fromSecret) return fromSecret;
   return fromClient || fromSecret || '';
 }
 

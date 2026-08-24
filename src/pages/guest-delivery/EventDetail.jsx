@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { guestDeliveryService } from '../../services/guestDelivery.service';
 import { guestDeliveryPublishService } from '../../services/guestDeliveryPublish.service';
+import { galleryService } from '../../services/gallery.service';
 import GuestDeliveryLayout from '../../components/guest-delivery/GuestDeliveryLayout';
 import EventPhotosPanel from '../../components/guest-delivery/EventPhotosPanel';
 import EventGuestsPanel from '../../components/guest-delivery/EventGuestsPanel';
@@ -24,7 +25,19 @@ export default function EventDetail() {
   const [publishing, setPublishing] = useState(false);
   const [publishStep, setPublishStep] = useState('');
   const [guestsRefreshKey, setGuestsRefreshKey] = useState(0);
+  const [photographerProfile, setPhotographerProfile] = useState(null);
   const loadedEventIdRef = useRef(null);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setPhotographerProfile(null);
+      return;
+    }
+    galleryService
+      .getPhotographerProfile(user.id)
+      .then((data) => setPhotographerProfile(data || null))
+      .catch(() => setPhotographerProfile(null));
+  }, [user?.id]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -107,6 +120,7 @@ export default function EventDetail() {
             await guestDeliveryPublishService.sendDeliveryEmail({
               eventId: event.id,
               guestId: entry.guestId,
+              photographerProfile,
             });
           } catch (err) {
             console.error(err);
@@ -238,6 +252,7 @@ export default function EventDetail() {
             <EventGuestsPanel
               event={event}
               photographerId={user?.id}
+              photographerProfile={photographerProfile}
               onGuestCountChange={handleGuestCountChange}
               refreshKey={guestsRefreshKey}
             />

@@ -9,6 +9,7 @@ import {
   loadPhotographerProoferSettings,
   templateToHtmlParagraphs,
 } from '../_shared/smartAlbumProoferEmail.ts';
+import { isLocalOrigin, resolveClientFacingOrigin } from '../_shared/clientFacingOrigin.ts';
 
 if (!Deno.writeAll) {
   // @ts-ignore
@@ -928,7 +929,7 @@ serve(async (req) => {
 
     const { data: photographerRow } = await supabaseAdmin
       .from('photographers')
-      .select('email, display_name, phone, business_country, time_zone')
+      .select('email, display_name, phone, business_country, time_zone, custom_domain, custom_domain_status')
       .eq('id', album.photographer_id)
       .maybeSingle();
 
@@ -956,8 +957,21 @@ serve(async (req) => {
       time_zone: photographerRow?.time_zone?.trim() || null,
     };
 
-    const origin = (siteOrigin || Deno.env.get('PUBLIC_SITE_URL') || '').replace(/\/$/, '');
-    const editorUrl = buildAlbumEditorUrl(albumId, origin);
+    const platformOrigin = (Deno.env.get('PUBLIC_SITE_URL') || Deno.env.get('VITE_PUBLIC_SITE_URL') || '').replace(
+      /\/$/,
+      '',
+    );
+    const fromClient = String(siteOrigin || '').replace(/\/$/, '');
+    // Photographer editor links stay on platform (or localhost for local testing).
+    const editorOrigin =
+      fromClient && isLocalOrigin(fromClient) ? fromClient : platformOrigin || fromClient;
+    // Client album-preview links use verified custom domain when set.
+    const clientOrigin = resolveClientFacingOrigin({
+      siteOrigin: fromClient || platformOrigin,
+      customDomain: photographerRow?.custom_domain,
+      customDomainStatus: photographerRow?.custom_domain_status,
+    });
+    const editorUrl = buildAlbumEditorUrl(albumId, editorOrigin);
     const clientName = String(guestName || spreadRows[0]?.author_name || 'A client').trim();
     const timeZone =
       typeof clientTimezone === 'string' && clientTimezone.trim() ? clientTimezone.trim() : undefined;
@@ -1018,7 +1032,7 @@ serve(async (req) => {
 </html>`;
     } else if (action === 'approve') {
       const template = prooferSettings.approvedTemplate || '';
-      const albumLink = buildAlbumPreviewUrl(album, album.proofer_settings, origin);
+      const albumLink = buildAlbumPreviewUrl(album, album.proofer_settings, clientOrigin);
       const parsedBody = applyTemplate(template, {
         client_name: clientName,
         album_name: album.name || 'your album',
@@ -1111,7 +1125,7 @@ serve(async (req) => {
       if (shouldSendClientApproved) {
         const clientEmail = guestEmail!.trim();
         try {
-          const albumLink = buildAlbumPreviewUrl(album, album.proofer_settings, origin);
+          const albumLink = buildAlbumPreviewUrl(album, album.proofer_settings, clientOrigin);
           const approvedTemplate = prooferSettings.approvedTemplate || '';
           const clientPlain = applyTemplate(approvedTemplate, {
             client_name: clientName,

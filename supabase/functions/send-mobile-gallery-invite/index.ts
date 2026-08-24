@@ -75,8 +75,9 @@ function resolveInviteOrigin(siteOrigin: string | null | undefined): string {
   );
   const fromClient = String(siteOrigin || '').replace(/\/$/, '');
 
-  if (fromSecret) return fromSecret;
+  // Prefer client-facing origin (verified custom domain) when provided.
   if (fromClient && !isLocalOrigin(fromClient) && !/vercel\.app/i.test(fromClient)) return fromClient;
+  if (fromSecret) return fromSecret;
   return '';
 }
 
