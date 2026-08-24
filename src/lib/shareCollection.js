@@ -1,9 +1,13 @@
 import { buildGmailComposeUrl } from './gmailComposeUrl';
 import { generateCollectionSlug } from './collectionSlug';
-import { getPhotographerPublicOrigin, isCustomDomainVerified } from './customDomain';
-import { getPublicGalleryUrl, getPublicSiteOrigin, getShareUrlWarning } from './publicSiteUrl';
+import {
+    getClientFacingOrigin,
+    getPublicGalleryUrl,
+    getPublicSiteOrigin,
+    getShareUrlWarning,
+} from './publicSiteUrl';
 
-export { getShareUrlWarning };
+export { getShareUrlWarning, getClientFacingOrigin };
 
 export function getCollectionShareUrl(slug, photographerProfile) {
     return getPublicGalleryUrl(slug, { photographerProfile });
@@ -13,21 +17,19 @@ export function getCollectionShareUrl(slug, photographerProfile) {
 export { getPublicSiteOrigin };
 
 /** Resolve a shareable gallery URL from a collection row (slug or generated from name). */
-export function getShareUrlForCollection(collection) {
-    if (!collection) return getCollectionShareUrl('');
-    if (collection.slug) return getCollectionShareUrl(collection.slug);
-    if (collection.name) return getCollectionShareUrl(generateCollectionSlug(collection.name));
-    return getCollectionShareUrl('');
+export function getShareUrlForCollection(collection, photographerProfile = null) {
+    if (!collection) return getCollectionShareUrl('', photographerProfile);
+    if (collection.slug) return getCollectionShareUrl(collection.slug, photographerProfile);
+    if (collection.name) {
+        return getCollectionShareUrl(generateCollectionSlug(collection.name), photographerProfile);
+    }
+    return getCollectionShareUrl('', photographerProfile);
 }
 
 /** Client-facing selection link (/gallery/:slug/choose path). */
 export function getSelectionChooseUrl(slug, photographerProfile) {
     const safeSlug = String(slug || '').trim().replace(/^\/+|\/+$/g, '');
-    const origin = (
-        isCustomDomainVerified(photographerProfile)
-            ? getPhotographerPublicOrigin(photographerProfile)
-            : getPublicSiteOrigin()
-    ).replace(/\/+$/, '');
+    const origin = getClientFacingOrigin(photographerProfile);
     const href = safeSlug
         ? `${origin}/gallery/${encodeURIComponent(safeSlug)}/choose`
         : `${origin}/gallery/choose`;

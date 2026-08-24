@@ -38,6 +38,7 @@ import AlbumPreviewFeedbackSidebar from '../../components/smart-albums/AlbumPrev
 import { buildSpreadFeedbackFeed } from '../../components/smart-albums/spreadFeedbackFeed';
 import { hasCommentAttachment } from '../../components/smart-albums/albumCommentAttachments';
 import { galleryService } from '../../services/gallery.service';
+import { getPublicSiteOrigin } from '../../lib/publicSiteUrl';
 import { AppToast, useAppToast } from '../../components/ui/AppToast';
 import { useAuth } from '../../hooks/useAuth';
 import {
@@ -278,7 +279,8 @@ export default function AlbumPreview({
                 albumId,
                 guestName: guest.name,
                 guestEmail: guest.email || null,
-                siteOrigin: window.location.origin,
+                // Photographer comment emails link to the album editor on the platform host.
+                siteOrigin: getPublicSiteOrigin(),
                 clientTimezone: (() => {
                     try {
                         return Intl.DateTimeFormat().resolvedOptions().timeZone || null;

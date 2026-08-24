@@ -420,7 +420,7 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
   const acceptingRegistrations = gdEvent?.registration_enabled !== false;
   const registered = guestDeliveryGuests.length || Number(gdEvent?.guest_count) || 0;
   const matched = guestDeliveryGuests.filter((g) => Number(g.matched_photo_count) > 0).length;
-  const registrationUrl = gdEvent?.slug ? getGuestRegistrationUrl(gdEvent.slug) : '';
+  const registrationUrl = gdEvent?.slug ? getGuestRegistrationUrl(gdEvent.slug, profile) : '';
   const registrationPath = registrationUrl ? displayRegistrationPath(registrationUrl) : '';
   const qrThumb = registrationUrl ? getQrCodeImageUrl(registrationUrl, 72) : '';
 

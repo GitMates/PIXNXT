@@ -1,5 +1,6 @@
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase/client';
+import { getClientFacingOrigin, getPublicSiteOrigin } from '../lib/publicSiteUrl';
 
 const APPROVED_KEY = 'pixnxt_album_proof_approved';
 const SUBMITTED_KEY = 'pixnxt_album_proof_submitted';
@@ -150,7 +151,7 @@ export const albumProofService = {
             action: 'approve',
             guestName: guestName?.trim() || null,
             guestEmail: guestEmail?.trim() || null,
-            siteOrigin: siteOrigin || (typeof window !== 'undefined' ? window.location.origin : ''),
+            siteOrigin: siteOrigin || getPublicSiteOrigin(),
         });
     },
 
@@ -168,7 +169,7 @@ export const albumProofService = {
             action: 'submit_changes',
             guestName: guestName?.trim() || null,
             guestEmail: guestEmail?.trim() || null,
-            siteOrigin: siteOrigin || (typeof window !== 'undefined' ? window.location.origin : ''),
+            siteOrigin: siteOrigin || getPublicSiteOrigin(),
             photoComments,
             swapRequests,
             spreadComments,
@@ -186,7 +187,7 @@ export const albumProofService = {
             action: 'client_started_commenting',
             guestName: guestName?.trim() || null,
             guestEmail: guestEmail?.trim() || null,
-            siteOrigin: siteOrigin || (typeof window !== 'undefined' ? window.location.origin : ''),
+            siteOrigin: siteOrigin || getPublicSiteOrigin(),
         });
     },
 
@@ -206,8 +207,7 @@ export const albumProofService = {
                 mode: 'instant',
                 guestName: guestName?.trim() || null,
                 guestEmail: guestEmail?.trim() || null,
-                siteOrigin:
-                    siteOrigin || (typeof window !== 'undefined' ? window.location.origin : ''),
+                siteOrigin: siteOrigin || getPublicSiteOrigin(),
                 clientTimezone: getClientTimezone(),
                 eventType,
                 eventLabel,
@@ -230,6 +230,7 @@ export const albumProofService = {
         guestName,
         guestEmail,
         siteOrigin,
+        photographerProfile = null,
     }) {
         const { data, error } = await supabase.functions.invoke('send-smart-album-client-email', {
             body: {
@@ -237,8 +238,7 @@ export const albumProofService = {
                 action: 'status_revision_ready',
                 guestName: guestName?.trim() || null,
                 guestEmail: guestEmail?.trim() || null,
-                siteOrigin:
-                    siteOrigin || (typeof window !== 'undefined' ? window.location.origin : ''),
+                siteOrigin: siteOrigin || getClientFacingOrigin(photographerProfile),
             },
         });
 
@@ -257,6 +257,7 @@ export const albumProofService = {
         guestName,
         guestEmail,
         siteOrigin,
+        photographerProfile = null,
         force = true,
     }) {
         const { data, error } = await supabase.functions.invoke('send-smart-album-client-email', {
@@ -265,8 +266,7 @@ export const albumProofService = {
                 action: 'client_reminder',
                 guestName: guestName?.trim() || null,
                 guestEmail: guestEmail?.trim() || null,
-                siteOrigin:
-                    siteOrigin || (typeof window !== 'undefined' ? window.location.origin : ''),
+                siteOrigin: siteOrigin || getClientFacingOrigin(photographerProfile),
                 force: Boolean(force),
             },
         });

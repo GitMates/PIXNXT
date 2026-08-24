@@ -144,6 +144,7 @@ export function GuestDeliveryQrModal({
   event,
   guests = [],
   photographerId,
+  photographerProfile = null,
   onClose,
   onOpenGuestList,
   onEventUpdated,
@@ -151,7 +152,7 @@ export function GuestDeliveryQrModal({
   const [copied, setCopied] = useState(false);
   const [savingReg, setSavingReg] = useState(false);
   const [downloading, setDownloading] = useState('');
-  const registrationUrl = getGuestRegistrationUrl(slug);
+  const registrationUrl = getGuestRegistrationUrl(slug, photographerProfile);
   const qrUrl = getQrCodeImageUrl(registrationUrl, 280);
   const shortPath = displayGuestPath(registrationUrl);
   const accepting = event?.registration_enabled !== false;

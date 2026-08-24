@@ -3,8 +3,8 @@ import { getCollectionCardCoverCandidates } from '../../../lib/photoDisplayUrl';
 import { getCoverFocalForSurface } from '../../../lib/focalPoint';
 
 /**
- * Delivery list cover — tries /thumb/ first, then /web/, then the stored URL.
- * Avoids broken <img> when a rewritten thumb path is missing on R2.
+ * Delivery list cover — tries R2 /web/ first, then /thumb/, then the stored URL.
+ * Avoids broken <img> when a rewritten path is missing on R2.
  */
 export function CollectionCardCover({ collection, alt = '', className, style }) {
   const candidates = getCollectionCardCoverCandidates(collection);

@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SmtpClient } from 'https://deno.land/x/smtp@v0.7.0/mod.ts';
+import { resolveClientFacingOrigin } from '../_shared/clientFacingOrigin.ts';
 
 if (!Deno.writeAll) {
   // @ts-ignore
@@ -209,10 +210,10 @@ serve(async (req) => {
       });
     }
 
-    // Fetch photographer info
+    // Fetch photographer info (including verified custom domain for client links)
     const { data: photographer, error: photogError } = await supabaseAdmin
       .from('photographers')
-      .select('display_name, business_name, email')
+      .select('display_name, business_name, email, custom_domain, custom_domain_status')
       .eq('id', collection.photographer_id)
       .maybeSingle();
 
@@ -222,9 +223,12 @@ serve(async (req) => {
     const collectionName = collection.name || 'Delivery';
     const coverUrl = collection.cover_url || null;
 
-    // Build URLs
-    const requestOrigin = req.headers.get('origin') || Deno.env.get('PUBLIC_SITE_URL') || '';
-    const origin = requestOrigin.replace(/\/$/, '');
+    // Prefer verified custom domain; else platform / request origin (localhost ok for local tests).
+    const origin = resolveClientFacingOrigin({
+      siteOrigin: req.headers.get('origin') || '',
+      customDomain: photographer?.custom_domain,
+      customDomainStatus: photographer?.custom_domain_status,
+    });
     const shareUrl = `${origin}/gallery/${collection.slug}`;
 
     const personalMessageHtml = formatPersonalMessageToHtml(personalMessage || '');

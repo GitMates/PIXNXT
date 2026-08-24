@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase/client';
 import { albumProofService } from './albumProof.service';
 import { smartAlbumProoferSettingsService } from './smartAlbumProoferSettings.service';
+import { getClientFacingOrigin } from '../lib/publicSiteUrl';
 import { categoryTagsToDb } from '../lib/categoryTags';
 import { getAlbumShareSlug, slugifyAlbumName } from '../lib/albumPreviewSlug';
 import { deleteAlbumCollectionAssets, getAlbumCollectionStorageBytes } from '../components/smart-albums/albumCollection';
@@ -1486,14 +1487,25 @@ export const smartAlbumsService = {
         !mapped.revision_ready_notified_at &&
         !mapped.client_approved_at
       ) {
-        void albumProofService
-          .notifyClientRevisionReady({
+        void (async () => {
+          let profile = null;
+          try {
+            const { data } = await supabase
+              .from('photographers')
+              .select('custom_domain, custom_domain_status')
+              .eq('id', mapped.photographer_id || photographerId)
+              .maybeSingle();
+            profile = data;
+          } catch {
+            /* ignore */
+          }
+          await albumProofService.notifyClientRevisionReady({
             albumId,
-            siteOrigin: typeof window !== 'undefined' ? window.location.origin : '',
-          })
-          .catch((err) => {
-            console.warn('Revision-ready client email:', err?.message || err);
+            siteOrigin: getClientFacingOrigin(profile),
           });
+        })().catch((err) => {
+          console.warn('Revision-ready client email:', err?.message || err);
+        });
       }
       return mapped;
     }

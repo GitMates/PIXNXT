@@ -388,7 +388,7 @@ const CollectionShare = () => {
         );
     }
 
-    const shareUrl = getShareUrlForCollection(collection);
+    const shareUrl = getShareUrlForCollection(collection, profile);
     const coverUrl = stripMediaUrlHash(collection?.cover_url || collection?.cover || '');
     const emailFocal = getCoverFocalForSurface(collection, 'email');
 

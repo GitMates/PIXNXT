@@ -46,9 +46,9 @@ function CopyField({ label, value }) {
     );
 }
 
-export function CollectionDirectLinkModal({ collection, isOpen, onClose }) {
+export function CollectionDirectLinkModal({ collection, photographerProfile = null, isOpen, onClose }) {
     if (!isOpen || !collection) return null;
-    const url = getShareUrlForCollection(collection);
+    const url = getShareUrlForCollection(collection, photographerProfile);
     const warning = getShareUrlWarning(url);
 
     return (
@@ -60,9 +60,9 @@ export function CollectionDirectLinkModal({ collection, isOpen, onClose }) {
     );
 }
 
-export function CollectionQrModal({ collection, isOpen, onClose }) {
+export function CollectionQrModal({ collection, photographerProfile = null, isOpen, onClose }) {
     if (!isOpen || !collection) return null;
-    const url = getShareUrlForCollection(collection);
+    const url = getShareUrlForCollection(collection, photographerProfile);
     const warning = getShareUrlWarning(url);
     const qrSrc = getQrCodeImageUrl(url, 220);
     const isDraft = String(collection.status || '').toLowerCase() === 'draft';

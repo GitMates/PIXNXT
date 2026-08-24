@@ -13,6 +13,7 @@ import {
     saveGuestProfile,
     smartAlbumCommentsService,
 } from '../../services/smartAlbumComments.service';
+import { getPublicSiteOrigin } from '../../lib/publicSiteUrl';
 import {
     albumHadClientFeedbackBefore,
     notifyClientFeedbackEvent,
@@ -395,7 +396,7 @@ export default function AlbumSpreadComments({
                 albumId,
                 guestName: guest.name,
                 guestEmail: guest.email,
-                siteOrigin: window.location.origin,
+                siteOrigin: getPublicSiteOrigin(),
                 comments: roots,
             });
             markCommentsSubmitted(albumId);

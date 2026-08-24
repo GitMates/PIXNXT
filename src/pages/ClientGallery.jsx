@@ -2,24 +2,17 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
     Search,
-    Plus,
     LayoutGrid,
-    Rows3,
-    Star,
+    Menu,
     Filter,
-    ArrowUpDown,
-    MoreHorizontal,
+    MoreVertical,
+    ShoppingBag,
 } from 'lucide-react';
 import SidebarLayout from '../components/SidebarLayout';
 import { cn } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
-import {
-    buildDeliveryStatusPatch,
-    deliveryStatusDotClass,
-    deliveryStatusLabel,
-} from '../lib/deliveryStatus';
-import { openSpaPath } from '../lib/spaNavigation';
+import { buildDeliveryStatusPatch } from '../lib/deliveryStatus';
 import { openShareByEmail, openWhatsAppShare, getShareUrlForCollection } from '../lib/shareCollection';
 import { CollectionCardCover } from '../components/features/ClientGallery/CollectionCardCover';
 import { CollectionContextMenu } from '../components/features/ClientGallery/CollectionContextMenu';
@@ -50,17 +43,67 @@ import {
     filterRootCollectionsForSearch,
     filterFoldersForSearch,
 } from '../utils/filterClientGallerySearch';
-import {
-    EMPTY_CLIENT_GALLERY_FILTERS,
-    filterCollectionsByClientGalleryFilters,
-    folderMatchesClientGalleryFilters,
-    hasActiveClientGalleryFilters,
-} from '../utils/clientGalleryFilters';
-import { ClientGalleryFilterBar } from '../components/features/ClientGallery/ClientGalleryFilterBar';
 import { getFolderStudioUrl } from '../lib/folderStudioUrl';
+import {
+    DELIVERY_SHOW_FILTERS,
+    DELIVERY_SORT_OPTIONS,
+    countDeliveriesByShow,
+    countStillsAndFilms,
+    coverFallbackIndex,
+    deliveryAttentionBadge,
+    deliveryBoardSummary,
+    deliveryUiStatus,
+    deliveryUiStatusLabel,
+    filterDeliveriesByShow,
+    formatDeliveryFullDate,
+    formatDeliveryShortDate,
+    formatInr,
+} from '../lib/deliveryListPresentation';
 
-function getStatusDotClass(status) {
-    return deliveryStatusDotClass(status);
+function attachBoardExtras(rows, extras) {
+    if (!extras) return rows || [];
+    return (rows || []).map((c) => ({
+        ...c,
+        list_submitted: extras.submittedIds.has(c.id),
+        order_stuck: extras.stuckIds.has(c.id),
+        store_earnings: extras.earningsById[c.id] || 0,
+    }));
+}
+
+function photographLabel(n) {
+    const count = Number(n) || 0;
+    return `${count.toLocaleString('en-IN')} ${count === 1 ? 'photograph' : 'photographs'}`;
+}
+
+function filmLabel(n) {
+    const count = Number(n) || 0;
+    if (count <= 0) return '';
+    return `${count.toLocaleString('en-IN')} ${count === 1 ? 'film' : 'films'}`;
+}
+
+function deliveryDateValue(collection) {
+    return collection?.event_date || collection?.created_at;
+}
+
+function SortArrowsIcon() {
+    return (
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+            <path
+                d="M5 2.75v10.5M3.2 10.6 5 13.25 6.8 10.6"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+            <path
+                d="M11 13.25V2.75M9.2 5.4 11 2.75 12.8 5.4"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+        </svg>
+    );
 }
 
 const ClientGallery = () => {
@@ -71,21 +114,17 @@ const ClientGallery = () => {
     const [folders, setFolders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [photographerProfile, setPhotographerProfile] = useState(null);
     const navigateNewCollection = () => navigate('/deliveries/create');
-
-    const navigateNewFolder = () => {
-        setShowNewCollectionDropdown(false);
-        navigate('/folders/create');
-    };
 
     const [showSortDropdown, setShowSortDropdown] = useState(false);
     const [showFilterPanel, setShowFilterPanel] = useState(false);
     const [activeView, setActiveView] = useState('grid');
-    const [activeSort, setActiveSort] = useState('created-new');
+    const [activeSort, setActiveSort] = useState('activity');
+    const [showBucket, setShowBucket] = useState('everything');
     const [selectedCards, setSelectedCards] = useState([]);
     const [contextMenuId, setContextMenuId] = useState(null);
     const [contextMenuAnchor, setContextMenuAnchor] = useState(null);
-    const [galleryFilters, setGalleryFilters] = useState(EMPTY_CLIENT_GALLERY_FILTERS);
     const [editCollection, setEditCollection] = useState(null);
     const [directLinkCollection, setDirectLinkCollection] = useState(null);
     const [qrCollection, setQrCollection] = useState(null);
@@ -99,7 +138,6 @@ const ClientGallery = () => {
     const [folderQr, setFolderQr] = useState(null);
     const [folderContextMenuId, setFolderContextMenuId] = useState(null);
     const [folderMenuAnchor, setFolderMenuAnchor] = useState(null);
-    const [showNewCollectionDropdown, setShowNewCollectionDropdown] = useState(false);
     const [bulkStatusOpen, setBulkStatusOpen] = useState(false);
     const [bulkTagsOpen, setBulkTagsOpen] = useState(false);
     const [bulkEditOpen, setBulkEditOpen] = useState(false);
@@ -107,12 +145,10 @@ const ClientGallery = () => {
     const [bulkApplying, setBulkApplying] = useState(false);
     const [showSelectionMenu, setShowSelectionMenu] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
-    const fileInputRef = useRef(null);
     const sortRef = useRef(null);
     const filterRef = useRef(null);
     const contextRef = useRef(null);
     const folderMenuRef = useRef(null);
-    const newCollectionRef = useRef(null);
     const selectionMenuRef = useRef(null);
 
     const selectedCollections = useMemo(
@@ -176,7 +212,13 @@ const ClientGallery = () => {
                 galleryService.getCollections(user.id),
                 galleryService.listFoldersForGallery(user.id),
             ]);
-            setCollections(cols);
+            let extras = { submittedIds: new Set(), stuckIds: new Set(), earningsById: {} };
+            try {
+                extras = await galleryService.getDeliveryBoardExtras(cols.map((c) => c.id));
+            } catch (extraErr) {
+                console.error('Delivery board extras failed:', extraErr);
+            }
+            setCollections(attachBoardExtras(cols, extras));
             setFolders(fols);
         } catch (e) {
             console.error(e);
@@ -192,6 +234,17 @@ const ClientGallery = () => {
     };
 
     useEffect(() => {
+        if (!user?.id) {
+            setPhotographerProfile(null);
+            return;
+        }
+        galleryService
+            .getPhotographerProfile(user.id)
+            .then((data) => setPhotographerProfile(data || null))
+            .catch(() => setPhotographerProfile(null));
+    }, [user?.id]);
+
+    useEffect(() => {
         const fetchCollections = async () => {
             if (!user) return;
             
@@ -202,7 +255,13 @@ const ClientGallery = () => {
                     galleryService.getCollections(user.id),
                     galleryService.listFoldersForGallery(user.id),
                 ]);
-                setCollections(data);
+                let extras = { submittedIds: new Set(), stuckIds: new Set(), earningsById: {} };
+                try {
+                    extras = await galleryService.getDeliveryBoardExtras(data.map((c) => c.id));
+                } catch (extraErr) {
+                    console.error('Delivery board extras failed:', extraErr);
+                }
+                setCollections(attachBoardExtras(data, extras));
                 setFolders(folderRows);
             } catch (err) {
                 console.error('Error fetching collections:', err);
@@ -225,17 +284,17 @@ const ClientGallery = () => {
         [searchQuery]
     );
 
+    const collectionsForBoard = showBucket === 'everything' ? rootCollections : collections;
+
     const filteredRootCollections = useMemo(() => {
-        const byFilters = filterCollectionsByClientGalleryFilters(rootCollections, galleryFilters);
-        return filterRootCollectionsForSearch(byFilters, normalizedSearch);
-    }, [rootCollections, galleryFilters, normalizedSearch]);
+        const searched = filterRootCollectionsForSearch(collectionsForBoard, normalizedSearch);
+        return filterDeliveriesByShow(searched, showBucket);
+    }, [collectionsForBoard, normalizedSearch, showBucket]);
 
     const filteredFolders = useMemo(() => {
-        const byFilters = folders.filter((f) =>
-            folderMatchesClientGalleryFilters(f, galleryFilters, collections)
-        );
-        return filterFoldersForSearch(byFilters, normalizedSearch, collections);
-    }, [folders, galleryFilters, collections, normalizedSearch]);
+        if (showBucket !== 'everything') return [];
+        return filterFoldersForSearch(folders, normalizedSearch, collections);
+    }, [folders, collections, normalizedSearch, showBucket]);
 
     const sortedRootCollections = useMemo(
         () => sortCollections(filteredRootCollections, activeSort),
@@ -247,7 +306,7 @@ const ClientGallery = () => {
         [filteredFolders, activeSort]
     );
 
-    const hasDashboardItems = rootCollections.length > 0 || folders.length > 0;
+    const hasDashboardItems = collections.length > 0 || folders.length > 0;
 
     const dashboardGridItems = useMemo(
         () => [
@@ -257,17 +316,9 @@ const ClientGallery = () => {
         [sortedFolderRows, sortedRootCollections]
     );
 
-    const sortedCollections = sortedRootCollections;
-
-    const dashboardStats = useMemo(() => {
-        const liveCount = collections.filter((c) => c.status === 'published').length;
-        const photosDelivered = collections.reduce((n, c) => n + (c.photo_count || 0), 0);
-        return {
-            total: collections.length,
-            live: liveCount,
-            photos: photosDelivered,
-        };
-    }, [collections]);
+    const boardSummary = useMemo(() => deliveryBoardSummary(collections), [collections]);
+    const showCounts = useMemo(() => countDeliveriesByShow(collections), [collections]);
+    const filterIsNarrow = showBucket !== 'everything';
 
     const closeContextMenu = useCallback(() => {
         setContextMenuId(null);
@@ -383,39 +434,63 @@ const ClientGallery = () => {
 
     const handlePreviewCollection = useCallback((collection) => {
         closeContextMenu();
-        if (collection?.slug) {
-            openSpaPath(`/gallery/${collection.slug}`);
+        if (!collection?.slug && !collection?.name) return;
+        const url = getShareUrlForCollection(collection, photographerProfile);
+        window.open(url, '_blank', 'noopener,noreferrer');
+    }, [closeContextMenu, photographerProfile]);
+
+    const handleCopyLink = useCallback(async (collection) => {
+        if (!collection) return;
+        closeContextMenu();
+        const url = getShareUrlForCollection(collection, photographerProfile);
+        try {
+            await navigator.clipboard.writeText(url);
+        } catch (err) {
+            console.error(err);
+            window.prompt('Copy link', url);
         }
-    }, [closeContextMenu]);
+    }, [closeContextMenu, photographerProfile]);
 
-    const handleShareByEmail = useCallback((collection) => {
-        if (!collection) return;
+    const handleOpenDelivery = useCallback((collection) => {
         closeContextMenu();
-        navigate(`/deliveries/manage/share?id=${collection.id}`);
-    }, [closeContextMenu, navigate]);
-
-    const handleShareWhatsApp = useCallback((collection) => {
-        if (!collection) return;
-        const url = getShareUrlForCollection(collection);
-        closeContextMenu();
-        openWhatsAppShare(url, collection.name || 'Gallery');
-    }, [closeContextMenu]);
-
-    const handleGetDirectLink = useCallback((collection) => {
-        if (!collection) return;
-        setDirectLinkCollection(collection);
-        closeContextMenu();
-    }, [closeContextMenu]);
-
-    const handleGetQrCode = useCallback((collection) => {
-        if (!collection) return;
-        setQrCollection(collection);
-        closeContextMenu();
-    }, [closeContextMenu]);
+        if (!collection?.id) return;
+        navigate(`/deliveries/manage?id=${collection.id}`, {
+            state: { from: `${location.pathname}${location.search}` },
+        });
+    }, [closeContextMenu, navigate, location.pathname, location.search]);
 
     const handleQuickEdit = useCallback((collection) => {
         closeContextMenu();
         setEditCollection(collection);
+    }, [closeContextMenu]);
+
+    const handleArchiveCollection = useCallback(async (collection) => {
+        if (!collection?.id) return;
+        closeContextMenu();
+        try {
+            const patch = buildDeliveryStatusPatch('archived', collection);
+            await galleryService.updateCollection(collection.id, patch);
+            setCollections((prev) =>
+                prev.map((c) => (c.id === collection.id ? { ...c, ...patch } : c))
+            );
+        } catch (err) {
+            console.error(err);
+            alert('Failed to archive delivery.');
+        }
+    }, [closeContextMenu]);
+
+    const handleStarFromMenu = useCallback(async (collection) => {
+        if (!collection?.id) return;
+        closeContextMenu();
+        const next = !collection.is_starred;
+        try {
+            await galleryService.updateCollection(collection.id, { is_starred: next });
+            setCollections((prev) =>
+                prev.map((c) => (c.id === collection.id ? { ...c, is_starred: next } : c))
+            );
+        } catch (err) {
+            console.error('Failed to update star:', err);
+        }
     }, [closeContextMenu]);
 
     const handleEditSave = async (payload) => {
@@ -461,34 +536,33 @@ const ClientGallery = () => {
         }
     };
 
-    const handleToggleCollectionStar = async (e, collection) => {
-        e.stopPropagation();
-        const next = !collection.is_starred;
-        try {
-            await galleryService.updateCollection(collection.id, { is_starred: next });
-            setCollections((prev) =>
-                prev.map((c) => (c.id === collection.id ? { ...c, is_starred: next } : c))
-            );
-        } catch (err) {
-            console.error('Failed to update star:', err);
-        }
-    };
-
     const renderContextMenu = (collection, variant = 'grid') => {
         if (contextMenuId !== collection.id) return null;
+        const storageLabel =
+            Number(collection.storage_bytes) > 0
+                ? formatStorageBytes(collection.storage_bytes)
+                : '';
         return (
             <CollectionContextMenu
                 menuRef={contextRef}
                 anchorEl={contextMenuAnchor}
                 variant={variant}
-                onPreview={() => handlePreviewCollection(collection)}
-                onQuickEdit={() => handleQuickEdit(collection)}
-                onDuplicate={() => { closeContextMenu(); setDuplicateCollection(collection); }}
-                onDelete={() => { closeContextMenu(); handleDeleteCollection(collection.id); }}
-                onShareByEmail={() => handleShareByEmail(collection)}
-                onGetDirectLink={() => handleGetDirectLink(collection)}
-                onGetQrCode={() => handleGetQrCode(collection)}
-                onShareWhatsApp={() => handleShareWhatsApp(collection)}
+                collection={collection}
+                storageLabel={storageLabel}
+                onOpen={() => handleOpenDelivery(collection)}
+                onCopyLink={() => handleCopyLink(collection)}
+                onPreviewAsClient={() => handlePreviewCollection(collection)}
+                onStar={() => handleStarFromMenu(collection)}
+                onDuplicate={() => {
+                    closeContextMenu();
+                    setDuplicateCollection(collection);
+                }}
+                onRename={() => handleQuickEdit(collection)}
+                onArchive={() => handleArchiveCollection(collection)}
+                onDelete={() => {
+                    closeContextMenu();
+                    handleDeleteCollection(collection.id);
+                }}
             />
         );
     };
@@ -508,24 +582,6 @@ const ClientGallery = () => {
         navigate(`/deliveries/manage?id=${collection.id}`, {
             state: { from: `${location.pathname}${location.search}` },
         });
-    };
-
-    const handleCoverUpload = async (collectionId, e) => {
-        e.stopPropagation();
-        const file = e.target.files[0];
-        if (file && file.type.startsWith('image/')) {
-            try {
-                setLoading(true);
-                // In a real app, upload to storage and get URL
-                // For now, let's just use the galleryService to update
-                // But normally we'd do galleryService.uploadPhotos then updateCollection
-                alert('Please use the dynamic Delivery Dashboard to manage cover photos for better storage management.');
-            } catch (err) {
-                console.error('Error updating cover:', err);
-            } finally {
-                setLoading(false);
-            }
-        }
     };
 
     const handleDeleteCollection = async (collectionId) => {
@@ -561,7 +617,6 @@ const ClientGallery = () => {
             ) {
                 setFolderContextMenuId(null);
             }
-            if (newCollectionRef.current && !newCollectionRef.current.contains(e.target)) setShowNewCollectionDropdown(false);
             if (selectionMenuRef.current && !selectionMenuRef.current.contains(e.target)) setShowSelectionMenu(false);
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -588,131 +643,137 @@ const ClientGallery = () => {
 
     return (
         <SidebarLayout>
-            <main className="cg-style-2">
-                <div className="mx-auto w-full max-w-7xl px-4 pt-10 sm:px-8 sm:pt-12">
-                    <div className="flex items-start justify-between gap-4">
+            <main className="cg-style-2 dl-page">
+                <div className="mx-auto w-full max-w-[92rem] px-4 pt-10 sm:px-8 sm:pt-12 pb-16">
+                    <div className="dl-header flex items-start justify-between gap-4">
                         <div>
-                            <h1 className="cg-page-title text-3xl font-medium tracking-tight sm:text-4xl">Deliveries</h1>
-                            <p className="mt-2 text-sm text-[#71717A]">
-                                {dashboardStats.total} galleries · {dashboardStats.live} live ·{' '}
-                                {dashboardStats.photos.toLocaleString()} photos delivered
+                            <h1 className="cg-page-title">Deliveries</h1>
+                            <p className="dl-lede">
+                                {boardSummary.lead ? <strong>{boardSummary.lead}</strong> : null}
+                                {boardSummary.rest}
                             </p>
                         </div>
-                        <div className="relative shrink-0 flex items-center gap-1">
-                            <button
-                                type="button"
-                                onClick={navigateNewCollection}
-                                className="neu-pill inline-flex h-10 items-center gap-1.5 rounded-full px-5 text-sm font-medium"
-                            >
-                                <Plus className="size-4" />
-                                New delivery
-                            </button>
-                        </div>
+                        <button
+                            type="button"
+                            className="dl-new shrink-0"
+                            onClick={navigateNewCollection}
+                        >
+                            + New delivery
+                        </button>
                     </div>
 
-                    <div className="mt-8 flex flex-col gap-3 lg:flex-row lg:items-center">
-                        <div className="relative flex-1">
-                            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#71717A]" />
+                    <div className="dl-toolbar mt-8">
+                        <div className="dl-search">
+                            <Search aria-hidden />
                             <input
                                 type="search"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                placeholder="Search deliveries or clients…"
+                                placeholder="Search deliveries or clients..."
                                 aria-label="Search deliveries, folders, and photo filenames"
-                                className="neu-inset h-10 w-full rounded-full border-0 pl-9 pr-3 text-sm text-[#1A1A1A] outline-none placeholder:text-[#71717A]"
                             />
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className="dl-tools">
                             <div className="relative" ref={filterRef}>
                                 <button
                                     type="button"
-                                    onClick={() => { setShowFilterPanel(!showFilterPanel); setShowSortDropdown(false); }}
-                                    className="neu-circle inline-flex size-10 items-center justify-center rounded-full text-[#1A1A1A]"
-                                    aria-label="Filters"
+                                    onClick={() => {
+                                        setShowFilterPanel((v) => !v);
+                                        setShowSortDropdown(false);
+                                    }}
+                                    className={cn('dl-icon-btn', (showFilterPanel || filterIsNarrow) && 'is-on')}
+                                    aria-label="Show filter"
+                                    aria-expanded={showFilterPanel}
                                 >
-                                    <Filter className="size-5" />
+                                    <Filter className="size-4" strokeWidth={1.6} />
                                 </button>
-                                {showFilterPanel && (
-                                    <div className="cg-filter-panel">
-                                        <ClientGalleryFilterBar
-                                            filters={galleryFilters}
-                                            onFiltersChange={setGalleryFilters}
-                                            collections={collections}
-                                        />
+                                {showFilterPanel ? (
+                                    <div className="dl-popover" role="menu">
+                                        <p className="dl-popover__kicker">SHOW</p>
+                                        {DELIVERY_SHOW_FILTERS.map((opt) => (
+                                            <button
+                                                key={opt.id}
+                                                type="button"
+                                                role="menuitem"
+                                                className={cn('dl-popover__item', showBucket === opt.id && 'is-on')}
+                                                onClick={() => {
+                                                    setShowBucket(opt.id);
+                                                    setShowFilterPanel(false);
+                                                }}
+                                            >
+                                                <span>{opt.label}</span>
+                                                <span className="dl-popover__count">{showCounts[opt.id] ?? 0}</span>
+                                            </button>
+                                        ))}
                                     </div>
-                                )}
+                                ) : null}
                             </div>
 
                             <div className="relative" ref={sortRef}>
                                 <button
                                     type="button"
-                                    onClick={() => { setShowSortDropdown(!showSortDropdown); setShowFilterPanel(false); }}
-                                    className="neu-circle inline-flex size-10 items-center justify-center rounded-full text-[#1A1A1A]"
+                                    onClick={() => {
+                                        setShowSortDropdown((v) => !v);
+                                        setShowFilterPanel(false);
+                                    }}
+                                    className={cn('dl-icon-btn', showSortDropdown && 'is-on')}
                                     aria-label="Sort"
+                                    aria-expanded={showSortDropdown}
                                 >
-                                    <ArrowUpDown className="size-5" />
+                                    <SortArrowsIcon />
                                 </button>
-                                {showSortDropdown && (
-                                    <div className="absolute right-0 top-12 z-40 w-48 overflow-hidden rounded-2xl bg-white p-2 shadow-xl shadow-black/10 border border-[#ECEAE6]">
-                                        {[
-                                            { id: 'created-new', label: 'Created: New → Old' },
-                                            { id: 'created-old', label: 'Created: Old → New' },
-                                            { id: 'event-new', label: 'Event Date: New → Old' },
-                                            { id: 'event-old', label: 'Event Date: Old → New' },
-                                            { id: 'name-az', label: 'Name: A–Z' },
-                                            { id: 'name-za', label: 'Name: Z–A' },
-                                        ].map((opt) => (
+                                {showSortDropdown ? (
+                                    <div className="dl-popover" role="menu">
+                                        <p className="dl-popover__kicker">SORT BY</p>
+                                        {DELIVERY_SORT_OPTIONS.map((opt) => (
                                             <button
                                                 key={opt.id}
                                                 type="button"
-                                                onClick={() => { setActiveSort(opt.id); setShowSortDropdown(false); }}
-                                                className={cn(
-                                                    'w-full rounded-lg px-3 py-2 text-left text-sm transition-colors',
-                                                    activeSort === opt.id
-                                                        ? 'bg-[#1A1A1A] font-medium text-white'
-                                                        : 'text-[#1A1A1A] hover:bg-[#F4F3F0]',
-                                                )}
+                                                role="menuitem"
+                                                className={cn('dl-popover__item', activeSort === opt.id && 'is-on')}
+                                                onClick={() => {
+                                                    setActiveSort(opt.id);
+                                                    setShowSortDropdown(false);
+                                                }}
                                             >
                                                 {opt.label}
                                             </button>
                                         ))}
                                     </div>
-                                )}
+                                ) : null}
                             </div>
 
-                            <div className="neu-inset flex items-center rounded-full p-1">
+                            <div className="dl-view-toggle" role="group" aria-label="View">
                                 <button
                                     type="button"
                                     onClick={() => setActiveView('grid')}
-                                    className={cn(
-                                        'inline-flex size-8 items-center justify-center rounded-full transition-all',
-                                        activeView === 'grid' ? 'neu-circle text-[#1A1A1A]' : 'text-[#71717A] hover:text-[#1A1A1A]',
-                                    )}
+                                    className={cn(activeView === 'grid' && 'is-on')}
                                     aria-label="Grid view"
                                     aria-pressed={activeView === 'grid'}
                                 >
-                                    <LayoutGrid className="size-4" />
+                                    <LayoutGrid className="size-3.5" strokeWidth={1.6} />
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => setActiveView('list')}
-                                    className={cn(
-                                        'inline-flex size-8 items-center justify-center rounded-full transition-all',
-                                        activeView === 'list' ? 'neu-circle text-[#1A1A1A]' : 'text-[#71717A] hover:text-[#1A1A1A]',
-                                    )}
+                                    className={cn(activeView === 'list' && 'is-on')}
                                     aria-label="List view"
                                     aria-pressed={activeView === 'list'}
                                 >
-                                    <Rows3 className="size-4" />
+                                    <Menu className="size-3.5" strokeWidth={1.6} />
                                 </button>
                             </div>
                         </div>
                     </div>
-                </div>
 
                 {loading ? (
-                    <div className="px-10 py-20 text-center text-[#666] text-[16px]">Loading…</div>
+                    <div className="px-2 py-20 text-center text-[#666] text-[16px]">Loading…</div>
+                ) : error ? (
+                    <div className="cg-style-60">
+                        <h3 className="cg-style-61">Couldn’t load deliveries</h3>
+                        <p className="cg-style-62">{error}</p>
+                    </div>
                 ) : normalizedSearch && dashboardGridItems.length === 0 ? (
                     <div className="cg-style-60">
                         <h3 className="cg-style-61">No results</h3>
@@ -727,247 +788,265 @@ const ClientGallery = () => {
                             Clear search
                         </button>
                     </div>
-                ) : hasActiveClientGalleryFilters(galleryFilters) && dashboardGridItems.length === 0 ? (
+                ) : filterIsNarrow && dashboardGridItems.length === 0 ? (
                     <div className="cg-style-60">
                         <h3 className="cg-style-61">No matching deliveries</h3>
                         <p className="cg-style-62">
-                            No folders or deliveries match the current filters.
+                            No deliveries match the current filter.
                         </p>
                         <button
                             type="button"
                             className="cg-style-63 bg-transparent border border-[#ddd] text-[#333] hover:bg-[#f5f5f5]"
-                            onClick={() => setGalleryFilters(EMPTY_CLIENT_GALLERY_FILTERS)}
+                            onClick={() => setShowBucket('everything')}
                         >
-                            Clear filters
+                            Show everything
                         </button>
                     </div>
                 ) : dashboardGridItems.length > 0 && activeView === 'grid' ? (
-                    <div className="cg-style-37 mx-auto w-full max-w-7xl px-4 sm:px-8">
+                    <div className="dl-grid">
                         {dashboardGridItems.map((item) =>
                             item.kind === 'folder' ? (
                                 <div
                                     key={`folder-${item.folder.id}`}
-                                    className={`cg-style-73 cg-folder-card group ${folderContextMenuId === item.folder.id ? 'cg-style-73--ctx-open' : ''}`}
+                                    className={cn('dl-card', folderContextMenuId === item.folder.id && 'is-menu')}
                                     onClick={() => handleFolderCardClick(item.folder)}
                                 >
-                                    <div className="cg-style-74 cg-folder-thumb-wrap">
-                                        <div className="cg-card-cover">
-                                            <FolderThumbGrid folder={item.folder} />
-                                        </div>
+                                    <div className="dl-cover">
+                                        <FolderThumbGrid folder={item.folder} />
                                         <button
                                             type="button"
-                                            className={cn(
-                                                'cg-style-39',
-                                                folderContextMenuId === item.folder.id && 'cg-style-39--visible',
-                                                'group-hover:opacity-100',
-                                            )}
+                                            className="dl-more"
                                             onClick={(e) => openFolderContextMenu(e, item.folder.id)}
                                             aria-label="Folder options"
                                         >
-                                            <MoreHorizontal className="size-3.5" strokeWidth={2} />
+                                            <MoreVertical className="size-3.5" strokeWidth={2} />
                                         </button>
                                     </div>
                                     {renderFolderContextMenu(item.folder)}
-                                    <div className="px-1">
-                                        <h3 className="cg-style-43 cg-folder-title-row">
-                                            <svg className="cg-folder-inline-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
-                                                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-                                            </svg>
-                                            {item.folder.name}
-                                        </h3>
-                                        <div className="cg-style-44">
-                                            <div className="cg-style-44-meta">
+                                    <div className="dl-card-body">
+                                        <h3 className="dl-card-title">{item.folder.name}</h3>
+                                    </div>
+                                    <div className="dl-meta">
+                                        <span>
+                                            {(item.folder.collection_count || 0) === 1
+                                                ? '1 delivery'
+                                                : `${item.folder.collection_count || 0} deliveries`}
+                                        </span>
+                                        {formatFolderDate(item.folder) ? (
+                                            <>
+                                                <span aria-hidden>·</span>
+                                                <span>{formatFolderDate(item.folder)}</span>
+                                            </>
+                                        ) : null}
+                                    </div>
+                                </div>
+                            ) : (
+                                (() => {
+                                    const collection = item.collection;
+                                    const attention = deliveryAttentionBadge(collection);
+                                    const status = deliveryUiStatus(collection);
+                                    const counts = countStillsAndFilms(collection);
+                                    const earn = formatInr(collection.store_earnings);
+                                    const shortDate = formatDeliveryShortDate(deliveryDateValue(collection));
+                                    const coverSrc = getCoverSrc(collection);
+                                    return (
+                                        <div
+                                            key={collection.id}
+                                            className={cn(
+                                                'dl-card',
+                                                contextMenuId === collection.id && 'is-menu',
+                                                selectedCards.includes(collection.id) && 'is-selected',
+                                            )}
+                                            onClick={(e) => handleCardClick(collection, e)}
+                                        >
+                                            <div className="dl-cover">
+                                                {coverSrc ? (
+                                                    <CollectionCardCover collection={collection} alt="" />
+                                                ) : (
+                                                    <div
+                                                        className={`dl-cover-fallback dl-cover-fallback--${coverFallbackIndex(collection.id)}`}
+                                                        aria-hidden
+                                                    />
+                                                )}
+                                                {attention ? (
+                                                    <span className="dl-badge">
+                                                        <span className="dl-badge__dot" />
+                                                        {attention.label}
+                                                    </span>
+                                                ) : null}
+                                                <button
+                                                    type="button"
+                                                    className="dl-more"
+                                                    onClick={(e) => openContextMenu(e, collection.id)}
+                                                    aria-label="Delivery options"
+                                                >
+                                                    <MoreVertical className="size-3.5" strokeWidth={2} />
+                                                </button>
+                                            </div>
+                                            {renderContextMenu(collection)}
+                                            <div className="dl-card-body">
+                                                <h3 className="dl-card-title">{collection.name}</h3>
+                                                {earn ? (
+                                                    <span className="dl-earn">
+                                                        <ShoppingBag aria-hidden />
+                                                        {earn}
+                                                    </span>
+                                                ) : null}
+                                            </div>
+                                            <div className="dl-meta">
+                                                {shortDate ? (
+                                                    <>
+                                                        <span>{shortDate}</span>
+                                                        <span aria-hidden>·</span>
+                                                    </>
+                                                ) : null}
+                                                <span>{photographLabel(counts.photographs)}</span>
+                                                <span aria-hidden>·</span>
+                                                <span className={`dl-status-dot dl-status-dot--${status}`} />
+                                                <span>{deliveryUiStatusLabel(collection)}</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })()
+                            )
+                        )}
+                    </div>
+                ) : dashboardGridItems.length > 0 && activeView === 'list' ? (
+                    <div className="dl-list">
+                        {dashboardGridItems.map((item) =>
+                            item.kind === 'folder' ? (
+                                <div
+                                    key={`folder-${item.folder.id}`}
+                                    className={cn('dl-row', folderContextMenuId === item.folder.id && 'is-menu')}
+                                    onClick={() => handleFolderCardClick(item.folder)}
+                                >
+                                    <div className="dl-row-main">
+                                        <div className="dl-row-thumb">
+                                            <FolderThumbGrid folder={item.folder} size="sm" />
+                                        </div>
+                                        <div>
+                                            <div className="dl-row-title">
+                                                <span>{item.folder.name}</span>
+                                                <span className="dl-chip">Folder</span>
+                                            </div>
+                                            <div className="dl-row-sub">
                                                 <span>
                                                     {(item.folder.collection_count || 0) === 1
                                                         ? '1 delivery'
                                                         : `${item.folder.collection_count || 0} deliveries`}
                                                 </span>
-                                                {formatFolderDate(item.folder) && (
+                                                {formatFolderDate(item.folder) ? (
                                                     <>
-                                                        <span className="cg-style-46">·</span>
+                                                        <span aria-hidden>·</span>
                                                         <span>{formatFolderDate(item.folder)}</span>
                                                     </>
-                                                )}
+                                                ) : null}
                                             </div>
                                         </div>
                                     </div>
+                                    <span className="dl-row-size" />
+                                    <span className="dl-row-earn" />
+                                    <button
+                                        type="button"
+                                        className="dl-row-more"
+                                        onClick={(e) => openFolderContextMenu(e, item.folder.id)}
+                                        aria-label="Folder options"
+                                    >
+                                        <MoreVertical className="size-4" />
+                                    </button>
+                                    {renderFolderContextMenu(item.folder, 'list')}
                                 </div>
                             ) : (
-                                <div
-                                    key={item.collection.id}
-                                    className={`cg-style-73 group ${contextMenuId === item.collection.id ? 'cg-style-73--ctx-open' : ''}`}
-                                    onClick={(e) => handleCardClick(item.collection, e)}
-                                >
-                                    <div className={`cg-style-74 ${selectedCards.includes(item.collection.id) ? 'cg-style-74--selected' : ''}`}>
-                                        <div className="cg-card-cover">
-                                            {getCoverSrc(item.collection) ? (
-                                                <CollectionCardCover collection={item.collection} alt={item.collection.name} />
-                                            ) : (
-                                                <div className="cg-style-38">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        <button
-                                            type="button"
+                                (() => {
+                                    const collection = item.collection;
+                                    const attention = deliveryAttentionBadge(collection);
+                                    const status = deliveryUiStatus(collection);
+                                    const counts = countStillsAndFilms(collection);
+                                    const earn = formatInr(collection.store_earnings);
+                                    const fullDate = formatDeliveryFullDate(deliveryDateValue(collection));
+                                    const films = filmLabel(counts.films);
+                                    const size =
+                                        Number(collection.storage_bytes) > 0
+                                            ? formatStorageBytes(collection.storage_bytes)
+                                            : '';
+                                    const coverSrc = getCoverSrc(collection);
+                                    return (
+                                        <div
+                                            key={collection.id}
                                             className={cn(
-                                                'cg-card-star-btn',
-                                                item.collection.is_starred
-                                                    ? 'cg-card-star-btn--starred'
-                                                    : 'cg-card-star-btn--idle group-hover:opacity-100',
+                                                'dl-row',
+                                                contextMenuId === collection.id && 'is-menu',
+                                                selectedCards.includes(collection.id) && 'is-selected',
                                             )}
-                                            onClick={(e) => handleToggleCollectionStar(e, item.collection)}
-                                            aria-label={item.collection.is_starred ? 'Unstar delivery' : 'Star delivery'}
+                                            onClick={(e) => handleCardClick(collection, e)}
                                         >
-                                            <Star
-                                                className="size-3.5"
-                                                fill={item.collection.is_starred ? 'currentColor' : 'none'}
-                                                strokeWidth={item.collection.is_starred ? 0 : 2}
-                                            />
-                                        </button>
-
-                                        <button
-                                            type="button"
-                                            className={cn(
-                                                'cg-style-39 group-hover:opacity-100',
-                                                contextMenuId === item.collection.id && 'cg-style-39--visible',
-                                            )}
-                                            onClick={(e) => openContextMenu(e, item.collection.id)}
-                                            aria-label="Delivery options"
-                                        >
-                                            <MoreHorizontal className="size-3.5" strokeWidth={2} />
-                                        </button>
-                                    </div>
-                                    {renderContextMenu(item.collection)}
-                                    <div className="px-0 pt-2">
-                                        <h3 className="truncate text-xs font-bold leading-tight text-[#1A1A1A]">{item.collection.name}</h3>
-                                        <div className="flex items-center gap-1.5 text-xs leading-tight text-[#71717A]">
-                                            <span>{item.collection.photo_count || 0} items</span>
-                                            <span>•</span>
-                                            <span>{formatStorageBytes(item.collection.storage_bytes)}</span>
-                                            <span>•</span>
-                                            <span
-                                                className={cn('size-2 rounded-full', getStatusDotClass(item.collection.status))}
-                                                title={deliveryStatusLabel(item.collection.status)}
-                                                aria-label={deliveryStatusLabel(item.collection.status)}
-                                            />
-                                            {item.collection.guest_delivery_enabled && (
-                                                <span className="cg-gd-badge" title="Guest Delivery enabled">GD</span>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            )
-                        )}
-                    </div>
-                ) : dashboardGridItems.length > 0 && activeView === 'list' ? (
-                    /* List View */
-                    <div className="px-10">
-                        <div className="cg-style-47">
-                            <span className="cg-style-48">NAME</span>
-                            <span className="cg-style-49">PASSWORD <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg></span>
-                            <span className="cg-style-49">DOWNLOAD PIN <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg></span>
-                            <span className="cg-style-50">DATE CREATED</span>
-                            <span className="cg-style-51"></span>
-                        </div>
-                        {dashboardGridItems.map((item) =>
-                            item.kind === 'folder' ? (
-                                <div
-                                    key={`folder-${item.folder.id}`}
-                                    className="cg-style-52 cg-style-52--menu"
-                                    onClick={() => handleFolderCardClick(item.folder)}
-                                >
-                                    <div className="cg-style-48">
-                                        <div className="cg-style-53 cg-folder-list-thumb">
-                                            <FolderThumbGrid folder={item.folder} size="sm" />
-                                        </div>
-                                        <div className="cg-style-54">
-                                            <span className="cg-style-55 cg-folder-title-row">
-                                                <svg className="cg-folder-inline-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                                                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-                                                </svg>
-                                                {item.folder.name}
-                                            </span>
-                                            <span className="cg-style-56">
-                                                {(item.folder.collection_count || 0) === 1
-                                                    ? '1 delivery'
-                                                    : `${item.folder.collection_count || 0} deliveries`}
-                                                {formatFolderDate(item.folder) ? ` · ${formatFolderDate(item.folder)}` : ''}
-                                            </span>
-                                        </div>
-                                        <span className="cg-style-77 bg-[#eef6fc] text-[#333] border border-[#dbeafe]">FOLDER</span>
-                                    </div>
-                                    <div className="cg-style-49">
-                                        <span className="cg-style-46">—</span>
-                                    </div>
-                                    <div className="cg-style-49">
-                                        <span className="cg-style-46">—</span>
-                                    </div>
-                                    <div className="cg-style-50">
-                                        {item.folder.created_at
-                                            ? new Date(item.folder.created_at).toLocaleDateString('en-US', {
-                                                  month: 'short',
-                                                  day: 'numeric',
-                                                  year: 'numeric',
-                                              })
-                                            : '—'}
-                                    </div>
-                                    <div className="cg-style-51 cg-style-51--relative">
-                                        <span className="cg-style-59" onClick={(e) => openFolderContextMenu(e, item.folder.id)}>
-                                            ···
-                                        </span>
-                                        {renderFolderContextMenu(item.folder, 'list')}
-                                    </div>
-                                </div>
-                            ) : (
-                                <div
-                                    key={item.collection.id}
-                                    className="cg-style-52 cg-style-52--menu"
-                                    onClick={(e) => handleCardClick(item.collection, e)}
-                                >
-                                    <div className="cg-style-48">
-                                        <div className="cg-style-53">
-                                            {getCoverSrc(item.collection) ? (
-                                                <CollectionCardCover collection={item.collection} alt={item.collection.name} />
-                                            ) : (
-                                                <div className="cg-style-38">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                                            <div className="dl-row-main">
+                                                <div className="dl-row-thumb">
+                                                    {coverSrc ? (
+                                                        <CollectionCardCover collection={collection} alt="" />
+                                                    ) : (
+                                                        <div
+                                                            className={`dl-cover-fallback dl-cover-fallback--${coverFallbackIndex(collection.id)}`}
+                                                            aria-hidden
+                                                        />
+                                                    )}
                                                 </div>
-                                            )}
-                                        </div>
-                                        <div className="cg-style-54">
-                                            <span className="cg-style-55">{item.collection.name}</span>
-                                            <span className="cg-style-56">
-                                                {item.collection.photo_count || 0} items
-                                                {item.collection.event_date ? ` · ${new Date(item.collection.event_date).toLocaleDateString()}` : ''}
-                                                {' · '}
-                                                {formatStorageBytes(item.collection.storage_bytes)}
+                                                <div>
+                                                    <div className="dl-row-title">
+                                                        <span>{collection.name}</span>
+                                                        {attention ? (
+                                                            <span
+                                                                className={cn(
+                                                                    'dl-chip',
+                                                                    attention.kind === 'late' ? 'dl-chip--late' : 'dl-chip--warn',
+                                                                )}
+                                                            >
+                                                                {attention.label}
+                                                            </span>
+                                                        ) : null}
+                                                        <span className="dl-row-status">
+                                                            <span className={`dl-status-dot dl-status-dot--${status}`} />
+                                                            {deliveryUiStatusLabel(collection)}
+                                                        </span>
+                                                    </div>
+                                                    <div className="dl-row-sub">
+                                                        {fullDate ? (
+                                                            <>
+                                                                <span>{fullDate}</span>
+                                                                <span aria-hidden>·</span>
+                                                            </>
+                                                        ) : null}
+                                                        <span>{photographLabel(counts.photographs)}</span>
+                                                        {films ? (
+                                                            <>
+                                                                <span aria-hidden>·</span>
+                                                                <span>{films}</span>
+                                                            </>
+                                                        ) : null}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <span className="dl-row-size">{size}</span>
+                                            <span className="dl-row-earn">
+                                                {earn ? (
+                                                    <>
+                                                        <ShoppingBag className="size-3.5" aria-hidden />
+                                                        {earn}
+                                                    </>
+                                                ) : null}
                                             </span>
+                                            <button
+                                                type="button"
+                                                className="dl-row-more"
+                                                onClick={(e) => openContextMenu(e, collection.id)}
+                                                aria-label="Delivery options"
+                                            >
+                                                <MoreVertical className="size-4" />
+                                            </button>
+                                            {renderContextMenu(collection, 'list')}
                                         </div>
-                                        <span className={`cg-style-77 ${item.collection.status === 'published' ? 'bg-[#eefaf9] text-[#44aaa7] border border-[#bceceb]' : 'bg-[#f0f2f3] text-[#666]'}`}>{deliveryStatusLabel(item.collection.status).toUpperCase()}</span>
-                                    </div>
-                                    <div className="cg-style-49">
-                                        <span className="cg-style-46">-</span>
-                                    </div>
-                                    <div className="cg-style-49">
-                                        <span className="cg-style-57">••••</span>
-                                    </div>
-                                    <div className="cg-style-50">
-                                        {item.collection.created_at
-                                            ? new Date(item.collection.created_at).toLocaleDateString('en-US', {
-                                                  month: 'short',
-                                                  day: 'numeric',
-                                                  year: 'numeric',
-                                              })
-                                            : '—'}
-                                    </div>
-                                    <div className="cg-style-51 cg-style-51--relative">
-                                        <svg className="cg-style-58" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill={item.collection.is_starred ? '#f5c518' : 'none'} stroke={item.collection.is_starred ? '#f5c518' : '#ccc'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" onClick={(e) => handleToggleCollectionStar(e, item.collection)}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-                                        <span className="cg-style-59" onClick={(e) => openContextMenu(e, item.collection.id)}>···</span>
-                                        {renderContextMenu(item.collection, 'list')}
-                                    </div>
-                                </div>
+                                    );
+                                })()
                             )
                         )}
                     </div>
@@ -978,11 +1057,12 @@ const ClientGallery = () => {
                         </div>
                         <h3 className="cg-style-61">No deliveries yet</h3>
                         <p className="cg-style-62">Create your first delivery to get started</p>
-                        <button className="neu-pill inline-flex h-10 items-center gap-1.5 rounded-full px-5 text-sm font-medium" onClick={navigateNewCollection}>
+                        <button className="dl-new" onClick={navigateNewCollection}>
                             Create Delivery
                         </button>
                     </div>
                 ) : null}
+                </div>
 
                 {/* Selection Action Bar */}
                 {selectedCards.length > 0 && (
@@ -1039,11 +1119,13 @@ const ClientGallery = () => {
                 />
                 <CollectionDirectLinkModal
                     collection={directLinkCollection}
+                    photographerProfile={photographerProfile}
                     isOpen={Boolean(directLinkCollection)}
                     onClose={() => setDirectLinkCollection(null)}
                 />
                 <CollectionQrModal
                     collection={qrCollection}
+                    photographerProfile={photographerProfile}
                     isOpen={Boolean(qrCollection)}
                     onClose={() => setQrCollection(null)}
                 />
@@ -1068,7 +1150,13 @@ const ClientGallery = () => {
                                 galleryService.getCollections(user.id),
                                 galleryService.listFoldersForGallery(user.id),
                             ]);
-                            setCollections(cols);
+                            let extras = { submittedIds: new Set(), stuckIds: new Set(), earningsById: {} };
+                            try {
+                                extras = await galleryService.getDeliveryBoardExtras(cols.map((c) => c.id));
+                            } catch (extraErr) {
+                                console.error('Delivery board extras failed:', extraErr);
+                            }
+                            setCollections(attachBoardExtras(cols, extras));
                             setFolders(fols);
                         } catch (e) {
                             console.error(e);

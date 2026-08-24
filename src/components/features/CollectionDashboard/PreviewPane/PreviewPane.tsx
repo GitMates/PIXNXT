@@ -49,6 +49,7 @@ export const PreviewPane: React.FC<PreviewPaneProps> = ({
   dashboardState,
   onSetActiveSet,
   photographerName,
+  photographerProfile,
   coverLogoUrl,
   dualPreview = false,
 }) => {
@@ -62,6 +63,7 @@ export const PreviewPane: React.FC<PreviewPaneProps> = ({
     dashboardState,
     onSetActiveSet,
     photographerName,
+    photographerProfile,
     coverLogoUrl,
   };
 

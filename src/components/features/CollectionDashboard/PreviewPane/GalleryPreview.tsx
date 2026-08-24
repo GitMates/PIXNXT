@@ -44,6 +44,7 @@ import {
   resolveGalleryCampaigns,
   pickActiveSalesCampaign,
 } from '../../../../lib/salesCampaignBanner';
+import { getCollectionShareUrl } from '../../../../lib/shareCollection';
 import './GalleryPreview.css';
 
 const PREVIEW_MOBILE_REF_WIDTH = 375;
@@ -80,6 +81,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
   dashboardState,
   onSetActiveSet,
   photographerName = 'PHOTOGRAPHER',
+  photographerProfile = null,
   isPreviewMobile = false,
   coverLogoUrl,
 }) => {
@@ -98,9 +100,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
   const [downloadProgress, setDownloadProgress] = useState({ done: 0, total: 0 });
 
   const collectionSlug = dashboardState?.collection?.slug as string | undefined;
-  const shareUrl = typeof window !== 'undefined'
-    ? window.location.origin + '/gallery/' + (collectionSlug || 'preview')
-    : '';
+  const shareUrl = getCollectionShareUrl(collectionSlug || 'preview', photographerProfile);
   const shareTitle = collectionTitle || dashboardState?.collection?.name || 'Delivery';
   const isPreviewDark = colorPalette === 'dark';
 
