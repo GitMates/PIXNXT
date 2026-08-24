@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../../hooks/useAuth';
 import { PasswordField } from './PasswordField';
+import { AuthOrDivider, GoogleAuthButton } from './AuthSocial';
 
 /**
  * Login Form component for authenticating users.
  */
-export const LoginForm = ({ onSuccess, onToggle }) => {
+export const LoginForm = ({ onSuccess, onToggle, onForgot }) => {
   const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -30,14 +31,14 @@ export const LoginForm = ({ onSuccess, onToggle }) => {
   return (
     <form onSubmit={handleSubmit} className="auth-form">
       <div className="auth-field">
-        <label className="auth-label" htmlFor="login-email">Email Address</label>
-        <div className="auth-input-shell neu-inset auth-input-shell--pill">
+        <label className="auth-label" htmlFor="login-email">Email address</label>
+        <div className="auth-input-shell">
           <input
             id="login-email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="email@example.com"
+            placeholder="you@studio.com"
             className="auth-input"
             required
             autoComplete="email"
@@ -46,7 +47,12 @@ export const LoginForm = ({ onSuccess, onToggle }) => {
       </div>
 
       <div className="auth-field">
-        <label htmlFor="login-password" className="auth-label">Password</label>
+        <div className="auth-label-row">
+          <label htmlFor="login-password" className="auth-label">Password</label>
+          <button type="button" className="auth-forgot" onClick={onForgot}>
+            Forgot password?
+          </button>
+        </div>
         <PasswordField
           id="login-password"
           value={password}
@@ -59,16 +65,19 @@ export const LoginForm = ({ onSuccess, onToggle }) => {
       <button
         type="submit"
         disabled={isLoading}
-        className="auth-submit neu-pill"
+        className="auth-submit"
         aria-busy={isLoading}
       >
-        {isLoading ? 'Signing In...' : 'Log In'}
+        {isLoading ? 'Signing in…' : 'Log in'}
       </button>
 
+      <AuthOrDivider />
+      <GoogleAuthButton disabled={isLoading} onError={setError} />
+
       <p className="auth-toggle">
-        Don&apos;t have an account?{' '}
+        New to PIXNXT?{' '}
         <button type="button" onClick={onToggle} className="auth-toggle-btn">
-          Sign Up
+          Create a studio
         </button>
       </p>
     </form>

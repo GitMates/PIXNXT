@@ -51,6 +51,61 @@ export async function signUpWithEmail({ email, password }) {
   return data;
 }
 
+function authRedirectTo(path = '/auth') {
+  if (typeof window === 'undefined') return path;
+  return `${window.location.origin}${path}`;
+}
+
+/**
+ * Starts Google OAuth (login and sign-up share this flow).
+ */
+export async function signInWithGoogle() {
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: authRedirectTo('/auth'),
+      queryParams: { prompt: 'select_account' },
+    },
+  });
+
+  if (error) {
+    console.error('Google sign-in error:', error.message);
+    throw error;
+  }
+
+  return data;
+}
+
+/**
+ * Emails a password-reset link that returns to the auth page.
+ */
+export async function sendPasswordReset(email) {
+  const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: authRedirectTo('/auth?mode=reset'),
+  });
+
+  if (error) {
+    console.error('Password reset error:', error.message);
+    throw error;
+  }
+
+  return data;
+}
+
+/**
+ * Sets a new password during the recovery session.
+ */
+export async function updatePassword(password) {
+  const { data, error } = await supabase.auth.updateUser({ password });
+
+  if (error) {
+    console.error('Password update error:', error.message);
+    throw error;
+  }
+
+  return data;
+}
+
 /**
  * Signs out the current user.
  * @returns {Promise<void>}

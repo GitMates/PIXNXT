@@ -22,4 +22,5 @@ export interface ChangeCoverModalProps {
   highlightsName?: string;
   onConfirm: (payload: { photo: Photo | null; focals: CoverFocals }) => void | Promise<void>;
   saving?: boolean;
+  onCoverFileSelect?: (file: File) => Promise<Photo | void | null> | Photo | void | null;
 }

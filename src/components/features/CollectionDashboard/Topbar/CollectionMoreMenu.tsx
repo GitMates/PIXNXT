@@ -6,6 +6,7 @@ import { MoveCollectionModal } from '@/components/features/Collections/MoveColle
 import { CollectionDuplicateModal } from '@/components/features/ClientGallery/CollectionShareModals';
 import { supabase } from '@/lib/supabase/client';
 import { guestDeliveryGuestsService } from '@/services/guestDeliveryGuests.service';
+import { GetDirectLinkModal } from '@/components/features/CollectionDashboard/Share/GetDirectLinkModal';
 
 export interface CollectionMoreMenuProps {
   collectionId?: string | null;
@@ -17,6 +18,10 @@ export interface CollectionMoreMenuProps {
   pinValue?: string;
   clientPasswordDisplay?: string;
   onOpenDownloadSettings?: () => void;
+  onOpenAccessSettings?: () => void;
+  onPasswordChange?: (value: string) => void;
+  onPinChange?: (value: string) => void;
+  photographerProfile?: unknown;
 }
 
 function generateSlug(text: string) {
@@ -37,6 +42,10 @@ export function CollectionMoreMenu({
   pinValue = '',
   clientPasswordDisplay = '',
   onOpenDownloadSettings,
+  onOpenAccessSettings,
+  onPasswordChange,
+  onPinChange,
+  photographerProfile,
 }: CollectionMoreMenuProps) {
   const navigate = useNavigate();
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -263,11 +272,6 @@ export function CollectionMoreMenu({
     };
   }, [emailOpen, collectionId]);
 
-  const galleryUrl =
-    collectionSlug && typeof window !== 'undefined'
-      ? `${window.location.origin}/gallery/${collectionSlug}`
-      : '';
-
   const closeAll = () => {
     setOpen(false);
     setPresetsOpen(false);
@@ -485,146 +489,18 @@ export function CollectionMoreMenu({
         </div>
       )}
 
-      {linkOpen && (
-        <div className="cd-modal-overlay" onClick={() => setLinkOpen(false)}>
-          <div className="cd-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
-            <div className="cd-modal-header">
-              <h3 className="cd-modal-title">GET DIRECT LINK</h3>
-              <button type="button" className="cd-modal-close" onClick={() => setLinkOpen(false)} aria-label="Close">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            </div>
-            <div className="cd-modal-body" style={{ padding: '24px' }}>
-              <div style={{ marginBottom: '20px' }}>
-                <label style={{ fontSize: '11px', fontWeight: 600, color: '#666', letterSpacing: '0.5px', display: 'block', marginBottom: '8px' }}>DELIVERY URL</label>
-                <div style={{ display: 'flex' }}>
-                  <input
-                    type="text"
-                    readOnly
-                    value={galleryUrl || 'Publish the delivery to get a link'}
-                    style={{
-                      flex: 1,
-                      padding: '10px 12px',
-                      border: '1px solid #ddd',
-                      borderRadius: '4px 0 0 4px',
-                      fontSize: '14px',
-                      backgroundColor: '#f9f9f9',
-                      outline: 'none',
-                      color: '#555',
-                    }}
-                  />
-                  <button
-                    type="button"
-                    style={{
-                      padding: '0 16px',
-                      backgroundColor: '#fff',
-                      border: '1px solid #ddd',
-                      borderLeft: 'none',
-                      borderRadius: '0 4px 4px 0',
-                      cursor: galleryUrl ? 'pointer' : 'default',
-                      fontWeight: 500,
-                      fontSize: '13px',
-                    }}
-                    disabled={!galleryUrl}
-                    onClick={() => galleryUrl && navigator.clipboard.writeText(galleryUrl)}
-                  >
-                    Copy
-                  </button>
-                </div>
-              </div>
-              <div style={{ marginBottom: '20px' }}>
-                <label style={{ fontSize: '11px', fontWeight: 600, color: '#666', letterSpacing: '0.5px', display: 'block', marginBottom: '8px' }}>DELIVERY PASSWORD</label>
-                <div style={{ display: 'flex' }}>
-                  <input
-                    type="text"
-                    readOnly
-                    value={clientPasswordDisplay || 'No password set'}
-                    style={{
-                      flex: 1,
-                      padding: '10px 12px',
-                      border: '1px solid #ddd',
-                      borderRadius: '4px 0 0 4px',
-                      fontSize: '14px',
-                      backgroundColor: '#f9f9f9',
-                      outline: 'none',
-                      color: '#555',
-                    }}
-                  />
-                  <button
-                    type="button"
-                    style={{
-                      padding: '0 16px',
-                      backgroundColor: '#fff',
-                      border: '1px solid #ddd',
-                      borderLeft: 'none',
-                      borderRadius: '0 4px 4px 0',
-                      cursor: clientPasswordDisplay ? 'pointer' : 'default',
-                      fontWeight: 500,
-                      fontSize: '13px',
-                    }}
-                    disabled={!clientPasswordDisplay}
-                    onClick={() => clientPasswordDisplay && navigator.clipboard.writeText(clientPasswordDisplay)}
-                  >
-                    Copy
-                  </button>
-                </div>
-              </div>
-              <div style={{ marginBottom: '24px' }}>
-                <label style={{ fontSize: '11px', fontWeight: 600, color: '#666', letterSpacing: '0.5px', display: 'block', marginBottom: '8px' }}>DOWNLOAD PIN</label>
-                <div style={{ display: 'flex' }}>
-                  <input
-                    type="text"
-                    readOnly
-                    value={pinValue || '—'}
-                    style={{
-                      flex: 1,
-                      padding: '10px 12px',
-                      border: '1px solid #ddd',
-                      borderRadius: '4px 0 0 4px',
-                      fontSize: '14px',
-                      backgroundColor: '#f9f9f9',
-                      outline: 'none',
-                      color: '#555',
-                    }}
-                  />
-                  <button
-                    type="button"
-                    style={{
-                      padding: '0 16px',
-                      backgroundColor: '#fff',
-                      border: '1px solid #ddd',
-                      borderLeft: 'none',
-                      borderRadius: '0 4px 4px 0',
-                      cursor: pinValue ? 'pointer' : 'default',
-                      fontWeight: 500,
-                      fontSize: '13px',
-                    }}
-                    disabled={!pinValue}
-                    onClick={() => pinValue && navigator.clipboard.writeText(pinValue)}
-                  >
-                    Copy
-                  </button>
-                </div>
-                {onOpenDownloadSettings && (
-                  <button
-                    type="button"
-                    style={{ fontSize: '13px', color: '#2b78c5', marginTop: '8px', cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}
-                    onClick={() => {
-                      setLinkOpen(false);
-                      onOpenDownloadSettings();
-                    }}
-                  >
-                    Download Settings
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <GetDirectLinkModal
+        isOpen={linkOpen}
+        onClose={() => setLinkOpen(false)}
+        collectionSlug={collectionSlug}
+        photographerProfile={photographerProfile}
+        password={clientPasswordDisplay}
+        pin={pinValue}
+        onPasswordChange={onPasswordChange}
+        onPinChange={onPinChange}
+        onOpenAccessSettings={onOpenAccessSettings ? () => { setLinkOpen(false); onOpenAccessSettings(); } : undefined}
+        onOpenDownloadSettings={onOpenDownloadSettings ? () => { setLinkOpen(false); onOpenDownloadSettings(); } : undefined}
+      />
 
       {emailOpen && (
         <div className="cd-modal-overlay" onClick={() => { setEmailOpen(false); setEmailHistoryHelpOpen(false); }}>

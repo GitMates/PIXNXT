@@ -1038,6 +1038,8 @@ export const galleryService = {
    */
   async updateCollection(id, updateData) {
     let payload = { ...updateData };
+    if (payload.cover_focal_x != null) payload.cover_focal_x = normalizeFocalForDb(payload.cover_focal_x);
+    if (payload.cover_focal_y != null) payload.cover_focal_y = normalizeFocalForDb(payload.cover_focal_y);
     let lastError = null;
     const triedTokens = new Set();
 
@@ -1051,6 +1053,14 @@ export const galleryService = {
 
       if (!error) return data;
       lastError = error;
+
+      if (isNumericOverflowError(error) && ('cover_focal_x' in payload || 'cover_focal_y' in payload)) {
+        const stripped = { ...payload };
+        delete stripped.cover_focal_x;
+        delete stripped.cover_focal_y;
+        payload = stripped;
+        continue;
+      }
 
       const tokenSig = `${payload.font_family}|${payload.color_palette}`;
       triedTokens.add(tokenSig);

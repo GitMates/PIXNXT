@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../../hooks/useAuth';
 import { PasswordField } from './PasswordField';
+import { AuthOrDivider, GoogleAuthButton } from './AuthSocial';
 
 /**
  * Signup Form component for new user registration.
@@ -9,6 +10,7 @@ export const SignupForm = ({ onSuccess, onToggle }) => {
   const { signup } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [modal, setModal] = useState({ show: false, type: 'success', message: '' });
@@ -18,15 +20,25 @@ export const SignupForm = ({ onSuccess, onToggle }) => {
     setIsLoading(true);
     setError('');
 
+    if (password.length < 8) {
+      setError('Use at least 8 characters.');
+      setIsLoading(false);
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const data = await signup({ email, password });
-      
-      // Check if user already exists (Supabase empty identities when confirmation is enabled)
+
       if (data?.user && data.user.identities && data.user.identities.length === 0) {
         setModal({
           show: true,
           type: 'error',
-          message: 'This email address is already registered. Please use another email address.'
+          message: 'This email address is already registered. Please use another email address.',
         });
         return;
       }
@@ -34,28 +46,28 @@ export const SignupForm = ({ onSuccess, onToggle }) => {
       setModal({
         show: true,
         type: 'success',
-        message: 'We sent a confirmation email. Please confirm your email address.'
+        message: 'We sent a confirmation email. Please confirm your email address.',
       });
     } catch (err) {
       const errMsg = err.message || '';
       if (
-        errMsg.toLowerCase().includes('already registered') || 
-        errMsg.toLowerCase().includes('already exists') || 
+        errMsg.toLowerCase().includes('already registered') ||
+        errMsg.toLowerCase().includes('already exists') ||
         errMsg.toLowerCase().includes('email_exists')
       ) {
         setModal({
           show: true,
           type: 'error',
-          message: 'This email address is already registered. Please use another email address.'
+          message: 'This email address is already registered. Please use another email address.',
         });
       } else if (
-        errMsg.toLowerCase().includes('rate limit') || 
+        errMsg.toLowerCase().includes('rate limit') ||
         errMsg.toLowerCase().includes('too many requests')
       ) {
         setModal({
           show: true,
           type: 'error',
-          message: 'Signup rate limit exceeded. Please wait a few minutes before trying again.'
+          message: 'Signup rate limit exceeded. Please wait a few minutes before trying again.',
         });
       } else {
         setError(errMsg || 'Failed to sign up');
@@ -69,14 +81,14 @@ export const SignupForm = ({ onSuccess, onToggle }) => {
     <>
       <form onSubmit={handleSubmit} className="auth-form">
         <div className="auth-field">
-          <label className="auth-label" htmlFor="signup-email">Email Address</label>
-          <div className="auth-input-shell neu-inset auth-input-shell--pill">
+          <label className="auth-label" htmlFor="signup-email">Email address</label>
+          <div className="auth-input-shell">
             <input
               id="signup-email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="email@example.com"
+              placeholder="you@studio.com"
               className="auth-input"
               required
               autoComplete="email"
@@ -94,49 +106,45 @@ export const SignupForm = ({ onSuccess, onToggle }) => {
           />
         </div>
 
+        <div className="auth-field">
+          <label htmlFor="signup-password-confirm" className="auth-label">Retype password</label>
+          <PasswordField
+            id="signup-password-confirm"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            autoComplete="new-password"
+          />
+        </div>
+
         {error && <p className="auth-error" role="alert">{error}</p>}
 
         <button
           type="submit"
           disabled={isLoading}
-          className="auth-submit neu-pill"
+          className="auth-submit"
           aria-busy={isLoading}
         >
-          {isLoading ? 'Creating Account...' : 'Sign Up'}
+          {isLoading ? 'Creating studio…' : 'Create a studio'}
         </button>
 
+        <AuthOrDivider />
+        <GoogleAuthButton disabled={isLoading} onError={setError} />
+
         <p className="auth-toggle">
-          Already have an account?{' '}
+          Already have a studio?{' '}
           <button type="button" onClick={onToggle} className="auth-toggle-btn">
-            Log In
+            Log in
           </button>
         </p>
       </form>
 
       {modal.show && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center z-[2000] p-4">
-          <div className="bg-white p-7 rounded-2xl max-w-[360px] w-full shadow-2xl border border-gray-100 flex flex-col items-center text-center animate-[cgFadeIn_0.2s_ease]">
-            {modal.type === 'success' ? (
-              <div className="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center text-green-500 mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-              </div>
-            ) : (
-              <div className="w-12 h-12 bg-amber-50 rounded-full flex items-center justify-center text-amber-600 mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="10" />
-                  <line x1="12" y1="16" x2="12" y2="12" />
-                  <line x1="12" y1="8" x2="12.01" y2="8" />
-                </svg>
-              </div>
-            )}
-            <h3 className="text-[17px] font-bold text-gray-900 mb-2">
-              {modal.type === 'success' ? 'Confirm Your Email' : 'Email Already Exists'}
+        <div className="auth-dialog-overlay">
+          <div className="auth-dialog" role="dialog" aria-modal="true">
+            <h3 className="auth-dialog__title">
+              {modal.type === 'success' ? 'Confirm your email' : 'Email already exists'}
             </h3>
-            <p className="text-[13px] text-gray-500 leading-relaxed mb-6">
-              {modal.message}
-            </p>
+            <p className="auth-dialog__body">{modal.message}</p>
             <button
               type="button"
               onClick={() => {
@@ -146,7 +154,7 @@ export const SignupForm = ({ onSuccess, onToggle }) => {
                   onSuccess?.();
                 }
               }}
-              className="auth-submit neu-pill mt-0 w-full"
+              className="auth-submit"
             >
               OK
             </button>

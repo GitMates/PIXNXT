@@ -26,6 +26,7 @@ import { DesignTab } from '../components/features/CollectionDashboard/DesignTab'
 import '../components/features/CollectionDashboard/DesignTab/DesignWorkspace.css';
 import { PreviewPane } from '../components/features/CollectionDashboard/PreviewPane';
 import { ChangeCoverModal } from '../components/features/CollectionDashboard/CoverSettings/ChangeCoverModal';
+import { GetDirectLinkModal } from '../components/features/CollectionDashboard/Share/GetDirectLinkModal';
 import { CollectionDashboardSidebar } from '../components/features/CollectionDashboard/Sidebar/CollectionDashboardSidebar';
 import { SetOptionsMenu } from '../components/features/CollectionDashboard/Sidebar/SetOptionsMenu';
 import { NewSelectionModal } from '../components/features/CollectionDashboard/Modals/NewSelectionModal';
@@ -48,6 +49,7 @@ import {
     gridSettingsFromDelivery,
     toDeliveryDesignPatch,
 } from '../lib/designSettingsPersist';
+import { navigateToAccount } from '../lib/accountBackNav';
 import { openShareByEmail, openWhatsAppShare, getCollectionShareUrl, getQrCodeImageUrl } from '../lib/shareCollection';
 import { resolveUploadDefaults, syncUploadDefaultsToLocalStorage, isRawUploadEnabled } from '../lib/uploadDefaults';
 import { CollectionQrModal, CollectionDuplicateModal } from '../components/features/ClientGallery/CollectionShareModals';
@@ -67,7 +69,7 @@ import {
 } from '../lib/dashboardPhotoSortUi';
 import { normalizeGalleryPhotoSort } from '../lib/galleryPhotoSort';
 import { clientGalleryEmailTemplatesService } from '../services/clientGalleryEmailTemplates.service';
-import { COVER_IMAGE_ACCEPT, MEDIA_FILE_INPUT_ACCEPT, pickMediaFilesOrFallback } from '../lib/mediaFilePicker';
+import { MEDIA_FILE_INPUT_ACCEPT, pickMediaFilesOrFallback } from '../lib/mediaFilePicker';
 import { setCoverPhotoDragData, endCoverPhotoDrag, isGalleryImagePhoto } from '../lib/coverPhotoDrag';
 import { DatePicker } from '../components/ui/DatePicker';
 import './CollectionDashboard.css';
@@ -548,7 +550,6 @@ const CollectionDashboard = () => {
     const [coverModalScope, setCoverModalScope] = useState('all');
     const [coverModalPhotoOverride, setCoverModalPhotoOverride] = useState(null);
     const [isCoverUploading, setIsCoverUploading] = useState(false);
-    const coverModalFileInputRef = useRef(null);
     const [activeSettingsTab, setActiveSettingsTab] = useState('general'); // general, privacy, download, favorite
 
     // General Settings State
@@ -1536,27 +1537,41 @@ const CollectionDashboard = () => {
         return null;
     }, [photos, collection?.cover_photo_id, collection?.cover_url]);
 
+    const applyCoverLocal = (patch) => {
+        setCollection((prev) => (prev ? { ...prev, ...patch } : prev));
+        broadcastGalleryLive({
+            type: 'SETTINGS_UPDATED',
+            collectionId,
+            slug: collectionUrl,
+            settings: {
+                cover_url: patch.cover_url,
+                cover_photo_id: patch.cover_photo_id,
+                cover_focal_x: patch.cover_focal_x,
+                cover_focal_y: patch.cover_focal_y,
+                cover_focals: patch.cover_focals,
+            },
+        });
+    };
+
     const handleCoverPhotoSelect = async (photo) => {
         const coverUrl = getPhotoFullDisplayUrl(photo) || getPhotoOriginalFileUrl(photo);
         if (!coverUrl || !collectionId) return;
+        const defaultFocals = getDefaultCoverFocals();
+        applyCoverLocal({
+            cover_url: coverUrl,
+            cover_photo_id: photo.id,
+            cover_focals: defaultFocals,
+            cover_focal_x: 50,
+            cover_focal_y: 50,
+        });
         try {
             setIsCoverUploading(true);
-            const defaultFocals = getDefaultCoverFocals();
-            await galleryService.updateCollection(collectionId, {
-                cover_photo_id: photo.id,
-                cover_url: coverUrl,
-                cover_focal_x: 50,
-                cover_focal_y: 50,
-                cover_focals: defaultFocals,
-            });
-            setCollection((prev) => ({
-                ...prev,
-                cover_url: coverUrl,
-                cover_photo_id: photo.id,
-                cover_focals: defaultFocals,
-                cover_focal_x: 50,
-                cover_focal_y: 50,
-            }));
+            await galleryService.saveCollectionCoverFocals(
+                collectionId,
+                coverUrl,
+                defaultFocals,
+                { cover_photo_id: photo.id }
+            );
         } catch (err) {
             console.error('Failed to set cover:', err);
             alert('Failed to set cover photo.');
@@ -1570,6 +1585,14 @@ const CollectionDashboard = () => {
             ? (getPhotoFullDisplayUrl(photo) || getPhotoOriginalFileUrl(photo))
             : (collection?.cover_url || '');
         if (!coverUrl || !collectionId) return;
+        const primary = focals?.desktop || focals?.website || { x: 50, y: 50 };
+        applyCoverLocal({
+            cover_url: coverUrl,
+            cover_photo_id: photo?.id ?? collection?.cover_photo_id,
+            cover_focals: focals,
+            cover_focal_x: primary.x,
+            cover_focal_y: primary.y,
+        });
         try {
             setIsCoverUploading(true);
             const extra = photo ? { cover_photo_id: photo.id } : {};
@@ -1579,7 +1602,6 @@ const CollectionDashboard = () => {
                 focals,
                 extra
             );
-            const primary = focals?.desktop || focals?.website || { x: 50, y: 50 };
             const savedFocals = updated?.cover_focals;
             const hasSavedFocals =
                 savedFocals && typeof savedFocals === 'object' && Object.keys(savedFocals).length > 0;
@@ -1587,15 +1609,14 @@ const CollectionDashboard = () => {
             const nextCoverUrl = hasSavedFocals
                 ? savedClean
                 : appendCoverFocalsToCoverUrl(savedClean, focals);
-            setCollection((prev) => ({
-                ...prev,
+            applyCoverLocal({
                 ...updated,
                 cover_url: nextCoverUrl,
-                cover_photo_id: photo?.id ?? prev?.cover_photo_id,
+                cover_photo_id: photo?.id ?? collection?.cover_photo_id,
                 cover_focals: hasSavedFocals ? savedFocals : focals,
                 cover_focal_x: updated?.cover_focal_x ?? primary.x,
                 cover_focal_y: updated?.cover_focal_y ?? primary.y,
-            }));
+            });
             setShowCoverModal(false);
             setCoverModalScope('all');
         } catch (err) {
@@ -1636,6 +1657,21 @@ const CollectionDashboard = () => {
         }
 
         const uploadSetId = highlightsEnabled ? activeSetId : (activeSetId ?? sets[0]?.id ?? null);
+        const defaultFocals = getDefaultCoverFocals();
+        const previewUrl = URL.createObjectURL(file);
+        const previousCover = {
+            cover_url: collection?.cover_url,
+            cover_photo_id: collection?.cover_photo_id,
+            cover_focals: collection?.cover_focals,
+            cover_focal_x: collection?.cover_focal_x,
+            cover_focal_y: collection?.cover_focal_y,
+        };
+        applyCoverLocal({
+            cover_url: previewUrl,
+            cover_focals: defaultFocals,
+            cover_focal_x: 50,
+            cover_focal_y: 50,
+        });
 
         try {
             setIsCoverUploading(true);
@@ -1663,26 +1699,29 @@ const CollectionDashboard = () => {
             }
 
             const coverUrl = getPhotoFullDisplayUrl(photoData) || getPhotoOriginalFileUrl(photoData);
+            URL.revokeObjectURL(previewUrl);
             if (!coverUrl) {
+                applyCoverLocal(previousCover);
                 alert('Cover image is still processing. Try again in a moment.');
                 return;
             }
-            await galleryService.updateCollection(collectionId, {
-                cover_photo_id: photoData.id,
+            applyCoverLocal({
                 cover_url: coverUrl,
+                cover_photo_id: photoData.id,
+                cover_focals: defaultFocals,
                 cover_focal_x: 50,
                 cover_focal_y: 50,
-                cover_focals: getDefaultCoverFocals(),
             });
-            setCollection((prev) => ({
-                ...prev,
-                cover_url: coverUrl,
-                cover_photo_id: photoData.id,
-                cover_focals: getDefaultCoverFocals(),
-                cover_focal_x: 50,
-                cover_focal_y: 50,
-            }));
+            await galleryService.saveCollectionCoverFocals(
+                collectionId,
+                coverUrl,
+                defaultFocals,
+                { cover_photo_id: photoData.id }
+            );
+            return photoData;
         } catch (err) {
+            URL.revokeObjectURL(previewUrl);
+            applyCoverLocal(previousCover);
             console.error('Cover file upload failed:', err);
             alert(err?.message || 'Failed to upload cover photo.');
         } finally {
@@ -5618,23 +5657,6 @@ const CollectionDashboard = () => {
                 studioName={profile?.business_name || profile?.display_name || 'Your studio'}
                 saving={savingFavoriteList}
             />
-            {/* Change Cover Modal */}
-            <input
-                ref={coverModalFileInputRef}
-                type="file"
-                style={{ display: 'none' }}
-                accept={COVER_IMAGE_ACCEPT}
-                tabIndex={-1}
-                aria-hidden
-                onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    e.target.value = '';
-                    if (file) {
-                        void handleCoverFileSelect(file);
-                        closeCoverModal();
-                    }
-                }}
-            />
             <ChangeCoverModal
                 isOpen={showCoverModal}
                 onClose={closeCoverModal}
@@ -5647,47 +5669,43 @@ const CollectionDashboard = () => {
                 highlightsName={highlightsName}
                 saving={isCoverUploading}
                 onConfirm={handleCoverModalConfirm}
+                onCoverFileSelect={handleCoverFileSelect}
             />
 
-            {/* Get Direct Link Modal */}
-            {showGetDirectLinkModal && (
-                <div className="cd-modal-overlay" onClick={() => setShowGetDirectLinkModal(false)}>
-                    <div className="cd-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
-                        <div className="cd-modal-header">
-                            <h3 className="cd-modal-title">GET DIRECT LINK</h3>
-                            <button className="cd-modal-close" onClick={() => setShowGetDirectLinkModal(false)}>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                            </button>
-                        </div>
-                        <div className="cd-modal-body" style={{ padding: '24px' }}>
-                            <div style={{ marginBottom: '20px' }}>
-                                <label style={{ fontSize: '11px', fontWeight: '600', color: '#666', letterSpacing: '0.5px', display: 'block', marginBottom: '8px' }}>DELIVERY URL</label>
-                                <div style={{ display: 'flex' }}>
-                                    <input type="text" readOnly value={`${window.location.origin}/gallery/${collectionUrl}`} style={{ flex: 1, padding: '10px 12px', border: '1px solid #ddd', borderRadius: '4px 0 0 4px', fontSize: '14px', backgroundColor: '#f9f9f9', outline: 'none', color: '#555' }} />
-                                    <button style={{ padding: '0 16px', backgroundColor: '#fff', border: '1px solid #ddd', borderLeft: 'none', borderRadius: '0 4px 4px 0', cursor: 'pointer', fontWeight: '500', fontSize: '13px' }} onClick={() => navigator.clipboard.writeText(`${window.location.origin}/gallery/${collectionUrl}`)}>Copy</button>
-                                </div>
-                                <div style={{ fontSize: '13px', color: '#2b78c5', marginTop: '8px', cursor: 'pointer', display: 'inline-block' }}>Need a custom domain?</div>
-                            </div>
-                            <div style={{ marginBottom: '20px' }}>
-                                <label style={{ fontSize: '11px', fontWeight: '600', color: '#666', letterSpacing: '0.5px', display: 'block', marginBottom: '8px' }}>DELIVERY PASSWORD</label>
-                                <div style={{ display: 'flex' }}>
-                                    <input type="text" readOnly value={collectionPassword || 'No password set'} style={{ flex: 1, padding: '10px 12px', border: '1px solid #ddd', borderRadius: '4px 0 0 4px', fontSize: '14px', backgroundColor: '#f9f9f9', outline: 'none', color: '#555' }} />
-                                    <button style={{ padding: '0 16px', backgroundColor: '#fff', border: '1px solid #ddd', borderLeft: 'none', borderRadius: '0 4px 4px 0', cursor: 'pointer', fontWeight: '500', fontSize: '13px' }} onClick={() => collectionPassword && navigator.clipboard.writeText(collectionPassword)}>Copy</button>
-                                </div>
-                            </div>
-                            <div style={{ marginBottom: '24px' }}>
-                                <label style={{ fontSize: '11px', fontWeight: '600', color: '#666', letterSpacing: '0.5px', display: 'block', marginBottom: '8px' }}>DOWNLOAD PIN</label>
-                                <div style={{ display: 'flex' }}>
-                                    <input type="text" readOnly value={pinValue || '1060'} style={{ flex: 1, padding: '10px 12px', border: '1px solid #ddd', borderRadius: '4px 0 0 4px', fontSize: '14px', backgroundColor: '#f9f9f9', outline: 'none', color: '#555' }} />
-                                    <button style={{ padding: '0 16px', backgroundColor: '#fff', border: '1px solid #ddd', borderLeft: 'none', borderRadius: '0 4px 4px 0', cursor: 'pointer', fontWeight: '500', fontSize: '13px' }} onClick={() => pinValue && navigator.clipboard.writeText(pinValue)}>Copy</button>
-                                </div>
-                                <div style={{ fontSize: '13px', color: '#2b78c5', marginTop: '8px', cursor: 'pointer', display: 'inline-block' }} onClick={() => { setShowGetDirectLinkModal(false); setActiveSidebarTab('settings'); setActiveSettingsTab('download'); }}>Download Settings</div>
-                            </div>
-
-                        </div>
-                    </div>
-                </div>
-            )}
+            <GetDirectLinkModal
+                isOpen={showGetDirectLinkModal}
+                onClose={() => setShowGetDirectLinkModal(false)}
+                collectionSlug={collectionUrl}
+                photographerProfile={profile}
+                password={collectionPassword}
+                pin={pinValue}
+                onPasswordChange={setCollectionPassword}
+                onPinChange={(next) => {
+                    const digits = String(next || '').replace(/\D/g, '').slice(0, 4);
+                    setPinValue(digits);
+                    if (digits.length === 4) setDownloadPin(true);
+                    if (digits.length === 0) setDownloadPin(false);
+                }}
+                onOpenAccessSettings={() => {
+                    setShowGetDirectLinkModal(false);
+                    setActiveSidebarTab('settings');
+                    setActiveSettingsTab('privacy');
+                }}
+                onOpenDownloadSettings={() => {
+                    setShowGetDirectLinkModal(false);
+                    setActiveSidebarTab('settings');
+                    setActiveSettingsTab('download');
+                }}
+                onOpenCustomDomain={() => {
+                    setShowGetDirectLinkModal(false);
+                    navigateToAccount(
+                        navigate,
+                        '/account/studio-identity',
+                        `${location.pathname}${location.search}`,
+                        'Delivery'
+                    );
+                }}
+            />
 
             <CollectionQrModal
                 collection={

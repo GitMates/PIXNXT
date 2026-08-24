@@ -12,7 +12,7 @@ export function PasswordField({
     const [showPassword, setShowPassword] = useState(false);
 
     return (
-        <div className="auth-input-shell neu-inset auth-input-shell--pill">
+        <div className="auth-input-shell">
             <input
                 id={id}
                 type={showPassword ? 'text' : 'password'}

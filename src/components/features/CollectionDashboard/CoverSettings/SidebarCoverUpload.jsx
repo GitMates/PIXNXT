@@ -211,16 +211,26 @@ export function SidebarCoverUpload({
             )}
             aria-hidden
           />
-          <div className="cd-sidebar-cover-caption" aria-hidden>
+          <div className="cd-sidebar-cover-caption">
             <span className="cd-sidebar-cover-caption__label">Delivery cover</span>
-            <button
-              type="button"
-              className="cd-sidebar-cover-caption__change"
-              onClick={onSelectFromCollection}
-              disabled={isUpdating}
-            >
-              {isUpdating ? 'Updating…' : 'Change'}
-            </button>
+            <div className="cd-sidebar-cover-caption__actions">
+              <button
+                type="button"
+                className="cd-sidebar-cover-caption__change"
+                onClick={handleBrowseClick}
+                disabled={isUpdating}
+              >
+                Browse files
+              </button>
+              <button
+                type="button"
+                className="cd-sidebar-cover-caption__change"
+                onClick={onSelectFromCollection}
+                disabled={isUpdating}
+              >
+                {isUpdating ? 'Updating…' : 'Change'}
+              </button>
+            </div>
           </div>
         </>
       ) : (

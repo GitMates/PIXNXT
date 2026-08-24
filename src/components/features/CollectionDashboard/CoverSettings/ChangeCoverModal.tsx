@@ -3,6 +3,7 @@ import { ChangeCoverModalProps, CoverFocalPoint, CoverFocalSurfaceId, CoverFocal
 import { cn } from '../../../../lib/utils';
 import { isGalleryImagePhoto } from '../../../../lib/coverPhotoDrag';
 import { getPhotoFullDisplayUrl } from '../../../../lib/photoDisplayUrl';
+import { COVER_IMAGE_ACCEPT } from '../../../../lib/mediaFilePicker';
 import {
   COVER_FOCAL_SURFACE_IDS,
   COVER_FOCAL_SURFACES,
@@ -70,6 +71,7 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
   highlightsName = 'Highlights',
   onConfirm,
   saving = false,
+  onCoverFileSelect,
 }) => {
   const [view, setView] = useState<'pick' | 'edit'>(initialView);
   const [draftPhoto, setDraftPhoto] = useState<Photo | null>(coverPhoto || null);
@@ -78,6 +80,7 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
   const [dragging, setDragging] = useState(false);
   const [crosshairStyle, setCrosshairStyle] = useState({ left: '50%', top: '50%' });
   const imageRef = useRef<HTMLImageElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const imagePhotos = useMemo(() => photos.filter(isGalleryImagePhoto), [photos]);
 
@@ -174,6 +177,35 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
     setActivePoint(50, 50);
   };
 
+  const openFileBrowser = () => {
+    if (saving) return;
+    fileInputRef.current?.click();
+  };
+
+  const handleCoverFileInput = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !onCoverFileSelect) return;
+    const photo = await onCoverFileSelect(file);
+    if (photo) {
+      setDraftPhoto(photo);
+      setFocals(getDefaultCoverFocals() as CoverFocals);
+      setActiveSurface('desktop');
+      setView('edit');
+    }
+  };
+
+  const browseButton = onCoverFileSelect ? (
+    <button
+      type="button"
+      className="cover-modal-browse-btn"
+      onClick={openFileBrowser}
+      disabled={saving}
+    >
+      Browse from file
+    </button>
+  ) : null;
+
   const handleUseCover = () => {
     if (!editorSrc) {
       setView('pick');
@@ -210,13 +242,29 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
           </button>
         </div>
 
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="cd-cover-file-input"
+          accept={COVER_IMAGE_ACCEPT}
+          tabIndex={-1}
+          aria-hidden
+          onChange={(e) => void handleCoverFileInput(e)}
+        />
+
         {view === 'pick' ? (
           <div className="cover-modal-content">
             <div className="modal-collection-view">
+              {browseButton ? (
+                <div className="cover-modal-pick-toolbar">
+                  {browseButton}
+                  <span>or choose a photograph from this delivery</span>
+                </div>
+              ) : null}
               <div className="photo-grid-scroll">
                 {imagePhotos.length === 0 ? (
                   <div className="empty-collection-state">
-                    <p>No photos in this delivery yet. Add media to a set first.</p>
+                    <p>No photos in this delivery yet. Browse from file, or add media to a set first.</p>
                   </div>
                 ) : (
                   <div className="photo-selection-grid">
@@ -245,13 +293,16 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
                   <p className="cover-focal-source">
                     From <strong>{source.setName}</strong> · photograph {source.index}
                   </p>
-                  <button
-                    type="button"
-                    className="cover-focal-change-photo"
-                    onClick={() => setView('pick')}
-                  >
-                    Choose a different photograph
-                  </button>
+                  <div className="cover-focal-change-row">
+                    <button
+                      type="button"
+                      className="cover-focal-change-photo"
+                      onClick={() => setView('pick')}
+                    >
+                      Choose a different photograph
+                    </button>
+                    {browseButton}
+                  </div>
                 </div>
 
                 <div
