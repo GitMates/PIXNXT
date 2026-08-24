@@ -1,4 +1,5 @@
 import React from 'react';
+import { isVideoMedia } from '../../../../lib/photoDisplayUrl';
 import './PhotoOptionsMenu.css';
 
 export function PhotoOptionsMenu({
@@ -11,12 +12,14 @@ export function PhotoOptionsMenu({
   onMoveToSet,
   onToggleHidden,
   onDownloadOriginal,
+  onOpen,
   onWhoIsInThis,
   onRemove,
 }) {
   if (!photo) return null;
 
   const hidden = Boolean(photo.is_private);
+  const isVideo = isVideoMedia(photo);
 
   return (
     <>
@@ -38,7 +41,12 @@ export function PhotoOptionsMenu({
       <div className="cd-pom-divider" />
 
       <div className="cd-pom-section">
-        <p className="cd-pom-label">This photograph</p>
+        <p className="cd-pom-label">{isVideo ? 'This film' : 'This photograph'}</p>
+        {isVideo ? (
+          <button type="button" className="cd-pom-item" role="menuitem" onClick={() => onOpen?.(photo)}>
+            Open
+          </button>
+        ) : null}
         <button type="button" className={`cd-pom-item${isCover ? ' is-active' : ''}`} role="menuitem" onClick={() => onUseAsCover?.(photo)}>
           Use as the delivery cover
         </button>

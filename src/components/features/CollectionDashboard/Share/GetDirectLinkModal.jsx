@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { getCollectionShareUrl } from '../../../lib/shareCollection';
+import { getCollectionShareUrl } from '../../../../lib/shareCollection';
 import './GetDirectLinkModal.css';
 
 function CopyRow({

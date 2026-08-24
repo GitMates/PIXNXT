@@ -1601,7 +1601,7 @@ const GalleryView = () => {
     if (isFavoriteListMode) return favoriteListPhotos || [];
     const source = (collection.photos || []).filter((p) => isClientViewer || !p.is_private);
     return activeSetId
-      ? source.filter((p) => p.set_id === activeSetId)
+      ? source.filter((p) => String(p.set_id) === String(activeSetId))
       : source.filter((p) => !p.set_id);
   }, [collection, activeSetId, isFavoriteListMode, favoriteListPhotos, isClientViewer]);
 
@@ -2927,6 +2927,12 @@ const GalleryView = () => {
         watermarkOptions={getWatermarkOptions()}
         initialSetId={activeSetId}
         visitorEmail={email}
+        onOpenMedia={(photo) => {
+          const idx = filteredPhotos.findIndex((item) => item.id === photo.id);
+          setShowDownloadModal(false);
+          setSelectedDownloadPhoto(null);
+          if (idx >= 0) setLightboxIndex(idx);
+        }}
       />
 
       <ShareCollectionModal

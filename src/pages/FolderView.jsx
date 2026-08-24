@@ -8,6 +8,7 @@ import { openShareByEmail, getShareUrlForCollection } from '../lib/shareCollecti
 import { getFolderStudioUrl } from '../lib/folderStudioUrl';
 import { CollectionCardCover } from '../components/features/ClientGallery/CollectionCardCover';
 import { CollectionContextMenu } from '../components/features/ClientGallery/CollectionContextMenu';
+import { DeleteDeliveryModal } from '../components/features/ClientGallery/DeleteDeliveryModal';
 import { getCollectionCardCoverSrc } from '../lib/photoDisplayUrl';
 import { EditCollectionModal } from '../components/features/ClientGallery/EditCollectionModal';
 import {
@@ -61,6 +62,9 @@ const FolderView = () => {
   const [folderLinkOpen, setFolderLinkOpen] = useState(false);
   const [folderQrOpen, setFolderQrOpen] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
 
   const sortRef = useRef(null);
   const viewRef = useRef(null);
@@ -236,7 +240,7 @@ const FolderView = () => {
       if (viewRef.current && !viewRef.current.contains(e.target)) setShowViewDropdown(false);
       if (shareRef.current && !shareRef.current.contains(e.target)) setShowShareMenu(false);
       const inMenuPortal = e.target.closest?.(
-        '.cg-ctx-submenu--portal, .cg-ctx-submenu-bridge, .cgm-overlay, .cg-ctx-menu--portal'
+        '.cg-ctx-submenu--portal, .cg-ctx-submenu-bridge, .cgm-overlay, .cg-ctx-menu--portal, .dl-delete-overlay'
       );
       if (contextRef.current && !contextRef.current.contains(e.target) && !inMenuPortal) {
         closeContextMenu();
@@ -322,7 +326,7 @@ const FolderView = () => {
         }}
         onDelete={() => {
           closeContextMenu();
-          void handleDeleteCollection(collection.id);
+          setPendingDelete(collection);
         }}
       />
     );
@@ -352,14 +356,22 @@ const FolderView = () => {
     }
   };
 
-  const handleDeleteCollection = async (collectionId) => {
-    if (!window.confirm('Delete this delivery? All photos will be removed.')) return;
+  const handleConfirmDeleteCollection = async () => {
+    if (!pendingDelete) return;
+    const collectionId = pendingDelete.id;
+    setDeleteBusy(true);
     try {
       await galleryService.deleteCollection(collectionId);
+      setPendingDelete(null);
+      setDeletingId(collectionId);
+      await new Promise((resolve) => window.setTimeout(resolve, 280));
       setCollections((prev) => prev.filter((c) => c.id !== collectionId));
+      setDeletingId(null);
     } catch (err) {
       console.error(err);
       alert('Failed to delete delivery.');
+    } finally {
+      setDeleteBusy(false);
     }
   };
 
@@ -544,7 +556,7 @@ const FolderView = () => {
           {sortedCollections.map((collection) => (
             <div
               key={collection.id}
-              className={`cg-style-73 group ${contextMenuId === collection.id ? 'cg-style-73--ctx-open' : ''}`}
+              className={`cg-style-73 group ${contextMenuId === collection.id ? 'cg-style-73--ctx-open' : ''} ${deletingId === collection.id ? 'is-leaving' : ''}`}
               onClick={() => handleCardClick(collection)}
             >
               <div className={`cg-style-74 ${selectedCards.includes(collection.id) ? 'cg-style-74--selected' : ''}`}>
@@ -606,7 +618,7 @@ const FolderView = () => {
       {!loading && !error && sortedCollections.length > 0 && activeView === 'list' && (
         <div className="px-10 fv-list">
           {sortedCollections.map((collection) => (
-            <div key={collection.id} className="cg-style-52" onClick={() => handleCardClick(collection)}>
+            <div key={collection.id} className={`cg-style-52 ${deletingId === collection.id ? 'is-leaving' : ''}`} onClick={() => handleCardClick(collection)}>
               <div className="cg-style-48">
                 <div className="cg-style-53">
                   {getCoverSrc(collection) ? (
@@ -734,6 +746,15 @@ const FolderView = () => {
         onClose={() => setBulkEditOpen(false)}
         applying={bulkApplying}
         onApply={(payload) => applyBulkUpdate(payload, { closeEdit: true })}
+      />
+      <DeleteDeliveryModal
+        isOpen={Boolean(pendingDelete)}
+        name={pendingDelete?.name}
+        busy={deleteBusy}
+        onClose={() => {
+          if (!deleteBusy) setPendingDelete(null);
+        }}
+        onConfirm={handleConfirmDeleteCollection}
       />
     </main>
     </SidebarLayout >

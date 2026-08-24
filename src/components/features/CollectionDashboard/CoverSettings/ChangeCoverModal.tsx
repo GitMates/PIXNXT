@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ChangeCoverModalProps, CoverFocalPoint, CoverFocalSurfaceId, CoverFocals, Photo } from './ChangeCoverModal.types';
 import { cn } from '../../../../lib/utils';
 import { isGalleryImagePhoto } from '../../../../lib/coverPhotoDrag';
-import { getPhotoFullDisplayUrl } from '../../../../lib/photoDisplayUrl';
+import { getPhotoFullDisplayUrl, getPhotoGridDisplayUrl } from '../../../../lib/photoDisplayUrl';
 import { COVER_IMAGE_ACCEPT } from '../../../../lib/mediaFilePicker';
 import {
   COVER_FOCAL_SURFACE_IDS,
@@ -70,6 +70,7 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
   sets = [],
   highlightsName = 'Highlights',
   onConfirm,
+  onDraftChange,
   saving = false,
   onCoverFileSelect,
 }) => {
@@ -79,6 +80,7 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
   const [activeSurface, setActiveSurface] = useState<CoverFocalSurfaceId>('desktop');
   const [dragging, setDragging] = useState(false);
   const [crosshairStyle, setCrosshairStyle] = useState({ left: '50%', top: '50%' });
+  const [draftReady, setDraftReady] = useState(false);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -110,12 +112,16 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
   }, []);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      setDraftReady(false);
+      return;
+    }
     const hasCover = Boolean(coverUrl || coverPhoto);
     setView(initialView === 'pick' || !hasCover ? 'pick' : 'edit');
     setDraftPhoto(coverPhoto || null);
     setFocals(cloneFocals(initialFocals));
     setActiveSurface('desktop');
+    setDraftReady(true);
     // Re-init only when the modal opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
@@ -124,6 +130,13 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
     if (!isOpen || view !== 'edit') return;
     syncCrosshair(activePoint.x, activePoint.y);
   }, [isOpen, view, activeSurface, activePoint.x, activePoint.y, syncCrosshair, editorSrc]);
+
+  useEffect(() => {
+    if (!isOpen || !draftReady || !onDraftChange) return;
+    onDraftChange({ photo: resolvedPhoto, focals });
+    // Parent applies this to the live design preview; omit onDraftChange from deps to avoid render loops.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, draftReady, resolvedPhoto, focals]);
 
   const setActivePoint = useCallback((x: number, y: number) => {
     setFocals((prev) => {
@@ -274,7 +287,10 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
                         className="photo-grid-item"
                         onClick={() => handlePickPhoto(photo)}
                       >
-                        <img src={photo.thumbnail_url || photo.full_url || undefined} alt={photo.filename} />
+                        <img
+                          src={getPhotoGridDisplayUrl(photo) || photo.thumbnail_url || photo.web_url || photo.full_url || undefined}
+                          alt={photo.filename}
+                        />
                         <div className="photo-overlay">
                           <button type="button" className="use-photo-btn">Use as Cover</button>
                         </div>
@@ -378,6 +394,7 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
                 Nothing is re-uploaded — the point is stored with the delivery and applied everywhere.
               </p>
               <div className="cover-focal-actions">
+                {browseButton}
                 <button type="button" className="cover-focal-btn" onClick={handleCentre} disabled={saving}>
                   Centre it
                 </button>

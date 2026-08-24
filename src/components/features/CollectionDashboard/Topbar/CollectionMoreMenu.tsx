@@ -7,6 +7,8 @@ import { CollectionDuplicateModal } from '@/components/features/ClientGallery/Co
 import { supabase } from '@/lib/supabase/client';
 import { guestDeliveryGuestsService } from '@/services/guestDeliveryGuests.service';
 import { GetDirectLinkModal } from '@/components/features/CollectionDashboard/Share/GetDirectLinkModal';
+import { DeleteDeliveryModal } from '@/components/features/ClientGallery/DeleteDeliveryModal';
+import { DELIVERY_PRODUCT_HOME } from '@/lib/deliveryIds';
 
 export interface CollectionMoreMenuProps {
   collectionId?: string | null;
@@ -46,7 +48,6 @@ export function CollectionMoreMenu({
   onOpenAccessSettings,
   onPasswordChange,
   onPinChange,
-  photographerProfile,
 }: CollectionMoreMenuProps) {
   const navigate = useNavigate();
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -65,7 +66,6 @@ export function CollectionMoreMenu({
   const [moveOpen, setMoveOpen] = useState(false);
   const [duplicateOpen, setDuplicateOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [setsLiveCount, setSetsLiveCount] = useState<number | null>(null);
   const [storageLabel, setStorageLabel] = useState<string>('');
@@ -401,7 +401,6 @@ export function CollectionMoreMenu({
             role="menuitem"
             onClick={() => {
               closeAll();
-              setDeleteConfirm(false);
               setDeleteOpen(true);
             }}
           >
@@ -719,62 +718,27 @@ export function CollectionMoreMenu({
         }}
       />
 
-      {deleteOpen && (
-        <div className="cd-modal-overlay" onClick={() => setDeleteOpen(false)}>
-          <div className="cd-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '450px' }}>
-            <div className="cd-modal-header">
-              <h3 className="cd-modal-title">DELETE DELIVERY</h3>
-              <button type="button" className="cd-modal-close" onClick={() => setDeleteOpen(false)} aria-label="Close">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            </div>
-            <div className="cd-modal-body" style={{ padding: '24px' }}>
-              <p style={{ fontSize: '14px', color: '#555', marginBottom: '16px' }}>Are you sure you want to delete this delivery?</p>
-              <p style={{ fontSize: '14px', color: '#555', marginBottom: '24px' }}>
-                <strong>Warning:</strong> All photos and past activities will be permanently removed.
-              </p>
-              <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={deleteConfirm}
-                  onChange={(e) => setDeleteConfirm(e.target.checked)}
-                  style={{ marginTop: '4px', width: '16px', height: '16px' }}
-                />
-                <span style={{ fontSize: '13px', color: '#333' }}>I accept that this delivery will be permanently deleted</span>
-              </label>
-            </div>
-            <div className="cd-modal-footer">
-              <button type="button" className="cd-cancel-btn" onClick={() => setDeleteOpen(false)}>
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="cd-save-btn"
-                style={{ backgroundColor: '#e53e3e', borderColor: '#e53e3e', opacity: deleteConfirm ? 1 : 0.5 }}
-                disabled={!deleteConfirm || !collectionId || busy}
-                onClick={async () => {
-                  if (!collectionId) return;
-                  try {
-                    setBusy(true);
-                    await galleryService.deleteCollection(collectionId);
-                    setDeleteOpen(false);
-                    navigate('/dashboard');
-                  } catch (err) {
-                    console.error(err);
-                    alert('Failed to delete delivery.');
-                    setBusy(false);
-                  }
-                }}
-              >
-                {busy ? 'Deleting…' : 'Delete'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <DeleteDeliveryModal
+        isOpen={deleteOpen}
+        name={collectionName}
+        busy={busy}
+        onClose={() => {
+          if (!busy) setDeleteOpen(false);
+        }}
+        onConfirm={async () => {
+          if (!collectionId) return;
+          try {
+            setBusy(true);
+            await galleryService.deleteCollection(collectionId);
+            setDeleteOpen(false);
+            navigate(DELIVERY_PRODUCT_HOME);
+          } catch (err) {
+            console.error(err);
+            alert('Failed to delete delivery.');
+            setBusy(false);
+          }
+        }}
+      />
     </div>
   );
 }

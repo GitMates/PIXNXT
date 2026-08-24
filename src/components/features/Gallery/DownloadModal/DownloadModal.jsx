@@ -19,6 +19,7 @@ import {
   isGoogleDriveSignInRestrictedError,
   saveGalleryToGoogleDrive,
 } from '@/lib/googleDriveUpload';
+import { getPhotoVideoSrc, isVideoMedia } from '@/lib/photoDisplayUrl';
 import './DownloadModal.css';
 
 const LARGE_ZIP_BYTES = 4 * 1024 ** 3;
@@ -168,6 +169,7 @@ export const DownloadModal = ({
   watermarkOptions = null,
   initialSetId = 'all',
   visitorEmail = '',
+  onOpenMedia,
 }) => {
   const [step, setStep] = useState('auth'); // auth -> selection -> preparing -> complete
   const [email, setEmail] = useState('');
@@ -318,6 +320,20 @@ export const DownloadModal = ({
       return checkedSetKeys.has(String(p.set_id));
     });
   }, [whatScope, thisPhotographPhotos, allowedPhotos, checkedSetKeys]);
+
+  const singleMedia = thisPhotographPhotos[0] || null;
+  const isSingleVideo = Boolean(singleMedia && isVideoMedia(singleMedia));
+
+  const handleOpenSingleVideo = () => {
+    if (!singleMedia) return;
+    if (typeof onOpenMedia === 'function') {
+      onOpenMedia(singleMedia);
+      onClose();
+      return;
+    }
+    const src = getPhotoVideoSrc(singleMedia);
+    if (src) window.open(src, '_blank', 'noopener,noreferrer');
+  };
 
   const selectionSummary = useMemo(
     () => statsForPhotos(resolvedSelectionPhotos, { includeFilesLabel: true, resolution: resolutionChoice }),
@@ -1011,9 +1027,22 @@ export const DownloadModal = ({
 
                 {whatScope === 'single' ? (
                   <div className="dl-scope-panel">
-                    {initialPhoto
-                      ? 'Just the photograph you are looking at.'
-                      : 'Just the set you are looking at.'}
+                    {isSingleVideo ? (
+                      <>
+                        <p className="dl-scope-panel__text">Just this film.</p>
+                        <button
+                          type="button"
+                          className="dl-open-film-btn"
+                          onClick={handleOpenSingleVideo}
+                        >
+                          Open
+                        </button>
+                      </>
+                    ) : initialPhoto ? (
+                      'Just the photograph you are looking at.'
+                    ) : (
+                      'Just the set you are looking at.'
+                    )}
                   </div>
                 ) : null}
 
@@ -1045,10 +1074,14 @@ export const DownloadModal = ({
                 ) : null}
               </section>
 
-              {offeredPhotoResolutions.length > 0 && !(whatScope === 'single' && thisPhotographPhotos[0]?.media_type === 'video') ? (
+              {offeredPhotoResolutions.length > 0 && !(whatScope === 'single' && isSingleVideo) ? (
                 <section className="dl-section">
                   <span className="dl-section-label">Size</span>
-                  <div className={cn('dl-size-grid', offeredPhotoResolutions.length === 1 && 'dl-size-grid--one')}>
+                  <div className={cn(
+                    'dl-size-grid',
+                    offeredPhotoResolutions.length === 1 && 'dl-size-grid--one',
+                    offeredPhotoResolutions.length === 2 && 'dl-size-grid--two',
+                  )}>
                     {offeredPhotoResolutions.includes('web') ? (
                       <button
                         type="button"
@@ -1118,21 +1151,6 @@ export const DownloadModal = ({
                       <span className="dl-where-row__connect">Connect</span>
                     ) : null}
                   </button>
-
-                  <div className="dl-where-row is-disabled">
-                    <Cloud size={16} strokeWidth={1.5} className="dl-where-row__icon" />
-                    <span className="dl-where-row__copy">
-                      <span className="dl-where-row__title">Dropbox</span>
-                      <span className="dl-where-row__desc">Straight to your Dropbox</span>
-                    </span>
-                    <button
-                      type="button"
-                      className="dl-where-row__connect"
-                      onClick={() => alert('Dropbox is not connected yet. Use Save to this device or Google Drive.')}
-                    >
-                      Connect
-                    </button>
-                  </div>
                 </div>
 
                 {!googleDriveAvailable && downloadDestination === 'google_drive' ? (

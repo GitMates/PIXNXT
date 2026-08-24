@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { DesignTabProps } from './DesignTab.types';
 import {
@@ -12,6 +12,7 @@ import { galleryGridStyleLabel } from '../../../../lib/galleryGridStyle';
 import { cn } from '../../../../lib/utils';
 import { normalizeFontId, normalizePaletteId } from '../../../../lib/normalizeDesignTokens';
 import { coverImageCssStyle } from '../../../../lib/focalPoint';
+import { COVER_IMAGE_ACCEPT } from '../../../../lib/mediaFilePicker';
 import './DesignWorkspace.css';
 
 const FEATURED_COVER_IDS: CoverStyleId[] = [
@@ -270,9 +271,11 @@ export const DesignPanel: React.FC<DesignTabProps> = ({
   onSettingsChange,
   onOpenCoverModal,
   onOpenFocalModal,
+  onCoverFileSelect,
 }) => {
   const featuredCovers = coversByIds(FEATURED_COVER_IDS);
   const moreCovers = coversByIds(MORE_COVER_IDS);
+  const coverFileInputRef = useRef<HTMLInputElement | null>(null);
   const [moreCoversOpen, setMoreCoversOpen] = useState(() =>
     MORE_COVER_IDS.includes(settings.coverStyle)
   );
@@ -317,6 +320,30 @@ export const DesignPanel: React.FC<DesignTabProps> = ({
           <div className="cd-design-panel__section-head">
             <h3 className="cd-design-panel__section-title">Cover layout</h3>
             <div className="cd-design-panel__cover-actions">
+              {onCoverFileSelect ? (
+                <>
+                  <input
+                    ref={coverFileInputRef}
+                    type="file"
+                    className="cd-cover-file-input"
+                    accept={COVER_IMAGE_ACCEPT}
+                    tabIndex={-1}
+                    aria-hidden
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = '';
+                      if (file) void onCoverFileSelect(file);
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="cd-design-panel__link-btn"
+                    onClick={() => coverFileInputRef.current?.click()}
+                  >
+                    Browse from file
+                  </button>
+                </>
+              ) : null}
               <button type="button" className="cd-design-panel__link-btn" onClick={onOpenCoverModal}>
                 Cover photo
               </button>

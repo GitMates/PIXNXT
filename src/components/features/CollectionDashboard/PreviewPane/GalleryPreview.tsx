@@ -271,8 +271,8 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
   const photosForActiveSet = useMemo(() => {
     const activeId = dashboardState?.activeSetId;
     return activeId
-      ? gridPhotos.filter((p: any) => p.set_id === activeId)
-      : gridPhotos.filter((p: any) => !p.set_id || p.set_id == null);
+      ? gridPhotos.filter((p: any) => String(p.set_id) === String(activeId))
+      : gridPhotos.filter((p: any) => !p.set_id);
   }, [gridPhotos, dashboardState?.activeSetId]);
 
   const gallerySortKey = normalizeGalleryPhotoSort(dashboardState?.galleryPhotoSort);
@@ -968,6 +968,12 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
         sets={dashboardState?.sets || []}
         initialPhoto={selectedDownloadPhoto}
         initialSetId={dashboardState?.activeSetId || 'all'}
+        onOpenMedia={(photo) => {
+          const idx = filteredPhotos.findIndex((item) => item.id === photo.id);
+          setShowDownloadModal(false);
+          setSelectedDownloadPhoto(null);
+          if (idx >= 0) setLightboxIndex(idx);
+        }}
       />
 
       <ShareCollectionModal

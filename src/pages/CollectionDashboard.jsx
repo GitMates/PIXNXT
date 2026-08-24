@@ -26,6 +26,7 @@ import { DesignTab } from '../components/features/CollectionDashboard/DesignTab'
 import '../components/features/CollectionDashboard/DesignTab/DesignWorkspace.css';
 import { PreviewPane } from '../components/features/CollectionDashboard/PreviewPane';
 import { ChangeCoverModal } from '../components/features/CollectionDashboard/CoverSettings/ChangeCoverModal';
+import { DeleteDeliveryModal } from '../components/features/ClientGallery/DeleteDeliveryModal';
 import { GetDirectLinkModal } from '../components/features/CollectionDashboard/Share/GetDirectLinkModal';
 import { CollectionDashboardSidebar } from '../components/features/CollectionDashboard/Sidebar/CollectionDashboardSidebar';
 import { SetOptionsMenu } from '../components/features/CollectionDashboard/Sidebar/SetOptionsMenu';
@@ -110,8 +111,10 @@ import { RawPhotoPlaceholder } from '../components/features/CollectionDashboard/
 import {
     getPhotoFullDisplayUrl,
     getPhotoOriginalFileUrl,
+    getPhotoVideoSrc,
     hasRawDisplayPreview,
     isRawMedia,
+    isVideoMedia,
 } from '../lib/photoDisplayUrl';
 import { formatCoverDate, formatSidebarDeliveryDate, formatLastSavedTime } from '../lib/formatCoverDate.js';
 import { broadcastGalleryLive } from '../lib/galleryLiveSync';
@@ -294,7 +297,7 @@ const CollectionDashboard = () => {
     const [showMoveToModal, setShowMoveToModal] = useState(false);
     const [showDuplicateModal, setShowDuplicateModal] = useState(false);
     const [showDeleteCollectionModal, setShowDeleteCollectionModal] = useState(false);
-    const [deleteCollectionConfirm, setDeleteCollectionConfirm] = useState(false);
+    const [deleteDeliveryBusy, setDeleteDeliveryBusy] = useState(false);
     const [showRenameDeliveryModal, setShowRenameDeliveryModal] = useState(false);
     const [renameDeliveryName, setRenameDeliveryName] = useState('');
     const [showArchiveConfirmModal, setShowArchiveConfirmModal] = useState(false);
@@ -414,7 +417,7 @@ const CollectionDashboard = () => {
             ...s,
             isHighlights: false,
             isPrivate: s.is_private === true,
-            photoCount: photos.filter((p) => p.set_id === s.id).length,
+            photoCount: photos.filter((p) => String(p.set_id) === String(s.id)).length,
         }));
         const highlightsItem = highlightsEnabled
             ? {
@@ -1043,6 +1046,8 @@ const CollectionDashboard = () => {
     const moveMenuPortalRef = useRef(null);
     const favoriteActivityMenuRef = useRef(null);
     const mediaSyncReadyRef = useRef(false);
+    const coverDraftBackupRef = useRef(null);
+    const coverDraftDirtyRef = useRef(false);
 
     const updateMoveMenuPosition = useCallback(() => {
         const anchor = moveToSetRef.current?.querySelector('.cd-sel-action-btn');
@@ -1537,8 +1542,9 @@ const CollectionDashboard = () => {
         return null;
     }, [photos, collection?.cover_photo_id, collection?.cover_url]);
 
-    const applyCoverLocal = (patch) => {
+    const applyCoverLocal = (patch, { live = true } = {}) => {
         setCollection((prev) => (prev ? { ...prev, ...patch } : prev));
+        if (!live) return;
         broadcastGalleryLive({
             type: 'SETTINGS_UPDATED',
             collectionId,
@@ -1586,6 +1592,7 @@ const CollectionDashboard = () => {
             : (collection?.cover_url || '');
         if (!coverUrl || !collectionId) return;
         const primary = focals?.desktop || focals?.website || { x: 50, y: 50 };
+        coverDraftDirtyRef.current = false;
         applyCoverLocal({
             cover_url: coverUrl,
             cover_photo_id: photo?.id ?? collection?.cover_photo_id,
@@ -1619,6 +1626,7 @@ const CollectionDashboard = () => {
             });
             setShowCoverModal(false);
             setCoverModalScope('all');
+            setCoverModalPhotoOverride(null);
         } catch (err) {
             console.error('Failed to save delivery cover:', err);
             const detail = err?.message ? `\n\n${err.message}` : '';
@@ -1635,6 +1643,14 @@ const CollectionDashboard = () => {
     const handleUseAsDeliveryCover = (photo) => {
         if (!photo) return;
         closePhotoMenu();
+        coverDraftBackupRef.current = {
+            cover_url: collection?.cover_url,
+            cover_photo_id: collection?.cover_photo_id,
+            cover_focals: collection?.cover_focals,
+            cover_focal_x: collection?.cover_focal_x,
+            cover_focal_y: collection?.cover_focal_y,
+        };
+        coverDraftDirtyRef.current = false;
         setCoverModalPhotoOverride(photo);
         setCoverModalScope('all');
         setCoverModalInitialView('edit');
@@ -1656,7 +1672,24 @@ const CollectionDashboard = () => {
             return;
         }
 
-        const uploadSetId = highlightsEnabled ? activeSetId : (activeSetId ?? sets[0]?.id ?? null);
+        let uploadSetId = highlightsEnabled ? activeSetId : (activeSetId ?? sets[0]?.id ?? null);
+        if (showCoverModal && coverModalScope && coverModalScope !== 'all') {
+            uploadSetId = coverModalScope === 'highlights' ? null : coverModalScope;
+        } else if (!uploadSetId) {
+            const highlightsHasPhotos = photos.some((p) => !p.set_id);
+            if (!highlightsHasPhotos && sets.length > 0) {
+                let best = sets[0];
+                let bestCount = -1;
+                for (const setRow of sets) {
+                    const count = photos.filter((p) => String(p.set_id) === String(setRow.id)).length;
+                    if (count > bestCount) {
+                        best = setRow;
+                        bestCount = count;
+                    }
+                }
+                uploadSetId = best?.id ?? null;
+            }
+        }
         const defaultFocals = getDefaultCoverFocals();
         const previewUrl = URL.createObjectURL(file);
         const previousCover = {
@@ -1682,10 +1715,37 @@ const CollectionDashboard = () => {
                 photos.length,
                 uploadSetId
             );
-            setPhotos((prev) => [...prev, photoData]);
-            if (isRawMedia(photoData) && !hasRawDisplayPreview(photoData)) {
+            if (!photoData?.id) {
+                throw new Error('Cover upload did not return a photo.');
+            }
+
+            const photoRow = {
+                ...photoData,
+                set_id: photoData.set_id ?? uploadSetId ?? null,
+                collection_id: photoData.collection_id ?? collectionId,
+            };
+            if (uploadSetId && String(photoData.set_id || '') !== String(uploadSetId)) {
+                try {
+                    const updated = await galleryService.updatePhoto(photoRow.id, { set_id: uploadSetId });
+                    Object.assign(photoRow, updated, { set_id: uploadSetId });
+                } catch (err) {
+                    console.warn('Could not assign cover photo to set:', err);
+                    photoRow.set_id = uploadSetId;
+                }
+            }
+
+            setPhotos((prev) => {
+                if (prev.some((p) => p.id === photoRow.id)) {
+                    return prev.map((p) => (p.id === photoRow.id ? { ...p, ...photoRow } : p));
+                }
+                return [...prev, photoRow];
+            });
+            if ((uploadSetId ?? null) !== (activeSetId ?? null)) {
+                setActiveSetId(uploadSetId);
+            }
+            if (isRawMedia(photoRow) && !hasRawDisplayPreview(photoRow)) {
                 void galleryService
-                    .repairRawPhotoPreview(photoData)
+                    .repairRawPhotoPreview(photoRow)
                     .then((updated) => {
                         if (updated?.id) {
                             setPhotos((prev) =>
@@ -1694,20 +1754,20 @@ const CollectionDashboard = () => {
                         }
                     })
                     .catch((err) =>
-                        console.warn('RAW preview backfill failed:', photoData.filename, err)
+                        console.warn('RAW preview backfill failed:', photoRow.filename, err)
                     );
             }
 
-            const coverUrl = getPhotoFullDisplayUrl(photoData) || getPhotoOriginalFileUrl(photoData);
+            const coverUrl = getPhotoFullDisplayUrl(photoRow) || getPhotoOriginalFileUrl(photoRow);
             URL.revokeObjectURL(previewUrl);
             if (!coverUrl) {
                 applyCoverLocal(previousCover);
                 alert('Cover image is still processing. Try again in a moment.');
-                return;
+                return photoRow;
             }
             applyCoverLocal({
                 cover_url: coverUrl,
-                cover_photo_id: photoData.id,
+                cover_photo_id: photoRow.id,
                 cover_focals: defaultFocals,
                 cover_focal_x: 50,
                 cover_focal_y: 50,
@@ -1716,9 +1776,17 @@ const CollectionDashboard = () => {
                 collectionId,
                 coverUrl,
                 defaultFocals,
-                { cover_photo_id: photoData.id }
+                { cover_photo_id: photoRow.id }
             );
-            return photoData;
+            coverDraftBackupRef.current = {
+                cover_url: coverUrl,
+                cover_photo_id: photoRow.id,
+                cover_focals: defaultFocals,
+                cover_focal_x: 50,
+                cover_focal_y: 50,
+            };
+            coverDraftDirtyRef.current = false;
+            return photoRow;
         } catch (err) {
             URL.revokeObjectURL(previewUrl);
             applyCoverLocal(previousCover);
@@ -2662,9 +2730,9 @@ const CollectionDashboard = () => {
     const sortedPhotos = useMemo(() => {
         let filtered = photos;
         if (activeSetId) {
-            filtered = photos.filter(p => p.set_id === activeSetId);
+            filtered = photos.filter((p) => String(p.set_id) === String(activeSetId));
         } else {
-            filtered = photos.filter(p => !p.set_id);
+            filtered = photos.filter((p) => !p.set_id);
         }
 
         return sortDashboardPhotos(filtered, sortOption);
@@ -3104,19 +3172,47 @@ const CollectionDashboard = () => {
     const coverModalPhotos = useMemo(() => {
         if (coverModalScope === 'all') return photos;
         if (coverModalScope === 'highlights') return photos.filter((p) => !p.set_id);
-        return photos.filter((p) => p.set_id === coverModalScope);
+        return photos.filter((p) => String(p.set_id) === String(coverModalScope));
     }, [photos, coverModalScope]);
 
     const openCoverModal = (scope = 'all', view = 'edit') => {
+        coverDraftBackupRef.current = {
+            cover_url: collection?.cover_url,
+            cover_photo_id: collection?.cover_photo_id,
+            cover_focals: collection?.cover_focals,
+            cover_focal_x: collection?.cover_focal_x,
+            cover_focal_y: collection?.cover_focal_y,
+        };
+        coverDraftDirtyRef.current = false;
         setCoverModalScope(scope);
         setCoverModalInitialView(view);
         setShowCoverModal(true);
     };
 
     const closeCoverModal = () => {
+        if (coverDraftDirtyRef.current && coverDraftBackupRef.current) {
+            applyCoverLocal(coverDraftBackupRef.current, { live: false });
+        }
+        coverDraftDirtyRef.current = false;
         setShowCoverModal(false);
         setCoverModalScope('all');
         setCoverModalPhotoOverride(null);
+    };
+
+    const handleCoverDraftChange = ({ photo, focals }) => {
+        const coverUrl = photo
+            ? (getPhotoFullDisplayUrl(photo) || getPhotoOriginalFileUrl(photo) || collection?.cover_url)
+            : (collection?.cover_url || '');
+        if (!coverUrl) return;
+        const primary = focals?.desktop || focals?.website || { x: 50, y: 50 };
+        coverDraftDirtyRef.current = true;
+        applyCoverLocal({
+            cover_url: coverUrl,
+            cover_photo_id: photo?.id ?? collection?.cover_photo_id,
+            cover_focals: focals,
+            cover_focal_x: primary.x,
+            cover_focal_y: primary.y,
+        }, { live: false });
     };
 
     useEffect(() => {
@@ -4549,7 +4645,6 @@ const CollectionDashboard = () => {
                                         setShowMoreDropdown(false);
                                         setShowPresetsSubmenu(false);
                                         setShowDeleteCollectionModal(true);
-                                        setDeleteCollectionConfirm(false);
                                     }}
                                 >
                                     <span>Delete delivery</span>
@@ -4886,6 +4981,11 @@ const CollectionDashboard = () => {
                                     Star
                                 </button>
                                 {selectedPhotos.length === 1 && (
+                                    <button type="button" className="cd-sel-action-btn" onClick={handleSelectionOpen}>
+                                        Open
+                                    </button>
+                                )}
+                                {selectedPhotos.length === 1 && (
                                     <button type="button" className="cd-sel-action-btn" onClick={handleSelectionSetAsCover}>
                                         Set as cover
                                     </button>
@@ -5031,6 +5131,20 @@ const CollectionDashboard = () => {
                                                         ) : null}
                                                     </button>
                                                     <div className={`cd-photo-hover-tools${photo.is_starred ? ' cd-photo-hover-tools--starred' : ''}`}>
+                                                        {isVideoMedia(photo) ? (
+                                                            <button
+                                                                type="button"
+                                                                className="cd-photo-open-btn"
+                                                                aria-label="Open video"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    const idx = sortedPhotos.findIndex((item) => item.id === photo.id);
+                                                                    setLightboxOpenIndex(idx >= 0 ? idx : 0);
+                                                                }}
+                                                            >
+                                                                Open
+                                                            </button>
+                                                        ) : null}
                                                         <button
                                                             type="button"
                                                             className={`cd-photo-star ${photo.is_starred ? 'active' : ''}`}
@@ -5216,6 +5330,7 @@ const CollectionDashboard = () => {
                                     onOpenFocalModal={() =>
                                         openCoverModal('all', collection?.cover_url ? 'edit' : 'pick')
                                     }
+                                    onCoverFileSelect={(file) => void handleCoverFileSelect(file)}
                                 />
                             </div>
                         )}
@@ -5500,6 +5615,11 @@ const CollectionDashboard = () => {
                                         closePhotoMenu();
                                         void handleDownloadPhoto(p);
                                     }}
+                                    onOpen={(p) => {
+                                        closePhotoMenu();
+                                        const idx = sortedPhotos.findIndex((item) => item.id === p.id);
+                                        setLightboxOpenIndex(idx >= 0 ? idx : 0);
+                                    }}
                                     onWhoIsInThis={handleWhoIsInThis}
                                     onRemove={(p) => {
                                         closePhotoMenu();
@@ -5675,6 +5795,7 @@ const CollectionDashboard = () => {
                 highlightsName={highlightsName}
                 saving={isCoverUploading}
                 onConfirm={handleCoverModalConfirm}
+                onDraftChange={handleCoverDraftChange}
                 onCoverFileSelect={handleCoverFileSelect}
             />
 
@@ -6091,53 +6212,26 @@ const CollectionDashboard = () => {
                 </div>
             )}
 
-            {/* Delete Delivery Modal */}
-            {showDeleteCollectionModal && (
-                <div className="cd-modal-overlay" onClick={() => setShowDeleteCollectionModal(false)}>
-                    <div className="cd-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '450px' }}>
-                        <div className="cd-modal-header">
-                            <h3 className="cd-modal-title">DELETE DELIVERY</h3>
-                            <button className="cd-modal-close" onClick={() => setShowDeleteCollectionModal(false)}>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                            </button>
-                        </div>
-                        <div className="cd-modal-body" style={{ padding: '24px' }}>
-                            <p style={{ fontSize: '14px', color: '#555', marginBottom: '16px' }}>Are you sure you want to delete this delivery?</p>
-                            <p style={{ fontSize: '14px', color: '#555', marginBottom: '24px' }}><strong>Warning:</strong> All photos and past activities will be permanently removed.</p>
-                            <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer' }}>
-                                <input
-                                    type="checkbox"
-                                    checked={deleteCollectionConfirm}
-                                    onChange={(e) => setDeleteCollectionConfirm(e.target.checked)}
-                                    style={{ marginTop: '4px', width: '16px', height: '16px' }}
-                                />
-                                <span style={{ fontSize: '13px', color: '#333' }}>I accept that this delivery will be permanently deleted</span>
-                            </label>
-                        </div>
-                        <div className="cd-modal-footer">
-                            <button className="cd-cancel-btn" onClick={() => setShowDeleteCollectionModal(false)}>Cancel</button>
-                            <button
-                                className="cd-save-btn"
-                                style={{ backgroundColor: '#e53e3e', borderColor: '#e53e3e', opacity: deleteCollectionConfirm ? 1 : 0.5 }}
-                                disabled={!deleteCollectionConfirm || saving}
-                                onClick={async () => {
-                                    try {
-                                        setSaving(true);
-                                        await galleryService.deleteCollection(collectionId);
-                                        navigate(backTo);
-                                    } catch (err) {
-                                        console.error('Failed to delete collection:', err);
-                                        alert('Failed to delete delivery. Please try again.');
-                                        setSaving(false);
-                                    }
-                                }}
-                            >
-                                {saving ? 'Deleting...' : 'Delete'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <DeleteDeliveryModal
+                isOpen={showDeleteCollectionModal}
+                name={collection?.name}
+                busy={deleteDeliveryBusy}
+                onClose={() => {
+                    if (!deleteDeliveryBusy) setShowDeleteCollectionModal(false);
+                }}
+                onConfirm={async () => {
+                    try {
+                        setDeleteDeliveryBusy(true);
+                        await galleryService.deleteCollection(collectionId);
+                        setShowDeleteCollectionModal(false);
+                        navigate(backTo);
+                    } catch (err) {
+                        console.error('Failed to delete collection:', err);
+                        alert('Failed to delete delivery. Please try again.');
+                        setDeleteDeliveryBusy(false);
+                    }
+                }}
+            />
             {/* Rename Modal */}
             {showRenameModal && (
                 <div className="cd-modal-overlay">
@@ -6277,14 +6371,13 @@ const CollectionDashboard = () => {
                         )}
 
                         {/* Image / Video / RAW */}
-                        {/\.(mp4|webm|ogg|mov)$/i.test(lbPhoto.filename || lbPhoto.full_url || '') ? (
+                        {isVideoMedia(lbPhoto) ? (
                             <video
-                                src={lbPhoto.full_url}
+                                src={getPhotoVideoSrc(lbPhoto) || lbPhoto.full_url || lbPhoto.web_url}
                                 className="cd-lightbox-image"
                                 style={{ maxHeight: 'calc(100vh - 200px)', maxWidth: '100%', objectFit: 'contain' }}
                                 controls
                                 autoPlay
-                                loop
                                 playsInline
                                 onClick={(e) => e.stopPropagation()}
                             />

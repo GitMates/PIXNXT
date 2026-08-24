@@ -199,6 +199,7 @@ export function SidebarCoverUpload({
       {hasCover ? (
         <>
           <img
+            key={coverUrl.split('#')[0]}
             src={coverUrl.split('#')[0]}
             alt="Delivery cover"
             draggable={false}

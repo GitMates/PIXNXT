@@ -28,6 +28,7 @@ export function CoverPhoto({ photoUrl, focalX, focalY, className, alt = '' }: Co
   if (!src) return null;
   return (
     <img
+      key={src}
       src={src}
       alt={alt}
       className={cn('h-full w-full object-cover', className)}

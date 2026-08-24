@@ -591,6 +591,18 @@
   flex-shrink: 0;
 }
 
+.cover-focal-actions .cover-modal-browse-btn {
+  margin-right: auto;
+  padding: 8px 4px;
+  color: #e06b3a;
+  font-size: 13px;
+}
+
+.cover-focal-actions .cover-modal-browse-btn:hover:not(:disabled) {
+  color: #c45a2e;
+  text-decoration: underline;
+}
+
 .cover-focal-btn {
   padding: 8px 18px;
   border: 1px solid #d0d0d0;

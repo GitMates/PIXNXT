@@ -16,6 +16,7 @@ import { buildDeliveryStatusPatch } from '../lib/deliveryStatus';
 import { openShareByEmail, openWhatsAppShare, getShareUrlForCollection } from '../lib/shareCollection';
 import { CollectionCardCover } from '../components/features/ClientGallery/CollectionCardCover';
 import { CollectionContextMenu } from '../components/features/ClientGallery/CollectionContextMenu';
+import { DeleteDeliveryModal } from '../components/features/ClientGallery/DeleteDeliveryModal';
 import { getCollectionCardCoverSrc } from '../lib/photoDisplayUrl';
 import { FolderThumbGrid } from '../components/features/ClientGallery/FolderThumbGrid';
 import { EditCollectionModal } from '../components/features/ClientGallery/EditCollectionModal';
@@ -144,6 +145,9 @@ const ClientGallery = () => {
     const [bulkMoveOpen, setBulkMoveOpen] = useState(false);
     const [bulkApplying, setBulkApplying] = useState(false);
     const [showSelectionMenu, setShowSelectionMenu] = useState(false);
+    const [pendingDelete, setPendingDelete] = useState(null);
+    const [deleteBusy, setDeleteBusy] = useState(false);
+    const [deletingId, setDeletingId] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
     const sortRef = useRef(null);
     const filterRef = useRef(null);
@@ -561,7 +565,7 @@ const ClientGallery = () => {
                 onArchive={() => handleArchiveCollection(collection)}
                 onDelete={() => {
                     closeContextMenu();
-                    handleDeleteCollection(collection.id);
+                    setPendingDelete(collection);
                 }}
             />
         );
@@ -584,15 +588,22 @@ const ClientGallery = () => {
         });
     };
 
-    const handleDeleteCollection = async (collectionId) => {
-        if (!window.confirm('Are you sure you want to delete this delivery? All photos will be removed.')) return;
-        
+    const handleConfirmDeleteCollection = async () => {
+        if (!pendingDelete) return;
+        const collectionId = pendingDelete.id;
+        setDeleteBusy(true);
         try {
             await galleryService.deleteCollection(collectionId);
-            setCollections(prev => prev.filter(c => c.id !== collectionId));
+            setPendingDelete(null);
+            setDeletingId(collectionId);
+            await new Promise((resolve) => window.setTimeout(resolve, 280));
+            setCollections((prev) => prev.filter((c) => c.id !== collectionId));
+            setDeletingId(null);
         } catch (err) {
             console.error('Error deleting collection:', err);
             alert('Failed to delete delivery.');
+        } finally {
+            setDeleteBusy(false);
         }
     };
 
@@ -601,7 +612,7 @@ const ClientGallery = () => {
         const handleClickOutside = (e) => {
             if (sortRef.current && !sortRef.current.contains(e.target)) setShowSortDropdown(false);
             if (filterRef.current && !filterRef.current.contains(e.target)) setShowFilterPanel(false);
-            const inSharePortal = e.target.closest?.('.cg-ctx-submenu--portal, .cg-ctx-submenu-bridge, .cgm-overlay');
+            const inSharePortal = e.target.closest?.('.cg-ctx-submenu--portal, .cg-ctx-submenu-bridge, .cgm-overlay, .dl-delete-overlay');
             if (
                 contextRef.current &&
                 !contextRef.current.contains(e.target) &&
@@ -856,6 +867,7 @@ const ClientGallery = () => {
                                                 'dl-card',
                                                 contextMenuId === collection.id && 'is-menu',
                                                 selectedCards.includes(collection.id) && 'is-selected',
+                                                deletingId === collection.id && 'is-leaving',
                                             )}
                                             onClick={(e) => handleCardClick(collection, e)}
                                         >
@@ -977,6 +989,7 @@ const ClientGallery = () => {
                                                 'dl-row',
                                                 contextMenuId === collection.id && 'is-menu',
                                                 selectedCards.includes(collection.id) && 'is-selected',
+                                                deletingId === collection.id && 'is-leaving',
                                             )}
                                             onClick={(e) => handleCardClick(collection, e)}
                                         >
@@ -1206,6 +1219,15 @@ const ClientGallery = () => {
                 />
                 <FolderDirectLinkModal folder={folderDirectLink} isOpen={Boolean(folderDirectLink)} onClose={() => setFolderDirectLink(null)} />
                 <FolderQrModal folder={folderQr} isOpen={Boolean(folderQr)} onClose={() => setFolderQr(null)} />
+                <DeleteDeliveryModal
+                    isOpen={Boolean(pendingDelete)}
+                    name={pendingDelete?.name}
+                    busy={deleteBusy}
+                    onClose={() => {
+                        if (!deleteBusy) setPendingDelete(null);
+                    }}
+                    onConfirm={handleConfirmDeleteCollection}
+                />
             </main>
         </SidebarLayout>
     );

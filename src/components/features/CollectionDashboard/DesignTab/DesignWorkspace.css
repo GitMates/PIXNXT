@@ -206,6 +206,7 @@
   justify-content: space-between;
   gap: 8px;
   margin-bottom: 12px;
+  position: relative;
 }
 
 .cd-design-panel__section-title {
@@ -223,7 +224,17 @@
 
 .cd-design-panel__cover-actions {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 10px;
+}
+
+.cd-design-panel .cd-cover-file-input {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .cd-design-panel__link-btn {

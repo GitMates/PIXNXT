@@ -5243,6 +5243,20 @@
     transition: opacity 0.15s ease;
 }
 
+.cd-photo-open-btn {
+    height: 26px;
+    padding: 0 9px;
+    border: none;
+    border-radius: 999px;
+    background: rgba(17, 17, 17, 0.82);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
 .cd-photo-hover-tools--starred {
     opacity: 1;
 }

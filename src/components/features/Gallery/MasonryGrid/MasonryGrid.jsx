@@ -943,14 +943,21 @@ export function MasonryGrid({
             )}
           </div>
           {isGalleryVideo(photo) ? (
-            <span
-              className="gallery-video-play pointer-events-none absolute inset-0 z-[25] flex items-center justify-center"
-              aria-hidden
+            <button
+              type="button"
+              className="gallery-video-open absolute left-1/2 top-1/2 z-[25] flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2"
+              aria-label="Open video"
+              onClick={(e) => {
+                e.stopPropagation();
+                dismissTooltip();
+                onImageClick(photo._originalIndex);
+              }}
             >
               <span className="gallery-masonry-play-btn flex h-12 w-12 items-center justify-center rounded-full bg-white text-neutral-900 shadow-[0_4px_20px_rgba(0,0,0,0.35)] ring-2 ring-white/80 md:h-16 md:w-16">
                 <Play size={22} fill="currentColor" className="ml-1 text-neutral-900" strokeWidth={1.5} />
               </span>
-            </span>
+              <span className="gallery-video-open-label">Open</span>
+            </button>
           ) : null}
         </div>
       </Motion.div>

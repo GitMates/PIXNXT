@@ -154,8 +154,10 @@
 
 .dl-scope-panel {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 0.85rem;
   min-height: 8.75rem;
   padding: 1.5rem 1.25rem;
   border: 1px dashed #e6e1d9;
@@ -164,6 +166,28 @@
   font-size: 0.8125rem;
   line-height: 1.45;
   text-align: center;
+}
+
+.dl-scope-panel__text {
+  margin: 0;
+}
+
+.dl-open-film-btn {
+  min-width: 6.5rem;
+  padding: 0.55rem 1.1rem;
+  border: 1px solid #1a1a1a;
+  border-radius: 6px;
+  background: #1a1a1a;
+  color: #fff;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.dl-open-film-btn:hover {
+  opacity: 0.9;
 }
 
 .dl-size-grid--one {
@@ -295,8 +319,12 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+  justify-content: center;
   gap: 0.12rem;
   width: 100%;
+  min-height: 4.35rem;
+  height: 100%;
+  box-sizing: border-box;
   padding: 0.7rem 0.85rem;
   border: 1px solid #e6e1d9;
   border-radius: 8px;
@@ -329,6 +357,7 @@
 }
 
 .dl-choice-card__desc {
+  min-height: 1.7em;
   font-size: 0.6875rem;
   line-height: 1.35;
   color: #9a9590;
@@ -343,6 +372,8 @@
   align-items: center;
   gap: 0.75rem;
   width: 100%;
+  min-height: 3.65rem;
+  box-sizing: border-box;
   padding: 0.7rem 0.85rem;
   border: 1px solid #e6e1d9;
   border-radius: 8px;
@@ -488,11 +519,21 @@
 }
 
 .dl-size-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+}
+
+.dl-size-grid--two {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 @media (max-width: 540px) {
   .dl-what-tabs {
+    grid-template-columns: 1fr;
+  }
+
+  .dl-size-grid,
+  .dl-size-grid--two {
     grid-template-columns: 1fr;
   }
 
