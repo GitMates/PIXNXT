@@ -1,6 +1,5 @@
 import { supabase } from '../lib/supabase/client';
-import { getPublicSiteOrigin } from '../lib/publicSiteUrl';
-import { getPhotographerPublicOrigin, isCustomDomainVerified } from '../lib/customDomain';
+import { getClientFacingOrigin } from '../lib/publicSiteUrl';
 import { getAlbumShareSlug } from '../lib/albumPreviewSlug';
 import { isAlbumClientApproved } from './albumProof.service';
 
@@ -231,11 +230,7 @@ export function getAlbumShareDisplayUrl(album, settings, photographerProfile = n
 
 export function getAlbumShareCopyUrl(album, settings, photographerProfile = null) {
     // Match gallery shares: platform origin unless a verified custom domain is set.
-    // Unverified studio hosts (slug.pixnxt.in) have no DNS and break client links.
-    let origin = getPublicSiteOrigin();
-    if (photographerProfile && isCustomDomainVerified(photographerProfile)) {
-        origin = getPhotographerPublicOrigin(photographerProfile);
-    }
+    const origin = getClientFacingOrigin(photographerProfile);
 
     if (settings?.accessLevel === 'private') {
         const token = settings.privateShareToken || album?.id || '';

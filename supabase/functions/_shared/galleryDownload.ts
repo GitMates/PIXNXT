@@ -61,6 +61,8 @@ export function resolveSiteOrigin(siteOrigin: string | null | undefined): string
   );
   const fromClient = String(siteOrigin || '').replace(/\/$/, '');
   if (fromClient && /localhost|127\.0\.0\.1|\.local$/i.test(fromClient)) return fromClient;
+  // Prefer client-facing origin (verified custom domain) over the platform secret.
+  if (fromClient && !/vercel\.app/i.test(fromClient)) return fromClient;
   if (fromSecret) return fromSecret;
   return fromClient || fromSecret || '';
 }

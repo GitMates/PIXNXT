@@ -337,7 +337,7 @@ export function toThumbDerivativeUrl(url) {
   return resolved;
 }
 
-function toWebDerivativeUrl(url) {
+export function toWebDerivativeUrl(url) {
   if (!url) return '';
   const resolved = resolveMediaUrl(stripHash(url));
   if (!resolved) return '';
@@ -358,9 +358,9 @@ function stripHash(url) {
 }
 
 /**
- * Ordered cover candidates for list cards: thumb → web → stored URL.
- * Tries cover_url and list_cover_url so a dead cover still falls back to a photo thumb.
- * Callers should advance on <img onError> so a missing /thumb/ does not blank the card.
+ * Ordered cover candidates for list cards: web → thumb → stored URL.
+ * Deliveries board uses R2 /web/ images; /thumb/ is a fallback if web is missing.
+ * Callers should advance on <img onError> so a missing derivative does not blank the card.
  */
 export function getCollectionCardCoverCandidates(collection) {
   if (!collection) return [];
@@ -379,8 +379,8 @@ export function getCollectionCardCoverCandidates(collection) {
   for (const raw of sources) {
     const resolved = resolveMediaUrl(stripHash(raw));
     if (!resolved) continue;
-    push(toThumbDerivativeUrl(resolved));
     push(toWebDerivativeUrl(resolved));
+    push(toThumbDerivativeUrl(resolved));
     if (!resolved.includes('/original/')) push(resolved);
   }
 

@@ -3,16 +3,13 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
   buildClientGalleryNotificationUrl,
-  clearAllClientGalleryNotifications,
-  dismissClientGalleryNotification,
-  getClientGalleryNotificationTypeLabel,
   listClientGalleryNotifications,
-  markAllClientGalleryNotificationsRead,
   CG_NOTIFICATIONS_CHANGED_EVENT,
+  CG_NOTIFICATION_SECTIONS,
 } from '../../../services/clientGalleryNotifications';
 import './ClientGalleryNotifications.css';
 
-const PANEL_WIDTH = 340;
+const PANEL_WIDTH = 360;
 const PANEL_GAP = 10;
 const VIEWPORT_PAD = 12;
 
@@ -29,12 +26,21 @@ export default function ClientGalleryNotifications({ userId, variant = 'default'
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState([]);
+  const [footer, setFooter] = useState('');
   const [loading, setLoading] = useState(false);
   const [panelPos, setPanelPos] = useState(null);
   const rootRef = useRef(null);
 
   const unreadCount = useMemo(() => items.filter((item) => item.isUnread).length, [items]);
   const isSidebar = variant === 'sidebar';
+  const sections = useMemo(
+    () =>
+      CG_NOTIFICATION_SECTIONS.map((section) => ({
+        ...section,
+        items: items.filter((item) => (item.section || 'activity') === section.id),
+      })).filter((section) => section.items.length > 0),
+    [items]
+  );
 
   const updatePanelPosition = useCallback(() => {
     if (!rootRef.current) return;
@@ -44,14 +50,17 @@ export default function ClientGalleryNotifications({ userId, variant = 'default'
   const refreshItems = useCallback(async () => {
     if (!userId) {
       setItems([]);
+      setFooter('');
       return;
     }
     setLoading(true);
     try {
       const next = await listClientGalleryNotifications(userId);
-      setItems(next);
+      setItems(next.items || []);
+      setFooter(next.footer || '');
     } catch {
       setItems([]);
+      setFooter('');
     } finally {
       setLoading(false);
     }
@@ -60,6 +69,7 @@ export default function ClientGalleryNotifications({ userId, variant = 'default'
   useEffect(() => {
     if (!userId) {
       setItems([]);
+      setFooter('');
       return undefined;
     }
 
@@ -121,32 +131,13 @@ export default function ClientGalleryNotifications({ userId, variant = 'default'
     navigate(buildClientGalleryNotificationUrl(item));
   };
 
-  const handleDismiss = (e, item) => {
-    e.stopPropagation();
-    dismissClientGalleryNotification(item.id);
-    setItems((prev) => prev.filter((row) => row.id !== item.id));
-  };
-
-  const handleMarkAllRead = (e) => {
-    e.stopPropagation();
-    markAllClientGalleryNotificationsRead(items);
-    setItems((prev) => prev.map((row) => ({ ...row, isUnread: false })));
-  };
-
-  const handleClearAll = (e) => {
-    e.stopPropagation();
-    clearAllClientGalleryNotifications(items);
-    setItems([]);
-    setOpen(false);
-  };
-
   const badgeLabel = unreadCount > 99 ? '99+' : String(unreadCount);
 
   return (
     <div className="cg-notifications" ref={rootRef}>
       <button
         type="button"
-        className={`cg-notifications-trigger${isSidebar ? ' cg-notifications-trigger--sidebar neu-circle' : ''}`}
+        className={`cg-notifications-trigger${isSidebar ? ' cg-notifications-trigger--sidebar neu-circle' : ''}${open ? ' is-open' : ''}`}
         onClick={handleToggle}
         aria-label={unreadCount ? `${unreadCount} unread notifications` : 'Notifications'}
         aria-expanded={open}
@@ -173,66 +164,46 @@ export default function ClientGalleryNotifications({ userId, variant = 'default'
             role="menu"
             style={{ top: panelPos.top, left: panelPos.left }}
           >
-            <div className="cg-notifications-panel-header">
-              <span>Activities</span>
-              <div className="cg-notifications-panel-actions">
-                {unreadCount > 0 && (
-                  <span className="cg-notifications-panel-count">{unreadCount} new</span>
-                )}
-                {items.length > 0 && (
-                  <button type="button" className="cg-notifications-clear-btn" onClick={handleClearAll}>
-                    Clear all
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {unreadCount > 0 && items.length > 0 && (
-              <div className="cg-notifications-toolbar">
-                <button type="button" className="cg-notifications-mark-read-btn" onClick={handleMarkAllRead}>
-                  Mark all as read
-                </button>
-              </div>
-            )}
-
             {loading && !items.length ? (
               <div className="cg-notifications-empty">Loading…</div>
             ) : items.length === 0 ? (
-              <div className="cg-notifications-empty">No activity yet</div>
+              <div className="cg-notifications-empty">Nothing needs you right now</div>
             ) : (
-              <ul className="cg-notifications-list">
-                {items.map((item) => (
-                  <li
-                    key={item.id}
-                    className={`cg-notifications-row${item.isUnread ? ' cg-notifications-row--unread' : ' cg-notifications-row--read'}`}
-                  >
-                    <button
-                      type="button"
-                      className="cg-notifications-item"
-                      role="menuitem"
-                      onClick={() => handleSelect(item)}
-                    >
-                      <span className="cg-notifications-item-top">
-                        <span className="cg-notifications-item-type">
-                          {item.isUnread && <span className="cg-notifications-unread-dot" aria-hidden />}
-                          {getClientGalleryNotificationTypeLabel(item.type)}
-                        </span>
-                        <span className="cg-notifications-item-time">{item.timeLabel}</span>
-                      </span>
-                      <span className="cg-notifications-item-album">{item.collectionName}</span>
-                      <span className="cg-notifications-item-preview">{item.preview}</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="cg-notifications-dismiss"
-                      aria-label="Dismiss notification"
-                      onClick={(e) => handleDismiss(e, item)}
-                    >
-                      ×
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              <>
+                <div className="cg-notifications-body">
+                  {sections.map((section) => (
+                    <section key={section.id} className="cg-notifications-group">
+                      <p className="cg-notifications-kicker">{section.label}</p>
+                      <ul className="cg-notifications-list">
+                        {section.items.map((item) => (
+                          <li key={item.id} className="cg-notifications-row">
+                            <button
+                              type="button"
+                              className="cg-notifications-item"
+                              role="menuitem"
+                              onClick={() => handleSelect(item)}
+                            >
+                              <span
+                                className={`cg-notifications-dot cg-notifications-dot--${item.tone || 'ok'}`}
+                                aria-hidden
+                              />
+                              <span className="cg-notifications-copy">
+                                <span className="cg-notifications-item-album">
+                                  {item.title || item.collectionName}
+                                </span>
+                                <span className="cg-notifications-item-preview">
+                                  {item.subtitle || item.preview}
+                                </span>
+                              </span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  ))}
+                </div>
+                {footer ? <p className="cg-notifications-footer">{footer}</p> : null}
+              </>
             )}
           </div>,
           document.body,

@@ -52,8 +52,9 @@ function resolveSiteOrigin(siteOrigin: string | null | undefined): string {
 
   // Prefer localhost when the app is running locally so email links are testable before deploy.
   if (fromClient && isLocalOrigin(fromClient)) return fromClient;
-  if (fromSecret) return fromSecret;
+  // Prefer client-facing origin (verified custom domain) over the platform secret.
   if (fromClient && !/vercel\.app/i.test(fromClient)) return fromClient;
+  if (fromSecret) return fromSecret;
   return fromClient || fromSecret || '';
 }
 

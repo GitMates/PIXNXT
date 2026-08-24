@@ -8,6 +8,7 @@ import {
   sendSmtpEmail,
   templateToHtmlParagraphs,
 } from '../_shared/smartAlbumProoferEmail.ts';
+import { resolveClientFacingOrigin } from '../_shared/clientFacingOrigin.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -154,14 +155,18 @@ serve(async (req) => {
     }
 
     const clientName = String(guestName || client.name || 'there').trim() || 'there';
-    const origin = (siteOrigin || Deno.env.get('PUBLIC_SITE_URL') || '').replace(/\/$/, '');
-    const albumLink = buildAlbumPreviewUrl(album, album.proofer_settings, origin);
-
     const { data: photographer } = await supabaseAdmin
       .from('photographers')
-      .select('display_name, email')
+      .select('display_name, email, custom_domain, custom_domain_status')
       .eq('id', album.photographer_id)
       .maybeSingle();
+
+    const origin = resolveClientFacingOrigin({
+      siteOrigin,
+      customDomain: photographer?.custom_domain,
+      customDomainStatus: photographer?.custom_domain_status,
+    });
+    const albumLink = buildAlbumPreviewUrl(album, album.proofer_settings, origin);
 
     const photographerName = photographer?.display_name?.trim() || 'Your photographer';
     const albumName = album.name || 'your album';

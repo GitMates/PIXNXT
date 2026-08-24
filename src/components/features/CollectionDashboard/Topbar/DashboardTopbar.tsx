@@ -33,6 +33,7 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
             collectionSlug={moreMenu.collectionSlug}
             collectionName={collectionName}
             photographerId={moreMenu.photographerId}
+            photographerProfile={moreMenu.photographerProfile}
             currentFolderId={moreMenu.currentFolderId}
             eventDate={moreMenu.eventDate}
             pinValue={moreMenu.pinValue}

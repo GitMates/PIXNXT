@@ -9,6 +9,7 @@ import {
 import { getGuestProfile } from '../../services/smartAlbumComments.service';
 import { smartAlbumProoferSettingsService, notifyAlbumProoferSettingsChanged } from '../../services/smartAlbumProoferSettings.service';
 import { notifyAlbumProofStatusChanged } from './albumProofStatus';
+import { getPublicSiteOrigin } from '../../lib/publicSiteUrl';
 
 function ProofConfirmModal({
     open,
@@ -65,7 +66,12 @@ function ProofConfirmModal({
     );
 }
 
-export default function AlbumPreviewProofActions({ albumId, albumName, album, onToast }) {
+export default function AlbumPreviewProofActions({
+    albumId,
+    albumName,
+    album,
+    onToast,
+}) {
     const [approveOpen, setApproveOpen] = useState(false);
     const [pinOpen, setPinOpen] = useState(false);
     const [pinInput, setPinInput] = useState('');
@@ -122,7 +128,8 @@ export default function AlbumPreviewProofActions({ albumId, albumName, album, on
                 albumId,
                 guestName: guest.name,
                 guestEmail: guest.email,
-                siteOrigin: window.location.origin,
+                // Photographer editor lives on the platform host (not custom domain gallery routes).
+                siteOrigin: getPublicSiteOrigin(),
             });
             await trackAlbumProofActivity({
                 albumId,

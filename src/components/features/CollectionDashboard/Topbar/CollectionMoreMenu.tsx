@@ -6,12 +6,14 @@ import { MoveCollectionModal } from '@/components/features/Collections/MoveColle
 import { CollectionDuplicateModal } from '@/components/features/ClientGallery/CollectionShareModals';
 import { supabase } from '@/lib/supabase/client';
 import { guestDeliveryGuestsService } from '@/services/guestDeliveryGuests.service';
+import { getCollectionShareUrl } from '@/lib/shareCollection';
 
 export interface CollectionMoreMenuProps {
   collectionId?: string | null;
   collectionSlug?: string | null;
   collectionName: string;
   photographerId?: string | null;
+  photographerProfile?: Record<string, unknown> | null;
   currentFolderId?: string | null;
   eventDate?: string | null;
   pinValue?: string;
@@ -32,6 +34,7 @@ export function CollectionMoreMenu({
   collectionSlug,
   collectionName,
   photographerId,
+  photographerProfile = null,
   currentFolderId = null,
   eventDate,
   pinValue = '',
@@ -263,10 +266,9 @@ export function CollectionMoreMenu({
     };
   }, [emailOpen, collectionId]);
 
-  const galleryUrl =
-    collectionSlug && typeof window !== 'undefined'
-      ? `${window.location.origin}/gallery/${collectionSlug}`
-      : '';
+  const galleryUrl = collectionSlug
+    ? getCollectionShareUrl(collectionSlug, photographerProfile)
+    : '';
 
   const closeAll = () => {
     setOpen(false);

@@ -12,6 +12,7 @@ export interface PreviewPaneProps {
   dashboardState?: any;
   onSetActiveSet?: (setId: string | null) => void;
   photographerName?: string;
+  photographerProfile?: Record<string, unknown> | null;
   coverLogoUrl?: string;
   dualPreview?: boolean;
 }
@@ -27,5 +28,6 @@ export interface GalleryPreviewProps {
   onSetActiveSet?: (setId: string | null) => void;
   isPreviewMobile?: boolean;
   photographerName?: string;
+  photographerProfile?: Record<string, unknown> | null;
   coverLogoUrl?: string;
 }

@@ -29,7 +29,7 @@ import { ChangeCoverModal } from '../components/features/CollectionDashboard/Cov
 import { CollectionDashboardSidebar } from '../components/features/CollectionDashboard/Sidebar/CollectionDashboardSidebar';
 import { SetOptionsMenu } from '../components/features/CollectionDashboard/Sidebar/SetOptionsMenu';
 import { NewSelectionModal } from '../components/features/CollectionDashboard/Modals/NewSelectionModal';
-import { getPublicSiteOrigin } from '../lib/publicSiteUrl';
+import { getClientFacingOrigin } from '../lib/publicSiteUrl';
 import { DeliveryFilmsView } from '../components/features/CollectionDashboard/Films/DeliveryFilmsView';
 import { downloadPhotoFromR2 } from '../lib/downloadPhoto';
 import {
@@ -43,7 +43,6 @@ import {
   exportDownloadActivityPdf,
 } from '../lib/downloadActivityExport';
 import { exportFavoriteListExcel } from '../lib/favoriteListExport';
-import { openSpaPath } from '../lib/spaNavigation';
 import {
     chromeFromDelivery,
     gridSettingsFromDelivery,
@@ -694,7 +693,7 @@ const CollectionDashboard = () => {
                             subject: `Your list: ${name}`,
                             message: payload.message || '',
                             chooseUrl: payload.chooseUrl || '',
-                            siteOrigin: getPublicSiteOrigin(),
+                            siteOrigin: getClientFacingOrigin(profile),
                         });
                         showToast('Selection created and email sent.');
                     } catch (sendErr) {
@@ -1798,6 +1797,7 @@ const CollectionDashboard = () => {
                         await guestDeliveryPublishService.sendDeliveryEmail({
                             eventId: gdEvent.id,
                             guestId: entry.guestId,
+                            photographerProfile: profile,
                         });
                     } catch (err) {
                         console.error(err);
@@ -3014,7 +3014,9 @@ const CollectionDashboard = () => {
             slideshow: slideshow ? '1' : '0',
             socialSharing: socialSharing ? '1' : '0',
         });
-        openSpaPath(`/gallery/${collectionUrl}?${params.toString()}`);
+        const galleryUrl = getCollectionShareUrl(collectionUrl, profile);
+        const joiner = galleryUrl.includes('?') ? '&' : '?';
+        window.open(`${galleryUrl}${joiner}${params.toString()}`, '_blank', 'noopener,noreferrer');
     }, [
         selectedCoverStyle,
         selectedFont,
@@ -3026,6 +3028,7 @@ const CollectionDashboard = () => {
         slideshow,
         socialSharing,
         collectionUrl,
+        profile,
     ]);
 
     useEffect(() => {
@@ -4572,7 +4575,7 @@ const CollectionDashboard = () => {
                                     onClick={() => {
                                         setShowShareDropdown(false);
                                         if (collectionUrl) {
-                                            openWhatsAppShare(getCollectionShareUrl(collectionUrl), collection?.name || 'Delivery');
+                                            openWhatsAppShare(getCollectionShareUrl(collectionUrl, profile), collection?.name || 'Delivery');
                                         }
                                     }}
                                 >
@@ -5087,6 +5090,7 @@ const CollectionDashboard = () => {
                                     previewMode={previewMode}
                                     onPreviewModeChange={setPreviewMode}
                                     photographerName={profile?.business_name || user?.display_name || 'PHOTOGRAPHER'}
+                                    photographerProfile={profile}
                                     coverLogoUrl={profile?.cover_logo_url || ''}
                                     dashboardState={{
                                         focalX: collectionFocals.desktop?.x ?? collectionFocal.x,
@@ -5378,6 +5382,7 @@ const CollectionDashboard = () => {
                                         key={gdEvent.id}
                                         event={gdEvent}
                                         photographerId={gdEvent.photographer_id || collection?.photographer_id || user?.id}
+                                        photographerProfile={profile}
                                         onGuestCountChange={setGdGuestCount}
                                     />
                                 ) : (
@@ -5635,8 +5640,8 @@ const CollectionDashboard = () => {
                             <div style={{ marginBottom: '20px' }}>
                                 <label style={{ fontSize: '11px', fontWeight: '600', color: '#666', letterSpacing: '0.5px', display: 'block', marginBottom: '8px' }}>DELIVERY URL</label>
                                 <div style={{ display: 'flex' }}>
-                                    <input type="text" readOnly value={`${window.location.origin}/gallery/${collectionUrl}`} style={{ flex: 1, padding: '10px 12px', border: '1px solid #ddd', borderRadius: '4px 0 0 4px', fontSize: '14px', backgroundColor: '#f9f9f9', outline: 'none', color: '#555' }} />
-                                    <button style={{ padding: '0 16px', backgroundColor: '#fff', border: '1px solid #ddd', borderLeft: 'none', borderRadius: '0 4px 4px 0', cursor: 'pointer', fontWeight: '500', fontSize: '13px' }} onClick={() => navigator.clipboard.writeText(`${window.location.origin}/gallery/${collectionUrl}`)}>Copy</button>
+                                    <input type="text" readOnly value={getCollectionShareUrl(collectionUrl, profile)} style={{ flex: 1, padding: '10px 12px', border: '1px solid #ddd', borderRadius: '4px 0 0 4px', fontSize: '14px', backgroundColor: '#f9f9f9', outline: 'none', color: '#555' }} />
+                                    <button style={{ padding: '0 16px', backgroundColor: '#fff', border: '1px solid #ddd', borderLeft: 'none', borderRadius: '0 4px 4px 0', cursor: 'pointer', fontWeight: '500', fontSize: '13px' }} onClick={() => navigator.clipboard.writeText(getCollectionShareUrl(collectionUrl, profile))}>Copy</button>
                                 </div>
                                 <div style={{ fontSize: '13px', color: '#2b78c5', marginTop: '8px', cursor: 'pointer', display: 'inline-block' }}>Need a custom domain?</div>
                             </div>
@@ -5667,6 +5672,7 @@ const CollectionDashboard = () => {
                         ? { ...collection, slug: collectionUrl || collection.slug, name: collection?.name }
                         : null
                 }
+                photographerProfile={profile}
                 isOpen={showQrCodeModal}
                 onClose={() => setShowQrCodeModal(false)}
             />
@@ -5677,6 +5683,7 @@ const CollectionDashboard = () => {
                     event={gdEvent}
                     guests={guestDeliveryGuests}
                     photographerId={gdEvent.photographer_id || collection?.photographer_id || user?.id}
+                    photographerProfile={profile}
                     onClose={() => setShowGdQrModal(false)}
                     onOpenGuestList={() => setActiveSidebarTab('guests')}
                     onEventUpdated={(updated) => {
@@ -6305,9 +6312,10 @@ const CollectionDashboard = () => {
             {/* ───── QUICK SHARE MODAL ───── */}
             {showQuickShareModal && editingPhoto && (() => {
                 const isMultiple = selectedPhotos.length > 1;
+                const baseGalleryUrl = getCollectionShareUrl(collection?.slug, profile);
                 const shareUrl = isMultiple
-                    ? `${window.location.origin}/gallery/${collection?.slug}?photos=${selectedPhotos.join(',')}`
-                    : `${window.location.origin}/gallery/${collection?.slug}?photo=${editingPhoto.id}`;
+                    ? `${baseGalleryUrl}?photos=${selectedPhotos.join(',')}`
+                    : `${baseGalleryUrl}?photo=${editingPhoto.id}`;
                 return (
                     <div className="cd-modal-overlay" onClick={() => setShowQuickShareModal(false)}>
                         <div className="cd-modal cd-modal-sm" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 460 }}>
@@ -6685,8 +6693,8 @@ const CollectionDashboard = () => {
                                                     .replace(/\{collection\.name\}/g, collection?.name || 'WEDDING')
                                                     .replace(/\{expiry\.date\}/g, autoExpiry ? `${new Date(autoExpiry).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} at 11:59 PM` : 'MM/DD/YYYY at 11:59 PM')
                                                     .replace(/\{days\.prior\}/g, expiryEmailTiming.split(' ')[0])
-                                                    .replace(/\{delivery\.url\}/g, `${window.location.origin}/gallery/${collection?.slug || '...'}`)
-                                                    .replace(/\{collection\.url\}/g, `${window.location.origin}/gallery/${collection?.slug || '...'}`)
+                                                    .replace(/\{delivery\.url\}/g, getCollectionShareUrl(collection?.slug || '...', profile))
+                                                    .replace(/\{collection\.url\}/g, getCollectionShareUrl(collection?.slug || '...', profile))
                                                     .split('\n').map((line, i) => {
                                                         const trimmedLine = line.trim().toLowerCase();
                                                         if (i === 0 && (trimmedLine === 'hi,' || trimmedLine === 'hi')) return null;

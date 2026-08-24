@@ -5,7 +5,7 @@ import { getFileMime, isVideoMime, getUploadMediaType } from '../lib/fileMime';
 import { compressImageForUpload, compressImageVariants } from '../lib/prepareUploadFile';
 import { isRawImageFile } from '../lib/rawImageFormats';
 import { extractRawPreviewBlob } from '../lib/rawImagePreview';
-import { hasRawDisplayPreview, isRawMedia, resolveMediaUrl, toThumbDerivativeUrl } from '../lib/photoDisplayUrl';
+import { hasRawDisplayPreview, isRawMedia, resolveMediaUrl, toWebDerivativeUrl } from '../lib/photoDisplayUrl';
 import { generateCollectionSlug } from '../lib/collectionSlug';
 import { DELIVERY_R2_MODULE } from '../lib/deliveryIds';
 import { buildDeliveryStatusPatch, toDbDeliveryStatus } from '../lib/deliveryStatus';
@@ -321,10 +321,14 @@ function mapCollectionDashboardRow(c) {
   const photo_filenames = photoRows
     .map((p) => p.filename)
     .filter((name) => typeof name === 'string' && name.length > 0);
+  const video_count = photo_filenames.filter((name) =>
+    /\.(mp4|webm|ogg|mov|m4v|mkv|avi|wmv)$/i.test(name)
+  ).length;
   const { photos, ...rest } = c;
   return {
     ...rest,
     photo_count: rest.photo_count ?? photoRows.length,
+    video_count: rest.video_count ?? video_count,
     photo_filenames,
     storage_bytes:
       Number.isFinite(storedTotal) && storedTotal > 0 ? storedTotal : storage_bytes,
@@ -351,7 +355,7 @@ async function attachMissingListCovers(collections) {
         .limit(1)
         .maybeSingle();
       if (error || !data) return [c.id, null];
-      const url = toThumbDerivativeUrl(data.thumbnail_url || data.web_url || data.full_url || '');
+      const url = toWebDerivativeUrl(data.web_url || data.thumbnail_url || data.full_url || '');
       return [c.id, url || null];
     })
   );
@@ -383,6 +387,51 @@ export const galleryService = {
     if (error) throw error;
     const mapped = data ? data.map(mapCollectionDashboardRow) : [];
     return attachMissingListCovers(mapped);
+  },
+
+  /**
+   * Attention + earnings for the Deliveries board (submitted lists, stuck orders, store totals).
+   */
+  async getDeliveryBoardExtras(collectionIds) {
+    const ids = [...new Set((collectionIds || []).filter(Boolean))];
+    const empty = { submittedIds: new Set(), stuckIds: new Set(), earningsById: {} };
+    if (!ids.length) return empty;
+
+    const [listsRes, ordersRes] = await Promise.all([
+      supabase
+        .from('favorite_lists')
+        .select('collection_id, submitted_at')
+        .in('collection_id', ids),
+      supabase
+        .from('printstore_orders')
+        .select('collection_id, status, total_amount, created_at')
+        .in('collection_id', ids),
+    ]);
+
+    const submittedIds = new Set(
+      (listsRes.data || [])
+        .filter((row) => row.submitted_at)
+        .map((row) => row.collection_id)
+    );
+
+    const stuckIds = new Set();
+    const earningsById = {};
+    const threeDaysAgo = Date.now() - 3 * 86400000;
+    for (const row of ordersRes.data || []) {
+      const id = row.collection_id;
+      if (!id) continue;
+      const amount = Number(row.total_amount) || 0;
+      if (amount > 0 && row.status !== 'cancelled') {
+        earningsById[id] = (earningsById[id] || 0) + amount;
+      }
+      const status = String(row.status || '').toLowerCase();
+      const created = row.created_at ? new Date(row.created_at).getTime() : 0;
+      if (status === 'reprint' || (status === 'pending' && created && created < threeDaysAgo)) {
+        stuckIds.add(id);
+      }
+    }
+
+    return { submittedIds, stuckIds, earningsById };
   },
 
   /** Starred collections for the dashboard Starred page. */

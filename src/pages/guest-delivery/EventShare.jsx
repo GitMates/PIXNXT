@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { guestDeliveryService } from '../../services/guestDelivery.service';
+import { galleryService } from '../../services/gallery.service';
 import { getGuestRegistrationUrl } from '../../lib/guestDeliveryLinks';
 import { getQrCodeImageUrl } from '../../lib/shareCollection';
 import { getShareUrlWarning } from '../../lib/publicSiteUrl';
@@ -15,6 +16,18 @@ export default function EventShare() {
   const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [photographerProfile, setPhotographerProfile] = useState(null);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setPhotographerProfile(null);
+      return;
+    }
+    galleryService
+      .getPhotographerProfile(user.id)
+      .then((data) => setPhotographerProfile(data || null))
+      .catch(() => setPhotographerProfile(null));
+  }, [user?.id]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -63,7 +76,7 @@ export default function EventShare() {
     );
   }
 
-  const registrationUrl = getGuestRegistrationUrl(event.slug);
+  const registrationUrl = getGuestRegistrationUrl(event.slug, photographerProfile);
   const qrSrc = getQrCodeImageUrl(registrationUrl, 240);
   const warning = getShareUrlWarning(registrationUrl);
 

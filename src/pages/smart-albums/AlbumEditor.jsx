@@ -15,7 +15,8 @@ import { AlbumPreviewLinkModal } from '../../components/smart-albums/AlbumShareM
 import AlbumSharePublishMenu, {
     AlbumPublishStatusBadge,
 } from '../../components/smart-albums/AlbumSharePublishMenu';
-import { openSmartAlbumPreview } from '../../lib/shareSmartAlbum';
+import { openClientAlbumPreview } from '../../lib/shareSmartAlbum';
+import { galleryService } from '../../services/gallery.service';
 import {
     addFilesToAlbumCollection,
     deleteCollectionItemAsset,
@@ -372,6 +373,7 @@ export default function AlbumEditor({
     const [pageCountBusy, setPageCountBusy] = useState(false);
     const [showShareMenu, setShowShareMenu] = useState(false);
     const [shareLinkOpen, setShareLinkOpen] = useState(false);
+    const [photographerProfile, setPhotographerProfile] = useState(null);
     const [showCoverSpine, setShowCoverSpine] = useState(true);
     const [publishBusy, setPublishBusy] = useState(false);
     const [swapMarks, setSwapMarks] = useState(() => getSwapMarks(albumId));
@@ -384,6 +386,27 @@ export default function AlbumEditor({
     useEffect(() => {
         configureImageReplacementsPersistence(user?.id ?? album?.photographer_id ?? null);
     }, [user?.id, album?.photographer_id]);
+
+    useEffect(() => {
+        const photographerId = user?.id || album?.photographer_id;
+        if (!photographerId) {
+            setPhotographerProfile(null);
+            return;
+        }
+        let cancelled = false;
+        galleryService
+            .getPhotographerProfile(photographerId)
+            .then((profile) => {
+                if (!cancelled) setPhotographerProfile(profile || null);
+            })
+            .catch(() => {
+                if (!cancelled) setPhotographerProfile(null);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [user?.id, album?.photographer_id]);
+
     const shareRef = useRef(null);
     const collectionSyncRef = useRef(false);
     /** Skip post-delete photo migrations (React Strict Mode runs effects twice). */
@@ -2666,7 +2689,10 @@ export default function AlbumEditor({
                                 });
                                 return;
                             }
-                            openSmartAlbumPreview(albumId, bookPage);
+                            openClientAlbumPreview(album, {
+                                photographerProfile,
+                                page: bookPage,
+                            });
                         }}
                     >
                         <svg
@@ -2872,6 +2898,7 @@ export default function AlbumEditor({
 
             <AlbumPreviewLinkModal
                 album={album}
+                photographerProfile={photographerProfile}
                 isOpen={shareLinkOpen}
                 onClose={() => setShareLinkOpen(false)}
             />

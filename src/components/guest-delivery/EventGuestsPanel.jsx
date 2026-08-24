@@ -46,7 +46,13 @@ function guestBoardState(guest) {
   return 'review';
 }
 
-const EventGuestsPanel = ({ event, photographerId, onGuestCountChange, refreshKey = 0 }) => {
+const EventGuestsPanel = ({
+  event,
+  photographerId,
+  photographerProfile = null,
+  onGuestCountChange,
+  refreshKey = 0,
+}) => {
   const [guests, setGuests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sendingGuestId, setSendingGuestId] = useState(null);
@@ -111,7 +117,7 @@ const EventGuestsPanel = ({ event, photographerId, onGuestCountChange, refreshKe
   };
 
   const handleCopyLink = async (guest) => {
-    const url = getGuestPersonalGalleryUrl(event?.slug, guest.access_token);
+    const url = getGuestPersonalGalleryUrl(event?.slug, guest.access_token, photographerProfile);
     setOpenMenuId(null);
     try {
       await navigator.clipboard.writeText(url);
@@ -140,6 +146,7 @@ const EventGuestsPanel = ({ event, photographerId, onGuestCountChange, refreshKe
       await guestDeliveryPublishService.sendDeliveryEmail({
         eventId: event.id,
         guestId: guest.id,
+        photographerProfile,
       });
       await loadGuests({ silent: true });
       alert(`Email sent to ${guest.email}.`);

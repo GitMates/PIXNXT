@@ -15,6 +15,7 @@ import { X, Mail, Share2, Download, Heart, Play, ShoppingBag, ShoppingCart, Cred
 import { DownloadModal } from '../../components/features/Gallery/DownloadModal/DownloadModal';
 import { ShareCollectionModal } from '../../components/features/Gallery/ShareCollectionModal/ShareCollectionModal';
 import { downloadSinglePhotoFile } from '../../lib/downloadPhoto';
+import { getCollectionShareUrl } from '../../lib/shareCollection';
 import { formatCoverDate } from '../../lib/formatCoverDate.js';
 import { getCollectionFocal, getCollectionFocals, stripMediaUrlHash } from '../../lib/focalPoint';
 import {
@@ -1231,7 +1232,7 @@ const GalleryView = () => {
       isCollectionFeatureEnabled(collection?.single_photo_download_enabled)) ||
     isPaidDigitalDownloadOn;
 
-  const shareUrl = typeof window !== 'undefined' ? window.location.origin + "/gallery/" + (slug || '') : '';
+  const shareUrl = getCollectionShareUrl(slug, photographer);
   const shareTitle = collection?.name || 'Delivery';
 
   useEffect(() => {

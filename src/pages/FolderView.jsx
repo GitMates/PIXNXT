@@ -4,8 +4,7 @@ import SidebarLayout from '../components/SidebarLayout';
 import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
 import { buildDeliveryStatusPatch } from '../lib/deliveryStatus';
-import { openSpaPath } from '../lib/spaNavigation';
-import { openShareByEmail, openWhatsAppShare, getShareUrlForCollection } from '../lib/shareCollection';
+import { openShareByEmail, getShareUrlForCollection } from '../lib/shareCollection';
 import { getFolderStudioUrl } from '../lib/folderStudioUrl';
 import { CollectionCardCover } from '../components/features/ClientGallery/CollectionCardCover';
 import { CollectionContextMenu } from '../components/features/ClientGallery/CollectionContextMenu';
@@ -38,6 +37,7 @@ const FolderView = () => {
   const [collections, setCollections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [photographerProfile, setPhotographerProfile] = useState(null);
   const [activeSort, setActiveSort] = useState('created-new');
   const [activeView, setActiveView] = useState('grid');
   const [showSortDropdown, setShowSortDropdown] = useState(false);
@@ -101,6 +101,17 @@ const FolderView = () => {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setPhotographerProfile(null);
+      return;
+    }
+    galleryService
+      .getPhotographerProfile(user.id)
+      .then((data) => setPhotographerProfile(data || null))
+      .catch(() => setPhotographerProfile(null));
+  }, [user?.id]);
 
   const sortedCollections = useMemo(
     () => sortCollections(collections, activeSort),
@@ -201,9 +212,11 @@ const FolderView = () => {
   const handlePreviewCollection = useCallback(
     (collection) => {
       closeContextMenu();
-      if (collection?.slug) openSpaPath(`/gallery/${collection.slug}`);
+      if (!collection?.slug && !collection?.name) return;
+      const url = getShareUrlForCollection(collection, photographerProfile);
+      window.open(url, '_blank', 'noopener,noreferrer');
     },
-    [closeContextMenu]
+    [closeContextMenu, photographerProfile]
   );
 
   const handleCardClick = (collection) => {
@@ -248,40 +261,68 @@ const FolderView = () => {
 
   const renderContextMenu = (collection, variant = 'grid') => {
     if (contextMenuId !== collection.id) return null;
+    const storageLabel =
+      Number(collection.storage_bytes) > 0 ? formatStorageBytes(collection.storage_bytes) : '';
     return (
       <CollectionContextMenu
         menuRef={contextRef}
         anchorEl={contextMenuAnchor}
         variant={variant}
-        onPreview={() => handlePreviewCollection(collection)}
-        onQuickEdit={() => {
+        collection={collection}
+        storageLabel={storageLabel}
+        onOpen={() => {
           closeContextMenu();
-          setEditCollection(collection);
+          navigate(`/deliveries/manage?id=${collection.id}`, {
+            state: { from: `${location.pathname}${location.search}` },
+          });
+        }}
+        onCopyLink={async () => {
+          closeContextMenu();
+          const url = getShareUrlForCollection(collection, photographerProfile);
+          try {
+            await navigator.clipboard.writeText(url);
+          } catch (err) {
+            console.error(err);
+            window.prompt('Copy link', url);
+          }
+        }}
+        onPreviewAsClient={() => handlePreviewCollection(collection)}
+        onStar={async () => {
+          closeContextMenu();
+          const next = !collection.is_starred;
+          try {
+            await galleryService.updateCollection(collection.id, { is_starred: next });
+            setCollections((prev) =>
+              prev.map((c) => (c.id === collection.id ? { ...c, is_starred: next } : c))
+            );
+          } catch (err) {
+            console.error('Failed to update star:', err);
+          }
         }}
         onDuplicate={() => {
           closeContextMenu();
           setDuplicateCollection(collection);
         }}
+        onRename={() => {
+          closeContextMenu();
+          setEditCollection(collection);
+        }}
+        onArchive={async () => {
+          closeContextMenu();
+          try {
+            const patch = buildDeliveryStatusPatch('archived', collection);
+            await galleryService.updateCollection(collection.id, patch);
+            setCollections((prev) =>
+              prev.map((c) => (c.id === collection.id ? { ...c, ...patch } : c))
+            );
+          } catch (err) {
+            console.error(err);
+            alert('Failed to archive delivery.');
+          }
+        }}
         onDelete={() => {
           closeContextMenu();
           void handleDeleteCollection(collection.id);
-        }}
-        onShareByEmail={() => {
-          closeContextMenu();
-          navigate(`/deliveries/manage/share?id=${collection.id}`);
-        }}
-        onGetDirectLink={() => {
-          setDirectLinkCollection(collection);
-          closeContextMenu();
-        }}
-        onGetQrCode={() => {
-          setQrCollection(collection);
-          closeContextMenu();
-        }}
-        onShareWhatsApp={() => {
-          const url = getShareUrlForCollection(collection);
-          closeContextMenu();
-          openWhatsAppShare(url, collection.name || 'Gallery');
         }}
       />
     );
@@ -600,8 +641,8 @@ const FolderView = () => {
         })}
         saving={editSaving}
       />
-      <CollectionDirectLinkModal collection={directLinkCollection} isOpen={Boolean(directLinkCollection)} onClose={() => setDirectLinkCollection(null)} />
-      <CollectionQrModal collection={qrCollection} isOpen={Boolean(qrCollection)} onClose={() => setQrCollection(null)} />
+      <CollectionDirectLinkModal collection={directLinkCollection} photographerProfile={photographerProfile} isOpen={Boolean(directLinkCollection)} onClose={() => setDirectLinkCollection(null)} />
+      <CollectionQrModal collection={qrCollection} photographerProfile={photographerProfile} isOpen={Boolean(qrCollection)} onClose={() => setQrCollection(null)} />
       <CollectionDuplicateModal
         collection={duplicateCollection}
         isOpen={Boolean(duplicateCollection)}

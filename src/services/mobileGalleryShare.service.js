@@ -1,6 +1,6 @@
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase/client';
-import { getPublicSiteOrigin } from '../lib/publicSiteUrl';
+import { getClientFacingOrigin } from '../lib/publicSiteUrl';
 import { isLocalOrigin, resolveInstallOrigin } from '../lib/mobileGalleryInstall';
 
 async function readFunctionErrorMessage(error) {
@@ -27,6 +27,7 @@ export const mobileGalleryShareService = {
     message,
     sendCopy = false,
     websiteLink = null,
+    photographerProfile = null,
   }) {
     const {
       data: { session },
@@ -37,10 +38,24 @@ export const mobileGalleryShareService = {
       throw new Error('You must be signed in to send invites. Please sign in and try again.');
     }
 
-    const siteOrigin = resolveInstallOrigin('');
+    let profile = photographerProfile;
+    if (!profile && session.user?.id) {
+      try {
+        const { data } = await supabase
+          .from('photographers')
+          .select('custom_domain, custom_domain_status')
+          .eq('id', session.user.id)
+          .maybeSingle();
+        profile = data;
+      } catch {
+        /* ignore */
+      }
+    }
+
+    const siteOrigin = getClientFacingOrigin(profile) || resolveInstallOrigin('');
     if (!siteOrigin || isLocalOrigin(siteOrigin)) {
       throw new Error(
-        'Install links must use your public domain. Open this page on https://www.pixnxt.in or set VITE_PUBLIC_SITE_URL and redeploy.'
+        'Install links must use your public domain. Connect a custom domain, or open this page on https://www.pixnxt.in / set VITE_PUBLIC_SITE_URL and redeploy.'
       );
     }
     if (/vercel\.app/i.test(siteOrigin) && import.meta.env.PROD) {

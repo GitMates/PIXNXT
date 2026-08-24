@@ -1,6 +1,6 @@
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase/client';
-import { getPublicSiteOrigin } from '../lib/publicSiteUrl';
+import { getClientFacingOrigin } from '../lib/publicSiteUrl';
 
 async function readFunctionErrorMessage(error) {
   let message = error?.message || 'Could not send delivery email';
@@ -46,7 +46,7 @@ export const guestDeliveryPublishService = {
     return payload.result;
   },
 
-  async sendDeliveryEmail({ eventId, guestId, sendCopy = false }) {
+  async sendDeliveryEmail({ eventId, guestId, sendCopy = false, photographerProfile = null }) {
     const {
       data: { session },
       error: sessionError,
@@ -65,7 +65,7 @@ export const guestDeliveryPublishService = {
         eventId,
         guestId,
         sendCopy,
-        siteOrigin: getPublicSiteOrigin(),
+        siteOrigin: getClientFacingOrigin(photographerProfile),
         accessToken: session.access_token,
       },
     });

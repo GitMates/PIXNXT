@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { openSmartAlbumPreview, getSmartAlbumPreviewShareUrl, openShareByEmail, openWhatsAppShare } from '../../lib/shareSmartAlbum';
+import { openClientAlbumPreview, getSmartAlbumPreviewShareUrl, openShareByEmail, openWhatsAppShare } from '../../lib/shareSmartAlbum';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
 import { galleryService } from '../../services/gallery.service';
 import { smartAlbumCommentsService, COMMENTS_CHANGED_EVENT } from '../../services/smartAlbumComments.service';
@@ -372,6 +372,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                     albumId: album.id,
                     guestName: album.client_contact_name || null,
                     guestEmail: album.client_contact_email || null,
+                    photographerProfile,
                 });
                 const sentAt = new Date().toISOString();
                 setAlbums((prev) =>
@@ -402,7 +403,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                 setRemindingAlbumId(null);
             }
         },
-        [remindingAlbumId, showToast]
+        [remindingAlbumId, showToast, photographerProfile]
     );
 
     const handleGetQrCode = useCallback(
@@ -466,7 +467,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                 onPreview={() => {
                     closeContextMenu();
                     if (album?.share_link_enabled === false) return;
-                    openSmartAlbumPreview(album.id);
+                    openClientAlbumPreview(album, { photographerProfile });
                 }}
                 onQuickEdit={() => handleQuickEdit(album)}
                 onAlbumSettings={() => {
@@ -977,7 +978,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                 onPreview={() => {
                     if (settingsAlbum) {
                         if (settingsAlbum.share_link_enabled === false) return;
-                        openSmartAlbumPreview(settingsAlbum.id);
+                        openClientAlbumPreview(settingsAlbum, { photographerProfile });
                         setSettingsAlbum(null);
                     }
                 }}
