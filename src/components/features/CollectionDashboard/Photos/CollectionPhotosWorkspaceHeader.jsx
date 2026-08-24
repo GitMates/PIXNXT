@@ -121,14 +121,14 @@ export function CollectionPhotosWorkspaceHeader({
             >
               <p className="cdpw-menu-section">Show on each photo</p>
               <ViewCheckbox
-                checked={showFilename}
-                label="Filenames"
-                onChange={onShowFilenameChange}
-              />
-              <ViewCheckbox
                 checked={showCameraBadges}
                 label="Camera badges"
                 onChange={onShowCameraBadgesChange}
+              />
+              <ViewCheckbox
+                checked={showFilename}
+                label="Filenames"
+                onChange={onShowFilenameChange}
               />
               <ViewCheckbox
                 checked={showUnmatchedPeople}

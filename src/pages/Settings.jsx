@@ -1678,7 +1678,6 @@ const PreferencesTab = ({ profile, updateProfile }) => {
     const [webQuality, setWebQuality] = useState(defaults.webDisplayQuality);
     const [rawToggle, setRawToggle] = useState(defaults.rawPhotoSupport);
     const [sharpenWeb, setSharpenWeb] = useState(defaults.sharpenForWeb);
-    const [showFilenames, setShowFilenames] = useState(defaults.filenameDisplay === 'show');
     const [saveStatus, setSaveStatus] = useState('');
     const [saving, setSaving] = useState(false);
     const rawAllowed = planAllowsRaw(profile?.plan);
@@ -1688,7 +1687,6 @@ const PreferencesTab = ({ profile, updateProfile }) => {
         setWebQuality(next.webDisplayQuality);
         setRawToggle(next.rawPhotoSupport);
         setSharpenWeb(next.sharpenForWeb);
-        setShowFilenames(next.filenameDisplay === 'show');
         syncUploadDefaultsToLocalStorage(next);
     }, [profile]);
 
@@ -1707,7 +1705,6 @@ const PreferencesTab = ({ profile, updateProfile }) => {
                 ...patch,
                 web_display_quality: localState?.webQuality ?? webQuality,
                 sharpen_for_web: localState?.sharpenWeb ?? sharpenWeb,
-                filename_display: (localState?.showFilenames ?? showFilenames) ? 'show' : 'hide',
                 raw_photo_support: localState?.rawToggle ?? rawToggle,
             });
             syncUploadDefaultsToLocalStorage(merged);
@@ -1754,21 +1751,11 @@ const PreferencesTab = ({ profile, updateProfile }) => {
         );
     };
 
-    const handleFilenamesToggle = async () => {
-        const next = !showFilenames;
-        setShowFilenames(next);
-        await persist(
-            { filename_display: next ? 'show' : 'hide' },
-            { showFilenames: next }
-        );
-    };
-
     return (
         <div className="ud-panel">
             <h2 className="ud-title">Upload defaults</h2>
             <p className="ud-lead">
-                What happens to a file between your card and a guest&apos;s screen. These four were
-                scattered across a page called Preferences that also held your legal documents.
+                What happens to a file between your card and a guest&apos;s screen.
             </p>
 
             <section className="ud-section">
@@ -1831,7 +1818,7 @@ const PreferencesTab = ({ profile, updateProfile }) => {
                     </button>
                 </div>
 
-                <div className="ud-file-row">
+                <div className="ud-file-row ud-file-row--last">
                     <div className="ud-file-text">
                         <span className="ud-file-label">Sharpen for the web</span>
                         <p className="ud-file-desc">
@@ -1844,24 +1831,6 @@ const PreferencesTab = ({ profile, updateProfile }) => {
                         onClick={handleSharpenToggle}
                         aria-pressed={sharpenWeb}
                         aria-label="Sharpen for the web"
-                    >
-                        <span className="settings-toggle-thumb" />
-                    </button>
-                </div>
-
-                <div className="ud-file-row ud-file-row--last">
-                    <div className="ud-file-text">
-                        <span className="ud-file-label">Show filenames to clients</span>
-                        <p className="ud-file-desc">
-                            Useful when a client refers to a shot by number. Most weddings do not need it.
-                        </p>
-                    </div>
-                    <button
-                        type="button"
-                        className={`settings-toggle ${showFilenames ? 'settings-toggle--on' : ''}`}
-                        onClick={handleFilenamesToggle}
-                        aria-pressed={showFilenames}
-                        aria-label="Show filenames to clients"
                     >
                         <span className="settings-toggle-thumb" />
                     </button>

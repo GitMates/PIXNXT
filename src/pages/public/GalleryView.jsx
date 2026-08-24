@@ -35,14 +35,18 @@ import {
 } from '../../lib/storePackages';
 import {
   countGalleryMedia,
-  filterGalleryMediaByType,
-  shouldShowGalleryMediaFilter,
+  partitionGalleryMedia,
   isGalleryVideo,
 } from '../../lib/galleryMediaType';
+import {
+  GALLERY_LIVE_CHANNEL,
+  GALLERY_SETTINGS_STORAGE_PREFIX,
+  GALLERY_MEDIA_STORAGE_PREFIX,
+} from '../../lib/galleryLiveSync';
 import './GalleryView.css';
 import { useIsMobileViewport } from '../../hooks/useIsMobileViewport';
 import { normalizeGalleryPhotoSort, sortPhotosForGallery } from '../../lib/galleryPhotoSort';
-import { normalizeNavigationStyle } from '../../lib/navStyle';
+import { navigationStyleToDb, normalizeNavigationStyle } from '../../lib/navStyle';
 import { getThumbnailSizeColumnCount } from '../../lib/masonryColumnDistribution';
 import {
   normalizePaletteId,
@@ -645,7 +649,6 @@ const GalleryView = () => {
     }
   };
   const [activeSetId, setActiveSetId] = useState(null);
-  const [mediaFilter, setMediaFilter] = useState('photos');
   const [selectedDownloadPhoto, setSelectedDownloadPhoto] = useState(null);
   const isDownloadingAll = false;
   const downloadProgress = { done: 0, total: 0 };
@@ -1181,14 +1184,64 @@ const GalleryView = () => {
     smoothScrollToTop();
   }, []);
 
-  const previewCoverStyle = searchParams.get('coverStyle');
-  const previewFont = searchParams.get('font');
-  const previewColor = searchParams.get('color');
-  const previewGrid = searchParams.get('grid');
-  const previewThumb = searchParams.get('thumb');
-  const previewSpacing = searchParams.get('spacing');
-  const previewNav = searchParams.get('nav');
   const previewSlideshow = searchParams.get('slideshow');
+
+  const applyPreviewQueryToCollection = (data) => {
+    if (!data) return data;
+    const previewCoverStyle = searchParams.get('coverStyle');
+    const previewFont = searchParams.get('font');
+    const previewColor = searchParams.get('color');
+    const previewGrid = searchParams.get('grid');
+    const previewThumb = searchParams.get('thumb');
+    const previewSpacing = searchParams.get('spacing');
+    const previewNav = searchParams.get('nav');
+    if (
+      !previewCoverStyle &&
+      !previewFont &&
+      !previewColor &&
+      !previewGrid &&
+      !previewThumb &&
+      !previewSpacing &&
+      !previewNav
+    ) {
+      return data;
+    }
+    const extras = {
+      ...(data.design_options && typeof data.design_options === 'object' ? data.design_options : {}),
+    };
+    const next = { ...data };
+    if (previewCoverStyle) {
+      const layout = normalizeCoverStyleId(previewCoverStyle);
+      extras.cover_layout = layout;
+      next.cover_layout = layout;
+    }
+    if (previewFont) {
+      extras.font_family = normalizeFontId(previewFont);
+      next.font_family = extras.font_family;
+    }
+    if (previewColor) {
+      extras.color_palette = normalizePaletteId(previewColor);
+      next.color_palette = extras.color_palette;
+    }
+    if (previewGrid) {
+      extras.grid_style = previewGrid;
+      next.grid_style = previewGrid;
+    }
+    if (previewThumb) {
+      extras.thumbnail_size = previewThumb;
+      next.thumbnail_size = previewThumb;
+    }
+    if (previewSpacing) {
+      extras.grid_spacing = previewSpacing;
+      next.grid_spacing = previewSpacing;
+    }
+    if (previewNav) {
+      extras.nav_style = navigationStyleToDb(normalizeNavigationStyle(previewNav));
+      next.nav_style = extras.nav_style;
+    }
+    next.design_options = extras;
+    return next;
+  };
 
   const getEffectiveSettings = () => {
     if (!collection) return {
@@ -1204,15 +1257,13 @@ const GalleryView = () => {
       ? collection.design_options
       : {};
     return {
-      cover_style: previewCoverStyle
-        ? normalizeCoverStyleId(previewCoverStyle)
-        : resolveCoverLayoutId(collection),
-      font_family: normalizeFontId(previewFont || extras.font_family || collection.font_family || 'sans'),
-      color_palette: normalizePaletteId(previewColor || extras.color_palette || collection.color_palette || 'light'),
-      grid_style: previewGrid || extras.grid_style || collection.grid_style || 'vertical',
-      thumbnail_size: previewThumb || extras.thumbnail_size || collection.thumbnail_size || 'regular',
-      grid_spacing: previewSpacing || extras.grid_spacing || collection.grid_spacing || 'regular',
-      nav_style: previewNav || extras.nav_style || collection.nav_style || 'icons'
+      cover_style: resolveCoverLayoutId(collection),
+      font_family: normalizeFontId(extras.font_family || collection.font_family || 'sans'),
+      color_palette: normalizePaletteId(extras.color_palette || collection.color_palette || 'light'),
+      grid_style: extras.grid_style || collection.grid_style || 'vertical',
+      thumbnail_size: extras.thumbnail_size || collection.thumbnail_size || 'regular',
+      grid_spacing: extras.grid_spacing || collection.grid_spacing || 'regular',
+      nav_style: extras.nav_style || collection.nav_style || 'icons'
     };
   };
 
@@ -1253,7 +1304,7 @@ const GalleryView = () => {
           resolved = { ...resolved, slideshow_enabled: urlSlideshow };
           cacheSlideshowEnabled(resolved.id, urlSlideshow);
         }
-        setCollection(resolved);
+        setCollection(applyPreviewQueryToCollection(resolved));
         if (
           resolved.id &&
           Object.prototype.hasOwnProperty.call(resolved, 'slideshow_enabled')
@@ -1316,6 +1367,16 @@ const GalleryView = () => {
     if (slug) fetchGallery();
   }, [slug]);
 
+  const refreshLiveGallery = useCallback(async () => {
+    if (!slug) return;
+    try {
+      const data = await galleryService.getCollectionBySlug(slug);
+      if (data) setCollection((prev) => ({ ...prev, ...data }));
+    } catch {
+      /* silently ignore */
+    }
+  }, [slug]);
+
   const applySlideshowSetting = useCallback((collectionId, enabled, skipCache = false) => {
     if (!collectionId) return;
     if (!skipCache) cacheSlideshowEnabled(collectionId, enabled);
@@ -1328,14 +1389,28 @@ const GalleryView = () => {
 
   useEffect(() => {
     const applySettingsPatch = (eventData) => {
-      if (!eventData || eventData.type !== 'SETTINGS_UPDATED') return;
+      if (!eventData) return;
       if (eventData.slug !== slug && eventData.collectionId !== collection?.id) return;
+
+      if (eventData.type === 'MEDIA_UPDATED') {
+        void refreshLiveGallery();
+        return;
+      }
+
+      if (eventData.type !== 'SETTINGS_UPDATED') return;
 
       const patch = eventData.settings;
       if (patch && typeof patch === 'object') {
         setCollection((prev) => {
           if (!prev) return prev;
-          const next = { ...prev, ...patch };
+          const next = {
+            ...prev,
+            ...patch,
+            design_options: {
+              ...(prev.design_options && typeof prev.design_options === 'object' ? prev.design_options : {}),
+              ...(patch.design_options && typeof patch.design_options === 'object' ? patch.design_options : {}),
+            },
+          };
           if ('download_pin_hash' in patch || 'download_pin' in patch) {
             const pin =
               patch.download_pin_hash === null || patch.download_pin === null
@@ -1366,12 +1441,13 @@ const GalleryView = () => {
     channel.onmessage = (event) => applySettingsPatch(event.data);
 
     const onStorage = (event) => {
-      if (!event.key?.startsWith('pixnxt-gallery-settings:')) return;
       if (!event.newValue) return;
-      try {
-        applySettingsPatch(JSON.parse(event.newValue));
-      } catch {
-        /* ignore */
+      if (event.key?.startsWith(GALLERY_SETTINGS_STORAGE_PREFIX) || event.key?.startsWith(GALLERY_MEDIA_STORAGE_PREFIX)) {
+        try {
+          applySettingsPatch(JSON.parse(event.newValue));
+        } catch {
+          /* ignore */
+        }
       }
     };
     window.addEventListener('storage', onStorage);
@@ -1583,11 +1659,8 @@ const GalleryView = () => {
   }, [collection, storePackages]);
 
   useEffect(() => {
-    if (mediaCounts.photos > 0) setMediaFilter('photos');
-    else if (mediaCounts.videos > 0) setMediaFilter('videos');
+    // no-op: kept for reference - mediaFilter not needed as we stack videos first then photos
   }, [activeSetId, mediaCounts.photos, mediaCounts.videos]);
-
-  const showMediaFilter = shouldShowGalleryMediaFilter(mediaCounts);
 
   const photosAfterPeopleFilter = useMemo(() => {
     if (galleryPeople.selfieMatchPhotoIds.length) {
@@ -1599,10 +1672,15 @@ const GalleryView = () => {
     return filteredPhotosBase;
   }, [filteredPhotosBase, galleryPeople.selfieMatchPhotoIds, galleryPeople.activePerson]);
 
-  const filteredPhotos = useMemo(() => {
-    if (!showMediaFilter) return photosAfterPeopleFilter;
-    return filterGalleryMediaByType(photosAfterPeopleFilter, mediaFilter);
-  }, [photosAfterPeopleFilter, showMediaFilter, mediaFilter]);
+  const { videos: galleryVideos, photos: galleryStills } = useMemo(
+    () => partitionGalleryMedia(photosAfterPeopleFilter),
+    [photosAfterPeopleFilter]
+  );
+
+  const filteredPhotos = useMemo(
+    () => [...galleryVideos, ...galleryStills],
+    [galleryVideos, galleryStills]
+  );
 
   const handleGridImageClick = useCallback((index) => {
     const photo = filteredPhotos?.[index];
@@ -2363,10 +2441,10 @@ const GalleryView = () => {
             onBuyGalleryClick={openVaultModal}
             isPaidDownload={isPaidDigitalDownloadOn}
             isDark={isGalleryDark}
-            mediaFilter={!isFavoriteListMode ? mediaFilter : undefined}
-            onMediaFilterChange={!isFavoriteListMode ? setMediaFilter : undefined}
-            mediaPhotoCount={mediaCounts.photos}
-            mediaVideoCount={mediaCounts.videos}
+            mediaFilter={undefined}
+            onMediaFilterChange={undefined}
+            mediaPhotoCount={0}
+            mediaVideoCount={0}
           />
 
           {setDescriptionText ? (
@@ -2419,23 +2497,22 @@ const GalleryView = () => {
           ) : null}
 
           {filteredPhotos.length === 0 &&
-            showMediaFilter &&
             !isFavoriteListMode &&
             photosForActiveSet.length > 0 ? (
             <p
               className="gallery-body-text py-16 text-center text-[7px] font-bold uppercase tracking-[0.35em] opacity-40"
               style={{ color: 'var(--gallery-text)' }}
             >
-              No {mediaFilter} in this set
+              No media in this set
             </p>
           ) : null}
 
           {showEmptyPlaceholderGrid ? (
             <GalleryEmptyGrid className="mt-2" />
           ) : (() => {
+            const baseKey = `${activeSetId ?? 'highlights'}-${effectiveSettings.grid_style}-${effectiveSettings.thumbnail_size}-${effectiveSettings.grid_spacing}`;
             const gridProps = {
               isMobileViewport,
-              videosOnly: mediaFilter === 'videos',
               isHorizontal: effectiveSettings.grid_style?.toLowerCase() === 'horizontal',
               gridSettings: galleryGridSettings,
               onFavorite: (photo) => handleFavoritePhotoToggle(photo),
@@ -2461,23 +2538,57 @@ const GalleryView = () => {
               className: 'mt-2',
             };
 
+            const hasBoth = galleryVideos.length > 0 && galleryStills.length > 0;
+
             return (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: hasBoth ? '32px' : '20px' }}>
                 {/* Large Banner — rectangle bar ABOVE grid */}
                 {largeBannerMarkup}
 
-                <MasonryGrid
-                  key={`grid-single-${activeSetId ?? 'highlights'}-${mediaFilter}-${effectiveSettings.grid_style}-${effectiveSettings.thumbnail_size}-${effectiveSettings.grid_spacing}`}
-                  photos={filteredPhotos}
-                  onImageClick={handleGridImageClick}
-                  activeCampaign={activeCampaign}
-                  activeProducts={activeProducts}
-                  onVisitShop={() => setShowPrintLabModal(true)}
-                  packagePickerActive={packagePickerActive}
-                  packageSelectedPhotoIds={packageSelectedPhotos.map((p) => p.id)}
-                  packagePickLimit={packagePickLimit}
-                  {...gridProps}
-                />
+                {galleryVideos.length > 0 ? (
+                  <div>
+                    {hasBoth ? (
+                      <p className="gallery-media-section-label" style={{ color: 'var(--gallery-text)', opacity: 0.55, textAlign: 'center', letterSpacing: '0.2em', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '12px' }}>
+                        Videos
+                      </p>
+                    ) : null}
+                    <MasonryGrid
+                      key={`grid-videos-${baseKey}`}
+                      photos={galleryVideos}
+                      videosOnly
+                      onImageClick={(i) => handleGridImageClick(i)}
+                      activeCampaign={null}
+                      activeProducts={activeProducts}
+                      onVisitShop={() => setShowPrintLabModal(true)}
+                      packagePickerActive={packagePickerActive}
+                      packageSelectedPhotoIds={packageSelectedPhotos.map((p) => p.id)}
+                      packagePickLimit={packagePickLimit}
+                      {...gridProps}
+                    />
+                  </div>
+                ) : null}
+
+                {galleryStills.length > 0 ? (
+                  <div>
+                    {hasBoth ? (
+                      <p className="gallery-media-section-label" style={{ color: 'var(--gallery-text)', opacity: 0.55, textAlign: 'center', letterSpacing: '0.2em', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '12px' }}>
+                        Photos
+                      </p>
+                    ) : null}
+                    <MasonryGrid
+                      key={`grid-photos-${baseKey}`}
+                      photos={galleryStills}
+                      onImageClick={(i) => handleGridImageClick(galleryVideos.length + i)}
+                      activeCampaign={activeCampaign}
+                      activeProducts={activeProducts}
+                      onVisitShop={() => setShowPrintLabModal(true)}
+                      packagePickerActive={packagePickerActive}
+                      packageSelectedPhotoIds={packageSelectedPhotos.map((p) => p.id)}
+                      packagePickLimit={packagePickLimit}
+                      {...gridProps}
+                    />
+                  </div>
+                ) : null}
               </div>
             );
           })()}

@@ -1494,12 +1494,14 @@
     aspect-ratio: 1 / 1;
     height: auto;
     max-height: none;
+    overflow: hidden;
     background: #f2faf8 !important;
     border-bottom: 1px solid rgba(13, 148, 136, 0.08);
 }
 
 .cd-photo-grid--manage.cd-photo-grid--filenames .cd-photo-filename {
-    position: static;
+    position: relative;
+    z-index: 2;
     flex: 0 0 auto;
     width: 100%;
     box-sizing: border-box;
@@ -6649,6 +6651,22 @@
 .cd-ctx-item--has-flyout.is-open,
 .cd-share-item:hover {
     background-color: #f6f2ec !important;
+}
+
+/* ─── Mixed-media section grouping ─────────────────────────── */
+.cd-media-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.cd-media-section__title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #a0978e;
+    margin: 0 0 10px 4px;
 }
 
 

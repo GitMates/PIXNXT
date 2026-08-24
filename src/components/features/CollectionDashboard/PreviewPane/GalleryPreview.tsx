@@ -13,19 +13,14 @@ import { DownloadModal } from '../../Gallery/DownloadModal/DownloadModal';
 import { galleryService } from '../../../../services/gallery.service';
 import { sortPhotosForGallery, normalizeGalleryPhotoSort } from '../../../../lib/galleryPhotoSort';
 import {
-  GalleryStickyNav,
-  GallerySetDescription,
-} from '../../Gallery/GalleryChrome';
-import {
   isCollectionFeatureEnabled,
   isSlideshowEnabledForCollection,
 } from '../../../../lib/collectionFeatureFlags';
+import { partitionGalleryMedia } from '../../../../lib/galleryMediaType';
 import {
-  countGalleryMedia,
-  filterGalleryMediaByType,
-  shouldShowGalleryMediaFilter,
-  type GalleryMediaFilterValue,
-} from '../../../../lib/galleryMediaType';
+  GalleryStickyNav,
+  GallerySetDescription,
+} from '../../Gallery/GalleryChrome';
 import { normalizeNavigationStyle } from '../../../../lib/navStyle';
 import { GalleryBackToTop } from '../../Gallery/GalleryBackToTop/GalleryBackToTop';
 import { GalleryEmptyGrid } from '../../Gallery/GalleryEmptyGrid/GalleryEmptyGrid';
@@ -157,7 +152,6 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
   const [pendingFavoritePhotoId, setPendingFavoritePhotoId] = useState<string | null>(null);
   const [isSubmittingEmail, setIsSubmittingEmail] = useState(false);
   const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
-  const [mediaFilter, setMediaFilter] = useState<GalleryMediaFilterValue>('photos');
 
   // Scale preview grid to match public gallery layout.
   // Strategy: render MasonryGrid in a 1280px-wide div (matching the live gallery viewport),
@@ -288,15 +282,6 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
     [photosForActiveSet, gallerySortKey]
   );
 
-  const mediaCounts = useMemo(() => countGalleryMedia(photosSortedForGrid), [photosSortedForGrid]);
-
-  useEffect(() => {
-    if (mediaCounts.photos > 0) setMediaFilter('photos');
-    else if (mediaCounts.videos > 0) setMediaFilter('videos');
-  }, [dashboardState?.activeSetId, mediaCounts.photos, mediaCounts.videos]);
-
-  const showMediaFilter = shouldShowGalleryMediaFilter(mediaCounts);
-
   const photosAfterPeopleFilter = useMemo(() => {
     if (galleryPeople.selfieMatchPhotoIds.length) {
       return filterPhotosByIds(photosSortedForGrid, galleryPeople.selfieMatchPhotoIds);
@@ -315,11 +300,18 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
         (p: any) => p.id != null && favSet.has(normalizeFavoritePhotoId(p.id) as string)
       );
     }
-    if (showMediaFilter) {
-      list = filterGalleryMediaByType(list, mediaFilter);
-    }
-    return list;
-  }, [photosAfterPeopleFilter, showOnlyFavorites, favoritedPhotos, showMediaFilter, mediaFilter]);
+    const { videos, photos } = partitionGalleryMedia(list);
+    return [...videos, ...photos];
+  }, [photosAfterPeopleFilter, showOnlyFavorites, favoritedPhotos]);
+
+  const previewVideoPhotos = useMemo(
+    () => partitionGalleryMedia(filteredPhotos).videos,
+    [filteredPhotos]
+  );
+  const previewStillPhotos = useMemo(
+    () => partitionGalleryMedia(filteredPhotos).photos,
+    [filteredPhotos]
+  );
 
   const showEmptyPlaceholderGrid =
     !showOnlyFavorites &&
@@ -694,10 +686,6 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
           showBuyGallery={vaultEnabled}
           buyGalleryLabel="Buy Link"
           onBuyGalleryClick={() => alert("This is a preview of the Buy Link button. In the live gallery, it pops open the extension subscriptions card popup.")}
-          mediaFilter={mediaFilter}
-          onMediaFilterChange={setMediaFilter}
-          mediaPhotoCount={mediaCounts.photos}
-          mediaVideoCount={mediaCounts.videos}
         />
 
         {setDescriptionText ? (
@@ -767,49 +755,85 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
               padding: getPadding(galleryRefWidth),
             }}
           >
-            {filteredPhotos.length === 0 && showMediaFilter && photosForActiveSet.length > 0 ? (
-              <p
-                className="gallery-body-text py-10 text-center text-[12px] font-bold uppercase tracking-[0.2em] opacity-40 md:text-[13px]"
-                style={{ color: 'var(--gallery-text)' }}
-              >
-                No {mediaFilter} in this set
-              </p>
-            ) : null}
             {showEmptyPlaceholderGrid ? (
               <GalleryEmptyGrid isPreview isPreviewMobile={isPreviewMobile} />
             ) : (
-              <MasonryGrid
-                key={`${grid.style}-${grid.size}-${grid.spacing}-${mediaFilter}`}
-                photos={filteredPhotos}
-                videosOnly={mediaFilter === 'videos'}
-                gridSettings={grid}
-                isHorizontal={grid.style?.toLowerCase() === 'horizontal'}
-                onImageClick={(index) => {
-                  setLightboxIndex(index);
-                  setIsSlideshowActive(false);
-                }}
-                onFavorite={(photo: any) => handleFavoritePhotoToggle(photo.id)}
-                onDownload={handleDownloadClick}
-                onShare={() => setShowShareModal(true)}
-                showPrivateBadge={Boolean(dashboardState?.collection?.client_exclusive_enabled)}
-                showDownload={
-                  isCollectionFeatureEnabled(dashboardState?.photoDownload) &&
-                  isCollectionFeatureEnabled(dashboardState?.singlePhotoDownload)
-                }
-                showFavorite={favFeatureOn}
-                showShare={isCollectionFeatureEnabled(dashboardState?.socialSharing)}
-                showShop={dashboardState?.collection?.store_enabled !== false}
-                favoritedPhotoIds={favoritedPhotos}
-                customRowHeight={previewCustomRowHeight}
-                customColumnCount={previewCustomColumnCount}
-                showFilename={dashboardState?.showFilenameInGrid === true}
-                forceShow={true}
-                isPreviewMobile={isPreviewMobile}
-                activeCampaign={activeCampaign}
-                onVisitShop={() =>
-                  alert('This is a preview of the store promo. In the live gallery, it opens the print store.')
-                }
-              />
+              <div className="gallery-media-stack">
+                {previewVideoPhotos.length > 0 ? (
+                  <div className="gallery-media-stack__block">
+                    {previewStillPhotos.length > 0 ? (
+                      <p className="gallery-media-stack__title" style={{ color: 'var(--gallery-text)' }}>Videos</p>
+                    ) : null}
+                    <MasonryGrid
+                      key={`${grid.style}-${grid.size}-${grid.spacing}-videos`}
+                      photos={previewVideoPhotos}
+                      videosOnly
+                      gridSettings={grid}
+                      isHorizontal={grid.style?.toLowerCase() === 'horizontal'}
+                      onImageClick={(index) => {
+                        setLightboxIndex(index);
+                        setIsSlideshowActive(false);
+                      }}
+                      onFavorite={(photo: any) => handleFavoritePhotoToggle(photo.id)}
+                      onDownload={handleDownloadClick}
+                      onShare={() => setShowShareModal(true)}
+                      showPrivateBadge={Boolean(dashboardState?.collection?.client_exclusive_enabled)}
+                      showDownload={
+                        isCollectionFeatureEnabled(dashboardState?.photoDownload) &&
+                        isCollectionFeatureEnabled(dashboardState?.singlePhotoDownload)
+                      }
+                      showFavorite={favFeatureOn}
+                      showShare={isCollectionFeatureEnabled(dashboardState?.socialSharing)}
+                      showShop={dashboardState?.collection?.store_enabled !== false}
+                      favoritedPhotoIds={favoritedPhotos}
+                      customRowHeight={previewCustomRowHeight}
+                      customColumnCount={previewCustomColumnCount}
+                      showFilename={false}
+                      forceShow={true}
+                      isPreviewMobile={isPreviewMobile}
+                      activeCampaign={null}
+                    />
+                  </div>
+                ) : null}
+                {previewStillPhotos.length > 0 ? (
+                  <div className="gallery-media-stack__block">
+                    {previewVideoPhotos.length > 0 ? (
+                      <p className="gallery-media-stack__title" style={{ color: 'var(--gallery-text)' }}>Photos</p>
+                    ) : null}
+                    <MasonryGrid
+                      key={`${grid.style}-${grid.size}-${grid.spacing}-photos`}
+                      photos={previewStillPhotos}
+                      gridSettings={grid}
+                      isHorizontal={grid.style?.toLowerCase() === 'horizontal'}
+                      onImageClick={(index) => {
+                        setLightboxIndex(previewVideoPhotos.length + index);
+                        setIsSlideshowActive(false);
+                      }}
+                      onFavorite={(photo: any) => handleFavoritePhotoToggle(photo.id)}
+                      onDownload={handleDownloadClick}
+                      onShare={() => setShowShareModal(true)}
+                      showPrivateBadge={Boolean(dashboardState?.collection?.client_exclusive_enabled)}
+                      showDownload={
+                        isCollectionFeatureEnabled(dashboardState?.photoDownload) &&
+                        isCollectionFeatureEnabled(dashboardState?.singlePhotoDownload)
+                      }
+                      showFavorite={favFeatureOn}
+                      showShare={isCollectionFeatureEnabled(dashboardState?.socialSharing)}
+                      showShop={dashboardState?.collection?.store_enabled !== false}
+                      favoritedPhotoIds={favoritedPhotos}
+                      customRowHeight={previewCustomRowHeight}
+                      customColumnCount={previewCustomColumnCount}
+                      showFilename={false}
+                      forceShow={true}
+                      isPreviewMobile={isPreviewMobile}
+                      activeCampaign={activeCampaign}
+                      onVisitShop={() =>
+                        alert('This is a preview of the store promo. In the live gallery, it opens the print store.')
+                      }
+                    />
+                  </div>
+                ) : null}
+              </div>
             )}
           </div>
         </div>

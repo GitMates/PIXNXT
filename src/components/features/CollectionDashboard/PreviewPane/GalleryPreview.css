@@ -1435,4 +1435,19 @@
     color: #171717;
 }
 
+/* Stacked videos-then-photos layout in preview */
+.gallery-media-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+}
 
+.gallery-media-stack__title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    opacity: 0.5;
+    text-align: center;
+    margin-bottom: 10px;
+}

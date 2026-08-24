@@ -2,6 +2,7 @@ import React from 'react';
 import { DatePicker } from '../../../ui/DatePicker';
 import { galleryService } from '../../../../services/gallery.service';
 import { cacheSlideshowEnabled } from '../../../../lib/collectionFeatureFlags';
+import { broadcastGalleryLive } from '../../../../lib/galleryLiveSync';
 import { getCollectionShareUrl } from '../../../../lib/shareCollection';
 import { CategoryTagsField } from './CategoryTagsField';
 import './BasicsSettings.css';
@@ -144,15 +145,10 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
 }) => {
     const [activeTab, setActiveTab] = React.useState<'link' | 'closes' | 'gallery'>('link');
     const [copied, setCopied] = React.useState(false);
-    const [showFilenames, setShowFilenames] = React.useState(collection?.show_filenames === true);
     const [remindChannel, setRemindChannel] = React.useState<'both' | 'email' | 'whatsapp'>('both');
     const [remindWhen, setRemindWhen] = React.useState<'3days' | 'week' | 'both'>('week');
 
     const expiryPickerRef = React.useRef<HTMLDivElement>(null);
-
-    React.useEffect(() => {
-        setShowFilenames(collection?.show_filenames === true);
-    }, [collection?.show_filenames]);
 
     React.useEffect(() => {
         if (!expiryReminders.length) return;
@@ -191,30 +187,21 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
         }
     };
 
-    const broadcastGallerySettings = (settings: {
-        slideshow_enabled?: boolean;
-        social_sharing_enabled?: boolean;
-    }) => {
-        const channel = new BroadcastChannel('pixnxt-gallery-update');
-        channel.postMessage({
-            type: 'SETTINGS_UPDATED',
-            collectionId,
-            slug: collectionUrl,
-            settings,
-        });
-        channel.close();
-    };
-
     const persistGalleryVisitorFlags = async (patch: {
         slideshow_enabled?: boolean;
         social_sharing_enabled?: boolean;
         gallery_assist?: boolean;
-        show_filenames?: boolean;
     }) => {
         if (patch.slideshow_enabled !== undefined) {
             cacheSlideshowEnabled(collectionId, patch.slideshow_enabled);
         }
-        broadcastGallerySettings(patch);
+        setCollection((prev) => (prev ? { ...prev, ...patch } : prev));
+        broadcastGalleryLive({
+            type: 'SETTINGS_UPDATED',
+            collectionId,
+            slug: collectionUrl,
+            settings: patch,
+        });
         await persistCollection(patch);
     };
 
@@ -693,22 +680,6 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                                             onChange={(next) => {
                                                 setGalleryAssist(next);
                                                 void persistGalleryVisitorFlags({ gallery_assist: next });
-                                            }}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="cd-dl-row">
-                                    <div className="cd-dl-row__copy">
-                                        <p className="cd-dl-row__title">Show filenames</p>
-                                        <p className="cd-dl-row__desc">Useful when a client refers to a shot by number.</p>
-                                    </div>
-                                    <div className="cd-dl-row__control">
-                                        <Toggle
-                                            checked={showFilenames}
-                                            onChange={(next) => {
-                                                setShowFilenames(next);
-                                                void persistGalleryVisitorFlags({ show_filenames: next });
                                             }}
                                         />
                                     </div>

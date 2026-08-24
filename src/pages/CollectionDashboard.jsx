@@ -30,7 +30,6 @@ import { CollectionDashboardSidebar } from '../components/features/CollectionDas
 import { SetOptionsMenu } from '../components/features/CollectionDashboard/Sidebar/SetOptionsMenu';
 import { NewSelectionModal } from '../components/features/CollectionDashboard/Modals/NewSelectionModal';
 import { getPublicSiteOrigin } from '../lib/publicSiteUrl';
-import { DeliveryFilmsView } from '../components/features/CollectionDashboard/Films/DeliveryFilmsView';
 import { downloadPhotoFromR2 } from '../lib/downloadPhoto';
 import {
   resolvePhotosForDownloadActivity,
@@ -68,7 +67,7 @@ import {
 } from '../lib/dashboardPhotoSortUi';
 import { normalizeGalleryPhotoSort } from '../lib/galleryPhotoSort';
 import { clientGalleryEmailTemplatesService } from '../services/clientGalleryEmailTemplates.service';
-import { COVER_IMAGE_ACCEPT, MEDIA_FILE_INPUT_ACCEPT, VIDEO_FILE_INPUT_ACCEPT, VIDEO_FILE_PICKER_TYPES, PHOTO_FILE_INPUT_ACCEPT, PHOTO_FILE_PICKER_TYPES, pickMediaFilesOrFallback } from '../lib/mediaFilePicker';
+import { COVER_IMAGE_ACCEPT, MEDIA_FILE_INPUT_ACCEPT, pickMediaFilesOrFallback } from '../lib/mediaFilePicker';
 import { setCoverPhotoDragData, endCoverPhotoDrag, isGalleryImagePhoto } from '../lib/coverPhotoDrag';
 import { DatePicker } from '../components/ui/DatePicker';
 import './CollectionDashboard.css';
@@ -113,10 +112,8 @@ import {
     isRawMedia,
 } from '../lib/photoDisplayUrl';
 import { formatCoverDate, formatSidebarDeliveryDate, formatLastSavedTime } from '../lib/formatCoverDate.js';
-import {
-    countGalleryMedia,
-    filterGalleryMediaByType,
-} from '../lib/galleryMediaType';
+import { broadcastGalleryLive } from '../lib/galleryLiveSync';
+import { partitionGalleryMedia } from '../lib/galleryMediaType';
 import {
     normalizeCoverStyleId,
     normalizeFontId,
@@ -212,7 +209,9 @@ const CollectionDashboard = () => {
     const [activePhotoMenu, setActivePhotoMenu] = useState(null);
     const [showGridSettings, setShowGridSettings] = useState(false);
     const [gridSize, setGridSize] = useState('small');
-    const [showFilename, setShowFilename] = useState(() => resolveUploadDefaults(null).filenameDisplay === 'show');
+    const [showFilename, setShowFilename] = useState(
+        () => localStorage.getItem('filename_display') === 'show'
+    );
     const [showCameraBadges, setShowCameraBadges] = useState(
         () => localStorage.getItem('cd_show_camera_badges') === '1'
     );
@@ -1042,6 +1041,7 @@ const CollectionDashboard = () => {
     const moveToSetRef = useRef(null);
     const moveMenuPortalRef = useRef(null);
     const favoriteActivityMenuRef = useRef(null);
+    const mediaSyncReadyRef = useRef(false);
 
     const updateMoveMenuPosition = useCallback(() => {
         const anchor = moveToSetRef.current?.querySelector('.cd-sel-action-btn');
@@ -1271,6 +1271,11 @@ const CollectionDashboard = () => {
             if (collection?.cover_photo_id && ids.includes(collection.cover_photo_id)) {
                 setCollection((prev) => (prev ? { ...prev, cover_photo_id: null, cover_url: null } : prev));
             }
+            broadcastGalleryLive({
+                type: 'MEDIA_UPDATED',
+                collectionId,
+                slug: collectionUrl,
+            });
             setSelectedPhotos([]);
             setShowDeleteConfirm(false);
             setPhotosToDelete([]);
@@ -2614,20 +2619,16 @@ const CollectionDashboard = () => {
     }, [activeActivityMenu, favoriteDetailPhotoMenuPhotoId, favoriteActivitySortMenuOpen, showSelectionMore, showSelectAllMenu, showMoveToSetMenu]);
 
     // ─── SORT LOGIC ──────────────────────────────────────────
-    const isFilmsView = activeSidebarTab === 'films';
-
     const sortedPhotos = useMemo(() => {
         let filtered = photos;
-        if (isFilmsView) {
-            filtered = photos;
-        } else if (activeSetId) {
+        if (activeSetId) {
             filtered = photos.filter(p => p.set_id === activeSetId);
         } else {
             filtered = photos.filter(p => !p.set_id);
         }
 
         return sortDashboardPhotos(filtered, sortOption);
-    }, [photos, activeSetId, sortOption, isFilmsView]);
+    }, [photos, activeSetId, sortOption]);
 
     const photoAiMetadataMap = useMemo(
         () => photoAiService.metadataToMap(photoAiRows),
@@ -2655,8 +2656,6 @@ const CollectionDashboard = () => {
         return result;
     }, [sortedPhotos, photoAiMetadataMap, activePerson, selfieMatchPhotoIds, showUnmatchedPeople, photoAiRows.length]);
 
-    const totalMediaCounts = useMemo(() => countGalleryMedia(photos), [photos]);
-
     const sidebarActivityCount = useMemo(
         () =>
             (activityCounts.contacts || 0) +
@@ -2667,17 +2666,7 @@ const CollectionDashboard = () => {
         [activityCounts]
     );
 
-    const activeSetMediaCounts = useMemo(
-        () => countGalleryMedia(sortedPhotos),
-        [sortedPhotos]
-    );
-
-    const mediaFilteredPhotos = useMemo(() => {
-        if (isFilmsView) {
-            return filterGalleryMediaByType(aiFilteredPhotos, 'videos');
-        }
-        return filterGalleryMediaByType(aiFilteredPhotos, 'photos');
-    }, [aiFilteredPhotos, isFilmsView]);
+    const mediaFilteredPhotos = aiFilteredPhotos;
 
     const isPhotoAiFilterActive = Boolean(
         activePersonId || selfieMatchPhotoIds.length
@@ -2991,16 +2980,29 @@ const CollectionDashboard = () => {
                 _uploadPending: true,
                 _uploadProgress: f.progress,
             }));
-        const filteredPending = filterGalleryMediaByType(pending, isFilmsView ? 'videos' : 'photos');
-        return [...searchFilteredPhotos, ...filteredPending];
-    }, [searchFilteredPhotos, uploadState.files, collectionId, highlightsEnabled, activeSetId, sets, isFilmsView]);
+        return [...searchFilteredPhotos, ...pending];
+    }, [searchFilteredPhotos, uploadState.files, collectionId, highlightsEnabled, activeSetId, sets]);
 
-    const deliveryFilms = useMemo(() => {
-        const videos = filterGalleryMediaByType(photos, 'videos');
-        return sortDashboardPhotos(videos, sortOption);
-    }, [photos, sortOption]);
+    const gridVideoPhotos = useMemo(() => partitionGalleryMedia(gridPhotos).videos, [gridPhotos]);
+    const gridStillPhotos = useMemo(() => partitionGalleryMedia(gridPhotos).photos, [gridPhotos]);
 
-    const videoDownloadEnabled = photoDownloadSizes.includes('video');
+    useEffect(() => {
+        if (loading || !collectionId) return;
+        if (!mediaSyncReadyRef.current) {
+            mediaSyncReadyRef.current = true;
+            return;
+        }
+        broadcastGalleryLive({
+            type: 'MEDIA_UPDATED',
+            collectionId,
+            slug: collectionUrl,
+        });
+    }, [
+        collectionId,
+        collectionUrl,
+        loading,
+        photos.map((p) => `${p.id}:${p.set_id || ''}:${p.position ?? ''}:${p.is_private ? 1 : 0}`).join(','),
+    ]);
 
     const handlePreviewAsClient = useCallback(() => {
         const params = new URLSearchParams({
@@ -3037,13 +3039,20 @@ const CollectionDashboard = () => {
     }, [activeSidebarTab, gridPhotos.length]);
 
     const activeSetCountLabel = useMemo(() => {
-        const typeCount = activeSetMediaCounts.photos;
+        const visible = gridPhotos.filter((p) => !p._uploadPending);
+        const counts = partitionGalleryMedia(isPhotoAiFilterActive || photoSearchQuery.trim() ? visible : sortedPhotos);
+        const parts = [];
+        const videoCount = Array.isArray(counts.videos) ? counts.videos.length : 0;
+        const photoCount = Array.isArray(counts.photos) ? counts.photos.length : 0;
+        if (videoCount) parts.push(`${videoCount.toLocaleString()} ${videoCount === 1 ? 'video' : 'videos'}`);
+        if (photoCount) parts.push(`${photoCount.toLocaleString()} ${photoCount === 1 ? 'photo' : 'photos'}`);
+        if (!parts.length) return '0 photos';
         if (isPhotoAiFilterActive || photoSearchQuery.trim()) {
-            return `${gridPhotos.filter((p) => !p._uploadPending).length.toLocaleString()} of ${Number(typeCount).toLocaleString()} photos`;
+            return `${visible.length.toLocaleString()} of ${sortedPhotos.length.toLocaleString()} · ${parts.join(' · ')}`;
         }
-        return `${Number(typeCount).toLocaleString()} photos`;
+        return parts.join(' · ');
     }, [
-        activeSetMediaCounts,
+        sortedPhotos,
         isPhotoAiFilterActive,
         photoSearchQuery,
         gridPhotos,
@@ -3436,7 +3445,7 @@ const CollectionDashboard = () => {
             const draggablePhotos = gridPhotos.filter((p) => !p._uploadPending);
             const byId = new Map(draggablePhotos.map((p) => [p.id, p]));
             const reorderedVisible = nextIds.filter((id) => byId.has(id)).map((id) => byId.get(id));
-            if (reorderedVisible.length !== draggablePhotos.length) return;
+            if (!reorderedVisible.length) return;
 
             const visibleIdSet = new Set(reorderedVisible.map((p) => p.id));
             let visibleIndex = 0;
@@ -3493,21 +3502,45 @@ const CollectionDashboard = () => {
             });
         }
 
-        if (!collection || loading || !designHydratedRef.current || !collectionId) return undefined;
+        if (loading || !designHydratedRef.current || !collectionId) return undefined;
+
+        const patch = toDeliveryDesignPatch({
+            coverStyle: selectedCoverStyle,
+            fontFamily: selectedFont,
+            colorPalette: selectedColorPalette,
+            grid: gridSettings,
+        });
+        setCollection((prev) => {
+            if (!prev) return prev;
+            return {
+                ...prev,
+                ...patch,
+                design_options: {
+                    ...(prev.design_options && typeof prev.design_options === 'object' ? prev.design_options : {}),
+                    ...(patch.design_options || {}),
+                },
+            };
+        });
+        broadcastGalleryLive({
+            type: 'SETTINGS_UPDATED',
+            collectionId,
+            slug: collectionUrl,
+            settings: patch,
+        });
 
         const saveSettings = async () => {
             try {
-                const patch = toDeliveryDesignPatch({
-                    coverStyle: selectedCoverStyle,
-                    fontFamily: selectedFont,
-                    colorPalette: selectedColorPalette,
-                    grid: gridSettings,
-                });
                 const saved = await galleryService.updateCollection(collectionId, patch);
                 if (saved) {
                     setCollection((prev) => {
                         if (!prev) return saved;
                         const next = { ...prev, ...saved };
+                        if (!saved.design_options && prev.design_options) {
+                            next.design_options = prev.design_options;
+                        }
+                        if (!saved.cover_layout && prev.cover_layout) {
+                            next.cover_layout = prev.cover_layout;
+                        }
                         if (!saved.cover_focals && prev.cover_focals) {
                             next.cover_focals = prev.cover_focals;
                         }
@@ -3524,7 +3557,7 @@ const CollectionDashboard = () => {
 
         const timeoutId = setTimeout(saveSettings, 400);
         return () => clearTimeout(timeoutId);
-    }, [selectedCoverStyle, selectedFont, selectedColorPalette, gridSettings, collectionId, collection, loading]);
+    }, [selectedCoverStyle, selectedFont, selectedColorPalette, gridSettings, collectionId, collectionUrl, loading]);
 
     useEffect(() => {
         const flushDesignSettings = () => {
@@ -3798,31 +3831,15 @@ const CollectionDashboard = () => {
     };
 
     const broadcastDownloadSettings = useCallback((patch) => {
-        if (!collectionId) return;
-        const settings = {
-            ...patch,
-            download_pin: patch.download_pin_hash ?? null,
-        };
-        try {
-            localStorage.setItem(
-                `pixnxt-gallery-settings:${collectionId}`,
-                JSON.stringify({ collectionId, slug: collectionUrl, settings, at: Date.now() })
-            );
-        } catch {
-            /* ignore quota */
-        }
-        try {
-            const channel = new BroadcastChannel('pixnxt-gallery-update');
-            channel.postMessage({
-                type: 'SETTINGS_UPDATED',
-                collectionId,
-                slug: collectionUrl,
-                settings,
-            });
-            channel.close();
-        } catch {
-            /* BroadcastChannel optional */
-        }
+        broadcastGalleryLive({
+            type: 'SETTINGS_UPDATED',
+            collectionId,
+            slug: collectionUrl,
+            settings: {
+                ...patch,
+                download_pin: patch.download_pin_hash ?? null,
+            },
+        });
     }, [collectionId, collectionUrl]);
 
     const persistDownloadSettings = useCallback(async (overrides = {}) => {
@@ -3935,17 +3952,13 @@ const CollectionDashboard = () => {
                 ...(slideshowColumnReadyRef.current ? { slideshow_enabled: slideshow } : {}),
             };
 
-            const channel = new BroadcastChannel('pixnxt-gallery-update');
-            channel.postMessage({
+            setCollection((prev) => (prev ? { ...prev, ...patch } : prev));
+            broadcastGalleryLive({
                 type: 'SETTINGS_UPDATED',
                 collectionId,
                 slug: collectionUrl,
-                settings: {
-                    slideshow_enabled: slideshow,
-                    social_sharing_enabled: socialSharing,
-                },
+                settings: patch,
             });
-            channel.close();
 
             try {
                 const updated = await galleryService.updateCollection(collectionId, patch);
@@ -3975,37 +3988,51 @@ const CollectionDashboard = () => {
         if (!collection || loading) return;
 
         const saveFavoriteSettings = async () => {
+            const patch = {
+                favorites_enabled: favoritePhotos,
+                favorites_allow_comments: favoriteNotes,
+            };
+            setCollection((prev) => (prev ? { ...prev, ...patch } : prev));
+            broadcastGalleryLive({
+                type: 'SETTINGS_UPDATED',
+                collectionId,
+                slug: collectionUrl,
+                settings: patch,
+            });
             try {
-                await galleryService.updateCollection(collectionId, {
-                    favorites_enabled: favoritePhotos,
-                    favorites_allow_comments: favoriteNotes
-                });
+                await galleryService.updateCollection(collectionId, patch);
             } catch (err) {
                 console.error('Error auto-saving favorite settings:', err);
             }
         };
 
-        const timeoutId = setTimeout(saveFavoriteSettings, 1000);
+        const timeoutId = setTimeout(saveFavoriteSettings, 400);
         return () => clearTimeout(timeoutId);
-    }, [favoritePhotos, favoriteNotes, collectionId, collection, loading]);
+    }, [favoritePhotos, favoriteNotes, collectionId, collectionUrl, collection, loading]);
 
     // Auto-save shop settings
     useEffect(() => {
         if (!collection || loading) return;
 
         const saveShopSettings = async () => {
+            const patch = { store_enabled: storeEnabled };
+            setCollection((prev) => (prev ? { ...prev, ...patch } : prev));
+            broadcastGalleryLive({
+                type: 'SETTINGS_UPDATED',
+                collectionId,
+                slug: collectionUrl,
+                settings: patch,
+            });
             try {
-                await galleryService.updateCollection(collectionId, {
-                    store_enabled: storeEnabled
-                });
+                await galleryService.updateCollection(collectionId, patch);
             } catch (err) {
                 console.error('Error auto-saving shop settings:', err);
             }
         };
 
-        const timeoutId = setTimeout(saveShopSettings, 1000);
+        const timeoutId = setTimeout(saveShopSettings, 400);
         return () => clearTimeout(timeoutId);
-    }, [storeEnabled, collectionId, collection, loading]);
+    }, [storeEnabled, collectionId, collectionUrl, collection, loading]);
 
     // Derived values
     const backTo = deliveryStudioBackPath({
@@ -4110,11 +4137,9 @@ const CollectionDashboard = () => {
 
     const openMediaFileDialog = (inputRef) => {
         uploadSnapshotRef.current = getUploadTargetSnapshot();
-        const pickerTypes = isFilmsView ? VIDEO_FILE_PICKER_TYPES : PHOTO_FILE_PICKER_TYPES;
         void pickMediaFilesOrFallback({
             multiple: true,
             fallback: () => inputRef.current?.click(),
-            types: pickerTypes,
         }).then((files) => {
             if (files?.length) processSelectedUploadFiles(files);
         });
@@ -4736,8 +4761,7 @@ const CollectionDashboard = () => {
                     onSettingsTabChange={setActiveSettingsTab}
                     activeActivitySubTab={activeActivitySubTab}
                     onActivitySubTabChange={setActiveActivitySubTab}
-                    photoCount={totalMediaCounts.photos}
-                    filmCount={totalMediaCounts.videos}
+                    photoCount={photos.length}
                     guestCount={gdGuestCount || gdEvent?.guest_count || 0}
                     activityCount={sidebarActivityCount}
                     guestDeliveryEnabled={collection?.guest_delivery_enabled}
@@ -4889,9 +4913,21 @@ const CollectionDashboard = () => {
                                 />
 
                                 {gridPhotos.length > 0 ? (
+                                    <div className="cd-media-sections">
+                                    {(gridVideoPhotos.length && gridStillPhotos.length
+                                        ? [
+                                            { id: 'videos', title: 'Videos', photos: gridVideoPhotos },
+                                            { id: 'photos', title: 'Photos', photos: gridStillPhotos },
+                                        ]
+                                        : [{ id: 'all', title: null, photos: gridPhotos }]
+                                    ).map((section) => (
+                                    <div key={section.id} className="cd-media-section">
+                                    {section.title ? (
+                                        <p className="cd-media-section__title">{section.title}</p>
+                                    ) : null}
                                     <CollectionPhotoSortableGrid
-                                        gridRef={photosGridRef}
-                                        photos={gridPhotos}
+                                        gridRef={section.id === 'videos' || section.id === 'all' ? photosGridRef : undefined}
+                                        photos={section.photos}
                                         disabled={isPhotoAiFilterActive}
                                         className={`cd-photo-grid cd-photo-grid--manage ${gridSize === 'large' ? 'grid-large' : ''}${showFilename ? ' cd-photo-grid--filenames' : ''}`}
                                         onReorder={handleGridPhotoReorder}
@@ -4996,6 +5032,9 @@ const CollectionDashboard = () => {
                                             );
                                         }}
                                     />
+                                    </div>
+                                    ))}
+                                    </div>
                                 ) : sortedPhotos.length > 0 ? (
                                     <p className="cd-media-filter-empty">
                                         {photoSearchQuery.trim()
@@ -5014,7 +5053,7 @@ const CollectionDashboard = () => {
                                             type="file"
                                             ref={fileInputRef}
                                             style={{ display: 'none' }}
-                                            accept={isFilmsView ? VIDEO_FILE_INPUT_ACCEPT : PHOTO_FILE_INPUT_ACCEPT}
+                                            accept={MEDIA_FILE_INPUT_ACCEPT}
                                             multiple
                                             onChange={handleFileSelect}
                                         />
@@ -5028,7 +5067,7 @@ const CollectionDashboard = () => {
                                                     <line x1="12" y1="15" x2="18" y2="15"></line>
                                                 </svg>
                                             </div>
-                                            <p className="cd-drop-title">{isFilmsView ? 'Drag videos here to upload' : 'Drag photos here to upload'}</p>
+                                            <p className="cd-drop-title">Drag photos and videos here to upload</p>
                                             <p className="cd-drop-subtitle">
                                                 or{' '}
                                                 <span
@@ -5052,17 +5091,6 @@ const CollectionDashboard = () => {
                             </>
                         )}
 
-                        {activeSidebarTab === 'films' && (
-                            <DeliveryFilmsView
-                                films={deliveryFilms}
-                                videoDownloadEnabled={videoDownloadEnabled}
-                                onAddFilm={() => setShowUploadModal(true)}
-                                onPreviewAsClient={handlePreviewAsClient}
-                                onFilmMenu={(film, anchorEl) => {
-                                    openPhotoMenuFor(film.id, anchorEl, false, 0);
-                                }}
-                            />
-                        )}
 
                         {/* --- DESIGN VIEW --- */}
                         {activeSidebarTab === 'design' && (
@@ -5461,7 +5489,7 @@ const CollectionDashboard = () => {
                                         type="file"
                                         ref={modalFileInputRef}
                                         style={{ display: 'none' }}
-                                        accept={isFilmsView ? VIDEO_FILE_INPUT_ACCEPT : PHOTO_FILE_INPUT_ACCEPT}
+                                        accept={MEDIA_FILE_INPUT_ACCEPT}
                                         multiple
                                         onChange={handleFileSelect}
                                     />
@@ -5475,7 +5503,7 @@ const CollectionDashboard = () => {
                                                 <line x1="12" y1="15" x2="18" y2="15"></line>
                                             </svg>
                                         </div>
-                                        <p className="cd-modal-drop-text">{isFilmsView ? 'Drag videos here to upload' : 'Drag photos here to upload'}</p>
+                                        <p className="cd-modal-drop-text">Drag photos and videos here to upload</p>
                                         <p className="cd-modal-drop-browse">or <span className="cd-browse-link" onClick={handleModalBrowse}>Browse files</span></p>
                                     </div>
                                 </div>

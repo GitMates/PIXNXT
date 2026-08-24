@@ -1,5 +1,6 @@
 import React from 'react';
 import { galleryService } from '../../../../services/gallery.service';
+import { broadcastGalleryLive } from '../../../../lib/galleryLiveSync';
 import { StoreSettingsProps } from './Settings.types';
 import { Toggle } from './settingsCardKit';
 import './BasicsSettings.css';
@@ -180,6 +181,13 @@ export const StoreSettings: React.FC<StoreSettingsProps> = ({
   }, [collectionId]);
 
   const persist = async (patch: Record<string, unknown>) => {
+    setCollection?.((prev: any) => (prev ? { ...prev, ...patch } : prev));
+    broadcastGalleryLive({
+      type: 'SETTINGS_UPDATED',
+      collectionId,
+      slug: collection?.slug,
+      settings: patch,
+    });
     try {
       const updated = await galleryService.updateCollection(collectionId, patch);
       setCollection?.((prev: any) => (prev ? { ...prev, ...(updated || patch) } : prev));
@@ -241,7 +249,10 @@ export const StoreSettings: React.FC<StoreSettingsProps> = ({
             <Row
               title="Print Lab"
               desc="Visitors can order prints and products from inside the gallery."
-              control={<Toggle checked={storeEnabled} onChange={setStoreEnabled} label="Print Lab" />}
+              control={<Toggle checked={storeEnabled} onChange={(next) => {
+                setStoreEnabled(next);
+                void persist({ store_enabled: next });
+              }} label="Print Lab" />}
             />
           </div>
 
