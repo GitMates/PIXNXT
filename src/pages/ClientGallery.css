@@ -1400,11 +1400,11 @@
 }
 
 .dl-row-thumb {
-  width: 3.35rem;
-  height: 3.35rem;
+  width: 4.75rem;
+  height: 3rem;
   flex-shrink: 0;
   overflow: hidden;
-  border-radius: 0.7rem;
+  border-radius: 0.45rem;
   background: #e8e0d4;
 }
 
@@ -1566,6 +1566,238 @@
   .dl-row-earn {
     display: none;
   }
+}
+
+/* Deliveries board — dark theme (body.dark-theme) */
+body.dark-theme .dl-page.cg-style-2 {
+  background: #0e0d0c;
+}
+
+body.dark-theme .dl-page .cg-page-title {
+  color: #ece9e2;
+}
+
+body.dark-theme .dl-lede {
+  color: #a19c91;
+}
+
+body.dark-theme .dl-lede strong {
+  color: #ece9e2;
+}
+
+body.dark-theme .dl-new {
+  background: #ece9e2;
+  color: #141210;
+}
+
+body.dark-theme .dl-new:hover {
+  background: #f6f3ee;
+}
+
+body.dark-theme .dl-new-menu {
+  background: #1a1917;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+}
+
+body.dark-theme .dl-new-menu button {
+  color: #ece9e2;
+}
+
+body.dark-theme .dl-new-menu button:hover {
+  background: #252320;
+}
+
+body.dark-theme .dl-search input {
+  border: 1px solid #2a2825;
+  background: #1a1917;
+  color: #ece9e2;
+  box-shadow: none;
+}
+
+body.dark-theme .dl-search input::placeholder {
+  color: #6f6a64;
+}
+
+body.dark-theme .dl-search svg {
+  color: #8a847e;
+}
+
+body.dark-theme .dl-icon-btn {
+  color: #c4beb6;
+}
+
+body.dark-theme .dl-icon-btn:hover {
+  color: #ece9e2;
+}
+
+body.dark-theme .dl-icon-btn.is-on {
+  color: #c48d61;
+}
+
+body.dark-theme .dl-view-toggle {
+  background: #252320;
+}
+
+body.dark-theme .dl-view-toggle button {
+  color: #a19c91;
+}
+
+body.dark-theme .dl-view-toggle button.is-on {
+  background: #3a3733;
+  color: #ece9e2;
+  box-shadow: none;
+}
+
+body.dark-theme .dl-popover {
+  background: #1a1917;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
+}
+
+body.dark-theme .dl-popover__kicker {
+  color: #8a847e;
+}
+
+body.dark-theme .dl-popover__item {
+  color: #e3e0d8;
+}
+
+body.dark-theme .dl-popover__item:hover {
+  background: #252320;
+}
+
+body.dark-theme .dl-popover__item.is-on {
+  color: #c48d61;
+}
+
+body.dark-theme .dl-popover__count {
+  color: #8a847e;
+}
+
+body.dark-theme .dl-popover__item.is-on .dl-popover__count {
+  color: #c4a48a;
+}
+
+body.dark-theme .dl-cover,
+body.dark-theme .dl-row-thumb {
+  background: #252320;
+}
+
+body.dark-theme .dl-card-title,
+body.dark-theme .dl-row-title {
+  color: #ece9e2;
+}
+
+body.dark-theme .dl-earn,
+body.dark-theme .dl-row-earn {
+  color: #c4beb6;
+}
+
+body.dark-theme .dl-earn svg {
+  color: #8a847e;
+}
+
+body.dark-theme .dl-meta,
+body.dark-theme .dl-row-sub,
+body.dark-theme .dl-row-status,
+body.dark-theme .dl-row-size {
+  color: #a19c91;
+}
+
+body.dark-theme .dl-status-dot--draft {
+  background: #ece9e2;
+}
+
+body.dark-theme .dl-status-dot--closed {
+  background: #6f6a64;
+}
+
+body.dark-theme .dl-chip:not(.dl-chip--warn):not(.dl-chip--late) {
+  background: #2a2825;
+  color: #c4beb6;
+}
+
+body.dark-theme .dl-chip--warn {
+  background: #3a2c20;
+  color: #d4a574;
+}
+
+body.dark-theme .dl-chip--late {
+  background: #3a2420;
+  color: #e0a090;
+}
+
+body.dark-theme .dl-more {
+  background: rgba(26, 25, 23, 0.92);
+  color: #ece9e2;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+body.dark-theme .dl-card.is-selected .dl-cover,
+body.dark-theme .dl-row.is-selected {
+  box-shadow: inset 0 0 0 2px #ece9e2;
+}
+
+body.dark-theme .dl-list {
+  background: #161513;
+  box-shadow: none;
+}
+
+body.dark-theme .dl-row {
+  border-bottom-color: #2a2825;
+}
+
+body.dark-theme .dl-row:hover,
+body.dark-theme .dl-row.is-selected {
+  background: #1c1b19;
+}
+
+body.dark-theme .dl-row-more {
+  color: #8a847e;
+}
+
+body.dark-theme .dl-row-more:hover {
+  background: #2a2825;
+  color: #ece9e2;
+}
+
+body.dark-theme .dl-more-menu {
+  background: #1a1917 !important;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55) !important;
+}
+
+body.dark-theme .dl-more-menu__kicker,
+body.dark-theme .dl-more-menu__meta {
+  color: #8a847e;
+}
+
+body.dark-theme .dl-more-menu__item {
+  color: #e3e0d8;
+}
+
+body.dark-theme .dl-more-menu__item:hover {
+  background: #252320;
+}
+
+body.dark-theme .dl-more-menu__item--danger {
+  color: #e08a7a;
+}
+
+body.dark-theme .dl-more-menu__rule {
+  background: #2a2825;
+}
+
+body.dark-theme .dl-page .cg-style-60,
+body.dark-theme .dl-page .cg-style-61 {
+  color: #ece9e2;
+}
+
+body.dark-theme .dl-page .cg-style-62 {
+  color: #a19c91;
+}
+
+body.dark-theme .dl-page .cg-style-63 {
+  color: #ece9e2;
+  border-color: #3a3733;
 }
 
 
