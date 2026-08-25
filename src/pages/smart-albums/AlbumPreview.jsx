@@ -52,6 +52,10 @@ import {
     smartAlbumProoferSettingsService,
 } from '../../services/smartAlbumProoferSettings.service';
 import { ALBUM_PROOF_STATUS_CHANGED_EVENT } from '../../components/smart-albums/albumProofStatus';
+import {
+    hasCompletedSpreadReview,
+    markSpreadVisited,
+} from '../../services/albumProof.service';
 import { hydrateAlbumClientFeedback } from '../../components/smart-albums/hydrateAlbumClientFeedback';
 import { useAlbumFeedbackRealtime } from '../../components/smart-albums/useAlbumFeedbackRealtime';
 import { canClientLeaveFeedback } from '../../components/smart-albums/albumProoferPreview';
@@ -160,6 +164,14 @@ export default function AlbumPreview({
     const [guestSessionTick, setGuestSessionTick] = useState(0);
     const [guestNamePromptOpen, setGuestNamePromptOpen] = useState(false);
     const [guestDetailsRequired, setGuestDetailsRequired] = useState(false);
+    const [spreadReviewComplete, setSpreadReviewComplete] = useState(() =>
+        albumId ? hasCompletedSpreadReview(albumId) : false
+    );
+
+    const requiresSpreadReview =
+        clientPreview && !skipGuestDetails && spreadCount > 0;
+    const canShowApprove =
+        !requiresSpreadReview || spreadReviewComplete;
 
     const prooferAccess = useMemo(() => {
         if (!clientPreview || !album?.photographer_id || !albumId) return null;
@@ -208,6 +220,23 @@ export default function AlbumPreview({
         setGuestDetailsRequired(true);
         setGuestNamePromptOpen(true);
     }, [guestGatePending]);
+
+    useEffect(() => {
+        if (!albumId) return;
+        setSpreadReviewComplete(hasCompletedSpreadReview(albumId));
+    }, [albumId]);
+
+    useEffect(() => {
+        if (!requiresSpreadReview || !albumId || guestGatePending) return;
+        const done = markSpreadVisited(albumId, spreadIndex, spreadCount);
+        if (done) setSpreadReviewComplete(true);
+    }, [
+        requiresSpreadReview,
+        albumId,
+        spreadIndex,
+        spreadCount,
+        guestGatePending,
+    ]);
 
     const handleProoferBlocked = useCallback(
         (message, code) => {
@@ -721,6 +750,7 @@ export default function AlbumPreview({
                         albumId={albumId}
                         albumName={album?.name}
                         album={album}
+                        visible={canShowApprove}
                         onToast={(message, variant = 'info') =>
                             showToast(message, { variant, duration: 4500 })
                         }

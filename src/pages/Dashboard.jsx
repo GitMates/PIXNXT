@@ -12,6 +12,28 @@ import DashboardCommandSearch from '../components/dashboard/DashboardCommandSear
 import { coverImageCssStyle } from '../lib/focalPoint';
 import './Dashboard.css';
 
+const DEFAULT_RECENT_GRADIENT =
+  'linear-gradient(145deg, #ebe6df 0%, #d4cdc4 55%, #c8bfb4 100%)';
+
+/** Cover photo over gradient so missing/broken URLs never show a blank white tile. */
+function recentWorkThumbStyle(item) {
+  const gradient = item?.gradient || DEFAULT_RECENT_GRADIENT;
+  if (!item?.coverUrl) {
+    return { background: gradient };
+  }
+  const cover = coverImageCssStyle(item.coverUrl);
+  if (!cover.backgroundImage) {
+    return { background: gradient };
+  }
+  return {
+    ...cover,
+    backgroundImage: `${cover.backgroundImage}, ${gradient}`,
+    backgroundSize: `${cover.backgroundSize || 'cover'}, cover`,
+    backgroundPosition: `${cover.backgroundPosition || 'center'}, center`,
+    backgroundRepeat: 'no-repeat, no-repeat',
+  };
+}
+
 const STUDIO_STATS = [
   { label: 'OWED TO YOU', value: '₹1,45,000', sub: '2 invoices · oldest 21 days' },
   { label: 'BOOKED THIS MONTH', value: '₹6,80,000', sub: '₹2,15,000 received' },
@@ -644,11 +666,7 @@ const Dashboard = () => {
                   ) : (
                     <span
                       className="sd-recent-thumb"
-                      style={
-                        item.coverUrl
-                          ? coverImageCssStyle(item.coverUrl)
-                          : { background: item.gradient }
-                      }
+                      style={recentWorkThumbStyle(item)}
                     />
                   )}
                   <span className="sd-recent-title">{item.title}</span>

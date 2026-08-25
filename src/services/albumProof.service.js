@@ -5,6 +5,8 @@ import { getClientFacingOrigin, getPublicSiteOrigin } from '../lib/publicSiteUrl
 const APPROVED_KEY = 'pixnxt_album_proof_approved';
 const SUBMITTED_KEY = 'pixnxt_album_proof_submitted';
 const COMMENTING_STARTED_KEY = 'pixnxt_album_client_commenting_started';
+const SPREADS_REVIEWED_KEY = 'pixnxt_album_spreads_reviewed';
+const SPREADS_VISITED_KEY = 'pixnxt_album_spreads_visited';
 
 function readMap(key) {
     try {
@@ -64,6 +66,53 @@ export function markClientCommentingStartedNotified(albumId) {
     const all = readMap(COMMENTING_STARTED_KEY);
     all[albumId] = new Date().toISOString();
     writeMap(COMMENTING_STARTED_KEY, all);
+}
+
+/** Client finished viewing every spread on their first shared-link visit. */
+export function hasCompletedSpreadReview(albumId) {
+    if (!albumId) return false;
+    return Boolean(readMap(SPREADS_REVIEWED_KEY)[albumId]);
+}
+
+function getVisitedSpreadSet(albumId) {
+    if (!albumId) return new Set();
+    const raw = readMap(SPREADS_VISITED_KEY)[albumId];
+    if (!Array.isArray(raw)) return new Set();
+    return new Set(raw.filter((n) => Number.isInteger(n) && n >= 0));
+}
+
+function everySpreadVisited(visited, totalSpreads) {
+    if (totalSpreads <= 0) return false;
+    for (let i = 0; i < totalSpreads; i += 1) {
+        if (!visited.has(i)) return false;
+    }
+    return true;
+}
+
+/** Record a spread visit; returns true once all spreads have been seen at least once. */
+export function markSpreadVisited(albumId, spreadIndex, totalSpreads) {
+    if (!albumId || !Number.isInteger(spreadIndex) || spreadIndex < 0) return false;
+    if (hasCompletedSpreadReview(albumId)) return true;
+
+    const visited = getVisitedSpreadSet(albumId);
+    visited.add(spreadIndex);
+
+    const allVisited = readMap(SPREADS_VISITED_KEY);
+    allVisited[albumId] = [...visited].sort((a, b) => a - b);
+    writeMap(SPREADS_VISITED_KEY, allVisited);
+
+    if (!everySpreadVisited(visited, totalSpreads)) return false;
+
+    const reviewed = readMap(SPREADS_REVIEWED_KEY);
+    reviewed[albumId] = new Date().toISOString();
+    writeMap(SPREADS_REVIEWED_KEY, reviewed);
+    return true;
+}
+
+export function allSpreadsVisited(albumId, totalSpreads) {
+    if (!albumId || totalSpreads <= 0) return false;
+    if (hasCompletedSpreadReview(albumId)) return true;
+    return everySpreadVisited(getVisitedSpreadSet(albumId), totalSpreads);
 }
 
 export async function trackAlbumProofActivity({

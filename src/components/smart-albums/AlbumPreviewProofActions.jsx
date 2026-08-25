@@ -71,6 +71,7 @@ export default function AlbumPreviewProofActions({
     albumName,
     album,
     onToast,
+    visible = true,
 }) {
     const [approveOpen, setApproveOpen] = useState(false);
     const [pinOpen, setPinOpen] = useState(false);
@@ -163,6 +164,7 @@ export default function AlbumPreviewProofActions({
 
     return (
         <>
+            {visible ? (
             <div className="av-preview-header-actions">
                 <button
                     type="button"
@@ -178,6 +180,9 @@ export default function AlbumPreviewProofActions({
                     {approvedAt ? 'Approved' : 'Approve album'}
                 </button>
             </div>
+            ) : (
+                <span className="av-preview-header-spacer" aria-hidden />
+            )}
 
             {pinOpen &&
                 createPortal(
