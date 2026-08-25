@@ -375,6 +375,12 @@
   scrollbar-width: thin;
 }
 
+.cdpw-people__strip--expanded {
+  flex-wrap: wrap;
+  overflow-x: visible;
+  row-gap: 18px;
+}
+
 .cdpw-person {
   flex-shrink: 0;
 }
@@ -511,6 +517,11 @@
   color: #666666;
 }
 
+.cdpw-person__overflow--collapse {
+  border-style: solid;
+  font-size: 11px;
+}
+
 .cdpw-people__status {
   display: inline-flex;
   align-items: center;
@@ -538,6 +549,109 @@
   font-size: 11px;
   line-height: 1.55;
   color: #999999;
+}
+
+.cdpw-people__side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+  align-self: center;
+  max-width: 220px;
+}
+
+.cdpw-people__selfie-status {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: #333333;
+  text-align: right;
+}
+
+.cdpw-people__selfie-status--muted {
+  color: #999999;
+}
+
+.cdpw-people__file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.cdpw-person--find {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.cdpw-person__btn--find .cdpw-person__avatar-wrap--find {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: 1px dashed #cccccc;
+  background: #fafafa;
+  color: #666666;
+  overflow: hidden;
+}
+
+.cdpw-person__btn--find:hover:not(:disabled) .cdpw-person__avatar-wrap--find {
+  border-color: #b0b0b0;
+  background: #f3f3f3;
+}
+
+.cdpw-person__btn--find:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.cdpw-person__btn--find-active .cdpw-person__avatar-wrap--find {
+  border-style: solid;
+  border-color: #1a1a1a;
+}
+
+.cdpw-person__selfie-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.cdpw-person__find-clear {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-family: inherit;
+  font-size: 11px;
+  color: #888888;
+  cursor: pointer;
+}
+
+.cdpw-person__find-clear:hover {
+  color: #333333;
+}
+
+.cdpw-person__overflow--reanalyze {
+  border-style: solid;
+}
+
+.cdpw-person__overflow--reanalyze:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .cdpw-spin {
@@ -584,6 +698,12 @@
   }
 
   .cdpw-people__hint {
+    max-width: none;
+    text-align: left;
+  }
+
+  .cdpw-people__side {
+    align-items: flex-start;
     max-width: none;
   }
 }

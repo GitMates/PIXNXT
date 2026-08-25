@@ -85,11 +85,24 @@ export function CollectionPhotosWorkspaceHeader({
   analyzing = false,
   loadingPeople = false,
   indexedCount = 0,
+  tableMissing = false,
+  selfiePreview = '',
+  selfieSearching = false,
+  selfieMessage = '',
+  onSelfieSearch,
+  onClearSelfie,
+  onReanalyze,
 }) {
   const [viewOpen, setViewOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
 
-  const showPeopleStrip = analyzing || loadingPeople || indexedCount > 0 || people.length > 0;
+  const showPeopleStrip =
+    analyzing ||
+    loadingPeople ||
+    indexedCount > 0 ||
+    people.length > 0 ||
+    Boolean(onSelfieSearch) ||
+    Boolean(selfiePreview);
   const sortTriggerLabel = sortFieldLabel(sortField);
 
   return (
@@ -196,6 +209,14 @@ export function CollectionPhotosWorkspaceHeader({
           onClearPerson={onClearPerson}
           analyzing={analyzing}
           loadingPeople={loadingPeople}
+          indexedCount={indexedCount}
+          tableMissing={tableMissing}
+          selfiePreview={selfiePreview}
+          selfieSearching={selfieSearching}
+          selfieMessage={selfieMessage}
+          onSelfieSearch={onSelfieSearch}
+          onClearSelfie={onClearSelfie}
+          onReanalyze={onReanalyze}
         />
       ) : null}
     </div>

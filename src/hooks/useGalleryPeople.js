@@ -57,8 +57,8 @@ export function useGalleryPeople(collectionId, { enabled = true, isPublic = true
         setSelfieMessage('Please upload a photo with your face clearly visible.');
         return;
       }
-      if (file.size > 8 * 1024 * 1024) {
-        setSelfieMessage('Selfie must be 8 MB or smaller.');
+      if (file.size > 40 * 1024 * 1024) {
+        setSelfieMessage('Selfie must be 40 MB or smaller.');
         return;
       }
 

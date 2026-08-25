@@ -126,7 +126,7 @@ const RekognitionTest = () => {
             <h1 className="rek-test-title cg-page-title">Rekognition test</h1>
             <p className="rek-test-sub">
               Upload a photo to test AWS face indexing + label detection locally. Results are saved to the{' '}
-              <code>pixnxt-dev-test</code> Rekognition collection.
+              <code>pixnxt-dev-test</code> Rekognition face group (AWS calls this a “collection”).
             </p>
           </div>
           <Link to="/dashboard" className="rek-test-back">

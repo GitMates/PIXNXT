@@ -1,5 +1,5 @@
 import { RekognitionClient, SearchFacesCommand } from '@aws-sdk/client-rekognition';
-import { rekognitionCollectionId } from './indexPhoto.js';
+import { rekognitionDeliveryId } from './indexPhoto.js';
 
 function getClient() {
   const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
@@ -42,20 +42,21 @@ class UnionFind {
 
 /**
  * Group Rekognition face IDs into people clusters using SearchFaces.
+ * @param {string} deliveryId — PIXNXT delivery (or guest-delivery event) id
  */
-export async function clusterFacesForCollection(collectionId, faceEntries) {
+export async function clusterFacesForCollection(deliveryId, faceEntries) {
   const uniqueIds = [...new Set(faceEntries.map((f) => f.faceId).filter(Boolean))];
   if (!uniqueIds.length) return [];
 
   const uf = new UnionFind(uniqueIds);
   const client = getClient();
-  const rekCollectionId = rekognitionCollectionId(collectionId);
+  const deliveryFaceGroupId = rekognitionDeliveryId(deliveryId);
 
   for (const faceId of uniqueIds) {
     try {
       const result = await client.send(
         new SearchFacesCommand({
-          CollectionId: rekCollectionId,
+          CollectionId: deliveryFaceGroupId,
           FaceId: faceId,
           FaceMatchThreshold: 90,
           MaxFaces: 50,

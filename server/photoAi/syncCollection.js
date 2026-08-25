@@ -4,6 +4,7 @@ import {
   getClusterState,
   getMetadataStats,
   isClusterStateFresh,
+  loadPeopleFromDb,
 } from './peopleCache.js';
 
 /**
@@ -28,7 +29,15 @@ export async function syncCollectionPhotoAi(collectionId, { supabase, limit = 50
 
   let people = [];
   if (needsCluster) {
-    people = await clusterAndPersistPeople(supabase, collectionId);
+    try {
+      people = await clusterAndPersistPeople(supabase, collectionId);
+    } catch (err) {
+      console.warn('[photoAi] cluster after sync failed:', err?.message || err);
+      const { people: cached } = await loadPeopleFromDb(supabase, collectionId, {
+        includeHidden: true,
+      });
+      people = cached;
+    }
   }
 
   return {

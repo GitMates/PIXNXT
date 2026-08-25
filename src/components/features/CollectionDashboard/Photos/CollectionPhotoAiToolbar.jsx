@@ -41,8 +41,8 @@ export function CollectionPhotoAiToolbar({
 
   const handleSelfiePick = async (file) => {
     if (!file || !file.type.startsWith('image/')) return;
-    if (file.size > 8 * 1024 * 1024) {
-      alert('Selfie must be 8 MB or smaller.');
+    if (file.size > 40 * 1024 * 1024) {
+      alert('Selfie must be 40 MB or smaller.');
       return;
     }
     try {

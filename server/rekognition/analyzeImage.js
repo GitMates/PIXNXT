@@ -5,7 +5,8 @@ import {
   IndexFacesCommand,
 } from '@aws-sdk/client-rekognition';
 
-const DEFAULT_COLLECTION_ID = 'pixnxt-dev-test';
+/** Dev fallback face-group id (AWS CollectionId). */
+const DEFAULT_DELIVERY_FACE_GROUP_ID = 'pixnxt-dev-test';
 
 function getClient() {
   const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
@@ -22,9 +23,10 @@ function getClient() {
   });
 }
 
-async function ensureCollection(client, collectionId) {
+/** Ensure the AWS face group exists for this delivery (CreateCollection in AWS terms). */
+async function ensureDeliveryFaceGroup(client, deliveryFaceGroupId) {
   try {
-    await client.send(new CreateCollectionCommand({ CollectionId: collectionId }));
+    await client.send(new CreateCollectionCommand({ CollectionId: deliveryFaceGroupId }));
   } catch (err) {
     if (err?.name !== 'ResourceAlreadyExistsException') throw err;
   }
@@ -33,14 +35,16 @@ async function ensureCollection(client, collectionId) {
 /**
  * Run Rekognition label + face indexing on raw image bytes.
  * @param {Uint8Array} imageBytes
- * @param {{ collectionId?: string, externalImageId?: string, indexFaces?: boolean }} options
+ * @param {{ deliveryFaceGroupId?: string, collectionId?: string, externalImageId?: string, indexFaces?: boolean }} options
+ *        `collectionId` is accepted as a legacy alias for `deliveryFaceGroupId` (AWS CollectionId).
  */
 export async function analyzeImageBytes(imageBytes, options = {}) {
   const {
-    collectionId = DEFAULT_COLLECTION_ID,
     externalImageId = `pixnxt-${Date.now()}`,
     indexFaces = true,
   } = options;
+  const deliveryFaceGroupId =
+    options.deliveryFaceGroupId || options.collectionId || DEFAULT_DELIVERY_FACE_GROUP_ID;
 
   if (!imageBytes?.length) {
     throw new Error('Image bytes are empty.');
@@ -56,7 +60,7 @@ export async function analyzeImageBytes(imageBytes, options = {}) {
   let facesResult = null;
 
   if (indexFaces) {
-    await ensureCollection(client, collectionId);
+    await ensureDeliveryFaceGroup(client, deliveryFaceGroupId);
     const [labelsRes, facesRes] = await Promise.allSettled([
       client.send(new DetectLabelsCommand({
         Image: { Bytes: imageBytes },
@@ -64,7 +68,7 @@ export async function analyzeImageBytes(imageBytes, options = {}) {
         MinConfidence: 70,
       })),
       client.send(new IndexFacesCommand({
-        CollectionId: collectionId,
+        CollectionId: deliveryFaceGroupId,
         Image: { Bytes: imageBytes },
         ExternalImageId: String(externalImageId).slice(0, 255),
         DetectionAttributes: ['DEFAULT'],
@@ -85,7 +89,9 @@ export async function analyzeImageBytes(imageBytes, options = {}) {
   }
 
   return {
-    collectionId: indexFaces ? collectionId : null,
+    deliveryFaceGroupId: indexFaces ? deliveryFaceGroupId : null,
+    /** @deprecated Same as deliveryFaceGroupId (AWS CollectionId). */
+    collectionId: indexFaces ? deliveryFaceGroupId : null,
     externalImageId: indexFaces ? externalImageId : null,
     labels: (labelsResult.Labels || []).map((label) => ({
       name: label.Name,
@@ -112,7 +118,8 @@ export async function handleAnalyzeRequest(body) {
   const imageBytes = Uint8Array.from(Buffer.from(base64Data, 'base64'));
 
   return analyzeImageBytes(imageBytes, {
-    collectionId: body.collectionId || DEFAULT_COLLECTION_ID,
+    deliveryFaceGroupId:
+      body.deliveryFaceGroupId || body.collectionId || DEFAULT_DELIVERY_FACE_GROUP_ID,
     externalImageId: body.externalImageId || `pixnxt-${Date.now()}`,
     indexFaces: body.indexFaces !== false,
   });

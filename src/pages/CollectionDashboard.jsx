@@ -1195,6 +1195,7 @@ const CollectionDashboard = () => {
     const favoriteDetailPhotoMenuRef = useRef(null);
     const designHydratedRef = useRef(false);
     const settingsHydratedRef = useRef(false);
+    const downloadSettingsSaveSigRef = useRef('');
     const slideshowColumnReadyRef = useRef(false);
     const designPersistRef = useRef({
         collectionId: null,
@@ -2601,13 +2602,25 @@ const CollectionDashboard = () => {
             setPhotoAiTableMissing(false);
             return;
         }
+        downloadSettingsSaveSigRef.current = '';
         let cancelled = false;
         (async () => {
             try {
                 const { rows, tableMissing } = await photoAiService.getMetadataForCollection(collectionId);
-                if (!cancelled) {
-                    setPhotoAiRows(rows);
-                    setPhotoAiTableMissing(tableMissing);
+                if (cancelled) return;
+                setPhotoAiRows(rows);
+                setPhotoAiTableMissing(tableMissing);
+                if (!tableMissing) {
+                    try {
+                        const cached = await photoAiService.getPeopleFromDb(collectionId, {
+                            includeHidden: true,
+                        });
+                        if (!cancelled && !cached.tableMissing && cached.people?.length) {
+                            setPhotoAiPeople(cached.people);
+                        }
+                    } catch (_) {
+                        /* full people load follows via sync */
+                    }
                 }
             } catch (err) {
                 console.warn('Photo AI metadata load failed:', err);
@@ -2889,8 +2902,9 @@ const CollectionDashboard = () => {
 
     const photoAiSyncingRef = useRef(false);
 
-    const runPhotoAiAutoSync = useCallback(async () => {
+    const runPhotoAiAutoSync = useCallback(async (options = {}) => {
         if (!collectionId || photoAiTableMissing || photoAiSyncingRef.current) return;
+        const force = Boolean(options.force);
 
         const { rows, tableMissing } = await photoAiService.getMetadataForCollection(collectionId);
         if (tableMissing) {
@@ -2898,10 +2912,24 @@ const CollectionDashboard = () => {
             return;
         }
 
+        setPhotoAiRows(rows);
+
+        // Show any already-clustered people immediately (don’t wait for indexing).
+        try {
+            const cached = await photoAiService.getPeopleFromDb(collectionId, { includeHidden: true });
+            if (!cached.tableMissing && cached.people?.length) {
+                setPhotoAiPeople(cached.people);
+            }
+        } catch (_) {
+            /* ignore — full load below */
+        }
+
         const stale = !(await photoAiService.isPeopleCacheFresh(collectionId, rows));
         const unindexed = indexablePhotoCount > rows.length;
-        if (!unindexed && !stale) {
-            setPhotoAiRows(rows);
+        if (!force && !unindexed && !stale) {
+            if (showPeoplePanel || activeSidebarTab === 'photos') {
+                await loadPhotoAiPeople({ silent: true });
+            }
             return;
         }
 
@@ -2911,10 +2939,13 @@ const CollectionDashboard = () => {
             await photoAiService.syncCollection(collectionId);
             await refreshPhotoAiMetadata();
             if (showPeoplePanel || activeSidebarTab === 'photos') {
-                await loadPhotoAiPeople({ silent: true });
+                await loadPhotoAiPeople({ silent: true, forceRecluster: force });
             }
         } catch (err) {
             console.warn('Photo AI auto-sync failed:', err);
+            if (showPeoplePanel || activeSidebarTab === 'photos') {
+                await loadPhotoAiPeople({ silent: true });
+            }
         } finally {
             photoAiSyncingRef.current = false;
             setPhotoAiIndexing(false);
@@ -3052,6 +3083,37 @@ const CollectionDashboard = () => {
             }
         },
     });
+
+    // After the upload queue goes idle, refresh face index / people (covers per-photo indexing that finished after count sync).
+    useEffect(() => {
+        const busy = uploadState.files.some(
+            (f) =>
+                f.status === 'uploading' ||
+                f.status === 'processing' ||
+                f.status === 'waiting'
+        );
+        if (busy) {
+            uploadsWereBusyRef.current = true;
+            return;
+        }
+        if (!uploadsWereBusyRef.current) return;
+        uploadsWereBusyRef.current = false;
+        if (!collectionId || photoAiTableMissing) return;
+
+        const timer = setTimeout(() => {
+            void (async () => {
+                await refreshPhotoAiMetadata();
+                await loadPhotoAiPeople({ silent: true, forceRecluster: true });
+            })();
+        }, 3500);
+        return () => clearTimeout(timer);
+    }, [
+        uploadState.files,
+        collectionId,
+        photoAiTableMissing,
+        refreshPhotoAiMetadata,
+        loadPhotoAiPeople,
+    ]);
 
     useEffect(() => {
         if (!highlightsEnabled && activeSetId == null && sets.length > 0) {
@@ -3735,7 +3797,7 @@ const CollectionDashboard = () => {
 
     // Auto-save general settings
     useEffect(() => {
-        if (!collection || loading || !settingsHydratedRef.current) return;
+        if (!collectionId || loading || !settingsHydratedRef.current) return;
 
         const saveGeneralSettings = async () => {
             try {
@@ -3750,11 +3812,11 @@ const CollectionDashboard = () => {
 
         const timeoutId = setTimeout(saveGeneralSettings, 1500); // Slightly longer debounce for URL
         return () => clearTimeout(timeoutId);
-    }, [collectionUrl, collectionPassword, collectionId, collection, loading]);
+    }, [collectionUrl, collectionPassword, collectionId, loading]);
 
     // Auto-save privacy / client exclusive access
     useEffect(() => {
-        if (!collection || loading || !settingsHydratedRef.current) return;
+        if (!collectionId || loading || !settingsHydratedRef.current) return;
 
         const savePrivacySettings = async () => {
             try {
@@ -3764,7 +3826,7 @@ const CollectionDashboard = () => {
                     allow_clients_mark_private: allowClientsMarkPrivate,
                     client_only_highlights: clientOnlyHighlights,
                     show_on_showcase: showOnShowcase,
-                    privacy: clientExclusiveAccess ? 'client_exclusive' : collection?.privacy === 'client_exclusive' ? 'public' : collection?.privacy,
+                    privacy: clientExclusiveAccess ? 'client_exclusive' : 'public',
                 });
             } catch (err) {
                 console.error('Error auto-saving privacy settings:', err);
@@ -3780,7 +3842,6 @@ const CollectionDashboard = () => {
         clientOnlyHighlights,
         showOnShowcase,
         collectionId,
-        collection,
         loading,
     ]);
 
@@ -3982,13 +4043,17 @@ const CollectionDashboard = () => {
     }, [collectionId, collectionUrl]);
 
     const persistDownloadSettings = useCallback(async (overrides = {}) => {
-        if (!collectionId || !collection || loading || !settingsHydratedRef.current) return;
+        if (!collectionId || loading || !settingsHydratedRef.current) return;
 
         const pinOn = overrides.downloadPin !== undefined ? overrides.downloadPin : downloadPin;
         const pin = overrides.pinValue !== undefined ? overrides.pinValue : pinValue;
         const pinHash = pinOn && pin ? String(pin).replace(/\D/g, '').slice(0, 4) || null : null;
         if (pinOn && (!pinHash || pinHash.length !== 4)) return;
 
+        const limitRaw = downloadLimit ? parseInt(String(downloadLimit), 10) : null;
+        const pinLimitRaw = pinUsageLimit ? parseInt(String(pinUsageLimit), 10) : null;
+
+        // Only columns that exist on public.deliveries (unknown fields → PostgREST 400).
         const patch = {
             downloads_enabled: photoDownload,
             download_resolutions: (photoDownloadSizes || [])
@@ -3996,41 +4061,52 @@ const CollectionDashboard = () => {
                 .filter((s) => s === 'web' || s === 'full' || s === 'original'),
             video_downloads_enabled: (photoDownloadSizes || []).includes('video'),
             download_pin_hash: pinHash,
-            require_pin_for_gallery_download: !!pinOn,
             email_capture_enabled: emailRegistration,
-            gallery_download_enabled: galleryDownload,
-            single_photo_download_enabled: singlePhotoDownload,
-            require_pin_for_single_photo: pinOn ? true : requirePinForSinglePhoto,
-            download_limit_gallery: downloadLimit ? parseInt(downloadLimit) : null,
-            restrict_to_emails: restrictToEmails || null,
-            selected_download_sets: selectedDownloadSets,
-            pin_usage_limit: pinUsageLimit ? parseInt(pinUsageLimit) : null,
+            download_limit_gallery: Number.isFinite(limitRaw) ? limitRaw : null,
         };
 
-        // Push to open client galleries immediately (before DB round-trip).
-        setCollection((prev) => (prev ? { ...prev, ...patch, download_pin: pinHash } : prev));
+        const signature = JSON.stringify(patch);
+        if (signature === downloadSettingsSaveSigRef.current && !Object.keys(overrides).length) {
+            return;
+        }
+
+        // Optimistic live gallery update without rewriting the whole collection object
+        // in a way that re-triggers this autosave (that caused the PATCH 400 loop).
         broadcastDownloadSettings(patch);
 
         try {
-            await galleryService.updateCollection(collectionId, patch);
+            const updated = await galleryService.updateCollection(collectionId, patch);
+            downloadSettingsSaveSigRef.current = signature;
+            if (updated) {
+                setCollection((prev) => {
+                    if (!prev) return prev;
+                    return {
+                        ...prev,
+                        downloads_enabled: updated.downloads_enabled ?? patch.downloads_enabled,
+                        download_resolutions: updated.download_resolutions ?? patch.download_resolutions,
+                        video_downloads_enabled:
+                            updated.video_downloads_enabled ?? patch.video_downloads_enabled,
+                        download_pin_hash: updated.download_pin_hash ?? patch.download_pin_hash,
+                        download_pin: updated.download_pin_hash ?? patch.download_pin_hash,
+                        email_capture_enabled:
+                            updated.email_capture_enabled ?? patch.email_capture_enabled,
+                        download_limit_gallery:
+                            updated.download_limit_gallery ?? patch.download_limit_gallery,
+                    };
+                });
+            }
         } catch (err) {
             console.error('Error auto-saving download settings:', err);
         }
     }, [
         collectionId,
-        collection,
         loading,
         downloadPin,
         pinValue,
         photoDownload,
         photoDownloadSizes,
         emailRegistration,
-        galleryDownload,
-        singlePhotoDownload,
-        requirePinForSinglePhoto,
         downloadLimit,
-        restrictToEmails,
-        selectedDownloadSets,
         pinUsageLimit,
         broadcastDownloadSettings,
     ]);
@@ -4064,7 +4140,7 @@ const CollectionDashboard = () => {
 
     // Auto-save download settings
     useEffect(() => {
-        if (!collection || loading || !settingsHydratedRef.current) return;
+        if (!collectionId || loading || !settingsHydratedRef.current) return;
 
         const timeoutId = setTimeout(() => {
             void persistDownloadSettings();
@@ -4076,12 +4152,12 @@ const CollectionDashboard = () => {
         emailRegistration, requirePinForSinglePhoto, restrictSinglePhotoSizes,
         highResChoice, webSizeChoice, downloadLimit, restrictToEmails,
         selectedDownloadSets, pinUsageLimit,
-        collectionId, collection, loading, persistDownloadSettings,
+        collectionId, loading, persistDownloadSettings,
     ]);
 
     // Auto-save general gallery visitor settings (slideshow, social sharing)
     useEffect(() => {
-        if (!collection || loading || !settingsHydratedRef.current) return;
+        if (!collectionId || loading || !settingsHydratedRef.current) return;
 
         const saveGeneralGallerySettings = async () => {
             cacheSlideshowEnabled(collectionId, slideshow);
@@ -4091,7 +4167,6 @@ const CollectionDashboard = () => {
                 ...(slideshowColumnReadyRef.current ? { slideshow_enabled: slideshow } : {}),
             };
 
-            setCollection((prev) => (prev ? { ...prev, ...patch } : prev));
             broadcastGalleryLive({
                 type: 'SETTINGS_UPDATED',
                 collectionId,
@@ -4118,20 +4193,18 @@ const CollectionDashboard = () => {
         galleryAssist,
         collectionId,
         collectionUrl,
-        collection,
         loading,
     ]);
 
     // Auto-save favorite settings
     useEffect(() => {
-        if (!collection || loading) return;
+        if (!collectionId || loading || !settingsHydratedRef.current) return;
 
         const saveFavoriteSettings = async () => {
             const patch = {
                 favorites_enabled: favoritePhotos,
                 favorites_allow_comments: favoriteNotes,
             };
-            setCollection((prev) => (prev ? { ...prev, ...patch } : prev));
             broadcastGalleryLive({
                 type: 'SETTINGS_UPDATED',
                 collectionId,
@@ -4139,7 +4212,10 @@ const CollectionDashboard = () => {
                 settings: patch,
             });
             try {
-                await galleryService.updateCollection(collectionId, patch);
+                const updated = await galleryService.updateCollection(collectionId, patch);
+                if (updated) {
+                    setCollection((prev) => (prev ? { ...prev, ...updated } : prev));
+                }
             } catch (err) {
                 console.error('Error auto-saving favorite settings:', err);
             }
@@ -4147,15 +4223,14 @@ const CollectionDashboard = () => {
 
         const timeoutId = setTimeout(saveFavoriteSettings, 400);
         return () => clearTimeout(timeoutId);
-    }, [favoritePhotos, favoriteNotes, collectionId, collectionUrl, collection, loading]);
+    }, [favoritePhotos, favoriteNotes, collectionId, collectionUrl, loading]);
 
     // Auto-save shop settings
     useEffect(() => {
-        if (!collection || loading) return;
+        if (!collectionId || loading || !settingsHydratedRef.current) return;
 
         const saveShopSettings = async () => {
             const patch = { store_enabled: storeEnabled };
-            setCollection((prev) => (prev ? { ...prev, ...patch } : prev));
             broadcastGalleryLive({
                 type: 'SETTINGS_UPDATED',
                 collectionId,
@@ -4163,7 +4238,10 @@ const CollectionDashboard = () => {
                 settings: patch,
             });
             try {
-                await galleryService.updateCollection(collectionId, patch);
+                const updated = await galleryService.updateCollection(collectionId, patch);
+                if (updated) {
+                    setCollection((prev) => (prev ? { ...prev, ...updated } : prev));
+                }
             } catch (err) {
                 console.error('Error auto-saving shop settings:', err);
             }
@@ -4171,7 +4249,7 @@ const CollectionDashboard = () => {
 
         const timeoutId = setTimeout(saveShopSettings, 400);
         return () => clearTimeout(timeoutId);
-    }, [storeEnabled, collectionId, collectionUrl, collection, loading]);
+    }, [storeEnabled, collectionId, collectionUrl, loading]);
 
     // Derived values
     const backTo = deliveryStudioBackPath({
@@ -5053,6 +5131,15 @@ const CollectionDashboard = () => {
                                     loadingPeople={photoAiLoadingPeople}
                                     analyzing={photoAiIndexing}
                                     indexedCount={photoAiRows.length}
+                                    tableMissing={photoAiTableMissing}
+                                    selfiePreview={selfiePreview}
+                                    selfieSearching={selfieSearching}
+                                    selfieMessage={selfieMessage}
+                                    onSelfieSearch={handleSelfieSearch}
+                                    onClearSelfie={handleClearSelfie}
+                                    onReanalyze={() => {
+                                        void runPhotoAiAutoSync({ force: true });
+                                    }}
                                 />
 
                                 {gridPhotos.length > 0 ? (

@@ -1,0 +1,23 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "PixnxtRekognitionDeliveryFaces",
+      "Effect": "Allow",
+      "Action": [
+        "rekognition:DetectLabels",
+        "rekognition:DetectFaces",
+        "rekognition:IndexFaces",
+        "rekognition:SearchFaces",
+        "rekognition:SearchFacesByImage",
+        "rekognition:CreateCollection",
+        "rekognition:DeleteCollection",
+        "rekognition:DescribeCollection",
+        "rekognition:ListCollections",
+        "rekognition:ListFaces",
+        "rekognition:DeleteFaces"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
