@@ -1,626 +1,1532 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import SidebarLayout from '../components/SidebarLayout';
-import { ClientGalleryPageShell } from '../components/features/ClientGallery/ClientGalleryPageShell';
 import { ClientGallerySelect } from '../components/features/ClientGallery/ClientGallerySelect';
+import { CollectionCardCover } from '../components/features/ClientGallery/CollectionCardCover';
 import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
-import { CollectionCardCover } from '../components/features/ClientGallery/CollectionCardCover';
 import { getCollectionCardCoverSrc } from '../lib/photoDisplayUrl';
 import { buildShowcaseUrl } from '../lib/showcaseUrl';
+import { categoryTagsFromCollection } from '../lib/categoryTags';
+import { buildGmailComposeUrl } from '../lib/gmailComposeUrl';
+import {
+  daysSince,
+  showcaseContactName,
+  showcaseDisplayName,
+  showcaseFeaturedPhotoIds,
+  showcasePermission,
+  showcasePhotoCount,
+} from '../lib/showcaseFeature';
+import { ChangeCoverModal } from '../components/features/CollectionDashboard/CoverSettings/ChangeCoverModal';
+import ShowcaseSortableGrid from '../components/features/Showcase/ShowcaseSortableGrid';
+import { getPhotoGridDisplayUrl } from '../lib/photoDisplayUrl';
+import { getDefaultCoverFocals, parseFocalPoint } from '../lib/focalPoint';
 import './Showcase.css';
-import './ClientGallery.css';
-import imageIconPlaceholder from '../assets/icons/image icon.png';
 
+const MAX_FEATURED = 12;
+const ORDER_KEY_PREFIX = 'pixnxt_showcase_order:';
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
-const formatEventDate = (dateStr) => {
-    if (!dateStr) return '';
-    return new Date(dateStr).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-    });
+const formatEventShort = (dateStr) => {
+  if (!dateStr) return '';
+  return new Date(dateStr).toLocaleDateString('en-US', {
+    month: 'short',
+    year: 'numeric',
+  });
 };
 
-// ─── Component ───────────────────────────────────────────────────────────────
+function readStoredOrder(userId) {
+  if (!userId) return [];
+  try {
+    const raw = localStorage.getItem(`${ORDER_KEY_PREFIX}${userId}`);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeStoredOrder(userId, ids) {
+  if (!userId) return;
+  try {
+    localStorage.setItem(`${ORDER_KEY_PREFIX}${userId}`, JSON.stringify(ids));
+  } catch {
+    /* ignore */
+  }
+}
+
+function sortByPreference(list, collectionSort, orderIds) {
+  if (orderIds?.length) {
+    const rank = new Map(orderIds.map((id, i) => [String(id), i]));
+    return [...list].sort((a, b) => {
+      const ra = rank.has(String(a.id)) ? rank.get(String(a.id)) : 9999;
+      const rb = rank.has(String(b.id)) ? rank.get(String(b.id)) : 9999;
+      if (ra !== rb) return ra - rb;
+      return 0;
+    });
+  }
+  return [...list].sort((a, b) => {
+    if (collectionSort === 'created-new') return new Date(b.created_at) - new Date(a.created_at);
+    if (collectionSort === 'created-old') return new Date(a.created_at) - new Date(b.created_at);
+    if (collectionSort === 'event-new') return new Date(b.event_date || 0) - new Date(a.event_date || 0);
+    if (collectionSort === 'event-old') return new Date(a.event_date || 0) - new Date(b.event_date || 0);
+    if (collectionSort === 'name-az') return (a.name || '').localeCompare(b.name || '');
+    if (collectionSort === 'name-za') return (b.name || '').localeCompare(a.name || '');
+    return 0;
+  });
+}
+
+function collectionMetaLine(col) {
+  const tags = categoryTagsFromCollection(col);
+  const place = tags[0] || '';
+  const date = formatEventShort(col.event_date) || formatEventShort(col.created_at);
+  const parts = [place, date].filter(Boolean);
+  return parts.join(' · ');
+}
+
+function photoCountLabel(col) {
+  const n = showcasePhotoCount(col);
+  if (n === 1) return '1 photograph';
+  return `${n} photographs`;
+}
+
+function permissionStatus(col) {
+  const contact = showcaseContactName(col);
+  const status = showcasePermission(col);
+  const askedDays = daysSince(col.showcase_permission_at);
+
+  if (status === 'approved') {
+    return { tone: 'ok', text: `${contact} said yes`, action: null };
+  }
+  if (status === 'asked') {
+    const when =
+      askedDays == null
+        ? 'recently'
+        : askedDays === 0
+          ? 'today'
+          : askedDays === 1
+            ? '1 day ago'
+            : `${askedDays} days ago`;
+    return { tone: 'warn', text: `Asked ${contact}, ${when}`, action: 'remind' };
+  }
+  return { tone: 'idle', text: 'Permission not asked', action: 'ask' };
+}
+
+function EyeIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+function MoreDotsIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <circle cx="12" cy="5" r="1.75" />
+      <circle cx="12" cy="12" r="1.75" />
+      <circle cx="12" cy="19" r="1.75" />
+    </svg>
+  );
+}
+
+function placeMenu(anchorRect) {
+  const width = 252;
+  const pad = 10;
+  const estHeight = 420;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const spaceBelow = vh - anchorRect.bottom - pad;
+  const spaceAbove = anchorRect.top - pad;
+  const openUp = spaceBelow < Math.min(estHeight, 320) && spaceAbove > spaceBelow;
+  const available = openUp ? spaceAbove : spaceBelow;
+  const maxHeight = Math.min(estHeight, Math.max(160, available));
+
+  let left = anchorRect.right - width;
+  left = Math.min(Math.max(pad, left), vw - width - pad);
+
+  if (openUp) {
+    return {
+      left,
+      bottom: vh - anchorRect.top + 6,
+      maxHeight,
+      openUp: true,
+    };
+  }
+  return {
+    left,
+    top: anchorRect.bottom + 6,
+    maxHeight,
+    openUp: false,
+  };
+}
+
+function GlobeIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden>
+      <circle cx="12" cy="12" r="10" />
+      <line x1="2" y1="12" x2="22" y2="12" />
+      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+    </svg>
+  );
+}
+
+function InfoIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="16" x2="12" y2="12" />
+      <line x1="12" y1="8" x2="12.01" y2="8" />
+    </svg>
+  );
+}
 
 const Showcase = () => {
-    const { user } = useAuth();
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
-    // Remote data
-    const [profile, setProfile] = useState(null);
-    const [collections, setCollections] = useState([]);
-    const [profileLoading, setProfileLoading] = useState(true);
-    const [collectionsLoading, setCollectionsLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
-    const [saveSuccess, setSaveSuccess] = useState(false);
-    const [copyDone, setCopyDone] = useState(false);
-    const [pwCopyDone, setPwCopyDone] = useState(false);
-    const [showPassword, setShowPassword] = useState(false);
-    const [error, setError] = useState(null);
-    const [toastMessage, setToastMessage] = useState('');
+  const [profile, setProfile] = useState(null);
+  const [collections, setCollections] = useState([]);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [collectionsLoading, setCollectionsLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [copyDone, setCopyDone] = useState(false);
+  const [pwCopyDone, setPwCopyDone] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState(null);
+  const [toastMessage, setToastMessage] = useState('');
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [menuId, setMenuId] = useState(null);
+  const [menuPos, setMenuPos] = useState(null);
+  const [removeTarget, setRemoveTarget] = useState(null);
+  const [featureOpen, setFeatureOpen] = useState(false);
+  const [renameTarget, setRenameTarget] = useState(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [photosTarget, setPhotosTarget] = useState(null);
+  const [photosList, setPhotosList] = useState([]);
+  const [photosSelected, setPhotosSelected] = useState(() => new Set());
+  const [photosLoading, setPhotosLoading] = useState(false);
+  const [coverTarget, setCoverTarget] = useState(null);
+  const [coverPhotos, setCoverPhotos] = useState([]);
+  const [coverSets, setCoverSets] = useState([]);
+  const [coverSaving, setCoverSaving] = useState(false);
+  const [featuredOrder, setFeaturedOrder] = useState([]);
 
-    const showToast = (msg) => {
-        setToastMessage(msg);
-        setTimeout(() => setToastMessage(''), 3000);
+  const [statusOn, setStatusOn] = useState(true);
+  const [bio, setBio] = useState('');
+  const [password, setPassword] = useState('');
+  const [collectionSort, setCollectionSort] = useState('created-new');
+  const [showBio, setShowBio] = useState(true);
+  const [showSocial, setShowSocial] = useState(true);
+  const [showWebsite, setShowWebsite] = useState(false);
+  const [showEmail, setShowEmail] = useState(true);
+  const [showPhone, setShowPhone] = useState(true);
+  const [showAddress, setShowAddress] = useState(true);
+
+  const menuRef = useRef(null);
+  const stateRef = useRef({});
+  const saveTimeoutRef = useRef(null);
+
+  const showToast = (msg) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(''), 3000);
+  };
+
+  useEffect(() => {
+    if (!user?.id) {
+      setProfileLoading(false);
+      return;
+    }
+    setProfileLoading(true);
+    galleryService
+      .getPhotographerProfile(user.id)
+      .then((data) => {
+        setProfile(data);
+        setStatusOn(data?.showcase_enabled ?? true);
+        setBio(data?.biography || data?.bio || '');
+        setPassword(data?.showcase_password || '');
+        setCollectionSort(data?.showcase_sort || 'created-new');
+        setShowBio(data?.show_bio ?? true);
+        setShowSocial(data?.show_social ?? true);
+        setShowWebsite(data?.show_website ?? false);
+        setShowEmail(data?.show_email ?? true);
+        setShowPhone(data?.show_phone ?? true);
+        setShowAddress(data?.show_address ?? true);
+      })
+      .catch((err) => {
+        console.error('Failed to load photographer profile:', err);
+        setError('Could not load your profile. Please refresh.');
+      })
+      .finally(() => setProfileLoading(false));
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    setCollectionsLoading(true);
+    setFeaturedOrder(readStoredOrder(user.id));
+    galleryService
+      .getCollections(user.id)
+      .then((data) => setCollections(data || []))
+      .catch((err) => console.error('Failed to load deliveries:', err))
+      .finally(() => setCollectionsLoading(false));
+  }, [user?.id]);
+
+  useEffect(() => {
+    const handleUsernameChanged = (e) => {
+      const newSlug = e.detail?.slug;
+      if (newSlug) setProfile((prev) => ({ ...(prev || {}), showcase_slug: newSlug }));
     };
+    window.addEventListener('pixnxt:username-changed', handleUsernameChanged);
+    return () => window.removeEventListener('pixnxt:username-changed', handleUsernameChanged);
+  }, []);
 
-    // Editable fields (controlled inputs, seeded from DB)
-    const [statusOn, setStatusOn] = useState(true);
-    const [bio, setBio] = useState('');
-    const [password, setPassword] = useState('');
-    const [collectionSort, setCollectionSort] = useState('created-new');
+  const closeCardMenu = useCallback(() => {
+    setMenuId(null);
+    setMenuPos(null);
+  }, []);
 
-    // Showcase info checkboxes (which fields to display publicly)
-    const [showBio, setShowBio] = useState(true);
-    const [showSocial, setShowSocial] = useState(true);
-    const [showWebsite, setShowWebsite] = useState(false);
-    const [showEmail, setShowEmail] = useState(true);
-    const [showPhone, setShowPhone] = useState(true);
-    const [showAddress, setShowAddress] = useState(true);
-
-    // ── Fetch profile ────────────────────────────────────────────────────────
-    useEffect(() => {
-        if (!user?.id) {
-            setProfileLoading(false); // stop spinner if no user
-            return;
-        }
-        setProfileLoading(true);
-        galleryService.getPhotographerProfile(user.id)
-            .then((data) => {
-                setProfile(data);
-                // Seed editable fields from DB
-                setStatusOn(data?.showcase_enabled ?? true);
-                setBio(data?.biography || data?.bio || '');
-                setPassword(data?.showcase_password || '');
-                setCollectionSort(data?.showcase_sort || 'created-new');
-                setShowBio(data?.show_bio ?? true);
-                setShowSocial(data?.show_social ?? true);
-                setShowWebsite(data?.show_website ?? false);
-                setShowEmail(data?.show_email ?? true);
-                setShowPhone(data?.show_phone ?? true);
-                setShowAddress(data?.show_address ?? true);
-            })
-            .catch((err) => {
-                console.error('Failed to load photographer profile:', err);
-                setError('Could not load your profile. Please refresh.');
-            })
-            .finally(() => setProfileLoading(false));
-    }, [user?.id]);
-
-    // ── Fetch collections ────────────────────────────────────────────────────
-    useEffect(() => {
-        if (!user?.id) return;
-        setCollectionsLoading(true);
-        galleryService.getCollections(user.id)
-            .then((data) => setCollections(data || []))
-            .catch((err) => console.error('Failed to load deliveries:', err))
-            .finally(() => setCollectionsLoading(false));
-    }, [user?.id]);
-
-    // ── Sync username from AccountSettings in real-time ──────────────────────
-    useEffect(() => {
-        const handleUsernameChanged = (e) => {
-            const newSlug = e.detail?.slug;
-            if (newSlug) {
-                setProfile((prev) => ({ ...(prev || {}), showcase_slug: newSlug }));
-            }
-        };
-        window.addEventListener('pixnxt:username-changed', handleUsernameChanged);
-        return () => window.removeEventListener('pixnxt:username-changed', handleUsernameChanged);
-    }, []);
-
-    // ── Sorted preview collections ───────────────────────────────────────────
-    const previewCollections = React.useMemo(() => {
-        // Only show deliveries that are published AND enabled for Showcase
-        let list = collections.filter((c) => c.status === 'published' && c.show_on_showcase !== false);
-
-        const sorted = [...list].sort((a, b) => {
-            if (collectionSort === 'created-new') return new Date(b.created_at) - new Date(a.created_at);
-            if (collectionSort === 'created-old') return new Date(a.created_at) - new Date(b.created_at);
-            if (collectionSort === 'event-new') return new Date(b.event_date || 0) - new Date(a.event_date || 0);
-            if (collectionSort === 'event-old') return new Date(a.event_date || 0) - new Date(b.event_date || 0);
-            if (collectionSort === 'name-az') return (a.name || '').localeCompare(b.name || '');
-            if (collectionSort === 'name-za') return (b.name || '').localeCompare(a.name || '');
-            return 0;
-        });
-        return sorted.slice(0, 6);
-    }, [collections, collectionSort]);
-
-    // Refs to store the absolute latest state values to avoid stale closures in debounced saves
-    const stateRef = React.useRef({});
-    stateRef.current = {
-        statusOn,
-        bio,
-        password,
-        collectionSort,
-        showBio,
-        showSocial,
-        showWebsite,
-        showEmail,
-        showPhone,
-        showAddress
+  useEffect(() => {
+    if (!menuId) return undefined;
+    const onDoc = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        if (e.target.closest?.('.sc-tile__more')) return;
+        closeCardMenu();
+      }
     };
-
-    const saveTimeoutRef = React.useRef(null);
-
-    const performSave = async (overrides = {}) => {
-        if (!user?.id) return;
-        setSaving(true);
-        setError(null);
-        try {
-            const current = stateRef.current;
-            const updates = {
-                showcase_enabled: overrides.hasOwnProperty('showcase_enabled') ? overrides.showcase_enabled : current.statusOn,
-                bio: overrides.hasOwnProperty('bio') ? overrides.bio : current.bio,
-                biography: overrides.hasOwnProperty('bio') ? overrides.bio : current.bio,
-                showcase_password: overrides.hasOwnProperty('showcase_password') ? overrides.showcase_password : current.password,
-                showcase_sort: overrides.hasOwnProperty('showcase_sort') ? overrides.showcase_sort : current.collectionSort,
-                show_bio: overrides.hasOwnProperty('show_bio') ? overrides.show_bio : current.showBio,
-                show_social: overrides.hasOwnProperty('show_social') ? overrides.show_social : current.showSocial,
-                show_website: overrides.hasOwnProperty('show_website') ? overrides.show_website : current.showWebsite,
-                show_email: overrides.hasOwnProperty('show_email') ? overrides.show_email : current.showEmail,
-                show_phone: overrides.hasOwnProperty('show_phone') ? overrides.show_phone : current.showPhone,
-                show_address: overrides.hasOwnProperty('show_address') ? overrides.show_address : current.showAddress,
-            };
-
-            // Normalize values
-            if (typeof updates.bio === 'string') updates.bio = updates.bio.trim() || null;
-            if (typeof updates.biography === 'string') updates.biography = updates.biography.trim() || null;
-            if (typeof updates.showcase_password === 'string') updates.showcase_password = updates.showcase_password.trim() || null;
-
-            const updated = await galleryService.updatePhotographerProfile(user.id, updates);
-            setProfile((prev) => ({ ...prev, ...updated }));
-            setSaveSuccess(true);
-            setTimeout(() => setSaveSuccess(false), 2000);
-        } catch (err) {
-            console.error('Failed to auto-save:', err);
-            setError('Failed to auto-save changes.');
-        } finally {
-            setSaving(false);
-        }
+    const onKey = (e) => {
+      if (e.key === 'Escape') closeCardMenu();
     };
-
-    const autoSave = (overrides = {}, immediate = false) => {
-        if (saveTimeoutRef.current) {
-            clearTimeout(saveTimeoutRef.current);
-        }
-        if (immediate) {
-            showToast('Changes saved successfully!');
-            performSave(overrides);
-        } else {
-            saveTimeoutRef.current = setTimeout(() => {
-                showToast('Changes saved successfully!');
-                performSave(overrides);
-            }, 500); // reduced from 800ms to 500ms for even faster typing commit
-        }
+    const onResize = () => closeCardMenu();
+    const onScroll = (e) => {
+      // Keep the menu open when scrolling inside it; close only when the page moves.
+      if (menuRef.current && (e.target === menuRef.current || menuRef.current.contains(e.target))) {
+        return;
+      }
+      closeCardMenu();
     };
-
-    // Clean up timeout on unmount
-    useEffect(() => {
-        return () => {
-            if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-        };
-    }, []);
-
-    // ── Generate password ────────────────────────────────────────────────────
-    const generatePassword = () => {
-        const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
-        let pwd = '';
-        for (let i = 0; i < 10; i++) pwd += chars[Math.floor(Math.random() * chars.length)];
-        setPassword(pwd);
-        setShowPassword(true); // show generated password as plain text
-        autoSave({ showcase_password: pwd }, true);
+    document.addEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onKey);
+    window.addEventListener('resize', onResize);
+    window.addEventListener('scroll', onScroll, true);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onKey);
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('scroll', onScroll, true);
     };
+  }, [menuId, closeCardMenu]);
 
-    // ── Copy password ─────────────────────────────────────────────────────────
-    const handleCopyPassword = () => {
-        if (!password) return;
-        navigator.clipboard.writeText(password).then(() => {
-            setPwCopyDone(true);
-            setTimeout(() => setPwCopyDone(false), 2000);
-        });
-    };
+  const onPage = useMemo(() => {
+    const list = collections.filter((c) => c.status === 'published' && c.show_on_showcase !== false);
+    return sortByPreference(list, collectionSort, featuredOrder).slice(0, MAX_FEATURED);
+  }, [collections, collectionSort, featuredOrder]);
 
-    // ── Clear password ────────────────────────────────────────────────────────
-    const handleClearPassword = () => {
-        setPassword('');
-        setShowPassword(false);
-        autoSave({ showcase_password: '' }, true);
-    };
+  const heldBack = useMemo(
+    () =>
+      collections.filter(
+        (c) => c.show_on_showcase !== false && c.status !== 'published' && c.status !== 'archived'
+      ),
+    [collections]
+  );
 
-    // ── Copy URL ─────────────────────────────────────────────────────────────
-    const handleCopyUrl = useCallback(() => {
-        const url = buildShowcaseUrl(profile, user);
-        navigator.clipboard.writeText(url).then(() => {
-            setCopyDone(true);
-            setTimeout(() => setCopyDone(false), 2000);
-        });
-    }, [profile, user]);
+  const featureCandidates = useMemo(
+    () =>
+      collections.filter(
+        (c) =>
+          c.status !== 'archived' &&
+          !(c.status === 'published' && c.show_on_showcase !== false)
+      ),
+    [collections]
+  );
 
-    // ── View site ─────────────────────────────────────────────────────────────
-    const handleViewSite = () => {
-        const targetUrl = buildShowcaseUrl(profile, user);
-        window.open(targetUrl, '_blank');
-    };
+  stateRef.current = {
+    statusOn,
+    bio,
+    password,
+    collectionSort,
+    showBio,
+    showSocial,
+    showWebsite,
+    showEmail,
+    showPhone,
+    showAddress,
+  };
 
-    // ── Derived display values ────────────────────────────────────────────────
-    const photographerName = profile?.studio_name || profile?.full_name || profile?.name || user?.email?.split('@')[0]?.toUpperCase() || 'STUDIO';
-    const displayEmail = profile?.contact_email || profile?.email || user?.email || '';
-    const displayPhone = profile?.phone || '';
-    const displayAddress = [profile?.address_line_1, profile?.city, profile?.state_province].filter(Boolean).join(', ') || '';
-    const displayWebsite = profile?.website || '';
+  const performSave = async (overrides = {}) => {
+    if (!user?.id) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const current = stateRef.current;
+      const updates = {
+        showcase_enabled: Object.prototype.hasOwnProperty.call(overrides, 'showcase_enabled')
+          ? overrides.showcase_enabled
+          : current.statusOn,
+        bio: Object.prototype.hasOwnProperty.call(overrides, 'bio') ? overrides.bio : current.bio,
+        biography: Object.prototype.hasOwnProperty.call(overrides, 'bio') ? overrides.bio : current.bio,
+        showcase_password: Object.prototype.hasOwnProperty.call(overrides, 'showcase_password')
+          ? overrides.showcase_password
+          : current.password,
+        showcase_sort: Object.prototype.hasOwnProperty.call(overrides, 'showcase_sort')
+          ? overrides.showcase_sort
+          : current.collectionSort,
+        show_bio: Object.prototype.hasOwnProperty.call(overrides, 'show_bio')
+          ? overrides.show_bio
+          : current.showBio,
+        show_social: Object.prototype.hasOwnProperty.call(overrides, 'show_social')
+          ? overrides.show_social
+          : current.showSocial,
+        show_website: Object.prototype.hasOwnProperty.call(overrides, 'show_website')
+          ? overrides.show_website
+          : current.showWebsite,
+        show_email: Object.prototype.hasOwnProperty.call(overrides, 'show_email')
+          ? overrides.show_email
+          : current.showEmail,
+        show_phone: Object.prototype.hasOwnProperty.call(overrides, 'show_phone')
+          ? overrides.show_phone
+          : current.showPhone,
+        show_address: Object.prototype.hasOwnProperty.call(overrides, 'show_address')
+          ? overrides.show_address
+          : current.showAddress,
+      };
 
-    const showcaseUrl = buildShowcaseUrl(profile, user);
+      if (typeof updates.bio === 'string') updates.bio = updates.bio.trim() || null;
+      if (typeof updates.biography === 'string') updates.biography = updates.biography.trim() || null;
+      if (typeof updates.showcase_password === 'string') {
+        updates.showcase_password = updates.showcase_password.trim() || null;
+      }
 
-    // ─── Render ───────────────────────────────────────────────────────────────
-    return (
-        <SidebarLayout>
-            <ClientGalleryPageShell
-                title="Showcase"
-                subtitle="Manage your public photographer showcase and featured deliveries."
-                actions={(
-                    <button
-                        type="button"
-                        className="neu-pill inline-flex h-10 items-center rounded-full px-5 text-sm font-medium"
-                        onClick={handleViewSite}
-                        disabled={profileLoading}
-                    >
-                        View Site
-                    </button>
-                )}
-                contentClassName="pt-2"
-            >
-                {error && (
-                    <div className="sc-error-banner">{error}</div>
-                )}
+      const updated = await galleryService.updatePhotographerProfile(user.id, updates);
+      setProfile((prev) => ({ ...prev, ...updated }));
+    } catch (err) {
+      console.error('Failed to auto-save:', err);
+      setError('Failed to auto-save changes.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
-                {!user && (
-                    <div className="sc-loading">
-                        <span className="text-sm text-[#71717A]">Please log in to view and edit your showcase settings.</span>
-                    </div>
-                )}
+  const autoSave = (overrides = {}, immediate = false) => {
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    if (immediate) {
+      showToast('Changes saved');
+      void performSave(overrides);
+    } else {
+      saveTimeoutRef.current = setTimeout(() => {
+        showToast('Changes saved');
+        void performSave(overrides);
+      }, 500);
+    }
+  };
 
-                {profileLoading && user ? (
-                    <div className="sc-loading">
-                        <div className="sc-loading-spinner" />
-                        <span>Loading your profile…</span>
-                    </div>
-                ) : user ? (
-                    <div className="sc-content">
-                        {/* ── LEFT COLUMN ── */}
-                        <div className="sc-left-col">
+  useEffect(
+    () => () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    },
+    []
+  );
 
-                            {/* Showcase Status */}
-                            <div className="sc-form-group">
-                                <label className="sc-label">Showcase Status</label>
-                                <div className="sc-toggle-row">
-                                    <button
-                                        className={`sc-toggle ${statusOn ? 'on' : 'off'}`}
-                                        onClick={() => {
-                                            const nextVal = !statusOn;
-                                            setStatusOn(nextVal);
-                                            autoSave({ showcase_enabled: nextVal }, true);
-                                        }}
-                                    >
-                                        <div className="sc-toggle-handle"></div>
-                                    </button>
-                                    <span className="sc-toggle-label">{statusOn ? 'On' : 'Off'}</span>
-                                </div>
-                                <p className="sc-help-text">
-                                    Your Showcase is a public page where your deliveries are listed. You can also select which deliveries will be shown here under each delivery's setting. <a href="#learn">Learn more</a>
-                                </p>
-                            </div>
+  const persistOrder = useCallback(
+    (ids) => {
+      setFeaturedOrder(ids);
+      writeStoredOrder(user?.id, ids);
+    },
+    [user?.id]
+  );
 
-                            {/* Showcase URL */}
-                            <div className="sc-form-group">
-                                <label className="sc-label">Showcase URL</label>
-                                <div className="sc-input-wrap neu-inset cg-field-shell">
-                                    <div className="sc-input-read">{showcaseUrl}</div>
-                                    <button className="sc-input-action-btn" onClick={handleCopyUrl}>
-                                        {copyDone ? (
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                                        ) : (
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                                        )}
-                                        {copyDone ? 'Copied!' : 'Copy'}
-                                    </button>
-                                </div>
-                            </div>
+  const generatePassword = () => {
+    const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    let pwd = '';
+    for (let i = 0; i < 10; i++) pwd += chars[Math.floor(Math.random() * chars.length)];
+    setPassword(pwd);
+    setShowPassword(true);
+    autoSave({ showcase_password: pwd }, true);
+  };
 
-                            {/* Showcase Password */}
-                            <div className="sc-form-group">
-                                <label className="sc-label">Showcase Password</label>
-                                <div className="sc-input-wrap neu-inset cg-field-shell">
-                                    <input
-                                        type={showPassword ? 'text' : 'password'}
-                                        className="sc-input"
-                                        placeholder="Add a password"
-                                        value={password}
-                                        onChange={(e) => {
-                                            const val = e.target.value;
-                                            setPassword(val);
-                                            autoSave({ showcase_password: val }, false);
-                                        }}
-                                    />
+  const handleCopyPassword = () => {
+    if (!password) return;
+    navigator.clipboard.writeText(password).then(() => {
+      setPwCopyDone(true);
+      setTimeout(() => setPwCopyDone(false), 2000);
+    });
+  };
 
-                                    {password ? (
-                                        /* Password exists: show eye-slash toggle + copy icon */
-                                        <div className="sc-pw-actions">
-                                            {/* Eye / Eye-slash toggle */}
-                                            <button
-                                                className="sc-pw-icon-btn"
-                                                onClick={() => setShowPassword((v) => !v)}
-                                                title={showPassword ? 'Hide password' : 'Show password'}
-                                            >
-                                                {showPassword ? (
-                                                    /* Password is VISIBLE → show crossed-eye (matches reference image 2) */
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                                                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
-                                                        <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
-                                                        <line x1="1" y1="1" x2="23" y2="23"/>
-                                                    </svg>
-                                                ) : (
-                                                    /* Password is HIDDEN → show open eye (click to reveal) */
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                                                        <circle cx="12" cy="12" r="3"/>
-                                                    </svg>
-                                                )}
-                                            </button>
+  const handleClearPassword = () => {
+    setPassword('');
+    setShowPassword(false);
+    autoSave({ showcase_password: '' }, true);
+  };
 
-                                            {/* Copy icon */}
-                                            <button
-                                                className={`sc-pw-icon-btn ${pwCopyDone ? 'sc-pw-icon-btn--done' : ''}`}
-                                                onClick={handleCopyPassword}
-                                                title="Copy password"
-                                            >
-                                                {pwCopyDone ? (
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                                                        <polyline points="20 6 9 17 4 12"/>
-                                                    </svg>
-                                                ) : (
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                                                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                                                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-                                                    </svg>
-                                                )}
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        /* No password: show teal Generate button */
-                                        <button className="sc-pw-generate-btn" onClick={generatePassword} title="Generate a random password">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                                                <polyline points="23 4 23 10 17 10"/>
-                                                <polyline points="1 20 1 14 7 14"/>
-                                                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
-                                            </svg>
-                                            Generate
-                                        </button>
-                                    )}
-                                </div>
-                                <p className={`sc-help-text ${password ? 'sc-help-text--active' : ''}`}>
-                                    Protect your Showcase with a password
-                                    {password && (
-                                        <button className="sc-pw-clear-btn" onClick={handleClearPassword}>Remove</button>
-                                    )}
-                                </p>
-                            </div>
+  const handleCopyUrl = useCallback(() => {
+    const url = buildShowcaseUrl(profile, user);
+    navigator.clipboard.writeText(url).then(() => {
+      setCopyDone(true);
+      setTimeout(() => setCopyDone(false), 2000);
+    });
+  }, [profile, user]);
 
-                            {/* Biography */}
-                            <div className="sc-form-group">
-                                <label className="sc-label">Biography</label>
-                                <div className="sc-textarea-wrap neu-inset cg-field-shell-textarea">
-                                    <textarea
-                                        className="sc-textarea"
-                                        maxLength="500"
-                                        placeholder="Tell your clients about yourself and your photography style…"
-                                        value={bio}
-                                        onChange={(e) => {
-                                            const val = e.target.value;
-                                            setBio(val);
-                                            autoSave({ bio: val, biography: val }, false);
-                                        }}
-                                    ></textarea>
-                                    <div className="sc-char-count">{bio.length} / 500</div>
-                                </div>
-                            </div>
+  const handleViewSite = () => {
+    window.open(buildShowcaseUrl(profile, user), '_blank');
+  };
 
-                            {/* Showcase Info — which fields to show */}
-                            <div className="sc-form-group">
-                                <label className="sc-label">Showcase Info</label>
+  const setShowOnShowcase = async (collectionId, enabled) => {
+    try {
+      await galleryService.updateCollection(collectionId, { show_on_showcase: enabled });
+      setCollections((prev) =>
+        prev.map((c) => (c.id === collectionId ? { ...c, show_on_showcase: enabled } : c))
+      );
+      showToast(enabled ? 'Added to Showcase' : 'Removed from Showcase');
+    } catch (err) {
+      console.error('Failed to update showcase visibility:', err);
+      setError('Could not update that delivery. Try again.');
+    }
+  };
 
-
-                                <div className="sc-checkbox-list">
-                                    <CheckboxItem checked={showBio} onChange={(v) => { setShowBio(v); autoSave({ show_bio: v }, true); }} label="Biography" sublabel={bio ? `"${bio.slice(0, 40)}${bio.length > 40 ? '…' : ''}"` : 'No bio added yet'} />
-                                    <CheckboxItem checked={showSocial} onChange={(v) => { setShowSocial(v); autoSave({ show_social: v }, true); }} label="Social Links" sublabel={(profile?.social_instagram || profile?.social_facebook || profile?.social_x_twitter || profile?.social_pinterest || profile?.social_tiktok || profile?.social_youtube || profile?.social_vimeo || profile?.social_linkedin) ? 'Configured' : 'Not configured'} />
-                                    <CheckboxItem checked={showWebsite} onChange={(v) => { setShowWebsite(v); autoSave({ show_website: v }, true); }} label="Website" sublabel={displayWebsite || 'Not set'} />
-                                    <CheckboxItem checked={showEmail} onChange={(v) => { setShowEmail(v); autoSave({ show_email: v }, true); }} label="Contact Email" sublabel={displayEmail || 'Not set'} />
-                                    <CheckboxItem checked={showPhone} onChange={(v) => { setShowPhone(v); autoSave({ show_phone: v }, true); }} label="Phone Number" sublabel={displayPhone || 'Not set'} />
-                                    <CheckboxItem checked={showAddress} onChange={(v) => { setShowAddress(v); autoSave({ show_address: v }, true); }} label="Business Address" sublabel={displayAddress || 'Not set'} />
-                                </div>
-
-                                <p className="sc-help-text mt-2">
-                                    To update any of the above details, please go to your <a href="/settings">profile</a>. Any information left blank will not appear on your showcase.
-                                </p>
-                            </div>
-
-                            {/* Delivery Sort Order */}
-                            <div className="sc-form-group">
-                                <label className="sc-label">Delivery Sort Order</label>
-                                <ClientGallerySelect
-                                    value={collectionSort}
-                                    onChange={(val) => {
-                                        setCollectionSort(val);
-                                        autoSave({ showcase_sort: val }, true);
-                                    }}
-                                    aria-label="Delivery sort order"
-                                    options={[
-                                        { value: 'created-new', label: 'Date created: New to Old' },
-                                        { value: 'created-old', label: 'Date created: Old to New' },
-                                        { value: 'event-new', label: 'Event Date: New to Old' },
-                                        { value: 'event-old', label: 'Event Date: Old to New' },
-                                        { value: 'name-az', label: 'Name: A → Z' },
-                                        { value: 'name-za', label: 'Name: Z → A' },
-                                    ]}
-                                />
-                                <p className="sc-help-text mt-2">Select the order you wish your deliveries to appear on your public showcase.</p>
-                            </div>
-
-                        </div>
-
-                        {/* ── RIGHT COLUMN — Live Preview ── */}
-                        <div className="sc-right-col">
-                            <div className="sc-mockup-bg">
-                                <div className="sc-mockup-card">
-
-                                    {/* Social icons row — top left */}
-                                    {showSocial && (
-                                        <div className="sc-mockup-social-row">
-                                            {/* Facebook */}
-                                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
-                                            {/* Instagram */}
-                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
-                                            {/* Pinterest */}
-                                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12c0 5.084 3.163 9.426 7.627 11.174-.105-.949-.2-2.405.042-3.441.218-.937 1.407-5.965 1.407-5.965s-.359-.719-.359-1.782c0-1.668.967-2.914 2.171-2.914 1.023 0 1.518.769 1.518 1.69 0 1.029-.655 2.568-.994 3.995-.283 1.194.599 2.169 1.777 2.169 2.133 0 3.772-2.249 3.772-5.495 0-2.873-2.064-4.882-5.012-4.882-3.414 0-5.418 2.561-5.418 5.207 0 1.031.397 2.138.893 2.738a.36.36 0 0 1 .083.345l-.333 1.36c-.053.22-.174.267-.402.161-1.499-.698-2.436-2.889-2.436-4.649 0-3.785 2.75-7.262 7.929-7.262 4.163 0 7.398 2.967 7.398 6.931 0 4.136-2.607 7.464-6.227 7.464-1.216 0-2.359-.632-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C9.57 23.812 10.763 24 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0z"/></svg>
-                                            {/* YouTube */}
-                                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.95-1.96C18.88 4 12 4 12 4s-6.88 0-8.59.46a2.78 2.78 0 0 0-1.95 1.96A29 29 0 0 0 1 12a29 29 0 0 0 .46 5.58A2.78 2.78 0 0 0 3.41 19.6C5.12 20 12 20 12 20s6.88 0 8.59-.46a2.78 2.78 0 0 0 1.95-1.95A29 29 0 0 0 23 12a29 29 0 0 0-.46-5.58zM9.75 15.02V8.98L15.5 12l-5.75 3.02z"/></svg>
-                                        </div>
-                                    )}
-
-                                    {/* Photographer name or logo */}
-                                    {profile?.logo_url ? (
-                                        <div className="sc-mockup-logo-container" style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
-                                            <img
-                                                src={profile.logo_url}
-                                                alt={photographerName}
-                                                style={{
-                                                    maxHeight: '42px',
-                                                    maxWidth: '85%',
-                                                    objectFit: 'contain'
-                                                }}
-                                            />
-                                        </div>
-                                    ) : (
-                                        <h3 className="sc-mockup-title">{photographerName.toUpperCase()}</h3>
-                                    )}
-
-                                    {/* Bio preview */}
-                                    {showBio && bio && (
-                                        <p className="sc-mockup-bio">
-                                            {bio.slice(0, 80)}{bio.length > 80 ? '…' : ''}
-                                        </p>
-                                    )}
-
-                                    {/* Contact info preview */}
-                                    <div className="sc-mockup-contact">
-                                        {showWebsite && displayWebsite && (
-                                            <div className="sc-mockup-line">
-                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-                                                <span>{displayWebsite}</span>
-                                            </div>
-                                        )}
-                                        {showEmail && (
-                                            <div className="sc-mockup-line">
-                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-                                                <span>{displayEmail || 'poojaelango03@gmail.com'}</span>
-                                            </div>
-                                        )}
-                                        {showAddress && (
-                                            <div className="sc-mockup-line">
-                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>
-                                                <span>{displayAddress || '101 Main Street'}</span>
-                                            </div>
-                                        )}
-                                        {showPhone && (
-                                            <div className="sc-mockup-line">
-                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-                                                <span>{displayPhone || '9363090781'}</span>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* Collections grid — dynamic collections list or stunning fallback items */}
-                                    <div className="sc-mockup-grid">
-                                        {Array(6).fill(0).map((_, i) => {
-                                            const col = previewCollections[i];
-                                            if (col) {
-                                                return (
-                                                    <div key={col.id || i} className="sc-mockup-item">
-                                                        <div className="sc-mockup-img">
-                                                            {getCollectionCardCoverSrc(col) ? (
-                                                                <CollectionCardCover
-                                                                    collection={col}
-                                                                    alt={col.name}
-                                                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                                                />
-                                                            ) : (
-                                                                <div className="sc-mockup-img-placeholder" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                                    <img src={imageIconPlaceholder} alt="Placeholder Icon" className="sc-mockup-placeholder-icon" style={{ width: '15px', height: '15px', mixBlendMode: 'multiply' }} />
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                        <div className="sc-mockup-name">{col.name}</div>
-                                                        <div className="sc-mockup-date">{formatEventDate(col.event_date) || formatEventDate(col.created_at)}</div>
-                                                    </div>
-                                                );
-                                            } else {
-                                                // High-end fallback placeholder using a gorgeous glass-gradient design and custom image icon
-                                                return (
-                                                    <div key={i} className="sc-mockup-item">
-                                                        <div className="sc-mockup-img sc-mockup-img--empty" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-                                                            <div className="sc-mockup-gradient-placeholder" style={{
-                                                                background: `linear-gradient(${135 + i * 25}deg, #8BDFDD 0%, #111111 100%)`,
-                                                                width: '100%',
-                                                                height: '100%',
-                                                                opacity: 0.15,
-                                                                position: 'absolute',
-                                                                top: 0,
-                                                                left: 0
-                                                            }} />
-                                                            <img src={imageIconPlaceholder} alt="Placeholder Icon" className="sc-mockup-placeholder-icon" style={{ width: '15px', height: '15px', mixBlendMode: 'multiply', opacity: 0.35, position: 'relative', zIndex: 1 }} />
-                                                        </div>
-                                                        <div className="sc-mockup-text-1"></div>
-                                                        <div className="sc-mockup-text-2"></div>
-                                                    </div>
-                                                );
-                                            }
-                                        })}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                ) : null}
-            </ClientGalleryPageShell>
-            {toastMessage && (
-                <div className="fixed bottom-6 right-6 z-[9999] flex items-center gap-2 rounded-full bg-[#1A1A1A] px-4 py-3 text-sm font-medium text-white shadow-xl shadow-black/20" style={{ animation: 'hpToastIn 0.3s ease-out' }}>
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="20 6 9 17 4 12"></polyline>
-                    </svg>
-                    {toastMessage}
-                </div>
-            )}
-        </SidebarLayout>
+  const patchCollection = async (collectionId, patch) => {
+    setCollections((prev) =>
+      prev.map((c) => (c.id === collectionId ? { ...c, ...patch } : c))
     );
+    try {
+      const updated = await galleryService.updateCollection(collectionId, patch);
+      if (updated) {
+        setCollections((prev) =>
+          prev.map((c) => (c.id === collectionId ? { ...c, ...updated } : c))
+        );
+      }
+      showToast('Changes saved');
+      return updated;
+    } catch (err) {
+      console.error('Failed to update showcase card:', err);
+      setError('Could not save that change. Apply the latest Supabase migration if columns are missing.');
+      throw err;
+    }
+  };
+
+  const loadDeliveryMedia = async (collectionId) => {
+    const data = await galleryService.getCollectionDashboardData(collectionId);
+    return {
+      photos: data?.photos || [],
+      sets: data?.sets || [],
+      collection: data,
+    };
+  };
+
+  const openChangePhotos = async (col) => {
+    closeCardMenu();
+    setPhotosTarget(col);
+    setPhotosLoading(true);
+    try {
+      const { photos } = await loadDeliveryMedia(col.id);
+      setPhotosList(photos);
+      const featured = showcaseFeaturedPhotoIds(col);
+      setPhotosSelected(new Set(featured || photos.map((p) => String(p.id))));
+    } catch (err) {
+      console.error(err);
+      setError('Could not load photographs for this delivery.');
+      setPhotosTarget(null);
+    } finally {
+      setPhotosLoading(false);
+    }
+  };
+
+  const openChooseCover = async (col) => {
+    closeCardMenu();
+    setCoverTarget(col);
+    try {
+      const { photos, sets, collection } = await loadDeliveryMedia(col.id);
+      setCoverPhotos(photos);
+      setCoverSets(sets);
+      setCoverTarget({ ...col, ...collection });
+    } catch (err) {
+      console.error(err);
+      setError('Could not load covers for this delivery.');
+      setCoverTarget(null);
+    }
+  };
+
+  const askPermission = async (col, { remind = false } = {}) => {
+    closeCardMenu();
+    const contact = showcaseContactName(col);
+    const title = showcaseDisplayName(col);
+    const url = buildShowcaseUrl(profile, user);
+    const studio =
+      profile?.studio_name ||
+      profile?.business_name ||
+      profile?.full_name ||
+      profile?.display_name ||
+      profile?.name ||
+      user?.email?.split('@')[0] ||
+      'Your studio';
+    const body = remind
+      ? `Hi ${contact},\n\nJust a gentle reminder — may we feature “${title}” on our public Showcase?\n\n${url}\n\nThank you,\n${studio}`
+      : `Hi ${contact},\n\nWe’d love to feature “${title}” on our public Showcase page. May we have your permission?\n\n${url}\n\nThank you,\n${studio}`;
+
+    window.open(
+      buildGmailComposeUrl(body, {
+        subject: remind ? `Reminder: Showcase permission for ${title}` : `Permission to feature ${title}`,
+      }),
+      '_blank',
+      'noopener,noreferrer'
+    );
+
+    await patchCollection(col.id, {
+      showcase_permission: 'asked',
+      showcase_permission_at: new Date().toISOString(),
+      showcase_permission_contact: contact,
+    });
+  };
+
+  const markApproved = async (col) => {
+    closeCardMenu();
+    await patchCollection(col.id, {
+      showcase_permission: 'approved',
+      showcase_permission_at: new Date().toISOString(),
+      showcase_permission_contact: showcaseContactName(col),
+    });
+  };
+
+  const moveItem = (id, direction) => {
+    const ids = onPage.map((c) => String(c.id));
+    const index = ids.indexOf(String(id));
+    if (index < 0) return;
+    const next = direction === 'earlier' ? index - 1 : index + 1;
+    if (next < 0 || next >= ids.length) return;
+    const swapped = [...ids];
+    [swapped[index], swapped[next]] = [swapped[next], swapped[index]];
+    persistOrder(swapped);
+    closeCardMenu();
+  };
+
+  const handleShowcaseReorder = useCallback(
+    (_from, _to, nextIds) => {
+      persistOrder(nextIds.map(String));
+    },
+    [persistOrder]
+  );
+
+  const photographerName =
+    profile?.studio_name ||
+    profile?.business_name ||
+    profile?.full_name ||
+    profile?.display_name ||
+    profile?.name ||
+    user?.email?.split('@')[0] ||
+    'Your studio';
+  const displayEmail = profile?.contact_email || profile?.email || user?.email || '';
+  const displayPhone = profile?.phone || '';
+  const displayAddress =
+    [profile?.address_line_1, profile?.city, profile?.state_province].filter(Boolean).join(', ') ||
+    '';
+  const displayWebsite = profile?.website || '';
+  const showcaseUrl = buildShowcaseUrl(profile, user);
+  const showcaseHost = showcaseUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  const initial = String(photographerName).trim().charAt(0).toUpperCase() || 'S';
+  const bioPreview =
+    bio?.trim() ||
+    [profile?.city, profile?.specialization].filter(Boolean).join('. ') ||
+    'Add a short line about your studio in Profile.';
+
+  const onPageCount = onPage.length;
+  const heldCount = heldBack.length;
+  const statusLine =
+    onPageCount === 0 && heldCount === 0
+      ? 'Nothing on the page yet. Feature a delivery to begin.'
+      : heldCount > 0
+        ? `${onPageCount} ${onPageCount === 1 ? 'set is' : 'sets are'} on the page, and ${heldCount} ${
+            heldCount === 1 ? 'is' : 'are'
+          } held back until permission arrives.`
+        : `${onPageCount} ${onPageCount === 1 ? 'set is' : 'sets are'} on the page.`;
+
+  // One dashed “Feature work here” slot to add the next delivery (under the cap).
+  const showFeatureHereCard = onPageCount < MAX_FEATURED;
+  const menuCol = menuId ? onPage.find((c) => String(c.id) === String(menuId)) : null;
+  const menuIndex = menuCol ? onPage.findIndex((c) => String(c.id) === String(menuId)) : -1;
+  const menuFeaturedIds = menuCol ? showcaseFeaturedPhotoIds(menuCol) : null;
+  const menuTitle = menuCol ? showcaseDisplayName(menuCol) : '';
+  const menuContact = menuCol ? showcaseContactName(menuCol) : '';
+
+  return (
+    <SidebarLayout>
+      <main className="sc-page">
+        <header className="sc-hero">
+          <div className="sc-hero__copy">
+            <h1 className="sc-hero__title">Showcase</h1>
+            <p className="sc-hero__lead">{statusLine}</p>
+          </div>
+          <div className="sc-hero__actions">
+            {saving ? <span className="sc-save-pill">Saving…</span> : null}
+            <button
+              type="button"
+              className="sc-btn sc-btn--ghost"
+              onClick={handleViewSite}
+              disabled={profileLoading}
+            >
+              <EyeIcon />
+              View the page
+            </button>
+            <button
+              type="button"
+              className="sc-btn sc-btn--solid"
+              onClick={() => setFeatureOpen(true)}
+              disabled={collectionsLoading}
+            >
+              + Feature work
+            </button>
+          </div>
+        </header>
+
+        {error ? <div className="sc-error-banner">{error}</div> : null}
+
+        {!user ? (
+          <p className="sc-muted">Please log in to view and edit your showcase settings.</p>
+        ) : null}
+
+        {profileLoading && user ? (
+          <div className="sc-loading">
+            <div className="sc-loading-spinner" />
+            <span>Loading your profile…</span>
+          </div>
+        ) : null}
+
+        {user && !profileLoading ? (
+          <>
+            <div className="sc-top-cards">
+              <div className="sc-card sc-card--url">
+                <div className="sc-card__icon" aria-hidden>
+                  <GlobeIcon />
+                </div>
+                <div className="sc-card__body">
+                  <p className="sc-card__title">{showcaseHost}</p>
+                  <p className="sc-card__desc">
+                    {statusOn
+                      ? onPageCount > 0
+                        ? `Anyone with the address can see ${onPageCount} ${
+                            onPageCount === 1 ? 'set' : 'sets'
+                          }. No link needed.`
+                        : 'Live address. Feature work below so visitors have something to see.'
+                      : 'Showcase is off. The address returns nothing until you turn it on.'}
+                  </p>
+                </div>
+                <div className="sc-card__actions">
+                  <button type="button" className="sc-btn sc-btn--outline" onClick={handleCopyUrl}>
+                    {copyDone ? 'Copied' : 'Copy address'}
+                  </button>
+                  <button
+                    type="button"
+                    className={`sc-switch${statusOn ? ' is-on' : ''}`}
+                    aria-pressed={statusOn}
+                    aria-label="Publish Showcase"
+                    onClick={() => {
+                      const nextVal = !statusOn;
+                      setStatusOn(nextVal);
+                      autoSave({ showcase_enabled: nextVal }, true);
+                    }}
+                  >
+                    <span className="sc-switch__thumb" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="sc-card sc-card--profile">
+                <div className="sc-card__avatar" aria-hidden>
+                  {profile?.logo_url ? (
+                    <img src={profile.logo_url} alt="" />
+                  ) : (
+                    <span>{initial}</span>
+                  )}
+                </div>
+                <div className="sc-card__body">
+                  <p className="sc-card__title">{photographerName}</p>
+                  <p className="sc-card__desc">{bioPreview}</p>
+                </div>
+                <div className="sc-card__actions">
+                  <Link to="/settings" className="sc-btn sc-btn--outline">
+                    Change in Profile
+                  </Link>
+                </div>
+                <div className="sc-card__note">
+                  <InfoIcon />
+                  <span>
+                    The name, mark and contact details on the page come from{' '}
+                    <Link to="/settings">Studio profile</Link> and are read-only here. They are the
+                    same fields the galleries, albums and invoices use — editing them in two places
+                    is how one studio ends up with two names.
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <section className="sc-settings">
+              <button
+                type="button"
+                className="sc-settings__toggle"
+                aria-expanded={settingsOpen}
+                onClick={() => setSettingsOpen((v) => !v)}
+              >
+                <span>Page settings</span>
+                <span className="sc-settings__chev">{settingsOpen ? 'Hide' : 'Password, bio, sort & more'}</span>
+              </button>
+
+              {settingsOpen ? (
+                <div className="sc-settings__panel">
+                  <div className="sc-settings__grid">
+                    <div className="sc-form-group">
+                      <label className="sc-label">Showcase password</label>
+                      <div className="sc-input-wrap">
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          className="sc-input"
+                          placeholder="Add a password"
+                          value={password}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setPassword(val);
+                            autoSave({ showcase_password: val }, false);
+                          }}
+                        />
+                        {password ? (
+                          <div className="sc-pw-actions">
+                            <button
+                              type="button"
+                              className="sc-pw-icon-btn"
+                              onClick={() => setShowPassword((v) => !v)}
+                              title={showPassword ? 'Hide password' : 'Show password'}
+                            >
+                              <EyeIcon />
+                            </button>
+                            <button
+                              type="button"
+                              className={`sc-pw-icon-btn${pwCopyDone ? ' is-done' : ''}`}
+                              onClick={handleCopyPassword}
+                              title="Copy password"
+                            >
+                              {pwCopyDone ? '✓' : 'Copy'}
+                            </button>
+                          </div>
+                        ) : (
+                          <button type="button" className="sc-pw-generate-btn" onClick={generatePassword}>
+                            Generate
+                          </button>
+                        )}
+                      </div>
+                      <p className="sc-help-text">
+                        Protect your Showcase with a password
+                        {password ? (
+                          <button type="button" className="sc-pw-clear-btn" onClick={handleClearPassword}>
+                            Remove
+                          </button>
+                        ) : null}
+                      </p>
+                    </div>
+
+                    <div className="sc-form-group">
+                      <label className="sc-label">Biography</label>
+                      <div className="sc-textarea-wrap">
+                        <textarea
+                          className="sc-textarea"
+                          maxLength={500}
+                          placeholder="Tell your clients about yourself and your photography style…"
+                          value={bio}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setBio(val);
+                            autoSave({ bio: val, biography: val }, false);
+                          }}
+                        />
+                        <div className="sc-char-count">{bio.length} / 500</div>
+                      </div>
+                    </div>
+
+                    <div className="sc-form-group sc-form-group--wide">
+                      <label className="sc-label">Showcase info</label>
+                      <div className="sc-checkbox-list">
+                        <CheckboxItem
+                          checked={showBio}
+                          onChange={(v) => {
+                            setShowBio(v);
+                            autoSave({ show_bio: v }, true);
+                          }}
+                          label="Biography"
+                          sublabel={bio ? `"${bio.slice(0, 40)}${bio.length > 40 ? '…' : ''}"` : 'No bio yet'}
+                        />
+                        <CheckboxItem
+                          checked={showSocial}
+                          onChange={(v) => {
+                            setShowSocial(v);
+                            autoSave({ show_social: v }, true);
+                          }}
+                          label="Social links"
+                          sublabel="From Profile"
+                        />
+                        <CheckboxItem
+                          checked={showWebsite}
+                          onChange={(v) => {
+                            setShowWebsite(v);
+                            autoSave({ show_website: v }, true);
+                          }}
+                          label="Website"
+                          sublabel={displayWebsite || 'Not set'}
+                        />
+                        <CheckboxItem
+                          checked={showEmail}
+                          onChange={(v) => {
+                            setShowEmail(v);
+                            autoSave({ show_email: v }, true);
+                          }}
+                          label="Contact email"
+                          sublabel={displayEmail || 'Not set'}
+                        />
+                        <CheckboxItem
+                          checked={showPhone}
+                          onChange={(v) => {
+                            setShowPhone(v);
+                            autoSave({ show_phone: v }, true);
+                          }}
+                          label="Phone number"
+                          sublabel={displayPhone || 'Not set'}
+                        />
+                        <CheckboxItem
+                          checked={showAddress}
+                          onChange={(v) => {
+                            setShowAddress(v);
+                            autoSave({ show_address: v }, true);
+                          }}
+                          label="Business address"
+                          sublabel={displayAddress || 'Not set'}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="sc-form-group">
+                      <label className="sc-label">Delivery sort order</label>
+                      <ClientGallerySelect
+                        value={collectionSort}
+                        onChange={(val) => {
+                          setCollectionSort(val);
+                          autoSave({ showcase_sort: val }, true);
+                          persistOrder([]);
+                        }}
+                        aria-label="Delivery sort order"
+                        options={[
+                          { value: 'created-new', label: 'Date created: New to Old' },
+                          { value: 'created-old', label: 'Date created: Old to New' },
+                          { value: 'event-new', label: 'Event Date: New to Old' },
+                          { value: 'event-old', label: 'Event Date: Old to New' },
+                          { value: 'name-az', label: 'Name: A → Z' },
+                          { value: 'name-za', label: 'Name: Z → A' },
+                        ]}
+                      />
+                      <p className="sc-help-text">
+                        Default order when you have not dragged cards. Dragging on this page overrides it.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </section>
+
+            <section className="sc-onpage">
+              <div className="sc-onpage__head">
+                <div className="sc-onpage__label">
+                  <span>On the page</span>
+                  <span className="sc-onpage__count">{onPageCount}</span>
+                </div>
+                <p className="sc-onpage__hint">Drag to reorder · or use the ··· menu</p>
+              </div>
+
+              {collectionsLoading ? (
+                <div className="sc-loading">
+                  <div className="sc-loading-spinner" />
+                  <span>Loading deliveries…</span>
+                </div>
+              ) : (
+                <div className="sc-grid">
+                  <ShowcaseSortableGrid
+                    className="sc-sortable-root"
+                    items={onPage}
+                    disabled={Boolean(menuId)}
+                    onReorder={handleShowcaseReorder}
+                    renderItem={(col, index, { isDragging }) => {
+                      const meta = collectionMetaLine(col);
+                      const title = showcaseDisplayName(col);
+                      const contact = showcaseContactName(col);
+                      const perm = permissionStatus(col);
+                      const isMenu = menuId === col.id;
+                      return (
+                        <article
+                          className={`sc-tile${isDragging ? ' is-dragging' : ''}${isMenu ? ' is-menu-open' : ''}`}
+                        >
+                          <div className="sc-tile__media">
+                            <span className="sc-tile__pos">{index + 1}</span>
+                            {getCollectionCardCoverSrc(col) ? (
+                              <CollectionCardCover
+                                collection={col}
+                                alt={title}
+                                className="sc-tile__img"
+                              />
+                            ) : (
+                              <div className="sc-tile__placeholder" />
+                            )}
+                            <span className="sc-tile__count">{photoCountLabel(col)}</span>
+                            <button
+                              type="button"
+                              className={`sc-tile__more${isMenu ? ' is-open' : ''}`}
+                              aria-label={`Actions for ${title}`}
+                              aria-expanded={isMenu}
+                              aria-haspopup="menu"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (isMenu) {
+                                  closeCardMenu();
+                                  return;
+                                }
+                                setMenuId(col.id);
+                                setMenuPos(placeMenu(e.currentTarget.getBoundingClientRect()));
+                              }}
+                            >
+                              <MoreDotsIcon />
+                            </button>
+                          </div>
+
+                          <div className="sc-tile__meta">
+                            <h3 className="sc-tile__title">{title}</h3>
+                            {meta ? <p className="sc-tile__sub">{meta}</p> : null}
+                            <p className={`sc-tile__status is-${perm.tone}`}>
+                              <span className="sc-dot" />
+                              <span>{perm.text}</span>
+                              {perm.action === 'ask' ? (
+                                <button
+                                  type="button"
+                                  className="sc-tile__link"
+                                  onClick={() => void askPermission(col)}
+                                >
+                                  Ask {contact}
+                                </button>
+                              ) : null}
+                              {perm.action === 'remind' ? (
+                                <button
+                                  type="button"
+                                  className="sc-tile__link"
+                                  onClick={() => void askPermission(col, { remind: true })}
+                                >
+                                  Remind
+                                </button>
+                              ) : null}
+                            </p>
+                          </div>
+                        </article>
+                      );
+                    }}
+                  />
+
+                  {showFeatureHereCard ? (
+                    <div className="sc-empty-wrap">
+                      <button
+                        type="button"
+                        className="sc-tile sc-tile--empty"
+                        onClick={() => setFeatureOpen(true)}
+                      >
+                        <div className="sc-tile__media sc-tile__media--empty">
+                          <span className="sc-tile__plus">+</span>
+                          <span className="sc-tile__empty-title">Feature work here</span>
+                          <span className="sc-tile__empty-sub">
+                            Position {onPageCount + 1} of {MAX_FEATURED}
+                          </span>
+                        </div>
+                        <div className="sc-tile__meta sc-tile__meta--empty" aria-hidden="true">
+                          <span className="sc-tile__title">&nbsp;</span>
+                          <span className="sc-tile__sub">&nbsp;</span>
+                          <span className="sc-tile__status">&nbsp;</span>
+                        </div>
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              )}
+            </section>
+
+            {(() => {
+              const asked = onPage.filter((c) => showcasePermission(c) === 'asked').length;
+              if (asked > 0) {
+                return (
+                  <div className="sc-hatch-note">
+                    <p>
+                      <strong>
+                        {asked} {asked === 1 ? 'set is' : 'sets are'} waiting on permission.
+                      </strong>{' '}
+                      Hatched work stays arranged on this page. It is safe — there is no second button
+                      to press, and nothing publishes by accident when you only asked.
+                    </p>
+                  </div>
+                );
+              }
+              if (heldCount > 0) {
+                return (
+                  <div className="sc-hatch-note">
+                    <p>
+                      <strong>
+                        {heldCount} {heldCount === 1 ? 'set is' : 'sets are'} held back.
+                      </strong>{' '}
+                      Work marked for Showcase but not published yet stays off the public page until
+                      you publish the delivery.
+                    </p>
+                  </div>
+                );
+              }
+              return (
+                <div className="sc-hatch-note">
+                  <p>
+                    Use <strong>+ Feature work</strong> or an empty <strong>Feature work here</strong>{' '}
+                    slot. Drag cards to reorder. Ask permission from the ··· menu when you are ready.
+                  </p>
+                </div>
+              );
+            })()}
+          </>
+        ) : null}
+      </main>
+
+      {menuCol && menuPos
+        ? createPortal(
+            <div
+              className="sc-menu sc-menu--fixed"
+              ref={menuRef}
+              role="menu"
+              style={{
+                left: menuPos.left,
+                maxHeight: menuPos.maxHeight,
+                ...(menuPos.openUp
+                  ? { bottom: menuPos.bottom, top: 'auto' }
+                  : { top: menuPos.top, bottom: 'auto' }),
+              }}
+            >
+              <p className="sc-menu__head">{menuTitle.toUpperCase()}</p>
+
+              <button
+                type="button"
+                className="sc-menu__item"
+                onClick={() => void openChangePhotos(menuCol)}
+              >
+                <span className="sc-menu__title">Change the photographs</span>
+                <span className="sc-menu__sub">
+                  {menuFeaturedIds
+                    ? `${menuFeaturedIds.length} picked from ${menuCol.name || menuTitle}`
+                    : `${Number(menuCol.photo_count) || 0} in ${menuCol.name || menuTitle}`}
+                </span>
+              </button>
+              <button
+                type="button"
+                className="sc-menu__item"
+                onClick={() => {
+                  closeCardMenu();
+                  setRenameTarget(menuCol);
+                  setRenameValue(showcaseDisplayName(menuCol));
+                }}
+              >
+                <span className="sc-menu__title">Rename</span>
+                <span className="sc-menu__sub">The title on the public page, not the delivery</span>
+              </button>
+              <button
+                type="button"
+                className="sc-menu__item"
+                onClick={() => void openChooseCover(menuCol)}
+              >
+                <span className="sc-menu__title">Choose the cover</span>
+              </button>
+
+              <div className="sc-menu__rule" />
+
+              <button
+                type="button"
+                className="sc-menu__item sc-menu__item--row"
+                disabled={menuIndex <= 0}
+                onClick={() => moveItem(menuCol.id, 'earlier')}
+              >
+                <span className="sc-menu__title">Move earlier</span>
+                <span className="sc-menu__badge">→ {Math.max(1, menuIndex)}</span>
+              </button>
+              <button
+                type="button"
+                className="sc-menu__item sc-menu__item--row"
+                disabled={menuIndex < 0 || menuIndex >= onPage.length - 1}
+                onClick={() => moveItem(menuCol.id, 'later')}
+              >
+                <span className="sc-menu__title">Move later</span>
+                <span className="sc-menu__badge">
+                  → {Math.min(onPage.length, menuIndex + 2)}
+                </span>
+              </button>
+
+              <div className="sc-menu__rule" />
+
+              {showcasePermission(menuCol) === 'approved' ? (
+                <button
+                  type="button"
+                  className="sc-menu__item"
+                  onClick={() => void askPermission(menuCol, { remind: false })}
+                >
+                  <span className="sc-menu__title">Ask again for permission</span>
+                  <span className="sc-menu__sub">{menuContact} already said yes</span>
+                </button>
+              ) : showcasePermission(menuCol) === 'asked' ? (
+                <>
+                  <button
+                    type="button"
+                    className="sc-menu__item"
+                    onClick={() => void askPermission(menuCol, { remind: true })}
+                  >
+                    <span className="sc-menu__title">Remind {menuContact}</span>
+                    <span className="sc-menu__sub">Opens email with a nudge</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="sc-menu__item"
+                    onClick={() => void markApproved(menuCol)}
+                  >
+                    <span className="sc-menu__title">Mark as approved</span>
+                    <span className="sc-menu__sub">{menuContact} said yes</span>
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className="sc-menu__item"
+                  onClick={() => void askPermission(menuCol)}
+                >
+                  <span className="sc-menu__title">Ask {menuContact} for permission</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                className="sc-menu__item"
+                onClick={() => {
+                  closeCardMenu();
+                  navigate(`/deliveries/manage?id=${menuCol.id}`);
+                }}
+              >
+                <span className="sc-menu__title">Open the delivery</span>
+                <span className="sc-menu__sub">{menuCol.name}</span>
+              </button>
+
+              <div className="sc-menu__rule" />
+
+              <button
+                type="button"
+                className="sc-menu__item sc-menu__item--danger"
+                onClick={() => {
+                  closeCardMenu();
+                  setRemoveTarget(menuCol);
+                }}
+              >
+                <span className="sc-menu__title">Remove from the Showcase</span>
+                <span className="sc-menu__sub">The delivery is untouched</span>
+              </button>
+            </div>,
+            document.body
+          )
+        : null}
+
+      {renameTarget ? (
+        <div className="sc-modal-backdrop" role="presentation" onClick={() => setRenameTarget(null)}>
+          <div
+            className="sc-modal"
+            role="dialog"
+            aria-labelledby="sc-rename-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="sc-rename-title" className="sc-modal__title">
+              Rename on Showcase
+            </h2>
+            <p className="sc-modal__desc">
+              This title appears on the public page only. The delivery name stays “{renameTarget.name}”.
+            </p>
+            <input
+              className="sc-modal__input"
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              maxLength={120}
+              autoFocus
+            />
+            <div className="sc-modal__footer">
+              <button type="button" className="sc-btn sc-btn--outline" onClick={() => setRenameTarget(null)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="sc-btn sc-btn--solid"
+                onClick={async () => {
+                  const next = renameValue.trim();
+                  await patchCollection(renameTarget.id, {
+                    showcase_display_name: next && next !== renameTarget.name ? next : null,
+                  });
+                  setRenameTarget(null);
+                }}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {photosTarget ? (
+        <div className="sc-modal-backdrop" role="presentation" onClick={() => setPhotosTarget(null)}>
+          <div
+            className="sc-modal sc-modal--wide"
+            role="dialog"
+            aria-labelledby="sc-photos-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="sc-photos-title" className="sc-modal__title">
+              Change the photographs
+            </h2>
+            <p className="sc-modal__desc">
+              Pick which photographs represent {showcaseDisplayName(photosTarget)} on your Showcase.
+              The delivery gallery is unchanged.
+            </p>
+            {photosLoading ? (
+              <div className="sc-loading">
+                <div className="sc-loading-spinner" />
+                <span>Loading photographs…</span>
+              </div>
+            ) : (
+              <>
+                <div className="sc-photo-toolbar">
+                  <span>{photosSelected.size} selected</span>
+                  <div className="sc-photo-toolbar__actions">
+                    <button
+                      type="button"
+                      className="sc-tile__link"
+                      onClick={() => setPhotosSelected(new Set(photosList.map((p) => String(p.id))))}
+                    >
+                      Select all
+                    </button>
+                    <button
+                      type="button"
+                      className="sc-tile__link"
+                      onClick={() => setPhotosSelected(new Set())}
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+                <div className="sc-photo-grid">
+                  {photosList.map((photo) => {
+                    const id = String(photo.id);
+                    const on = photosSelected.has(id);
+                    const src = getPhotoGridDisplayUrl(photo) || photo.thumbnail_url || photo.web_url;
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        className={`sc-photo-cell${on ? ' is-on' : ''}`}
+                        onClick={() => {
+                          setPhotosSelected((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(id)) next.delete(id);
+                            else next.add(id);
+                            return next;
+                          });
+                        }}
+                      >
+                        {src ? <img src={src} alt="" /> : <div className="sc-tile__placeholder" />}
+                        <span className="sc-photo-check">{on ? '✓' : ''}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+            <div className="sc-modal__footer">
+              <button type="button" className="sc-btn sc-btn--outline" onClick={() => setPhotosTarget(null)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="sc-btn sc-btn--solid"
+                disabled={photosLoading || photosSelected.size === 0}
+                onClick={async () => {
+                  const allIds = photosList.map((p) => String(p.id));
+                  const selected = [...photosSelected];
+                  const same =
+                    selected.length === allIds.length &&
+                    allIds.every((id) => photosSelected.has(id));
+                  await patchCollection(photosTarget.id, {
+                    showcase_featured_photo_ids: same ? null : selected,
+                  });
+                  setPhotosTarget(null);
+                }}
+              >
+                Save selection
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {coverTarget ? (
+        <ChangeCoverModal
+          isOpen
+          onClose={() => setCoverTarget(null)}
+          photos={coverPhotos}
+          coverUrl={coverTarget.cover_url}
+          coverPhoto={
+            coverPhotos.find((p) => String(p.id) === String(coverTarget.cover_photo_id)) || null
+          }
+          initialFocals={getDefaultCoverFocals(
+            parseFocalPoint(coverTarget.cover_focals?.desktop) ||
+              parseFocalPoint({
+                x: coverTarget.cover_focal_x,
+                y: coverTarget.cover_focal_y,
+              }) || { x: 50, y: 50 }
+          )}
+          initialView="pick"
+          sets={coverSets}
+          highlightsName={coverTarget.highlights_name || 'Highlights'}
+          saving={coverSaving}
+          onConfirm={async ({ photo, focals }) => {
+            if (!photo) return;
+            setCoverSaving(true);
+            try {
+              const url = photo.full_url || photo.web_url || photo.thumbnail_url;
+              await patchCollection(coverTarget.id, {
+                cover_photo_id: photo.id,
+                cover_url: url,
+                cover_focals: focals,
+                cover_focal_x: focals?.desktop?.x ?? 50,
+                cover_focal_y: focals?.desktop?.y ?? 50,
+              });
+              setCoverTarget(null);
+            } finally {
+              setCoverSaving(false);
+            }
+          }}
+        />
+      ) : null}
+
+      {featureOpen ? (
+        <div className="sc-modal-backdrop" role="presentation" onClick={() => setFeatureOpen(false)}>
+          <div
+            className="sc-modal sc-modal--feature"
+            role="dialog"
+            aria-labelledby="sc-feature-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="sc-feature-title" className="sc-modal__title">
+              Feature work
+            </h2>
+            <p className="sc-modal__desc">
+              Choose a delivery to put on your public Showcase. Published deliveries appear at once.
+            </p>
+            <div className="sc-modal__list">
+              {featureCandidates.length === 0 ? (
+                <p className="sc-muted">Every delivery is already featured, or you have none yet.</p>
+              ) : (
+                featureCandidates.map((col) => (
+                  <button
+                    key={col.id}
+                    type="button"
+                    className="sc-pick"
+                    onClick={async () => {
+                      await setShowOnShowcase(col.id, true);
+                      const nextIds = [...onPage.map((c) => String(c.id)), String(col.id)].slice(
+                        0,
+                        MAX_FEATURED
+                      );
+                      persistOrder(nextIds);
+                      setFeatureOpen(false);
+                    }}
+                  >
+                    <div className="sc-pick__thumb">
+                      {getCollectionCardCoverSrc(col) ? (
+                        <CollectionCardCover collection={col} alt="" />
+                      ) : (
+                        <div className="sc-tile__placeholder" />
+                      )}
+                    </div>
+                    <div className="sc-pick__copy">
+                      <strong>{col.name || 'Untitled'}</strong>
+                      <span>
+                        {col.status === 'published' ? 'Published' : 'Draft'} · {photoCountLabel(col)}
+                      </span>
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+            <div className="sc-modal__footer">
+              <button type="button" className="sc-btn sc-btn--outline" onClick={() => setFeatureOpen(false)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {removeTarget ? (
+        <div className="sc-modal-backdrop" role="presentation" onClick={() => setRemoveTarget(null)}>
+          <div
+            className="sc-modal sc-modal--confirm"
+            role="dialog"
+            aria-labelledby="sc-remove-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="sc-remove-title" className="sc-modal__title">
+              Remove this from the Showcase?
+            </h2>
+            <p className="sc-modal__desc">
+              <strong>{showcaseDisplayName(removeTarget)}</strong> comes off the public page. The
+              delivery itself — {photoCountLabel(removeTarget)} — is not touched, and neither is the
+              client&apos;s gallery link.
+            </p>
+            <div className="sc-modal__footer">
+              <button type="button" className="sc-btn sc-btn--outline" onClick={() => setRemoveTarget(null)}>
+                Keep it
+              </button>
+              <button
+                type="button"
+                className="sc-btn sc-btn--danger"
+                onClick={async () => {
+                  const id = removeTarget.id;
+                  setRemoveTarget(null);
+                  await setShowOnShowcase(id, false);
+                  persistOrder(onPage.filter((c) => c.id !== id).map((c) => String(c.id)));
+                }}
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {toastMessage ? (
+        <div className="sc-toast">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+          {toastMessage}
+        </div>
+      ) : null}
+    </SidebarLayout>
+  );
 };
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
 const CheckboxItem = ({ checked, onChange, label, sublabel }) => (
-    <label className="sc-checkbox-item">
-        <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
-        <span className="chk-box">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="20 6 9 17 4 12"></polyline>
-            </svg>
-        </span>
-        <span className="sc-checkbox-label-wrap">
-            <span className="sc-checkbox-main">{label}</span>
-            {sublabel && <span className="sc-checkbox-sub">{sublabel}</span>}
-        </span>
-    </label>
+  <label className="sc-checkbox-item">
+    <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+    <span className="chk-box">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="20 6 9 17 4 12" />
+      </svg>
+    </span>
+    <span className="sc-checkbox-label-wrap">
+      <span className="sc-checkbox-main">{label}</span>
+      {sublabel ? <span className="sc-checkbox-sub">{sublabel}</span> : null}
+    </span>
+  </label>
 );
 
 export default Showcase;

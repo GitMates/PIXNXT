@@ -453,7 +453,7 @@ const CollectionList = ({ slug, photographerProfile = null }) => {
                         textTransform: 'uppercase',
                         color: '#222',
                       }}>
-                        {col.name}
+                        {col.showcase_display_name || col.name}
                       </span>
                     </div>
                     {col.event_date && (
