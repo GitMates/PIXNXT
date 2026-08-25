@@ -1,6 +1,5 @@
 import React from 'react';
-import { galleryService } from '../../../../services/gallery.service';
-import { broadcastGalleryLive } from '../../../../lib/galleryLiveSync';
+import { persistDeliverySettings } from '../../../../lib/deliverySettingsSync';
 import { StoreSettingsProps } from './Settings.types';
 import { Toggle } from './settingsCardKit';
 import './BasicsSettings.css';
@@ -174,26 +173,22 @@ export const StoreSettings: React.FC<StoreSettingsProps> = ({
   React.useEffect(() => {
     setGuestPrints(collection?.guest_prints_enabled !== false);
     setMarkup(collection?.print_markup_percent != null ? String(collection.print_markup_percent) : '40');
-  }, [collection?.guest_prints_enabled, collection?.print_markup_percent]);
+    const fromDb = collection?.design_options?.print_price_list_id;
+    if (fromDb && PRICE_LISTS.some((item) => item.id === fromDb)) {
+      setPriceList(fromDb as PriceListId);
+    }
+  }, [
+    collection?.guest_prints_enabled,
+    collection?.print_markup_percent,
+    collection?.design_options?.print_price_list_id,
+  ]);
 
   React.useEffect(() => {
     setPriceList(readStoredPriceList(collectionId));
   }, [collectionId]);
 
   const persist = async (patch: Record<string, unknown>) => {
-    setCollection?.((prev: any) => (prev ? { ...prev, ...patch } : prev));
-    broadcastGalleryLive({
-      type: 'SETTINGS_UPDATED',
-      collectionId,
-      slug: collection?.slug,
-      settings: patch,
-    });
-    try {
-      const updated = await galleryService.updateCollection(collectionId, patch);
-      setCollection?.((prev: any) => (prev ? { ...prev, ...(updated || patch) } : prev));
-    } catch (err) {
-      console.error('Failed to save print lab setting:', err);
-    }
+    await persistDeliverySettings(collectionId, collection?.slug, patch, setCollection);
   };
 
   const choosePriceList = (id: string) => {
@@ -204,7 +199,31 @@ export const StoreSettings: React.FC<StoreSettingsProps> = ({
     } catch {
       /* ignore */
     }
+    const designOptions =
+      collection?.design_options && typeof collection.design_options === 'object'
+        ? collection.design_options
+        : {};
+    void persist({
+      design_options: {
+        ...designOptions,
+        print_price_list_id: next,
+      },
+    });
   };
+
+  React.useEffect(() => {
+    if (!collectionId) return undefined;
+    const parsed = markup === '' ? null : Number(markup);
+    if (parsed != null && !Number.isFinite(parsed)) return undefined;
+    const fromDb =
+      collection?.print_markup_percent != null ? Number(collection.print_markup_percent) : 40;
+    if (parsed === fromDb) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      void persist({ print_markup_percent: parsed });
+    }, 350);
+    return () => window.clearTimeout(timeoutId);
+  }, [markup, collectionId, collection?.print_markup_percent]);
 
   const sellingSummary = storeEnabled ? (
     guestPrints ? (

@@ -1496,6 +1496,24 @@ const GalleryView = () => {
               restrict_to_emails: row.restrict_to_emails ?? prev.restrict_to_emails,
               selected_download_sets: row.selected_download_sets ?? prev.selected_download_sets,
               pin_usage_limit: row.pin_usage_limit ?? prev.pin_usage_limit,
+              video_download_resolution:
+                row.video_download_resolution ?? prev.video_download_resolution,
+              store_enabled: row.store_enabled ?? prev.store_enabled,
+              guest_prints_enabled: row.guest_prints_enabled ?? prev.guest_prints_enabled,
+              print_markup_percent: row.print_markup_percent ?? prev.print_markup_percent,
+              client_exclusive_enabled:
+                row.client_exclusive_enabled ?? prev.client_exclusive_enabled,
+              allow_clients_mark_private:
+                row.allow_clients_mark_private ?? prev.allow_clients_mark_private,
+              favorites_enabled: row.favorites_enabled ?? prev.favorites_enabled,
+              favorites_allow_comments:
+                row.favorites_allow_comments ?? prev.favorites_allow_comments,
+              selection_lock_on_submit:
+                row.selection_lock_on_submit ?? prev.selection_lock_on_submit,
+              selection_notify_on_submit:
+                row.selection_notify_on_submit ?? prev.selection_notify_on_submit,
+              selection_chase_enabled:
+                row.selection_chase_enabled ?? prev.selection_chase_enabled,
               slideshow_enabled:
                 row.slideshow_enabled !== undefined ? row.slideshow_enabled : prev.slideshow_enabled,
               social_sharing_enabled:

@@ -394,7 +394,6 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
                 Nothing is re-uploaded — the point is stored with the delivery and applied everywhere.
               </p>
               <div className="cover-focal-actions">
-                {browseButton}
                 <button type="button" className="cover-focal-btn" onClick={handleCentre} disabled={saving}>
                   Centre it
                 </button>

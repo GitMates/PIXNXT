@@ -184,11 +184,16 @@ export const DownloadModal = ({
       .map((s) => (s === 'high' ? 'full' : s))
       .filter((s) => s === 'web' || s === 'full' || s === 'original');
     const unique = Array.from(new Set(mapped.length ? mapped : ['web', 'full']));
-    if (!unique.includes('web')) unique.unshift('web');
-    if (!unique.includes('full')) unique.splice(unique.includes('web') ? 1 : 0, 0, 'full');
     return unique;
   }, [collection?.download_resolutions]);
   const [resolutionChoice, setResolutionChoice] = useState('full'); // web | full | original
+
+  useEffect(() => {
+    if (!offeredPhotoResolutions.includes(resolutionChoice)) {
+      setResolutionChoice(offeredPhotoResolutions[offeredPhotoResolutions.length - 1] || 'full');
+    }
+  }, [offeredPhotoResolutions, resolutionChoice]);
+
   const [downloadDestination, setDownloadDestination] = useState('local'); // local | google_drive
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);

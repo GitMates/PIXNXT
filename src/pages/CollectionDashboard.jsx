@@ -2489,8 +2489,16 @@ const CollectionDashboard = () => {
                 }
                 
                 if (data.email_capture_enabled !== undefined) setEmailRegistration(data.email_capture_enabled);
-                if (data.gallery_download_enabled !== undefined) setGalleryDownload(data.gallery_download_enabled);
-                if (data.single_photo_download_enabled !== undefined) setSinglePhotoDownload(data.single_photo_download_enabled);
+                if (data.gallery_download_enabled !== undefined) {
+                    setGalleryDownload(data.gallery_download_enabled);
+                } else if (data.downloads_enabled !== undefined) {
+                    setGalleryDownload(data.downloads_enabled);
+                }
+                if (data.single_photo_download_enabled !== undefined) {
+                    setSinglePhotoDownload(data.single_photo_download_enabled);
+                } else {
+                    setSinglePhotoDownload(true);
+                }
                 
                 // Initialize advanced settings
                 if (data.download_limit_gallery) setDownloadLimit(data.download_limit_gallery.toString());
@@ -3819,21 +3827,31 @@ const CollectionDashboard = () => {
         if (!collectionId || loading || !settingsHydratedRef.current) return;
 
         const savePrivacySettings = async () => {
+            const patch = {
+                client_exclusive_enabled: clientExclusiveAccess,
+                client_password_hash: clientPrivatePassword || null,
+                allow_clients_mark_private: allowClientsMarkPrivate,
+                client_only_highlights: clientOnlyHighlights,
+                show_on_showcase: showOnShowcase,
+                privacy: clientExclusiveAccess ? 'client_exclusive' : 'public',
+            };
+            broadcastGalleryLive({
+                type: 'SETTINGS_UPDATED',
+                collectionId,
+                slug: collectionUrl,
+                settings: patch,
+            });
             try {
-                await galleryService.updateCollection(collectionId, {
-                    client_exclusive_enabled: clientExclusiveAccess,
-                    client_password_hash: clientPrivatePassword || null,
-                    allow_clients_mark_private: allowClientsMarkPrivate,
-                    client_only_highlights: clientOnlyHighlights,
-                    show_on_showcase: showOnShowcase,
-                    privacy: clientExclusiveAccess ? 'client_exclusive' : 'public',
-                });
+                const updated = await galleryService.updateCollection(collectionId, patch);
+                if (updated) {
+                    setCollection((prev) => (prev ? { ...prev, ...updated } : prev));
+                }
             } catch (err) {
                 console.error('Error auto-saving privacy settings:', err);
             }
         };
 
-        const timeoutId = setTimeout(savePrivacySettings, 1200);
+        const timeoutId = setTimeout(savePrivacySettings, 300);
         return () => clearTimeout(timeoutId);
     }, [
         clientExclusiveAccess,
@@ -3842,6 +3860,7 @@ const CollectionDashboard = () => {
         clientOnlyHighlights,
         showOnShowcase,
         collectionId,
+        collectionUrl,
         loading,
     ]);
 
@@ -4053,16 +4072,21 @@ const CollectionDashboard = () => {
         const limitRaw = downloadLimit ? parseInt(String(downloadLimit), 10) : null;
         const pinLimitRaw = pinUsageLimit ? parseInt(String(pinUsageLimit), 10) : null;
 
-        // Only columns that exist on public.deliveries (unknown fields → PostgREST 400).
         const patch = {
             downloads_enabled: photoDownload,
+            gallery_download_enabled: galleryDownload,
+            single_photo_download_enabled: singlePhotoDownload,
             download_resolutions: (photoDownloadSizes || [])
                 .map((s) => (s === 'high' ? 'full' : s))
                 .filter((s) => s === 'web' || s === 'full' || s === 'original'),
             video_downloads_enabled: (photoDownloadSizes || []).includes('video'),
+            video_download_resolution: collection?.video_download_resolution ?? '1080p',
             download_pin_hash: pinHash,
             email_capture_enabled: emailRegistration,
             download_limit_gallery: Number.isFinite(limitRaw) ? limitRaw : null,
+            restrict_to_emails: restrictToEmails?.trim() ? restrictToEmails.trim() : null,
+            selected_download_sets: selectedDownloadSets?.length ? selectedDownloadSets : null,
+            pin_usage_limit: Number.isFinite(pinLimitRaw) ? pinLimitRaw : null,
         };
 
         const signature = JSON.stringify(patch);
@@ -4083,15 +4107,24 @@ const CollectionDashboard = () => {
                     return {
                         ...prev,
                         downloads_enabled: updated.downloads_enabled ?? patch.downloads_enabled,
+                        gallery_download_enabled: updated.gallery_download_enabled ?? patch.gallery_download_enabled,
+                        single_photo_download_enabled:
+                            updated.single_photo_download_enabled ?? patch.single_photo_download_enabled,
                         download_resolutions: updated.download_resolutions ?? patch.download_resolutions,
                         video_downloads_enabled:
                             updated.video_downloads_enabled ?? patch.video_downloads_enabled,
+                        video_download_resolution:
+                            updated.video_download_resolution ?? patch.video_download_resolution,
                         download_pin_hash: updated.download_pin_hash ?? patch.download_pin_hash,
                         download_pin: updated.download_pin_hash ?? patch.download_pin_hash,
                         email_capture_enabled:
                             updated.email_capture_enabled ?? patch.email_capture_enabled,
                         download_limit_gallery:
                             updated.download_limit_gallery ?? patch.download_limit_gallery,
+                        restrict_to_emails: updated.restrict_to_emails ?? patch.restrict_to_emails,
+                        selected_download_sets:
+                            updated.selected_download_sets ?? patch.selected_download_sets,
+                        pin_usage_limit: updated.pin_usage_limit ?? patch.pin_usage_limit,
                     };
                 });
             }
@@ -4104,10 +4137,15 @@ const CollectionDashboard = () => {
         downloadPin,
         pinValue,
         photoDownload,
+        galleryDownload,
+        singlePhotoDownload,
         photoDownloadSizes,
         emailRegistration,
         downloadLimit,
         pinUsageLimit,
+        restrictToEmails,
+        selectedDownloadSets,
+        collection?.video_download_resolution,
         broadcastDownloadSettings,
     ]);
 
@@ -4144,7 +4182,7 @@ const CollectionDashboard = () => {
 
         const timeoutId = setTimeout(() => {
             void persistDownloadSettings();
-        }, 400);
+        }, 150);
         return () => clearTimeout(timeoutId);
     }, [
         photoDownload, galleryDownload, singlePhotoDownload,
@@ -4153,6 +4191,40 @@ const CollectionDashboard = () => {
         highResChoice, webSizeChoice, downloadLimit, restrictToEmails,
         selectedDownloadSets, pinUsageLimit,
         collectionId, loading, persistDownloadSettings,
+    ]);
+
+    // Keep preview/download state aligned when collection is patched live (e.g. settings sync).
+    useEffect(() => {
+        if (!collection?.download_resolutions) return;
+        const mapped = collection.download_resolutions.map((s) => (s === 'full' ? 'high' : s));
+        let sizes = mapped.filter((s) => s === 'web' || s === 'high' || s === 'original' || s === 'video');
+        if (collection.video_downloads_enabled && !sizes.includes('video')) sizes = [...sizes, 'video'];
+        if (collection.video_downloads_enabled === false) {
+            sizes = sizes.filter((s) => s !== 'video');
+        }
+        setPhotoDownloadSizes((prev) => {
+            const a = [...prev].sort().join(',');
+            const b = [...sizes].sort().join(',');
+            return a === b ? prev : sizes;
+        });
+    }, [collection?.download_resolutions, collection?.video_downloads_enabled]);
+
+    useEffect(() => {
+        if (collection?.gallery_download_enabled !== undefined) {
+            setGalleryDownload(collection.gallery_download_enabled);
+        }
+        if (collection?.single_photo_download_enabled !== undefined) {
+            setSinglePhotoDownload(collection.single_photo_download_enabled);
+        }
+        if (Array.isArray(collection?.selected_download_sets)) {
+            setSelectedDownloadSets(collection.selected_download_sets);
+        } else if (collection?.selected_download_sets == null) {
+            setSelectedDownloadSets([]);
+        }
+    }, [
+        collection?.gallery_download_enabled,
+        collection?.single_photo_download_enabled,
+        collection?.selected_download_sets,
     ]);
 
     // Auto-save general gallery visitor settings (slideshow, social sharing)
@@ -4204,6 +4276,9 @@ const CollectionDashboard = () => {
             const patch = {
                 favorites_enabled: favoritePhotos,
                 favorites_allow_comments: favoriteNotes,
+                selection_lock_on_submit: collection?.selection_lock_on_submit !== false,
+                selection_notify_on_submit: collection?.selection_notify_on_submit !== false,
+                selection_chase_enabled: collection?.selection_chase_enabled !== false,
             };
             broadcastGalleryLive({
                 type: 'SETTINGS_UPDATED',
@@ -4223,14 +4298,19 @@ const CollectionDashboard = () => {
 
         const timeoutId = setTimeout(saveFavoriteSettings, 400);
         return () => clearTimeout(timeoutId);
-    }, [favoritePhotos, favoriteNotes, collectionId, collectionUrl, loading]);
+    }, [favoritePhotos, favoriteNotes, collection?.selection_lock_on_submit, collection?.selection_notify_on_submit, collection?.selection_chase_enabled, collectionId, collectionUrl, loading]);
 
     // Auto-save shop settings
     useEffect(() => {
         if (!collectionId || loading || !settingsHydratedRef.current) return;
 
         const saveShopSettings = async () => {
-            const patch = { store_enabled: storeEnabled };
+            const patch = {
+                store_enabled: storeEnabled,
+                guest_prints_enabled: collection?.guest_prints_enabled !== false,
+                print_markup_percent:
+                    collection?.print_markup_percent != null ? collection.print_markup_percent : 40,
+            };
             broadcastGalleryLive({
                 type: 'SETTINGS_UPDATED',
                 collectionId,
@@ -4249,7 +4329,7 @@ const CollectionDashboard = () => {
 
         const timeoutId = setTimeout(saveShopSettings, 400);
         return () => clearTimeout(timeoutId);
-    }, [storeEnabled, collectionId, collectionUrl, loading]);
+    }, [storeEnabled, collection?.guest_prints_enabled, collection?.print_markup_percent, collectionId, collectionUrl, loading]);
 
     // Derived values
     const backTo = deliveryStudioBackPath({

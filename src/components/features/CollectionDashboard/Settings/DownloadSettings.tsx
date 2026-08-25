@@ -1,5 +1,5 @@
 import React from 'react';
-import { galleryService } from '../../../../services/gallery.service';
+import { persistDeliverySettings } from '../../../../lib/deliverySettingsSync';
 import { DownloadSettingsProps } from './Settings.types';
 import { Toggle, formatMoney } from './settingsCardKit';
 import './BasicsSettings.css';
@@ -272,6 +272,7 @@ export const DownloadSettings: React.FC<DownloadSettingsProps> = ({
   photos = [],
   photoDownload,
   setPhotoDownload,
+  setGalleryDownload,
   singlePhotoDownload,
   setSinglePhotoDownload,
   downloadPin,
@@ -331,12 +332,7 @@ export const DownloadSettings: React.FC<DownloadSettingsProps> = ({
   ]);
 
   const persist = async (patch: Record<string, unknown>) => {
-    try {
-      const updated = await galleryService.updateCollection(collectionId, patch);
-      setCollection?.((prev: any) => (prev ? { ...prev, ...(updated || patch) } : prev));
-    } catch (err) {
-      console.error('Failed to save download setting:', err);
-    }
+    await persistDeliverySettings(collectionId, collection?.slug, patch, setCollection);
   };
 
   const webOffered = photoDownloadSizes.includes('web');
@@ -484,11 +480,11 @@ export const DownloadSettings: React.FC<DownloadSettingsProps> = ({
   const enabledSetCount = downloadSets.filter((item) => setEnabled(item.id)).length;
 
   const toggleSet = (name: string) => {
-    setSelectedDownloadSets((prev) => {
-      const enabled = prev.length === 0 ? allSetNames : prev;
-      const next = enabled.includes(name) ? enabled.filter((item) => item !== name) : [...enabled, name];
-      return next.length === allSetNames.length ? [] : next;
-    });
+    const enabled = selectedDownloadSets.length === 0 ? allSetNames : selectedDownloadSets;
+    const next = enabled.includes(name) ? enabled.filter((item) => item !== name) : [...enabled, name];
+    const result = next.length === allSetNames.length ? [] : next;
+    setSelectedDownloadSets(result);
+    void persist({ selected_download_sets: result.length ? result : null });
   };
 
   const sizeNames = [
@@ -547,7 +543,14 @@ export const DownloadSettings: React.FC<DownloadSettingsProps> = ({
             <Row
               title="Allow downloading"
               desc="The master switch. Off means no download control renders anywhere — not in the header, not on a photograph, not on a film."
-              control={<Toggle checked={photoDownload} onChange={setPhotoDownload} label="Allow downloading" />}
+              control={<Toggle checked={photoDownload} onChange={(next) => {
+                setPhotoDownload(next);
+                setGalleryDownload?.(next);
+                void persist({
+                  downloads_enabled: next,
+                  gallery_download_enabled: next,
+                });
+              }} label="Allow downloading" />}
             />
           </div>
 
@@ -574,7 +577,10 @@ export const DownloadSettings: React.FC<DownloadSettingsProps> = ({
                 <Row
                   title="Allow single image download"
                   desc="Puts a download icon on each photograph on hover. Off means the only way to take anything is the DOWNLOAD button in the header, which hands over a whole set."
-                  control={<Toggle checked={singlePhotoDownload} onChange={setSinglePhotoDownload} label="Allow single image download" />}
+                  control={<Toggle checked={singlePhotoDownload} onChange={(next) => {
+                    setSinglePhotoDownload(next);
+                    void persist({ single_photo_download_enabled: next });
+                  }} label="Allow single image download" />}
                 />
               </div>
             </section>

@@ -1,5 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
+import { persistDeliverySettings } from '../../../../lib/deliverySettingsSync';
 import { galleryService } from '../../../../services/gallery.service';
 import { getCollectionShareUrl, getQrCodeImageUrl } from '../../../../lib/shareCollection';
 import { getGuestRegistrationUrl } from '../../../../lib/guestDeliveryLinks';
@@ -392,12 +393,7 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
   }, [guestDeliveryOn, activeTab]);
 
   const persist = async (patch: Record<string, unknown>) => {
-    try {
-      const updated = await galleryService.updateCollection(collectionId, patch);
-      setCollection((prev: any) => (prev ? { ...prev, ...(updated || patch) } : prev));
-    } catch (err) {
-      console.error('Failed to save access setting:', err);
-    }
+    await persistDeliverySettings(collectionId, collection?.slug, patch, setCollection);
   };
 
   const persistEventSettings = async (settingsPatch: Record<string, unknown>, updates: Record<string, unknown> = {}) => {
@@ -688,7 +684,13 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
                     control={(
                       <Toggle
                         checked={clientExclusiveAccess}
-                        onChange={setClientExclusiveAccess}
+                        onChange={(next) => {
+                          setClientExclusiveAccess(next);
+                          void persist({
+                            client_exclusive_enabled: next,
+                            privacy: next ? 'client_exclusive' : 'public',
+                          });
+                        }}
                         label="Client exclusive access"
                       />
                     )}
@@ -720,7 +722,10 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
                         control={(
                           <Toggle
                             checked={allowClientsMarkPrivate}
-                            onChange={setAllowClientsMarkPrivate}
+                            onChange={(next) => {
+                              setAllowClientsMarkPrivate(next);
+                              void persist({ allow_clients_mark_private: next });
+                            }}
                             label="Client can mark photos private"
                           />
                         )}

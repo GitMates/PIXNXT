@@ -218,14 +218,6 @@ export function SidebarCoverUpload({
               <button
                 type="button"
                 className="cd-sidebar-cover-caption__change"
-                onClick={handleBrowseClick}
-                disabled={isUpdating}
-              >
-                Browse files
-              </button>
-              <button
-                type="button"
-                className="cd-sidebar-cover-caption__change"
                 onClick={onSelectFromCollection}
                 disabled={isUpdating}
               >
