@@ -218,6 +218,7 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
         {showPrintLab && (
           <button
             type="button"
+            aria-label="Print"
             className={cn(
               'flex shrink-0 items-center justify-center transition-opacity hover:opacity-60',
               pillClass
@@ -247,6 +248,7 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
         {showDownload && (
           <button
             type="button"
+            aria-label="Download"
             className={cn(
               'flex shrink-0 items-center justify-center transition-opacity hover:opacity-60',
               pillClass

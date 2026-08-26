@@ -5044,7 +5044,13 @@
     right: auto;
     left: auto;
     z-index: 6000;
+    max-height: none;
+    overflow-y: visible;
+}
+
+.cd-photo-menu--portal.cd-photo-menu--scroll {
     max-height: min(72vh, calc(100vh - 24px));
+    overflow-y: auto;
 }
 
 .cd-photo-menu--align-left {

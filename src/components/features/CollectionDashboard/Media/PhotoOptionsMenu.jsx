@@ -47,9 +47,11 @@ export function PhotoOptionsMenu({
             Open
           </button>
         ) : null}
-        <button type="button" className={`cd-pom-item${isCover ? ' is-active' : ''}`} role="menuitem" onClick={() => onUseAsCover?.(photo)}>
-          Use as the delivery cover
-        </button>
+        {!isVideo ? (
+          <button type="button" className={`cd-pom-item${isCover ? ' is-active' : ''}`} role="menuitem" onClick={() => onUseAsCover?.(photo)}>
+            Use as the delivery cover
+          </button>
+        ) : null}
         <button type="button" className="cd-pom-item" role="menuitem" onClick={() => onMoveToSet?.(photo)}>
           Move to another set...
         </button>

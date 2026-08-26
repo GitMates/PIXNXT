@@ -16,20 +16,20 @@ import { COVER_IMAGE_ACCEPT } from '../../../../lib/mediaFilePicker';
 import './DesignWorkspace.css';
 
 const FEATURED_COVER_IDS: CoverStyleId[] = [
+  'stamp',
   'novel',
   'center',
   'frame',
   'left',
   'stripe',
-  'journal',
 ];
 
 const MORE_COVER_IDS: CoverStyleId[] = [
+  'journal',
   'classic',
   'vintage',
   'outline',
   'divider',
-  'stamp',
   'none',
 ];
 

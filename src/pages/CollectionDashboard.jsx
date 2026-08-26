@@ -1072,26 +1072,33 @@ const CollectionDashboard = () => {
     const computePhotoMenuPosition = useCallback((anchorEl, alignLeft, bottomReserve = 0, menuHeight = null) => {
         if (!anchorEl) return null;
         const rect = anchorEl.getBoundingClientRect();
-        const menuWidth = 240;
+        const menuWidth = 300;
         const gutter = 8;
-        const estimatedHeight = menuHeight ?? 440;
-        const availBelow = window.innerHeight - rect.bottom - gutter - bottomReserve - 6;
-        const availAbove = rect.top - gutter - 6;
-        const openDown = availBelow >= availAbove;
-        const available = Math.max(160, openDown ? availBelow : availAbove);
-        const left = alignLeft
-            ? Math.min(Math.max(gutter, rect.left), window.innerWidth - menuWidth - gutter)
-            : Math.min(Math.max(gutter, rect.right - menuWidth), window.innerWidth - menuWidth - gutter);
+        const viewportH = window.innerHeight;
+        const maxFit = Math.max(160, viewportH - gutter * 2 - bottomReserve);
+        const measured = menuHeight != null && menuHeight > 0 ? menuHeight : 440;
+        // Prefer showing the full menu; only clamp when it truly exceeds the viewport.
+        const needsScroll = measured > maxFit;
+        const height = needsScroll ? maxFit : measured;
+
+        const spaceBelow = viewportH - rect.bottom - gutter - bottomReserve - 6;
+        const spaceAbove = rect.top - gutter - 6;
+        const openDown = spaceBelow >= height || spaceBelow >= spaceAbove;
 
         let top;
         if (openDown) {
             top = rect.bottom + 6;
-        } else if (menuHeight != null && menuHeight > available) {
-            top = gutter;
+            if (top + height > viewportH - gutter - bottomReserve) {
+                top = Math.max(gutter, viewportH - gutter - bottomReserve - height);
+            }
         } else {
-            const height = Math.min(estimatedHeight, available);
-            top = Math.max(gutter, rect.top - 6 - height);
+            top = rect.top - 6 - height;
+            if (top < gutter) top = gutter;
         }
+
+        const left = alignLeft
+            ? Math.min(Math.max(gutter, rect.left), window.innerWidth - menuWidth - gutter)
+            : Math.min(Math.max(gutter, rect.right - menuWidth), window.innerWidth - menuWidth - gutter);
 
         return {
             position: 'fixed',
@@ -1099,7 +1106,8 @@ const CollectionDashboard = () => {
             bottom: 'auto',
             left,
             minWidth: menuWidth,
-            maxHeight: available,
+            maxHeight: needsScroll ? maxFit : undefined,
+            overflowY: needsScroll ? 'auto' : 'visible',
             zIndex: 6000,
         };
     }, []);
@@ -1178,15 +1186,23 @@ const CollectionDashboard = () => {
                 `.cd-photo-card--menu-open .cd-photo-more-btn`
             );
             if (!anchor) return;
-            const menuHeight = photoMenuRef.current?.scrollHeight ?? null;
+            // Temporarily clear maxHeight so scrollHeight reflects natural content height.
+            const menuEl = photoMenuRef.current;
+            if (menuEl) {
+                menuEl.style.maxHeight = 'none';
+                menuEl.style.overflowY = 'visible';
+            }
+            const menuHeight = menuEl?.scrollHeight ?? null;
             setPhotoMenuPosition(
                 computePhotoMenuPosition(anchor, photoMenuAlignLeft, bottomReserve, menuHeight)
             );
         };
         apply();
+        const raf = requestAnimationFrame(apply);
         window.addEventListener('resize', apply);
         window.addEventListener('scroll', apply, true);
         return () => {
+            cancelAnimationFrame(raf);
             window.removeEventListener('resize', apply);
             window.removeEventListener('scroll', apply, true);
         };
@@ -3932,7 +3948,7 @@ const CollectionDashboard = () => {
     const photosInSidebarSet = useCallback((set) => {
         if (!set) return [];
         if (set.isHighlights || set.id === 'highlights') return photos.filter((p) => !p.set_id);
-        return photos.filter((p) => p.set_id === set.id);
+        return photos.filter((p) => String(p.set_id) === String(set.id));
     }, [photos]);
 
     const persistMobileAppSets = useCallback((next) => {
@@ -4979,16 +4995,13 @@ const CollectionDashboard = () => {
                     }}
                     renderSetMenu={(set) => {
                         const setPhotos = photosInSidebarSet(set);
+                        const photoCount = set.photoCount ?? setPhotos.length;
                         let bytes = setPhotos.reduce((sum, p) => sum + (Number(p.size_bytes) || 0), 0);
-                        if (bytes === 0 && setPhotos.length > 0) {
-                            bytes = setPhotos.length * 3.5 * 1024 * 1024;
+                        // Fallback when size_bytes is missing on rows but we know the set has photos.
+                        if (bytes <= 0 && photoCount > 0) {
+                            bytes = photoCount * 3.5 * 1024 * 1024;
                         }
-                        const gb = bytes / (1024 * 1024 * 1024);
-                        const sizeLabel = gb >= 0.1
-                            ? `${gb.toFixed(1)} GB`
-                            : bytes >= 1024 * 1024
-                                ? `${Math.max(1, Math.round(bytes / (1024 * 1024)))} MB`
-                                : '0 GB';
+                        const sizeLabel = formatStorageBytes(bytes);
                         const hidden = set.isHighlights
                             ? clientOnlyHighlights
                             : set.isPrivate === true;
@@ -4998,7 +5011,7 @@ const CollectionDashboard = () => {
                         return (
                             <SetOptionsMenu
                                 set={set}
-                                photoCount={set.photoCount ?? setPhotos.length}
+                                photoCount={photoCount}
                                 visibleSetCount={visibleCount}
                                 otherSets={sortedSidebarSets.filter((s) => s.id !== set.id)}
                                 hidden={hidden}
@@ -5753,7 +5766,7 @@ const CollectionDashboard = () => {
                         );
                         return createPortal(
                             <div
-                                className={`cd-photo-menu cd-photo-menu--portal cd-photo-menu--pixnxt${photoMenuAlignLeft ? ' cd-photo-menu--align-left' : ''}`}
+                                className={`cd-photo-menu cd-photo-menu--portal cd-photo-menu--pixnxt${photoMenuAlignLeft ? ' cd-photo-menu--align-left' : ''}${photoMenuPosition?.maxHeight ? ' cd-photo-menu--scroll' : ''}`}
                                 ref={photoMenuRef}
                                 role="menu"
                                 style={photoMenuPosition}

@@ -223,11 +223,6 @@ export function CollectionPeopleStrip({
       </div>
 
       <div className="cdpw-people__side">
-        <p className="cdpw-people__hint">
-          ranked by prominence · names appear when a guest
-          <br />
-          claims themselves
-        </p>
         {selfieSearching ? (
           <p className="cdpw-people__selfie-status">
             <Loader2 size={12} className="cdpw-spin" aria-hidden /> Matching your face…

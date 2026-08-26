@@ -5,6 +5,7 @@
   border-radius: 12px;
   border: 1px solid #ececec;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.04);
+  overflow: visible;
 }
 
 .cd-pom-section {

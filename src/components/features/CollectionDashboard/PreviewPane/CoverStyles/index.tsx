@@ -584,24 +584,44 @@ export const StampCover: React.FC<CoverProps> = ({
 }) => {
   const brand = getBrandLabel(subtitle);
   const { s } = useCoverTypography(isPreview, isGalleryView);
-  
+
   return (
     <div
       className={cn(
-        'cover-stamp-layout flex flex-col items-center justify-center text-center',
+        'cover-stamp-layout flex flex-col items-center text-center',
         coverLayoutHeight(isPreview, isGalleryView)
       )}
     >
-      {coverLogoUrl || brand ? (
-        <div className="mb-2">
+      <div className="cover-stamp-layout__header">
+        {coverLogoUrl || brand ? (
           <BrandDisplay
             brand={brand}
             coverLogoUrl={coverLogoUrl}
-            textClassName={cn('cover-stamp-layout__brand cover-text-grid__subtitle gallery-body-text uppercase font-normal', s.subtitle)}
+            textClassName={cn(
+              'cover-stamp-layout__brand cover-text-grid__subtitle gallery-body-text uppercase font-normal',
+              s.subtitle
+            )}
             isPreview={isPreview}
           />
-        </div>
-      ) : null}
+        ) : null}
+
+        <h1
+          className={cn(
+            'cover-stamp-layout__title cover-text-grid__title gallery-heading leading-none',
+            s.title
+          )}
+        >
+          {title}
+        </h1>
+
+        <div className="cover-stamp-layout__rule" aria-hidden="true" />
+
+        {date ? (
+          <p className={cn('cover-stamp-layout__date cover-text-grid__date gallery-body-text uppercase', s.date)}>
+            {date}
+          </p>
+        ) : null}
+      </div>
 
       <div className="cover-stamp-layout__image-frame relative w-full overflow-hidden">
         {photoUrl ? (
@@ -610,21 +630,6 @@ export const StampCover: React.FC<CoverProps> = ({
           <div className="absolute inset-0 bg-neutral-200" aria-hidden="true" />
         )}
       </div>
-
-      {date ? (
-        <p className={cn('cover-stamp-layout__date cover-text-grid__date gallery-body-text uppercase', s.date)}>
-          {date}
-        </p>
-      ) : null}
-
-      <h1
-        className={cn(
-          'cover-stamp-layout__title cover-text-grid__title gallery-heading uppercase leading-none font-bold',
-          s.title
-        )}
-      >
-        {title}
-      </h1>
 
       <div className="cover-stamp-layout__cta">
         <ViewGalleryButton onClick={onViewGallery} isPreview={isPreview} isGalleryView={isGalleryView} variant="dark" />

@@ -18,7 +18,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: #f9f7f2;
+  background: #fafaf8;
 }
 
 .cd-design-page-intro {
@@ -53,7 +53,7 @@
 }
 
 .cd-design-dual-preview__frames {
-  --mobile-preview-display-w: 300px;
+  --mobile-preview-display-w: 255px;
   flex: 1;
   min-width: 0;
   min-height: 0;
@@ -61,8 +61,12 @@
   align-items: center;
   align-items: safe center;
   justify-content: center;
-  padding: 12px 24px 8px;
+  margin: 16px 28px 8px;
+  padding: 28px 32px 36px;
   overflow: hidden;
+  background: #eeebe6;
+  border-radius: 18px;
+  border: 1px solid rgba(0, 0, 0, 0.04);
 }
 
 .cd-design-dual-preview__scale {
@@ -70,34 +74,107 @@
   align-items: center;
   justify-content: center;
   gap: 28px;
+  padding-bottom: 8px;
 }
 
 .cd-design-frame {
   flex-shrink: 0;
   background: #fff;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.08);
-  overflow: hidden;
+  overflow: visible;
+  position: relative;
 }
 
 .cd-design-frame--desktop {
-  width: min(100%, 560px);
-  aspect-ratio: 16 / 10;
-  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  width: min(100%, 460px);
+  aspect-ratio: auto;
+  height: auto;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  margin-top: 0;
+  margin-bottom: 22px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.1);
+}
+
+.cd-browser-chrome {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 30px;
+  padding: 0 12px;
+  background: #f7f6f3;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.cd-browser-chrome__dots {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.cd-browser-chrome__dots span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #d4d0ca;
+}
+
+.cd-browser-chrome__url {
+  flex: 1;
+  min-width: 0;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  border-radius: 5px;
+  background: #ffffff;
   border: 1px solid rgba(0, 0, 0, 0.06);
-  margin-top: -56px;
+}
+
+.cd-browser-chrome__url-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: #8a847c;
+}
+
+.cd-design-frame__label {
+  position: absolute;
+  left: 50%;
+  bottom: -22px;
+  transform: translateX(-50%);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #b0aaa2;
+  pointer-events: none;
+  white-space: nowrap;
 }
 
 .cd-design-frame--mobile {
-  /* Full canvas is 375×760 + 12px bezel; visually scaled, layout box matches what you see */
-  --mobile-preview-outer-w: 399px;
-  --mobile-preview-outer-h: 784px;
+  /* Full canvas is 375×820 + 9px bezel; visually scaled, layout box matches what you see */
+  --mobile-preview-outer-w: 401px;
+  --mobile-preview-outer-h: 838px;
   --mobile-preview-scale: calc(var(--mobile-preview-display-w) / var(--mobile-preview-outer-w));
   flex-shrink: 0;
-  background: transparent;
-  box-shadow: none;
-  overflow: hidden;
+  background: transparent !important;
+  box-shadow: none !important;
+  overflow: visible !important;
   width: var(--mobile-preview-display-w);
   height: calc(var(--mobile-preview-outer-h) * var(--mobile-preview-scale));
+  margin-top: -12px;
+  margin-bottom: 22px;
 }
 
 .cd-design-frame__mobile-scaler {
@@ -105,13 +182,24 @@
   height: var(--mobile-preview-outer-h);
   transform: scale(var(--mobile-preview-scale));
   transform-origin: top left;
+  overflow: visible;
+  background: transparent;
 }
 
 .cd-design-frame__canvas {
   width: 100%;
-  height: 100%;
-  overflow: auto;
+  /* Content pane under browser chrome — 16:10 screen proportion */
+  aspect-ratio: 16 / 10;
+  height: auto;
+  overflow: hidden;
   scrollbar-width: none;
+  background: #fff;
+  border-radius: 0;
+}
+
+.cd-design-frame--desktop .cd-design-frame__canvas {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .cd-design-frame__canvas::-webkit-scrollbar {
@@ -121,6 +209,8 @@
 /* Desktop webview: cover fills the frame like the live full-screen gallery. */
 .cd-design-frame--desktop .cd-preview-gallery-card {
   height: 100%;
+  border-radius: 0 !important;
+  box-shadow: none !important;
 }
 
 .cd-design-frame--desktop .cd-preview-gallery-header {
@@ -130,6 +220,7 @@
   min-height: 100% !important;
   max-height: 100% !important;
   flex-shrink: 0;
+  border-radius: 0 !important;
 }
 
 .cd-design-frame--desktop .cd-preview-gallery-header > [class*='-layout'] {
@@ -138,11 +229,48 @@
   height: 100% !important;
   min-height: 100% !important;
   max-height: 100% !important;
+  border-radius: 0 !important;
+}
+
+/* Stamp: show header + hero + gallery chrome in one browser window (like the mockup) */
+.cd-design-frame--desktop .cd-preview-gallery-card.style-stamp {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.cd-design-frame--desktop .cd-preview-gallery-card.style-stamp .cd-preview-gallery-header {
+  display: block !important;
+  flex: 0 0 auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+}
+
+.cd-design-frame--desktop .cd-preview-gallery-card.style-stamp .cover-stamp-layout {
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  flex: none !important;
+}
+
+.cd-design-frame--desktop .cd-preview-gallery-card.style-stamp .cover-stamp-layout__image-frame {
+  flex: none;
+  aspect-ratio: 16 / 9;
+  height: auto;
+  min-height: 140px;
+  max-height: 220px;
+}
+
+.cd-design-frame--desktop .cd-preview-gallery-card.style-stamp .cd-preview-gallery-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .cd-design-frame--desktop .cd-preview-gallery-card.style-classic .cd-preview-gallery-header,
 .cd-design-frame--desktop .cd-preview-gallery-card.style-classic .cover-classic-layout,
-.cd-design-frame--desktop .cd-preview-gallery-card.style-stamp .cd-preview-gallery-header,
 .cd-design-frame--desktop .cd-preview-gallery-card.style-left .cd-preview-gallery-header {
   height: 100% !important;
   min-height: 100% !important;
@@ -155,7 +283,6 @@
 }
 
 .cd-design-frame--desktop .cover-vintage-layout,
-.cd-design-frame--desktop .cover-stamp-layout,
 .cd-design-frame--desktop .cover-journal-layout,
 .cd-design-frame--desktop .cover-novel-layout,
 .cd-design-frame--desktop .cover-center-layout,
@@ -611,35 +738,56 @@
   flex-shrink: 0;
 }
 
-/* Dual preview — full 375×760 phone canvas, visually scaled to fit */
+/* Dual preview — full 375×820 phone canvas, visually scaled to fit */
 .cd-design-frame--mobile .cd-design-preview-pane.mobile {
   flex: none;
-  background: transparent;
+  background: transparent !important;
   height: auto;
   overflow: visible;
 }
 
 .cd-design-frame--mobile .cd-preview-workspace--dual {
   padding: 0 !important;
-  background: transparent;
+  background: transparent !important;
   overflow: visible;
   height: auto;
 }
 
 .cd-design-frame--mobile .cd-preview-canvas {
-  height: 760px;
-  min-height: 760px;
+  height: 820px;
+  min-height: 820px;
   overflow: hidden !important;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.12);
+  clip-path: inset(0 round 42px);
+  background: #1d1d1f;
+  box-shadow: none;
   scrollbar-width: none;
   -ms-overflow-style: none;
+}
+
+.cd-design-frame--mobile .cd-phone-shell {
+  width: 393px;
+  margin: 0 auto;
+  padding: 0;
+  background: transparent;
+  overflow: visible;
+  border-radius: 42px;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.22);
+}
+
+.cd-design-frame--mobile .cd-preview-canvas__body {
+  height: calc(100% - var(--cd-phone-status-h, 0px));
+  overflow-x: hidden;
+  overflow-y: auto;
+  border-radius: 0 0 33px 33px;
+  background: #ffffff;
 }
 
 .cd-design-frame--mobile .cd-preview-canvas::-webkit-scrollbar {
   display: none;
 }
 
-/* Phone preview: cover is a full-screen wallpaper; grid is below, after a swipe. */
+/* Phone preview: cover is a full-screen wallpaper; grid is below, after a swipe.
+   Stamp is an exception — header + hero share the first screen with tabs/grid. */
 .cd-design-frame--mobile .cd-preview-gallery-card {
   height: 100%;
   min-height: 100%;
@@ -647,8 +795,7 @@
 
 .cd-design-frame--mobile .cd-preview-gallery-header,
 .cd-design-frame--mobile .cd-preview-gallery-card.style-classic .cd-preview-gallery-header,
-.cd-design-frame--mobile .cd-preview-gallery-card.style-left .cd-preview-gallery-header,
-.cd-design-frame--mobile .cd-preview-gallery-card.style-stamp .cd-preview-gallery-header {
+.cd-design-frame--mobile .cd-preview-gallery-card.style-left .cd-preview-gallery-header {
   display: flex !important;
   flex-direction: column;
   flex: 0 0 100%;
@@ -657,10 +804,17 @@
   max-height: 100% !important;
 }
 
+.cd-design-frame--mobile .cd-preview-gallery-card.style-stamp .cd-preview-gallery-header {
+  display: block !important;
+  flex: 0 0 auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+}
+
 .cd-design-frame--mobile .cd-preview-gallery-header > [class*='-layout'],
 .cd-design-frame--mobile .cd-preview-gallery-card.style-classic .cover-classic-layout,
 .cd-design-frame--mobile .cd-preview-gallery-card.style-left .cover-left-layout,
-.cd-design-frame--mobile .cd-preview-gallery-card.style-stamp .cover-stamp-layout,
 .cd-design-frame--mobile .cd-preview-gallery-card.style-novel .cover-novel-layout,
 .cd-design-frame--mobile .cd-preview-gallery-card.style-journal .cover-journal-layout,
 .cd-design-frame--mobile .cd-preview-gallery-card.style-vintage .cover-vintage-layout,
@@ -673,6 +827,13 @@
   width: 100%;
   height: 100% !important;
   min-height: 100% !important;
+  max-height: none !important;
+}
+
+.cd-design-frame--mobile .cd-preview-gallery-card.style-stamp .cover-stamp-layout {
+  flex: none !important;
+  height: auto !important;
+  min-height: 0 !important;
   max-height: none !important;
 }
 
@@ -705,8 +866,9 @@
   }
 
   .cd-design-dual-preview__frames {
-    --mobile-preview-display-w: 320px;
-    padding-bottom: 24px;
+    --mobile-preview-display-w: 260px;
+    margin: 12px 16px 8px;
+    padding-bottom: 28px;
   }
 
   .cd-design-dual-preview__scale {
@@ -715,6 +877,6 @@
 
   .cd-design-frame--desktop {
     width: 100%;
-    max-width: 560px;
+    max-width: 460px;
   }
 }
