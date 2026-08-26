@@ -58,6 +58,14 @@ export async function handleRegisterGuestRequest(body) {
   if (eventError) throw eventError;
   if (!event) throw new Error('Event not found.');
 
+  if (event.registration_enabled === false) {
+    throw new Error('Registration is closed for this event.');
+  }
+
+  if (String(event.status || '').toLowerCase() === 'archived') {
+    throw new Error('Registration is closed for this event.');
+  }
+
   const { data: existingGuest } = await db
     .from('event_guests')
     .select('id')
@@ -70,6 +78,9 @@ export async function handleRegisterGuestRequest(body) {
   }
 
   const imageBytes = decodeBase64Image(body?.selfieBase64);
+  if (!imageBytes?.length) {
+    throw new Error('Selfie image is required.');
+  }
   const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.jpg`;
   const eventFolder = `${safePathSegment(event.name, 'event')}__${event.id}`;
   const storagePath = `users/guestdelivery/public/${eventFolder}/selfies/${fileName}`;

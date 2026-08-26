@@ -8,7 +8,10 @@ function filterGuestsByPhotographer(rows, photographerId) {
   const list = rows || [];
   if (!photographerId) return list;
   const matched = list.filter((row) => row.photographer_id === photographerId);
-  return matched.length > 0 || list.length === 0 ? matched : list;
+  // Prefer exact photographer match; if column is missing/null on older rows, keep all.
+  if (matched.length > 0) return matched;
+  if (list.some((row) => row.photographer_id != null)) return matched;
+  return list;
 }
 
 export const guestDeliveryGuestsService = {
@@ -64,7 +67,12 @@ export async function registerGuestViaApi({ slug, name, email, phone, selfieBase
 
   const payload = await res.json().catch(() => ({}));
   if (!res.ok || !payload.ok) {
-    throw new Error(payload.error || 'Registration failed. Please try again.');
+    const detail =
+      payload.error ||
+      (res.status === 404
+        ? 'Registration service is unavailable. Please try again in a moment.'
+        : 'Registration failed. Please try again.');
+    throw new Error(detail);
   }
   return payload.result;
 }

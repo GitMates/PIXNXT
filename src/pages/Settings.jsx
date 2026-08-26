@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import SidebarLayout from '../components/SidebarLayout';
 import { useAuth } from '../hooks/useAuth';
@@ -11,27 +11,57 @@ import {
     planAllowsRaw,
 } from '../lib/uploadDefaults';
 import { buildShowcaseUrl } from '../lib/showcaseUrl';
+import {
+    FeaturedDeliveriesModal,
+    EnquiryFormEditorModal,
+    normalizeEnquiryFields,
+} from '../components/features/Settings';
 import './Settings.css';
 import './ClientGallery.css';
 
-const ALL_NAV_ITEMS = [
-    { id: 'delivery-messages', label: 'Delivery & messages', section: 'GETTING PHOTOS OUT' },
-    { id: 'guest-delivery', label: 'Guest Delivery', section: 'GETTING PHOTOS OUT', badge: 'NEW' },
-    { id: 'face-matching', label: 'Face matching', section: 'GETTING PHOTOS OUT', badge: 'NEW' },
-    { id: 'access-defaults', label: 'Access defaults', section: 'GETTING PHOTOS OUT' },
-    { id: 'upload-defaults', label: 'Upload defaults', section: 'PHOTO HANDLING' },
-    { id: 'protection', label: 'Protection', section: 'PHOTO HANDLING' },
-    { id: 'showcase-page', label: 'Showcase page', section: 'THIS MODULE' },
-    { id: 'delivery-templates', label: 'Delivery templates', section: 'THIS MODULE' },
+const PRIMARY_TABS = [
+    {
+        id: 'delivering',
+        label: 'Delivering photos',
+        items: [
+            { id: 'delivery-messages', label: 'Delivery & messages' },
+            { id: 'guest-delivery', label: 'Guest Delivery', badge: 'NEW' },
+            { id: 'face-matching', label: 'Face matching', badge: 'NEW' },
+            { id: 'access-defaults', label: 'Access defaults' },
+        ],
+    },
+    {
+        id: 'handling',
+        label: 'Photo handling',
+        items: [
+            { id: 'upload-defaults', label: 'Upload defaults' },
+            { id: 'protection', label: 'Watermark' },
+        ],
+    },
+    {
+        id: 'module',
+        label: 'This module',
+        items: [
+            { id: 'showcase-page', label: 'Showcase page' },
+            { id: 'delivery-templates', label: 'Delivery templates' },
+        ],
+    },
 ];
+
+const ALL_NAV_ITEMS = PRIMARY_TABS.flatMap((tab) =>
+    tab.items.map((item) => ({ ...item, primaryId: tab.id }))
+);
+
+function primaryTabForSubtab(subtabId) {
+    return PRIMARY_TABS.find((tab) => tab.items.some((item) => item.id === subtabId)) || PRIMARY_TABS[0];
+}
 
 const Settings = () => {
     const { tab } = useParams();
     const navigate = useNavigate();
     const activeTab = tab || 'delivery-templates';
-    const { user } = useAuth();
+    const { user, loading: authLoading } = useAuth();
     const [profile, setProfile] = useState(null);
-    const [loading, setLoading] = useState(true);
     const [toastMessage, setToastMessage] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
 
@@ -40,29 +70,36 @@ const Settings = () => {
         setTimeout(() => setToastMessage(''), 3000);
     };
 
-    const fetchProfile = useCallback(async () => {
-        if (!user?.id) return;
-        try {
-            const { data, error } = await supabase
-                .from('photographers')
-                .select('*')
-                .eq('id', user.id)
-                .single();
-            if (error) throw error;
-            if (data) {
+    useEffect(() => {
+        if (authLoading) return;
+
+        if (!user?.id) {
+            setProfile(null);
+            return;
+        }
+
+        let cancelled = false;
+
+        (async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('photographers')
+                    .select('*')
+                    .eq('id', user.id)
+                    .single();
+                if (error) throw error;
+                if (cancelled || !data) return;
                 setProfile(data);
                 syncUploadDefaultsToLocalStorage(data);
+            } catch (e) {
+                console.error('Error fetching settings profile:', e);
             }
-        } catch (e) {
-            console.error('Error fetching settings profile:', e);
-        } finally {
-            setLoading(false);
-        }
-    }, [user?.id]);
+        })();
 
-    useEffect(() => {
-        fetchProfile();
-    }, [fetchProfile]);
+        return () => {
+            cancelled = true;
+        };
+    }, [user?.id, authLoading]);
 
     // Backwards compatibility redirections
     useEffect(() => {
@@ -102,7 +139,19 @@ const Settings = () => {
         }
     };
 
-    if (loading) {
+    const q = searchQuery.trim().toLowerCase();
+    const filteredNavItems = ALL_NAV_ITEMS.filter((item) =>
+        !q || item.label.toLowerCase().includes(q)
+    );
+    const activePrimary = primaryTabForSubtab(activeTab);
+    const pillItems = q ? filteredNavItems : activePrimary.items;
+    const visiblePrimaryTabs = q
+        ? PRIMARY_TABS.filter((tab) =>
+            tab.items.some((item) => item.label.toLowerCase().includes(q))
+          )
+        : PRIMARY_TABS;
+
+    if (authLoading) {
         return (
             <SidebarLayout>
                 <div className="flex h-screen w-full items-center justify-center">
@@ -112,22 +161,15 @@ const Settings = () => {
         );
     }
 
-    // Filter subnav items
-    const filteredNavItems = ALL_NAV_ITEMS.filter(item =>
-        item.label.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-
-    // Get unique sections that have matching items
-    const visibleSections = Array.from(new Set(filteredNavItems.map(item => item.section)));
-
     return (
         <SidebarLayout>
             <div className="settings-page-wrapper">
-                {/* Header */}
                 <div className="settings-header-row">
                     <div>
                         <h1 className="settings-main-title">Settings</h1>
-                        <p className="settings-sub-desc">Defaults for new deliveries. Each delivery can override them.</p>
+                        <p className="settings-sub-desc">
+                            Defaults for new deliveries. Each delivery can override them.
+                        </p>
                     </div>
                     <div className="settings-search-wrap">
                         <svg className="settings-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8C827A" strokeWidth="2.5">
@@ -136,7 +178,7 @@ const Settings = () => {
                         </svg>
                         <input
                             type="text"
-                            placeholder="Search settings"
+                            placeholder="Search all settings"
                             className="settings-search-input"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
@@ -144,46 +186,59 @@ const Settings = () => {
                     </div>
                 </div>
 
-                {/* Two Column Layout */}
-                <div className="settings-columns-wrap">
-                    {/* Left Sub-nav Column */}
-                    <div className="settings-left-nav">
-                        {visibleSections.map(section => (
-                            <div key={section} className="settings-nav-section-wrap">
-                                <span className="settings-nav-section-title">{section}</span>
-                                {filteredNavItems
-                                    .filter(item => item.section === section)
-                                    .map(item => (
-                                        <button
-                                            key={item.id}
-                                            type="button"
-                                            onClick={() => navigate(`/settings/${item.id}`)}
-                                            className={`settings-nav-item-btn ${activeTab === item.id ? 'active' : ''}`}
-                                        >
-                                            <span>{item.label}</span>
-                                            {item.badge && <span className="settings-badge-new">{item.badge}</span>}
-                                        </button>
-                                    ))}
-                            </div>
-                        ))}
-                        {visibleSections.length === 0 && (
-                            <p style={{ fontSize: '13px', color: '#8C827A', paddingLeft: '12px' }}>No matches found</p>
-                        )}
-                    </div>
+                <div className="settings-primary-tabs" role="tablist" aria-label="Settings sections">
+                    {visiblePrimaryTabs.map((tab) => {
+                        const isActive = !q
+                            ? tab.id === activePrimary.id
+                            : tab.items.some((item) => item.id === activeTab);
+                        return (
+                            <button
+                                key={tab.id}
+                                type="button"
+                                role="tab"
+                                aria-selected={isActive}
+                                className={`settings-primary-tab${isActive ? ' is-active' : ''}`}
+                                onClick={() => {
+                                    const first = tab.items[0];
+                                    if (first) navigate(`/settings/${first.id}`);
+                                }}
+                            >
+                                {tab.label}
+                            </button>
+                        );
+                    })}
+                </div>
 
-                    {/* Right Details Column — scrolls independently */}
-                    <div className="settings-right-content" key={activeTab}>
-                        {activeTab === 'delivery-templates' && <PresetsTab profile={profile} />}
-                        {activeTab === 'protection' && <WatermarkTab profile={profile} updateProfile={updateProfile} />}
-                        {activeTab === 'delivery-messages' && <EmailTemplatesTab profile={profile} />}
-                        {activeTab === 'upload-defaults' && <PreferencesTab profile={profile} updateProfile={updateProfile} />}
-                        {activeTab === 'showcase-page' && (
-                            <ShowcasePageTab profile={profile} user={user} updateProfile={updateProfile} />
-                        )}
-                        {activeTab === 'guest-delivery' && <GuestDeliveryTab />}
-                        {activeTab === 'face-matching' && <FaceMatchingTab />}
-                        {activeTab === 'access-defaults' && <AccessDefaultsTab />}
-                    </div>
+                <div className="settings-pill-tabs" role="tablist" aria-label="Settings topics">
+                    {pillItems.map((item) => (
+                        <button
+                            key={item.id}
+                            type="button"
+                            role="tab"
+                            aria-selected={activeTab === item.id}
+                            className={`settings-pill-tab${activeTab === item.id ? ' is-active' : ''}`}
+                            onClick={() => navigate(`/settings/${item.id}`)}
+                        >
+                            <span>{item.label}</span>
+                            {item.badge ? <span className="settings-badge-new">{item.badge}</span> : null}
+                        </button>
+                    ))}
+                    {pillItems.length === 0 ? (
+                        <p className="settings-search-empty">No matches found</p>
+                    ) : null}
+                </div>
+
+                <div className="settings-right-content settings-right-content--single" key={activeTab}>
+                    {activeTab === 'delivery-templates' && <PresetsTab profile={profile} />}
+                    {activeTab === 'protection' && <WatermarkTab profile={profile} updateProfile={updateProfile} />}
+                    {activeTab === 'delivery-messages' && <EmailTemplatesTab profile={profile} />}
+                    {activeTab === 'upload-defaults' && <PreferencesTab profile={profile} updateProfile={updateProfile} />}
+                    {activeTab === 'showcase-page' && (
+                        <ShowcasePageTab profile={profile} user={user} updateProfile={updateProfile} />
+                    )}
+                    {activeTab === 'guest-delivery' && <GuestDeliveryTab />}
+                    {activeTab === 'face-matching' && <FaceMatchingTab />}
+                    {activeTab === 'access-defaults' && <AccessDefaultsTab />}
                 </div>
             </div>
 
@@ -224,7 +279,8 @@ const GD_REG_CLOSE_OPTIONS = [
     {
         value: '48h',
         title: '48 hours after the event date',
-        desc: 'Covers the late arrival, the friend who was shown a photo, and the guest who scanned but did not finish. Recommended.',
+        desc: 'Covers the late arrival, the friend who was shown a photo, and the guest who scanned but did not finish.',
+        recommended: true,
     },
     {
         value: 'custom',
@@ -267,9 +323,9 @@ const GD_STANDEE_OPTIONS = [
 
 const GD_LANGUAGE_OPTIONS = [
     { value: 'en', label: 'English' },
-    { value: 'ta', label: 'தமிழ்' },
-    { value: 'hi', label: 'हिन्दी' },
-    { value: 'te', label: 'తెలుగు' },
+    { value: 'ta', label: 'Tamil' },
+    { value: 'hi', label: 'Hindi' },
+    { value: 'te', label: 'Telugu' },
     { value: 'more', label: '+ 6 more' },
 ];
 
@@ -324,7 +380,6 @@ const GuestDeliveryTab = () => {
 
     return (
         <div className="gd-panel">
-            <h2 className="gd-title">Guest Delivery</h2>
             <p className="gd-lead">
                 Guests at the event scan a code, register with a selfie, and receive their own photos on
                 WhatsApp. These are the defaults every new delivery starts with.
@@ -398,7 +453,15 @@ const GuestDeliveryTab = () => {
                                     </span>
                                     <span className="gd-radio-copy">
                                         <span className="gd-radio-title">{opt.title}</span>
-                                        <span className="gd-radio-desc">{opt.desc}</span>
+                                        <span className="gd-radio-desc">
+                                            {opt.desc}
+                                            {opt.recommended ? (
+                                                <>
+                                                    {' '}
+                                                    <span className="gd-radio-rec">Recommended.</span>
+                                                </>
+                                            ) : null}
+                                        </span>
                                     </span>
                                 </button>
                             );
@@ -581,7 +644,7 @@ const GuestDeliveryTab = () => {
                     <polyline points="20 6 9 17 4 12" />
                 </svg>
                 <span>
-                    Saved a moment ago. Applies to new deliveries only — the 12 you already have keep their own
+                    Saved just now. Applies to new deliveries only — the 12 you already have keep their own
                     settings.
                 </span>
             </p>
@@ -777,19 +840,16 @@ const AD_OPEN_OPTIONS = [
 
 const AccessDefaultsTab = () => {
     const [whoCanOpen, setWhoCanOpen] = useState('anyone');
-    const [askAbovePhotos, setAskAbovePhotos] = useState('40');
 
     return (
         <div className="ad-panel">
-            <h2 className="ad-title">Access defaults</h2>
             <p className="ad-lead">
-                Who can open a new delivery, and what they must give you first. Every delivery can override
-                this.
+                Who can open a new delivery. One question, three answers, and every delivery can override it.
             </p>
 
             <section className="gd-section ad-section">
                 <span className="gd-overline">WHO CAN OPEN A NEW DELIVERY</span>
-                <div className="gd-radio-cards">
+                <div className="gd-radio-cards ad-radio-cards--row">
                     {AD_OPEN_OPTIONS.map((opt) => {
                         const active = whoCanOpen === opt.value;
                         return (
@@ -816,26 +876,14 @@ const AccessDefaultsTab = () => {
             <div className="gd-divider" />
 
             <section className="gd-section">
-                <span className="gd-overline">BEFORE A FULL DOWNLOAD</span>
-                <div className="gd-block">
-                    <span className="gd-label">Ask where to send the archive</span>
-                    <p className="gd-desc">
-                        Full sets are built on the server and emailed as a link. Asking for an address first
-                        avoids a half-hour wait on a phone that then loses the file. Below this count, the
-                        browser can handle it alone.
+                <span className="gd-overline">FULL DOWNLOADS</span>
+                <div className="settings-callout">
+                    <strong>Removed — &quot;ask where to send the archive above 40 photos&quot;</strong>
+                    <p>
+                        Full sets are zipped on the server and emailed as a link when the browser cannot
+                        handle them alone. The delivery address is collected once at access, not again at
+                        download.
                     </p>
-                    <label className="ad-threshold">
-                        <span>Ask above</span>
-                        <input
-                            type="text"
-                            inputMode="numeric"
-                            className="ad-threshold-input"
-                            value={askAbovePhotos}
-                            onChange={(e) => setAskAbovePhotos(e.target.value.replace(/[^\d]/g, '').slice(0, 4))}
-                            aria-label="Ask above this many photos"
-                        />
-                        <span>photos</span>
-                    </label>
                 </div>
             </section>
 
@@ -946,7 +994,6 @@ const PresetsTab = ({ profile }) => {
 
     return (
         <div className="dt-panel">
-            <h2 className="dt-title">Delivery templates</h2>
             <p className="dt-lead">
                 Save a set of delivery settings once and apply it to every new wedding, so you&apos;re not
                 repeating the same six toggles.
@@ -1061,16 +1108,32 @@ const ShowcasePageTab = ({ profile, user, updateProfile }) => {
     const navigate = useNavigate();
     const [publishShowcase, setPublishShowcase] = useState(true);
     const [enquiryForm, setEnquiryForm] = useState(true);
+    const [enquiryFields, setEnquiryFields] = useState(() =>
+        normalizeEnquiryFields(profile?.showcase_enquiry_fields)
+    );
     const [featuredCount, setFeaturedCount] = useState(null);
+    const [publishedTotal, setPublishedTotal] = useState(null);
     const [enquiries, setEnquiries] = useState([]);
     const [enquiriesLoading, setEnquiriesLoading] = useState(false);
     const [saveStatus, setSaveStatus] = useState('');
     const [saving, setSaving] = useState(false);
+    const [featureOpen, setFeatureOpen] = useState(false);
+    const [enquiryOpen, setEnquiryOpen] = useState(false);
 
     useEffect(() => {
         if (!profile) return;
         setPublishShowcase(profile.showcase_enabled !== false);
         setEnquiryForm(profile.showcase_enquiry_enabled !== false);
+        let fields = normalizeEnquiryFields(profile.showcase_enquiry_fields);
+        if (!profile.showcase_enquiry_fields && profile.id) {
+            try {
+                const raw = localStorage.getItem(`pixnxt:showcase_enquiry_fields:${profile.id}`);
+                if (raw) fields = normalizeEnquiryFields(JSON.parse(raw));
+            } catch {
+                /* ignore */
+            }
+        }
+        setEnquiryFields(fields);
     }, [profile]);
 
     useEffect(() => {
@@ -1094,26 +1157,24 @@ const ShowcasePageTab = ({ profile, user, updateProfile }) => {
         };
     }, [profile?.id, enquiryForm]);
 
-    useEffect(() => {
+    const refreshFeaturedCount = useCallback(async () => {
         if (!profile?.id) return;
-        let cancelled = false;
-        galleryService
-            .getCollections(profile.id)
-            .then((collections) => {
-                if (cancelled) return;
-                const count = (collections || []).filter(
-                    (c) => c.status === 'published' && c.show_on_showcase !== false
-                ).length;
-                setFeaturedCount(count);
-            })
-            .catch((err) => {
-                console.error('Failed to load featured delivery count:', err);
-                if (!cancelled) setFeaturedCount(0);
-            });
-        return () => {
-            cancelled = true;
-        };
+        try {
+            const collections = await galleryService.getCollections(profile.id);
+            const published = (collections || []).filter((c) => c.status === 'published');
+            const count = published.filter((c) => c.show_on_showcase !== false).length;
+            setFeaturedCount(count);
+            setPublishedTotal(published.length);
+        } catch (err) {
+            console.error('Failed to load featured delivery count:', err);
+            setFeaturedCount(0);
+            setPublishedTotal(0);
+        }
     }, [profile?.id]);
+
+    useEffect(() => {
+        refreshFeaturedCount();
+    }, [refreshFeaturedCount]);
 
     const markSaved = () => {
         setSaveStatus('Saved a moment ago.');
@@ -1122,6 +1183,8 @@ const ShowcasePageTab = ({ profile, user, updateProfile }) => {
     };
 
     const showcaseUrl = buildShowcaseUrl(profile, user);
+    const studioName =
+        profile?.business_name || profile?.studio_name || profile?.full_name || 'Your studio';
 
     const handlePublishToggle = async () => {
         if (saving) return;
@@ -1159,42 +1222,60 @@ const ShowcasePageTab = ({ profile, user, updateProfile }) => {
         }
     };
 
+    const handleSaveEnquiryFields = async (fields) => {
+        try {
+            await updateProfile({ showcase_enquiry_fields: fields }, { silent: true });
+        } catch (err) {
+            // Column may not exist until migration is applied — keep a local copy.
+            if (profile?.id) {
+                localStorage.setItem(
+                    `pixnxt:showcase_enquiry_fields:${profile.id}`,
+                    JSON.stringify(fields)
+                );
+            } else {
+                throw err;
+            }
+        }
+        if (profile?.id) {
+            localStorage.setItem(
+                `pixnxt:showcase_enquiry_fields:${profile.id}`,
+                JSON.stringify(fields)
+            );
+        }
+        setEnquiryFields(fields);
+        markSaved();
+    };
+
     const featuredLabel =
         featuredCount === null
             ? 'Loading featured deliveries…'
             : featuredCount === 0
-              ? 'None chosen yet. Turn on “Show in Showcase” on each delivery.'
-              : featuredCount === 1
-                ? '1 chosen. Order is drag-and-drop on the Showcase page itself.'
-                : `${featuredCount} chosen. Order is drag-and-drop on the Showcase page itself.`;
+              ? 'None chosen yet. Order, covers and crops are set on the Showcase page itself.'
+              : `${featuredCount} of ${publishedTotal ?? featuredCount} chosen. Order, covers and crops are set on the Showcase page itself.`;
 
     return (
-        <div className="lc-panel">
-            <h2 className="settings-right-title">Showcase page</h2>
-            <p className="settings-right-desc">
-                Your public page, built from deliveries you choose to feature. Stays in this module
-                because the work on it is Client Gallery work.
+        <div className="lc-panel settings-showcase-panel">
+            <p className="settings-right-desc settings-showcase-intro">
+                Your public page at{' '}
+                <a href={showcaseUrl} target="_blank" rel="noreferrer" className="settings-inline-link">
+                    {showcaseUrl.replace(/^https?:\/\//, '')}
+                </a>
+                , built from deliveries you choose to feature.
             </p>
 
-            <span className="settings-section-overline mt-5">PAGE</span>
+            <span className="settings-section-overline">PAGE</span>
 
-            {/* Item 1: Publish Showcase */}
-            <div className="si-branding-row" style={{ padding: '16px 0', borderBottom: '1px solid #dcd7cc' }}>
-                <div className="si-branding-text">
-                    <strong className="settings-field-title" style={{ fontSize: '15px' }}>Publish Showcase</strong>
-                    <p className="settings-right-desc" style={{ marginTop: '2px', fontSize: '13.5px' }}>
+            <div className="settings-row">
+                <div className="settings-row__text">
+                    <strong className="settings-field-title">Publish Showcase</strong>
+                    <p className="settings-right-desc">
                         {publishShowcase ? (
                             <>
                                 Live at{' '}
-                                <a
-                                    href={showcaseUrl}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    style={{ color: '#c46a3a', textDecoration: 'underline' }}
-                                >
+                                <a href={showcaseUrl} target="_blank" rel="noreferrer" className="settings-inline-link">
                                     {showcaseUrl.replace(/^https?:\/\//, '')}
                                 </a>
-                                . Turn off and the address returns nothing.
+                                . Turn off and the address returns nothing — no holding page, no stale portfolio.
                             </>
                         ) : (
                             'Showcase is off. Your public address shows nothing until you turn this back on.'
@@ -1213,80 +1294,77 @@ const ShowcasePageTab = ({ profile, user, updateProfile }) => {
                 </button>
             </div>
 
-            {/* Item 2: Featured deliveries */}
-            <div className="si-branding-row" style={{ padding: '16px 0', borderBottom: '1px solid #dcd7cc', alignItems: 'center' }}>
-                <div className="si-branding-text">
-                    <strong className="settings-field-title" style={{ fontSize: '15px' }}>Featured deliveries</strong>
-                    <p className="settings-right-desc" style={{ marginTop: '2px', fontSize: '13.5px' }}>
-                        {featuredLabel}
-                    </p>
+            <div className="settings-row">
+                <div className="settings-row__text">
+                    <strong className="settings-field-title">Featured deliveries</strong>
+                    <p className="settings-right-desc">{featuredLabel}</p>
                 </div>
                 <button
                     type="button"
                     className="settings-pill-btn"
-                    onClick={() => navigate('/showcase')}
-                    style={{ borderRadius: '24px', padding: '8px 24px' }}
+                    onClick={() => setFeatureOpen(true)}
                 >
                     Choose
                 </button>
             </div>
 
-            {/* Item 3: Enquiry form */}
-            <div className="si-branding-row" style={{ padding: '16px 0', borderBottom: '1px solid #dcd7cc' }}>
-                <div className="si-branding-text">
-                    <strong className="settings-field-title" style={{ fontSize: '15px' }}>Enquiry form</strong>
-                    <p className="settings-right-desc" style={{ marginTop: '2px', fontSize: '13.5px' }}>
-                        {enquiryForm
-                            ? 'Shows a contact form on your public Showcase. New messages appear in the list below.'
-                            : 'Hidden on your Showcase. Turn on to let visitors send you a message.'}
+            <div className="settings-row settings-row--last">
+                <div className="settings-row__text">
+                    <strong className="settings-field-title">Enquiry form</strong>
+                    <p className="settings-right-desc">
+                        A booking form at the foot of Showcase. Enquiries land in your inbox and in People,
+                        tagged as enquiries.
                     </p>
                 </div>
-                <button
-                    type="button"
-                    className={`settings-toggle ${enquiryForm ? 'settings-toggle--on' : ''}`}
-                    onClick={handleEnquiryToggle}
-                    disabled={saving}
-                    aria-pressed={enquiryForm}
-                    aria-label={enquiryForm ? 'Turn off enquiry form' : 'Turn on enquiry form'}
-                >
-                    <span className="settings-toggle-thumb" />
-                </button>
+                <div className="settings-row__actions">
+                    <button
+                        type="button"
+                        className="settings-pill-btn"
+                        onClick={() => setEnquiryOpen(true)}
+                    >
+                        Edit form
+                    </button>
+                    <button
+                        type="button"
+                        className={`settings-toggle ${enquiryForm ? 'settings-toggle--on' : ''}`}
+                        onClick={handleEnquiryToggle}
+                        disabled={saving}
+                        aria-pressed={enquiryForm}
+                        aria-label={enquiryForm ? 'Turn off enquiry form' : 'Turn on enquiry form'}
+                    >
+                        <span className="settings-toggle-thumb" />
+                    </button>
+                </div>
             </div>
 
             {enquiryForm && (
-                <div style={{ paddingTop: 20 }}>
-                    <div className="si-branding-row" style={{ alignItems: 'center', marginBottom: 12 }}>
-                        <strong className="settings-field-title" style={{ fontSize: '14px' }}>Recent messages</strong>
+                <div className="settings-enquiry-recent">
+                    <div className="settings-row settings-row--compact">
+                        <strong className="settings-field-title" style={{ fontSize: '14px' }}>
+                            Recent messages
+                        </strong>
                         <button
                             type="button"
                             className="settings-pill-btn"
                             onClick={() => navigate('/portal')}
-                            style={{ borderRadius: '24px', padding: '6px 18px', fontSize: '13px' }}
+                            style={{ padding: '6px 18px', fontSize: '13px' }}
                         >
                             Open Portal
                         </button>
                     </div>
                     {enquiriesLoading ? (
-                        <p className="settings-right-desc" style={{ fontSize: '13.5px' }}>Loading messages…</p>
+                        <p className="settings-right-desc">Loading messages…</p>
                     ) : enquiries.length === 0 ? (
-                        <p className="settings-right-desc" style={{ fontSize: '13.5px' }}>
+                        <p className="settings-right-desc">
                             No enquiries yet. When someone submits the form on your Showcase, it will appear here.
                         </p>
                     ) : (
-                        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        <ul className="settings-enquiry-list">
                             {enquiries.map((row) => (
-                                <li
-                                    key={row.id}
-                                    style={{
-                                        padding: '14px 16px',
-                                        border: '1px solid #e8e4de',
-                                        borderRadius: 12,
-                                        background: '#faf9f7',
-                                    }}
-                                >
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 6 }}>
-                                        <strong style={{ fontSize: '14px', color: '#1a1a1a' }}>{row.sender_name}</strong>
-                                        <span style={{ fontSize: '12px', color: '#8c857e', whiteSpace: 'nowrap' }}>
+                                <li key={row.id} className="settings-enquiry-item">
+                                    <div className="settings-enquiry-item__top">
+                                        <strong>{row.sender_name}</strong>
+                                        <span>
                                             {new Date(row.created_at).toLocaleDateString(undefined, {
                                                 month: 'short',
                                                 day: 'numeric',
@@ -1294,15 +1372,10 @@ const ShowcasePageTab = ({ profile, user, updateProfile }) => {
                                             })}
                                         </span>
                                     </div>
-                                    <a
-                                        href={`mailto:${row.sender_email}`}
-                                        style={{ fontSize: '13px', color: '#c46a3a', textDecoration: 'none' }}
-                                    >
+                                    <a href={`mailto:${row.sender_email}`} className="settings-inline-link">
                                         {row.sender_email}
                                     </a>
-                                    <p style={{ margin: '8px 0 0', fontSize: '13.5px', lineHeight: 1.45, color: '#5c5650' }}>
-                                        {row.message}
-                                    </p>
+                                    <p>{row.message}</p>
                                 </li>
                             ))}
                         </ul>
@@ -1310,14 +1383,33 @@ const ShowcasePageTab = ({ profile, user, updateProfile }) => {
                 </div>
             )}
 
-            {saveStatus && (
-                <div className="si-save-status" style={{ marginTop: '24px', color: '#8c857e' }}>
+            {saveStatus ? (
+                <div className="si-save-status settings-save-footer">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                         <polyline points="20 6 9 17 4 12" />
                     </svg>
                     <span>{saveStatus}</span>
                 </div>
-            )}
+            ) : null}
+
+            <FeaturedDeliveriesModal
+                open={featureOpen}
+                photographerId={profile?.id}
+                onClose={() => setFeatureOpen(false)}
+                onSaved={(count) => {
+                    setFeaturedCount(count);
+                    refreshFeaturedCount();
+                    markSaved();
+                }}
+            />
+
+            <EnquiryFormEditorModal
+                open={enquiryOpen}
+                initialFields={enquiryFields}
+                studioName={studioName}
+                onClose={() => setEnquiryOpen(false)}
+                onSave={handleSaveEnquiryFields}
+            />
         </div>
     );
 };
@@ -1356,142 +1448,94 @@ const WatermarkTab = ({ profile, updateProfile }) => {
         await updateProfile({ watermark_web_downloads: next });
     };
 
-    const handleDeleteWatermark = async (id) => {
-        if (!window.confirm('Are you sure you want to remove this watermark?')) return;
-        try {
-            await galleryService.deleteWatermark(id);
-            setWatermarks(prev => prev.filter(w => w.id !== id));
-        } catch (err) {
-            console.error('Error deleting watermark:', err);
-        }
-    };
-
     return (
-        <div>
-            <h2 className="settings-right-title">Protection</h2>
-            <p className="settings-right-desc">Protect your photos with custom watermarks.</p>
+        <div className="wm-panel">
+            <p className="settings-right-desc">
+                Formerly called Protection. Applied to the versions guests view and download — not to your
+                masters, and never to anything sent to the print lab.
+            </p>
 
-            <span className="settings-section-overline mt-5">YOUR WATERMARKS</span>
-            
+            <span className="settings-section-overline" style={{ marginTop: 24 }}>WATERMARK</span>
+
+            <div className="settings-row">
+                <div className="settings-row__text">
+                    <strong className="settings-field-title">Watermark new deliveries</strong>
+                    <p className="settings-right-desc">
+                        Applied to the versions guests view and download.
+                    </p>
+                </div>
+                <button
+                    type="button"
+                    className={`settings-toggle ${wToggle ? 'settings-toggle--on' : ''}`}
+                    onClick={handleWebDownloadToggle}
+                    aria-pressed={wToggle}
+                    aria-label="Watermark new deliveries"
+                >
+                    <span className="settings-toggle-thumb" />
+                </button>
+            </div>
+
             {loading ? (
                 <div style={{ padding: '20px 0', color: '#8C827A' }}>Loading watermarks...</div>
             ) : (
-                <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginTop: '16px' }}>
-                    {watermarks.map(wm => (
-                        <div key={wm.id} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            <div
-                                style={{
-                                    position: 'relative',
-                                    width: '120px',
-                                    height: '120px',
-                                    border: '1px solid #eceae6',
-                                    backgroundColor: '#FAF9F5',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    borderRadius: '8px',
-                                    overflow: 'hidden',
-                                    cursor: 'pointer'
-                                }}
-                                onClick={() => navigate(`/settings/watermark/${wm.id}`)}
-                            >
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); handleDeleteWatermark(wm.id); }}
-                                    style={{
-                                        position: 'absolute',
-                                        top: '4px',
-                                        right: '4px',
-                                        background: 'rgba(255, 255, 255, 0.9)',
-                                        border: 'none',
-                                        borderRadius: '4px',
-                                        width: '24px',
-                                        height: '24px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        cursor: 'pointer',
-                                        color: '#555',
-                                        boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
-                                    }}
-                                    title="Remove Watermark"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                                </button>
-                                
-                                {wm.type === 'image' && wm.url ? (
-                                    <img
-                                        src={wm.url}
-                                        alt="Watermark"
-                                        style={{ maxWidth: '80%', maxHeight: '80%', objectFit: 'contain', opacity: (wm.opacity || 90) / 100 }}
-                                    />
+                <div className="wm-card">
+                    {watermarks[0] ? (
+                        <>
+                            <div className="wm-card__preview">
+                                {watermarks[0].type === 'image' && watermarks[0].url ? (
+                                    <img src={watermarks[0].url} alt="" />
                                 ) : (
-                                    <span style={{
-                                        fontFamily: wm.font || 'Times New Roman',
-                                        fontSize: '14px',
-                                        color: wm.color || '#000',
-                                        opacity: (wm.opacity || 90) / 100,
-                                        textAlign: 'center',
-                                        padding: '4px',
-                                        wordBreak: 'break-word',
-                                    }}>
-                                        {wm.text || 'Text Watermark'}
-                                    </span>
+                                    <span>{watermarks[0].text || 'Watermark'}</span>
                                 )}
                             </div>
-                            <span style={{ fontSize: '11px', fontWeight: '700', color: '#8C827A', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                {wm.name || 'MY WATERMARK'}
-                            </span>
-                        </div>
-                    ))}
-
-                    {/* Add new watermark box */}
-                    <div
-                        onClick={() => navigate('/settings/watermark/create')}
-                        style={{
-                            width: '120px',
-                            height: '120px',
-                            backgroundColor: '#FAF9F5',
-                            border: '1px dashed #eceae6',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            cursor: 'pointer',
-                            borderRadius: '8px',
-                        }}
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8C827A" strokeWidth="1.5">
-                            <line x1="12" y1="5" x2="12" y2="19"></line>
-                            <line x1="5" y1="12" x2="19" y2="12"></line>
-                        </svg>
-                    </div>
+                            <div className="wm-card__meta">
+                                <strong>Watermark image</strong>
+                                <p>
+                                    {watermarks[0].position || 'Bottom right'} at{' '}
+                                    {watermarks[0].opacity || 35}%, medium
+                                </p>
+                                <p className="wm-card__file">
+                                    {watermarks[0].name || 'watermark'}
+                                    {watermarks[0].url ? '' : ''}
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                className="settings-pill-btn"
+                                onClick={() => navigate(`/settings/watermark/${watermarks[0].id}`)}
+                            >
+                                Edit watermark
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            <div className="wm-card__preview wm-card__preview--empty" aria-hidden />
+                            <div className="wm-card__meta">
+                                <strong>No watermark yet</strong>
+                                <p>Add an image or text mark for new deliveries.</p>
+                            </div>
+                            <button
+                                type="button"
+                                className="settings-pill-btn"
+                                onClick={() => navigate('/settings/watermark/create')}
+                            >
+                                Edit watermark
+                            </button>
+                        </>
+                    )}
                 </div>
             )}
 
-            <p className="settings-right-desc mt-5" style={{ fontSize: '13.5px' }}>
-                Watermarks are stripped from anything sent to the print lab, so ordered prints stay clean.{' '}
-                <a href="https://support.pixnxt.com" target="_blank" rel="noopener noreferrer" style={{ color: '#c46a3a', textDecoration: 'underline' }}>
-                    Learn more
-                </a>
+            <p className="settings-right-desc" style={{ marginTop: 16, fontSize: '13px' }}>
+                Watermarks are stripped from anything sent to the print lab, so ordered prints stay clean.
             </p>
 
-            <hr className="settings-divider" />
-
-            <div className="mt-4">
-                <h3 className="settings-field-title">Apply watermark to web size downloads</h3>
-                <div className="flex items-center gap-3 mt-3">
-                    <button
-                        type="button"
-                        className={`settings-toggle ${wToggle ? 'settings-toggle--on' : ''}`}
-                        onClick={handleWebDownloadToggle}
-                    >
-                        <span className="settings-toggle-thumb" />
-                    </button>
-                    <span style={{ fontSize: '14px', fontWeight: '500', color: '#1a1a1a' }}>{wToggle ? 'On' : 'Off'}</span>
-                </div>
-                <p className="settings-right-desc mt-2">
-                    Enable to apply watermark to web size downloads from your deliveries and web size downloads sold through Store.
-                </p>
-            </div>
+            <p className="gd-save-status" style={{ marginTop: 24 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span>Saved a moment ago.</span>
+            </p>
         </div>
     );
 };
@@ -1500,191 +1544,107 @@ const WatermarkTab = ({ profile, updateProfile }) => {
 const EmailTemplatesTab = ({ profile }) => {
     const navigate = useNavigate();
     const [templates, setTemplates] = useState([]);
-    const [loading, setLoading] = useState(true);
-
-    const fetchTemplates = useCallback(async () => {
-        if (!profile?.id) return;
-        try {
-            const data = await clientGalleryEmailTemplatesService.getTemplates(profile.id);
-            setTemplates(data || []);
-        } catch (err) {
-            console.error('Error fetching email templates:', err);
-        } finally {
-            setLoading(false);
-        }
-    }, [profile?.id]);
 
     useEffect(() => {
-        fetchTemplates();
-    }, [fetchTemplates]);
+        if (!profile?.id) return;
+        let cancelled = false;
+        clientGalleryEmailTemplatesService
+            .getTemplates(profile.id)
+            .then((data) => {
+                if (!cancelled) setTemplates(data || []);
+            })
+            .catch((err) => {
+                console.error("Error fetching email templates:", err);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [profile?.id]);
 
     const collectionSharingTemplates = templates.filter(
-      (t) => t.category === 'delivery-sharing' || t.category === 'collection-sharing'
+        (t) => t.category === "delivery-sharing" || t.category === "collection-sharing"
     );
-    const autoExpiryTemplates = templates.filter(t => t.category === 'auto-expiry');
-
-    const TemplateListItem = ({ tpl }) => {
-        const [showMenu, setShowMenu] = useState(false);
-        const menuRef = useRef(null);
-
-        useEffect(() => {
-            const handleClickOutside = (event) => {
-                if (menuRef.current && !menuRef.current.contains(event.target)) {
-                    setShowMenu(false);
-                }
-            };
-            document.addEventListener('mousedown', handleClickOutside);
-            return () => document.removeEventListener('mousedown', handleClickOutside);
-        }, []);
-
-        const handleDelete = async (e) => {
-            e.stopPropagation();
-            setShowMenu(false);
-            if (!window.confirm('Are you sure you want to delete this template?')) return;
-            try {
-                await clientGalleryEmailTemplatesService.deleteTemplate(profile.id, tpl.id);
-                setTemplates(prev => prev.filter(t => t.id !== tpl.id));
-            } catch (err) {
-                console.error('Error deleting template:', err);
-                alert(`Failed to delete template: ${err.message}`);
-            }
-        };
-
-        const handleEdit = (e) => {
-            e.stopPropagation();
-            setShowMenu(false);
-            navigate(`/settings/email-templates/${tpl.id}/edit`);
-        };
-
-        return (
-            <div 
-                className="settings-template-row" 
-                onClick={() => navigate(`/settings/email-templates/${tpl.id}/edit`)}
-                style={{ cursor: 'pointer' }}
-            >
-                <span style={{ fontWeight: '600', fontSize: '14px', color: '#1a1a1a' }}>{tpl.name}</span>
-                <div style={{ position: 'relative' }} ref={menuRef}>
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setShowMenu(!showMenu);
-                        }}
-                        style={{ color: '#8C827A', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '4px' }}
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
-                    </button>
-                    {showMenu && (
-                        <div style={{
-                            position: 'absolute',
-                            top: '100%',
-                            right: 0,
-                            marginTop: '8px',
-                            background: '#fff',
-                            border: '1px solid #eceae6',
-                            borderRadius: '8px',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                            zIndex: 10,
-                            minWidth: '120px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            overflow: 'hidden'
-                        }}>
-                            <button 
-                                onClick={handleEdit}
-                                style={{ padding: '10px 16px', background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#1a1a1a', fontWeight: '500' }}
-                            >
-                                Edit
-                            </button>
-                            <button 
-                                onClick={handleDelete}
-                                style={{ padding: '10px 16px', background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#ef4444', fontWeight: '500' }}
-                            >
-                                Delete
-                            </button>
-                        </div>
-                    )}
-                </div>
-            </div>
-        );
-    };
+    const autoExpiryTemplates = templates.filter((t) => t.category === "auto-expiry");
 
     return (
-        <div>
-            <h2 className="settings-right-title">Delivery &amp; messages</h2>
-            <p className="settings-right-desc">Save email templates to use when sharing galleries and reminders.</p>
+        <div className="dm-panel">
+            <p className="settings-right-desc">
+                The wording that goes out with a link, and the language a new delivery starts in. Email
+                templates and the default language were two unrelated pages; they do one job.
+            </p>
 
-            <div style={{ marginTop: '24px' }}>
-                <span className="settings-section-overline">DELIVERY SHARING EMAIL</span>
-
-                {loading ? (
-                    <div style={{ padding: '20px 0', color: '#8C827A' }}>Loading templates...</div>
-                ) : (
-                    <div className="settings-templates-list mt-3">
-                        {collectionSharingTemplates.map((tpl) => (
-                            <TemplateListItem key={tpl.id} tpl={tpl} />
-                        ))}
+            <span className="settings-section-overline" style={{ marginTop: 24 }}>MESSAGES</span>
+            <div className="settings-message-list">
+                {[
+                    {
+                        title: "Delivery ready",
+                        desc: "Sent when you share a finished delivery with a client.",
+                        editId: collectionSharingTemplates[0]?.id,
+                    },
+                    {
+                        title: "Selections reminder",
+                        desc: "Sent if a client has not finished choosing after a set number of days.",
+                        editId: autoExpiryTemplates[0]?.id,
+                    },
+                    {
+                        title: "Guest photos ready",
+                        desc: "Goes to an event guest on WhatsApp with their own link. Kept as a utility template — marketing templates cost two to three times more per message.",
+                    },
+                    {
+                        title: "Order confirmed",
+                        desc: "Sent by Print Lab after a client pays.",
+                    },
+                ].map((row) => (
+                    <div key={row.title} className="settings-row">
+                        <div className="settings-row__text">
+                            <strong className="settings-field-title">{row.title}</strong>
+                            <p className="settings-right-desc">{row.desc}</p>
+                        </div>
+                        <button
+                            type="button"
+                            className="settings-pill-btn"
+                            onClick={() => {
+                                if (row.editId) navigate(`/settings/email-templates/${row.editId}/edit`);
+                                else navigate("/settings/email-templates/create");
+                            }}
+                        >
+                            Edit
+                        </button>
                     </div>
-                )}
-
-                <button
-                    type="button"
-                    className="settings-pill-btn mt-4"
-                    onClick={() => navigate('/settings/email-templates/create')}
-                >
-                    + Add email template
-                </button>
+                ))}
             </div>
 
-            <hr className="settings-divider" />
-
-            <div className="mt-4">
-                <span className="settings-section-overline">AUTO EXPIRY EMAIL</span>
-
-                {loading ? (
-                    <div style={{ padding: '20px 0', color: '#8C827A' }}>Loading templates...</div>
-                ) : (
-                    <div className="settings-templates-list mt-3">
-                        {autoExpiryTemplates.map((tpl) => (
-                            <TemplateListItem key={tpl.id} tpl={tpl} />
-                        ))}
-                    </div>
-                )}
+            <span className="settings-section-overline" style={{ marginTop: 28 }}>LANGUAGE</span>
+            <div className="settings-row settings-row--last">
+                <div className="settings-row__text">
+                    <strong className="settings-field-title">Default language for new deliveries</strong>
+                    <p className="settings-right-desc">
+                        The language a client sees. Each delivery can be set differently.
+                    </p>
+                </div>
+                <select className="settings-select" defaultValue="en" aria-label="Default language">
+                    <option value="en">English</option>
+                    <option value="ta">தமிழ்</option>
+                    <option value="hi">हिन्दी</option>
+                    <option value="te">తెలుగు</option>
+                </select>
             </div>
         </div>
     );
 };
 
 /* ── PreferencesTab (Upload defaults) ── */
-const WEB_QUALITY_OPTIONS = [
-    {
-        value: 'standard',
-        title: 'Standard',
-        desc: 'Fastest to open on event Wi-Fi and mobile data.',
-    },
-    {
-        value: 'high',
-        title: 'High',
-        desc: 'Sharper on a laptop. Recommended for wedding work.',
-    },
-    {
-        value: 'maximum',
-        title: 'Maximum',
-        desc: 'Largest files. Noticeably slower on a 4G connection at a venue.',
-    },
-];
-
 const PreferencesTab = ({ profile, updateProfile }) => {
     const defaults = resolveUploadDefaults(profile);
-    const [webQuality, setWebQuality] = useState(defaults.webDisplayQuality);
     const [rawToggle, setRawToggle] = useState(defaults.rawPhotoSupport);
     const [sharpenWeb, setSharpenWeb] = useState(defaults.sharpenForWeb);
+    const [showFilenames, setShowFilenames] = useState(false);
     const [saveStatus, setSaveStatus] = useState('');
     const [saving, setSaving] = useState(false);
     const rawAllowed = planAllowsRaw(profile?.plan);
 
     useEffect(() => {
         const next = resolveUploadDefaults(profile);
-        setWebQuality(next.webDisplayQuality);
         setRawToggle(next.rawPhotoSupport);
         setSharpenWeb(next.sharpenForWeb);
         syncUploadDefaultsToLocalStorage(next);
@@ -1703,7 +1663,6 @@ const PreferencesTab = ({ profile, updateProfile }) => {
             const merged = resolveUploadDefaults({
                 ...profile,
                 ...patch,
-                web_display_quality: localState?.webQuality ?? webQuality,
                 sharpen_for_web: localState?.sharpenWeb ?? sharpenWeb,
                 raw_photo_support: localState?.rawToggle ?? rawToggle,
             });
@@ -1716,11 +1675,6 @@ const PreferencesTab = ({ profile, updateProfile }) => {
         } finally {
             setSaving(false);
         }
-    };
-
-    const handleWebQuality = async (val) => {
-        setWebQuality(val);
-        await persist({ web_display_quality: val }, { webQuality: val });
     };
 
     const handleRawToggle = async () => {
@@ -1753,38 +1707,20 @@ const PreferencesTab = ({ profile, updateProfile }) => {
 
     return (
         <div className="ud-panel">
-            <h2 className="ud-title">Upload defaults</h2>
             <p className="ud-lead">
-                What happens to a file between your card and a guest&apos;s screen.
+                What happens to a file between your card and a guest&apos;s screen. Display quality used to
+                be three named tiers; the upload pipeline now picks one sensible web size for you.
             </p>
 
             <section className="ud-section">
-                <span className="ud-overline">WEB DISPLAY QUALITY</span>
-                <div className="ud-radio-cards">
-                    {WEB_QUALITY_OPTIONS.map((opt) => {
-                        const active = webQuality === opt.value;
-                        return (
-                            <button
-                                key={opt.value}
-                                type="button"
-                                className={`ud-radio-card${active ? ' ud-radio-card--active' : ''}`}
-                                onClick={() => handleWebQuality(opt.value)}
-                                aria-pressed={active}
-                            >
-                                <span className="ud-radio-circle" aria-hidden>
-                                    {active ? <span className="ud-radio-dot" /> : null}
-                                </span>
-                                <span className="ud-radio-copy">
-                                    <span className="ud-radio-title">{opt.title}</span>
-                                    <span className="ud-radio-desc">{opt.desc}</span>
-                                </span>
-                            </button>
-                        );
-                    })}
+                <span className="ud-overline">DISPLAY QUALITY</span>
+                <div className="settings-callout">
+                    <strong>Removed — Standard / High / Maximum</strong>
+                    <p>
+                        Guests always get a web-sized preview built for the screen they are on. Your uploaded
+                        files are never touched, and downloads are always the original.
+                    </p>
                 </div>
-                <p className="ud-footnote">
-                    Applies to the versions guests view in the browser. Your uploaded files are never touched.
-                </p>
             </section>
 
             <section className="ud-section">
@@ -1818,11 +1754,12 @@ const PreferencesTab = ({ profile, updateProfile }) => {
                     </button>
                 </div>
 
-                <div className="ud-file-row ud-file-row--last">
+                <div className="ud-file-row">
                     <div className="ud-file-text">
-                        <span className="ud-file-label">Sharpen for the web</span>
+                        <span className="ud-file-label">Sharpen when resizing for the web</span>
                         <p className="ud-file-desc">
-                            Applied when the display copy is made. Off if you sharpen in Lightroom already.
+                            Softens JPEG artefacts after downsizing. Leave on unless you already sharpen in
+                            Lightroom before export.
                         </p>
                     </div>
                     <button
@@ -1830,7 +1767,28 @@ const PreferencesTab = ({ profile, updateProfile }) => {
                         className={`settings-toggle ${sharpenWeb ? 'settings-toggle--on' : ''}`}
                         onClick={handleSharpenToggle}
                         aria-pressed={sharpenWeb}
-                        aria-label="Sharpen for the web"
+                        aria-label="Sharpen when resizing for the web"
+                    >
+                        <span className="settings-toggle-thumb" />
+                    </button>
+                </div>
+
+                <div className="ud-file-row ud-file-row--last">
+                    <div className="ud-file-text">
+                        <span className="ud-file-label">Show filenames to clients</span>
+                        <p className="ud-file-desc">
+                            Useful when a client refers to a shot by number. Most weddings do not need it.
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        className={`settings-toggle ${showFilenames ? 'settings-toggle--on' : ''}`}
+                        onClick={() => {
+                            setShowFilenames((v) => !v);
+                            markSaved();
+                        }}
+                        aria-pressed={showFilenames}
+                        aria-label="Show filenames to clients"
                     >
                         <span className="settings-toggle-thumb" />
                     </button>
@@ -1839,7 +1797,14 @@ const PreferencesTab = ({ profile, updateProfile }) => {
 
             {(saveStatus || saving) && (
                 <p className="ud-save-status">
-                    {saving ? 'Saving…' : saveStatus}
+                    {saving ? 'Saving…' : (
+                        <>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                                <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                            <span>{saveStatus}</span>
+                        </>
+                    )}
                 </p>
             )}
         </div>

@@ -12,9 +12,20 @@ export const config = {
 };
 
 function actionPath(req) {
-  const raw = req.query.path;
-  if (Array.isArray(raw)) return raw.join('/');
-  if (typeof raw === 'string') return raw;
+  const raw = req.query?.path;
+  if (Array.isArray(raw)) {
+    return raw.filter(Boolean).join('/').replace(/^\/+|\/+$/g, '');
+  }
+  if (typeof raw === 'string' && raw.trim()) {
+    return raw.trim().replace(/^\/+|\/+$/g, '');
+  }
+
+  // Some hosts leave query.path empty — recover from the request URL.
+  const url = String(req.url || '');
+  const match = url.match(/\/api\/guest-delivery\/?([^?&#]*)/i);
+  if (match?.[1]) {
+    return match[1].replace(/^\/+|\/+$/g, '');
+  }
   return '';
 }
 
@@ -56,9 +67,9 @@ export default async function handler(req, res) {
       return;
     }
 
-    res.status(404).json({ error: 'Not found' });
+    res.status(404).json({ error: 'Not found', action });
   } catch (err) {
-    console.error(`[guest-delivery/${action}]`, err);
+    console.error(`[guest-delivery/${action || 'root'}]`, err);
     const message = err?.message || 'Request failed';
 
     let status = 500;

@@ -104,43 +104,43 @@
   position: absolute;
   z-index: 8;
   display: block;
-  background: #2b2b2d;
+  background: #1d1d1f;
   border: none;
   box-shadow: none;
   pointer-events: none;
 }
 
-/* Buttons live on the shell so canvas overflow:hidden can clip the screen */
+/* Buttons live on the shell; overlap the bezel slightly to kill scale subpixel gaps */
 .cd-phone-btn--action {
-  left: -4px;
+  left: -2px;
   top: 118px;
-  width: 4px;
+  width: 3.5px;
   height: 30px;
-  border-radius: 2px 0 0 2px;
+  border-radius: 1.5px 0 0 1.5px;
 }
 
 .cd-phone-btn--vol-up {
-  left: -4px;
+  left: -2px;
   top: 172px;
-  width: 4px;
+  width: 3.5px;
   height: 56px;
-  border-radius: 2px 0 0 2px;
+  border-radius: 1.5px 0 0 1.5px;
 }
 
 .cd-phone-btn--vol-down {
-  left: -4px;
+  left: -2px;
   top: 238px;
-  width: 4px;
+  width: 3.5px;
   height: 56px;
-  border-radius: 2px 0 0 2px;
+  border-radius: 1.5px 0 0 1.5px;
 }
 
 .cd-phone-btn--power {
-  right: -4px;
+  right: -2px;
   top: 196px;
-  width: 4px;
+  width: 3.5px;
   height: 84px;
-  border-radius: 0 2px 2px 0;
+  border-radius: 0 1.5px 1.5px 0;
 }
 
 .cd-design-preview-pane.mobile .cd-preview-canvas--phone {
