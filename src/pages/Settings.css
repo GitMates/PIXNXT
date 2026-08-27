@@ -1843,11 +1843,12 @@
 /* ── Settings Layout and Subnav Styles ── */
 
 .settings-page-wrapper {
+  --settings-content-max: 720px;
   padding: 28px 40px 48px;
   font-family: inherit;
   display: flex;
   flex-direction: column;
-  align-items: stretch;
+  align-items: flex-start;
   gap: 0;
   flex: 1 1 auto;
   width: 100%;
@@ -1859,6 +1860,15 @@
   box-sizing: border-box;
   background: #f9f7f2;
   -webkit-overflow-scrolling: touch;
+}
+
+.settings-page-wrapper > .settings-header-row,
+.settings-page-wrapper > .settings-primary-tabs,
+.settings-page-wrapper > .settings-pill-tabs,
+.settings-page-wrapper > .settings-right-content {
+  width: 100%;
+  max-width: var(--settings-content-max);
+  box-sizing: border-box;
 }
 
 .settings-header-row {
@@ -2011,7 +2021,7 @@
 .settings-right-content {
   flex: 0 0 auto;
   width: 100%;
-  max-width: 720px;
+  max-width: var(--settings-content-max, 720px);
   min-width: 0;
   min-height: auto;
   overflow: visible;
@@ -2023,7 +2033,7 @@
 
 .settings-right-content--single {
   width: 100%;
-  max-width: 720px;
+  max-width: var(--settings-content-max, 720px);
 }
 
 .settings-columns-wrap {
@@ -2627,6 +2637,11 @@
   max-width: 58ch;
 }
 
+.gd-footnote strong {
+  color: #2d2926;
+  font-weight: 700;
+}
+
 .gd-setting {
   display: flex;
   flex-direction: column;
@@ -2806,22 +2821,25 @@
 .gd-standee-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
+  gap: 12px;
   margin-top: 16px;
 }
 
 .gd-standee-card {
   display: flex;
   flex-direction: column;
+  align-items: stretch;
   border: 1px solid var(--gd-box-border);
   border-radius: 12px;
   background: #ffffff;
-  padding: 0;
-  overflow: hidden;
+  padding: 12px 12px 14px;
+  overflow: visible;
   cursor: pointer;
-  text-align: left;
-  transition: border-color 0.15s ease;
+  text-align: center;
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+  box-sizing: border-box;
   font-family: inherit;
+  box-shadow: none;
 }
 
 .gd-standee-card:hover {
@@ -2838,21 +2856,23 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 112px;
-  background: #ededed;
-  border-bottom: 1px solid var(--gd-box-border);
+  height: 100px;
+  margin-bottom: 12px;
+  background: #ecebe8;
+  border-radius: 8px;
+  border: none;
 }
 
 .gd-standee-card--active .gd-standee-preview {
-  background: #ededed;
-  border-bottom-color: var(--gd-accent-border);
+  background: #ecebe8;
 }
 
 .gd-standee-meta {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding: 14px 16px 16px;
+  align-items: center;
+  gap: 4px;
+  padding: 0 4px;
   background: transparent;
 }
 
@@ -2860,6 +2880,7 @@
   font-size: 14.5px;
   font-weight: 700;
   color: #2d2926;
+  line-height: 1.25;
 }
 
 .gd-standee-desc {
@@ -2900,35 +2921,18 @@
   padding-bottom: 32px;
 }
 
-.fm-title {
-  margin: 0;
-  font-family: var(--font-display, 'Fraunces', Georgia, serif);
-  font-size: 28px;
-  font-weight: 500;
-  letter-spacing: -0.02em;
-  color: #1c1917;
-  line-height: 1.2;
-}
-
-.fm-lead {
-  margin: 10px 0 0;
-  font-size: 14.5px;
-  line-height: 1.55;
-  color: #8c857e;
-  max-width: 48ch;
-}
-
-.fm-footnote {
-  margin: 14px 0 0;
-  font-size: 13.5px;
-  line-height: 1.55;
-  color: #8c857e;
-  max-width: 58ch;
-}
-
-.fm-footnote strong {
-  color: #1c1917;
+.fm-section-title {
+  display: block;
+  margin: 0 0 16px;
+  font-size: 15px;
   font-weight: 700;
+  color: #2d2926;
+  line-height: 1.35;
+}
+
+.fm-panel > .gd-lead {
+  margin-top: 0;
+  max-width: 54ch;
 }
 
 .fm-vocab {

@@ -10,6 +10,14 @@ import {
     syncUploadDefaultsToLocalStorage,
     planAllowsRaw,
 } from '../lib/uploadDefaults';
+import {
+    resolveGuestDeliveryDefaults,
+    resolveFaceMatchingDefaults,
+    resolveAccessDefaults,
+    guestDeliveryPayload,
+    faceMatchingPayload,
+    accessDefaultsPayload,
+} from '../lib/studioDefaults';
 import { buildShowcaseUrl } from '../lib/showcaseUrl';
 import {
     FeaturedDeliveriesModal,
@@ -54,6 +62,31 @@ const ALL_NAV_ITEMS = PRIMARY_TABS.flatMap((tab) =>
 
 function primaryTabForSubtab(subtabId) {
     return PRIMARY_TABS.find((tab) => tab.items.some((item) => item.id === subtabId)) || PRIMARY_TABS[0];
+}
+
+function SettingsSaveStatus({ status, saving, children }) {
+    if (!status && !saving) return null;
+    return (
+        <p className="gd-save-status">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <polyline points="20 6 9 17 4 12" />
+            </svg>
+            <span>{saving ? 'Saving…' : children || status}</span>
+        </p>
+    );
+}
+
+function useSettingsSaveStatus() {
+    const [saveStatus, setSaveStatus] = useState('');
+    const [saving, setSaving] = useState(false);
+
+    const markSaved = useCallback((message = 'Saved a moment ago.') => {
+        setSaveStatus(message);
+        window.clearTimeout(markSaved._t);
+        markSaved._t = window.setTimeout(() => setSaveStatus(''), 4000);
+    }, []);
+
+    return { saveStatus, saving, setSaving, markSaved };
 }
 
 const Settings = () => {
@@ -231,14 +264,22 @@ const Settings = () => {
                 <div className="settings-right-content settings-right-content--single" key={activeTab}>
                     {activeTab === 'delivery-templates' && <PresetsTab profile={profile} />}
                     {activeTab === 'protection' && <WatermarkTab profile={profile} updateProfile={updateProfile} />}
-                    {activeTab === 'delivery-messages' && <EmailTemplatesTab profile={profile} />}
+                    {activeTab === 'delivery-messages' && (
+                        <EmailTemplatesTab profile={profile} updateProfile={updateProfile} />
+                    )}
                     {activeTab === 'upload-defaults' && <PreferencesTab profile={profile} updateProfile={updateProfile} />}
                     {activeTab === 'showcase-page' && (
                         <ShowcasePageTab profile={profile} user={user} updateProfile={updateProfile} />
                     )}
-                    {activeTab === 'guest-delivery' && <GuestDeliveryTab />}
-                    {activeTab === 'face-matching' && <FaceMatchingTab />}
-                    {activeTab === 'access-defaults' && <AccessDefaultsTab />}
+                    {activeTab === 'guest-delivery' && (
+                        <GuestDeliveryTab profile={profile} updateProfile={updateProfile} />
+                    )}
+                    {activeTab === 'face-matching' && (
+                        <FaceMatchingTab profile={profile} updateProfile={updateProfile} />
+                    )}
+                    {activeTab === 'access-defaults' && (
+                        <AccessDefaultsTab profile={profile} updateProfile={updateProfile} />
+                    )}
                 </div>
             </div>
 
@@ -360,9 +401,10 @@ function GdStandeeIcon({ type }) {
     );
 }
 
-const GuestDeliveryTab = () => {
+const GuestDeliveryTab = ({ profile, updateProfile }) => {
     const navigate = useNavigate();
-    const [enabled, setEnabled] = useState(true);
+    const { saveStatus, saving, setSaving, markSaved } = useSettingsSaveStatus();
+    const [enabled, setEnabled] = useState(false);
     const [regClose, setRegClose] = useState('48h');
     const [autoBatches, setAutoBatches] = useState(true);
     const [channel, setChannel] = useState('whatsapp_email');
@@ -371,11 +413,80 @@ const GuestDeliveryTab = () => {
     const [standee, setStandee] = useState('classic');
     const [languages, setLanguages] = useState(['en', 'ta']);
 
+    useEffect(() => {
+        if (!profile) return;
+        const d = resolveGuestDeliveryDefaults(profile);
+        setEnabled(d.enabled);
+        setRegClose(d.regClose);
+        setAutoBatches(d.autoBatches);
+        setChannel(d.channel);
+        setArrival(d.arrival);
+        setSlipMessage(d.slipMessage);
+        setStandee(d.standee);
+        setLanguages(d.languages);
+    }, [profile?.id, profile?.guest_delivery_defaults]);
+
+    const persist = useCallback(async (patch) => {
+        if (!profile?.id || saving) return;
+        const payload = guestDeliveryPayload({
+            enabled,
+            regClose,
+            autoBatches,
+            channel,
+            arrival,
+            slipMessage,
+            standee,
+            languages,
+            ...patch,
+        });
+        setSaving(true);
+        try {
+            await updateProfile({ guest_delivery_defaults: payload }, { silent: true });
+            markSaved('Saved just now. Applies to new deliveries only.');
+        } catch (e) {
+            console.error('Guest delivery defaults save failed:', e);
+            alert(`Failed to save: ${e.message || 'Unknown error'}`);
+            throw e;
+        } finally {
+            setSaving(false);
+        }
+    }, [
+        profile?.id,
+        saving,
+        enabled,
+        regClose,
+        autoBatches,
+        channel,
+        arrival,
+        slipMessage,
+        standee,
+        languages,
+        updateProfile,
+        markSaved,
+        setSaving,
+    ]);
+
+    const apply = (patch) => {
+        if ('enabled' in patch) setEnabled(patch.enabled);
+        if ('regClose' in patch) setRegClose(patch.regClose);
+        if ('autoBatches' in patch) setAutoBatches(patch.autoBatches);
+        if ('channel' in patch) setChannel(patch.channel);
+        if ('arrival' in patch) setArrival(patch.arrival);
+        if ('slipMessage' in patch) setSlipMessage(patch.slipMessage);
+        if ('standee' in patch) setStandee(patch.standee);
+        if ('languages' in patch) setLanguages(patch.languages);
+        persist(patch);
+    };
+
     const toggleLanguage = (value) => {
         if (value === 'more') return;
-        setLanguages((prev) =>
-            prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]
-        );
+        setLanguages((prev) => {
+            const next = prev.includes(value)
+                ? prev.filter((v) => v !== value)
+                : [...prev, value];
+            persist({ languages: next });
+            return next;
+        });
     };
 
     return (
@@ -417,7 +528,7 @@ const GuestDeliveryTab = () => {
                         <button
                             type="button"
                             className={`settings-toggle ${enabled ? 'settings-toggle--on' : ''}`}
-                            onClick={() => setEnabled((v) => !v)}
+                            onClick={() => apply({ enabled: !enabled })}
                             aria-pressed={enabled}
                             aria-label="Turn on Guest Delivery for new deliveries"
                         >
@@ -445,7 +556,7 @@ const GuestDeliveryTab = () => {
                                     key={opt.value}
                                     type="button"
                                     className={`gd-radio-card${active ? ' gd-radio-card--active' : ''}`}
-                                    onClick={() => setRegClose(opt.value)}
+                                    onClick={() => apply({ regClose: opt.value })}
                                     aria-pressed={active}
                                 >
                                     <span className="gd-radio-circle" aria-hidden>
@@ -475,7 +586,7 @@ const GuestDeliveryTab = () => {
                         <button
                             type="button"
                             className={`settings-toggle ${autoBatches ? 'settings-toggle--on' : ''}`}
-                            onClick={() => setAutoBatches((v) => !v)}
+                            onClick={() => apply({ autoBatches: !autoBatches })}
                             aria-pressed={autoBatches}
                             aria-label="Send later batches automatically"
                         >
@@ -508,7 +619,7 @@ const GuestDeliveryTab = () => {
                                     key={opt.value}
                                     type="button"
                                     className={`gd-radio-card${active ? ' gd-radio-card--active' : ''}`}
-                                    onClick={() => setChannel(opt.value)}
+                                    onClick={() => apply({ channel: opt.value })}
                                     aria-pressed={active}
                                 >
                                     <span className="gd-radio-circle" aria-hidden>
@@ -544,7 +655,7 @@ const GuestDeliveryTab = () => {
                                     key={opt.value}
                                     type="button"
                                     className={`gd-pill${active ? ' gd-pill--active' : ''}`}
-                                    onClick={() => setArrival(opt.value)}
+                                    onClick={() => apply({ arrival: opt.value })}
                                     aria-pressed={active}
                                 >
                                     {opt.label}
@@ -560,7 +671,7 @@ const GuestDeliveryTab = () => {
                         <button
                             type="button"
                             className={`settings-toggle ${slipMessage ? 'settings-toggle--on' : ''}`}
-                            onClick={() => setSlipMessage((v) => !v)}
+                            onClick={() => apply({ slipMessage: !slipMessage })}
                             aria-pressed={slipMessage}
                             aria-label="Message guests if it slips"
                         >
@@ -593,7 +704,7 @@ const GuestDeliveryTab = () => {
                                     key={opt.value}
                                     type="button"
                                     className={`gd-standee-card${active ? ' gd-standee-card--active' : ''}`}
-                                    onClick={() => setStandee(opt.value)}
+                                    onClick={() => apply({ standee: opt.value })}
                                     aria-pressed={active}
                                 >
                                     <span className="gd-standee-preview">
@@ -639,25 +750,20 @@ const GuestDeliveryTab = () => {
 
             <div className="gd-divider" />
 
-            <p className="gd-save-status">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <polyline points="20 6 9 17 4 12" />
-                </svg>
-                <span>
-                    Saved just now. Applies to new deliveries only — the 12 you already have keep their own
-                    settings.
-                </span>
-            </p>
+            <SettingsSaveStatus status={saveStatus} saving={saving}>
+                Saved just now. Applies to new deliveries only — existing deliveries keep their own settings.
+            </SettingsSaveStatus>
         </div>
     );
 };
 
-/* ── Face matching (static defaults UI) ── */
+/* ── Face matching defaults UI ── */
 const FM_MATCH_OPTIONS = [
     {
         value: 'strict',
         title: 'Strict',
-        desc: "Sends a photo only when the system is confident. A few photos of a guest get missed rather than a stranger's photo being sent to the wrong person. Recommended.",
+        desc: "Sends a photo only when the system is confident. A few photos of a guest get missed rather than a stranger's photo being sent to the wrong person.",
+        recommended: true,
     },
     {
         value: 'balanced',
@@ -666,17 +772,66 @@ const FM_MATCH_OPTIONS = [
     },
 ];
 
-const FaceMatchingTab = () => {
+const FaceMatchingTab = ({ profile, updateProfile }) => {
     const navigate = useNavigate();
+    const { saveStatus, saving, setSaving, markSaved } = useSettingsSaveStatus();
     const [matchCertainty, setMatchCertainty] = useState('strict');
     const [holdLowConfidence, setHoldLowConfidence] = useState(true);
     const [sendHighlightsWhenEmpty, setSendHighlightsWhenEmpty] = useState(true);
     const [guestSelfClaim, setGuestSelfClaim] = useState(true);
 
+    useEffect(() => {
+        if (!profile) return;
+        const d = resolveFaceMatchingDefaults(profile);
+        setMatchCertainty(d.matchCertainty);
+        setHoldLowConfidence(d.holdLowConfidence);
+        setSendHighlightsWhenEmpty(d.sendHighlightsWhenEmpty);
+        setGuestSelfClaim(d.guestSelfClaim);
+    }, [profile?.id, profile?.face_matching_defaults]);
+
+    const persist = useCallback(async (patch) => {
+        if (!profile?.id || saving) return;
+        const payload = faceMatchingPayload({
+            matchCertainty,
+            holdLowConfidence,
+            sendHighlightsWhenEmpty,
+            guestSelfClaim,
+            ...patch,
+        });
+        setSaving(true);
+        try {
+            await updateProfile({ face_matching_defaults: payload }, { silent: true });
+            markSaved();
+        } catch (e) {
+            console.error('Face matching defaults save failed:', e);
+            alert(`Failed to save: ${e.message || 'Unknown error'}`);
+            throw e;
+        } finally {
+            setSaving(false);
+        }
+    }, [
+        profile?.id,
+        saving,
+        matchCertainty,
+        holdLowConfidence,
+        sendHighlightsWhenEmpty,
+        guestSelfClaim,
+        updateProfile,
+        markSaved,
+        setSaving,
+    ]);
+
+    const apply = (patch) => {
+        if ('matchCertainty' in patch) setMatchCertainty(patch.matchCertainty);
+        if ('holdLowConfidence' in patch) setHoldLowConfidence(patch.holdLowConfidence);
+        if ('sendHighlightsWhenEmpty' in patch) setSendHighlightsWhenEmpty(patch.sendHighlightsWhenEmpty);
+        if ('guestSelfClaim' in patch) setGuestSelfClaim(patch.guestSelfClaim);
+        persist(patch);
+    };
+
     return (
-        <div className="fm-panel">
-            <h2 className="fm-title">Face matching</h2>
-            <p className="fm-lead">
+        <div className="fm-panel gd-panel">
+            <p className="gd-lead">
                 How hard the system tries to find a person in your photographs, and what happens when it is
                 unsure.
             </p>
@@ -696,45 +851,57 @@ const FaceMatchingTab = () => {
                         className="gd-info-link"
                         onClick={() => navigate('/account/legal-consent')}
                     >
-                        Profile &gt; Legal &amp; consent
+                        Profile › Legal &amp; consent
                     </button>
                     . This page is only about accuracy.
                 </p>
             </div>
 
             <section className="gd-section">
-                <span className="gd-overline">HOW CERTAIN A MATCH MUST BE</span>
-                <div className="gd-radio-cards">
-                    {FM_MATCH_OPTIONS.map((opt) => {
-                        const active = matchCertainty === opt.value;
-                        return (
-                            <button
-                                key={opt.value}
-                                type="button"
-                                className={`gd-radio-card${active ? ' gd-radio-card--active' : ''}`}
-                                onClick={() => setMatchCertainty(opt.value)}
-                                aria-pressed={active}
-                            >
-                                <span className="gd-radio-circle" aria-hidden>
-                                    {active ? <span className="gd-radio-dot" /> : null}
-                                </span>
-                                <span className="gd-radio-copy">
-                                    <span className="gd-radio-title">{opt.title}</span>
-                                    <span className="gd-radio-desc">{opt.desc}</span>
-                                </span>
-                            </button>
-                        );
-                    })}
+                <div className="gd-block">
+                    <span className="fm-section-title">How certain a match must be</span>
+                    <div className="gd-radio-cards">
+                        {FM_MATCH_OPTIONS.map((opt) => {
+                            const active = matchCertainty === opt.value;
+                            return (
+                                <button
+                                    key={opt.value}
+                                    type="button"
+                                    className={`gd-radio-card${active ? ' gd-radio-card--active' : ''}`}
+                                    onClick={() => apply({ matchCertainty: opt.value })}
+                                    aria-pressed={active}
+                                >
+                                    <span className="gd-radio-circle" aria-hidden>
+                                        {active ? <span className="gd-radio-dot" /> : null}
+                                    </span>
+                                    <span className="gd-radio-copy">
+                                        <span className="gd-radio-title">{opt.title}</span>
+                                        <span className="gd-radio-desc">
+                                            {opt.desc}
+                                            {opt.recommended ? (
+                                                <>
+                                                    {' '}
+                                                    <span className="gd-radio-rec">Recommended.</span>
+                                                </>
+                                            ) : null}
+                                        </span>
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                    <p className="gd-footnote">
+                        A guest browsing a gallery can ignore a wrong photo. A guest <strong>sent</strong> a
+                        stranger&apos;s photo is a complaint, and possibly a privacy incident. That asymmetry is
+                        why the default is Strict.
+                    </p>
                 </div>
-                <p className="fm-footnote">
-                    A guest browsing a gallery can ignore a wrong photo. A guest <strong>sent</strong> a
-                    stranger&apos;s photo is a complaint, and possibly a privacy incident. That asymmetry is
-                    why the default is Strict.
-                </p>
             </section>
 
+            <div className="gd-divider" />
+
             <section className="gd-section">
-                <span className="gd-overline">WHEN THE SYSTEM IS UNSURE</span>
+                <span className="fm-section-title">When the system is unsure</span>
 
                 <div className="gd-setting">
                     <div className="gd-setting-head">
@@ -742,7 +909,7 @@ const FaceMatchingTab = () => {
                         <button
                             type="button"
                             className={`settings-toggle ${holdLowConfidence ? 'settings-toggle--on' : ''}`}
-                            onClick={() => setHoldLowConfidence((v) => !v)}
+                            onClick={() => apply({ holdLowConfidence: !holdLowConfidence })}
                             aria-pressed={holdLowConfidence}
                             aria-label="Hold low-confidence matches for you to review"
                         >
@@ -763,7 +930,7 @@ const FaceMatchingTab = () => {
                         <button
                             type="button"
                             className={`settings-toggle ${sendHighlightsWhenEmpty ? 'settings-toggle--on' : ''}`}
-                            onClick={() => setSendHighlightsWhenEmpty((v) => !v)}
+                            onClick={() => apply({ sendHighlightsWhenEmpty: !sendHighlightsWhenEmpty })}
                             aria-pressed={sendHighlightsWhenEmpty}
                             aria-label="When a guest has no photos at all"
                         >
@@ -784,7 +951,7 @@ const FaceMatchingTab = () => {
                         <button
                             type="button"
                             className={`settings-toggle ${guestSelfClaim ? 'settings-toggle--on' : ''}`}
-                            onClick={() => setGuestSelfClaim((v) => !v)}
+                            onClick={() => apply({ guestSelfClaim: !guestSelfClaim })}
                             aria-pressed={guestSelfClaim}
                             aria-label={`Let guests say I'm in this one too`}
                         >
@@ -809,12 +976,7 @@ const FaceMatchingTab = () => {
                 </p>
             </aside>
 
-            <p className="gd-save-status">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <polyline points="20 6 9 17 4 12" />
-                </svg>
-                <span>Saved a moment ago.</span>
-            </p>
+            <SettingsSaveStatus status={saveStatus} saving={saving} />
         </div>
     );
 };
@@ -838,8 +1000,38 @@ const AD_OPEN_OPTIONS = [
     },
 ];
 
-const AccessDefaultsTab = () => {
+const AccessDefaultsTab = ({ profile, updateProfile }) => {
+    const { saveStatus, saving, setSaving, markSaved } = useSettingsSaveStatus();
     const [whoCanOpen, setWhoCanOpen] = useState('anyone');
+
+    useEffect(() => {
+        if (!profile) return;
+        const d = resolveAccessDefaults(profile);
+        setWhoCanOpen(d.whoCanOpen);
+    }, [profile?.id, profile?.access_defaults]);
+
+    const persist = useCallback(async (nextWhoCanOpen) => {
+        if (!profile?.id || saving) return;
+        setSaving(true);
+        try {
+            await updateProfile(
+                { access_defaults: accessDefaultsPayload({ whoCanOpen: nextWhoCanOpen }) },
+                { silent: true }
+            );
+            markSaved();
+        } catch (e) {
+            console.error('Access defaults save failed:', e);
+            alert(`Failed to save: ${e.message || 'Unknown error'}`);
+            throw e;
+        } finally {
+            setSaving(false);
+        }
+    }, [profile?.id, saving, updateProfile, markSaved, setSaving]);
+
+    const handleWhoCanOpen = (value) => {
+        setWhoCanOpen(value);
+        persist(value);
+    };
 
     return (
         <div className="ad-panel">
@@ -857,7 +1049,7 @@ const AccessDefaultsTab = () => {
                                 key={opt.value}
                                 type="button"
                                 className={`gd-radio-card${active ? ' gd-radio-card--active' : ''}`}
-                                onClick={() => setWhoCanOpen(opt.value)}
+                                onClick={() => handleWhoCanOpen(opt.value)}
                                 aria-pressed={active}
                             >
                                 <span className="gd-radio-circle" aria-hidden>
@@ -889,12 +1081,7 @@ const AccessDefaultsTab = () => {
 
             <div className="gd-divider" />
 
-            <p className="gd-save-status">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <polyline points="20 6 9 17 4 12" />
-                </svg>
-                <span>Saved a moment ago.</span>
-            </p>
+            <SettingsSaveStatus status={saveStatus} saving={saving} />
         </div>
     );
 };
@@ -1417,6 +1604,7 @@ const ShowcasePageTab = ({ profile, user, updateProfile }) => {
 /* ── WatermarkTab ── */
 const WatermarkTab = ({ profile, updateProfile }) => {
     const navigate = useNavigate();
+    const { saveStatus, saving, setSaving, markSaved } = useSettingsSaveStatus();
     const [wToggle, setWToggle] = useState(() => {
         if (profile?.watermark_web_downloads !== undefined && profile?.watermark_web_downloads !== null) {
             return profile.watermark_web_downloads;
@@ -1426,6 +1614,12 @@ const WatermarkTab = ({ profile, updateProfile }) => {
     
     const [watermarks, setWatermarks] = useState([]);
     const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        if (profile?.watermark_web_downloads !== undefined && profile?.watermark_web_downloads !== null) {
+            setWToggle(profile.watermark_web_downloads);
+        }
+    }, [profile?.watermark_web_downloads]);
 
     useEffect(() => {
         const fetchWatermarks = async () => {
@@ -1443,9 +1637,19 @@ const WatermarkTab = ({ profile, updateProfile }) => {
     }, [profile?.id]);
 
     const handleWebDownloadToggle = async () => {
+        if (saving) return;
         const next = !wToggle;
+        const prev = wToggle;
         setWToggle(next);
-        await updateProfile({ watermark_web_downloads: next });
+        setSaving(true);
+        try {
+            await updateProfile({ watermark_web_downloads: next }, { silent: true });
+            markSaved();
+        } catch {
+            setWToggle(prev);
+        } finally {
+            setSaving(false);
+        }
     };
 
     return (
@@ -1530,20 +1734,22 @@ const WatermarkTab = ({ profile, updateProfile }) => {
                 Watermarks are stripped from anything sent to the print lab, so ordered prints stay clean.
             </p>
 
-            <p className="gd-save-status" style={{ marginTop: 24 }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <polyline points="20 6 9 17 4 12" />
-                </svg>
-                <span>Saved a moment ago.</span>
-            </p>
+            <SettingsSaveStatus status={saveStatus} saving={saving} />
         </div>
     );
 };
 
 /* ── EmailTemplatesTab (Delivery & messages) ── */
-const EmailTemplatesTab = ({ profile }) => {
+const EmailTemplatesTab = ({ profile, updateProfile }) => {
     const navigate = useNavigate();
     const [templates, setTemplates] = useState([]);
+    const [defaultLanguage, setDefaultLanguage] = useState('english');
+    const [langSaving, setLangSaving] = useState(false);
+
+    useEffect(() => {
+        if (!profile) return;
+        setDefaultLanguage(profile.default_language || 'english');
+    }, [profile?.default_language, profile?.id]);
 
     useEffect(() => {
         if (!profile?.id) return;
@@ -1565,6 +1771,26 @@ const EmailTemplatesTab = ({ profile }) => {
         (t) => t.category === "delivery-sharing" || t.category === "collection-sharing"
     );
     const autoExpiryTemplates = templates.filter((t) => t.category === "auto-expiry");
+
+    const handleLanguageChange = async (e) => {
+        const next = e.target.value;
+        const prev = defaultLanguage;
+        setDefaultLanguage(next);
+        setLangSaving(true);
+        try {
+            await updateProfile({ default_language: next }, { silent: true });
+            syncUploadDefaultsToLocalStorage({
+                ...resolveUploadDefaults(profile),
+                defaultLanguage: next,
+            });
+        } catch (err) {
+            console.error('Failed to save default language:', err);
+            setDefaultLanguage(prev);
+            alert('Failed to save language. Please try again.');
+        } finally {
+            setLangSaving(false);
+        }
+    };
 
     return (
         <div className="dm-panel">
@@ -1622,11 +1848,17 @@ const EmailTemplatesTab = ({ profile }) => {
                         The language a client sees. Each delivery can be set differently.
                     </p>
                 </div>
-                <select className="settings-select" defaultValue="en" aria-label="Default language">
-                    <option value="en">English</option>
-                    <option value="ta">தமிழ்</option>
-                    <option value="hi">हिन्दी</option>
-                    <option value="te">తెలుగు</option>
+                <select
+                    className="settings-select"
+                    value={defaultLanguage}
+                    onChange={handleLanguageChange}
+                    disabled={langSaving}
+                    aria-label="Default language"
+                >
+                    <option value="english">English</option>
+                    <option value="tamil">தமிழ்</option>
+                    <option value="hindi">हिन्दी</option>
+                    <option value="telugu">తెలుగు</option>
                 </select>
             </div>
         </div>
@@ -1638,7 +1870,9 @@ const PreferencesTab = ({ profile, updateProfile }) => {
     const defaults = resolveUploadDefaults(profile);
     const [rawToggle, setRawToggle] = useState(defaults.rawPhotoSupport);
     const [sharpenWeb, setSharpenWeb] = useState(defaults.sharpenForWeb);
-    const [showFilenames, setShowFilenames] = useState(false);
+    const [showFilenames, setShowFilenames] = useState(
+        () => resolveUploadDefaults(profile).filenameDisplay === 'show'
+    );
     const [saveStatus, setSaveStatus] = useState('');
     const [saving, setSaving] = useState(false);
     const rawAllowed = planAllowsRaw(profile?.plan);
@@ -1647,6 +1881,7 @@ const PreferencesTab = ({ profile, updateProfile }) => {
         const next = resolveUploadDefaults(profile);
         setRawToggle(next.rawPhotoSupport);
         setSharpenWeb(next.sharpenForWeb);
+        setShowFilenames(next.filenameDisplay === 'show');
         syncUploadDefaultsToLocalStorage(next);
     }, [profile]);
 
@@ -1690,6 +1925,26 @@ const PreferencesTab = ({ profile, updateProfile }) => {
             await persist({ raw_photo_support: next }, { rawToggle: next });
         } catch {
             setRawToggle(prev);
+        }
+    };
+
+    const handleFilenamesToggle = async () => {
+        if (saving) return;
+        const next = !showFilenames;
+        const prev = showFilenames;
+        setShowFilenames(next);
+        setSaving(true);
+        try {
+            await updateProfile({ filename_display: next ? 'show' : 'hide' }, { silent: true });
+            syncUploadDefaultsToLocalStorage({
+                ...resolveUploadDefaults(profile),
+                filenameDisplay: next ? 'show' : 'hide',
+            });
+            markSaved();
+        } catch {
+            setShowFilenames(prev);
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -1783,10 +2038,8 @@ const PreferencesTab = ({ profile, updateProfile }) => {
                     <button
                         type="button"
                         className={`settings-toggle ${showFilenames ? 'settings-toggle--on' : ''}`}
-                        onClick={() => {
-                            setShowFilenames((v) => !v);
-                            markSaved();
-                        }}
+                        onClick={handleFilenamesToggle}
+                        disabled={saving}
                         aria-pressed={showFilenames}
                         aria-label="Show filenames to clients"
                     >

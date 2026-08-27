@@ -155,7 +155,7 @@
 .cd-preview-canvas__body {
   flex: 1 1 auto;
   min-height: 0;
-  height: calc(100% - var(--cd-phone-status-h, 0px));
+  height: 100%;
   border-radius: 0 0 33px 33px;
   overflow-x: hidden;
   overflow-y: auto;
@@ -172,20 +172,15 @@
 .cd-phone-chrome {
   position: relative;
   flex: 0 0 auto;
-  z-index: 50;
-  background: #ffffff;
-  border-radius: 0;
-  pointer-events: none;
-}
-
-.cd-phone-chrome__status {
-  position: relative;
   height: var(--cd-phone-status-h, 52px);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 24px;
+  background: #ffffff;
   color: #1c1917;
+  z-index: 50;
+  pointer-events: none;
 }
 
 .cd-phone-chrome__time {
@@ -228,7 +223,6 @@
   gap: 5px;
   min-width: 58px;
   justify-content: flex-end;
-  color: #1c1917;
 }
 
 .cd-phone-chrome__home {
@@ -239,9 +233,14 @@
   width: 126px;
   height: 4px;
   border-radius: 999px;
-  background: rgba(28, 25, 23, 0.4);
+  background: rgba(255, 255, 255, 0.75);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   z-index: 60;
   pointer-events: none;
+}
+
+.cd-preview-canvas--phone .cd-preview-canvas__body {
+  height: calc(100% - var(--cd-phone-status-h, 0px));
 }
 
 .cd-design-preview-pane.mobile .cd-preview-canvas::-webkit-scrollbar {
