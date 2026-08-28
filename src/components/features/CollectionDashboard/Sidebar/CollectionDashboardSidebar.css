@@ -45,15 +45,21 @@
 .cdsb-cover-wrap {
   flex-shrink: 0;
   overflow: hidden;
+  background: #f7f6f3;
 }
 
-.cdsb-cover-wrap .cd-cover-image {
-  height: 0;
-  padding-bottom: 68%;
+.cdsb-cover-wrap .cd-cover-image:not(.cd-cover-image--empty) {
+  height: 160px;
+  padding-bottom: 0;
   position: relative;
   border-radius: 0;
   overflow: hidden;
-  background: #eceae6;
+  background: #ebe8d8;
+}
+
+.cdsb-cover-wrap .cd-cover-image--empty {
+  height: auto;
+  background: transparent;
 }
 
 .cdsb-cover-wrap .cd-cover-image img {
@@ -65,10 +71,15 @@
 }
 
 .cdsb-cover-wrap .cd-sidebar-cover-dropzone {
-  position: absolute;
-  inset: 0;
+  position: relative;
+  inset: auto;
   min-height: 0;
   border-radius: 0;
+}
+
+.cdsb-cover-wrap .cd-cover-image:not(.cd-cover-image--empty) .cd-sidebar-cover-dropzone {
+  position: absolute;
+  inset: 0;
 }
 
 .cdsb-cover-wrap .cd-sidebar-cover-caption {
@@ -97,7 +108,7 @@
   flex-direction: column;
 }
 
-.cdsb--collapsed .cd-sidebar-cover-caption__change {
+.cdsb--collapsed .cd-sidebar-cover-caption__edit {
   width: 100%;
   padding: 4px 2px;
   font-size: 9px;

@@ -7,6 +7,7 @@ import { loadStudioDashboard } from '../services/studioDashboard.service';
 import { userStorageService } from '../services/userStorage.service';
 import { getThemeMode, setThemeMode, THEME_CHANGE_EVENT } from '../lib/appearanceTheme';
 import { navigateToAccount } from '../lib/accountBackNav';
+import { buildShowcaseUrl } from '../lib/showcaseUrl';
 import AlbumListCoverThumb from '../components/smart-albums/AlbumListCoverThumb';
 import DashboardCommandSearch from '../components/dashboard/DashboardCommandSearch';
 import { coverImageCssStyle } from '../lib/focalPoint';
@@ -297,15 +298,6 @@ function initialsFrom(profile, user) {
   return (user?.email?.[0] || 'U').toUpperCase();
 }
 
-function studioHost(profile) {
-  const slug = (profile?.showcase_slug || profile?.display_name || 'studio')
-    .toString()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '')
-    .slice(0, 40);
-  return `${slug || 'studio'}.pixnxt.in`;
-}
-
 function greetingForNow() {
   const h = new Date().getHours();
   if (h < 12) return 'Good morning';
@@ -438,7 +430,8 @@ const Dashboard = () => {
   const firstName = firstNameFrom(profile, user);
   const initials = initialsFrom(profile, user);
   const studioName = profile?.display_name || 'Your studio';
-  const host = studioHost(profile);
+  const showcaseUrl = buildShowcaseUrl(profile, user);
+  const showcaseLabel = showcaseUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
   const mark = (studioName.trim()[0] || 'S').toUpperCase();
 
   const goMenu = (path) => {
@@ -459,7 +452,14 @@ const Dashboard = () => {
           </span>
           <div className="sd-brand-text">
             <span className="sd-brand-name">{studioName}</span>
-            <span className="sd-brand-host">{host}</span>
+            <a
+              href={showcaseUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="sd-brand-host sd-brand-host--link"
+            >
+              {showcaseLabel}
+            </a>
           </div>
         </div>
 

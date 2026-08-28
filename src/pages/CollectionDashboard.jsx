@@ -1644,6 +1644,7 @@ const CollectionDashboard = () => {
             setShowCoverModal(false);
             setCoverModalScope('all');
             setCoverModalPhotoOverride(null);
+            showToast('Cover saved', 'success');
         } catch (err) {
             console.error('Failed to save delivery cover:', err);
             const detail = err?.message ? `\n\n${err.message}` : '';
