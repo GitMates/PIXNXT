@@ -272,7 +272,7 @@ export function CollectionDashboardSidebar({
             <NavItem
               active={photosActive}
               icon={PhotosGridIcon}
-              label="Photos"
+              label="Photo set"
               count={photoCount}
               className="cdsb-nav-item--photos"
               onClick={() => onSidebarTabChange('photos')}

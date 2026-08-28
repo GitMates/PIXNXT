@@ -140,6 +140,45 @@ export function getRenderedImageContentRect(img) {
   };
 }
 
+/**
+ * Visible crop region (object-fit: cover + object-position) in image space, as % of natural size.
+ * Used to draw the crop guide on the delivery cover focal editor.
+ */
+export function computeCoverCropPercentRect(
+  naturalWidth,
+  naturalHeight,
+  aspectRatio,
+  focalX = 50,
+  focalY = 50
+) {
+  const nw = Number(naturalWidth);
+  const nh = Number(naturalHeight);
+  const targetAspect = Number(aspectRatio);
+  if (!nw || !nh || !targetAspect || targetAspect <= 0) return null;
+
+  const imgAspect = nw / nh;
+  let visibleW;
+  let visibleH;
+
+  if (imgAspect > targetAspect) {
+    visibleH = nh;
+    visibleW = nh * targetAspect;
+  } else {
+    visibleW = nw;
+    visibleH = nw / targetAspect;
+  }
+
+  const left = (normalizeFocalPercent(focalX) / 100) * Math.max(0, nw - visibleW);
+  const top = (normalizeFocalPercent(focalY) / 100) * Math.max(0, nh - visibleH);
+
+  return {
+    left: (left / nw) * 100,
+    top: (top / nh) * 100,
+    width: (visibleW / nw) * 100,
+    height: (visibleH / nh) * 100,
+  };
+}
+
 /** Map pointer position to focal percentages on the actual photo (not letterbox padding). */
 export function focalPointFromPointer(clientX, clientY, img) {
   const r = getRenderedImageContentRect(img);
