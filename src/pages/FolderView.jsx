@@ -9,6 +9,7 @@ import { getFolderStudioUrl } from '../lib/folderStudioUrl';
 import { CollectionCardCover } from '../components/features/ClientGallery/CollectionCardCover';
 import { CollectionContextMenu } from '../components/features/ClientGallery/CollectionContextMenu';
 import { DeleteDeliveryModal } from '../components/features/ClientGallery/DeleteDeliveryModal';
+import { DeliveryDeleteOverlay } from '../components/features/ClientGallery/DeliveryDeleteOverlay';
 import { getCollectionCardCoverSrc } from '../lib/photoDisplayUrl';
 import { EditCollectionModal } from '../components/features/ClientGallery/EditCollectionModal';
 import {
@@ -65,6 +66,7 @@ const FolderView = () => {
   const [pendingDelete, setPendingDelete] = useState(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
+  const [leavingId, setLeavingId] = useState(null);
 
   const sortRef = useRef(null);
   const viewRef = useRef(null);
@@ -357,20 +359,25 @@ const FolderView = () => {
   };
 
   const handleConfirmDeleteCollection = async () => {
-    if (!pendingDelete) return;
+    if (!pendingDelete || deleteBusy) return;
     const collectionId = pendingDelete.id;
+
+    setPendingDelete(null);
+    setDeletingId(collectionId);
     setDeleteBusy(true);
+
     try {
       await galleryService.deleteCollection(collectionId);
-      setPendingDelete(null);
-      setDeletingId(collectionId);
-      await new Promise((resolve) => window.setTimeout(resolve, 280));
+      setLeavingId(collectionId);
+      await new Promise((resolve) => window.setTimeout(resolve, 520));
       setCollections((prev) => prev.filter((c) => c.id !== collectionId));
-      setDeletingId(null);
+      setSelectedCards((prev) => prev.filter((id) => id !== collectionId));
     } catch (err) {
       console.error(err);
       alert('Failed to delete delivery.');
     } finally {
+      setDeletingId(null);
+      setLeavingId(null);
       setDeleteBusy(false);
     }
   };
@@ -553,10 +560,13 @@ const FolderView = () => {
 
       {!loading && !error && sortedCollections.length > 0 && activeView === 'grid' && (
         <div className="cg-style-37 fv-grid">
-          {sortedCollections.map((collection) => (
+          {sortedCollections.map((collection) => {
+            const isDeleting = deletingId === collection.id;
+            const isLeaving = leavingId === collection.id;
+            return (
             <div
               key={collection.id}
-              className={`cg-style-73 group ${contextMenuId === collection.id ? 'cg-style-73--ctx-open' : ''} ${deletingId === collection.id ? 'is-leaving' : ''}`}
+              className={`cg-style-73 group ${contextMenuId === collection.id ? 'cg-style-73--ctx-open' : ''} ${isDeleting ? 'is-deleting' : ''} ${isLeaving ? 'is-leaving' : ''}`}
               onClick={() => handleCardClick(collection)}
             >
               <div className={`cg-style-74 ${selectedCards.includes(collection.id) ? 'cg-style-74--selected' : ''}`}>
@@ -571,6 +581,7 @@ const FolderView = () => {
                     </svg>
                   </div>
                 )}
+                {isDeleting ? <DeliveryDeleteOverlay /> : null}
                 <div
                   className={`cg-style-75 ${selectedCards.includes(collection.id) ? 'border-[#8BDFDD] bg-[#8BDFDD] opacity-100' : 'border-white/85 bg-black/15 opacity-0 group-hover:opacity-100'}`}
                   onClick={(e) => toggleSelectCard(e, collection.id)}
@@ -611,14 +622,22 @@ const FolderView = () => {
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
       {!loading && !error && sortedCollections.length > 0 && activeView === 'list' && (
         <div className="px-10 fv-list">
-          {sortedCollections.map((collection) => (
-            <div key={collection.id} className={`cg-style-52 ${deletingId === collection.id ? 'is-leaving' : ''}`} onClick={() => handleCardClick(collection)}>
+          {sortedCollections.map((collection) => {
+            const isDeleting = deletingId === collection.id;
+            const isLeaving = leavingId === collection.id;
+            return (
+            <div
+              key={collection.id}
+              className={`cg-style-52 ${isDeleting ? 'is-deleting' : ''} ${isLeaving ? 'is-leaving' : ''}`}
+              onClick={() => handleCardClick(collection)}
+            >
               <div className="cg-style-48">
                 <div className="cg-style-53">
                   {getCoverSrc(collection) ? (
@@ -626,6 +645,7 @@ const FolderView = () => {
                   ) : (
                     <div className="cg-style-38" />
                   )}
+                  {isDeleting ? <DeliveryDeleteOverlay compact /> : null}
                 </div>
                 <div className="cg-style-54">
                   <span className="cg-style-55">{collection.name}</span>
@@ -639,7 +659,8 @@ const FolderView = () => {
               </span>
               {renderContextMenu(collection, 'list')}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

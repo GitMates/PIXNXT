@@ -17,6 +17,7 @@ import { openShareByEmail, openWhatsAppShare, getShareUrlForCollection } from '.
 import { CollectionCardCover } from '../components/features/ClientGallery/CollectionCardCover';
 import { CollectionContextMenu } from '../components/features/ClientGallery/CollectionContextMenu';
 import { DeleteDeliveryModal } from '../components/features/ClientGallery/DeleteDeliveryModal';
+import { DeliveryDeleteOverlay } from '../components/features/ClientGallery/DeliveryDeleteOverlay';
 import { getCollectionCardCoverSrc } from '../lib/photoDisplayUrl';
 import { FolderThumbGrid } from '../components/features/ClientGallery/FolderThumbGrid';
 import { EditCollectionModal } from '../components/features/ClientGallery/EditCollectionModal';
@@ -148,6 +149,7 @@ const ClientGallery = () => {
     const [pendingDelete, setPendingDelete] = useState(null);
     const [deleteBusy, setDeleteBusy] = useState(false);
     const [deletingId, setDeletingId] = useState(null);
+    const [leavingId, setLeavingId] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
     const sortRef = useRef(null);
     const filterRef = useRef(null);
@@ -589,20 +591,25 @@ const ClientGallery = () => {
     };
 
     const handleConfirmDeleteCollection = async () => {
-        if (!pendingDelete) return;
+        if (!pendingDelete || deleteBusy) return;
         const collectionId = pendingDelete.id;
+
+        setPendingDelete(null);
+        setDeletingId(collectionId);
         setDeleteBusy(true);
+
         try {
             await galleryService.deleteCollection(collectionId);
-            setPendingDelete(null);
-            setDeletingId(collectionId);
+            setLeavingId(collectionId);
+            await new Promise((resolve) => window.setTimeout(resolve, 520));
             setCollections((prev) => prev.filter((c) => c.id !== collectionId));
-            await new Promise((resolve) => window.setTimeout(resolve, 280));
-            setDeletingId(null);
+            setSelectedCards((prev) => prev.filter((id) => id !== collectionId));
         } catch (err) {
             console.error('Error deleting collection:', err);
             alert(err?.message || 'Failed to delete delivery.');
         } finally {
+            setDeletingId(null);
+            setLeavingId(null);
             setDeleteBusy(false);
         }
     };
@@ -860,6 +867,8 @@ const ClientGallery = () => {
                                     const earn = formatInr(collection.store_earnings);
                                     const shortDate = formatDeliveryShortDate(deliveryDateValue(collection));
                                     const coverSrc = getCoverSrc(collection);
+                                    const isDeleting = deletingId === collection.id;
+                                    const isLeaving = leavingId === collection.id;
                                     return (
                                         <div
                                             key={collection.id}
@@ -867,7 +876,8 @@ const ClientGallery = () => {
                                                 'dl-card',
                                                 contextMenuId === collection.id && 'is-menu',
                                                 selectedCards.includes(collection.id) && 'is-selected',
-                                                deletingId === collection.id && 'is-leaving',
+                                                isDeleting && 'is-deleting',
+                                                isLeaving && 'is-leaving',
                                             )}
                                             onClick={(e) => handleCardClick(collection, e)}
                                         >
@@ -880,6 +890,7 @@ const ClientGallery = () => {
                                                         aria-hidden
                                                     />
                                                 )}
+                                                {isDeleting ? <DeliveryDeleteOverlay /> : null}
                                                 {attention ? (
                                                     <span className="dl-badge">
                                                         <span className="dl-badge__dot" />
@@ -982,6 +993,8 @@ const ClientGallery = () => {
                                             ? formatStorageBytes(collection.storage_bytes)
                                             : '';
                                     const coverSrc = getCoverSrc(collection);
+                                    const isDeleting = deletingId === collection.id;
+                                    const isLeaving = leavingId === collection.id;
                                     return (
                                         <div
                                             key={collection.id}
@@ -989,7 +1002,8 @@ const ClientGallery = () => {
                                                 'dl-row',
                                                 contextMenuId === collection.id && 'is-menu',
                                                 selectedCards.includes(collection.id) && 'is-selected',
-                                                deletingId === collection.id && 'is-leaving',
+                                                isDeleting && 'is-deleting',
+                                                isLeaving && 'is-leaving',
                                             )}
                                             onClick={(e) => handleCardClick(collection, e)}
                                         >
@@ -1003,6 +1017,7 @@ const ClientGallery = () => {
                                                             aria-hidden
                                                         />
                                                     )}
+                                                    {isDeleting ? <DeliveryDeleteOverlay compact /> : null}
                                                 </div>
                                                 <div>
                                                     <div className="dl-row-title">
