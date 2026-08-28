@@ -40,3 +40,13 @@ export function filterGalleryMediaByType<T extends GalleryPhotoLike>(
 export function shouldShowGalleryMediaFilter(counts: { photos: number; videos: number }) {
   return counts.photos > 0 && counts.videos > 0;
 }
+
+export function partitionGalleryMedia<T extends GalleryPhotoLike>(photos: T[]) {
+  const videos: T[] = [];
+  const stills: T[] = [];
+  for (const p of photos) {
+    if (isGalleryVideo(p)) videos.push(p);
+    else stills.push(p);
+  }
+  return { videos, photos: stills };
+}

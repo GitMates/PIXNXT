@@ -381,6 +381,46 @@
   text-decoration: underline;
 }
 
+.cover-focal-change-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px 16px;
+}
+
+.cover-modal-pick-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: #6b6b6b;
+}
+
+.cover-modal-pick-toolbar .cover-modal-browse-btn,
+.cover-focal-change-row .cover-modal-browse-btn {
+  padding: 0;
+  color: #e06b3a;
+  font-size: 13px;
+}
+
+.cover-modal-pick-toolbar .cover-modal-browse-btn:hover:not(:disabled),
+.cover-focal-change-row .cover-modal-browse-btn:hover:not(:disabled) {
+  color: #c45a2e;
+  text-decoration: underline;
+}
+
+.cover-modal .cd-cover-file-input,
+.cover-modal-container .cd-cover-file-input {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .cover-focal-stage {
   position: relative;
   aspect-ratio: 1 / 1;
@@ -549,6 +589,18 @@
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
+}
+
+.cover-focal-actions .cover-modal-browse-btn {
+  margin-right: auto;
+  padding: 8px 4px;
+  color: #e06b3a;
+  font-size: 13px;
+}
+
+.cover-focal-actions .cover-modal-browse-btn:hover:not(:disabled) {
+  color: #c45a2e;
+  text-decoration: underline;
 }
 
 .cover-focal-btn {

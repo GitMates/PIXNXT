@@ -40,7 +40,9 @@ export default function EventGuestRegister() {
         const data = await guestDeliveryService.getEventBySlug(slug);
         if (!cancelled) {
           if (!data) setError('This event was not found.');
-          else setEvent(data);
+          else if (data.registration_enabled === false) {
+            setError('Registration for this event has closed.');
+          } else setEvent(data);
         }
       } catch (err) {
         console.error(err);

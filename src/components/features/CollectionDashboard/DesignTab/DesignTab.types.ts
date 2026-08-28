@@ -8,4 +8,5 @@ export interface DesignTabProps {
   onSettingsChange: (settings: DesignSettings) => void;
   onOpenCoverModal: () => void;
   onOpenFocalModal: () => void;
+  onCoverFileSelect?: (file: File) => void | Promise<void>;
 }

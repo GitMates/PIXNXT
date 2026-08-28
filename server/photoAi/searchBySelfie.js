@@ -1,5 +1,5 @@
 import { RekognitionClient, SearchFacesByImageCommand } from '@aws-sdk/client-rekognition';
-import { rekognitionCollectionId } from './indexPhoto.js';
+import { rekognitionDeliveryId } from './indexPhoto.js';
 import { normalizeImageToJpegBytes } from './normalizeImage.js';
 
 function getClient() {
@@ -29,19 +29,20 @@ function parseImageBase64(imageBase64) {
 }
 
 /**
- * Search gallery collection for faces matching a selfie image.
+ * Search a delivery’s face group for faces matching a selfie image.
+ * @param {string} deliveryId — PIXNXT delivery (or guest-delivery event) id
  */
-export async function searchFacesBySelfie(collectionId, imageBase64, threshold = 85) {
+export async function searchFacesBySelfie(deliveryId, imageBase64, threshold = 85) {
   const rawBytes = parseImageBase64(imageBase64);
   const imageBytes = new Uint8Array(await normalizeImageToJpegBytes(rawBytes));
   const client = getClient();
-  const rekCollectionId = rekognitionCollectionId(collectionId);
+  const deliveryFaceGroupId = rekognitionDeliveryId(deliveryId);
 
   let result;
   try {
     result = await client.send(
       new SearchFacesByImageCommand({
-        CollectionId: rekCollectionId,
+        CollectionId: deliveryFaceGroupId,
         Image: { Bytes: imageBytes },
         FaceMatchThreshold: threshold,
         MaxFaces: 30,

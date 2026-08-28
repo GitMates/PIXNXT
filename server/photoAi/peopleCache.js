@@ -230,7 +230,14 @@ export async function clusterAndPersistPeople(supabase, collectionId, photograph
   const faceEntries = buildFaceEntries(metadataRows);
 
   if (!faceEntries.length) {
-    await savePeopleClusters(supabase, collectionId, photographerId, [], stats);
+    // Do not wipe existing people when metadata has no face IDs yet
+    // (indexing still running, or photos with no detectable faces).
+    const { people: existing } = await loadPeopleFromDb(supabase, collectionId, {
+      includeHidden: true,
+    });
+    if (existing.length > 0) {
+      return existing;
+    }
     return [];
   }
 
@@ -250,10 +257,6 @@ export async function getPeopleForCollection(
   { forceRecluster = false, includeHidden = false } = {}
 ) {
   const stats = await getMetadataStats(supabase, collectionId);
-  if (!stats.indexedPhotoCount) {
-    return { people: [], fromCache: true, missingTables: false };
-  }
-
   const { missingTables: stateTablesMissing, state } = await getClusterState(supabase, collectionId);
   const { missingTables: peopleTablesMissing, people: cachedPeople } = await loadPeopleFromDb(
     supabase,
@@ -262,6 +265,10 @@ export async function getPeopleForCollection(
   );
 
   const missingTables = stateTablesMissing || peopleTablesMissing;
+
+  if (!stats.indexedPhotoCount) {
+    return { people: cachedPeople, fromCache: true, missingTables };
+  }
 
   if (
     !forceRecluster &&
@@ -281,12 +288,14 @@ export async function getPeopleForCollection(
     if (metaError) throw metaError;
 
     const faceEntries = buildFaceEntries(metadataRows);
-    if (!faceEntries.length) return { people: [], fromCache: false, missingTables: true };
+    if (!faceEntries.length) {
+      return { people: cachedPeople, fromCache: true, missingTables: true };
+    }
 
     const clustered = await clusterFacesForCollection(collectionId, faceEntries);
     const people = await attachPhotoUrls(
       supabase,
-      clustered.map((person, index) => ({
+      clustered.map((person) => ({
         ...person,
         label: person.label || 'Not named',
       }))
@@ -294,8 +303,16 @@ export async function getPeopleForCollection(
     return { people, fromCache: false, missingTables: true };
   }
 
-  const people = await clusterAndPersistPeople(supabase, collectionId);
-  return { people, fromCache: false, missingTables: false };
+  try {
+    const people = await clusterAndPersistPeople(supabase, collectionId);
+    return { people, fromCache: false, missingTables: false };
+  } catch (err) {
+    if (cachedPeople.length > 0) {
+      console.warn('[peopleCache] recluster failed; returning cached people:', err?.message || err);
+      return { people: cachedPeople, fromCache: true, missingTables: false };
+    }
+    throw err;
+  }
 }
 
 export async function filterPeopleByFaceIds(supabase, collectionId, matchedFaceIds, matchedPhotoIds) {

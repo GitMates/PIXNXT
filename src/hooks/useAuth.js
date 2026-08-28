@@ -16,6 +16,18 @@ export const useAuth = () => {
     return await authService.signUpWithEmail(credentials);
   };
 
+  const loginWithGoogle = async () => {
+    return await authService.signInWithGoogle();
+  };
+
+  const requestPasswordReset = async (email) => {
+    return await authService.sendPasswordReset(email);
+  };
+
+  const updatePassword = async (password) => {
+    return await authService.updatePassword(password);
+  };
+
   const logout = async () => {
     return await authService.signOut();
   };
@@ -24,6 +36,9 @@ export const useAuth = () => {
     ...context,
     login,
     signup,
+    loginWithGoogle,
+    requestPasswordReset,
+    updatePassword,
     logout,
   };
 };

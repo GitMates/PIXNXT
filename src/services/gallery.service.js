@@ -1030,7 +1030,7 @@ export const galleryService = {
       }
       if (isNumericOverflowError(err)) {
         console.warn(
-          'cover_focal_x/y numeric overflow — saving focal in cover_url only. Run migration 20260521140100_collections_cover_focal_fix_type.sql'
+          'cover_focal_x/y numeric overflow — saving focal in cover_url only. Run migration 20260824140000_deliveries_cover_focal_fix_type.sql'
         );
         return await this.updateCollection(collectionId, { cover_url: newCoverUrl });
       }
@@ -1087,6 +1087,8 @@ export const galleryService = {
    */
   async updateCollection(id, updateData) {
     let payload = { ...updateData };
+    if (payload.cover_focal_x != null) payload.cover_focal_x = normalizeFocalForDb(payload.cover_focal_x);
+    if (payload.cover_focal_y != null) payload.cover_focal_y = normalizeFocalForDb(payload.cover_focal_y);
     let lastError = null;
     const triedTokens = new Set();
 
@@ -1100,6 +1102,25 @@ export const galleryService = {
 
       if (!error) return data;
       lastError = error;
+
+      if (isNumericOverflowError(error) && ('cover_focal_x' in payload || 'cover_focal_y' in payload)) {
+        const fx = payload.cover_focal_x;
+        const fy = payload.cover_focal_y;
+        const asInt = {
+          ...payload,
+          cover_focal_x: fx == null ? fx : Math.min(99, Math.max(0, Math.round(Number(fx)))),
+          cover_focal_y: fy == null ? fy : Math.min(99, Math.max(0, Math.round(Number(fy)))),
+        };
+        if (asInt.cover_focal_x !== payload.cover_focal_x || asInt.cover_focal_y !== payload.cover_focal_y) {
+          payload = asInt;
+          continue;
+        }
+        const stripped = { ...payload };
+        delete stripped.cover_focal_x;
+        delete stripped.cover_focal_y;
+        payload = stripped;
+        continue;
+      }
 
       const tokenSig = `${payload.font_family}|${payload.color_palette}`;
       triedTokens.add(tokenSig);
@@ -1678,6 +1699,7 @@ export const galleryService = {
         isVideo,
         isRaw,
         thumbnailBlob,
+        photoData,
       },
     };
   },
@@ -1770,6 +1792,7 @@ export const galleryService = {
       isRaw,
       thumbnailBlob: null,
       resumed: true,
+      photoData: photo,
     };
   },
 
@@ -1807,15 +1830,19 @@ export const galleryService = {
 
     const uploadResult = await storageService.upload(filePath, uploadBody, onProgress, signal);
 
-    const { data: finalPhoto } = await supabase
+    const { data: finalPhoto, error: finalizeError } = await supabase
       .from('photos')
       .update({
         full_url: uploadResult.url,
         original_storage_path: filePath,
       })
       .eq('id', photoId)
-      .select()
+      .select(DASHBOARD_PHOTO_FIELDS)
       .single();
+
+    if (finalizeError) {
+      console.warn('Photo original finalize select failed:', finalizeError);
+    }
 
     if (typeof window !== 'undefined' && photoId) {
       void import('./photoAiUploadPipeline.js').then(({ queuePhotoAiIndex }) =>
@@ -1836,7 +1863,13 @@ export const galleryService = {
         .catch((err) => console.warn('Video thumbnail upload deferred failed:', err));
     }
 
-    return finalPhoto || { id: photoId, full_url: uploadResult.url, original_storage_path: filePath };
+    return {
+      ...(uploadContext.photoData || {}),
+      ...(finalPhoto || {}),
+      id: photoId,
+      full_url: finalPhoto?.full_url || uploadResult.url,
+      original_storage_path: finalPhoto?.original_storage_path || filePath,
+    };
   },
 
   /**
@@ -1867,7 +1900,7 @@ export const galleryService = {
       onProgress?.(20 + Math.round((p / 100) * 80))
     );
 
-    return finalPhoto || photoData;
+    return { ...photoData, ...finalPhoto };
   },
 
   async _captureRawPreview(file) {

@@ -15,20 +15,20 @@ import { coverImageCssStyle } from '../../../../lib/focalPoint';
 import './DesignWorkspace.css';
 
 const FEATURED_COVER_IDS: CoverStyleId[] = [
+  'stamp',
   'novel',
   'center',
   'frame',
   'left',
   'stripe',
-  'journal',
 ];
 
 const MORE_COVER_IDS: CoverStyleId[] = [
+  'journal',
   'classic',
   'vintage',
   'outline',
   'divider',
-  'stamp',
   'none',
 ];
 
@@ -268,8 +268,6 @@ export const DesignPanel: React.FC<DesignTabProps> = ({
   coverFocalX = 50,
   coverFocalY = 50,
   onSettingsChange,
-  onOpenCoverModal,
-  onOpenFocalModal,
 }) => {
   const featuredCovers = coversByIds(FEATURED_COVER_IDS);
   const moreCovers = coversByIds(MORE_COVER_IDS);
@@ -314,17 +312,7 @@ export const DesignPanel: React.FC<DesignTabProps> = ({
     <aside className="cd-design-panel">
       <div className="cd-design-panel__scroll">
         <section className="cd-design-panel__section">
-          <div className="cd-design-panel__section-head">
-            <h3 className="cd-design-panel__section-title">Cover layout</h3>
-            <div className="cd-design-panel__cover-actions">
-              <button type="button" className="cd-design-panel__link-btn" onClick={onOpenCoverModal}>
-                Cover photo
-              </button>
-              <button type="button" className="cd-design-panel__link-btn" onClick={onOpenFocalModal}>
-                Focal
-              </button>
-            </div>
-          </div>
+          <h3 className="cd-design-panel__section-title">Cover layout</h3>
 
           <div className="cd-design-panel__cover-grid">
             {featuredCovers.map((style) => (

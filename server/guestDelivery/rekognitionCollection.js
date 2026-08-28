@@ -3,7 +3,7 @@ import {
   CreateCollectionCommand,
   DeleteCollectionCommand,
 } from '@aws-sdk/client-rekognition';
-import { rekognitionCollectionId } from '../photoAi/indexPhoto.js';
+import { rekognitionDeliveryId } from '../photoAi/indexPhoto.js';
 
 function getClient() {
   const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
@@ -18,24 +18,27 @@ function getClient() {
   });
 }
 
-export { rekognitionCollectionId };
+export { rekognitionDeliveryId, rekognitionDeliveryId as rekognitionCollectionId };
 
-/** Wipe and recreate the Rekognition collection for a guest delivery event. */
-export async function resetGuestDeliveryCollection(eventId) {
+/** Wipe and recreate the Rekognition face group for a guest delivery event. */
+export async function resetGuestDeliveryFaceGroup(eventId) {
   const client = getClient();
-  const collectionId = rekognitionCollectionId(eventId);
+  const deliveryFaceGroupId = rekognitionDeliveryId(eventId);
 
   try {
-    await client.send(new DeleteCollectionCommand({ CollectionId: collectionId }));
+    await client.send(new DeleteCollectionCommand({ CollectionId: deliveryFaceGroupId }));
   } catch (err) {
     if (err?.name !== 'ResourceNotFoundException') throw err;
   }
 
   try {
-    await client.send(new CreateCollectionCommand({ CollectionId: collectionId }));
+    await client.send(new CreateCollectionCommand({ CollectionId: deliveryFaceGroupId }));
   } catch (err) {
     if (err?.name !== 'ResourceAlreadyExistsException') throw err;
   }
 
-  return collectionId;
+  return deliveryFaceGroupId;
 }
+
+/** @deprecated Prefer resetGuestDeliveryFaceGroup */
+export const resetGuestDeliveryCollection = resetGuestDeliveryFaceGroup;

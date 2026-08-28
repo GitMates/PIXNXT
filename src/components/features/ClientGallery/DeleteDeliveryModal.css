@@ -1,0 +1,171 @@
+.dl-delete-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(12, 11, 10, 0.48);
+  backdrop-filter: blur(6px);
+  animation: dl-delete-fade 0.22s ease;
+}
+
+.dl-delete-card {
+  width: min(26rem, 100%);
+  padding: 1.55rem 1.5rem 1.3rem;
+  border-radius: 1rem;
+  background: #fff;
+  box-shadow: 0 24px 64px rgba(12, 11, 10, 0.28);
+  animation: dl-delete-pop 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: center center;
+}
+
+.dl-delete-title {
+  margin: 0;
+  font-family: var(--font-display, Georgia, serif);
+  font-size: 1.35rem;
+  font-weight: 500;
+  color: #1d1916;
+}
+
+.dl-delete-body {
+  margin: 0.7rem 0 0;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  color: #6f6a64;
+}
+
+.dl-delete-body strong {
+  color: #1d1916;
+}
+
+.dl-delete-accept {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  margin-top: 1.1rem;
+  cursor: pointer;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: #3f3b37;
+}
+
+.dl-delete-accept input {
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0.12rem;
+  flex-shrink: 0;
+  accent-color: #8d3a32;
+}
+
+.dl-delete-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  margin-top: 1.35rem;
+}
+
+.dl-delete-cancel,
+.dl-delete-confirm {
+  height: 2.4rem;
+  padding: 0 1.05rem;
+  border: 0;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    transform 0.16s ease,
+    background 0.16s ease,
+    opacity 0.16s ease;
+}
+
+.dl-delete-cancel:hover:not(:disabled),
+.dl-delete-confirm:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.dl-delete-cancel {
+  background: #efece6;
+  color: #1d1916;
+}
+
+.dl-delete-confirm {
+  background: #8d3a32;
+  color: #fff;
+}
+
+.dl-delete-confirm:hover:not(:disabled) {
+  background: #7a312b;
+}
+
+.dl-delete-cancel:disabled,
+.dl-delete-confirm:disabled {
+  opacity: 0.5;
+  cursor: default;
+  transform: none;
+}
+
+@keyframes dl-delete-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes dl-delete-pop {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes dl-card-leave {
+  to {
+    opacity: 0;
+    transform: scale(0.94) translateY(10px);
+  }
+}
+
+.dl-card.is-leaving,
+.dl-row.is-leaving,
+.cg-style-73.is-leaving,
+.cg-style-52.is-leaving {
+  animation: dl-card-leave 0.28s ease forwards;
+  pointer-events: none;
+}
+
+body.dark-theme .dl-delete-overlay {
+  background: rgba(0, 0, 0, 0.62);
+}
+
+body.dark-theme .dl-delete-card {
+  background: #1c1c1c;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+}
+
+body.dark-theme .dl-delete-title,
+body.dark-theme .dl-delete-body strong {
+  color: #ece9e2;
+}
+
+body.dark-theme .dl-delete-body {
+  color: #a19c91;
+}
+
+body.dark-theme .dl-delete-accept {
+  color: #d4cfc6;
+}
+
+body.dark-theme .dl-delete-cancel {
+  background: #2a2825;
+  color: #ece9e2;
+}
+
+body.dark-theme .dl-delete-confirm {
+  background: #a3483e;
+}

@@ -6,7 +6,9 @@ import { MoveCollectionModal } from '@/components/features/Collections/MoveColle
 import { CollectionDuplicateModal } from '@/components/features/ClientGallery/CollectionShareModals';
 import { supabase } from '@/lib/supabase/client';
 import { guestDeliveryGuestsService } from '@/services/guestDeliveryGuests.service';
-import { getCollectionShareUrl } from '@/lib/shareCollection';
+import { GetDirectLinkModal } from '@/components/features/CollectionDashboard/Share/GetDirectLinkModal';
+import { DeleteDeliveryModal } from '@/components/features/ClientGallery/DeleteDeliveryModal';
+import { DELIVERY_PRODUCT_HOME } from '@/lib/deliveryIds';
 
 export interface CollectionMoreMenuProps {
   collectionId?: string | null;
@@ -19,6 +21,9 @@ export interface CollectionMoreMenuProps {
   pinValue?: string;
   clientPasswordDisplay?: string;
   onOpenDownloadSettings?: () => void;
+  onOpenAccessSettings?: () => void;
+  onPasswordChange?: (value: string) => void;
+  onPinChange?: (value: string) => void;
 }
 
 function generateSlug(text: string) {
@@ -40,6 +45,9 @@ export function CollectionMoreMenu({
   pinValue = '',
   clientPasswordDisplay = '',
   onOpenDownloadSettings,
+  onOpenAccessSettings,
+  onPasswordChange,
+  onPinChange,
 }: CollectionMoreMenuProps) {
   const navigate = useNavigate();
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -58,7 +66,6 @@ export function CollectionMoreMenu({
   const [moveOpen, setMoveOpen] = useState(false);
   const [duplicateOpen, setDuplicateOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [setsLiveCount, setSetsLiveCount] = useState<number | null>(null);
   const [storageLabel, setStorageLabel] = useState<string>('');
@@ -266,10 +273,6 @@ export function CollectionMoreMenu({
     };
   }, [emailOpen, collectionId]);
 
-  const galleryUrl = collectionSlug
-    ? getCollectionShareUrl(collectionSlug, photographerProfile)
-    : '';
-
   const closeAll = () => {
     setOpen(false);
     setPresetsOpen(false);
@@ -398,7 +401,6 @@ export function CollectionMoreMenu({
             role="menuitem"
             onClick={() => {
               closeAll();
-              setDeleteConfirm(false);
               setDeleteOpen(true);
             }}
           >
@@ -487,146 +489,18 @@ export function CollectionMoreMenu({
         </div>
       )}
 
-      {linkOpen && (
-        <div className="cd-modal-overlay" onClick={() => setLinkOpen(false)}>
-          <div className="cd-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
-            <div className="cd-modal-header">
-              <h3 className="cd-modal-title">GET DIRECT LINK</h3>
-              <button type="button" className="cd-modal-close" onClick={() => setLinkOpen(false)} aria-label="Close">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            </div>
-            <div className="cd-modal-body" style={{ padding: '24px' }}>
-              <div style={{ marginBottom: '20px' }}>
-                <label style={{ fontSize: '11px', fontWeight: 600, color: '#666', letterSpacing: '0.5px', display: 'block', marginBottom: '8px' }}>DELIVERY URL</label>
-                <div style={{ display: 'flex' }}>
-                  <input
-                    type="text"
-                    readOnly
-                    value={galleryUrl || 'Publish the delivery to get a link'}
-                    style={{
-                      flex: 1,
-                      padding: '10px 12px',
-                      border: '1px solid #ddd',
-                      borderRadius: '4px 0 0 4px',
-                      fontSize: '14px',
-                      backgroundColor: '#f9f9f9',
-                      outline: 'none',
-                      color: '#555',
-                    }}
-                  />
-                  <button
-                    type="button"
-                    style={{
-                      padding: '0 16px',
-                      backgroundColor: '#fff',
-                      border: '1px solid #ddd',
-                      borderLeft: 'none',
-                      borderRadius: '0 4px 4px 0',
-                      cursor: galleryUrl ? 'pointer' : 'default',
-                      fontWeight: 500,
-                      fontSize: '13px',
-                    }}
-                    disabled={!galleryUrl}
-                    onClick={() => galleryUrl && navigator.clipboard.writeText(galleryUrl)}
-                  >
-                    Copy
-                  </button>
-                </div>
-              </div>
-              <div style={{ marginBottom: '20px' }}>
-                <label style={{ fontSize: '11px', fontWeight: 600, color: '#666', letterSpacing: '0.5px', display: 'block', marginBottom: '8px' }}>DELIVERY PASSWORD</label>
-                <div style={{ display: 'flex' }}>
-                  <input
-                    type="text"
-                    readOnly
-                    value={clientPasswordDisplay || 'No password set'}
-                    style={{
-                      flex: 1,
-                      padding: '10px 12px',
-                      border: '1px solid #ddd',
-                      borderRadius: '4px 0 0 4px',
-                      fontSize: '14px',
-                      backgroundColor: '#f9f9f9',
-                      outline: 'none',
-                      color: '#555',
-                    }}
-                  />
-                  <button
-                    type="button"
-                    style={{
-                      padding: '0 16px',
-                      backgroundColor: '#fff',
-                      border: '1px solid #ddd',
-                      borderLeft: 'none',
-                      borderRadius: '0 4px 4px 0',
-                      cursor: clientPasswordDisplay ? 'pointer' : 'default',
-                      fontWeight: 500,
-                      fontSize: '13px',
-                    }}
-                    disabled={!clientPasswordDisplay}
-                    onClick={() => clientPasswordDisplay && navigator.clipboard.writeText(clientPasswordDisplay)}
-                  >
-                    Copy
-                  </button>
-                </div>
-              </div>
-              <div style={{ marginBottom: '24px' }}>
-                <label style={{ fontSize: '11px', fontWeight: 600, color: '#666', letterSpacing: '0.5px', display: 'block', marginBottom: '8px' }}>DOWNLOAD PIN</label>
-                <div style={{ display: 'flex' }}>
-                  <input
-                    type="text"
-                    readOnly
-                    value={pinValue || '—'}
-                    style={{
-                      flex: 1,
-                      padding: '10px 12px',
-                      border: '1px solid #ddd',
-                      borderRadius: '4px 0 0 4px',
-                      fontSize: '14px',
-                      backgroundColor: '#f9f9f9',
-                      outline: 'none',
-                      color: '#555',
-                    }}
-                  />
-                  <button
-                    type="button"
-                    style={{
-                      padding: '0 16px',
-                      backgroundColor: '#fff',
-                      border: '1px solid #ddd',
-                      borderLeft: 'none',
-                      borderRadius: '0 4px 4px 0',
-                      cursor: pinValue ? 'pointer' : 'default',
-                      fontWeight: 500,
-                      fontSize: '13px',
-                    }}
-                    disabled={!pinValue}
-                    onClick={() => pinValue && navigator.clipboard.writeText(pinValue)}
-                  >
-                    Copy
-                  </button>
-                </div>
-                {onOpenDownloadSettings && (
-                  <button
-                    type="button"
-                    style={{ fontSize: '13px', color: '#2b78c5', marginTop: '8px', cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}
-                    onClick={() => {
-                      setLinkOpen(false);
-                      onOpenDownloadSettings();
-                    }}
-                  >
-                    Download Settings
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <GetDirectLinkModal
+        isOpen={linkOpen}
+        onClose={() => setLinkOpen(false)}
+        collectionSlug={collectionSlug}
+        photographerProfile={photographerProfile}
+        password={clientPasswordDisplay}
+        pin={pinValue}
+        onPasswordChange={onPasswordChange}
+        onPinChange={onPinChange}
+        onOpenAccessSettings={onOpenAccessSettings ? () => { setLinkOpen(false); onOpenAccessSettings(); } : undefined}
+        onOpenDownloadSettings={onOpenDownloadSettings ? () => { setLinkOpen(false); onOpenDownloadSettings(); } : undefined}
+      />
 
       {emailOpen && (
         <div className="cd-modal-overlay" onClick={() => { setEmailOpen(false); setEmailHistoryHelpOpen(false); }}>
@@ -844,62 +718,27 @@ export function CollectionMoreMenu({
         }}
       />
 
-      {deleteOpen && (
-        <div className="cd-modal-overlay" onClick={() => setDeleteOpen(false)}>
-          <div className="cd-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '450px' }}>
-            <div className="cd-modal-header">
-              <h3 className="cd-modal-title">DELETE DELIVERY</h3>
-              <button type="button" className="cd-modal-close" onClick={() => setDeleteOpen(false)} aria-label="Close">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            </div>
-            <div className="cd-modal-body" style={{ padding: '24px' }}>
-              <p style={{ fontSize: '14px', color: '#555', marginBottom: '16px' }}>Are you sure you want to delete this delivery?</p>
-              <p style={{ fontSize: '14px', color: '#555', marginBottom: '24px' }}>
-                <strong>Warning:</strong> All photos and past activities will be permanently removed.
-              </p>
-              <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={deleteConfirm}
-                  onChange={(e) => setDeleteConfirm(e.target.checked)}
-                  style={{ marginTop: '4px', width: '16px', height: '16px' }}
-                />
-                <span style={{ fontSize: '13px', color: '#333' }}>I accept that this delivery will be permanently deleted</span>
-              </label>
-            </div>
-            <div className="cd-modal-footer">
-              <button type="button" className="cd-cancel-btn" onClick={() => setDeleteOpen(false)}>
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="cd-save-btn"
-                style={{ backgroundColor: '#e53e3e', borderColor: '#e53e3e', opacity: deleteConfirm ? 1 : 0.5 }}
-                disabled={!deleteConfirm || !collectionId || busy}
-                onClick={async () => {
-                  if (!collectionId) return;
-                  try {
-                    setBusy(true);
-                    await galleryService.deleteCollection(collectionId);
-                    setDeleteOpen(false);
-                    navigate('/dashboard');
-                  } catch (err) {
-                    console.error(err);
-                    alert('Failed to delete delivery.');
-                    setBusy(false);
-                  }
-                }}
-              >
-                {busy ? 'Deleting…' : 'Delete'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <DeleteDeliveryModal
+        isOpen={deleteOpen}
+        name={collectionName}
+        busy={busy}
+        onClose={() => {
+          if (!busy) setDeleteOpen(false);
+        }}
+        onConfirm={async () => {
+          if (!collectionId) return;
+          try {
+            setBusy(true);
+            await galleryService.deleteCollection(collectionId);
+            setDeleteOpen(false);
+            navigate(DELIVERY_PRODUCT_HOME);
+          } catch (err) {
+            console.error(err);
+            alert('Failed to delete delivery.');
+            setBusy(false);
+          }
+        }}
+      />
     </div>
   );
 }

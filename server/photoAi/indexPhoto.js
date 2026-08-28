@@ -4,21 +4,42 @@ import { invalidateClusterState } from './peopleCache.js';
 
 const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
 
-export function rekognitionCollectionId(collectionId) {
-  return `pixnxt-${String(collectionId).replace(/[^a-zA-Z0-9_.-]/g, '-')}`;
+/**
+ * Face-group id for a PIXNXT delivery (or guest-delivery event).
+ * AWS Rekognition still calls this resource a “Collection” — that is their API name.
+ */
+export function rekognitionDeliveryId(deliveryId) {
+  return `pixnxt-${String(deliveryId).replace(/[^a-zA-Z0-9_.-]/g, '-')}`;
 }
+
+/** @deprecated Prefer rekognitionDeliveryId — same value (AWS CollectionId for a delivery). */
+export const rekognitionCollectionId = rekognitionDeliveryId;
 
 async function downloadImageBytes(url) {
   if (!url) throw new Error('Photo has no image URL to analyze.');
-  const res = await fetch(url, { headers: { Accept: 'image/*' } });
-  if (!res.ok) {
-    throw new Error(`Failed to download image (${res.status})`);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 45000);
+  try {
+    const res = await fetch(url, {
+      headers: { Accept: 'image/*' },
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      throw new Error(`Failed to download image (${res.status})`);
+    }
+    const buffer = Buffer.from(await res.arrayBuffer());
+    if (buffer.length > MAX_IMAGE_BYTES) {
+      throw new Error('Image is too large for AI indexing.');
+    }
+    return new Uint8Array(buffer);
+  } catch (err) {
+    if (err?.name === 'AbortError') {
+      throw new Error('Timed out downloading image for AI indexing.');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
   }
-  const buffer = Buffer.from(await res.arrayBuffer());
-  if (buffer.length > MAX_IMAGE_BYTES) {
-    throw new Error('Image is too large for AI indexing.');
-  }
-  return new Uint8Array(buffer);
 }
 
 export async function indexPhotoById(photoId, { supabase } = {}) {
@@ -43,7 +64,7 @@ export async function indexPhotoById(photoId, { supabase } = {}) {
   const imageBytes = await downloadImageBytes(imageUrl);
 
   const analysis = await analyzeImageBytes(imageBytes, {
-    collectionId: rekognitionCollectionId(photo.collection_id),
+    deliveryFaceGroupId: rekognitionDeliveryId(photo.collection_id),
     externalImageId: String(photo.id),
     indexFaces: true,
   });

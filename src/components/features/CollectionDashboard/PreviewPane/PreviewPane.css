@@ -60,6 +60,10 @@
   height: 0;
 }
 
+.cd-design-preview-pane.mobile {
+  background: transparent;
+}
+
 .cd-design-preview-pane.mobile .cd-preview-workspace {
   padding: 40px;
   align-items: center;
@@ -68,15 +72,175 @@
 .cd-design-preview-pane.mobile .cd-preview-canvas {
   max-width: 375px;
   width: 375px;
-  height: 667px;
-  min-height: 667px;
-  border-radius: 40px;
-  border: 12px solid #1a1a1a;
+  height: 720px;
+  min-height: 720px;
+  border-radius: 42px;
+  border: 9px solid #1d1d1f;
+  overflow: hidden;
+  clip-path: inset(0 round 42px);
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  flex: none;
+  background: #1d1d1f;
+  position: relative;
+  box-sizing: content-box;
+  box-shadow: none;
+}
+
+.cd-phone-shell {
+  --cd-phone-status-h: 52px;
+  position: relative;
+  width: 393px;
+  margin: 0 auto;
+  padding: 0;
+  background: transparent;
+  border: none;
+  overflow: visible;
+  border-radius: 42px;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.22);
+}
+
+.cd-phone-btn {
+  position: absolute;
+  z-index: 8;
+  display: block;
+  background: #1d1d1f;
+  border: none;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+/* Buttons live on the shell; overlap the bezel slightly to kill scale subpixel gaps */
+.cd-phone-btn--action {
+  left: -2px;
+  top: 118px;
+  width: 3.5px;
+  height: 30px;
+  border-radius: 1.5px 0 0 1.5px;
+}
+
+.cd-phone-btn--vol-up {
+  left: -2px;
+  top: 172px;
+  width: 3.5px;
+  height: 56px;
+  border-radius: 1.5px 0 0 1.5px;
+}
+
+.cd-phone-btn--vol-down {
+  left: -2px;
+  top: 238px;
+  width: 3.5px;
+  height: 56px;
+  border-radius: 1.5px 0 0 1.5px;
+}
+
+.cd-phone-btn--power {
+  right: -2px;
+  top: 196px;
+  width: 3.5px;
+  height: 84px;
+  border-radius: 0 1.5px 1.5px 0;
+}
+
+.cd-design-preview-pane.mobile .cd-preview-canvas--phone {
+  display: flex;
+  flex-direction: column;
+  padding-top: 0;
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.cd-preview-canvas__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  border-radius: 0 0 33px 33px;
   overflow-x: hidden;
   overflow-y: auto;
   scrollbar-width: none;
   -ms-overflow-style: none;
-  flex: none;
+  background: #ffffff;
+}
+
+.cd-preview-canvas__body::-webkit-scrollbar {
+  display: none;
+}
+
+/* Status bar sits in flow so gallery content never renders beneath it */
+.cd-phone-chrome {
+  position: relative;
+  flex: 0 0 auto;
+  height: var(--cd-phone-status-h, 52px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  background: #ffffff;
+  color: #1c1917;
+  z-index: 50;
+  pointer-events: none;
+}
+
+.cd-phone-chrome__time {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  min-width: 42px;
+}
+
+.cd-phone-chrome__island {
+  position: absolute;
+  left: 50%;
+  top: 14px;
+  transform: translateX(-50%);
+  width: 106px;
+  height: 28px;
+  border-radius: 999px;
+  background: #0a0a0a;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+/* Front camera lens inside the dynamic island */
+.cd-phone-chrome__island::after {
+  content: '';
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #17181c;
+  box-shadow: inset 0 0 0 1px rgba(120, 130, 150, 0.35);
+}
+
+.cd-phone-chrome__icons {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 58px;
+  justify-content: flex-end;
+}
+
+.cd-phone-chrome__home {
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  transform: translateX(-50%);
+  width: 126px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.75);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  z-index: 60;
+  pointer-events: none;
+}
+
+.cd-preview-canvas--phone .cd-preview-canvas__body {
+  height: calc(100% - var(--cd-phone-status-h, 0px));
 }
 
 .cd-design-preview-pane.mobile .cd-preview-canvas::-webkit-scrollbar {

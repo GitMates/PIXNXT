@@ -218,6 +218,7 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
         {showPrintLab && (
           <button
             type="button"
+            aria-label="Print"
             className={cn(
               'flex shrink-0 items-center justify-center transition-opacity hover:opacity-60',
               pillClass
@@ -247,6 +248,7 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
         {showDownload && (
           <button
             type="button"
+            aria-label="Download"
             className={cn(
               'flex shrink-0 items-center justify-center transition-opacity hover:opacity-60',
               pillClass
@@ -278,12 +280,15 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
           {showFavorites && (
             <button
               type="button"
-              className="relative flex shrink-0 items-center transition-opacity hover:opacity-50"
+              className="relative flex shrink-0 items-center gap-1 transition-opacity hover:opacity-50"
               onClick={onFavoriteClick}
               style={{ color: 'var(--gallery-text)' }}
               title="Favorites"
             >
               <Heart size={iconSize} className="stroke-[2.25]" />
+              <span className={actionLabelClass(isCompact ? 'text-[6px] font-semibold uppercase tracking-wider' : 'text-[10px] font-semibold uppercase tracking-wider')}>
+                Favorites
+              </span>
               {favoritedCount > 0 && (
                 <span
                   className={cn(
@@ -303,12 +308,15 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
           {showShop && (
             <button
               type="button"
-              className="relative flex shrink-0 items-center transition-opacity hover:opacity-50"
+              className="relative flex shrink-0 items-center gap-1 transition-opacity hover:opacity-50"
               onClick={onShopClick}
               style={{ color: 'var(--gallery-text)' }}
               title="Cart"
             >
               <ShoppingCart size={iconSize} className="stroke-[2.25]" />
+              <span className={actionLabelClass(isCompact ? 'text-[6px] font-semibold uppercase tracking-wider' : 'text-[10px] font-semibold uppercase tracking-wider')}>
+                Cart
+              </span>
               {cartCount > 0 && (
                 <span
                   className={cn(
@@ -328,36 +336,45 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
           {showShare && (
             <button
               type="button"
-              className="flex shrink-0 items-center transition-opacity hover:opacity-50"
+              className="flex shrink-0 items-center gap-1 transition-opacity hover:opacity-50"
               onClick={onShareClick}
               style={{ color: 'var(--gallery-text)' }}
               title="Share"
             >
               <Share2 size={iconSize} className="stroke-[2.25]" />
+              <span className={actionLabelClass(isCompact ? 'text-[6px] font-semibold uppercase tracking-wider' : 'text-[10px] font-semibold uppercase tracking-wider')}>
+                Share
+              </span>
             </button>
           )}
 
           {showBuyGallery && (
             <button
               type="button"
-              className="flex shrink-0 items-center transition-opacity hover:opacity-50"
+              className="flex shrink-0 items-center gap-1 transition-opacity hover:opacity-50"
               onClick={onBuyGalleryClick}
               style={{ color: 'var(--gallery-text)' }}
               title={buyGalleryLabel || 'Buy Link'}
             >
               <Infinity size={iconSize} className="stroke-[2.25]" />
+              <span className={actionLabelClass(isCompact ? 'text-[6px] font-semibold uppercase tracking-wider' : 'text-[10px] font-semibold uppercase tracking-wider')}>
+                {buyGalleryLabel || 'Buy Link'}
+              </span>
             </button>
           )}
 
           {showSlideshow && (
             <button
               type="button"
-              className="flex shrink-0 items-center transition-opacity hover:opacity-50"
+              className="flex shrink-0 items-center gap-1 transition-opacity hover:opacity-50"
               onClick={onSlideshowClick}
               style={{ color: 'var(--gallery-text)' }}
               title="Slideshow"
             >
               <Play size={iconSize} className="stroke-[2.25]" />
+              <span className={actionLabelClass(isCompact ? 'text-[6px] font-semibold uppercase tracking-wider' : 'text-[10px] font-semibold uppercase tracking-wider')}>
+                Slideshow
+              </span>
             </button>
           )}
         </div>

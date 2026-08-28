@@ -76,10 +76,16 @@ function MobileGalleryPublicRoutes() {
   );
 }
 
+function RedirectToGuestRegister() {
+  const { slug } = useParams();
+  return <Navigate to={`/e/${encodeURIComponent(slug || '')}/register`} replace />;
+}
+
 function GuestDeliveryPublicRoutes() {
   return (
     <Routes>
       <Route path="/e/:slug/register" element={<EventGuestRegister />} />
+      <Route path="/e/:slug" element={<RedirectToGuestRegister />} />
       <Route path="/e/:slug/g/:token" element={<EventGuestGallery />} />
       <Route
         path="/e/*"

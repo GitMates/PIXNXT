@@ -9,7 +9,7 @@ export function SetOptionsMenu({
   otherSets = [],
   hidden = false,
   inApp = true,
-  sizeLabel = '0 GB',
+  sizeLabel = '—',
   anchorEl,
   onRename,
   onEditDescription,
@@ -22,7 +22,7 @@ export function SetOptionsMenu({
   onClose,
 }) {
   const menuRef = useRef(null);
-  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const [pos, setPos] = useState({ top: 0, left: 0, maxHeight: undefined });
   const [moveOpen, setMoveOpen] = useState(false);
 
   useLayoutEffect(() => {
@@ -30,21 +30,29 @@ export function SetOptionsMenu({
     const place = () => {
       const rect = anchorEl.getBoundingClientRect();
       const menuW = 320;
-      const menuH = menuRef.current?.offsetHeight || 420;
+      const gutter = 12;
+      const menuEl = menuRef.current;
+      const naturalH = menuEl?.scrollHeight || menuEl?.offsetHeight || 480;
+      const maxH = Math.max(200, window.innerHeight - gutter * 2);
+      const menuH = Math.min(naturalH, maxH);
       let left = rect.right + 8;
-      if (left + menuW > window.innerWidth - 12) {
-        left = Math.max(12, rect.left - menuW - 8);
+      if (left + menuW > window.innerWidth - gutter) {
+        left = Math.max(gutter, rect.left - menuW - 8);
       }
       let top = rect.top;
-      if (top + menuH > window.innerHeight - 12) {
-        top = Math.max(12, window.innerHeight - menuH - 12);
+      if (top + menuH > window.innerHeight - gutter) {
+        top = Math.max(gutter, window.innerHeight - menuH - gutter);
       }
-      setPos({ top, left });
+      if (top < gutter) top = gutter;
+      setPos({ top, left, maxHeight: naturalH > maxH ? maxH : undefined });
     };
     place();
+    // Remeasure after paint so we use the real height, not the estimate.
+    const raf = requestAnimationFrame(place);
     window.addEventListener('resize', place);
     window.addEventListener('scroll', place, true);
     return () => {
+      cancelAnimationFrame(raf);
       window.removeEventListener('resize', place);
       window.removeEventListener('scroll', place, true);
     };
@@ -77,7 +85,12 @@ export function SetOptionsMenu({
       ref={menuRef}
       className="cd-set-options"
       role="menu"
-      style={{ top: pos.top, left: pos.left }}
+      style={{
+        top: pos.top,
+        left: pos.left,
+        maxHeight: pos.maxHeight,
+        overflowY: pos.maxHeight ? 'auto' : undefined,
+      }}
       onMouseDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
     >

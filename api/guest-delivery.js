@@ -13,18 +13,31 @@ export const config = {
 
 function actionPath(req) {
   const raw = req.query?.path;
-  if (Array.isArray(raw) && raw.length) return raw.filter(Boolean).join('/');
-  if (typeof raw === 'string' && raw) return raw.replace(/^\/+|\/+$/g, '');
+  if (Array.isArray(raw) && raw.length) {
+    return raw.filter(Boolean).join('/').replace(/^\/+|\/+$/g, '');
+  }
+  if (typeof raw === 'string' && raw.trim()) {
+    return raw.trim().replace(/^\/+|\/+$/g, '');
+  }
 
   try {
     const pathname = new URL(req.url || '', 'http://localhost').pathname;
     const prefix = '/api/guest-delivery/';
     const idx = pathname.indexOf(prefix);
-    if (idx === -1) return '';
-    return decodeURIComponent(pathname.slice(idx + prefix.length)).replace(/^\/+|\/+$/g, '');
+    if (idx !== -1) {
+      const fromPath = decodeURIComponent(pathname.slice(idx + prefix.length)).replace(/^\/+|\/+$/g, '');
+      if (fromPath) return fromPath;
+    }
   } catch {
-    return '';
+    // ignore
   }
+
+  const url = String(req.url || '');
+  const match = url.match(/\/api\/guest-delivery\/?([^?&#]*)/i);
+  if (match?.[1]) {
+    return match[1].replace(/^\/+|\/+$/g, '');
+  }
+  return '';
 }
 
 export default async function handler(req, res) {
@@ -67,7 +80,7 @@ export default async function handler(req, res) {
 
     res.status(404).json({ error: 'Not found', action: action || null });
   } catch (err) {
-    console.error(`[guest-delivery/${action}]`, err);
+    console.error(`[guest-delivery/${action || 'root'}]`, err);
     const message = err?.message || 'Request failed';
 
     let status = 500;

@@ -1,5 +1,5 @@
 import React from 'react';
-import { galleryService } from '../../../../services/gallery.service';
+import { persistDeliverySettings } from '../../../../lib/deliverySettingsSync';
 import { getCollectionShareUrl } from '../../../../lib/shareCollection';
 import { buildGmailComposeUrl } from '../../../../lib/gmailComposeUrl';
 import { ManageEmailTemplatesModal } from '../../../mobile-gallery/EmailTemplateModals';
@@ -104,12 +104,7 @@ export const FavoriteSettings: React.FC<FavoriteSettingsProps> = ({
   ]);
 
   const persist = async (patch: Record<string, unknown>) => {
-    try {
-      const updated = await galleryService.updateCollection(collectionId, patch);
-      setCollection?.((prev: any) => (prev ? { ...prev, ...(updated || patch) } : prev));
-    } catch (err) {
-      console.error('Failed to save selection setting:', err);
-    }
+    await persistDeliverySettings(collectionId, collection?.slug, patch, setCollection);
   };
 
   const shareUrl = getCollectionShareUrl(collectionUrl, profile);
@@ -238,7 +233,10 @@ export const FavoriteSettings: React.FC<FavoriteSettingsProps> = ({
             title="Let your client choose photographs"
             desc="They mark photographs as they scroll. Off means the gallery is for viewing and downloading only — no marking, nothing to submit, nothing to review."
             checked={favoritePhotos}
-            onChange={setFavoritePhotos}
+            onChange={(next) => {
+              setFavoritePhotos(next);
+              void persist({ favorites_enabled: next });
+            }}
             label="Let your client choose photographs"
           />
 
@@ -398,7 +396,10 @@ export const FavoriteSettings: React.FC<FavoriteSettingsProps> = ({
                   control={(
                     <Toggle
                       checked={favoriteNotes}
-                      onChange={setFavoriteNotes}
+                      onChange={(next) => {
+                        setFavoriteNotes(next);
+                        void persist({ favorites_allow_comments: next });
+                      }}
                       label="Let them leave a note"
                     />
                   )}

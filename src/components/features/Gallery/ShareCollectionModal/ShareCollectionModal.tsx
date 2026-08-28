@@ -69,14 +69,6 @@ const WhatsAppIcon = () => (
   </svg>
 );
 
-const InstagramIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
-    <rect x="3.5" y="3.5" width="17" height="17" rx="4.5" />
-    <circle cx="12" cy="12" r="3.75" />
-    <circle cx="17.2" cy="6.8" r="0.9" fill="currentColor" stroke="none" />
-  </svg>
-);
-
 export const ShareCollectionModal: React.FC<ShareCollectionModalProps> = ({
   isOpen,
   onClose,
@@ -88,7 +80,6 @@ export const ShareCollectionModal: React.FC<ShareCollectionModalProps> = ({
   themeClassName = 'font-sans',
 }) => {
   const [copied, setCopied] = useState(false);
-  const [instagramCopied, setInstagramCopied] = useState(false);
 
   const displayPath = useMemo(() => getDisplaySharePath(shareUrl), [shareUrl]);
   const photoShareUrl = useMemo(
@@ -122,19 +113,6 @@ export const ShareCollectionModal: React.FC<ShareCollectionModalProps> = ({
       '_blank',
       'noopener,noreferrer'
     );
-  };
-
-  const handleInstagramShare = async () => {
-    const shared = await tryNativeShare({
-      title: shareTitle,
-      text: `Check out this gallery: ${shareTitle}`,
-      url: shareUrl,
-    });
-    if (shared) return;
-
-    if (await copyText(shareUrl)) {
-      resetCopyState(setInstagramCopied);
-    }
   };
 
   const handleNativeShare = async () => {
@@ -246,18 +224,6 @@ export const ShareCollectionModal: React.FC<ShareCollectionModalProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => void handleInstagramShare()}
-                className="share-gallery-modal__send-btn"
-              >
-                <span className="share-gallery-modal__send-icon">
-                  <InstagramIcon />
-                </span>
-                <span className="share-gallery-modal__send-label gallery-body-text">
-                  {instagramCopied ? 'Copied' : 'Instagram'}
-                </span>
-              </button>
-              <button
-                type="button"
                 onClick={() => void handleNativeShare()}
                 className="share-gallery-modal__send-btn"
               >
@@ -265,13 +231,13 @@ export const ShareCollectionModal: React.FC<ShareCollectionModalProps> = ({
                   <Share2 size={18} strokeWidth={1.75} />
                 </span>
                 <span className="share-gallery-modal__send-label gallery-body-text">
-                  AirDrop &amp; more
+                   more
                 </span>
               </button>
             </div>
 
             <p className="share-gallery-modal__native-note gallery-body-text">
-              <strong>AirDrop &amp; more</strong> opens your phone&apos;s share sheet — AirDrop,
+              <strong>more</strong> opens your phone&apos;s share sheet ,
               Messages, Notes, and other apps on your device.
             </p>
 

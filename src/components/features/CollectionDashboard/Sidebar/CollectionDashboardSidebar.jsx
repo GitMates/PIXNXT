@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   ChevronRight,
-  Play,
   Pencil,
   Target,
   Clock,
@@ -173,7 +172,6 @@ export function CollectionDashboardSidebar({
   activeActivitySubTab,
   onActivitySubTabChange,
   photoCount = 0,
-  filmCount = 0,
   guestCount = 0,
   activityCount = 0,
   guestDeliveryEnabled = false,
@@ -308,14 +306,6 @@ export function CollectionDashboardSidebar({
               </>
             ) : null}
           </div>
-
-          <NavItem
-            active={activeSidebarTab === 'films'}
-            icon={Play}
-            label="Films"
-            count={filmCount}
-            onClick={() => onSidebarTabChange('films')}
-          />
 
           <p className="cdsb-nav__section cdsb-nav__section--group">The delivery</p>
 

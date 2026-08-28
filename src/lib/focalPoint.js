@@ -63,9 +63,13 @@ export function coverImageCssStyle(url, focalX = 50, focalY = 50) {
   };
 }
 
-/** Integer 0–100 for DB columns (safe for numeric(5,2) and smallint). */
+/**
+ * Persistable focal 0–99.99.
+ * numeric(4,2) overflows at 100; integer columns also reject 100.00.
+ */
 export function normalizeFocalForDb(value) {
-  return Math.round(normalizeFocalPercent(value));
+  const n = normalizeFocalPercent(value);
+  return Math.min(99.99, Math.max(0, Math.round(n * 100) / 100));
 }
 
 /** Postgres 22003 / Supabase "numeric field overflow" (e.g. numeric(4,2) cannot store 100). */

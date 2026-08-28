@@ -244,9 +244,11 @@ export const photoAiService = {
   async getPeople(collectionId, { forceRecluster = false, metadataRows = null, includeHidden = false } = {}) {
     if (!collectionId) return [];
 
+    let cachedPeople = [];
     if (!forceRecluster) {
       try {
         const { people, tableMissing } = await this.getPeopleFromDb(collectionId, { includeHidden });
+        cachedPeople = people;
         if (!tableMissing && people.length > 0) {
           const rows = metadataRows || (await this.getMetadataForCollection(collectionId)).rows;
           const fresh = await this.isPeopleCacheFresh(collectionId, rows);
@@ -257,12 +259,20 @@ export const photoAiService = {
       }
     }
 
-    const result = await postJson('/api/photo-ai/people', {
-      collectionId,
-      forceRecluster,
-      includeHidden,
-    });
-    return result?.people || [];
+    try {
+      const result = await postJson('/api/photo-ai/people', {
+        collectionId,
+        forceRecluster,
+        includeHidden,
+      });
+      return result?.people || cachedPeople;
+    } catch (err) {
+      if (cachedPeople.length > 0) {
+        console.warn('[photoAi] people recluster failed; using cache:', err?.message || err);
+        return cachedPeople;
+      }
+      throw err;
+    }
   },
 
   searchBySelfie(collectionId, imageBase64, threshold = 85) {

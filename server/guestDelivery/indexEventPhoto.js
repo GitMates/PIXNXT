@@ -1,5 +1,5 @@
 import { analyzeImageBytes } from '../rekognition/analyzeImage.js';
-import { rekognitionCollectionId } from '../photoAi/indexPhoto.js';
+import { rekognitionDeliveryId } from '../photoAi/indexPhoto.js';
 import { normalizeImageToJpegBytes } from '../photoAi/normalizeImage.js';
 import { getSupabaseAdmin } from '../photoAi/supabaseAdmin.js';
 
@@ -35,10 +35,10 @@ export async function indexGuestDeliveryPhoto(photoId, { supabase, force = false
   const imageUrl = photo.full_url || photo.thumbnail_url;
   const rawBytes = await downloadImageBytes(imageUrl);
   const imageBytes = new Uint8Array(await normalizeImageToJpegBytes(rawBytes));
-  const collectionId = rekognitionCollectionId(photo.event_id);
+  const deliveryFaceGroupId = rekognitionDeliveryId(photo.event_id);
 
   const analysis = await analyzeImageBytes(imageBytes, {
-    collectionId,
+    deliveryFaceGroupId,
     externalImageId: String(photo.id),
     indexFaces: true,
   });
@@ -78,10 +78,10 @@ async function indexCollectionPhoto(photoId, eventId, { supabase, force = false 
   const imageUrl = photo.full_url || photo.thumbnail_url;
   const rawBytes = await downloadImageBytes(imageUrl);
   const imageBytes = new Uint8Array(await normalizeImageToJpegBytes(rawBytes));
-  const collId = rekognitionCollectionId(eventId);
+  const deliveryFaceGroupId = rekognitionDeliveryId(eventId);
 
   const analysis = await analyzeImageBytes(imageBytes, {
-    collectionId: collId,
+    deliveryFaceGroupId,
     externalImageId: String(photo.id),
     indexFaces: true,
   });
