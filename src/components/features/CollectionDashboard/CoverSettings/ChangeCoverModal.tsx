@@ -15,6 +15,13 @@ import {
 } from '../../../../lib/focalPoint';
 import './ChangeCoverModal.css';
 
+const APPEARS_SHORT_LABEL: Record<string, string> = {
+  desktop: 'Desktop',
+  email: 'Email',
+  phone: 'Phone',
+  card: 'Icon',
+};
+
 function cloneFocals(focals?: CoverFocals | null): CoverFocals {
   const base = getDefaultCoverFocals(
     parseFocalPoint(focals?.desktop) || parseFocalPoint(focals?.website) || { x: 50, y: 50 }
@@ -39,26 +46,6 @@ function photoMatchesCover(photo: Photo, coverUrl?: string | null, coverPhotoId?
   return candidates.some((url) => url && (url === a || a.endsWith(url) || url.endsWith(a)));
 }
 
-function sourceMeta(
-  photo: Photo | null | undefined,
-  photos: Photo[],
-  sets: { id: string; name: string }[],
-  highlightsName: string
-) {
-  if (!photo) {
-    return { setName: highlightsName || 'this delivery', index: 1 };
-  }
-  const inSet = photos.filter((p) =>
-    isGalleryImagePhoto(p) && (photo.set_id ? p.set_id === photo.set_id : !p.set_id)
-  );
-  const found = inSet.findIndex((p) => String(p.id) === String(photo.id));
-  const index = found >= 0 ? found + 1 : 1;
-  const setName = photo.set_id
-    ? sets.find((s) => s.id === photo.set_id)?.name || 'Set'
-    : highlightsName || 'Highlights';
-  return { setName, index };
-}
-
 export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
   isOpen,
   onClose,
@@ -67,10 +54,9 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
   coverPhoto,
   initialFocals,
   initialView = 'edit',
-  sets = [],
-  highlightsName = 'Highlights',
   onConfirm,
   onDraftChange,
+  onRemove,
   saving = false,
   onCoverFileSelect,
 }) => {
@@ -99,7 +85,6 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
       ''
   );
 
-  const source = sourceMeta(resolvedPhoto, imagePhotos, sets, highlightsName);
   const activePoint: CoverFocalPoint = focals[activeSurface] || focals.desktop || focals.website || { x: 50, y: 50 };
 
   const syncCrosshair = useCallback((x: number, y: number) => {
@@ -227,6 +212,11 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
     void onConfirm({ photo: resolvedPhoto, focals });
   };
 
+  const handleRemove = () => {
+    if (!onRemove || saving) return;
+    void onRemove();
+  };
+
   if (!isOpen) return null;
 
   const across = Math.round(activePoint.x);
@@ -235,7 +225,10 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
   return (
     <div className="cover-modal-overlay" onClick={onClose}>
       <div
-        className={cn('cover-modal-container', view === 'edit' ? 'cover-modal-container--focal' : 'wide')}
+        className={cn(
+          'cover-modal-container',
+          view === 'edit' ? 'cover-modal-container--focal' : 'wide'
+        )}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="cover-focal-header">
@@ -244,7 +237,7 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
             <p className="cover-focal-subtitle">
               {view === 'pick'
                 ? 'Choose the photograph to use as this delivery’s cover.'
-                : 'Pick the photograph, then drag the point onto the part that must never be cut off.'}
+                : 'Drag the point onto the part that must never be cut off.'}
             </p>
           </div>
           <button type="button" className="modal-close-btn" onClick={onClose} aria-label="Close">
@@ -304,31 +297,15 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
         ) : (
           <>
             <div className="cover-focal-body">
-              <div className="cover-focal-editor">
-                <div className="cover-focal-editor-meta">
-                  <p className="cover-focal-source">
-                    From <strong>{source.setName}</strong> · photograph {source.index}
-                  </p>
-                  <div className="cover-focal-change-row">
-                    <button
-                      type="button"
-                      className="cover-focal-change-photo"
-                      onClick={() => setView('pick')}
-                    >
-                      Choose a different photograph
-                    </button>
-                    {browseButton}
-                  </div>
-                </div>
-
-                <div
-                  className={cn('cover-focal-stage', dragging && 'is-dragging')}
-                  onPointerDown={handlePointerDown}
-                  onPointerMove={handlePointerMove}
-                  onPointerUp={handlePointerUp}
-                  onPointerCancel={handlePointerUp}
-                >
-                  {editorSrc ? (
+              <div
+                className={cn('cover-focal-stage', dragging && 'is-dragging')}
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+                onPointerCancel={handlePointerUp}
+              >
+                {editorSrc ? (
+                  <div className="cover-focal-stage__canvas">
                     <img
                       ref={imageRef}
                       src={editorSrc}
@@ -336,67 +313,92 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
                       draggable={false}
                       onLoad={() => syncCrosshair(activePoint.x, activePoint.y)}
                     />
-                  ) : (
-                    <div className="cover-focal-empty">No cover photograph yet</div>
-                  )}
-                  <div className="cover-focal-grid" aria-hidden />
-                  {editorSrc ? (
                     <div className="cover-focal-crosshair" style={crosshairStyle}>
                       <span className="cover-focal-crosshair__ring" />
                     </div>
-                  ) : null}
-                </div>
-
-                <p className="cover-focal-help">
-                  {COVER_FOCAL_SURFACES.find((s) => s.id === activeSurface)?.hint ||
-                    'Every place this photograph appears is a different shape. The point you set here is the one thing the crop is guaranteed to keep — put it on the faces.'}{' '}
-                  Currently{' '}
-                  <strong>{across}% across, {down}% down.</strong>
-                </p>
+                  </div>
+                ) : (
+                  <div className="cover-focal-stage__canvas cover-focal-stage__canvas--empty">
+                    <div className="cover-focal-crosshair" style={{ left: '50%', top: '50%' }}>
+                      <span className="cover-focal-crosshair__ring" />
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div className="cover-focal-previews">
-                {COVER_FOCAL_SURFACES.map((surface) => {
-                  const point = focals[surface.id as CoverFocalSurfaceId] || { x: 50, y: 50 };
-                  return (
-                    <button
-                      key={surface.id}
-                      type="button"
-                      className={cn(
-                        'cover-focal-preview',
-                        `cover-focal-preview--${surface.id}`,
-                        activeSurface === surface.id && 'is-active'
-                      )}
-                      onClick={() => setActiveSurface(surface.id as CoverFocalSurfaceId)}
-                    >
-                      <span className="cover-focal-preview__label">{surface.kicker}</span>
-                      <span
-                        className="cover-focal-preview__frame"
-                        style={{ aspectRatio: surface.aspect }}
-                      >
-                        {editorSrc ? (
-                          <img
-                            src={editorSrc}
-                            alt=""
-                            draggable={false}
-                            style={{ objectPosition: `${point.x}% ${point.y}%` }}
-                          />
-                        ) : null}
-                      </span>
-                    </button>
-                  );
-                })}
+              <div className="cover-focal-toolbar">
+                <button
+                  type="button"
+                  className="cover-focal-tool-btn"
+                  onClick={() => setView('pick')}
+                  disabled={saving}
+                >
+                  Replace photo
+                </button>
+                <span className="cover-focal-coords">
+                  Focal {across}% × {down}%
+                </span>
+                <button
+                  type="button"
+                  className="cover-focal-tool-btn cover-focal-tool-btn--muted"
+                  onClick={handleCentre}
+                  disabled={saving}
+                >
+                  Reset to centre
+                </button>
               </div>
             </div>
 
-            <div className="cover-focal-footer">
-              <p className="cover-focal-note">
-                Nothing is re-uploaded — the point is stored with the delivery and applied everywhere.
-              </p>
+            <div className="cover-focal-bottom">
+              <div className="cover-focal-appears">
+                <p className="cover-focal-appears__title">Where it appears</p>
+                <div className="cover-focal-previews">
+                  {COVER_FOCAL_SURFACES.map((surface) => {
+                    const point = focals[surface.id as CoverFocalSurfaceId] || { x: 50, y: 50 };
+                    return (
+                      <button
+                        key={surface.id}
+                        type="button"
+                        className={cn(
+                          'cover-focal-preview',
+                          `cover-focal-preview--${surface.id}`,
+                          activeSurface === surface.id && 'is-active'
+                        )}
+                        onClick={() => setActiveSurface(surface.id as CoverFocalSurfaceId)}
+                      >
+                        <span
+                          className="cover-focal-preview__frame"
+                          style={{ aspectRatio: surface.aspect }}
+                        >
+                          {editorSrc ? (
+                            <img
+                              src={editorSrc}
+                              alt=""
+                              draggable={false}
+                              style={{ objectPosition: `${point.x}% ${point.y}%` }}
+                            />
+                          ) : null}
+                        </span>
+                        <span className="cover-focal-preview__label">
+                          {APPEARS_SHORT_LABEL[surface.id] || surface.kicker}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               <div className="cover-focal-actions">
-                <button type="button" className="cover-focal-btn" onClick={handleCentre} disabled={saving}>
-                  Centre it
-                </button>
+                {onRemove ? (
+                  <button
+                    type="button"
+                    className="cover-focal-remove"
+                    onClick={handleRemove}
+                    disabled={saving}
+                  >
+                    Remove cover
+                  </button>
+                ) : null}
                 <button type="button" className="cover-focal-btn" onClick={onClose} disabled={saving}>
                   Cancel
                 </button>
@@ -406,7 +408,7 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
                   onClick={handleUseCover}
                   disabled={saving || !editorSrc}
                 >
-                  {saving ? 'Saving…' : 'Use this cover'}
+                  {saving ? 'Saving…' : 'Save cover'}
                 </button>
               </div>
             </div>

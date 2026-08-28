@@ -41,10 +41,29 @@ function guestReach(guest) {
 }
 
 function guestBoardState(guest) {
+  if (!guest.selfie_url) return 'no-selfie';
   const status = guest.delivery_status;
-  if (status === 'sent' || status === 'matched') return 'ready';
+  if (status === 'sent' || status === 'matched' || (guest.matched_photo_count || 0) > 0) {
+    return 'ready';
+  }
   return 'review';
 }
+
+function guestSentState(guest) {
+  if (guest.delivery_status === 'sent' || guest.delivery_email_sent_at) return 'sent';
+  return 'not-yet';
+}
+
+const STATE_LABEL = {
+  ready: 'Ready',
+  review: 'Review',
+  'no-selfie': 'No selfie',
+};
+
+const SENT_LABEL = {
+  sent: 'Sent',
+  'not-yet': 'Not yet',
+};
 
 const EventGuestsPanel = ({
   event,
@@ -97,6 +116,11 @@ const EventGuestsPanel = ({
 
   const selfieCount = useMemo(
     () => guests.filter((guest) => Boolean(guest.selfie_url)).length,
+    [guests]
+  );
+
+  const matchedCount = useMemo(
+    () => guests.filter((guest) => (guest.matched_photo_count || 0) > 0).length,
     [guests]
   );
 
@@ -163,7 +187,7 @@ const EventGuestsPanel = ({
       <header className="gd-guest-board__header">
         <h2 className="gd-guest-board__title">Guests</h2>
         <p className="gd-guest-board__sub">
-          {guests.length} registered · {selfieCount} with a selfie
+          {guests.length} registered · {selfieCount} with a selfie · {matchedCount} matched
         </p>
       </header>
 
@@ -180,81 +204,95 @@ const EventGuestsPanel = ({
           ) : null}
         </div>
       ) : (
-        <div className="gd-guest-board__card">
-          <div className="gd-guest-board__cols gd-guest-board__cols--head" role="row">
-            <span>Guest</span>
-            <span>Reaches them by</span>
-            <span>Matched</span>
-            <span>State</span>
+        <>
+          <div className="gd-guest-board__card">
+            <div className="gd-guest-board__cols gd-guest-board__cols--head" role="row">
+              <span>Guest</span>
+              <span>Reaches them by</span>
+              <span>Matched</span>
+              <span>State</span>
+              <span>Sent</span>
+              <span className="gd-guest-board__cols-spacer" aria-hidden />
+            </div>
+            {guests.map((guest) => {
+              const reach = guestReach(guest);
+              const state = guestBoardState(guest);
+              const sent = guestSentState(guest);
+              const matched = guest.matched_photo_count || 0;
+              return (
+                <div key={guest.id} className="gd-guest-board__cols gd-guest-board__row" role="row">
+                  <div className="gd-guest-board__person">
+                    {guest.selfie_url ? (
+                      <img src={guest.selfie_url} alt="" className="gd-guest-board__avatar" loading="lazy" />
+                    ) : (
+                      <span className="gd-guest-board__avatar gd-guest-board__avatar--placeholder" aria-hidden />
+                    )}
+                    <span className="gd-guest-board__name">{guest.name}</span>
+                  </div>
+                  <div className="gd-guest-board__reach">
+                    <span className="gd-guest-board__channel">{reach.channel}</span>
+                    <span className="gd-guest-board__contact">{reach.value || '—'}</span>
+                  </div>
+                  <span className="gd-guest-board__matched">
+                    {matched > 0 ? matched : '—'}
+                  </span>
+                  <span className={`gd-guest-board__pill gd-guest-board__pill--${state}`}>
+                    {STATE_LABEL[state]}
+                  </span>
+                  <span className={`gd-guest-board__pill gd-guest-board__pill--${sent}`}>
+                    {SENT_LABEL[sent]}
+                  </span>
+                  <div className="gd-guest-board__menu-wrap" ref={openMenuId === guest.id ? menuRef : null}>
+                    <button
+                      type="button"
+                      className="gd-guest-board__menu-btn"
+                      aria-label={`Actions for ${guest.name}`}
+                      aria-expanded={openMenuId === guest.id}
+                      onClick={() => setOpenMenuId((id) => (id === guest.id ? null : guest.id))}
+                    >
+                      ···
+                    </button>
+                    {openMenuId === guest.id ? (
+                      <div className="gd-guest-board__menu" role="menu">
+                        {matched > 0 ? (
+                          <>
+                            <button type="button" role="menuitem" onClick={() => handleCopyLink(guest)}>
+                              Copy gallery link
+                            </button>
+                            <button
+                              type="button"
+                              role="menuitem"
+                              disabled={sendingGuestId === guest.id || event.status !== 'published'}
+                              onClick={() => handleSendEmail(guest)}
+                            >
+                              {sendingGuestId === guest.id
+                                ? 'Sending…'
+                                : guest.delivery_status === 'sent'
+                                  ? 'Resend email'
+                                  : 'Send email'}
+                            </button>
+                          </>
+                        ) : null}
+                        <button
+                          type="button"
+                          role="menuitem"
+                          className="gd-guest-board__menu-danger"
+                          onClick={() => handleDelete(guest)}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
           </div>
-          {guests.map((guest) => {
-            const reach = guestReach(guest);
-            const state = guestBoardState(guest);
-            const matched = guest.matched_photo_count || 0;
-            return (
-              <div key={guest.id} className="gd-guest-board__cols gd-guest-board__row" role="row">
-                <div className="gd-guest-board__person">
-                  {guest.selfie_url ? (
-                    <img src={guest.selfie_url} alt="" className="gd-guest-board__avatar" loading="lazy" />
-                  ) : (
-                    <span className="gd-guest-board__avatar gd-guest-board__avatar--placeholder" aria-hidden />
-                  )}
-                  <span className="gd-guest-board__name">{guest.name}</span>
-                </div>
-                <div className="gd-guest-board__reach">
-                  <span className="gd-guest-board__channel">{reach.channel}</span>
-                  <span className="gd-guest-board__contact">{reach.value || '—'}</span>
-                </div>
-                <span className="gd-guest-board__matched">{matched}</span>
-                <span className={`gd-guest-board__state gd-guest-board__state--${state}`}>
-                  {state === 'ready' ? 'Ready' : 'Review'}
-                </span>
-                <div className="gd-guest-board__menu-wrap" ref={openMenuId === guest.id ? menuRef : null}>
-                  <button
-                    type="button"
-                    className="gd-guest-board__menu-btn"
-                    aria-label={`Actions for ${guest.name}`}
-                    aria-expanded={openMenuId === guest.id}
-                    onClick={() => setOpenMenuId((id) => (id === guest.id ? null : guest.id))}
-                  >
-                    ···
-                  </button>
-                  {openMenuId === guest.id ? (
-                    <div className="gd-guest-board__menu" role="menu">
-                      {matched > 0 ? (
-                        <>
-                          <button type="button" role="menuitem" onClick={() => handleCopyLink(guest)}>
-                            Copy gallery link
-                          </button>
-                          <button
-                            type="button"
-                            role="menuitem"
-                            disabled={sendingGuestId === guest.id || event.status !== 'published'}
-                            onClick={() => handleSendEmail(guest)}
-                          >
-                            {sendingGuestId === guest.id
-                              ? 'Sending…'
-                              : guest.delivery_status === 'sent'
-                                ? 'Resend email'
-                                : 'Send email'}
-                          </button>
-                        </>
-                      ) : null}
-                      <button
-                        type="button"
-                        role="menuitem"
-                        className="gd-guest-board__menu-danger"
-                        onClick={() => handleDelete(guest)}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+          <p className="gd-guest-board__footnote">
+            Click any row for the full record. Everything that configures guest registration is under{' '}
+            <span>Settings › Access › Guest Delivery</span>.
+          </p>
+        </>
       )}
     </div>
   );

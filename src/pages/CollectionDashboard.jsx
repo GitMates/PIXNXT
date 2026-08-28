@@ -3301,6 +3301,38 @@ const CollectionDashboard = () => {
         }, { live: false });
     };
 
+    const handleCoverRemove = async () => {
+        if (!collectionId) return;
+        const defaultFocals = getDefaultCoverFocals();
+        coverDraftDirtyRef.current = false;
+        coverDraftBackupRef.current = null;
+        applyCoverLocal({
+            cover_url: null,
+            cover_photo_id: null,
+            cover_focals: defaultFocals,
+            cover_focal_x: 50,
+            cover_focal_y: 50,
+        });
+        try {
+            setIsCoverUploading(true);
+            await galleryService.updateCollection(collectionId, {
+                cover_url: null,
+                cover_photo_id: null,
+                cover_focals: defaultFocals,
+                cover_focal_x: 50,
+                cover_focal_y: 50,
+            });
+            setShowCoverModal(false);
+            setCoverModalScope('all');
+            setCoverModalPhotoOverride(null);
+        } catch (err) {
+            console.error('Failed to remove delivery cover:', err);
+            alert('Failed to remove cover.');
+        } finally {
+            setIsCoverUploading(false);
+        }
+    };
+
     useEffect(() => {
         if (!showEmailHistoryModal || !collectionId) return undefined;
         let cancelled = false;
@@ -5976,6 +6008,7 @@ const CollectionDashboard = () => {
                 saving={isCoverUploading}
                 onConfirm={handleCoverModalConfirm}
                 onDraftChange={handleCoverDraftChange}
+                onRemove={handleCoverRemove}
                 onCoverFileSelect={handleCoverFileSelect}
             />
 

@@ -92,7 +92,7 @@ function useSettingsSaveStatus() {
 const Settings = () => {
     const { tab } = useParams();
     const navigate = useNavigate();
-    const activeTab = tab || 'delivery-templates';
+    const activeTab = tab || 'delivery-messages';
     const { user, loading: authLoading } = useAuth();
     const [profile, setProfile] = useState(null);
     const [toastMessage, setToastMessage] = useState('');
@@ -136,6 +136,10 @@ const Settings = () => {
 
     // Backwards compatibility redirections
     useEffect(() => {
+        if (!tab) {
+            navigate('/settings/delivery-messages', { replace: true });
+            return;
+        }
         if (activeTab === 'presets') {
             navigate('/settings/delivery-templates', { replace: true });
         } else if (activeTab === 'watermark') {
@@ -149,7 +153,7 @@ const Settings = () => {
         } else if (activeTab === 'showcase_page') {
             navigate('/settings/showcase-page', { replace: true });
         }
-    }, [activeTab, navigate]);
+    }, [tab, activeTab, navigate]);
 
     const updateProfile = async (updates, options = {}) => {
         if (!user?.id) return;
