@@ -5,6 +5,7 @@ import { LoginForm, SignupForm } from '../components/features/Auth';
 import { ForgotPasswordForm } from '../components/features/Auth/ForgotPasswordForm';
 import { ResetPasswordForm } from '../components/features/Auth/ResetPasswordForm';
 import { useAuth } from '../hooks/useAuth';
+import { clearOAuthCallbackParams, readOAuthCallbackError } from '../services/auth.service';
 import './AuthPage.css';
 
 const COPY = {
@@ -38,7 +39,16 @@ const AuthPage = () => {
   const [view, setView] = useState(
     mode === 'signup' ? 'signup' : mode === 'reset' ? 'reset' : 'login'
   );
+  const [oauthError, setOauthError] = useState('');
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const callbackError = readOAuthCallbackError();
+    if (callbackError) {
+      setOauthError(callbackError);
+      clearOAuthCallbackParams();
+    }
+  }, []);
 
   useEffect(() => {
     if (mode === 'signup') setView('signup');
@@ -85,6 +95,12 @@ const AuthPage = () => {
             <h1 className="auth-page__title">{copy.title}</h1>
             <p className="auth-page__subtitle">{copy.subtitle}</p>
           </header>
+
+          {oauthError ? (
+            <p className="auth-error auth-page__oauth-error" role="alert">
+              {oauthError}
+            </p>
+          ) : null}
 
           {view === 'login' && (
             <LoginForm

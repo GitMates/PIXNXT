@@ -73,7 +73,77 @@ export async function signInWithGoogle() {
     throw error;
   }
 
+  if (data?.url) {
+    window.location.assign(data.url);
+  }
+
   return data;
+}
+
+/**
+ * Create a photographers row for first-time OAuth / email users when missing.
+ */
+export async function ensurePhotographerProfile(user) {
+  if (!user?.id) return null;
+
+  const existing = await getProfile(user.id);
+  if (existing) return existing;
+
+  const meta = user.user_metadata || {};
+  const email = String(user.email || '').trim().toLowerCase();
+  const fullName =
+    String(meta.full_name || meta.name || '').trim() ||
+    email.split('@')[0] ||
+    'Photographer';
+  const nameParts = fullName.split(/\s+/).filter(Boolean);
+  const firstName = nameParts[0] || '';
+  const lastName = nameParts.slice(1).join(' ');
+  const slugBase = email.split('@')[0] || user.id.slice(0, 8);
+  const showcaseSlug = slugBase.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'studio';
+
+  const { galleryService } = await import('./gallery.service');
+  return galleryService.updatePhotographerProfile(user.id, {
+    email,
+    contact_email: email,
+    display_name: fullName,
+    business_name: fullName,
+    first_name: firstName,
+    last_name: lastName,
+    profile_icon_url: meta.avatar_url || meta.picture || null,
+    showcase_slug: showcaseSlug,
+  });
+}
+
+export function readOAuthCallbackError() {
+  if (typeof window === 'undefined') return null;
+
+  const search = new URLSearchParams(window.location.search);
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  const error =
+    search.get('error_description') ||
+    search.get('error') ||
+    hash.get('error_description') ||
+    hash.get('error');
+
+  if (!error) return null;
+
+  const decoded = decodeURIComponent(String(error).replace(/\+/g, ' '));
+  if (/provider is not enabled/i.test(decoded)) {
+    return 'Google sign-in is not enabled yet. Enable the Google provider in Supabase → Authentication → Providers.';
+  }
+  if (/access_denied/i.test(decoded)) {
+    return 'Google sign-in was cancelled.';
+  }
+  return decoded;
+}
+
+export function clearOAuthCallbackParams() {
+  if (typeof window === 'undefined') return;
+  const url = new URL(window.location.href);
+  url.searchParams.delete('error');
+  url.searchParams.delete('error_description');
+  url.hash = '';
+  window.history.replaceState({}, '', `${url.pathname}${url.search}`);
 }
 
 /**

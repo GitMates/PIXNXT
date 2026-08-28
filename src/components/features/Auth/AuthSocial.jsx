@@ -29,7 +29,11 @@ export function GoogleAuthButton({ disabled = false, onError }) {
     try {
       await loginWithGoogle();
     } catch (err) {
-      onError?.(err.message || 'Google sign-in is not available yet.');
+      const message =
+        err?.message ||
+        (err?.error_description ? String(err.error_description) : '') ||
+        'Google sign-in is not available yet.';
+      onError?.(message);
       setBusy(false);
     }
   };

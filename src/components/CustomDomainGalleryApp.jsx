@@ -8,8 +8,10 @@ import GalleryDownloadReady from '../pages/public/GalleryDownloadReady';
 import MobileGalleryClient from '../pages/public/MobileGalleryClient';
 import MobileGalleryInstall from '../pages/public/MobileGalleryInstall';
 import PublicAlbumPreview from '../pages/smart-albums/PublicAlbumPreview';
+import PrintStoreApp from '../printstore/PrintStoreApp';
 import { galleryService } from '../services/gallery.service';
 import { GlobalUploadShell } from './features/CollectionDashboard/Upload/GlobalUploadShell';
+import { ErrorBoundary } from './ErrorBoundary';
 
 function MobileGalleryViewRedirect() {
   const { slug } = useParams();
@@ -92,6 +94,7 @@ export function CustomDomainGalleryApp({ hostname }) {
         <Route path="/m/:slug/view" element={<MobileGalleryViewRedirect />} />
         <Route path="/m/:slug" element={<MobileGalleryInstall />} />
         <Route path="/album-preview/:albumId" element={<PublicAlbumPreview />} />
+        <Route path="/printstore" element={<ErrorBoundary><PrintStoreApp /></ErrorBoundary>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <GlobalUploadShell />

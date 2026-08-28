@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase/client';
-import { resolveAuthSession } from '../services/auth.service';
+import { resolveAuthSession, ensurePhotographerProfile } from '../services/auth.service';
 
 const AuthContext = createContext();
 
@@ -35,7 +35,13 @@ export const AuthProvider = ({ children }) => {
 
     const initializeAuth = async () => {
       try {
-        applyAuthState(await resolveAuthSession());
+        const resolved = await resolveAuthSession();
+        applyAuthState(resolved);
+        if (resolved.user) {
+          void ensurePhotographerProfile(resolved.user).catch((err) => {
+            console.warn('Could not ensure photographer profile:', err?.message || err);
+          });
+        }
       } catch (error) {
         console.error('Auth initialization error:', error.message);
         applyAuthState({ user: null, session: null });
@@ -55,11 +61,19 @@ export const AuthProvider = ({ children }) => {
 
     // Subscribe to auth state changes (login, logout, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, nextSession) => {
+      (event, nextSession) => {
         applyAuthState({
           user: nextSession?.user ?? null,
           session: nextSession,
         });
+        if (
+          (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') &&
+          nextSession?.user
+        ) {
+          void ensurePhotographerProfile(nextSession.user).catch((err) => {
+            console.warn('Could not ensure photographer profile:', err?.message || err);
+          });
+        }
         setLoading(false);
       }
     );
