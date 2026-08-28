@@ -13,8 +13,8 @@ import './SidebarCoverUpload.css';
 const COVER_DROP_ICON = (
   <svg
     xmlns="http://www.w3.org/2000/svg"
-    width="22"
-    height="22"
+    width="24"
+    height="24"
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
@@ -36,19 +36,21 @@ function isCoverImageFile(file) {
 }
 
 /**
- * Cover slot: browse from device or pick from the delivery.
+ * Sidebar delivery cover — empty dropzone or filled preview with edit.
  */
 export function SidebarCoverUpload({
   coverUrl,
   coverFocalX = 50,
   coverFocalY = 50,
   isUpdating = false,
+  photoCount = 0,
   onPhotoDrop,
   onSelectFromCollection,
   onCoverFileSelect,
 }) {
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef(null);
+  const hasPhotos = Number(photoCount) > 0;
 
   const onDragOver = useCallback(
     (e) => {
@@ -119,17 +121,6 @@ export function SidebarCoverUpload({
     [onCoverFileSelect]
   );
 
-  const handleDropzoneKeyDown = useCallback(
-    (e) => {
-      if (isUpdating) return;
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        fileInputRef.current?.click();
-      }
-    },
-    [isUpdating]
-  );
-
   const hasCover = Boolean(coverUrl);
 
   const dropHandlers = {
@@ -139,51 +130,65 @@ export function SidebarCoverUpload({
   };
 
   const emptyDropzone = (
-    <div
-      className={cn(
-        'cd-sidebar-cover-dropzone',
-        isDragging && 'dragging',
-        isUpdating && 'uploading'
-      )}
-      role="button"
-      tabIndex={isUpdating ? -1 : 0}
-      aria-label="Set delivery cover. Browse files or select from delivery."
-      onClick={handleBrowseClick}
-      onKeyDown={handleDropzoneKeyDown}
-    >
-      <div className="cd-sidebar-cover-drop-icon" aria-hidden>
-        {COVER_DROP_ICON}
-      </div>
-      <p className="cd-sidebar-cover-drop-label">Delivery cover</p>
-      {(isUpdating || isDragging) && (
-        <p className="cd-sidebar-cover-drop-title">
-          {isUpdating ? 'Updating cover…' : 'Drop to set cover'}
-        </p>
-      )}
-      {!isUpdating && !isDragging && (
-        <div className="cd-sidebar-cover-actions">
-          <button
-            type="button"
-            className="cd-sidebar-cover-action-btn"
-            onClick={handleBrowseClick}
-          >
-            Browse files
-          </button>
-          <button
-            type="button"
-            className="cd-sidebar-cover-action-btn cd-sidebar-cover-action-btn--secondary"
-            onClick={handleSelectFromCollection}
-          >
-            From delivery
-          </button>
+    <>
+      <div
+        className={cn(
+          'cd-sidebar-cover-dropzone',
+          isDragging && 'dragging',
+          isUpdating && 'uploading'
+        )}
+      >
+        <div className="cd-sidebar-cover-empty-main">
+          <div className="cd-sidebar-cover-drop-icon" aria-hidden>
+            {COVER_DROP_ICON}
+          </div>
+          {isUpdating || isDragging ? (
+            <p className="cd-sidebar-cover-drop-hint">
+              {isUpdating ? 'Updating cover…' : 'Drop to set cover'}
+            </p>
+          ) : (
+            <div className="cd-sidebar-cover-actions">
+              {hasPhotos ? (
+                <>
+                  <button
+                    type="button"
+                    className="cd-sidebar-cover-action-btn cd-sidebar-cover-action-btn--primary"
+                    onClick={handleSelectFromCollection}
+                  >
+                    From delivery
+                  </button>
+                  <button
+                    type="button"
+                    className="cd-sidebar-cover-action-btn"
+                    onClick={handleBrowseClick}
+                  >
+                    Upload
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className="cd-sidebar-cover-action-btn cd-sidebar-cover-action-btn--primary cd-sidebar-cover-action-btn--upload"
+                  onClick={handleBrowseClick}
+                >
+                  Upload a photo
+                </button>
+              )}
+            </div>
+          )}
         </div>
-      )}
-    </div>
+      </div>
+      <span className="cd-sidebar-cover-field-label">Delivery cover</span>
+    </>
   );
 
   return (
     <div
-      className={cn('cd-cover-image', isDragging && 'dragging-cover')}
+      className={cn(
+        'cd-cover-image',
+        !hasCover && 'cd-cover-image--empty',
+        isDragging && 'dragging-cover'
+      )}
       {...dropHandlers}
     >
       <input
@@ -217,11 +222,11 @@ export function SidebarCoverUpload({
             <div className="cd-sidebar-cover-caption__actions">
               <button
                 type="button"
-                className="cd-sidebar-cover-caption__change"
-                onClick={onSelectFromCollection}
+                className="cd-sidebar-cover-caption__edit"
+                onClick={handleSelectFromCollection}
                 disabled={isUpdating}
               >
-                {isUpdating ? 'Updating…' : 'Change'}
+                {isUpdating ? 'Updating…' : 'Edit'}
               </button>
             </div>
           </div>

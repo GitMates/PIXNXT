@@ -790,9 +790,14 @@
 .cd-cover-image {
     position: relative;
     width: 100%;
-    height: 180px;
-    background-color: #f3f4f6;
+    height: 160px;
+    background-color: #ebe8d8;
     overflow: hidden;
+}
+
+.cd-cover-image--empty {
+    height: auto;
+    background-color: transparent;
 }
 
 .cd-cover-hover-overlay {

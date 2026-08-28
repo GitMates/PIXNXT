@@ -107,6 +107,12 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
   const isAllComplete = totalCount > 0 && completedCount === totalCount && inProgressCount === 0 && failedCount === 0;
   const isFinishedWithFailures = failedCount > 0 && inProgressCount === 0;
 
+  useEffect(() => {
+    if (!isAllComplete || !onDismiss) return undefined;
+    const timer = window.setTimeout(() => onDismiss(), 2000);
+    return () => window.clearTimeout(timer);
+  }, [isAllComplete, onDismiss]);
+
   const totalBytes = useMemo(() => getTotalUploadBytes(state.files), [state.files]);
   const doneBytes = useMemo(() => getTotalBytesDone(state.files), [state.files]);
 

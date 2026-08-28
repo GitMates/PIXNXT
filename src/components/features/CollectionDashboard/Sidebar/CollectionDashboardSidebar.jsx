@@ -256,6 +256,7 @@ export function CollectionDashboardSidebar({
           coverFocalX={coverFocalX}
           coverFocalY={coverFocalY}
           isUpdating={isCoverUploading}
+          photoCount={photoCount}
           onPhotoDrop={onCoverPhotoDrop}
           onSelectFromCollection={onSelectCoverFromCollection}
           onCoverFileSelect={onCoverFileSelect}

@@ -33,7 +33,10 @@ export function GlobalUploadShell() {
   const counts = useMemo(() => uploadTabCounts(state.files), [state.files]);
   const inProgress = counts.uploading;
   const isAllComplete =
-    state.files.length > 0 && counts.complete === state.files.length && inProgress === 0;
+    state.files.length > 0 &&
+    counts.complete === state.files.length &&
+    inProgress === 0 &&
+    counts.failed === 0;
   const completeSummary = useMemo(() => uploadCompleteSummary(state.files), [state.files]);
   const inProgressTitle = useMemo(
     () => uploadInProgressTitle(state.files, inProgress),

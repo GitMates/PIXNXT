@@ -1797,74 +1797,78 @@ const EmailTemplatesTab = ({ profile, updateProfile }) => {
     };
 
     return (
-        <div className="dm-panel">
-            <p className="settings-right-desc">
+        <div className="dm-panel gd-panel">
+            <p className="gd-lead">
                 The wording that goes out with a link, and the language a new delivery starts in. Email
                 templates and the default language were two unrelated pages; they do one job.
             </p>
 
-            <span className="settings-section-overline" style={{ marginTop: 24 }}>MESSAGES</span>
-            <div className="settings-message-list">
-                {[
-                    {
-                        title: "Delivery ready",
-                        desc: "Sent when you share a finished delivery with a client.",
-                        editId: collectionSharingTemplates[0]?.id,
-                    },
-                    {
-                        title: "Selections reminder",
-                        desc: "Sent if a client has not finished choosing after a set number of days.",
-                        editId: autoExpiryTemplates[0]?.id,
-                    },
-                    {
-                        title: "Guest photos ready",
-                        desc: "Goes to an event guest on WhatsApp with their own link. Kept as a utility template — marketing templates cost two to three times more per message.",
-                    },
-                    {
-                        title: "Order confirmed",
-                        desc: "Sent by Print Lab after a client pays.",
-                    },
-                ].map((row) => (
-                    <div key={row.title} className="settings-row">
-                        <div className="settings-row__text">
-                            <strong className="settings-field-title">{row.title}</strong>
-                            <p className="settings-right-desc">{row.desc}</p>
+            <section className="gd-section">
+                <span className="gd-overline">Messages</span>
+                <div className="dm-message-cards">
+                    {[
+                        {
+                            title: 'Delivery ready',
+                            desc: 'Sent when you share a finished delivery with a client.',
+                            editId: collectionSharingTemplates[0]?.id,
+                        },
+                        {
+                            title: 'Selections reminder',
+                            desc: 'Sent if a client has not finished choosing after a set number of days.',
+                            editId: autoExpiryTemplates[0]?.id,
+                        },
+                        {
+                            title: 'Guest photos ready',
+                            desc: 'Goes to an event guest on WhatsApp with their own link. Kept as a utility template — marketing templates cost two to three times more per message.',
+                        },
+                        {
+                            title: 'Order confirmed',
+                            desc: 'Sent by Print Lab after a client pays.',
+                        },
+                    ].map((row) => (
+                        <div key={row.title} className="dm-message-card">
+                            <div className="dm-message-card__body">
+                                <strong className="dm-message-card__title">{row.title}</strong>
+                                <p className="dm-message-card__desc">{row.desc}</p>
+                            </div>
+                            <button
+                                type="button"
+                                className="settings-pill-btn dm-message-card__action"
+                                onClick={() => {
+                                    if (row.editId) navigate(`/settings/email-templates/${row.editId}/edit`);
+                                    else navigate('/settings/email-templates/create');
+                                }}
+                            >
+                                Edit
+                            </button>
                         </div>
-                        <button
-                            type="button"
-                            className="settings-pill-btn"
-                            onClick={() => {
-                                if (row.editId) navigate(`/settings/email-templates/${row.editId}/edit`);
-                                else navigate("/settings/email-templates/create");
-                            }}
-                        >
-                            Edit
-                        </button>
-                    </div>
-                ))}
-            </div>
-
-            <span className="settings-section-overline" style={{ marginTop: 28 }}>LANGUAGE</span>
-            <div className="settings-row settings-row--last">
-                <div className="settings-row__text">
-                    <strong className="settings-field-title">Default language for new deliveries</strong>
-                    <p className="settings-right-desc">
-                        The language a client sees. Each delivery can be set differently.
-                    </p>
+                    ))}
                 </div>
-                <select
-                    className="settings-select"
-                    value={defaultLanguage}
-                    onChange={handleLanguageChange}
-                    disabled={langSaving}
-                    aria-label="Default language"
-                >
-                    <option value="english">English</option>
-                    <option value="tamil">தமிழ்</option>
-                    <option value="hindi">हिन्दी</option>
-                    <option value="telugu">తెలుగు</option>
-                </select>
-            </div>
+            </section>
+
+            <section className="gd-section">
+                <span className="gd-overline">Language</span>
+                <div className="dm-message-card dm-message-card--language">
+                    <div className="dm-message-card__body">
+                        <strong className="dm-message-card__title">Default language for new deliveries</strong>
+                        <p className="dm-message-card__desc">
+                            The language a client sees. Each delivery can be set differently.
+                        </p>
+                    </div>
+                    <select
+                        className="settings-select dm-message-card__select"
+                        value={defaultLanguage}
+                        onChange={handleLanguageChange}
+                        disabled={langSaving}
+                        aria-label="Default language"
+                    >
+                        <option value="english">English</option>
+                        <option value="tamil">தமிழ்</option>
+                        <option value="hindi">हिन्दी</option>
+                        <option value="telugu">తెలుగు</option>
+                    </select>
+                </div>
+            </section>
         </div>
     );
 };

@@ -1843,7 +1843,7 @@
 /* ── Settings Layout and Subnav Styles ── */
 
 .settings-page-wrapper {
-  --settings-content-max: 720px;
+  --settings-content-max: 840px;
   padding: 28px 40px 48px;
   font-family: inherit;
   display: flex;
@@ -2512,7 +2512,8 @@
    render the same radio cards, pills and standee cards. */
 .gd-panel,
 .fm-panel,
-.ad-panel {
+.ad-panel,
+.dm-panel {
   --gd-accent: #c06a45;
   --gd-accent-soft: #fbf1e8;
   --gd-accent-border: #c47855;
@@ -2522,7 +2523,8 @@
   --gd-box-hover-bg: #fcf8f4;
 }
 
-.gd-panel {
+.gd-panel,
+.dm-panel {
   width: 100%;
   max-width: 100%;
   padding-bottom: 32px;
@@ -2960,6 +2962,86 @@
 
 .fm-panel .gd-save-status {
   margin-top: 28px;
+}
+
+/* ── Delivery & messages ── */
+.dm-panel > .gd-lead {
+  margin-top: 0;
+  max-width: 54ch;
+}
+
+.dm-message-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dm-message-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 18px 20px;
+  border: 1px solid var(--gd-box-border);
+  border-radius: 12px;
+  background: #ffffff;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.dm-message-card:hover {
+  border-color: var(--gd-box-hover-border);
+  background: var(--gd-box-hover-bg);
+  box-shadow: 0 2px 8px rgba(40, 30, 20, 0.04);
+}
+
+.dm-message-card__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.dm-message-card__title {
+  display: block;
+  font-size: 15px;
+  font-weight: 700;
+  color: #2d2926;
+  line-height: 1.35;
+}
+
+.dm-message-card__desc {
+  margin: 6px 0 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: #6d6a66;
+}
+
+.dm-message-card__action {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.dm-message-card__select {
+  flex-shrink: 0;
+  margin-top: 2px;
+  min-width: 9.5rem;
+}
+
+@media (max-width: 640px) {
+  .dm-message-card {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+
+  .dm-message-card__action,
+  .dm-message-card__select {
+    align-self: flex-start;
+    margin-top: 0;
+  }
 }
 
 /* ── Access defaults (static UI) ── */
@@ -5086,7 +5168,7 @@
   box-sizing: border-box;
 }
 
-.dm-panel > .settings-right-desc,
+.dm-panel > .gd-lead,
 .ad-panel > .ad-lead,
 .ud-panel > .ud-lead,
 .gd-panel > .gd-lead,
