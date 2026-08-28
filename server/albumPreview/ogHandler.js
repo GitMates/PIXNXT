@@ -1,11 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {
-  galleryCoverImageUrl,
+  albumCoverImageUrl,
   getRequestOrigin,
-  loadPublicGallery,
-  resolveGalleryShareMeta,
-} from '../../../server/galleryShare/ogCover.js';
+  loadPublicAlbum,
+  resolveAlbumCoverMeta,
+} from './ogCover.js';
 
 const SHARE_CRAWLER_UA =
   /whatsapp|facebookexternalhit|facebot|twitterbot|linkedinbot|slackbot|telegrambot|discordbot|pinterest|embedly|redditbot|applebot|googlebot|bingbot|preview|iframely|vkshare|outbrain/i;
@@ -27,6 +27,7 @@ function shareCoverHtml({ title, description, imageUrl, pageUrl }) {
   const safeDescription = escapeHtml(description);
   const safeImage = escapeHtml(imageUrl);
   const safeUrl = escapeHtml(pageUrl);
+  // Crawlers only — never include logo.png. WhatsApp uses og:image, then favicon.
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -47,15 +48,15 @@ function shareCoverHtml({ title, description, imageUrl, pageUrl }) {
   <meta property="og:image:url" content="${safeImage}" />
   <meta property="og:image:type" content="image/jpeg" />
   <meta property="og:image:width" content="1200" />
-  <meta property="og:image:height" content="630" />
+  <meta property="og:image:height" content="1200" />
   <meta property="og:image:alt" content="${safeTitle}" />
-  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:card" content="summary" />
   <meta name="twitter:title" content="${safeTitle}" />
   <meta name="twitter:description" content="${safeDescription}" />
   <meta name="twitter:image" content="${safeImage}" />
 </head>
 <body>
-  <p><a href="${safeUrl}?app=1">Open gallery</a></p>
+  <p><a href="${safeUrl}?app=1">Open album</a></p>
 </body>
 </html>`;
 }
@@ -84,8 +85,8 @@ function injectShareMeta(html, { title, description, imageUrl, pageUrl }) {
   next = setMeta(next, 'property', 'og:image:url', imageUrl);
   next = setMeta(next, 'property', 'og:image:type', 'image/jpeg');
   next = setMeta(next, 'property', 'og:image:width', '1200');
-  next = setMeta(next, 'property', 'og:image:height', '630');
-  next = setMeta(next, 'name', 'twitter:card', 'summary_large_image');
+  next = setMeta(next, 'property', 'og:image:height', '1200');
+  next = setMeta(next, 'name', 'twitter:card', 'summary');
   next = setMeta(next, 'name', 'twitter:title', title);
   next = setMeta(next, 'name', 'twitter:description', description);
   next = setMeta(next, 'name', 'twitter:image', imageUrl);
@@ -132,7 +133,7 @@ async function loadSpaHtml(origin) {
       }
     }
   } catch (err) {
-    console.error('[gallery/og] index fetch failed', err?.message || err);
+    console.error('[album-preview/og] index fetch failed', err?.message || err);
   }
   return local;
 }
@@ -140,28 +141,29 @@ async function loadSpaHtml(origin) {
 async function resolveSharePayload(req) {
   const slug = decodeURIComponent(String(req.query.slug || '')).trim();
   const origin = getRequestOrigin(req);
-  const pageUrl = `${origin}/gallery/${encodeURIComponent(slug)}`;
-  let title = 'Photo gallery';
-  let description = 'View this photo gallery on PixNxt.';
-  let imageUrl = galleryCoverImageUrl(origin, slug, Date.now());
+  const pageUrl = `${origin}/album-preview/${encodeURIComponent(slug)}`;
+  let title = 'Album proof';
+  let description = 'Review this album, leave comments, and request photo swaps.';
+  let imageUrl = albumCoverImageUrl(origin, slug, Date.now());
 
   if (slug) {
     try {
-      const { collection, photos } = await loadPublicGallery(slug);
-      if (collection) {
-        const meta = resolveGalleryShareMeta(collection, photos);
-        title = meta.title;
-        description = `${title} is ready to view on PixNxt.`;
-        imageUrl = galleryCoverImageUrl(origin, collection.slug || slug, meta.updated);
+      const album = await loadPublicAlbum(slug);
+      if (album) {
+        const meta = resolveAlbumCoverMeta(album);
+        title = album.name || meta.title || title;
+        description = `${title} is ready to review on PixNxt.`;
+        imageUrl = albumCoverImageUrl(origin, album.slug || slug, meta.updated);
       }
     } catch (err) {
-      console.error('[gallery/og]', err);
+      console.error('[album-preview/og]', err);
     }
   }
 
   return { title, description, imageUrl, pageUrl, slug };
 }
 
+/** Send browsers into the React app; keep this OG HTML for crawlers only. */
 function redirectHumansToSpa(req, res, pageUrl) {
   const dest = new URL(pageUrl);
   const query = req.query || {};
@@ -184,6 +186,8 @@ function redirectHumansToSpa(req, res, pageUrl) {
 export default async function handler(req, res) {
   const share = await resolveSharePayload(req);
 
+  // People must get the SPA (Your Details / album UI). The bare "Open album"
+  // document is for crawlers only — if SPA inject fails, redirect to ?app=1.
   if (!isShareCrawler(req)) {
     try {
       const spa = await loadSpaHtml(getRequestOrigin(req));
@@ -195,7 +199,7 @@ export default async function handler(req, res) {
         return;
       }
     } catch (err) {
-      console.error('[gallery/og] spa inject failed', err);
+      console.error('[album-preview/og] spa inject failed', err);
     }
     redirectHumansToSpa(req, res, share.pageUrl);
     return;

@@ -1,7 +1,7 @@
-import { handleRegisterGuestRequest } from '../../server/guestDelivery/registerGuest.js';
-import { handlePublishEventRequest } from '../../server/guestDelivery/publishEvent.js';
-import { handleGuestGalleryRequest } from '../../server/guestDelivery/getGuestGallery.js';
-import { handleSendGuestEmailRequest } from '../../server/guestDelivery/sendGuestEmail.js';
+import { handleRegisterGuestRequest } from '../server/guestDelivery/registerGuest.js';
+import { handlePublishEventRequest } from '../server/guestDelivery/publishEvent.js';
+import { handleGuestGalleryRequest } from '../server/guestDelivery/getGuestGallery.js';
+import { handleSendGuestEmailRequest } from '../server/guestDelivery/sendGuestEmail.js';
 
 export const config = {
   api: {
@@ -13,14 +13,25 @@ export const config = {
 
 function actionPath(req) {
   const raw = req.query?.path;
-  if (Array.isArray(raw)) {
+  if (Array.isArray(raw) && raw.length) {
     return raw.filter(Boolean).join('/').replace(/^\/+|\/+$/g, '');
   }
   if (typeof raw === 'string' && raw.trim()) {
     return raw.trim().replace(/^\/+|\/+$/g, '');
   }
 
-  // Some hosts leave query.path empty — recover from the request URL.
+  try {
+    const pathname = new URL(req.url || '', 'http://localhost').pathname;
+    const prefix = '/api/guest-delivery/';
+    const idx = pathname.indexOf(prefix);
+    if (idx !== -1) {
+      const fromPath = decodeURIComponent(pathname.slice(idx + prefix.length)).replace(/^\/+|\/+$/g, '');
+      if (fromPath) return fromPath;
+    }
+  } catch {
+    // ignore
+  }
+
   const url = String(req.url || '');
   const match = url.match(/\/api\/guest-delivery\/?([^?&#]*)/i);
   if (match?.[1]) {
@@ -67,7 +78,7 @@ export default async function handler(req, res) {
       return;
     }
 
-    res.status(404).json({ error: 'Not found', action });
+    res.status(404).json({ error: 'Not found', action: action || null });
   } catch (err) {
     console.error(`[guest-delivery/${action || 'root'}]`, err);
     const message = err?.message || 'Request failed';

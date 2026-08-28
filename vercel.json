@@ -9,29 +9,41 @@
     { "source": "/m/:slug/icon-192.png", "destination": "/api/m/:slug/icon?size=192" },
     { "source": "/m/:slug/icon-512.png", "destination": "/api/m/:slug/icon?size=512" },
     { "source": "/m/:slug/apple-touch-icon.png", "destination": "/api/m/:slug/icon" },
-    { "source": "/album-preview/:slug/cover.jpg", "destination": "/api/album-preview/:slug/cover" },
-    { "source": "/album-preview/:slug/og-:v.jpg", "destination": "/api/album-preview/:slug/cover" },
-    { "source": "/gallery/:slug/cover.jpg", "destination": "/api/gallery/:slug/cover" },
-    { "source": "/gallery/:slug/og-:v.jpg", "destination": "/api/gallery/:slug/cover" },
+    { "source": "/album-preview/:slug/cover.jpg", "destination": "/api/album-preview/:slug?action=cover" },
+    { "source": "/album-preview/:slug/og-:v.jpg", "destination": "/api/album-preview/:slug?action=cover" },
+    { "source": "/gallery/:slug/cover.jpg", "destination": "/api/gallery/:slug?action=cover" },
+    { "source": "/gallery/:slug/og-:v.jpg", "destination": "/api/gallery/:slug?action=cover" },
     {
       "source": "/gallery/:slug/",
       "missing": [{ "type": "query", "key": "app" }],
-      "destination": "/api/gallery/:slug/og"
+      "destination": "/api/gallery/:slug?action=og"
     },
     {
       "source": "/gallery/:slug",
       "missing": [{ "type": "query", "key": "app" }],
-      "destination": "/api/gallery/:slug/og"
+      "destination": "/api/gallery/:slug?action=og"
     },
     {
       "source": "/album-preview/:slug/",
       "missing": [{ "type": "query", "key": "app" }],
-      "destination": "/api/album-preview/:slug/og"
+      "destination": "/api/album-preview/:slug?action=og"
     },
     {
       "source": "/album-preview/:slug",
       "missing": [{ "type": "query", "key": "app" }],
-      "destination": "/api/album-preview/:slug/og"
+      "destination": "/api/album-preview/:slug?action=og"
+    },
+    {
+      "source": "/api/photo-ai/:path*",
+      "destination": "/api/photo-ai?path=:path*"
+    },
+    {
+      "source": "/api/guest-delivery/:path*",
+      "destination": "/api/guest-delivery?path=:path*"
+    },
+    {
+      "source": "/api/r2-media/:path*",
+      "destination": "/api/r2-media?path=:path*"
     },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]

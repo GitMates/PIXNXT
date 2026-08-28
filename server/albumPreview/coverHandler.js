@@ -1,5 +1,5 @@
-import { loadPublicAlbum } from '../../../server/albumPreview/ogCover.js';
-import { rasterizeAlbumCoverImage } from '../../../server/albumPreview/rasterizeCover.js';
+import { loadPublicAlbum } from './ogCover.js';
+import { rasterizeAlbumCoverImage } from './rasterizeCover.js';
 
 export const maxDuration = 30;
 
