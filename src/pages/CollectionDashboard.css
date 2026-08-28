@@ -1057,7 +1057,7 @@
 }
 
 .cd-main-area--guests {
-    background-color: #f9f7f2;
+    background-color: #faf9f5;
     padding: 0;
 }
 
@@ -6645,12 +6645,12 @@
     padding: 36px 48px 64px;
     width: 100%;
     box-sizing: border-box;
-    background: #f9f7f2;
+    background: #faf9f5;
 }
 
 .cd-guests-main .gd-guest-board {
     width: 100%;
-    max-width: 760px;
+    max-width: 920px;
     margin: 0 auto;
 }
 

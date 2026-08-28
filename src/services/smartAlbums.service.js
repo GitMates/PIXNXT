@@ -8,6 +8,7 @@ import { deleteAlbumCollectionAssets, getAlbumCollectionStorageBytes } from '../
 import { clampAlbumPageCount } from '../components/smart-albums/albumPageStorage';
 import { clearAllAlbumPagePhotos } from '../components/smart-albums/albumPagePhotos';
 import { clearAlbumTransforms } from '../components/smart-albums/albumPageTransforms';
+import { userStorageService } from './userStorage.service';
 import {
   buildAlbumPreviewSnapshot,
   getAlbumIdsWithLocalAssets,
@@ -1766,11 +1767,9 @@ export const smartAlbumsService = {
     if (error) {
 
       if (shouldUseLocalStore(error)) {
-
         removeLocalAlbum(photographerId, albumId);
-
+        userStorageService.notifyStorageChanged();
         return;
-
       }
 
       throw error;
@@ -1778,7 +1777,7 @@ export const smartAlbumsService = {
     }
 
     removeLocalAlbum(photographerId, albumId);
-
+    userStorageService.notifyStorageChanged();
   },
 
 

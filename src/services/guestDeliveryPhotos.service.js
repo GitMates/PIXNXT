@@ -3,6 +3,7 @@ import { storageService } from './storage.service';
 import { getFileMime } from '../lib/fileMime';
 import { getImageDimensionsFast } from '../lib/imageDimensions';
 import { guestDeliveryService } from './guestDelivery.service';
+import { userStorageService } from './userStorage.service';
 
 const PHOTO_FIELDS =
   'id, event_id, photographer_id, filename, full_url, thumbnail_url, storage_path, size_bytes, width, height, position, ai_indexed_at, created_at';
@@ -185,6 +186,7 @@ export const guestDeliveryPhotosService = {
     if (error) throw error;
 
     await guestDeliveryService.incrementPhotoCount(eventId, 1);
+    userStorageService.notifyStorageChanged();
     return data;
   },
 
@@ -207,6 +209,7 @@ export const guestDeliveryPhotosService = {
     }
 
     await guestDeliveryService.incrementPhotoCount(eventId, -1);
+    userStorageService.notifyStorageChanged();
   },
 
   async deletePhotos(photographerId, eventId, photos) {

@@ -12,7 +12,7 @@ import {
 import { cn } from '../../../../lib/utils';
 import { useAuth } from '../../../../hooks/useAuth';
 import { getUserDisplayLabel, getUserInitial } from '../../../../lib/userInitials';
-import { userStorageService, getStorageLimitBytes, formatStorageMeter } from '../../../../services/userStorage.service';
+import { userStorageService, getStorageLimitBytes, formatStorageMeter, STORAGE_CHANGED_EVENT } from '../../../../services/userStorage.service';
 import { navigateToAccount } from '../../../../lib/accountBackNav';
 import { SidebarCoverUpload } from '../CoverSettings/SidebarCoverUpload';
 import './CollectionDashboardSidebar.css';
@@ -213,18 +213,24 @@ export function CollectionDashboardSidebar({
     } catch {
       /* ignore */
     }
-    let cancelled = false;
-    userStorageService.calculateUserStorageBytes(user, profile).then((bytes) => {
-      if (!cancelled && typeof bytes === 'number' && bytes >= 0) setStorageBytes(bytes);
-    });
+
+    const refreshStorage = () => {
+      userStorageService.invalidateCachedStorage(user.id);
+      userStorageService.calculateUserStorageBytes(user, profile).then((bytes) => {
+        if (typeof bytes === 'number' && bytes >= 0) setStorageBytes(bytes);
+      });
+    };
+
+    refreshStorage();
+    window.addEventListener(STORAGE_CHANGED_EVENT, refreshStorage);
     return () => {
-      cancelled = true;
+      window.removeEventListener(STORAGE_CHANGED_EVENT, refreshStorage);
     };
   }, [user?.id, profile?.storage_used_bytes]);
 
   const maxBytes = useMemo(() => getStorageLimitBytes(profile), [profile]);
 
-  const usedBytes = storageBytes || profile?.storage_used_bytes || 0;
+  const usedBytes = storageBytes ?? profile?.storage_used_bytes ?? 0;
   const storagePct = Math.min(100, maxBytes > 0 ? (usedBytes / maxBytes) * 100 : 0);
 
   const settingsBadge = (tabId) => {

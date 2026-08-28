@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase/client';
+import { userStorageService } from './userStorage.service';
 
 const EVENT_FIELDS =
   'id, photographer_id, name, event_date, slug, cover_image_url, status, registration_enabled, match_threshold, published_at, photo_count, guest_count, collection_id, settings, created_at, updated_at';
@@ -128,6 +129,7 @@ export const guestDeliveryService = {
       .eq('id', eventId);
 
     if (error) throw error;
+    userStorageService.notifyStorageChanged();
   },
 
   async incrementGuestCount(eventId, delta = 1) {

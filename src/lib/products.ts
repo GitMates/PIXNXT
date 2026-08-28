@@ -111,7 +111,7 @@ export const productNavItems: Record<string, ProductNavItem[]> = {
     },
     {
       label: "Settings",
-      href: "/settings",
+      href: "/settings/delivery-messages",
       match: (p) => p.startsWith("/settings"),
       icon: Settings,
       section: "studio",

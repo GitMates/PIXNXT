@@ -4,6 +4,7 @@ import {
   filterFilesByTab,
   formatUploadMb,
   formatUploadSpeed,
+  formatUploadTimeRemaining,
   getTotalUploadBytes,
   getTotalBytesDone,
   uploadActiveLabel,
@@ -89,9 +90,41 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
   if (!state.isOpen) return null;
 
   const [speed, setSpeed] = useState(0);
+  const [nowTick, setNowTick] = useState(() => Date.now());
   const prevBytesRef = useRef(0);
   const prevTimeRef = useRef(Date.now());
   const lastValidSpeedRef = useRef(0);
+  const lastEtaSpeedRef = useRef(0);
+  const uploadStartedAtRef = useRef<number | null>(null);
+
+  const counts = useMemo(() => uploadTabCounts(state.files), [state.files]);
+  const completedCount = counts.complete;
+  const failedCount = counts.failed;
+  const totalCount = state.files.length;
+  const inProgressCount = counts.uploading;
+  const overallPercent = useMemo(() => uploadOverallPercent(state.files), [state.files]);
+
+  const isAllComplete = totalCount > 0 && completedCount === totalCount && inProgressCount === 0 && failedCount === 0;
+  const isFinishedWithFailures = failedCount > 0 && inProgressCount === 0;
+
+  const totalBytes = useMemo(() => getTotalUploadBytes(state.files), [state.files]);
+  const doneBytes = useMemo(() => getTotalBytesDone(state.files), [state.files]);
+
+  useEffect(() => {
+    const hasActive = state.files.some(
+      (f) => f.status === 'uploading' || f.status === 'processing' || f.status === 'waiting'
+    );
+    if (hasActive && uploadStartedAtRef.current == null) {
+      uploadStartedAtRef.current = Date.now();
+    }
+    if (
+      state.files.length > 0 &&
+      state.files.every((f) => f.status === 'completed' || f.status === 'error')
+    ) {
+      uploadStartedAtRef.current = null;
+      lastEtaSpeedRef.current = 0;
+    }
+  }, [state.files]);
 
   useEffect(() => {
     const isUploading = state.files.some(
@@ -118,6 +151,7 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
               ? lastValidSpeedRef.current * 0.4 + instantSpeed * 0.6
               : instantSpeed;
           lastValidSpeedRef.current = smoothed;
+          lastEtaSpeedRef.current = smoothed;
           setSpeed(smoothed);
         } else if (lastValidSpeedRef.current > 0) {
           const decayed = lastValidSpeedRef.current * 0.85;
@@ -135,31 +169,42 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
     return () => clearInterval(interval);
   }, [state.files]);
 
-  const counts = useMemo(() => uploadTabCounts(state.files), [state.files]);
-  const completedCount = counts.complete;
-  const failedCount = counts.failed;
-  const totalCount = state.files.length;
-  const inProgressCount = counts.uploading;
-  const overallPercent = useMemo(() => uploadOverallPercent(state.files), [state.files]);
+  useEffect(() => {
+    if (inProgressCount <= 0 || isPaused) return undefined;
+    const tick = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(tick);
+  }, [inProgressCount, isPaused]);
 
-  const isAllComplete = totalCount > 0 && completedCount === totalCount && inProgressCount === 0 && failedCount === 0;
-  const isFinishedWithFailures = failedCount > 0 && inProgressCount === 0;
+  const sessionAverageSpeed = useMemo(() => {
+    const started = uploadStartedAtRef.current;
+    if (!started || doneBytes < 32 * 1024) return 0;
+    const elapsed = (nowTick - started) / 1000;
+    if (elapsed < 2) return 0;
+    return doneBytes / elapsed;
+  }, [doneBytes, nowTick]);
 
-  const totalBytes = useMemo(() => getTotalUploadBytes(state.files), [state.files]);
-  const doneBytes = useMemo(() => getTotalBytesDone(state.files), [state.files]);
-
+  const etaSpeed = speed > 0 ? speed : lastEtaSpeedRef.current || sessionAverageSpeed;
   const remainingBytes = Math.max(0, totalBytes - doneBytes);
-  const secondsLeft = speed > 0 ? Math.max(0, Math.round(remainingBytes / speed)) : 0;
+  const secondsLeft = etaSpeed > 0 ? Math.max(0, Math.round(remainingBytes / etaSpeed)) : 0;
 
   const timeRemainingLabel = useMemo(() => {
     if (isPaused) return 'Paused';
     if (isAllComplete) return 'All done';
     if (isFinishedWithFailures) return `${failedCount} failed`;
-    if (secondsLeft <= 0) return '';
-    if (secondsLeft < 60) return `${secondsLeft} sec left`;
-    const mins = Math.ceil(secondsLeft / 60);
-    return `about ${mins} min left`;
-  }, [secondsLeft, isPaused, isAllComplete, isFinishedWithFailures, failedCount]);
+    if (inProgressCount > 0) {
+      const eta = formatUploadTimeRemaining(secondsLeft);
+      if (eta) return eta;
+      return 'Calculating…';
+    }
+    return '';
+  }, [
+    secondsLeft,
+    isPaused,
+    isAllComplete,
+    isFinishedWithFailures,
+    failedCount,
+    inProgressCount,
+  ]);
 
   const formattedSpeed = useMemo(
     () => (isPaused ? 'Paused' : inProgressCount > 0 ? formatUploadSpeed(speed) : ''),

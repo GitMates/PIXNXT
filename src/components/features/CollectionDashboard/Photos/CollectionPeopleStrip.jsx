@@ -150,7 +150,11 @@ export function CollectionPeopleStrip({
                       </span>
                     ) : null}
                   </span>
-                  <span className="cdpw-person__name">{person.label || '—'}</span>
+                  <span className="cdpw-person__name">
+                    {/^Person \d+$/i.test(String(person.label || '')) || person.label === 'Not named'
+                      ? 'Not named'
+                      : person.label || 'Not named'}
+                  </span>
                 </button>
               </div>
             );

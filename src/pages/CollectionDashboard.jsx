@@ -1462,7 +1462,7 @@ const CollectionDashboard = () => {
         return () => {
             cancelled = true;
         };
-    }, [gdEvent?.id, gdEvent?.photographer_id, collection?.photographer_id, user?.id]);
+    }, [gdEvent?.id, gdEvent?.photographer_id, collection?.photographer_id, user?.id, activeSidebarTab, photoAiPeople.length]);
 
     const applyUploadView = useCallback((detail) => {
         if (detail.collectionId && detail.collectionId !== collectionId) return;
@@ -2893,6 +2893,9 @@ const CollectionDashboard = () => {
         try {
             const people = await photoAiService.getPeople(collectionId, {
                 forceRecluster: Boolean(options.forceRecluster),
+                applyGuestLabels: Boolean(
+                    options.applyGuestLabels ?? collection?.guest_delivery_enabled ?? gdEvent?.id
+                ),
                 metadataRows: rows,
                 includeHidden: true,
             });
@@ -2904,7 +2907,7 @@ const CollectionDashboard = () => {
             peopleLoadingRef.current = false;
             if (!silent) setPhotoAiLoadingPeople(false);
         }
-    }, [collectionId, photoAiTableMissing]);
+    }, [collectionId, photoAiTableMissing, collection?.guest_delivery_enabled, gdEvent?.id]);
 
     const refreshPhotoAiMetadata = useCallback(async () => {
         if (!collectionId) return { rows: [], tableMissing: false };
@@ -2952,7 +2955,10 @@ const CollectionDashboard = () => {
         const unindexed = indexablePhotoCount > rows.length;
         if (!force && !unindexed && !stale) {
             if (showPeoplePanel || activeSidebarTab === 'photos') {
-                await loadPhotoAiPeople({ silent: true });
+                await loadPhotoAiPeople({
+                    silent: true,
+                    applyGuestLabels: Boolean(collection?.guest_delivery_enabled),
+                });
             }
             return;
         }
@@ -2963,12 +2969,19 @@ const CollectionDashboard = () => {
             await photoAiService.syncCollection(collectionId);
             await refreshPhotoAiMetadata();
             if (showPeoplePanel || activeSidebarTab === 'photos') {
-                await loadPhotoAiPeople({ silent: true, forceRecluster: force });
+                await loadPhotoAiPeople({
+                    silent: true,
+                    forceRecluster: force,
+                    applyGuestLabels: Boolean(collection?.guest_delivery_enabled),
+                });
             }
         } catch (err) {
             console.warn('Photo AI auto-sync failed:', err);
             if (showPeoplePanel || activeSidebarTab === 'photos') {
-                await loadPhotoAiPeople({ silent: true });
+                await loadPhotoAiPeople({
+                    silent: true,
+                    applyGuestLabels: Boolean(collection?.guest_delivery_enabled),
+                });
             }
         } finally {
             photoAiSyncingRef.current = false;
@@ -2982,6 +2995,7 @@ const CollectionDashboard = () => {
         activeSidebarTab,
         refreshPhotoAiMetadata,
         loadPhotoAiPeople,
+        collection?.guest_delivery_enabled,
     ]);
 
     useEffect(() => {
@@ -3015,8 +3029,18 @@ const CollectionDashboard = () => {
 
     useEffect(() => {
         if (activeSidebarTab !== 'photos' || photoAiTableMissing || photoAiRows.length === 0) return;
-        void loadPhotoAiPeople({ silent: true });
-    }, [activeSidebarTab, photoAiTableMissing, photoAiRows.length, loadPhotoAiPeople]);
+        void loadPhotoAiPeople({
+            silent: true,
+            applyGuestLabels: Boolean(collection?.guest_delivery_enabled),
+        });
+    }, [
+        activeSidebarTab,
+        photoAiTableMissing,
+        photoAiRows.length,
+        collection?.guest_delivery_enabled,
+        gdEvent?.id,
+        loadPhotoAiPeople,
+    ]);
 
     useEffect(() => {
         if (!collectionId || indexablePhotoCount === 0 || photoAiTableMissing) return;
@@ -3299,6 +3323,38 @@ const CollectionDashboard = () => {
             cover_focal_x: primary.x,
             cover_focal_y: primary.y,
         }, { live: false });
+    };
+
+    const handleCoverRemove = async () => {
+        if (!collectionId) return;
+        const defaultFocals = getDefaultCoverFocals();
+        coverDraftDirtyRef.current = false;
+        coverDraftBackupRef.current = null;
+        applyCoverLocal({
+            cover_url: null,
+            cover_photo_id: null,
+            cover_focals: defaultFocals,
+            cover_focal_x: 50,
+            cover_focal_y: 50,
+        });
+        try {
+            setIsCoverUploading(true);
+            await galleryService.updateCollection(collectionId, {
+                cover_url: null,
+                cover_photo_id: null,
+                cover_focals: defaultFocals,
+                cover_focal_x: 50,
+                cover_focal_y: 50,
+            });
+            setShowCoverModal(false);
+            setCoverModalScope('all');
+            setCoverModalPhotoOverride(null);
+        } catch (err) {
+            console.error('Failed to remove delivery cover:', err);
+            alert('Failed to remove cover.');
+        } finally {
+            setIsCoverUploading(false);
+        }
     };
 
     useEffect(() => {
@@ -5976,6 +6032,7 @@ const CollectionDashboard = () => {
                 saving={isCoverUploading}
                 onConfirm={handleCoverModalConfirm}
                 onDraftChange={handleCoverDraftChange}
+                onRemove={handleCoverRemove}
                 onCoverFileSelect={handleCoverFileSelect}
             />
 

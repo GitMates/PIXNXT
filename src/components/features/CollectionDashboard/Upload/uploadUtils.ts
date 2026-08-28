@@ -72,6 +72,18 @@ export function formatUploadSpeed(bytesPerSec: number): string {
   return `${Math.round(bytesPerSec)} B/s`;
 }
 
+/** Human-readable ETA for the upload panel header. */
+export function formatUploadTimeRemaining(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds <= 0) return '';
+  if (seconds < 60) return `${Math.max(1, Math.round(seconds))} sec left`;
+  if (seconds < 3600) {
+    const mins = Math.ceil(seconds / 60);
+    return `about ${mins} min left`;
+  }
+  const hrs = Math.ceil(seconds / 3600);
+  return hrs === 1 ? 'about 1 hr left' : `about ${hrs} hrs left`;
+}
+
 export function uploadTotalBytes(file: UploadQueueFile): number {
   return file.uploadSize ?? file.size;
 }

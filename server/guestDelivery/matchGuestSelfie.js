@@ -44,9 +44,11 @@ function dedupeMatches(matches) {
 
 /**
  * Search event collection with stepped thresholds (same approach as client gallery tuning).
+ * When collectionId is set (linked delivery), search the collection face group — same pool as People.
  */
-export async function matchGuestSelfie({ eventId, guest, threshold = 85 }) {
+export async function matchGuestSelfie({ eventId, collectionId = null, guest, threshold = 85 }) {
   const selfieBase64 = await loadGuestSelfieBase64(guest);
+  const searchDeliveryId = collectionId || eventId;
   const baseThreshold = Math.min(Math.max(Number(threshold) || 85, 70), 99);
   const thresholds = [...new Set([baseThreshold, 85, 80, 75, 70].filter((t) => t >= 70 && t <= 99))].sort(
     (a, b) => b - a
@@ -57,7 +59,7 @@ export async function matchGuestSelfie({ eventId, guest, threshold = 85 }) {
 
   for (const tryThreshold of thresholds) {
     try {
-      const searchResult = await searchFacesBySelfie(eventId, selfieBase64, tryThreshold);
+      const searchResult = await searchFacesBySelfie(searchDeliveryId, selfieBase64, tryThreshold);
       lastResult = searchResult;
       const uniqueMatches = dedupeMatches(searchResult.matches);
       if (uniqueMatches.length > 0) {
