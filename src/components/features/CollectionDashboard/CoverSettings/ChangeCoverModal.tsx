@@ -22,6 +22,51 @@ const APPEARS_SHORT_LABEL: Record<string, string> = {
   card: 'Icon',
 };
 
+/** Preview tiles: fixed height; width follows surface ratio. */
+const PREVIEW_TILE_HEIGHT = 76;
+const STAGE_MAX_WIDTH = 560;
+const STAGE_MAX_HEIGHT = 340;
+const MODAL_VIEWPORT_RATIO = 0.94;
+const FOOTER_CHROME_MIN = 190;
+
+function computeStageDisplaySize(
+  naturalWidth: number,
+  naturalHeight: number,
+  availableWidth = STAGE_MAX_WIDTH,
+  maxHeight = STAGE_MAX_HEIGHT
+) {
+  const maxW = Math.min(STAGE_MAX_WIDTH, Math.max(120, availableWidth));
+  const maxH = Math.max(120, maxHeight);
+  if (!naturalWidth || !naturalHeight) {
+    return { width: maxW, height: Math.min(maxH, Math.round(maxW * (10 / 16))) };
+  }
+  const scale = Math.min(maxW / naturalWidth, maxH / naturalHeight, 1);
+  return {
+    width: Math.max(1, Math.round(naturalWidth * scale)),
+    height: Math.max(1, Math.round(naturalHeight * scale)),
+  };
+}
+
+function estimateStageMaxHeight() {
+  if (typeof window === 'undefined') return STAGE_MAX_HEIGHT;
+  return Math.max(
+    120,
+    Math.min(STAGE_MAX_HEIGHT, Math.round(window.innerHeight * MODAL_VIEWPORT_RATIO) - 400)
+  );
+}
+
+function parseAspectRatio(aspect: string): number {
+  const [rawW, rawH] = String(aspect).split('/');
+  const w = parseFloat(rawW);
+  const h = parseFloat(rawH);
+  if (!Number.isFinite(w) || !Number.isFinite(h) || h === 0) return 1;
+  return w / h;
+}
+
+function clampPercent(value: number) {
+  return Math.max(0, Math.min(100, value));
+}
+
 function cloneFocals(focals?: CoverFocals | null): CoverFocals {
   const base = getDefaultCoverFocals(
     parseFocalPoint(focals?.desktop) || parseFocalPoint(focals?.website) || { x: 50, y: 50 }
@@ -67,8 +112,15 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
   const [dragging, setDragging] = useState(false);
   const [crosshairStyle, setCrosshairStyle] = useState({ left: '50%', top: '50%' });
   const [draftReady, setDraftReady] = useState(false);
+  const [stageDisplaySize, setStageDisplaySize] = useState<{ width: number; height: number } | null>(
+    null
+  );
+  const [stageMaxHeight, setStageMaxHeight] = useState(estimateStageMaxHeight);
   const imageRef = useRef<HTMLImageElement | null>(null);
+  const modalRef = useRef<HTMLDivElement | null>(null);
+  const stageWrapRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const baselineRef = useRef<{ focals: string; photoId: string }>({ focals: '', photoId: '' });
 
   const imagePhotos = useMemo(() => photos.filter(isGalleryImagePhoto), [photos]);
 
@@ -85,6 +137,15 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
       ''
   );
 
+  const photoNaturalDimensions = useMemo(() => {
+    const w = Number(resolvedPhoto?.width);
+    const h = Number(resolvedPhoto?.height);
+    if (Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0) {
+      return { width: w, height: h };
+    }
+    return null;
+  }, [resolvedPhoto]);
+
   const activePoint: CoverFocalPoint = focals[activeSurface] || focals.desktop || focals.website || { x: 50, y: 50 };
 
   const syncCrosshair = useCallback((x: number, y: number) => {
@@ -96,16 +157,111 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
     setCrosshairStyle(focalPercentToElementStyle(x, y, img));
   }, []);
 
+  const measureStage = useCallback(() => {
+    const img = imageRef.current;
+    if (!img?.naturalWidth || !img.naturalHeight) return;
+    const bodyEl = stageWrapRef.current?.closest('.cover-focal-body') as HTMLElement | null;
+    const available = bodyEl?.clientWidth
+      ? Math.min(STAGE_MAX_WIDTH, bodyEl.clientWidth)
+      : STAGE_MAX_WIDTH;
+    setStageDisplaySize(
+      computeStageDisplaySize(img.naturalWidth, img.naturalHeight, available, stageMaxHeight)
+    );
+    syncCrosshair(activePoint.x, activePoint.y);
+  }, [activePoint.x, activePoint.y, syncCrosshair, stageMaxHeight]);
+
+  const remeasureChrome = useCallback(() => {
+    const modal = modalRef.current;
+    if (!modal) {
+      setStageMaxHeight(estimateStageMaxHeight());
+      return;
+    }
+    const vhCap = Math.round(window.innerHeight * MODAL_VIEWPORT_RATIO);
+    const header = modal.querySelector('.cover-focal-header') as HTMLElement | null;
+    const bottom = modal.querySelector('.cover-focal-bottom') as HTMLElement | null;
+    const controls = modal.querySelector('.cover-focal-controls') as HTMLElement | null;
+    const body = modal.querySelector('.cover-focal-body') as HTMLElement | null;
+
+    let reserved = 0;
+    if (header) reserved += header.offsetHeight;
+    if (bottom) reserved += Math.max(bottom.offsetHeight, FOOTER_CHROME_MIN);
+    else reserved += FOOTER_CHROME_MIN;
+    if (controls) reserved += controls.offsetHeight;
+    if (body) {
+      const cs = getComputedStyle(body);
+      reserved += parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+    }
+    reserved += 28;
+
+    const next = Math.max(120, Math.min(STAGE_MAX_HEIGHT, vhCap - reserved));
+    setStageMaxHeight((prev) => (Math.abs(prev - next) > 1 ? next : prev));
+  }, []);
+
+  useEffect(() => {
+    setStageDisplaySize(null);
+    setStageMaxHeight(estimateStageMaxHeight());
+  }, [editorSrc]);
+
+  useEffect(() => {
+    if (!isOpen || view !== 'edit' || !photoNaturalDimensions) return;
+    const bodyEl = stageWrapRef.current?.closest('.cover-focal-body') as HTMLElement | null;
+    const available = bodyEl?.clientWidth
+      ? Math.min(STAGE_MAX_WIDTH, bodyEl.clientWidth)
+      : STAGE_MAX_WIDTH;
+    setStageDisplaySize(
+      computeStageDisplaySize(
+        photoNaturalDimensions.width,
+        photoNaturalDimensions.height,
+        available,
+        stageMaxHeight
+      )
+    );
+  }, [isOpen, view, photoNaturalDimensions, editorSrc, stageMaxHeight]);
+
+  useEffect(() => {
+    if (!isOpen || view !== 'edit') return undefined;
+    remeasureChrome();
+    const id = requestAnimationFrame(() => measureStage());
+    return () => cancelAnimationFrame(id);
+  }, [isOpen, view, remeasureChrome, measureStage]);
+
+  useEffect(() => {
+    if (!isOpen || view !== 'edit') return;
+    measureStage();
+  }, [stageMaxHeight, measureStage, isOpen, view]);
+
+  useEffect(() => {
+    if (!isOpen || view !== 'edit') return undefined;
+    const onResize = () => {
+      remeasureChrome();
+      measureStage();
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [isOpen, view, measureStage, remeasureChrome]);
+
+  useEffect(() => {
+    if (!isOpen || view !== 'edit' || !modalRef.current) return undefined;
+    const ro = new ResizeObserver(() => remeasureChrome());
+    ro.observe(modalRef.current);
+    return () => ro.disconnect();
+  }, [isOpen, view, remeasureChrome]);
+
   useEffect(() => {
     if (!isOpen) {
       setDraftReady(false);
       return;
     }
     const hasCover = Boolean(coverUrl || coverPhoto);
+    const openingFocals = cloneFocals(initialFocals);
     setView(initialView === 'pick' || !hasCover ? 'pick' : 'edit');
     setDraftPhoto(coverPhoto || null);
-    setFocals(cloneFocals(initialFocals));
+    setFocals(openingFocals);
     setActiveSurface('desktop');
+    baselineRef.current = {
+      focals: JSON.stringify(openingFocals),
+      photoId: String(coverPhoto?.id || ''),
+    };
     setDraftReady(true);
     // Re-init only when the modal opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -175,6 +331,23 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
     setActivePoint(50, 50);
   };
 
+  const handleFocalKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      const step = e.shiftKey ? 5 : 1;
+      const point = focals[activeSurface] || { x: 50, y: 50 };
+      let { x, y } = point;
+      if (e.key === 'ArrowLeft') x -= step;
+      else if (e.key === 'ArrowRight') x += step;
+      else if (e.key === 'ArrowUp') y -= step;
+      else if (e.key === 'ArrowDown') y += step;
+      else return;
+      e.preventDefault();
+      e.stopPropagation();
+      setActivePoint(clampPercent(x), clampPercent(y));
+    },
+    [focals, activeSurface, setActivePoint]
+  );
+
   const openFileBrowser = () => {
     if (saving) return;
     fileInputRef.current?.click();
@@ -221,13 +394,19 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
 
   const across = Math.round(activePoint.x);
   const down = Math.round(activePoint.y);
+  const focalLabel = `Focal ${across}% across, ${down}% down`;
+  const isDirty =
+    draftReady &&
+    (JSON.stringify(focals) !== baselineRef.current.focals ||
+      String(draftPhoto?.id || '') !== baselineRef.current.photoId);
 
   return (
     <div className="cover-modal-overlay" onClick={onClose}>
       <div
+        ref={modalRef}
         className={cn(
           'cover-modal-container',
-          view === 'edit' ? 'cover-modal-container--focal' : 'wide'
+          view === 'edit' ? 'cover-modal-container--focal' : 'cover-modal-container--wide'
         )}
         onClick={(e) => e.stopPropagation()}
       >
@@ -297,23 +476,46 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
         ) : (
           <>
             <div className="cover-focal-body">
-              <div
-                className={cn('cover-focal-stage', dragging && 'is-dragging')}
-                onPointerDown={handlePointerDown}
-                onPointerMove={handlePointerMove}
-                onPointerUp={handlePointerUp}
-                onPointerCancel={handlePointerUp}
-              >
+              <div className="cover-focal-stage-block">
+                <div
+                  ref={stageWrapRef}
+                  className={cn('cover-focal-stage', dragging && 'is-dragging')}
+                  onPointerDown={handlePointerDown}
+                  onPointerMove={handlePointerMove}
+                  onPointerUp={handlePointerUp}
+                  onPointerCancel={handlePointerUp}
+                >
                 {editorSrc ? (
-                  <div className="cover-focal-stage__canvas">
+                  <div
+                    className="cover-focal-stage__canvas"
+                    style={
+                      stageDisplaySize
+                        ? {
+                            width: `${stageDisplaySize.width}px`,
+                            height: `${stageDisplaySize.height}px`,
+                          }
+                        : undefined
+                    }
+                  >
                     <img
                       ref={imageRef}
                       src={editorSrc}
                       alt=""
                       draggable={false}
-                      onLoad={() => syncCrosshair(activePoint.x, activePoint.y)}
+                      onLoad={measureStage}
                     />
-                    <div className="cover-focal-crosshair" style={crosshairStyle}>
+                    <div
+                      className="cover-focal-crosshair"
+                      style={crosshairStyle}
+                      role="slider"
+                      tabIndex={0}
+                      aria-label={focalLabel}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={across}
+                      aria-valuetext={focalLabel}
+                      onKeyDown={handleFocalKeyDown}
+                    >
                       <span className="cover-focal-crosshair__ring" />
                     </div>
                   </div>
@@ -324,93 +526,116 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
                     </div>
                   </div>
                 )}
+                </div>
               </div>
 
-              <div className="cover-focal-toolbar">
-                <button
-                  type="button"
-                  className="cover-focal-tool-btn"
-                  onClick={() => setView('pick')}
-                  disabled={saving}
-                >
-                  Replace photo
-                </button>
-                <span className="cover-focal-coords">
-                  Focal {across}% × {down}%
-                </span>
-                <button
-                  type="button"
-                  className="cover-focal-tool-btn cover-focal-tool-btn--muted"
-                  onClick={handleCentre}
-                  disabled={saving}
-                >
-                  Reset to centre
-                </button>
+              <div className="cover-focal-controls">
+                <div className="cover-focal-control-group">
+                  <div className="cover-focal-control-group__row">
+                    <button
+                      type="button"
+                      className="cover-focal-tool-btn cover-focal-tool-btn--secondary"
+                      onClick={() => setView('pick')}
+                      disabled={saving}
+                    >
+                      Replace photo
+                    </button>
+                    {onRemove ? (
+                      <button
+                        type="button"
+                        className="cover-focal-tool-btn cover-focal-tool-btn--hairline"
+                        onClick={handleRemove}
+                        disabled={saving}
+                      >
+                        Remove
+                      </button>
+                    ) : null}
+                  </div>
+                  <span className="cover-focal-control-group__label cover-focal-control-group__label--accent">
+                    Which photo
+                  </span>
+                </div>
+
+                <div className="cover-focal-control-group cover-focal-control-group--where">
+                  <div className="cover-focal-control-group__row">
+                    <span className="cover-focal-coords">
+                      Focal {across}% × {down}%
+                    </span>
+                    <button
+                      type="button"
+                      className="cover-focal-tool-btn cover-focal-tool-btn--hairline"
+                      onClick={handleCentre}
+                      disabled={saving}
+                    >
+                      Reset to centre
+                    </button>
+                  </div>
+                  <span className="cover-focal-control-group__label">Where in it</span>
+                </div>
               </div>
             </div>
 
             <div className="cover-focal-bottom">
-              <div className="cover-focal-appears">
-                <p className="cover-focal-appears__title">Where it appears</p>
-                <div className="cover-focal-previews">
-                  {COVER_FOCAL_SURFACES.map((surface) => {
-                    const point = focals[surface.id as CoverFocalSurfaceId] || { x: 50, y: 50 };
-                    return (
-                      <button
-                        key={surface.id}
-                        type="button"
-                        className={cn(
-                          'cover-focal-preview',
-                          `cover-focal-preview--${surface.id}`,
-                          activeSurface === surface.id && 'is-active'
-                        )}
-                        onClick={() => setActiveSurface(surface.id as CoverFocalSurfaceId)}
-                      >
-                        <span
-                          className="cover-focal-preview__frame"
-                          style={{ aspectRatio: surface.aspect }}
+              <div className="cover-focal-bottom__row">
+                <div className="cover-focal-appears">
+                  <p className="cover-focal-appears__title">Where it appears</p>
+                  <div className="cover-focal-previews">
+                    {COVER_FOCAL_SURFACES.map((surface) => {
+                      const point = focals[surface.id as CoverFocalSurfaceId] || { x: 50, y: 50 };
+                      const ratio = parseAspectRatio(surface.aspect);
+                      return (
+                        <button
+                          key={surface.id}
+                          type="button"
+                          className={cn(
+                            'cover-focal-preview',
+                            `cover-focal-preview--${surface.id}`,
+                            activeSurface === surface.id && 'is-active'
+                          )}
+                          onClick={() => setActiveSurface(surface.id as CoverFocalSurfaceId)}
                         >
-                          {editorSrc ? (
-                            <img
-                              src={editorSrc}
-                              alt=""
-                              draggable={false}
-                              style={{ objectPosition: `${point.x}% ${point.y}%` }}
-                            />
-                          ) : null}
-                        </span>
-                        <span className="cover-focal-preview__label">
-                          {APPEARS_SHORT_LABEL[surface.id] || surface.kicker}
-                        </span>
-                      </button>
-                    );
-                  })}
+                          <span
+                            className="cover-focal-preview__frame"
+                            style={{
+                              height: `${PREVIEW_TILE_HEIGHT}px`,
+                              width: `${Math.round(PREVIEW_TILE_HEIGHT * ratio)}px`,
+                            }}
+                          >
+                            {editorSrc ? (
+                              <img
+                                src={editorSrc}
+                                alt=""
+                                draggable={false}
+                                style={{ objectPosition: `${point.x}% ${point.y}%` }}
+                              />
+                            ) : null}
+                          </span>
+                          <span className="cover-focal-preview__label">
+                            {APPEARS_SHORT_LABEL[surface.id] || surface.kicker}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
 
-              <div className="cover-focal-actions">
-                {onRemove ? (
+                <div className="cover-focal-actions">
+                  <button type="button" className="cover-focal-btn" onClick={onClose} disabled={saving}>
+                    Cancel
+                  </button>
                   <button
                     type="button"
-                    className="cover-focal-remove"
-                    onClick={handleRemove}
-                    disabled={saving}
+                    className="cover-focal-btn cover-focal-btn--primary"
+                    onClick={handleUseCover}
+                    disabled={saving || !editorSrc || !isDirty}
                   >
-                    Remove cover
+                    {saving ? 'Saving…' : 'Save cover'}
                   </button>
-                ) : null}
-                <button type="button" className="cover-focal-btn" onClick={onClose} disabled={saving}>
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="cover-focal-btn cover-focal-btn--primary"
-                  onClick={handleUseCover}
-                  disabled={saving || !editorSrc}
-                >
-                  {saving ? 'Saving…' : 'Save cover'}
-                </button>
+                </div>
               </div>
+              <p className="cover-focal-footnote">
+                Nothing is re-uploaded — the point is stored with the delivery.
+              </p>
             </div>
           </>
         )}
