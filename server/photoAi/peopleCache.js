@@ -1,5 +1,6 @@
 import { clusterFacesForCollection } from './clusterFaces.js';
 import { isIndexedSnapshotFresh } from './cacheFreshness.js';
+import { applyGuestLabelsToPeople, loadGuestDeliveryGuestsForCollection } from './applyGuestLabels.js';
 
 const PEOPLE_TABLE = 'photo_ai_people';
 const CLUSTER_STATE_TABLE = 'photo_ai_cluster_state';
@@ -242,13 +243,26 @@ export async function clusterAndPersistPeople(supabase, collectionId, photograph
   }
 
   const clustered = await clusterFacesForCollection(collectionId, faceEntries);
-  const people = clustered.map((person, index) => ({
+  let people = clustered.map((person, index) => ({
     ...person,
     label: person.label || 'Not named',
   }));
 
+  people = await applyGuestLabelsToPeople(supabase, collectionId, people, { persist: false });
+
   await savePeopleClusters(supabase, collectionId, photographerId, people, stats);
   return attachPhotoUrls(supabase, people);
+}
+
+async function finalizePeopleWithGuestLabels(supabase, collectionId, people) {
+  if (!people?.length) return people || [];
+  const { guests } = await loadGuestDeliveryGuestsForCollection(supabase, collectionId);
+  if (!guests.length) return people;
+  const labeled = await applyGuestLabelsToPeople(supabase, collectionId, people, {
+    persist: true,
+    syncGuestMatches: true,
+  });
+  return attachPhotoUrls(supabase, labeled);
 }
 
 export async function getPeopleForCollection(
@@ -267,7 +281,8 @@ export async function getPeopleForCollection(
   const missingTables = stateTablesMissing || peopleTablesMissing;
 
   if (!stats.indexedPhotoCount) {
-    return { people: cachedPeople, fromCache: true, missingTables };
+    const people = await finalizePeopleWithGuestLabels(supabase, collectionId, cachedPeople);
+    return { people, fromCache: true, missingTables };
   }
 
   if (
@@ -276,7 +291,8 @@ export async function getPeopleForCollection(
     cachedPeople.length > 0 &&
     isClusterStateFresh(state, stats)
   ) {
-    return { people: cachedPeople, fromCache: true, missingTables: false };
+    const people = await finalizePeopleWithGuestLabels(supabase, collectionId, cachedPeople);
+    return { people, fromCache: true, missingTables: false };
   }
 
   if (missingTables) {
@@ -289,27 +305,37 @@ export async function getPeopleForCollection(
 
     const faceEntries = buildFaceEntries(metadataRows);
     if (!faceEntries.length) {
-      return { people: cachedPeople, fromCache: true, missingTables: true };
+      const people = await finalizePeopleWithGuestLabels(supabase, collectionId, cachedPeople);
+      return { people, fromCache: true, missingTables: true };
     }
 
     const clustered = await clusterFacesForCollection(collectionId, faceEntries);
-    const people = await attachPhotoUrls(
+    const people = await finalizePeopleWithGuestLabels(
       supabase,
-      clustered.map((person) => ({
-        ...person,
-        label: person.label || 'Not named',
-      }))
+      collectionId,
+      await attachPhotoUrls(
+        supabase,
+        clustered.map((person) => ({
+          ...person,
+          label: person.label || 'Not named',
+        }))
+      )
     );
     return { people, fromCache: false, missingTables: true };
   }
 
   try {
-    const people = await clusterAndPersistPeople(supabase, collectionId);
+    const people = await finalizePeopleWithGuestLabels(
+      supabase,
+      collectionId,
+      await clusterAndPersistPeople(supabase, collectionId)
+    );
     return { people, fromCache: false, missingTables: false };
   } catch (err) {
     if (cachedPeople.length > 0) {
       console.warn('[peopleCache] recluster failed; returning cached people:', err?.message || err);
-      return { people: cachedPeople, fromCache: true, missingTables: false };
+      const people = await finalizePeopleWithGuestLabels(supabase, collectionId, cachedPeople);
+      return { people, fromCache: true, missingTables: false };
     }
     throw err;
   }

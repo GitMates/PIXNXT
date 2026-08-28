@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase/client';
+import { userStorageService } from './userStorage.service';
 
 const APP_FIELDS =
   'id, photographer_id, name, event_date, slug, icon_url, cover_image_url, status, collection_id, settings, created_at, updated_at';
@@ -132,5 +133,6 @@ export const mobileGalleryService = {
       .eq('id', appId);
 
     if (error) throw error;
+    userStorageService.notifyStorageChanged();
   },
 };

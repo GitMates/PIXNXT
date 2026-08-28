@@ -1,5 +1,6 @@
 import { getSupabaseAdmin } from '../photoAi/supabaseAdmin.js';
 import { decodeBase64Image, uploadBytesToR2 } from './r2Server.js';
+import { matchGuestToCollectionPhotos } from '../photoAi/applyGuestLabels.js';
 
 const GUEST_FIELDS =
   'id, event_id, name, email, phone, access_token, selfie_url, registered_at, delivery_status';
@@ -51,7 +52,7 @@ export async function handleRegisterGuestRequest(body) {
 
   const { data: event, error: eventError } = await db
     .from('guest_delivery_events')
-    .select('id, photographer_id, name, slug, registration_enabled, status')
+    .select('id, photographer_id, name, slug, registration_enabled, status, collection_id, match_threshold')
     .eq('slug', slug)
     .maybeSingle();
 
@@ -119,6 +120,16 @@ export async function handleRegisterGuestRequest(body) {
     .single();
 
   if (insertError) throw insertError;
+
+  if (event.collection_id) {
+    try {
+      await matchGuestToCollectionPhotos(db, event.collection_id, event.id, guest, {
+        threshold: event.match_threshold,
+      });
+    } catch (matchErr) {
+      console.warn('[registerGuest] collection face match deferred:', matchErr?.message || matchErr);
+    }
+  }
 
   const { data: countRow } = await db
     .from('guest_delivery_events')

@@ -596,12 +596,12 @@ const ClientGallery = () => {
             await galleryService.deleteCollection(collectionId);
             setPendingDelete(null);
             setDeletingId(collectionId);
-            await new Promise((resolve) => window.setTimeout(resolve, 280));
             setCollections((prev) => prev.filter((c) => c.id !== collectionId));
+            await new Promise((resolve) => window.setTimeout(resolve, 280));
             setDeletingId(null);
         } catch (err) {
             console.error('Error deleting collection:', err);
-            alert('Failed to delete delivery.');
+            alert(err?.message || 'Failed to delete delivery.');
         } finally {
             setDeleteBusy(false);
         }

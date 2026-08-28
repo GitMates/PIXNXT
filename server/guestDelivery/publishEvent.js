@@ -2,6 +2,8 @@ import { assertPhotographerOwnsEvent } from './auth.js';
 import { indexEventPhotos } from './indexEventPhoto.js';
 import { matchGuestSelfie } from './matchGuestSelfie.js';
 import { resetGuestDeliveryCollection } from './rekognitionCollection.js';
+import { applyGuestLabelsToPeople } from '../photoAi/applyGuestLabels.js';
+import { loadPeopleFromDb } from '../photoAi/peopleCache.js';
 
 const GUEST_FIELDS =
   'id, event_id, name, email, phone, access_token, selfie_url, selfie_storage_path, delivery_status, matched_photo_count';
@@ -76,6 +78,7 @@ export async function handlePublishEventRequest(req, body) {
     try {
       const matchResult = await matchGuestSelfie({
         eventId,
+        collectionId: useCollectionPhotos ? event.collection_id : null,
         guest,
         threshold,
       });
@@ -155,6 +158,20 @@ export async function handlePublishEventRequest(req, body) {
     .single();
 
   if (eventUpdateError) throw eventUpdateError;
+
+  if (useCollectionPhotos && event.collection_id) {
+    try {
+      const { people } = await loadPeopleFromDb(db, event.collection_id);
+      if (people.length) {
+        await applyGuestLabelsToPeople(db, event.collection_id, people, {
+          persist: true,
+          syncGuestMatches: false,
+        });
+      }
+    } catch (labelErr) {
+      console.warn('[guest-delivery/publish] people label sync failed:', labelErr?.message || labelErr);
+    }
+  }
 
   return {
     event: updatedEvent,

@@ -21,7 +21,7 @@ import {
     isProductActive,
 } from '../lib/products';
 import ClientGalleryNotifications from './features/ClientGallery/ClientGalleryNotifications';
-import { userStorageService, getStorageLimitBytes, formatStorageMeter } from '../services/userStorage.service';
+import { userStorageService, getStorageLimitBytes, formatStorageMeter, STORAGE_CHANGED_EVENT } from '../services/userStorage.service';
 import { getThemeMode, setThemeMode, THEME_CHANGE_EVENT } from '../lib/appearanceTheme';
 import { syncUploadDefaultsToLocalStorage } from '../lib/uploadDefaults';
 import { navigateToAccount } from '../lib/accountBackNav';
@@ -154,17 +154,25 @@ const SidebarLayout = ({
 
     useEffect(() => {
         if (!user?.id) return;
-        userStorageService
-            .calculateUserStorageBytes(user, profile)
-            .then((bytes) => {
-                if (typeof bytes === 'number' && bytes >= 0) {
-                    setRealStorageBytes(bytes);
-                }
-            })
-            .catch((err) => console.error('Error calculating real storage:', err));
-    }, [user?.id]);
 
-    const usedBytes = realStorageBytes || profile?.storage_used_bytes || 0;
+        const refreshStorage = () => {
+            userStorageService.invalidateCachedStorage(user.id);
+            userStorageService
+                .calculateUserStorageBytes(user, profile)
+                .then((bytes) => {
+                    if (typeof bytes === 'number' && bytes >= 0) {
+                        setRealStorageBytes(bytes);
+                    }
+                })
+                .catch((err) => console.error('Error calculating real storage:', err));
+        };
+
+        refreshStorage();
+        window.addEventListener(STORAGE_CHANGED_EVENT, refreshStorage);
+        return () => window.removeEventListener(STORAGE_CHANGED_EVENT, refreshStorage);
+    }, [user?.id, profile?.storage_used_bytes]);
+
+    const usedBytes = realStorageBytes ?? profile?.storage_used_bytes ?? 0;
     const maxBytes = getStorageLimitBytes(profile);
     const storagePct = Math.min(100, maxBytes > 0 ? (usedBytes / maxBytes) * 100 : 0);
 

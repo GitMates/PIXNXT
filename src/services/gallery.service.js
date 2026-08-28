@@ -15,6 +15,7 @@ import {
   uploadMaxEdgeForQuality,
 } from '../lib/uploadDefaults';
 import { storageService } from './storage.service';
+import { userStorageService } from './userStorage.service';
 import {
   isIncompleteUploadPhoto,
   resolveOriginalStoragePath,
@@ -283,6 +284,32 @@ function collectPhotoStoragePaths(photo) {
     paths.add(original.replace(/\.[^.]+$/, '_thumb.jpg'));
   }
   return [...paths];
+}
+
+function storagePathFromPublicUrl(url) {
+  const base = String(import.meta.env.VITE_R2_PUBLIC_URL || '').replace(/\/+$/, '');
+  if (!url || !base || !String(url).startsWith(base)) return null;
+  const path = String(url).slice(base.length).replace(/^\//, '');
+  return path || null;
+}
+
+function collectDeliveryStoragePaths(collection) {
+  const paths = new Set((collection?.photos || []).flatMap(collectPhotoStoragePaths));
+  const coverPath = storagePathFromPublicUrl(collection?.cover_url);
+  if (coverPath) paths.add(coverPath);
+  return [...paths];
+}
+
+async function deleteDeliveryRow(id) {
+  const { error: deleteError } = await supabase.from('deliveries').delete().eq('id', id);
+  if (!deleteError) return;
+
+  const { data: rpcCount, error: rpcError } = await supabase.rpc('delete_delivery_owned', {
+    p_delivery_id: id,
+  });
+  if (!rpcError && Number(rpcCount) > 0) return;
+
+  throw deleteError || rpcError || new Error('Could not delete delivery.');
 }
 
 async function deleteStoragePaths(paths) {
@@ -1180,33 +1207,28 @@ export const galleryService = {
    * Delete a collection and all associated files
    */
   async deleteCollection(id) {
-    // 1. Delivery + photo storage keys (covers deliveries/ and legacy clientgallery/ paths)
     const { data: collection, error: fetchError } = await supabase
       .from('deliveries')
       .select(
-        `photographer_id, photos:photos!photos_collection_id_fkey(${PHOTO_STORAGE_PATH_COLUMNS.join(', ')})`
+        `photographer_id, cover_url, photos:photos!photos_collection_id_fkey(${PHOTO_STORAGE_PATH_COLUMNS.join(', ')})`
       )
       .eq('id', id)
       .single();
 
     if (fetchError) throw fetchError;
 
-    // 2. Delete all derivative keys from R2 when present
-    const storagePaths = (collection.photos || []).flatMap(collectPhotoStoragePaths);
+    const storagePaths = collectDeliveryStoragePaths(collection);
+
+    // Remove DB row first so the dashboard updates even if R2 cleanup is slow or fails.
+    await deleteDeliveryRow(id);
+
     try {
       await deleteStoragePaths(storagePaths);
     } catch (storageError) {
-      console.error('Error deleting storage files from R2:', storageError);
-      // Continue so DB rows are still removed
+      console.warn('R2 cleanup after delivery delete:', storageError);
     }
 
-    // 3. Delete the delivery row (cascade deletes related DB tables)
-    const { error } = await supabase
-      .from('deliveries')
-      .delete()
-      .eq('id', id);
-
-    if (error) throw error;
+    userStorageService.notifyStorageChanged();
   },
 
   /**
@@ -2231,6 +2253,8 @@ export const galleryService = {
 
     const { error } = await supabase.from('photos').delete().in('id', ids);
     if (error) throw error;
+
+    userStorageService.notifyStorageChanged();
   },
 
   /**

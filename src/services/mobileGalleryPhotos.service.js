@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase/client';
 import { storageService } from './storage.service';
 import { getFileMime } from '../lib/fileMime';
 import { getImageDimensionsFast } from '../lib/imageDimensions';
+import { userStorageService } from './userStorage.service';
 
 const PHOTO_FIELDS =
   'id, app_id, photographer_id, filename, full_url, thumbnail_url, storage_path, size_bytes, width, height, position, created_at';
@@ -116,6 +117,7 @@ export const mobileGalleryPhotosService = {
       .single();
 
     if (error) throw error;
+    userStorageService.notifyStorageChanged();
     return data;
   },
 
@@ -136,6 +138,8 @@ export const mobileGalleryPhotosService = {
         console.warn('Failed to delete storage object:', err);
       }
     }
+
+    userStorageService.notifyStorageChanged();
   },
 
   async deletePhotos(photographerId, appId, photos) {

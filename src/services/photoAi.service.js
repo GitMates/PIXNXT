@@ -241,11 +241,14 @@ export const photoAiService = {
     return postJson('/api/photo-ai/recluster', { collectionId });
   },
 
-  async getPeople(collectionId, { forceRecluster = false, metadataRows = null, includeHidden = false } = {}) {
+  async getPeople(
+    collectionId,
+    { forceRecluster = false, applyGuestLabels = false, metadataRows = null, includeHidden = false } = {}
+  ) {
     if (!collectionId) return [];
 
     let cachedPeople = [];
-    if (!forceRecluster) {
+    if (!forceRecluster && !applyGuestLabels) {
       try {
         const { people, tableMissing } = await this.getPeopleFromDb(collectionId, { includeHidden });
         cachedPeople = people;
@@ -264,6 +267,7 @@ export const photoAiService = {
         collectionId,
         forceRecluster,
         includeHidden,
+        applyGuestLabels,
       });
       return result?.people || cachedPeople;
     } catch (err) {
