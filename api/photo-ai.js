@@ -6,7 +6,7 @@ import {
   handleGetPeopleRequest,
   handleSearchSelfieRequest,
   handlePublicSearchSelfieRequest,
-} from '../../server/photoAi/handlers.js';
+} from '../server/photoAi/handlers.js';
 
 export const config = {
   api: {
@@ -17,10 +17,19 @@ export const config = {
 };
 
 function actionPath(req) {
-  const raw = req.query.path;
-  if (Array.isArray(raw)) return raw.join('/');
-  if (typeof raw === 'string') return raw;
-  return '';
+  const raw = req.query?.path;
+  if (Array.isArray(raw) && raw.length) return raw.filter(Boolean).join('/');
+  if (typeof raw === 'string' && raw) return raw.replace(/^\/+|\/+$/g, '');
+
+  try {
+    const pathname = new URL(req.url || '', 'http://localhost').pathname;
+    const prefix = '/api/photo-ai/';
+    const idx = pathname.indexOf(prefix);
+    if (idx === -1) return '';
+    return decodeURIComponent(pathname.slice(idx + prefix.length)).replace(/^\/+|\/+$/g, '');
+  } catch {
+    return '';
+  }
 }
 
 const HANDLERS = {
@@ -57,7 +66,7 @@ export default async function handler(req, res) {
   const action = actionPath(req);
   const handle = HANDLERS[action];
   if (!handle) {
-    res.status(404).json({ error: 'Not found' });
+    res.status(404).json({ error: 'Not found', action: action || null });
     return;
   }
 

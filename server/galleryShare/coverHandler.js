@@ -1,5 +1,5 @@
-import { loadPublicGallery } from '../../../server/galleryShare/ogCover.js';
-import { rasterizeGalleryCoverImage } from '../../../server/galleryShare/rasterizeCover.js';
+import { loadPublicGallery } from './ogCover.js';
+import { rasterizeGalleryCoverImage } from './rasterizeCover.js';
 
 export const maxDuration = 30;
 

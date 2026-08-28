@@ -9,10 +9,23 @@ export async function handleR2MediaProxy(req, res) {
   }
 
   let subPath = '';
-  if (typeof req.query.path === 'string' && req.query.path) {
+  if (typeof req.query?.path === 'string' && req.query.path) {
     subPath = req.query.path;
-  } else if (Array.isArray(req.query.path)) {
-    subPath = req.query.path.join('/');
+  } else if (Array.isArray(req.query?.path) && req.query.path.length) {
+    subPath = req.query.path.filter(Boolean).join('/');
+  }
+
+  if (!subPath) {
+    try {
+      const pathname = new URL(req.url || '', 'http://localhost').pathname;
+      const prefix = '/api/r2-media/';
+      const idx = pathname.indexOf(prefix);
+      if (idx !== -1) {
+        subPath = decodeURIComponent(pathname.slice(idx + prefix.length)).replace(/^\/+/, '');
+      }
+    } catch {
+      // ignore
+    }
   }
 
   if (!subPath) {

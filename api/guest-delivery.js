@@ -1,7 +1,7 @@
-import { handleRegisterGuestRequest } from '../../server/guestDelivery/registerGuest.js';
-import { handlePublishEventRequest } from '../../server/guestDelivery/publishEvent.js';
-import { handleGuestGalleryRequest } from '../../server/guestDelivery/getGuestGallery.js';
-import { handleSendGuestEmailRequest } from '../../server/guestDelivery/sendGuestEmail.js';
+import { handleRegisterGuestRequest } from '../server/guestDelivery/registerGuest.js';
+import { handlePublishEventRequest } from '../server/guestDelivery/publishEvent.js';
+import { handleGuestGalleryRequest } from '../server/guestDelivery/getGuestGallery.js';
+import { handleSendGuestEmailRequest } from '../server/guestDelivery/sendGuestEmail.js';
 
 export const config = {
   api: {
@@ -12,10 +12,19 @@ export const config = {
 };
 
 function actionPath(req) {
-  const raw = req.query.path;
-  if (Array.isArray(raw)) return raw.join('/');
-  if (typeof raw === 'string') return raw;
-  return '';
+  const raw = req.query?.path;
+  if (Array.isArray(raw) && raw.length) return raw.filter(Boolean).join('/');
+  if (typeof raw === 'string' && raw) return raw.replace(/^\/+|\/+$/g, '');
+
+  try {
+    const pathname = new URL(req.url || '', 'http://localhost').pathname;
+    const prefix = '/api/guest-delivery/';
+    const idx = pathname.indexOf(prefix);
+    if (idx === -1) return '';
+    return decodeURIComponent(pathname.slice(idx + prefix.length)).replace(/^\/+|\/+$/g, '');
+  } catch {
+    return '';
+  }
 }
 
 export default async function handler(req, res) {
@@ -56,7 +65,7 @@ export default async function handler(req, res) {
       return;
     }
 
-    res.status(404).json({ error: 'Not found' });
+    res.status(404).json({ error: 'Not found', action: action || null });
   } catch (err) {
     console.error(`[guest-delivery/${action}]`, err);
     const message = err?.message || 'Request failed';
