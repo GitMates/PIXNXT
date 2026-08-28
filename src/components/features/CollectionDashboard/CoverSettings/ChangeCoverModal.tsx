@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ChangeCoverModalProps, CoverFocalPoint, CoverFocalSurfaceId, CoverFocals, Photo } from './ChangeCoverModal.types';
 import { cn } from '../../../../lib/utils';
 import { isGalleryImagePhoto } from '../../../../lib/coverPhotoDrag';
@@ -7,6 +7,7 @@ import { COVER_IMAGE_ACCEPT } from '../../../../lib/mediaFilePicker';
 import {
   COVER_FOCAL_SURFACE_IDS,
   COVER_FOCAL_SURFACES,
+  computeCoverCropPercentRect,
   focalPercentToElementStyle,
   focalPointFromPointer,
   getDefaultCoverFocals,
@@ -116,6 +117,9 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
     null
   );
   const [stageMaxHeight, setStageMaxHeight] = useState(estimateStageMaxHeight);
+  const [loadedNaturalSize, setLoadedNaturalSize] = useState<{ width: number; height: number } | null>(
+    null
+  );
   const imageRef = useRef<HTMLImageElement | null>(null);
   const modalRef = useRef<HTMLDivElement | null>(null);
   const stageWrapRef = useRef<HTMLDivElement | null>(null);
@@ -143,10 +147,44 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
     if (Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0) {
       return { width: w, height: h };
     }
-    return null;
-  }, [resolvedPhoto]);
+    return loadedNaturalSize;
+  }, [resolvedPhoto, loadedNaturalSize]);
+
+  const cropMaskId = useId().replace(/:/g, '');
 
   const activePoint: CoverFocalPoint = focals[activeSurface] || focals.desktop || focals.website || { x: 50, y: 50 };
+
+  const activeSurfaceConfig = useMemo(
+    () => COVER_FOCAL_SURFACES.find((surface) => surface.id === activeSurface),
+    [activeSurface]
+  );
+
+  const cropOverlay = useMemo(() => {
+    if (!stageDisplaySize || !photoNaturalDimensions || !activeSurfaceConfig) return null;
+    const pct = computeCoverCropPercentRect(
+      photoNaturalDimensions.width,
+      photoNaturalDimensions.height,
+      parseAspectRatio(activeSurfaceConfig.aspect),
+      activePoint.x,
+      activePoint.y
+    );
+    if (!pct) return null;
+    const { width: dw, height: dh } = stageDisplaySize;
+    return {
+      dw,
+      dh,
+      x: (pct.left / 100) * dw,
+      y: (pct.top / 100) * dh,
+      w: (pct.width / 100) * dw,
+      h: (pct.height / 100) * dh,
+    };
+  }, [
+    stageDisplaySize,
+    photoNaturalDimensions,
+    activeSurfaceConfig,
+    activePoint.x,
+    activePoint.y,
+  ]);
 
   const syncCrosshair = useCallback((x: number, y: number) => {
     const img = imageRef.current;
@@ -160,6 +198,7 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
   const measureStage = useCallback(() => {
     const img = imageRef.current;
     if (!img?.naturalWidth || !img.naturalHeight) return;
+    setLoadedNaturalSize({ width: img.naturalWidth, height: img.naturalHeight });
     const bodyEl = stageWrapRef.current?.closest('.cover-focal-body') as HTMLElement | null;
     const available = bodyEl?.clientWidth
       ? Math.min(STAGE_MAX_WIDTH, bodyEl.clientWidth)
@@ -200,7 +239,35 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
   useEffect(() => {
     setStageDisplaySize(null);
     setStageMaxHeight(estimateStageMaxHeight());
+    setLoadedNaturalSize(null);
   }, [editorSrc]);
+
+  useLayoutEffect(() => {
+    if (!isOpen || view !== 'edit' || !editorSrc) return undefined;
+    let cancelled = false;
+
+    const syncNaturalSize = () => {
+      if (cancelled) return;
+      const img = imageRef.current;
+      if (!img) {
+        requestAnimationFrame(syncNaturalSize);
+        return;
+      }
+      if (!img.naturalWidth || !img.naturalHeight) return;
+      setLoadedNaturalSize({ width: img.naturalWidth, height: img.naturalHeight });
+      measureStage();
+    };
+
+    syncNaturalSize();
+    const img = imageRef.current;
+    if (img) img.addEventListener('load', syncNaturalSize);
+
+    return () => {
+      cancelled = true;
+      const el = imageRef.current;
+      if (el) el.removeEventListener('load', syncNaturalSize);
+    };
+  }, [isOpen, view, editorSrc, measureStage]);
 
   useEffect(() => {
     if (!isOpen || view !== 'edit' || !photoNaturalDimensions) return;
@@ -504,6 +571,44 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
                       draggable={false}
                       onLoad={measureStage}
                     />
+                    {cropOverlay ? (
+                      <svg
+                        className="cover-focal-crop-overlay"
+                        width={cropOverlay.dw}
+                        height={cropOverlay.dh}
+                        viewBox={`0 0 ${cropOverlay.dw} ${cropOverlay.dh}`}
+                        aria-hidden
+                      >
+                        <defs>
+                          <mask id={cropMaskId}>
+                            <rect width="100%" height="100%" fill="white" />
+                            <rect
+                              x={cropOverlay.x}
+                              y={cropOverlay.y}
+                              width={cropOverlay.w}
+                              height={cropOverlay.h}
+                              fill="black"
+                            />
+                          </mask>
+                        </defs>
+                        <rect
+                          width="100%"
+                          height="100%"
+                          fill="rgba(0, 0, 0, 0.38)"
+                          mask={`url(#${cropMaskId})`}
+                        />
+                        <rect
+                          x={cropOverlay.x}
+                          y={cropOverlay.y}
+                          width={cropOverlay.w}
+                          height={cropOverlay.h}
+                          fill="none"
+                          stroke="#e53935"
+                          strokeWidth="2.5"
+                          vectorEffect="non-scaling-stroke"
+                        />
+                      </svg>
+                    ) : null}
                     <div
                       className="cover-focal-crosshair"
                       style={crosshairStyle}

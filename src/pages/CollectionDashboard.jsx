@@ -28,6 +28,8 @@ import { PreviewPane } from '../components/features/CollectionDashboard/PreviewP
 import { ChangeCoverModal } from '../components/features/CollectionDashboard/CoverSettings/ChangeCoverModal';
 import { DeleteDeliveryModal } from '../components/features/ClientGallery/DeleteDeliveryModal';
 import { GetDirectLinkModal } from '../components/features/CollectionDashboard/Share/GetDirectLinkModal';
+import { DeliverySharePublishPanel } from '../components/features/CollectionDashboard/Share/DeliverySharePublishPanel';
+import '../components/features/CollectionDashboard/Share/DeliverySharePublishPanel.css';
 import { CollectionDashboardSidebar } from '../components/features/CollectionDashboard/Sidebar/CollectionDashboardSidebar';
 import { SetOptionsMenu } from '../components/features/CollectionDashboard/Sidebar/SetOptionsMenu';
 import { NewSelectionModal } from '../components/features/CollectionDashboard/Modals/NewSelectionModal';
@@ -4566,10 +4568,10 @@ const CollectionDashboard = () => {
     };
 
     const persistDeliveryStatus = async (nextStatus) => {
-        if (!collectionId || statusSaving) return;
+        if (!collectionId || statusSaving) return false;
         if (nextStatus === status) {
             setShowStatusMenu(false);
-            return;
+            return true;
         }
         setStatusSaving(true);
         try {
@@ -4578,9 +4580,11 @@ const CollectionDashboard = () => {
             setStatus(next);
             setCollection((prev) => (prev ? { ...prev, ...saved } : saved));
             setShowStatusMenu(false);
+            return true;
         } catch (err) {
             console.error('Error updating status:', err);
             alert(err?.message || 'Could not update delivery status. Please try again.');
+            return false;
         } finally {
             setStatusSaving(false);
         }
@@ -4930,53 +4934,28 @@ const CollectionDashboard = () => {
                             Share <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
                         </button>
                         {showShareDropdown && (
-                            <div className="cd-share-dropdown">
-                                <div
-                                    className="cd-share-item"
-                                    onClick={() => {
-                                        setShowShareDropdown(false);
-                                        navigate(`/deliveries/manage/share?id=${collectionId}`);
-                                    }}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
-                                    <span>Share by email</span>
-                                </div>
-                                <div
-                                    className="cd-share-item"
-                                    onClick={() => {
-                                        setShowShareDropdown(false);
-                                        setShowGetDirectLinkModal(true);
-                                    }}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
-                                    <span>Get direct link</span>
-                                </div>
-                                <div
-                                    className="cd-share-item"
-                                    onClick={() => {
-                                        setShowShareDropdown(false);
-                                        setShowQrCodeModal(true);
-                                    }}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><rect x="7" y="7" width="3" height="3"></rect><rect x="14" y="7" width="3" height="3"></rect><rect x="7" y="14" width="3" height="3"></rect><rect x="14" y="14" width="3" height="3"></rect></svg>
-                                    <span>Get QR code</span>
-                                </div>
-                                <div
-                                    className="cd-share-item"
-                                    onClick={() => {
-                                        setShowShareDropdown(false);
-                                        if (collectionUrl) {
-                                            openWhatsAppShare(getCollectionShareUrl(collectionUrl, profile), collection?.name || 'Delivery');
-                                        }
-                                    }}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                                        <path d="M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9L3 21" />
-                                        <path d="M16.5 14.2v.4c0 .9-.7 1.6-1.6 1.7-2.7.2-5.3-1-7-3.2-1.6-2-2.3-4.6-1.7-7.1.2-.9 1-1.5 1.9-1.5h.4c.4 0 .7.2.8.6l.5 1.7c.1.3 0 .6-.2.8l-.5.5c-.1.1-.1.3 0 .4 1 1.4 2.3 2.5 3.8 3.2.1.1.3 0 .4-.1l.5-.5c.2-.2.5-.3.8-.2l1.7.5c.4.1.6.4.6.8z" />
-                                    </svg>
-                                    <span>Share on WhatsApp</span>
-                                </div>
-                            </div>
+                            <DeliverySharePublishPanel
+                                open={showShareDropdown}
+                                collection={collection}
+                                collectionSlug={collectionUrl}
+                                profile={profile}
+                                status={status}
+                                onPublish={async () => {
+                                    if (hasBeenPublished({ status, published_at: collection?.published_at })) {
+                                        return;
+                                    }
+                                    const ok = await persistDeliveryStatus(DELIVERY_STATUS.published);
+                                    if (!ok) {
+                                        throw new Error('Publish failed');
+                                    }
+                                }}
+                                onShareByEmail={() => {
+                                    setShowShareDropdown(false);
+                                    navigate(`/deliveries/manage/share?id=${collectionId}`);
+                                }}
+                                showToast={showToast}
+                                deliveryTitle={collection?.name}
+                            />
                         )}
                     </div>
                     {collection?.guest_delivery_enabled && gdEvent ? (

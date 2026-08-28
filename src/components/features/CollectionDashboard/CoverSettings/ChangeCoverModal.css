@@ -466,6 +466,14 @@
   pointer-events: none;
 }
 
+.cover-focal-crop-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: block;
+  pointer-events: none;
+}
+
 .cover-focal-crosshair {
   position: absolute;
   width: 24px;
