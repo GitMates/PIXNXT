@@ -90,6 +90,7 @@ import {
 } from '../../lib/salesCampaignBanner';
 import { filterPhotosByIds } from '../../lib/photoAiSearch';
 import { useGalleryPeople } from '../../hooks/useGalleryPeople';
+import { useAuth } from '../../hooks/useAuth';
 import { GalleryPeopleStrip } from '../../components/features/Gallery/GalleryPeopleStrip/GalleryPeopleStrip';
 import { GalleryEmailGate } from '../../components/features/Gallery/GalleryEmailGate/GalleryEmailGate';
 import {
@@ -124,6 +125,7 @@ function normalizeFavoritePhotoId(id) {
 const GalleryView = () => {
   const { slug } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const isMobileViewport = useIsMobileViewport();
   const [collection, setCollection] = useState(null);
   const [photographer, setPhotographer] = useState(null);
@@ -661,6 +663,10 @@ const GalleryView = () => {
     enabled: Boolean(collection?.id),
     isPublic: true,
   });
+  const canManagePeople = Boolean(
+    user?.id &&
+      (collection?.photographer_id === user.id || collection?.user_id === user.id)
+  );
 
   const [pendingFavoritePhotoId, setPendingFavoritePhotoId] = useState(null);
   const [isSubmittingEmail, setIsSubmittingEmail] = useState(false);
@@ -2512,6 +2518,7 @@ const GalleryView = () => {
               onSelectPerson={galleryPeople.selectPerson}
               onSelfiePick={galleryPeople.searchBySelfie}
               onClearFilter={galleryPeople.clearFilter}
+              onRenamePerson={canManagePeople ? galleryPeople.renamePerson : undefined}
             />
           ) : null}
 
@@ -3037,7 +3044,7 @@ const GalleryView = () => {
           || collectionPhotos[0]
           || null;
         const selectedShopUrl = selectedShopPhoto
-          ? (getStoreViewPhotoUrl(selectedShopPhoto) || selectedShopPhoto.web_url || selectedShopPhoto.display_url || '')
+          ? (getStoreViewPhotoUrl(selectedShopPhoto) || '')
           : '';
         return (
           <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, padding: '20px', boxSizing: 'border-box', backdropFilter: 'blur(6px)' }}>

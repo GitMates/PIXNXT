@@ -1,6 +1,16 @@
 import React from 'react';
 import { ImageIcon } from 'lucide-react';
 import { isSlotLandscape, adjustPhotoUrl } from '../data/mockStoreData';
+import { getStoreViewPhotoUrl } from '../../lib/storePhotoQuality';
+
+function viewPhotoSrc(photo) {
+  if (!photo) return '';
+  if (typeof photo === 'string') {
+    if (photo.startsWith('blob:') || photo.startsWith('data:')) return photo;
+    return getStoreViewPhotoUrl(photo);
+  }
+  return getStoreViewPhotoUrl(photo);
+}
 
 export default function CartItemPreview({ item, collectionPhotos = [], compact = false }) {
   if (!item) return null;
@@ -18,15 +28,13 @@ export default function CartItemPreview({ item, collectionPhotos = [], compact =
   let currentWidthCm = pmatch ? parseFloat(pmatch[1]) : 20;
   let currentHeightCm = pmatch ? parseFloat(pmatch[2]) : 30;
 
-  const getPhotoSrc = () =>
-    item.editedPhotoUrl
-    || item.photo?.editedPhotoUrl
-    || item.photo?.web_url
-    || item.photo?.display_url
-    || item.photo?.thumbnail_url
-    || item.photo?.url
-    || item.photo?.full_url
-    || (typeof item.photo === 'string' ? item.photo : '');
+  const getPhotoSrc = () => {
+    if (item.editedPhotoUrl?.startsWith('blob:')) return item.editedPhotoUrl;
+    if (item.photo?.editedPhotoUrl?.startsWith('blob:')) return item.photo.editedPhotoUrl;
+    const fromPhoto = viewPhotoSrc(item.photo);
+    if (fromPhoto) return fromPhoto;
+    return item.editedPhotoUrl || item.photo?.editedPhotoUrl || '';
+  };
 
   const resolvePackagePhotos = () => {
     const rawList = (item.photos?.length ? item.photos : null)
@@ -38,13 +46,7 @@ export default function CartItemPreview({ item, collectionPhotos = [], compact =
         ? collectionPhotos.find((p) => p && String(p.id) === photoId)
         : null;
       const merged = match ? { ...photo, ...match } : photo;
-      const src =
-        merged.web_url
-        || merged.thumbnail_url
-        || merged.full_url
-        || merged.url
-        || merged.display_url
-        || '';
+      const src = viewPhotoSrc(merged) || merged._src || '';
       return { ...merged, _src: src };
     }).filter((p) => p._src);
 
@@ -54,13 +56,7 @@ export default function CartItemPreview({ item, collectionPhotos = [], compact =
     return ids.map((id) => {
       const match = collectionPhotos.find((p) => p && String(p.id) === String(id));
       if (!match) return null;
-      const src =
-        match.web_url
-        || match.thumbnail_url
-        || match.full_url
-        || match.url
-        || match.display_url
-        || '';
+      const src = viewPhotoSrc(match) || '';
       return src ? { ...match, _src: src } : null;
     }).filter(Boolean);
   };
@@ -73,13 +69,7 @@ export default function CartItemPreview({ item, collectionPhotos = [], compact =
       ? collectionPhotos.find((p) => p && String(p.id) === photoId)
       : null;
     const photo = match ? { ...raw, ...match } : raw;
-    const url =
-      photo.web_url
-      || photo.thumbnail_url
-      || photo.full_url
-      || photo.url
-      || photo.display_url
-      || '';
+    const url = viewPhotoSrc(photo);
     return (
       <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f4f4f4', borderRadius: '4px', overflow: 'hidden', position: 'relative' }}>
         {url ? (
@@ -88,10 +78,8 @@ export default function CartItemPreview({ item, collectionPhotos = [], compact =
             alt=""
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
             onError={(e) => {
-              // Fall back to collection photo URL if cart URL is stale
               if (match) {
-                const fallback =
-                  match.thumbnail_url || match.web_url || match.url || match.full_url || '';
+                const fallback = viewPhotoSrc(match);
                 if (fallback && e.currentTarget.src !== fallback) {
                   e.currentTarget.src = fallback;
                 }
@@ -140,7 +128,7 @@ export default function CartItemPreview({ item, collectionPhotos = [], compact =
           WebkitOverflowScrolling: 'touch',
         }}>
           {collectionPhotos.map((p, idx) => {
-            const src = p.url || p.web_url || p.thumbnail_url || p.full_url || '';
+            const src = viewPhotoSrc(p) || p.url || '';
             return (
               <div key={idx} style={{ height: `${allPhotosRowHeight}px`, overflow: 'hidden', backgroundColor: '#1e1e1e', borderRadius: '2px', flexShrink: 0 }}>
                 <img

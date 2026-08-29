@@ -1,0 +1,45 @@
+.person-label-editor__trigger {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  text-align: inherit;
+  cursor: text;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.person-label-editor__trigger--placeholder {
+  color: inherit;
+  opacity: 0.72;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+
+.person-label-editor__trigger:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.person-label-editor__input {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 4.5rem;
+  padding: 0.1rem 0.35rem;
+  border: 1px solid color-mix(in srgb, currentColor 28%, transparent);
+  border-radius: 4px;
+  background: #fff;
+  font: inherit;
+  color: inherit;
+  text-align: center;
+}
+
+.person-label-editor__input:focus {
+  outline: 2px solid color-mix(in srgb, currentColor 35%, transparent);
+  outline-offset: 1px;
+}

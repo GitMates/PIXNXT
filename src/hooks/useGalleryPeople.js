@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { photoAiService } from '../services/photoAi.service';
 import { prepareSelfieForRekognition } from '../lib/selfieImageForRekognition';
+import { subscribePersonLabelUpdates } from '../lib/galleryLiveSync';
 
 export function useGalleryPeople(collectionId, { enabled = true, isPublic = true } = {}) {
   const [people, setPeople] = useState([]);
@@ -35,6 +36,16 @@ export function useGalleryPeople(collectionId, { enabled = true, isPublic = true
     loadedRef.current = true;
     void loadPeople();
   }, [collectionId, enabled, loadPeople]);
+
+  useEffect(() => {
+    if (!collectionId) return undefined;
+    return subscribePersonLabelUpdates(({ collectionId: cid, personId, label }) => {
+      if (cid !== collectionId || !personId || !label) return;
+      setPeople((prev) =>
+        prev.map((person) => (person.id === personId ? { ...person, label } : person))
+      );
+    });
+  }, [collectionId]);
 
   const activePerson = people.find((p) => p.id === activePersonId) || null;
 
@@ -88,6 +99,19 @@ export function useGalleryPeople(collectionId, { enabled = true, isPublic = true
     [collectionId, isPublic]
   );
 
+  const renamePerson = useCallback(
+    async (personId, label) => {
+      if (!collectionId || !personId) return;
+      const trimmed = String(label || '').trim();
+      if (!trimmed) return;
+      setPeople((prev) =>
+        prev.map((person) => (person.id === personId ? { ...person, label: trimmed } : person))
+      );
+      await photoAiService.setPersonLabel(collectionId, personId, trimmed);
+    },
+    [collectionId]
+  );
+
   const isFilterActive = Boolean(activePersonId || selfieMatchPhotoIds.length);
 
   return {
@@ -102,6 +126,7 @@ export function useGalleryPeople(collectionId, { enabled = true, isPublic = true
     selectPerson,
     clearFilter,
     searchBySelfie,
+    renamePerson,
     reloadPeople: loadPeople,
   };
 }

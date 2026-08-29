@@ -4,41 +4,19 @@ import { getFileMime } from '../lib/fileMime';
 import { getImageDimensionsFast } from '../lib/imageDimensions';
 import { guestDeliveryService } from './guestDelivery.service';
 import { userStorageService } from './userStorage.service';
+import {
+  buildUserModulePath,
+  getPhotographerR2Folder,
+  R2_USER_MODULES,
+  safeR2PathSegment,
+} from '../lib/photographerR2Folder';
 
 const PHOTO_FIELDS =
   'id, event_id, photographer_id, filename, full_url, thumbnail_url, storage_path, size_bytes, width, height, position, ai_indexed_at, created_at';
 
 export const MAX_JPEG_BYTES = 100 * 1024 * 1024;
 
-function safePathSegment(value, fallback = 'item') {
-  const raw = String(value || fallback)
-    .trim()
-    .toLowerCase()
-    .replace(/[^\w-]+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
-  return raw || fallback;
-}
-
-const photographerFolderCache = new Map();
 const eventFolderCache = new Map();
-
-async function getPhotographerPathFolder(photographerId) {
-  if (photographerFolderCache.has(photographerId)) {
-    return photographerFolderCache.get(photographerId);
-  }
-
-  const { data } = await supabase
-    .from('photographers')
-    .select('display_name, email')
-    .eq('id', photographerId)
-    .maybeSingle();
-
-  const emailPrefix = data?.email?.split('@')[0];
-  const folder = safePathSegment(data?.display_name || emailPrefix || photographerId, 'photographer');
-  photographerFolderCache.set(photographerId, folder);
-  return folder;
-}
 
 async function getEventPathFolder(eventId, eventName) {
   const cacheKey = `${eventId}:${eventName || ''}`;
@@ -46,7 +24,7 @@ async function getEventPathFolder(eventId, eventName) {
     return eventFolderCache.get(cacheKey);
   }
 
-  const folder = `${safePathSegment(eventName, 'event')}__${eventId}`;
+  const folder = `${safeR2PathSegment(eventName, 'event')}__${eventId}`;
   eventFolderCache.set(cacheKey, folder);
   return folder;
 }
@@ -150,10 +128,16 @@ export const guestDeliveryPhotosService = {
     const fileExt = (file.name.split('.').pop() || 'jpg').toLowerCase();
     const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
     const [photographerFolder, eventFolder] = await Promise.all([
-      getPhotographerPathFolder(photographerId),
+      getPhotographerR2Folder(photographerId),
       getEventPathFolder(eventId, eventName),
     ]);
-    const storagePath = `users/${photographerFolder}/guestdelivery/${eventFolder}/photos/${fileName}`;
+    const storagePath = buildUserModulePath(
+      photographerFolder,
+      R2_USER_MODULES.GUEST_DELIVERY,
+      eventFolder,
+      'photos',
+      fileName
+    );
 
     const mime = getFileMime(file);
     const uploadBody =

@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase/client';
 import { isIndexedSnapshotFresh, maxIndexedAtFromRows } from '../lib/photoAiCacheFreshness';
+import { broadcastPersonLabelUpdate } from '../lib/galleryLiveSync';
 
 async function authHeaders() {
   const { data } = await supabase.auth.getSession();
@@ -215,6 +216,30 @@ export const photoAiService = {
       .eq('cluster_key', personId);
 
     if (error) throw error;
+    return { ok: true };
+  },
+
+  async setPersonLabel(collectionId, personId, label) {
+    if (!collectionId || !personId) {
+      throw new Error('Missing delivery or person.');
+    }
+
+    const trimmed = String(label || '').trim();
+    if (!trimmed) {
+      throw new Error('Name is required.');
+    }
+
+    const { error } = await supabase
+      .from('photo_ai_people')
+      .update({
+        label: trimmed,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('collection_id', collectionId)
+      .eq('cluster_key', personId);
+
+    if (error) throw error;
+    broadcastPersonLabelUpdate({ collectionId, personId, label: trimmed });
     return { ok: true };
   },
 

@@ -1,6 +1,7 @@
 import { ListObjectsV2Command, S3Client } from '@aws-sdk/client-s3';
 import { createClient } from '@supabase/supabase-js';
 import { getSupabaseAdmin, getSupabaseUrl, getSupabaseUserClient } from '../photoAi/supabaseAdmin.js';
+import { photographerR2FolderVariants } from '../../src/lib/photographerR2FolderCore.js';
 
 function getAnonClient() {
   const url = getSupabaseUrl();
@@ -117,16 +118,7 @@ async function listAlbumR2Collection(albumId, photographer) {
   const { publicUrl } = getR2Config();
   if (!publicUrl) throw new Error('VITE_R2_PUBLIC_URL is not configured.');
 
-  const emailPrefix = String(photographer?.email || '').split('@')[0];
-  const folders = new Set();
-  const fromEmail = emailPrefix ? safeSegment(emailPrefix, '') : '';
-  const fromName = photographer?.display_name ? safeSegment(photographer.display_name, '') : '';
-  if (fromEmail) folders.add(fromEmail);
-  if (fromName) folders.add(fromName);
-  if (fromName) folders.add(fromName.replace(/-/g, ''));
-  if (fromEmail) folders.add(fromEmail.replace(/-/g, ''));
-  if (photographer?.id) folders.add(safeSegment(photographer.id, 'photographer'));
-  folders.delete('');
+  const folders = new Set(photographerR2FolderVariants(photographer));
 
   const albumName = safeSegment(photographer?.albumName || 'album', 'album');
   const albumFolders = new Set([
@@ -502,7 +494,7 @@ async function repairAlbumRow(album, { persist, db }) {
 
   const { data: photographer } = await db
     .from('photographers')
-    .select('id, display_name, email')
+    .select('id, r2_folder, display_name, email')
     .eq('id', album.photographer_id)
     .maybeSingle();
 

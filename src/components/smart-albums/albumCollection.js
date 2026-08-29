@@ -16,11 +16,14 @@ import {
     readLocalStorageJson,
     writeLocalStorageJson,
 } from '../../lib/albumLocalStorage';
+import {
+    getPhotographerR2Folder,
+    getPhotographerR2FolderVariants,
+} from '../../lib/photographerR2Folder';
 
 const STORAGE_KEY = ALBUM_COLLECTIONS_KEY;
 export const ALBUM_COLLECTION_CHANGED_EVENT = 'pixnxt-album-collection-changed';
 const ALBUM_PATH_CACHE = new Map();
-const PHOTOGRAPHER_PATH_CACHE = new Map();
 
 function readAll() {
     return readLocalStorageJson(STORAGE_KEY, {});
@@ -198,43 +201,11 @@ function isLikelyAlbumImageKey(key) {
 }
 
 async function getPhotographerPathFolderVariants(photographerId) {
-    if (!photographerId) return ['photographer'];
-    const variants = new Set();
-    try {
-        const { data } = await supabase
-            .from('photographers')
-            .select('id, display_name, email')
-            .eq('id', photographerId)
-            .maybeSingle();
-        const emailPrefix = String(data?.email || '').split('@')[0];
-        const fromEmail = emailPrefix ? safeSegment(emailPrefix, '') : '';
-        const fromName = data?.display_name ? safeSegment(data.display_name, '') : '';
-        // Prefer email for primary cache (stable); keep display-name + collapsed forms for legacy paths.
-        const primary = fromEmail || fromName || safeSegment(photographerId, 'photographer');
-        PHOTOGRAPHER_PATH_CACHE.set(photographerId, primary);
-        variants.add(primary);
-        if (fromName) variants.add(fromName);
-        if (fromEmail) variants.add(fromEmail);
-        // Legacy: display names sometimes uploaded without separators (karakovanphotography).
-        if (fromName) variants.add(fromName.replace(/-/g, ''));
-        if (fromEmail) variants.add(fromEmail.replace(/-/g, ''));
-        variants.add(safeSegment(photographerId, 'photographer'));
-    } catch {
-        variants.add(safeSegment(photographerId, 'photographer'));
-    }
-    variants.delete('');
-    return [...variants];
+    return getPhotographerR2FolderVariants(photographerId);
 }
 
 async function getPhotographerPathFolder(photographerId) {
-    if (!photographerId) return 'photographer';
-    if (PHOTOGRAPHER_PATH_CACHE.has(photographerId)) {
-        return PHOTOGRAPHER_PATH_CACHE.get(photographerId);
-    }
-    const variants = await getPhotographerPathFolderVariants(photographerId);
-    const folder = variants[0] || 'photographer';
-    PHOTOGRAPHER_PATH_CACHE.set(photographerId, folder);
-    return folder;
+    return getPhotographerR2Folder(photographerId);
 }
 
 async function uploadCollectionImage({

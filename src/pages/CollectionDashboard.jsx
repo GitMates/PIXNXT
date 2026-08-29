@@ -119,8 +119,8 @@ import {
     isVideoMedia,
 } from '../lib/photoDisplayUrl';
 import { formatCoverDate, formatSidebarDeliveryDate, formatLastSavedTime } from '../lib/formatCoverDate.js';
-import { broadcastGalleryLive } from '../lib/galleryLiveSync';
-import { partitionGalleryMedia } from '../lib/galleryMediaType';
+import { broadcastGalleryLive, subscribePersonLabelUpdates } from '../lib/galleryLiveSync';
+import { partitionGalleryMedia, countGalleryMedia, isGalleryVideo } from '../lib/galleryMediaType';
 import {
     normalizeCoverStyleId,
     normalizeFontId,
@@ -415,18 +415,30 @@ const CollectionDashboard = () => {
     };
 
     const sortedSidebarSets = React.useMemo(() => {
-        const setItems = sets.map((s) => ({
-            ...s,
-            isHighlights: false,
-            isPrivate: s.is_private === true,
-            photoCount: photos.filter((p) => String(p.set_id) === String(s.id)).length,
-        }));
+        const countForSet = (setId) => {
+            const items = setId === 'highlights'
+                ? photos.filter((p) => !p.set_id)
+                : photos.filter((p) => String(p.set_id) === String(setId));
+            const stills = items.filter((p) => !isGalleryVideo(p)).length;
+            const videos = items.filter((p) => isGalleryVideo(p)).length;
+            return { photoCount: stills, videoCount: videos, mediaCount: items.length };
+        };
+
+        const setItems = sets.map((s) => {
+            const counts = countForSet(s.id);
+            return {
+                ...s,
+                isHighlights: false,
+                isPrivate: s.is_private === true,
+                ...counts,
+            };
+        });
         const highlightsItem = highlightsEnabled
             ? {
                 id: 'highlights',
                 name: highlightsName,
                 isHighlights: true,
-                photoCount: photos.filter((p) => !p.set_id).length,
+                ...countForSet('highlights'),
             }
             : null;
 
@@ -463,6 +475,8 @@ const CollectionDashboard = () => {
         if (!list.length) return 0;
         return list.filter((set) => mobileAppSets[set.id] !== false).length;
     }, [sortedSidebarSets, sets, mobileAppSets]);
+
+    const deliveryMediaCounts = useMemo(() => countGalleryMedia(photos), [photos]);
 
     const duplicateShortcutLabel = useMemo(() => {
         if (typeof navigator === 'undefined') return 'Ctrl+D';
@@ -2256,12 +2270,14 @@ const CollectionDashboard = () => {
         const watermarkedBlob = await applyWatermarkToBlob(blob, wmOptions);
 
         // 3. Upload to R2 Storage
-        const photographerFolder = user.id;
-        const collectionFolder = collectionId;
+        const basePath = await galleryService.resolveDeliveryPhotoBasePath(
+            user.id,
+            collectionId,
+            photo.set_id
+        );
         const fileExt = photo.filename.split('.').pop() || 'jpg';
         const fileName = `${photo.id || Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
-        const setFolder = photo.set_id ? `set__${photo.set_id}` : 'highlights';
-        const watermarkedPath = `users/${photographerFolder}/deliveries/${collectionFolder}/photoset/${setFolder}/watermarked/${fileName}`;
+        const watermarkedPath = `${basePath}/watermarked/${fileName}`;
 
         const uploadResult = await storageService.upload(watermarkedPath, watermarkedBlob);
         const watermarkedUrl = uploadResult.url;
@@ -2854,6 +2870,23 @@ const CollectionDashboard = () => {
         setActivePersonId(null);
     }, []);
 
+    const handleRenamePerson = useCallback(async (personId, label) => {
+        if (!collectionId || !personId) return;
+        const trimmed = String(label || '').trim();
+        if (!trimmed) return;
+        setPhotoAiPeople((prev) =>
+            prev.map((person) =>
+                person.id === personId ? { ...person, label: trimmed } : person
+            )
+        );
+        try {
+            await photoAiService.setPersonLabel(collectionId, personId, trimmed);
+        } catch (err) {
+            console.warn('Failed to rename person:', err);
+            throw err;
+        }
+    }, [collectionId]);
+
     const handleTogglePersonHidden = useCallback(async (personId, hidden) => {
         if (!collectionId || !personId) return;
         try {
@@ -3006,6 +3039,16 @@ const CollectionDashboard = () => {
     useEffect(() => {
         setPhotoSearchQuery('');
     }, [activeSetId]);
+
+    useEffect(() => {
+        if (!collectionId) return undefined;
+        return subscribePersonLabelUpdates(({ collectionId: cid, personId, label }) => {
+            if (cid !== collectionId || !personId || !label) return;
+            setPhotoAiPeople((prev) =>
+                prev.map((person) => (person.id === personId ? { ...person, label } : person))
+            );
+        });
+    }, [collectionId]);
 
     const sharingOverlaysEnabled = status === DELIVERY_STATUS.published;
 
@@ -5140,7 +5183,8 @@ const CollectionDashboard = () => {
                     onSettingsTabChange={setActiveSettingsTab}
                     activeActivitySubTab={activeActivitySubTab}
                     onActivitySubTabChange={setActiveActivitySubTab}
-                    photoCount={photos.length}
+                    photoCount={deliveryMediaCounts.photos}
+                    videoCount={deliveryMediaCounts.videos}
                     guestCount={gdGuestCount || gdEvent?.guest_count || 0}
                     activityCount={sidebarActivityCount}
                     guestDeliveryEnabled={collection?.guest_delivery_enabled}
@@ -5303,6 +5347,7 @@ const CollectionDashboard = () => {
                                     onReanalyze={() => {
                                         void runPhotoAiAutoSync({ force: true });
                                     }}
+                                    onRenamePerson={handleRenamePerson}
                                 />
 
                                 {gridPhotos.length > 0 ? (
