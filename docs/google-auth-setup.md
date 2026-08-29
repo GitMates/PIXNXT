@@ -26,9 +26,10 @@ Project: `oibvtecxxoqhvyejovsy`
 2. Paste **Client ID** and **Client secret** from step 1.
 3. **Authentication** → **URL configuration**:
    - **Site URL**: `http://localhost:5173` (local) or `https://www.pixnxt.in` (production)
-   - **Redirect URLs** (add both):
+   - **Redirect URLs** (add all that you use):
      - `http://localhost:5173/auth`
      - `https://www.pixnxt.in/auth`
+     - `https://pixnxt.in/auth`
 
 ## 3. Test locally
 

@@ -1,8 +1,17 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { galleryService } from '../../../services/gallery.service';
 import { storageService } from '../../../services/storage.service';
+import { signOut } from '../../../services/auth.service';
 import { supabase } from '../../../lib/supabase/client';
 import { getUserDisplayLabel, getUserInitial } from '../../../lib/userInitials';
+import {
+    buildCurrentSessionRows,
+    mergeStoredSessions,
+    resolveSessionLocation,
+    userHasPasswordIdentity,
+} from '../../../lib/accountSessions';
+import { PasswordField } from '../Auth/PasswordField';
 import '../../../pages/Settings.css';
 
 const DEFAULT_NOTIFICATIONS = {
@@ -84,7 +93,7 @@ function maskPhone(phone) {
 }
 
 function formatPasswordChanged(iso) {
-    if (!iso) return 'Not set yet';
+    if (!iso) return null;
     const then = new Date(iso);
     if (Number.isNaN(then.getTime())) return 'Last changed recently';
     const months = Math.max(
@@ -96,44 +105,15 @@ function formatPasswordChanged(iso) {
     return `Last changed ${months} months ago`;
 }
 
-async function detectCurrentSession() {
-    const ua = navigator.userAgent;
-    let browser = 'Browser';
-    if (ua.includes('Edg/')) browser = 'Edge';
-    else if (ua.includes('Chrome/')) browser = 'Chrome';
-    else if (ua.includes('Firefox/')) browser = 'Firefox';
-    else if (ua.includes('Safari/') && !ua.includes('Chrome')) browser = 'Safari';
-
-    let device = 'This device';
-    if (/iPhone|iPad/.test(ua)) device = 'iPhone';
-    else if (/Android/.test(ua)) device = 'Android';
-    else if (/Macintosh|Mac OS X/.test(ua)) device = 'MacBook Pro';
-    else if (/Windows/.test(ua)) {
-        device = `${browser} on Windows`;
-    } else if (/Linux/.test(ua)) device = 'Linux';
-
-    let location = '—';
-    try {
-        const res = await fetch('https://ipapi.co/json/');
-        if (res.ok) {
-            const data = await res.json();
-            location = data.city || data.region || data.country_name || '—';
-        }
-    } catch {
-        /* keep fallback */
-    }
-
-    return {
-        id: 'current',
-        device,
-        location,
-        label: `${device} · ${location}`,
-        meta: 'This device · active now',
-        current: true,
-    };
+function passwordStatusLabel({ passwordChangedAt, loginPasswordSet, user }) {
+    const changed = formatPasswordChanged(passwordChangedAt);
+    if (changed) return changed;
+    if (userHasPasswordIdentity(user, loginPasswordSet)) return 'Password set';
+    return 'Not set yet';
 }
 
 export default function YourAccountPanel({ user, showToast }) {
+    const navigate = useNavigate();
     const fileInputRef = useRef(null);
     const saveTimers = useRef({});
 
@@ -142,6 +122,7 @@ export default function YourAccountPanel({ user, showToast }) {
     const [saveStatus, setSaveStatus] = useState('Saved a moment ago.');
     const [showHandleModal, setShowHandleModal] = useState(false);
     const [showPasswordModal, setShowPasswordModal] = useState(false);
+    const [showPasswordSuccess, setShowPasswordSuccess] = useState(false);
     const [handleDraft, setHandleDraft] = useState('');
     const [passwordForm, setPasswordForm] = useState({ next: '', confirm: '' });
     const [passwordError, setPasswordError] = useState('');
@@ -157,6 +138,7 @@ export default function YourAccountPanel({ user, showToast }) {
     const [editingPhone, setEditingPhone] = useState(false);
     const [handle, setHandle] = useState('');
     const [twoFactor, setTwoFactor] = useState(false);
+    const [loginPasswordSet, setLoginPasswordSet] = useState(false);
     const [passwordChangedAt, setPasswordChangedAt] = useState('');
     const [notifications, setNotifications] = useState(DEFAULT_NOTIFICATIONS);
     const [sessions, setSessions] = useState([]);
@@ -171,7 +153,7 @@ export default function YourAccountPanel({ user, showToast }) {
 
     const persist = useCallback(
         async (updates, toastMsg) => {
-            if (!user?.id) return;
+            if (!user?.id) return false;
             try {
                 if (updates.account_notifications) {
                     localStorage.setItem(
@@ -181,15 +163,14 @@ export default function YourAccountPanel({ user, showToast }) {
                 }
                 await galleryService.updatePhotographerProfile(user.id, updates);
                 markSaved(toastMsg);
+                return true;
             } catch (err) {
                 console.error('Failed to save account field', updates, err);
-                // Still mark saved for local-only fields when DB column is missing
-                if (updates.account_notifications || updates.password_changed_at) {
-                    markSaved(toastMsg);
-                }
+                showToast?.('Could not save changes. Please try again.');
+                return false;
             }
         },
-        [user?.id, markSaved],
+        [user?.id, markSaved, showToast],
     );
 
     const debouncePersist = useCallback(
@@ -240,6 +221,7 @@ export default function YourAccountPanel({ user, showToast }) {
                 setHandle(resolvedHandle);
                 setHandleDraft(resolvedHandle);
                 setTwoFactor(Boolean(data?.two_factor_enabled));
+                setLoginPasswordSet(Boolean(data?.login_password_set));
                 setPasswordChangedAt(data?.password_changed_at || '');
                 let storedNotifications = data?.account_notifications || null;
                 if (!storedNotifications) {
@@ -257,11 +239,10 @@ export default function YourAccountPanel({ user, showToast }) {
                     ...(storedNotifications || {}),
                 });
 
-                const current = await detectCurrentSession();
-                const stored = Array.isArray(data?.active_sessions)
-                    ? data.active_sessions.filter((s) => !s.current && s.id !== 'current')
-                    : [];
-                const nextSessions = [current, ...stored];
+                const { data: authData } = await supabase.auth.getSession();
+                const location = await resolveSessionLocation();
+                const currentRows = buildCurrentSessionRows(authData?.session ?? null, location);
+                const nextSessions = mergeStoredSessions(data?.active_sessions, currentRows);
                 setSessions(nextSessions);
                 await galleryService.updatePhotographerProfile(user.id, {
                     active_sessions: nextSessions,
@@ -353,8 +334,17 @@ export default function YourAccountPanel({ user, showToast }) {
 
     const toggleTwoFactor = async () => {
         const next = !twoFactor;
+        if (next && !phone?.trim()) {
+            showToast?.('Add a phone number first — codes are sent there.');
+            return;
+        }
+        const previous = twoFactor;
         setTwoFactor(next);
-        await persist({ two_factor_enabled: next }, next ? 'Two-step on' : 'Two-step off');
+        const saved = await persist(
+            { two_factor_enabled: next },
+            next ? 'Two-step verification on' : 'Two-step verification off',
+        );
+        if (!saved) setTwoFactor(previous);
     };
 
     const toggleNotification = async (key) => {
@@ -363,10 +353,23 @@ export default function YourAccountPanel({ user, showToast }) {
         await persist({ account_notifications: next });
     };
 
-    const revokeSession = async (sessionId) => {
-        const next = sessions.filter((s) => s.id !== sessionId);
+    const revokeSession = async (sessionRow) => {
+        if (sessionRow?.canSignOut && sessionRow?.current) {
+            try {
+                await signOut();
+                navigate('/auth', { replace: true });
+            } catch (err) {
+                console.error(err);
+                showToast?.('Could not sign out. Please try again.');
+            }
+            return;
+        }
+
+        const next = sessions.filter((s) => s.id !== sessionRow?.id);
+        const previous = sessions;
         setSessions(next);
-        await persist({ active_sessions: next }, 'Signed out of device');
+        const saved = await persist({ active_sessions: next }, 'Signed out of device');
+        if (!saved) setSessions(previous);
     };
 
     const saveHandle = async () => {
@@ -394,24 +397,31 @@ export default function YourAccountPanel({ user, showToast }) {
             setPasswordError('Passwords do not match.');
             return;
         }
+        if (passwordForm.next.length < 8) {
+            setPasswordError('Password must be at least 8 characters.');
+            return;
+        }
         setPasswordSaving(true);
         try {
             const { error } = await supabase.auth.updateUser({ password: passwordForm.next });
             if (error) throw error;
             const now = new Date().toISOString();
             setPasswordChangedAt(now);
-            await persist(
-                { login_password_set: true, password_changed_at: now },
-                'Password updated',
-            );
+            setLoginPasswordSet(true);
             setShowPasswordModal(false);
             setPasswordForm({ next: '', confirm: '' });
+            setShowPasswordSuccess(true);
+            showToast?.('Password changed successfully');
+            void persist({ login_password_set: true, password_changed_at: now });
         } catch (err) {
             setPasswordError(err.message || 'Failed to update password.');
         } finally {
             setPasswordSaving(false);
         }
     };
+
+    const passwordHint = passwordStatusLabel({ passwordChangedAt, loginPasswordSet, user });
+    const hasPassword = userHasPasswordIdentity(user, loginPasswordSet);
 
     if (loading) {
         return <div className="ya-loading">Loading account…</div>;
@@ -589,14 +599,17 @@ export default function YourAccountPanel({ user, showToast }) {
                 <div className="ya-row">
                     <div className="ya-row__copy">
                         <h3 className="ya-row__title">Password</h3>
-                        <p className="ya-row__hint">{formatPasswordChanged(passwordChangedAt)}</p>
+                        <p className="ya-row__hint">{passwordHint}</p>
                     </div>
                     <button
                         type="button"
                         className="ya-btn ya-btn--ghost"
-                        onClick={() => setShowPasswordModal(true)}
+                        onClick={() => {
+                            setPasswordError('');
+                            setShowPasswordModal(true);
+                        }}
                     >
-                        Change
+                        {hasPassword ? 'Change' : 'Set'}
                     </button>
                 </div>
 
@@ -642,11 +655,11 @@ export default function YourAccountPanel({ user, showToast }) {
                                                 : 'Active recently')}
                                     </span>
                                 </div>
-                                {!session.current ? (
+                                {session.canSignOut || !session.current ? (
                                     <button
                                         type="button"
                                         className="ya-btn ya-btn--ghost"
-                                        onClick={() => revokeSession(session.id)}
+                                        onClick={() => revokeSession(session)}
                                     >
                                         Sign out
                                     </button>
@@ -747,7 +760,9 @@ export default function YourAccountPanel({ user, showToast }) {
                 <div className="ya-modal-backdrop" role="presentation">
                     <form className="ya-modal" onSubmit={savePassword}>
                         <div className="ya-modal__head">
-                            <h2 className="ya-modal__title">Change password</h2>
+                            <h2 className="ya-modal__title">
+                                {hasPassword ? 'Change password' : 'Set password'}
+                            </h2>
                             <button
                                 type="button"
                                 className="ya-modal__close"
@@ -761,26 +776,30 @@ export default function YourAccountPanel({ user, showToast }) {
                             <label className="ya-label" htmlFor="ya-pass-next">
                                 New password
                             </label>
-                            <input
+                            <PasswordField
                                 id="ya-pass-next"
-                                className="ya-input"
-                                type="password"
                                 value={passwordForm.next}
                                 onChange={(e) =>
                                     setPasswordForm((p) => ({ ...p, next: e.target.value }))
                                 }
+                                autoComplete="new-password"
+                                shellClassName="ya-password-shell"
+                                inputClassName="ya-input ya-input--password"
+                                actionClassName="ya-password-action"
                             />
                             <label className="ya-label ya-label--spaced" htmlFor="ya-pass-confirm">
                                 Confirm password
                             </label>
-                            <input
+                            <PasswordField
                                 id="ya-pass-confirm"
-                                className="ya-input"
-                                type="password"
                                 value={passwordForm.confirm}
                                 onChange={(e) =>
                                     setPasswordForm((p) => ({ ...p, confirm: e.target.value }))
                                 }
+                                autoComplete="new-password"
+                                shellClassName="ya-password-shell"
+                                inputClassName="ya-input ya-input--password"
+                                actionClassName="ya-password-action"
                             />
                             {passwordError ? (
                                 <p className="ya-error">{passwordError}</p>
@@ -803,6 +822,38 @@ export default function YourAccountPanel({ user, showToast }) {
                             </button>
                         </div>
                     </form>
+                </div>
+            ) : null}
+
+            {showPasswordSuccess ? (
+                <div className="ya-modal-backdrop" role="presentation">
+                    <div
+                        className="ya-modal ya-modal--success"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="ya-password-success-title"
+                    >
+                        <div className="ya-modal__body ya-modal__body--success">
+                            <div className="ya-success-icon" aria-hidden>
+                                <CheckSmall />
+                            </div>
+                            <h2 id="ya-password-success-title" className="ya-modal__title">
+                                Password changed
+                            </h2>
+                            <p className="ya-field-hint ya-field-hint--center">
+                                Your new password is saved. Use it the next time you sign in.
+                            </p>
+                        </div>
+                        <div className="ya-modal__actions ya-modal__actions--center">
+                            <button
+                                type="button"
+                                className="ya-btn ya-btn--dark"
+                                onClick={() => setShowPasswordSuccess(false)}
+                            >
+                                Done
+                            </button>
+                        </div>
+                    </div>
                 </div>
             ) : null}
         </div>

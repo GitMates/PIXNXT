@@ -55,6 +55,7 @@ import WatermarkEditor from './pages/WatermarkEditor';
 import EmailTemplateEditor from './pages/EmailTemplateEditor';
 import { CustomDomainGalleryApp } from './components/CustomDomainGalleryApp';
 import { isPlatformHost, normalizeHost } from './lib/customDomain';
+import { hasAuthCallbackInUrl } from './services/auth.service';
 
 function MobileGalleryViewRedirect() {
   const { slug } = useParams();
@@ -130,6 +131,14 @@ function App() {
     const target = redirect.startsWith('/') ? redirect : `/${redirect}`;
     navigate(target, { replace: true });
   }, [location.search, navigate]);
+
+  // Email confirmation / OAuth callbacks must land on /auth so the session is handled.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (location.pathname === '/auth') return;
+    if (!hasAuthCallbackInUrl()) return;
+    navigate(`/auth${location.search}${window.location.hash}`, { replace: true });
+  }, [location.pathname, location.search, navigate]);
 
   useEffect(() => {
     const handleThemeChange = () => setThemeTick((t) => t + 1);

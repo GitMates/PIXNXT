@@ -34,6 +34,7 @@ export async function signUpWithEmail({ email, password }) {
     email,
     password,
     options: {
+      emailRedirectTo: authRedirectTo('/auth?confirmed=1'),
       data: {
         display_name: fallbackName,
         full_name: fallbackName,
@@ -51,9 +52,71 @@ export async function signUpWithEmail({ email, password }) {
   return data;
 }
 
+function trimTrailingSlash(url) {
+  return String(url || '').replace(/\/+$/, '');
+}
+
 function authRedirectTo(path = '/auth') {
-  if (typeof window === 'undefined') return path;
-  return `${window.location.origin}${path}`;
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return `${trimTrailingSlash(window.location.origin)}${normalizedPath}`;
+  }
+  const fromEnv = trimTrailingSlash(import.meta.env.VITE_PUBLIC_SITE_URL);
+  if (fromEnv) return `${fromEnv}${normalizedPath}`;
+  return normalizedPath;
+}
+
+/** True when the URL contains Supabase OAuth / email-confirmation callback params. */
+export function hasAuthCallbackInUrl() {
+  if (typeof window === 'undefined') return false;
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  const search = new URLSearchParams(window.location.search);
+  return (
+    hash.has('access_token') ||
+    hash.has('error') ||
+    hash.has('error_description') ||
+    search.has('code')
+  );
+}
+
+/**
+ * Resolves session on first load, waiting briefly when the URL carries auth tokens.
+ */
+export async function resolveInitialAuthSession() {
+  if (!hasAuthCallbackInUrl()) {
+    return resolveAuthSession();
+  }
+
+  return new Promise((resolve) => {
+    let settled = false;
+    let subscription = null;
+    let timeoutId = null;
+
+    const finish = async () => {
+      if (settled) return;
+      settled = true;
+      subscription?.unsubscribe();
+      if (timeoutId) clearTimeout(timeoutId);
+      resolve(await resolveAuthSession());
+    };
+
+    const { data } = supabase.auth.onAuthStateChange((event) => {
+      if (
+        event === 'SIGNED_IN' ||
+        event === 'INITIAL_SESSION' ||
+        event === 'PASSWORD_RECOVERY'
+      ) {
+        void finish();
+      }
+    });
+    subscription = data.subscription;
+
+    timeoutId = setTimeout(() => void finish(), 4000);
+
+    void supabase.auth.getSession().then(({ data: sessionData }) => {
+      if (sessionData.session) void finish();
+    });
+  });
 }
 
 /**

@@ -4,6 +4,7 @@ import tailwindcss from 'tailwindcss'
 import autoprefixer from 'autoprefixer'
 import path from 'path'
 import { devApiMiddleware } from './server/devApiMiddleware.js'
+import { handleR2Upload } from './server/r2UploadHandler.js'
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
@@ -18,6 +19,17 @@ export default defineConfig(({ mode }) => {
       {
         name: 'pixnxt-dev-api',
         configureServer(server) {
+          server.middlewares.use(async (req, res, next) => {
+            if (!req.url?.startsWith('/api/r2-upload')) return next()
+            try {
+              await handleR2Upload(req, res)
+            } catch (err) {
+              console.error('[api/r2-upload]', err)
+              res.statusCode = 502
+              res.setHeader('Content-Type', 'application/json')
+              res.end(JSON.stringify({ error: err?.message || 'Upload failed' }))
+            }
+          })
           server.middlewares.use(devApiMiddleware())
         },
       },

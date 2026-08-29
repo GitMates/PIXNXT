@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { getProxiedMediaFetchUrl } from '../../../lib/r2MediaProxy';
+import { loadCrossOriginImage } from '../../../lib/r2MediaProxy';
 import { resolveCoverLeatherPreset, DEFAULT_COVER_COLOR_PRESET_ID } from '../albumCoverColor';
 import {
     drawDebossedCoverTitle,
@@ -11,51 +11,13 @@ import { normalizePhotoTransform } from '../albumPageTransforms';
 import { drawWrapSegment } from '../bookWrapSegment';
 import { resolveWrapSegmentBounds } from '../bookWrapSpine';
 
-const imageCache = new Map();
 const textureCache = new Map();
 const pending = new Map();
 
 const TEX_W = 1024;
 
-function loadImageOnce(url) {
-    const cached = imageCache.get(url);
-    if (cached) return Promise.resolve(cached);
-
-    const inflight = pending.get(url);
-    if (inflight) return inflight;
-
-    const promise = new Promise((resolve, reject) => {
-        const img = new Image();
-        if (!url.startsWith('blob:') && !url.startsWith('data:')) {
-            img.crossOrigin = 'anonymous';
-        }
-        img.onload = () => {
-            imageCache.set(url, img);
-            pending.delete(url);
-            resolve(img);
-        };
-        img.onerror = reject;
-        img.src = url;
-    });
-    pending.set(url, promise);
-    return promise;
-}
-
-/** Prefer direct R2 URL (CORS enabled for pixnxt.in); proxy only as fallback. */
 function loadImage(src) {
-    if (!src || typeof src !== 'string') {
-        return Promise.reject(new Error('Missing image src'));
-    }
-    if (src.startsWith('blob:') || src.startsWith('data:')) {
-        return loadImageOnce(src);
-    }
-    return loadImageOnce(src).catch(() => {
-        const proxied = getProxiedMediaFetchUrl(src);
-        if (!proxied || proxied === src) {
-            return Promise.reject(new Error('Image failed to load'));
-        }
-        return loadImageOnce(proxied);
-    });
+    return loadCrossOriginImage(src);
 }
 
 /** object-fit: cover — source rect in image pixels */

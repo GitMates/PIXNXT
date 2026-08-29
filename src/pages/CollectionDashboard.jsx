@@ -217,7 +217,7 @@ const CollectionDashboard = () => {
     const [showGridSettings, setShowGridSettings] = useState(false);
     const [gridSize, setGridSize] = useState('small');
     const [showFilename, setShowFilename] = useState(
-        () => localStorage.getItem('filename_display') === 'show'
+        () => localStorage.getItem('cd_show_filenames') === '1'
     );
     const [showCameraBadges, setShowCameraBadges] = useState(
         () => localStorage.getItem('cd_show_camera_badges') === '1'
@@ -3479,10 +3479,11 @@ const CollectionDashboard = () => {
         setDeleteSetId(setId);
     };
 
-    const confirmDeleteSet = async () => {
+    const confirmDeleteSet = () => {
         if (!deleteSetId) return;
 
         const isHighlights = deleteSetId === 'highlights';
+        const targetSetId = deleteSetId;
 
         if (!isHighlights && sets.length === 0) {
             setToastMessage('You must have at least one set.');
@@ -3490,56 +3491,87 @@ const CollectionDashboard = () => {
             setDeleteSetId(null);
             return;
         }
-        
-        try {
-            setSaving(true);
-            if (isHighlights) {
-                const unassignedPhotoIds = photos.filter((p) => !p.set_id).map((p) => p.id);
-                if (unassignedPhotoIds.length > 0) {
-                    await galleryService.deletePhotos(unassignedPhotoIds);
-                    setPhotos((prev) => prev.filter((p) => p.set_id));
-                    if (collection?.cover_photo_id && unassignedPhotoIds.includes(collection.cover_photo_id)) {
-                        setCollection((prev) => (prev ? { ...prev, cover_photo_id: null, cover_url: null } : prev));
+
+        const prevSets = sets;
+        const prevPhotos = photos;
+        const prevOrderedSetIds = orderedSetIds;
+        const prevActiveSetId = activeSetId;
+        const prevHighlightsEnabled = highlightsEnabled;
+        const prevCollection = collection;
+
+        setDeleteSetId(null);
+
+        if (isHighlights) {
+            const unassignedPhotoIds = new Set(
+                prevPhotos.filter((p) => !p.set_id).map((p) => p.id),
+            );
+            setPhotos((prev) => prev.filter((p) => p.set_id));
+            setHighlightsEnabled(false);
+            setCollection((prev) => {
+                if (!prev) return prev;
+                const next = { ...prev, highlights_enabled: false };
+                if (prev.cover_photo_id && unassignedPhotoIds.has(prev.cover_photo_id)) {
+                    next.cover_photo_id = null;
+                    next.cover_url = null;
+                }
+                return next;
+            });
+            setOrderedSetIds((prev) => (prev ? prev.filter((id) => id !== 'highlights') : prev));
+            setActiveSetId(prevSets[0]?.id ?? null);
+        } else {
+            const removedIds = new Set(
+                prevPhotos.filter((p) => p.set_id === targetSetId).map((p) => p.id),
+            );
+            setPhotos((prev) => prev.filter((p) => !removedIds.has(p.id)));
+            setSets((prev) => prev.filter((s) => s.id !== targetSetId));
+            setOrderedSetIds((prev) => (prev ? prev.filter((id) => id !== targetSetId) : prev));
+            if (prevCollection?.cover_photo_id && removedIds.has(prevCollection.cover_photo_id)) {
+                setCollection((prev) =>
+                    prev ? { ...prev, cover_photo_id: null, cover_url: null } : prev,
+                );
+            }
+            if (prevActiveSetId === targetSetId) {
+                setActiveSetId(
+                    prevHighlightsEnabled
+                        ? null
+                        : prevSets.find((s) => s.id !== targetSetId)?.id ?? null,
+                );
+            }
+        }
+
+        void (async () => {
+            try {
+                if (isHighlights) {
+                    const unassignedPhotoIds = prevPhotos
+                        .filter((p) => !p.set_id)
+                        .map((p) => p.id);
+                    if (unassignedPhotoIds.length > 0) {
+                        await galleryService.deletePhotos(unassignedPhotoIds);
+                    }
+                    await galleryService.updateCollection(collectionId, { highlights_enabled: false });
+                    if (prevOrderedSetIds) {
+                        const nextOrder = prevOrderedSetIds.filter((id) => id !== 'highlights');
+                        void persistSidebarOrder(collectionId, nextOrder);
+                    }
+                } else {
+                    await galleryService.deleteSet(targetSetId);
+                    if (prevOrderedSetIds) {
+                        const nextOrder = prevOrderedSetIds.filter((id) => id !== targetSetId);
+                        void persistSidebarOrder(collectionId, nextOrder);
                     }
                 }
-                await galleryService.updateCollection(collectionId, { highlights_enabled: false });
-                setHighlightsEnabled(false);
-                setCollection((prev) => (prev ? { ...prev, highlights_enabled: false } : prev));
-                setOrderedSetIds((prev) => {
-                    if (!prev) return prev;
-                    const next = prev.filter((id) => id !== 'highlights');
-                    void persistSidebarOrder(collectionId, next);
-                    return next;
-                });
-                setActiveSetId(sets[0]?.id ?? null);
-            } else {
-                const removedIds = new Set(
-                    photos.filter((p) => p.set_id === deleteSetId).map((p) => p.id)
-                );
-                await galleryService.deleteSet(deleteSetId);
-                setPhotos((prev) => prev.filter((p) => !removedIds.has(p.id)));
-                setSets((prev) => prev.filter((s) => s.id !== deleteSetId));
-                setOrderedSetIds((prev) => {
-                    if (!prev) return prev;
-                    const next = prev.filter((id) => id !== deleteSetId);
-                    void persistSidebarOrder(collectionId, next);
-                    return next;
-                });
-                if (collection?.cover_photo_id && removedIds.has(collection.cover_photo_id)) {
-                    setCollection((prev) => (prev ? { ...prev, cover_photo_id: null, cover_url: null } : prev));
-                }
-                if (activeSetId === deleteSetId) {
-                    setActiveSetId(highlightsEnabled ? null : sets.find((s) => s.id !== deleteSetId)?.id ?? null);
-                }
+            } catch (err) {
+                console.error('Failed to delete set:', err);
+                setSets(prevSets);
+                setPhotos(prevPhotos);
+                setOrderedSetIds(prevOrderedSetIds);
+                setActiveSetId(prevActiveSetId);
+                setHighlightsEnabled(prevHighlightsEnabled);
+                setCollection(prevCollection);
+                const detail = err?.message ? `\n\n${err.message}` : '';
+                alert(`Failed to delete set. Please try again.${detail}`);
             }
-            setDeleteSetId(null);
-        } catch (err) {
-            console.error('Failed to delete set:', err);
-            const detail = err?.message ? `\n\n${err.message}` : '';
-            alert(`Failed to delete set. Please try again.${detail}`);
-        } finally {
-            setSaving(false);
-        }
+        })();
     };
 
     const openEditSetModal = (set) => {
@@ -5224,7 +5256,7 @@ const CollectionDashboard = () => {
                                     showFilename={showFilename}
                                     onShowFilenameChange={(nextValue) => {
                                         setShowFilename(nextValue);
-                                        localStorage.setItem('filename_display', nextValue ? 'show' : 'hide');
+                                        localStorage.setItem('cd_show_filenames', nextValue ? '1' : '0');
                                     }}
                                     showCameraBadges={showCameraBadges}
                                     onShowCameraBadgesChange={(nextValue) => {
@@ -6313,8 +6345,8 @@ const CollectionDashboard = () => {
                         </div>
                         <div className="cd-modal-footer">
                             <button className="cd-cancel-btn" onClick={() => setDeleteSetId(null)}>Cancel</button>
-                            <button className="cd-save-btn" style={{ backgroundColor: '#009070', color: 'white', border: 'none', padding: '10px 24px', borderRadius: '4px', fontWeight: '500' }} onClick={confirmDeleteSet} disabled={saving}>
-                                {saving ? 'Deleting...' : 'Delete'}
+                            <button className="cd-save-btn" style={{ backgroundColor: '#009070', color: 'white', border: 'none', padding: '10px 24px', borderRadius: '4px', fontWeight: '500' }} onClick={confirmDeleteSet}>
+                                Delete
                             </button>
                         </div>
                     </div>
@@ -6436,17 +6468,14 @@ const CollectionDashboard = () => {
                 onClose={() => {
                     if (!deleteDeliveryBusy) setShowDeleteCollectionModal(false);
                 }}
-                onConfirm={async () => {
-                    try {
-                        setDeleteDeliveryBusy(true);
-                        await galleryService.deleteCollection(collectionId);
-                        setShowDeleteCollectionModal(false);
-                        navigate(backTo);
-                    } catch (err) {
+                onConfirm={() => {
+                    const deletedId = collectionId;
+                    setShowDeleteCollectionModal(false);
+                    navigate(backTo);
+                    void galleryService.deleteCollection(deletedId).catch((err) => {
                         console.error('Failed to delete collection:', err);
                         alert('Failed to delete delivery. Please try again.');
-                        setDeleteDeliveryBusy(false);
-                    }
+                    });
                 }}
             />
             {/* Rename Modal */}

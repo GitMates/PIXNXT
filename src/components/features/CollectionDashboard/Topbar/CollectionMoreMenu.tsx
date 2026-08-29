@@ -725,18 +725,15 @@ export function CollectionMoreMenu({
         onClose={() => {
           if (!busy) setDeleteOpen(false);
         }}
-        onConfirm={async () => {
+        onConfirm={() => {
           if (!collectionId) return;
-          try {
-            setBusy(true);
-            await galleryService.deleteCollection(collectionId);
-            setDeleteOpen(false);
-            navigate(DELIVERY_PRODUCT_HOME);
-          } catch (err) {
+          const deletedId = collectionId;
+          setDeleteOpen(false);
+          navigate(DELIVERY_PRODUCT_HOME);
+          void galleryService.deleteCollection(deletedId).catch((err) => {
             console.error(err);
             alert('Failed to delete delivery.');
-            setBusy(false);
-          }
+          });
         }}
       />
     </div>

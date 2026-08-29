@@ -197,6 +197,16 @@
   color: var(--stop-fg, #8d3a32);
 }
 
+.auth-page__confirm-banner {
+  margin: 0 0 0.75rem;
+  padding: 0.65rem 0.85rem;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: #1f4d2e;
+  background: #e8f5ec;
+  border-radius: 8px;
+}
+
 .auth-success {
   margin: 0;
   font-size: 0.9375rem;

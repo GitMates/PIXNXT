@@ -8,24 +8,27 @@ export function PasswordField({
     id = 'password',
     required = true,
     autoComplete = 'current-password',
+    shellClassName = 'auth-input-shell',
+    inputClassName = 'auth-input',
+    actionClassName = 'auth-input-action',
 }) {
     const [showPassword, setShowPassword] = useState(false);
 
     return (
-        <div className="auth-input-shell">
+        <div className={shellClassName}>
             <input
                 id={id}
                 type={showPassword ? 'text' : 'password'}
                 value={value}
                 onChange={onChange}
                 placeholder={placeholder}
-                className="auth-input"
+                className={inputClassName}
                 required={required}
                 autoComplete={autoComplete}
             />
             <button
                 type="button"
-                className="auth-input-action"
+                className={actionClassName}
                 onClick={() => setShowPassword((prev) => !prev)}
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
                 tabIndex={-1}

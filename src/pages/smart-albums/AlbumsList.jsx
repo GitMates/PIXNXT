@@ -25,6 +25,7 @@ import AlbumStatusFilterPopover, {
     normalizeStatusFilters,
 } from '../../components/smart-albums/AlbumStatusFilterPopover';
 import { AppToast, useAppToast } from '../../components/ui/AppToast';
+import { runOptimisticDelete } from '../../lib/optimisticDelete';
 import '../../components/portal/portal.css';
 import '../../components/smart-albums/AlbumStatusFilterPopover.css';
 import './SmartAlbums.css';
@@ -154,6 +155,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
     const [settingsAlbum, setSettingsAlbum] = useState(null);
     const [settingsAnchor, setSettingsAnchor] = useState(null);
     const [remindingAlbumId, setRemindingAlbumId] = useState(null);
+    const [leavingAlbumIds, setLeavingAlbumIds] = useState(() => new Set());
     const [relativeNow, setRelativeNow] = useState(() => Date.now());
     const contextRef = useRef(null);
     const filtersRef = useRef(null);
@@ -290,17 +292,48 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
         [closeContextMenu]
     );
 
-    const handleDeleteAlbum = async (album) => {
-        if (!user) return;
-        if (!window.confirm(`Delete "${album.name}"? This cannot be undone.`)) return;
-        try {
-            await smartAlbumsService.deleteAlbum(user.id, album.id);
-            setAlbums((prev) => prev.filter((a) => a.id !== album.id));
+    const deleteAlbumOptimistically = useCallback(
+        (album) => {
+            if (!user || !album?.id) return;
+            if (!window.confirm(`Delete "${album.name}"? This cannot be undone.`)) return;
+
+            const snapshot = album;
+            const albumId = album.id;
             closeContextMenu();
-        } catch (err) {
-            console.error(err);
-            alert('Failed to delete album. Please try again.');
-        }
+            setSettingsAlbum(null);
+            setSettingsAnchor(null);
+            setLeavingAlbumIds((prev) => new Set(prev).add(albumId));
+
+            runOptimisticDelete({
+                onRemove: () => {
+                    setAlbums((prev) => prev.filter((a) => a.id !== albumId));
+                    setLeavingAlbumIds((prev) => {
+                        const next = new Set(prev);
+                        next.delete(albumId);
+                        return next;
+                    });
+                },
+                onError: (err) => {
+                    console.error(err);
+                    setLeavingAlbumIds((prev) => {
+                        const next = new Set(prev);
+                        next.delete(albumId);
+                        return next;
+                    });
+                    setAlbums((prev) => {
+                        if (prev.some((a) => a.id === albumId)) return prev;
+                        return [snapshot, ...prev];
+                    });
+                    alert('Failed to delete album. Please try again.');
+                },
+                task: () => smartAlbumsService.deleteAlbum(user.id, albumId),
+            });
+        },
+        [user, closeContextMenu],
+    );
+
+    const handleDeleteAlbum = (album) => {
+        deleteAlbumOptimistically(album);
     };
 
     const openDuplicateAlbum = useCallback(
@@ -820,7 +853,9 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                                     key={album.id}
                                     className={`sa-proofer-album-card${
                                         viewMode === 'list' ? ' sa-proofer-album-card--list' : ''
-                                    }${settingsAlbum?.id === album.id ? ' sa-proofer-album-card--menu-open' : ''}`}
+                                    }${settingsAlbum?.id === album.id ? ' sa-proofer-album-card--menu-open' : ''}${
+                                        leavingAlbumIds.has(album.id) ? ' is-leaving' : ''
+                                    }`}
                                     onClick={openAlbum}
                                     onKeyDown={(e) => e.key === 'Enter' && openAlbum()}
                                     role="button"
@@ -995,18 +1030,8 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                 onDuplicate={() => {
                     if (settingsAlbum) openDuplicateAlbum(settingsAlbum);
                 }}
-                onDelete={async () => {
-                    if (!settingsAlbum) return;
-                    const albumToDelete = settingsAlbum;
-                    if (!window.confirm(`Delete "${albumToDelete.name}"? This cannot be undone.`)) return;
-                    setSettingsAlbum(null);
-                    try {
-                        await smartAlbumsService.deleteAlbum(user?.id, albumToDelete.id);
-                        setAlbums((prev) => prev.filter((a) => a.id !== albumToDelete.id));
-                    } catch (err) {
-                        console.error(err);
-                        alert('Failed to delete album. Please try again.');
-                    }
+                onDelete={() => {
+                    if (settingsAlbum) deleteAlbumOptimistically(settingsAlbum);
                 }}
                 onShareByEmail={() => {
                     if (settingsAlbum) handleShareByEmail(settingsAlbum);

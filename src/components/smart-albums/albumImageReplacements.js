@@ -1,5 +1,6 @@
 import { getCollectionItem, getCollectionItemDisplayUrl, restoreCollectionItemSnapshot } from './albumCollection';
 import { storageService } from '../../services/storage.service';
+import { resolveCrossOriginMediaUrl } from '../../lib/r2MediaProxy';
 import {
     getGridSlotPhoto,
     resolveSlotCollectionItemId,
@@ -185,7 +186,7 @@ function rasterizeImageToDataUrl(src) {
             }
         };
         img.onerror = () => reject(new Error('Image load failed'));
-        img.src = src;
+        img.src = resolveCrossOriginMediaUrl(src);
     });
 }
 
@@ -194,7 +195,8 @@ export async function snapshotImageUrlForReview(url) {
     if (!url || typeof url !== 'string') return null;
     if (url.startsWith('data:')) return url;
     try {
-        const response = await fetch(url);
+        const fetchUrl = resolveCrossOriginMediaUrl(url);
+        const response = await fetch(fetchUrl);
         if (!response.ok) return url;
         const blob = await response.blob();
         const objectUrl = URL.createObjectURL(blob);
@@ -227,16 +229,18 @@ export function resolveReplacementPreviewUrl(
     { itemId = null, preferLive = false } = {}
 ) {
     if (url?.startsWith('data:')) return url;
+    let resolved = null;
     if (preferLive && itemId) {
         const live = resolveItemUrl(albumId, itemId);
-        if (live) return live;
+        if (live) resolved = live;
     }
-    if (!preferLive && storagePath) {
-        return storageService.getPublicUrl(storagePath);
+    if (!resolved && !preferLive && storagePath) {
+        resolved = storageService.getPublicUrl(storagePath);
     }
-    if (url) return url;
-    if (storagePath) return storageService.getPublicUrl(storagePath);
-    return null;
+    if (!resolved && url) resolved = url;
+    if (!resolved && storagePath) resolved = storageService.getPublicUrl(storagePath);
+    if (!resolved) return null;
+    return resolveCrossOriginMediaUrl(resolved);
 }
 
 function stripUrlCacheToken(url) {

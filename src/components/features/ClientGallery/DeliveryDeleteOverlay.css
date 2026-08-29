@@ -135,7 +135,7 @@
 .dl-row.is-leaving,
 .cg-style-73.is-leaving,
 .cg-style-52.is-leaving {
-  animation: dl-card-leave 0.52s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: dl-card-leave 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
   pointer-events: none;
 }
 

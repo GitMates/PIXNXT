@@ -8,6 +8,7 @@ import {
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { getFileMime } from '../lib/fileMime';
 import { r2Client, R2_BUCKET_NAME, R2_PUBLIC_URL } from '../lib/r2';
+import { shouldPreferR2MediaProxy } from '../lib/r2MediaProxy';
 
 const UPLOAD_MAX_ATTEMPTS = 3;
 const UPLOAD_RETRY_BASE_MS = 400;
@@ -96,6 +97,55 @@ function uploadWithPresignedPutOnce(path, file, contentType, onProgress, abortSi
   );
 }
 
+/**
+ * Upload through the app origin when R2 bucket CORS does not allow the photographer custom domain.
+ */
+function uploadViaSameOriginProxy(path, file, contentType, onProgress, abortSignal) {
+  return new Promise((resolve, reject) => {
+    if (abortSignal?.aborted) {
+      reject(new Error('Upload cancelled.'));
+      return;
+    }
+
+    const xhr = new XMLHttpRequest();
+    const params = new URLSearchParams({ path });
+    xhr.open('PUT', `/api/r2-upload?${params.toString()}`, true);
+    xhr.setRequestHeader('Content-Type', contentType);
+
+    const onAbort = () => xhr.abort();
+    abortSignal?.addEventListener('abort', onAbort, { once: true });
+    const cleanup = () => abortSignal?.removeEventListener('abort', onAbort);
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && onProgress) {
+        onProgress(Math.min(99, Math.round((event.loaded / event.total) * 100)));
+      }
+    };
+
+    xhr.onload = () => {
+      cleanup();
+      if (xhr.status >= 200 && xhr.status < 300) {
+        onProgress?.(100);
+        resolve({ path, url: storageService.getPublicUrl(path) });
+        return;
+      }
+      reject(new Error(`Upload rejected (${xhr.status}).`));
+    };
+
+    xhr.onerror = () => {
+      cleanup();
+      reject(new Error('Network error uploading to storage via same-origin proxy.'));
+    };
+
+    xhr.onabort = () => {
+      cleanup();
+      reject(new Error('Upload cancelled.'));
+    };
+
+    xhr.send(file);
+  });
+}
+
 async function uploadWithPresignedPut(path, file, contentType, onProgress, abortSignal) {
   let lastError;
   for (let attempt = 1; attempt <= UPLOAD_MAX_ATTEMPTS; attempt += 1) {
@@ -134,6 +184,9 @@ export const storageService = {
             });
 
       onProgress?.(2);
+      if (shouldPreferR2MediaProxy()) {
+        return await uploadViaSameOriginProxy(path, body, contentType, onProgress, abortSignal);
+      }
       return await uploadWithPresignedPut(path, body, contentType, onProgress, abortSignal);
     } catch (error) {
       console.error('R2 Upload Error:', {

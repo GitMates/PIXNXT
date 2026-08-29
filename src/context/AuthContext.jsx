@@ -1,6 +1,10 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase/client';
-import { resolveAuthSession, ensurePhotographerProfile } from '../services/auth.service';
+import {
+  resolveAuthSession,
+  resolveInitialAuthSession,
+  ensurePhotographerProfile,
+} from '../services/auth.service';
 
 const AuthContext = createContext();
 
@@ -35,7 +39,7 @@ export const AuthProvider = ({ children }) => {
 
     const initializeAuth = async () => {
       try {
-        const resolved = await resolveAuthSession();
+        const resolved = await resolveInitialAuthSession();
         applyAuthState(resolved);
         if (resolved.user) {
           void ensurePhotographerProfile(resolved.user).catch((err) => {

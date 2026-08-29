@@ -34,12 +34,14 @@ const AuthPage = () => {
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
   const mode = searchParams.get('mode');
+  const emailConfirmed = searchParams.get('confirmed') === '1';
   const { user, loading } = useAuth();
 
   const [view, setView] = useState(
     mode === 'signup' ? 'signup' : mode === 'reset' ? 'reset' : 'login'
   );
   const [oauthError, setOauthError] = useState('');
+  const [confirmBanner, setConfirmBanner] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -47,8 +49,14 @@ const AuthPage = () => {
     if (callbackError) {
       setOauthError(callbackError);
       clearOAuthCallbackParams();
+      return;
     }
-  }, []);
+
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    if (hash.get('type') === 'signup' || emailConfirmed) {
+      setConfirmBanner('Email confirmed! Signing you in…');
+    }
+  }, [emailConfirmed]);
 
   useEffect(() => {
     if (mode === 'signup') setView('signup');
@@ -69,9 +77,16 @@ const AuthPage = () => {
 
   useEffect(() => {
     if (loading || !user || view === 'reset') return;
+
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    if (hash.get('type') === 'signup' || emailConfirmed) {
+      clearOAuthCallbackParams();
+      setConfirmBanner('Email confirmed! Welcome to your studio.');
+    }
+
     const from = location.state?.from?.pathname;
     navigate(from && from !== '/auth' ? from : '/dashboard', { replace: true });
-  }, [user, loading, view, navigate, location.state]);
+  }, [user, loading, view, navigate, location.state, emailConfirmed]);
 
   const handleAuthSuccess = () => {
     navigate('/dashboard');
@@ -99,6 +114,12 @@ const AuthPage = () => {
           {oauthError ? (
             <p className="auth-error auth-page__oauth-error" role="alert">
               {oauthError}
+            </p>
+          ) : null}
+
+          {confirmBanner ? (
+            <p className="auth-page__confirm-banner" role="status">
+              {confirmBanner}
             </p>
           ) : null}
 
