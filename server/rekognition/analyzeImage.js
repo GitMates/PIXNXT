@@ -42,6 +42,7 @@ export async function analyzeImageBytes(imageBytes, options = {}) {
   const {
     externalImageId = `pixnxt-${Date.now()}`,
     indexFaces = true,
+    detectLabels = true,
   } = options;
   const deliveryFaceGroupId =
     options.deliveryFaceGroupId || options.collectionId || DEFAULT_DELIVERY_FACE_GROUP_ID;
@@ -61,26 +62,34 @@ export async function analyzeImageBytes(imageBytes, options = {}) {
 
   if (indexFaces) {
     await ensureDeliveryFaceGroup(client, deliveryFaceGroupId);
-    const [labelsRes, facesRes] = await Promise.allSettled([
-      client.send(new DetectLabelsCommand({
-        Image: { Bytes: imageBytes },
-        MaxLabels: 25,
-        MinConfidence: 70,
-      })),
-      client.send(new IndexFacesCommand({
-        CollectionId: deliveryFaceGroupId,
-        Image: { Bytes: imageBytes },
-        ExternalImageId: String(externalImageId).slice(0, 255),
-        DetectionAttributes: ['DEFAULT'],
-        MaxFaces: 20,
-        QualityFilter: 'AUTO',
-      })),
-    ]);
-    if (facesRes.status === 'rejected') throw facesRes.reason;
-    if (labelsRes.status === 'rejected') throw labelsRes.reason;
-    labelsResult = labelsRes.value;
-    facesResult = facesRes.value;
-  } else {
+
+    const indexFacesCmd = client.send(new IndexFacesCommand({
+      CollectionId: deliveryFaceGroupId,
+      Image: { Bytes: imageBytes },
+      ExternalImageId: String(externalImageId).slice(0, 255),
+      DetectionAttributes: ['DEFAULT'],
+      MaxFaces: 30,
+      QualityFilter: 'NONE',
+    }));
+
+    if (detectLabels) {
+      const [labelsRes, facesRes] = await Promise.allSettled([
+        client.send(new DetectLabelsCommand({
+          Image: { Bytes: imageBytes },
+          MaxLabels: 25,
+          MinConfidence: 70,
+        })),
+        indexFacesCmd,
+      ]);
+      if (facesRes.status === 'rejected') throw facesRes.reason;
+      if (labelsRes.status === 'rejected') throw labelsRes.reason;
+      labelsResult = labelsRes.value;
+      facesResult = facesRes.value;
+    } else {
+      facesResult = await indexFacesCmd;
+      labelsResult = { Labels: [] };
+    }
+  } else if (detectLabels) {
     labelsResult = await client.send(new DetectLabelsCommand({
       Image: { Bytes: imageBytes },
       MaxLabels: 25,
@@ -93,7 +102,7 @@ export async function analyzeImageBytes(imageBytes, options = {}) {
     /** @deprecated Same as deliveryFaceGroupId (AWS CollectionId). */
     collectionId: indexFaces ? deliveryFaceGroupId : null,
     externalImageId: indexFaces ? externalImageId : null,
-    labels: (labelsResult.Labels || []).map((label) => ({
+    labels: (labelsResult?.Labels || []).map((label) => ({
       name: label.Name,
       confidence: Math.round(label.Confidence),
       categories: (label.Categories || []).map((c) => c.Name).filter(Boolean),

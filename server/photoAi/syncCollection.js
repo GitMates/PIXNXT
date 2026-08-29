@@ -11,8 +11,15 @@ import {
  * Index any photos missing AI metadata, then rebuild people clusters if needed.
  * Safe to call on collection load or after uploads (debounced on client).
  */
-export async function syncCollectionPhotoAi(collectionId, { supabase, limit = 500 } = {}) {
-  const indexResult = await indexCollectionPhotos(collectionId, { supabase, limit });
+export async function syncCollectionPhotoAi(
+  collectionId,
+  { supabase, limit = 500, forceReindex = false } = {}
+) {
+  const indexResult = await indexCollectionPhotos(collectionId, {
+    supabase,
+    limit,
+    force: forceReindex,
+  });
   const stats = await getMetadataStats(supabase, collectionId);
 
   if (!stats.indexedPhotoCount) {

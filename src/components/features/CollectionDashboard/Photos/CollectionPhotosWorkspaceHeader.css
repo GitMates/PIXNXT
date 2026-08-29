@@ -448,6 +448,14 @@
   object-fit: cover;
 }
 
+.cdpw-person__btn .cd-person-face-avatar__crop-img {
+  position: absolute;
+  width: auto;
+  height: auto;
+  max-width: none;
+  object-fit: cover;
+}
+
 .cdpw-person__count {
   position: absolute;
   left: 50%;

@@ -2969,7 +2969,9 @@ const CollectionDashboard = () => {
         photoAiSyncingRef.current = true;
         setPhotoAiIndexing(true);
         try {
-            await photoAiService.syncCollection(collectionId);
+            await photoAiService.syncCollection(collectionId, 500, {
+                forceReindex: force,
+            });
             await refreshPhotoAiMetadata();
             if (showPeoplePanel || activeSidebarTab === 'photos') {
                 await loadPhotoAiPeople({

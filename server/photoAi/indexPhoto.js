@@ -1,19 +1,24 @@
 import { analyzeImageBytes } from '../rekognition/analyzeImage.js';
 import { getSupabaseAdmin } from './supabaseAdmin.js';
 import { invalidateClusterState } from './peopleCache.js';
+import { prepareImageBytesForRekognition } from './normalizeImage.js';
+import { mapWithConcurrency } from './mapWithConcurrency.js';
+import {
+  resolvePhotoAiSourceUrl,
+  filterIndexedFaces,
+  rekognitionDeliveryId,
+} from './faceUtils.js';
+import { resetDeliveryFaceGroup } from './rekognitionCollection.js';
 
-const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
+const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
+const INDEX_CONCURRENCY = 8;
 
-/**
- * Face-group id for a PIXNXT delivery (or guest-delivery event).
- * AWS Rekognition still calls this resource a “Collection” — that is their API name.
- */
-export function rekognitionDeliveryId(deliveryId) {
-  return `pixnxt-${String(deliveryId).replace(/[^a-zA-Z0-9_.-]/g, '-')}`;
-}
+export { rekognitionDeliveryId } from './faceUtils.js';
 
 /** @deprecated Prefer rekognitionDeliveryId — same value (AWS CollectionId for a delivery). */
 export const rekognitionCollectionId = rekognitionDeliveryId;
+
+export { resolvePhotoAiSourceUrl } from './faceUtils.js';
 
 async function downloadImageBytes(url) {
   if (!url) throw new Error('Photo has no image URL to analyze.');
@@ -42,7 +47,7 @@ async function downloadImageBytes(url) {
   }
 }
 
-export async function indexPhotoById(photoId, { supabase } = {}) {
+export async function indexPhotoById(photoId, { supabase, skipClusterInvalidate = false } = {}) {
   const db = supabase || getSupabaseAdmin();
   if (!db) throw new Error('Supabase is not configured for photo AI indexing.');
 
@@ -60,27 +65,41 @@ export async function indexPhotoById(photoId, { supabase } = {}) {
     return { skipped: true, reason: 'video' };
   }
 
-  const imageUrl = photo.web_url || photo.thumbnail_url || photo.full_url;
-  const imageBytes = await downloadImageBytes(imageUrl);
+  const imageUrl = resolvePhotoAiSourceUrl(photo);
+  const rawBytes = await downloadImageBytes(imageUrl);
+  const imageBytes = await prepareImageBytesForRekognition(rawBytes);
 
   const analysis = await analyzeImageBytes(imageBytes, {
     deliveryFaceGroupId: rekognitionDeliveryId(photo.collection_id),
     externalImageId: String(photo.id),
     indexFaces: true,
+    detectLabels: false,
   });
 
   const labels = (analysis.labels || []).map((l) => l.name).filter(Boolean);
-  const faces = (analysis.faces || []).map((f) => ({
-    faceId: f.faceId,
-    confidence: f.confidence,
-    boundingBox: f.boundingBox,
-  }));
+  const faces = filterIndexedFaces(
+    (analysis.faces || []).map((f) => ({
+      faceId: f.faceId,
+      confidence: f.confidence,
+      boundingBox: f.boundingBox,
+    }))
+  );
+
+  let persistedLabels = labels;
+  if (!persistedLabels.length) {
+    const { data: existingMeta } = await db
+      .from('photo_ai_metadata')
+      .select('labels')
+      .eq('photo_id', photo.id)
+      .maybeSingle();
+    persistedLabels = existingMeta?.labels || [];
+  }
 
   const row = {
     photo_id: photo.id,
     collection_id: photo.collection_id,
     photographer_id: photo.photographer_id,
-    labels,
+    labels: persistedLabels,
     faces,
     indexed_at: new Date().toISOString(),
   };
@@ -93,12 +112,17 @@ export async function indexPhotoById(photoId, { supabase } = {}) {
 
   if (error) throw error;
 
-  await invalidateClusterState(db, photo.collection_id);
+  if (!skipClusterInvalidate) {
+    await invalidateClusterState(db, photo.collection_id);
+  }
 
-  return { photo_id: photo.id, metadata: data, labels, faces };
+  return { photo_id: photo.id, metadata: data, labels: persistedLabels, faces };
 }
 
-export async function indexCollectionPhotos(collectionId, { supabase, limit = 50 } = {}) {
+export async function indexCollectionPhotos(
+  collectionId,
+  { supabase, limit = 50, force = false, concurrency = INDEX_CONCURRENCY } = {}
+) {
   const db = supabase || getSupabaseAdmin();
   if (!db) throw new Error('Supabase is not configured.');
 
@@ -111,22 +135,33 @@ export async function indexCollectionPhotos(collectionId, { supabase, limit = 50
 
   if (error) throw error;
 
-  const { data: indexed } = await db
-    .from('photo_ai_metadata')
-    .select('photo_id')
-    .eq('collection_id', collectionId);
+  let pending = photos || [];
+  if (force) {
+    await resetDeliveryFaceGroup(collectionId);
+  } else {
+    const { data: indexed } = await db
+      .from('photo_ai_metadata')
+      .select('photo_id')
+      .eq('collection_id', collectionId);
 
-  const indexedSet = new Set((indexed || []).map((r) => r.photo_id));
-  const pending = (photos || []).filter((p) => !indexedSet.has(p.id));
+    const indexedSet = new Set((indexed || []).map((r) => r.photo_id));
+    pending = pending.filter((p) => !indexedSet.has(p.id));
+  }
 
-  const results = [];
-  for (const photo of pending) {
+  const results = await mapWithConcurrency(pending, concurrency, async (photo) => {
     try {
-      const result = await indexPhotoById(photo.id, { supabase: db });
-      results.push({ photoId: photo.id, ok: true, result });
+      const result = await indexPhotoById(photo.id, {
+        supabase: db,
+        skipClusterInvalidate: true,
+      });
+      return { photoId: photo.id, ok: true, result };
     } catch (err) {
-      results.push({ photoId: photo.id, ok: false, error: err?.message || 'Failed' });
+      return { photoId: photo.id, ok: false, error: err?.message || 'Failed' };
     }
+  });
+
+  if (results.some((r) => r.ok)) {
+    await invalidateClusterState(db, collectionId);
   }
 
   return {

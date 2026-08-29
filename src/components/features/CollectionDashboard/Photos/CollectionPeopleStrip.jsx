@@ -204,7 +204,7 @@ export function CollectionPeopleStrip({
         {!loadingPeople && analyzing && shown.length === 0 ? (
           <span className="cdpw-people__status cdpw-people__status--analyzing">
             <Loader2 size={14} className="cdpw-spin" aria-hidden />
-            Analyzing photos…
+            Indexing faces…
           </span>
         ) : null}
 
@@ -221,7 +221,7 @@ export function CollectionPeopleStrip({
         {!loadingPeople && analyzing && shown.length > 0 ? (
           <span className="cdpw-people__status cdpw-people__status--analyzing">
             <Loader2 size={14} className="cdpw-spin" aria-hidden />
-            Updating…
+            Indexing faces…
           </span>
         ) : null}
       </div>

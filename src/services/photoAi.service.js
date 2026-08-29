@@ -77,7 +77,7 @@ async function attachAvatarUrls(people) {
     .in('id', photoIds);
 
   const photoUrlById = new Map(
-    (photos || []).map((p) => [p.id, p.thumbnail_url || p.web_url || p.full_url || null])
+    (photos || []).map((p) => [p.id, p.web_url || p.full_url || p.thumbnail_url || null])
   );
 
   return people.map((person) => {
@@ -231,9 +231,9 @@ export const photoAiService = {
     return postJson('/api/photo-ai/sync-collection', { collectionId, limit });
   },
 
-  syncCollection(collectionId, limit = 500) {
+  syncCollection(collectionId, limit = 500, { forceReindex = false } = {}) {
     if (!collectionId) return Promise.resolve(null);
-    return postJson('/api/photo-ai/sync-collection', { collectionId, limit });
+    return postJson('/api/photo-ai/sync-collection', { collectionId, limit, forceReindex });
   },
 
   reclusterCollection(collectionId) {

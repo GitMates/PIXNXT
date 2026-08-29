@@ -1,6 +1,7 @@
 import { clusterFacesForCollection } from './clusterFaces.js';
 import { isIndexedSnapshotFresh } from './cacheFreshness.js';
 import { applyGuestLabelsToPeople, loadGuestDeliveryGuestsForCollection } from './applyGuestLabels.js';
+import { resolveFaceAvatarDisplayUrl } from './faceUtils.js';
 
 const PEOPLE_TABLE = 'photo_ai_people';
 const CLUSTER_STATE_TABLE = 'photo_ai_cluster_state';
@@ -82,7 +83,7 @@ async function attachPhotoUrls(supabase, people) {
     .in('id', photoIds);
 
   const photoUrlById = new Map(
-    (photos || []).map((p) => [p.id, p.thumbnail_url || p.web_url || p.full_url || null])
+    (photos || []).map((p) => [p.id, resolveFaceAvatarDisplayUrl(p)])
   );
 
   return people.map((person) => {

@@ -347,6 +347,12 @@
   background-color: #e8e8e8;
 }
 
+.cd-person-face-avatar__crop-img {
+  position: absolute;
+  max-width: none;
+  object-fit: cover;
+}
+
 .cd-person-face-avatar img {
   display: block;
   width: 100%;
