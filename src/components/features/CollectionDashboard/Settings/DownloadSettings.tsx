@@ -1,5 +1,6 @@
 import React from 'react';
 import { persistDeliverySettings } from '../../../../lib/deliverySettingsSync';
+import { isDigitalDownloadEnabled } from '../../../../lib/storePackages';
 import { DownloadSettingsProps } from './Settings.types';
 import { Toggle, formatMoney } from './settingsCardKit';
 import './BasicsSettings.css';
@@ -308,6 +309,9 @@ export const DownloadSettings: React.FC<DownloadSettingsProps> = ({
   const [filmResolution, setFilmResolution] = React.useState(collection?.video_download_resolution || '1080p');
   const [filmPlayback, setFilmPlayback] = React.useState<FilmPlay>(() => playbackFromCollection(collection));
   const [singleFilm, setSingleFilm] = React.useState(collection?.single_film_download !== false);
+  const [digitalDownloadEnabled, setDigitalDownloadEnabled] = React.useState(
+    () => isDigitalDownloadEnabled(collection),
+  );
 
   React.useEffect(() => {
     setPricePhoto(String(collection?.download_price_full ?? collection?.download_price_web ?? ''));
@@ -318,7 +322,9 @@ export const DownloadSettings: React.FC<DownloadSettingsProps> = ({
     setFilmResolution(collection?.video_download_resolution || '1080p');
     setFilmPlayback(playbackFromCollection(collection));
     setSingleFilm(collection?.single_film_download !== false);
+    setDigitalDownloadEnabled(isDigitalDownloadEnabled(collection));
   }, [
+    collection?.digital_download_enabled,
     collection?.download_price_full,
     collection?.download_price_web,
     collection?.download_price_film,
@@ -533,7 +539,7 @@ export const DownloadSettings: React.FC<DownloadSettingsProps> = ({
               <h3 className="cd-dl-status__title">Downloads</h3>
               <p className="cd-dl-status__desc">
                 {photoDownload
-                  ? `On. ${sizeNames.join(', ') || 'No sizes offered'}${filmsOffered ? `, films at ${filmResLabel}` : ''}. ${singlePhotoDownload ? 'Single photographs allowed.' : 'Single photographs off.'}`
+                  ? `On. ${digitalDownloadEnabled ? 'Paid digital download via Print Lab. ' : ''}${sizeNames.join(', ') || 'No sizes offered'}${filmsOffered ? `, films at ${filmResLabel}` : ''}. ${singlePhotoDownload ? 'Single photographs allowed.' : 'Single photographs off.'}`
                   : 'Off. No download control renders anywhere — not in the header, not on a photograph, not on a film.'}
               </p>
             </div>
@@ -555,6 +561,24 @@ export const DownloadSettings: React.FC<DownloadSettingsProps> = ({
           </div>
 
           <div className={photoDownload ? undefined : 'cd-dl-muted'}>
+            <div className={`cd-dl-master${digitalDownloadEnabled ? ' is-on' : ''}`}>
+              <Row
+                title="Digital download"
+                desc="When on, DOWNLOAD opens your Print Lab checkout so visitors pay for files. When off, downloads are free using the sizes below (PIN and limits still apply)."
+                control={(
+                  <Toggle
+                    checked={digitalDownloadEnabled}
+                    onChange={(next) => {
+                      if (!photoDownload) return;
+                      setDigitalDownloadEnabled(next);
+                      void persist({ digital_download_enabled: next });
+                    }}
+                    label="Digital download"
+                  />
+                )}
+              />
+            </div>
+
             <section className="cd-dl-section">
               <span className="cd-dl-section__label">What they get</span>
               <div className="cd-dl-card">

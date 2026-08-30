@@ -7,6 +7,8 @@ import GallerySelectionDetail from '../pages/public/GallerySelectionDetail';
 import GalleryDownloadReady from '../pages/public/GalleryDownloadReady';
 import MobileGalleryClient from '../pages/public/MobileGalleryClient';
 import MobileGalleryInstall from '../pages/public/MobileGalleryInstall';
+import EventGuestRegister from '../pages/public/EventGuestRegister';
+import EventGuestGallery from '../pages/public/EventGuestGallery';
 import PublicAlbumPreview from '../pages/smart-albums/PublicAlbumPreview';
 import PrintStoreApp from '../printstore/PrintStoreApp';
 import { galleryService } from '../services/gallery.service';
@@ -16,6 +18,11 @@ import { ErrorBoundary } from './ErrorBoundary';
 function MobileGalleryViewRedirect() {
   const { slug } = useParams();
   return <Navigate to={`/m/${slug}/pwa`} replace />;
+}
+
+function RedirectToGuestRegister() {
+  const { slug } = useParams();
+  return <Navigate to={`/e/${encodeURIComponent(slug || '')}/register`} replace />;
 }
 
 /**
@@ -95,6 +102,9 @@ export function CustomDomainGalleryApp({ hostname }) {
         <Route path="/m/:slug" element={<MobileGalleryInstall />} />
         <Route path="/album-preview/:albumId" element={<PublicAlbumPreview />} />
         <Route path="/printstore" element={<ErrorBoundary><PrintStoreApp /></ErrorBoundary>} />
+        <Route path="/e/:slug/register" element={<EventGuestRegister />} />
+        <Route path="/e/:slug" element={<RedirectToGuestRegister />} />
+        <Route path="/e/:slug/g/:token" element={<EventGuestGallery />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <GlobalUploadShell />

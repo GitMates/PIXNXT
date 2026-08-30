@@ -1,6 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { persistDeliverySettings } from '../../../../lib/deliverySettingsSync';
+import { persistDeliverySettings, persistGuestDeliveryEventSettings } from '../../../../lib/deliverySettingsSync';
 import { galleryService } from '../../../../services/gallery.service';
 import { getCollectionShareUrl, getQrCodeImageUrl } from '../../../../lib/shareCollection';
 import { getGuestRegistrationUrl } from '../../../../lib/guestDeliveryLinks';
@@ -71,7 +71,7 @@ export interface PrivacySettingsProps {
   gdEvent?: any;
   guestDeliveryGuests?: any[];
   photographerId?: string;
-  onGdEventUpdated?: (event: any) => void;
+  onGdEventUpdated?: React.Dispatch<React.SetStateAction<any>>;
   onOpenGdQrModal?: () => void;
 }
 
@@ -358,15 +358,19 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
   const [guestPrints, setGuestPrints] = React.useState(collection?.guest_prints_enabled !== false);
   const [savingReg, setSavingReg] = React.useState(false);
   const [acceptingOverride, setAcceptingOverride] = React.useState<boolean | null>(null);
+  const gdEventRef = React.useRef(gdEvent);
+  gdEventRef.current = gdEvent;
 
   const eventSettings = gdEvent?.settings || {};
   const [reachChannel, setReachChannel] = React.useState<ReachChannel>(eventSettings.reach_channel || 'both');
   const [askSelfie, setAskSelfie] = React.useState(eventSettings.ask_selfie !== false);
   const [promiseTimeline, setPromiseTimeline] = React.useState(eventSettings.promise_timeline !== false);
   const [deliveryDays, setDeliveryDays] = React.useState(String(eventSettings.delivery_days || 14));
-  const languages = Array.isArray(eventSettings.languages) && eventSettings.languages.length
-    ? eventSettings.languages
-    : ['en'];
+  const [languages, setLanguages] = React.useState<string[]>(
+    Array.isArray(eventSettings.languages) && eventSettings.languages.length
+      ? eventSettings.languages
+      : ['en'],
+  );
 
   React.useEffect(() => {
     setIncludePassword(collection?.share_include_password !== false);
@@ -387,7 +391,19 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
     setAskSelfie(eventSettings.ask_selfie !== false);
     setPromiseTimeline(eventSettings.promise_timeline !== false);
     setDeliveryDays(String(eventSettings.delivery_days || 14));
-  }, [gdEvent?.id, eventSettings.reach_channel, eventSettings.ask_selfie, eventSettings.promise_timeline, eventSettings.delivery_days]);
+    setLanguages(
+      Array.isArray(eventSettings.languages) && eventSettings.languages.length
+        ? eventSettings.languages
+        : ['en'],
+    );
+  }, [
+    gdEvent?.id,
+    eventSettings.reach_channel,
+    eventSettings.ask_selfie,
+    eventSettings.promise_timeline,
+    eventSettings.delivery_days,
+    JSON.stringify(eventSettings.languages),
+  ]);
 
   React.useEffect(() => {
     setAcceptingOverride(null);
@@ -401,18 +417,26 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
     await persistDeliverySettings(collectionId, collection?.slug, patch, setCollection);
   };
 
-  const persistEventSettings = async (settingsPatch: Record<string, unknown>, updates: Record<string, unknown> = {}) => {
-    if (!gdEvent?.id || !photographerId) {
-      throw new Error('Guest delivery event is not ready yet.');
+  const saveGuestSettings = async (
+    settingsPatch: Record<string, unknown>,
+    topLevelUpdates: Record<string, unknown> = {},
+  ) => {
+    const event = gdEventRef.current;
+    if (!event?.id || !photographerId) {
+      throw new Error('Guest delivery is still loading. Try again in a moment.');
     }
-    const payload: Record<string, unknown> = { ...updates };
-    if (Object.keys(settingsPatch).length > 0) {
-      payload.settings = { ...(gdEvent.settings || {}), ...settingsPatch };
-    }
-    const updated = await guestDeliveryService.updateEvent(photographerId, gdEvent.id, payload);
-    onGdEventUpdated?.(updated);
+    const updated = await persistGuestDeliveryEventSettings(
+      photographerId,
+      event,
+      settingsPatch,
+      onGdEventUpdated,
+      topLevelUpdates,
+    );
+    gdEventRef.current = updated;
     return updated;
   };
+
+  const guestEventReady = Boolean(gdEvent?.id && photographerId);
 
   const shareUrl = getCollectionShareUrl(collectionUrl, profile);
   const shareHostPath = displayHostPath(shareUrl);
@@ -445,20 +469,25 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
 
   const toggleAcceptingRegistrations = async (next?: boolean) => {
     if (savingReg) return;
-    if (!gdEvent?.id || !photographerId) {
-      alert('Registration settings are not ready yet. Try again in a moment.');
+    const event = gdEventRef.current;
+    if (!event?.id || !photographerId) {
+      alert('Guest delivery is still loading. Try again in a moment.');
       return;
     }
     const target = next ?? !acceptingRegistrations;
+    const previous = event.registration_enabled;
     setAcceptingOverride(target);
+    onGdEventUpdated?.((prev) => (prev ? { ...prev, registration_enabled: target } : prev));
     setSavingReg(true);
     try {
-      const updated = await guestDeliveryService.setRegistrationEnabled(photographerId, gdEvent.id, target);
+      const updated = await guestDeliveryService.setRegistrationEnabled(photographerId, event.id, target);
       onGdEventUpdated?.(updated);
+      gdEventRef.current = updated;
       setAcceptingOverride(null);
     } catch (err) {
       console.error(err);
       setAcceptingOverride(null);
+      onGdEventUpdated?.((prev) => (prev ? { ...prev, registration_enabled: previous } : prev));
       alert('Could not update registration. Please try again.');
     } finally {
       setSavingReg(false);
@@ -466,15 +495,81 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
   };
 
   const toggleLanguage = async (id: string) => {
-    if (id === 'en') return;
+    if (id === 'en' || !guestEventReady) return;
+    const previous = languages;
     const next = languages.includes(id)
       ? languages.filter((lang: string) => lang !== id)
       : [...languages, id];
     if (!next.includes('en')) next.unshift('en');
+    setLanguages(next);
     try {
-      await persistEventSettings({ languages: next });
+      await saveGuestSettings({ languages: next });
     } catch (err) {
       console.error(err);
+      setLanguages(previous);
+      alert('Could not save language settings. Please try again.');
+    }
+  };
+
+  const saveReachChannel = async (next: ReachChannel) => {
+    const previous = reachChannel;
+    setReachChannel(next);
+    try {
+      await saveGuestSettings({ reach_channel: next });
+    } catch (err) {
+      console.error(err);
+      setReachChannel(previous);
+      alert('Could not save reach settings. Please try again.');
+    }
+  };
+
+  const saveAskSelfie = async (next: boolean) => {
+    const previous = askSelfie;
+    setAskSelfie(next);
+    try {
+      await saveGuestSettings({ ask_selfie: next });
+    } catch (err) {
+      console.error(err);
+      setAskSelfie(previous);
+      alert('Could not save selfie setting. Please try again.');
+    }
+  };
+
+  const savePromiseTimeline = async (next: boolean) => {
+    const previous = promiseTimeline;
+    setPromiseTimeline(next);
+    try {
+      await saveGuestSettings({ promise_timeline: next });
+    } catch (err) {
+      console.error(err);
+      setPromiseTimeline(previous);
+      alert('Could not save timeline setting. Please try again.');
+    }
+  };
+
+  const saveDeliveryDays = async (raw: string) => {
+    const days = Math.max(1, Math.min(90, Number(raw) || 14));
+    const previous = deliveryDays;
+    const normalized = String(days);
+    setDeliveryDays(normalized);
+    try {
+      await saveGuestSettings({ delivery_days: days });
+    } catch (err) {
+      console.error(err);
+      setDeliveryDays(previous);
+      alert('Could not save delivery timeline. Please try again.');
+    }
+  };
+
+  const saveGuestPrints = async (next: boolean) => {
+    const previous = guestPrints;
+    setGuestPrints(next);
+    try {
+      await persist({ guest_prints_enabled: next });
+    } catch (err) {
+      console.error(err);
+      setGuestPrints(previous);
+      alert('Could not save print offer setting. Please try again.');
     }
   };
 
@@ -869,7 +964,10 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
                 </div>
 
                 <p className="cd-dl-section__label">The form</p>
-                <div className="cd-dl-card">
+                {!guestEventReady ? (
+                  <p className="cd-dl-code-panel__desc">Loading guest delivery settings…</p>
+                ) : null}
+                <div className={`cd-dl-card${guestEventReady ? '' : ' cd-dl-muted'}`}>
                   <Row
                     title="Languages offered"
                     control={(
@@ -882,7 +980,7 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
                               type="button"
                               className={`cd-dl-lang-pill${active ? ' is-on' : ''}${lang.locked ? ' is-locked' : ''}`}
                               onClick={() => void toggleLanguage(lang.id)}
-                              disabled={lang.locked}
+                              disabled={lang.locked || !guestEventReady}
                             >
                               {active || lang.locked ? lang.label : `+ ${lang.label}`}
                             </button>
@@ -901,8 +999,7 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
                         header="Reach them by"
                         foot="WhatsApp costs more per message than the face matching does."
                         onChange={(next) => {
-                          setReachChannel(next as ReachChannel);
-                          void persistEventSettings({ reach_channel: next });
+                          void saveReachChannel(next as ReachChannel);
                         }}
                       />
                     )}
@@ -914,8 +1011,7 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
                       <Toggle
                         checked={askSelfie}
                         onChange={(next) => {
-                          setAskSelfie(next);
-                          void persistEventSettings({ ask_selfie: next });
+                          void saveAskSelfie(next);
                         }}
                         label="Ask for a selfie"
                       />
@@ -923,13 +1019,12 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
                   />
                   <Row
                     title="Promise a timeline"
-                    desc={'The form reads "Your photographs arrive within 14 days". Guests who know when to expect them do not message you asking.'}
+                    desc={`The form reads "Your photographs arrive within ${deliveryDays || 14} days". Guests who know when to expect them do not message you asking.`}
                     control={(
                       <Toggle
                         checked={promiseTimeline}
                         onChange={(next) => {
-                          setPromiseTimeline(next);
-                          void persistEventSettings({ promise_timeline: next });
+                          void savePromiseTimeline(next);
                         }}
                         label="Promise a timeline"
                       />
@@ -949,11 +1044,10 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
                               max={90}
                               className="cd-dl-days-field__input"
                               value={deliveryDays}
+                              disabled={!guestEventReady}
                               onChange={(e) => setDeliveryDays(e.target.value)}
                               onBlur={() => {
-                                const days = Math.max(1, Number(deliveryDays) || 14);
-                                setDeliveryDays(String(days));
-                                void persistEventSettings({ delivery_days: days });
+                                void saveDeliveryDays(deliveryDays);
                               }}
                             />
                             <span>days</span>
@@ -973,8 +1067,7 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
                       <Toggle
                         checked={guestPrints}
                         onChange={(next) => {
-                          setGuestPrints(next);
-                          void persist({ guest_prints_enabled: next });
+                          void saveGuestPrints(next);
                         }}
                         label="Offer prints to guests"
                       />

@@ -120,6 +120,7 @@ import {
 } from '../lib/photoDisplayUrl';
 import { formatCoverDate, formatSidebarDeliveryDate, formatLastSavedTime } from '../lib/formatCoverDate.js';
 import { broadcastGalleryLive, subscribePersonLabelUpdates } from '../lib/galleryLiveSync';
+import { isDigitalDownloadEnabled } from '../lib/storePackages';
 import { partitionGalleryMedia, countGalleryMedia, isGalleryVideo } from '../lib/galleryMediaType';
 import {
     normalizeCoverStyleId,
@@ -4256,6 +4257,7 @@ const CollectionDashboard = () => {
             downloads_enabled: photoDownload,
             gallery_download_enabled: galleryDownload,
             single_photo_download_enabled: singlePhotoDownload,
+            digital_download_enabled: isDigitalDownloadEnabled(collection),
             download_resolutions: (photoDownloadSizes || [])
                 .map((s) => (s === 'high' ? 'full' : s))
                 .filter((s) => s === 'web' || s === 'full' || s === 'original'),
@@ -4305,6 +4307,8 @@ const CollectionDashboard = () => {
                         selected_download_sets:
                             updated.selected_download_sets ?? patch.selected_download_sets,
                         pin_usage_limit: updated.pin_usage_limit ?? patch.pin_usage_limit,
+                        digital_download_enabled:
+                            updated.digital_download_enabled ?? patch.digital_download_enabled,
                     };
                 });
             }
@@ -4326,6 +4330,7 @@ const CollectionDashboard = () => {
         restrictToEmails,
         selectedDownloadSets,
         collection?.video_download_resolution,
+        collection?.digital_download_enabled,
         broadcastDownloadSettings,
     ]);
 
@@ -6178,9 +6183,7 @@ const CollectionDashboard = () => {
                     photographerProfile={profile}
                     onClose={() => setShowGdQrModal(false)}
                     onOpenGuestList={() => setActiveSidebarTab('guests')}
-                    onEventUpdated={(updated) => {
-                        if (updated) setGdEvent(updated);
-                    }}
+                    onEventUpdated={setGdEvent}
                 />
             )}
 

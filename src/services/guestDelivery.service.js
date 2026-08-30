@@ -129,6 +129,11 @@ export const guestDeliveryService = {
     return this.updateEvent(photographerId, eventId, { registration_enabled: Boolean(enabled) });
   },
 
+  async patchEventSettings(photographerId, eventId, currentSettings, settingsPatch) {
+    const settings = { ...(currentSettings || {}), ...settingsPatch };
+    return this.updateEvent(photographerId, eventId, { settings });
+  },
+
   async deleteEvent(photographerId, eventId) {
     const { error } = await supabase
       .from('guest_delivery_events')

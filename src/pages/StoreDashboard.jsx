@@ -39,6 +39,7 @@ import {
   fetchStorePackages,
   saveCategoryDigitalPricing,
 } from '../lib/storePackages';
+import { broadcastGalleryLive } from '../lib/galleryLiveSync';
 import './Dashboard.css';
 import '../printstore/PrintStore.css';
 import '../styles/clientGalleryTheme.css';
@@ -665,10 +666,23 @@ export default function StoreDashboard() {
           .from('printstore_order_items')
           .select('*');
 
-        const { data: collectionsData } = await supabase
+        let collectionsData = [];
+        const collectionsSelect =
+          'id, name, slug, digital_download_enabled, digital_download_price_single, digital_download_price_all, cover_url, event_date, store_banner_text';
+        const collectionsRes = await supabase
           .from('deliveries')
-          .select('id, name, digital_download_enabled, digital_download_price_single, digital_download_price_all, cover_url, event_date, store_banner_text')
+          .select(collectionsSelect)
           .eq('photographer_id', user.id);
+        if (collectionsRes.error) {
+          console.warn('Digital download columns unavailable, loading deliveries without them:', collectionsRes.error.message);
+          const fallback = await supabase
+            .from('deliveries')
+            .select('id, name, slug, cover_url, event_date, store_banner_text')
+            .eq('photographer_id', user.id);
+          collectionsData = fallback.data || [];
+        } else {
+          collectionsData = collectionsRes.data || [];
+        }
 
         const collectionIds = (collectionsData || []).map((c) => c.id);
         let photosData = [];
@@ -1153,32 +1167,49 @@ export default function StoreDashboard() {
       const rows = await fetchStorePackages(user.id);
       setCategoryDigitalPricing(categoryPricingFromPackages(rows));
 
-      const collectionIds = (collections || []).map((c) => c.id).filter(Boolean);
+      const digitalPatch = {
+        digital_download_enabled: globalDigitalEnabled,
+        digital_download_price_single: singlePrice,
+        digital_download_price_all: packPrice,
+      };
+
+      let deliveryRows = collections || [];
+      if (!deliveryRows.length) {
+        const { data } = await supabase
+          .from('deliveries')
+          .select('id, slug')
+          .eq('photographer_id', user.id);
+        deliveryRows = data || [];
+      }
+
+      const collectionIds = deliveryRows.map((c) => c.id).filter(Boolean);
       if (collectionIds.length > 0) {
-        // Update in chunks so large stores don't hang one request forever
         const chunkSize = 50;
         for (let i = 0; i < collectionIds.length; i += chunkSize) {
           const chunk = collectionIds.slice(i, i + chunkSize);
           const { error } = await supabase
             .from('deliveries')
-            .update({
-              digital_download_enabled: globalDigitalEnabled,
-              digital_download_price_single: singlePrice,
-              digital_download_price_all: packPrice,
-            })
+            .update(digitalPatch)
             .in('id', chunk);
           if (error) throw error;
         }
 
         setCollections((prev) => {
-          const next = prev.map((c) => ({
+          const next = (prev.length ? prev : deliveryRows).map((c) => ({
             ...c,
-            digital_download_enabled: globalDigitalEnabled,
-            digital_download_price_single: singlePrice,
-            digital_download_price_all: packPrice,
+            ...digitalPatch,
           }));
           cachedCollections = next;
           return next;
+        });
+
+        deliveryRows.forEach((c) => {
+          broadcastGalleryLive({
+            type: 'SETTINGS_UPDATED',
+            collectionId: c.id,
+            slug: c.slug,
+            settings: digitalPatch,
+          });
         });
       }
 
@@ -1195,10 +1226,14 @@ export default function StoreDashboard() {
       setTimeout(() => setNotification((n) => (n?.type === 'success' ? null : n)), 5000);
     } catch (err) {
       console.error('Error saving global digital settings:', err);
-      const message = err?.message || String(err) || 'Unknown error';
+      const raw = err?.message || String(err) || 'Unknown error';
+      const needsMigration =
+        /digital_download_/i.test(raw) || /column .* does not exist/i.test(raw);
       setNotification({
         type: 'error',
-        text: `Save failed: ${message}`,
+        text: needsMigration
+          ? 'Save failed: run migration 20260830180000_digital_download_columns.sql on Supabase, then try again.'
+          : `Save failed: ${raw}`,
       });
     } finally {
       setSavingGlobalDigital(false);
@@ -1271,8 +1306,15 @@ export default function StoreDashboard() {
   // Resolve collection name per order
   const orderCollectionNames = useMemo(() => {
     const map = {};
-    orders.forEach(order => {
-      const items = orderItems.filter(item => item.order_id === order.id);
+    const collectionNameById = Object.fromEntries(
+      (collections || []).map((c) => [c.id, c.name || '—'])
+    );
+    orders.forEach((order) => {
+      if (order.collection_id && collectionNameById[order.collection_id]) {
+        map[order.id] = collectionNameById[order.collection_id];
+        return;
+      }
+      const items = orderItems.filter((item) => item.order_id === order.id);
       let collectionName = '—';
       for (const item of items) {
         const opt = item.options || {};
@@ -1285,7 +1327,7 @@ export default function StoreDashboard() {
       map[order.id] = collectionName;
     });
     return map;
-  }, [orders, orderItems, photoToCollectionMap]);
+  }, [orders, orderItems, photoToCollectionMap, collections]);
 
   // Items count per order
   const orderItemsCount = useMemo(() => {

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { getGuestRegistrationUrl } from '../../../lib/guestDeliveryLinks';
 import { getQrCodeImageUrl } from '../../../lib/shareCollection';
 import { guestDeliveryService } from '../../../services/guestDelivery.service';
+import { persistGuestDeliveryEventSettings } from '../../../lib/deliverySettingsSync';
 
 const FORM_LANGUAGES = [
   { id: 'en', label: 'English', locked: true },
@@ -162,9 +163,15 @@ export function GuestDeliveryQrModal({
   useEffect(() => {
     setAcceptingOverride(null);
   }, [event?.id, event?.registration_enabled]);
-  const languages = Array.isArray(event?.settings?.languages) && event.settings.languages.length
+
+  const eventLanguages = Array.isArray(event?.settings?.languages) && event.settings.languages.length
     ? event.settings.languages
     : ['en'];
+  const [languages, setLanguages] = useState(eventLanguages);
+
+  useEffect(() => {
+    setLanguages(eventLanguages);
+  }, [event?.id, JSON.stringify(eventLanguages)]);
 
   const stats = useMemo(() => {
     const registered = guests.length || Number(event?.guest_count) || 0;
@@ -188,25 +195,12 @@ export function GuestDeliveryQrModal({
 
   const resolvePhotographerId = () => photographerId || event?.photographer_id || null;
 
-  const persistSettings = async (updates, settingsPatch) => {
-    if (!event?.id) throw new Error('Guest delivery event not found.');
-    const ownerId = resolvePhotographerId();
-    if (!ownerId) throw new Error('You must be signed in to change registration settings.');
-
-    const payload = { ...updates };
-    if (settingsPatch && Object.keys(settingsPatch).length > 0) {
-      payload.settings = { ...(event.settings || {}), ...settingsPatch };
-    }
-
-    const updated = await guestDeliveryService.updateEvent(ownerId, event.id, payload);
-    onEventUpdated?.(updated);
-    return updated;
-  };
-
   const toggleAccepting = async () => {
     if (savingReg || !event?.id) return;
     const next = !accepting;
+    const previous = event.registration_enabled;
     setAcceptingOverride(next);
+    onEventUpdated?.((prev) => (prev ? { ...prev, registration_enabled: next } : prev));
     setSavingReg(true);
     try {
       const ownerId = resolvePhotographerId();
@@ -217,6 +211,7 @@ export function GuestDeliveryQrModal({
     } catch (err) {
       console.error(err);
       setAcceptingOverride(null);
+      onEventUpdated?.((prev) => (prev ? { ...prev, registration_enabled: previous } : prev));
       alert(err?.message || 'Could not update registration. Please try again.');
     } finally {
       setSavingReg(false);
@@ -224,15 +219,25 @@ export function GuestDeliveryQrModal({
   };
 
   const toggleLanguage = async (id) => {
-    if (id === 'en') return;
+    if (id === 'en' || !event?.id) return;
+    const ownerId = resolvePhotographerId();
+    if (!ownerId) return;
+    const previous = languages;
     const next = languages.includes(id)
       ? languages.filter((lang) => lang !== id)
       : [...languages, id];
     if (!next.includes('en')) next.unshift('en');
+    setLanguages(next);
     try {
-      await persistSettings({}, { languages: next });
+      await persistGuestDeliveryEventSettings(
+        ownerId,
+        event,
+        { languages: next },
+        onEventUpdated,
+      );
     } catch (err) {
       console.error(err);
+      setLanguages(previous);
     }
   };
 
