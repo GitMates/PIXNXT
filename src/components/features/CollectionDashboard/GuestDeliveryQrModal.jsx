@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { getGuestRegistrationUrl } from '../../../lib/guestDeliveryLinks';
 import { getQrCodeImageUrl } from '../../../lib/shareCollection';
 import { guestDeliveryService } from '../../../services/guestDelivery.service';
@@ -152,10 +152,16 @@ export function GuestDeliveryQrModal({
   const [copied, setCopied] = useState(false);
   const [savingReg, setSavingReg] = useState(false);
   const [downloading, setDownloading] = useState('');
+  const [acceptingOverride, setAcceptingOverride] = useState(null);
   const registrationUrl = getGuestRegistrationUrl(slug, photographerProfile);
   const qrUrl = getQrCodeImageUrl(registrationUrl, 280);
   const shortPath = displayGuestPath(registrationUrl);
-  const accepting = event?.registration_enabled !== false;
+  const acceptingFromEvent = event?.registration_enabled !== false;
+  const accepting = acceptingOverride ?? acceptingFromEvent;
+
+  useEffect(() => {
+    setAcceptingOverride(null);
+  }, [event?.id, event?.registration_enabled]);
   const languages = Array.isArray(event?.settings?.languages) && event.settings.languages.length
     ? event.settings.languages
     : ['en'];
@@ -180,24 +186,38 @@ export function GuestDeliveryQrModal({
     }
   };
 
+  const resolvePhotographerId = () => photographerId || event?.photographer_id || null;
+
   const persistSettings = async (updates, settingsPatch) => {
-    if (!event?.id || !photographerId) return;
-    const nextSettings = { ...(event.settings || {}), ...settingsPatch };
-    const updated = await guestDeliveryService.updateEvent(photographerId, event.id, {
-      ...updates,
-      settings: nextSettings,
-    });
+    if (!event?.id) throw new Error('Guest delivery event not found.');
+    const ownerId = resolvePhotographerId();
+    if (!ownerId) throw new Error('You must be signed in to change registration settings.');
+
+    const payload = { ...updates };
+    if (settingsPatch && Object.keys(settingsPatch).length > 0) {
+      payload.settings = { ...(event.settings || {}), ...settingsPatch };
+    }
+
+    const updated = await guestDeliveryService.updateEvent(ownerId, event.id, payload);
     onEventUpdated?.(updated);
+    return updated;
   };
 
   const toggleAccepting = async () => {
-    if (savingReg) return;
+    if (savingReg || !event?.id) return;
+    const next = !accepting;
+    setAcceptingOverride(next);
     setSavingReg(true);
     try {
-      await persistSettings({ registration_enabled: !accepting }, {});
+      const ownerId = resolvePhotographerId();
+      if (!ownerId) throw new Error('You must be signed in to change registration settings.');
+      const updated = await guestDeliveryService.setRegistrationEnabled(ownerId, event.id, next);
+      onEventUpdated?.(updated);
+      setAcceptingOverride(null);
     } catch (err) {
       console.error(err);
-      alert('Could not update registration. Please try again.');
+      setAcceptingOverride(null);
+      alert(err?.message || 'Could not update registration. Please try again.');
     } finally {
       setSavingReg(false);
     }

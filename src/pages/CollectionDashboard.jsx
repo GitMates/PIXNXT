@@ -1490,6 +1490,11 @@ const CollectionDashboard = () => {
         pendingUploadScrollRef.current = true;
     }, [collectionId]);
 
+    const handleSetSelect = useCallback((setId) => {
+        setActiveSetId(setId);
+        setActiveSidebarTab('photos');
+    }, []);
+
     useEffect(() => {
         const uploadView = location.state?.uploadView;
         if (!uploadView || uploadView.collectionId !== collectionId) return;
@@ -2633,11 +2638,34 @@ const CollectionDashboard = () => {
             return;
         }
         let cancelled = false;
-        guestDeliveryService.getEventByCollectionId(collectionId).then((ev) => {
-            if (!cancelled) setGdEvent(ev);
-        }).catch(() => {});
+        (async () => {
+            try {
+                let ev = await guestDeliveryService.getEventByCollectionId(collectionId);
+                const ownerId = collection?.photographer_id || user?.id;
+                if (!ev && ownerId && collection?.name) {
+                    ev = await guestDeliveryService.createLinkedEvent({
+                        collectionId,
+                        photographerId: ownerId,
+                        name: collection.name,
+                        eventDate: collection.event_date || null,
+                        slug: collection.slug,
+                    });
+                }
+                if (!cancelled) setGdEvent(ev);
+            } catch (err) {
+                console.error('Failed to load guest delivery event:', err);
+            }
+        })();
         return () => { cancelled = true; };
-    }, [collectionId, collection?.guest_delivery_enabled]);
+    }, [
+        collectionId,
+        collection?.guest_delivery_enabled,
+        collection?.photographer_id,
+        collection?.name,
+        collection?.slug,
+        collection?.event_date,
+        user?.id,
+    ]);
 
     useEffect(() => {
         if (!collectionId) {
@@ -5088,7 +5116,7 @@ const CollectionDashboard = () => {
                         s.isHighlights ? { ...s, isPrivate: clientOnlyHighlights === true } : s
                     ))}
                     activeSetId={activeSetId}
-                    onSetSelect={setActiveSetId}
+                    onSetSelect={handleSetSelect}
                     onAddSet={() => setShowAddSetModal(true)}
                     draggedSetIndex={draggedSetIndex}
                     dragOverSetIndex={dragOverSetIndex}

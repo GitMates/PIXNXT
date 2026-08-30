@@ -306,7 +306,9 @@ export function CollectionDashboardSidebar({
             />
             <div className="cdsb-tree cdsb-tree--media">
               {sortedSidebarSets.map((set, index) => {
-                const isActive = set.isHighlights ? !activeSetId : activeSetId === set.id;
+                const isActive =
+                  photosActive &&
+                  (set.isHighlights ? !activeSetId : activeSetId === set.id);
                 return (
                   <SetRow
                     key={set.id}

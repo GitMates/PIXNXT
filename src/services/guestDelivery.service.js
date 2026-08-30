@@ -104,6 +104,10 @@ export const guestDeliveryService = {
   },
 
   async updateEvent(photographerId, eventId, updates) {
+    if (!photographerId || !eventId) {
+      throw new Error('Missing photographer or event id.');
+    }
+
     const payload = {
       ...updates,
       updated_at: new Date().toISOString(),
@@ -119,6 +123,10 @@ export const guestDeliveryService = {
 
     if (error) throw error;
     return data;
+  },
+
+  async setRegistrationEnabled(photographerId, eventId, enabled) {
+    return this.updateEvent(photographerId, eventId, { registration_enabled: Boolean(enabled) });
   },
 
   async deleteEvent(photographerId, eventId) {

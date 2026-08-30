@@ -357,6 +357,7 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
   );
   const [guestPrints, setGuestPrints] = React.useState(collection?.guest_prints_enabled !== false);
   const [savingReg, setSavingReg] = React.useState(false);
+  const [acceptingOverride, setAcceptingOverride] = React.useState<boolean | null>(null);
 
   const eventSettings = gdEvent?.settings || {};
   const [reachChannel, setReachChannel] = React.useState<ReachChannel>(eventSettings.reach_channel || 'both');
@@ -389,6 +390,10 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
   }, [gdEvent?.id, eventSettings.reach_channel, eventSettings.ask_selfie, eventSettings.promise_timeline, eventSettings.delivery_days]);
 
   React.useEffect(() => {
+    setAcceptingOverride(null);
+  }, [gdEvent?.id, gdEvent?.registration_enabled]);
+
+  React.useEffect(() => {
     if (!guestDeliveryOn && activeTab === 'guest') setActiveTab('password');
   }, [guestDeliveryOn, activeTab]);
 
@@ -397,13 +402,16 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
   };
 
   const persistEventSettings = async (settingsPatch: Record<string, unknown>, updates: Record<string, unknown> = {}) => {
-    if (!gdEvent?.id || !photographerId) return;
-    const nextSettings = { ...(gdEvent.settings || {}), ...settingsPatch };
-    const updated = await guestDeliveryService.updateEvent(photographerId, gdEvent.id, {
-      ...updates,
-      settings: nextSettings,
-    });
+    if (!gdEvent?.id || !photographerId) {
+      throw new Error('Guest delivery event is not ready yet.');
+    }
+    const payload: Record<string, unknown> = { ...updates };
+    if (Object.keys(settingsPatch).length > 0) {
+      payload.settings = { ...(gdEvent.settings || {}), ...settingsPatch };
+    }
+    const updated = await guestDeliveryService.updateEvent(photographerId, gdEvent.id, payload);
     onGdEventUpdated?.(updated);
+    return updated;
   };
 
   const shareUrl = getCollectionShareUrl(collectionUrl, profile);
@@ -413,7 +421,7 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
   const eventLabel = formatShortDate(collection?.event_date);
   const coverUrl = collection?.cover_url || '';
   const watermarkName = defaultWatermark && defaultWatermark !== 'No watermark' ? defaultWatermark : '';
-  const acceptingRegistrations = gdEvent?.registration_enabled !== false;
+  const acceptingRegistrations = acceptingOverride ?? (gdEvent?.registration_enabled !== false);
   const registered = guestDeliveryGuests.length || Number(gdEvent?.guest_count) || 0;
   const matched = guestDeliveryGuests.filter((g) => Number(g.matched_photo_count) > 0).length;
   const registrationUrl = gdEvent?.slug ? getGuestRegistrationUrl(gdEvent.slug, profile) : '';
@@ -435,13 +443,23 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
     }
   };
 
-  const toggleAcceptingRegistrations = async () => {
-    if (savingReg || !gdEvent) return;
+  const toggleAcceptingRegistrations = async (next?: boolean) => {
+    if (savingReg) return;
+    if (!gdEvent?.id || !photographerId) {
+      alert('Registration settings are not ready yet. Try again in a moment.');
+      return;
+    }
+    const target = next ?? !acceptingRegistrations;
+    setAcceptingOverride(target);
     setSavingReg(true);
     try {
-      await persistEventSettings({}, { registration_enabled: !acceptingRegistrations });
+      const updated = await guestDeliveryService.setRegistrationEnabled(photographerId, gdEvent.id, target);
+      onGdEventUpdated?.(updated);
+      setAcceptingOverride(null);
     } catch (err) {
       console.error(err);
+      setAcceptingOverride(null);
+      alert('Could not update registration. Please try again.');
     } finally {
       setSavingReg(false);
     }
@@ -828,7 +846,7 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
                 title="Accepting registrations"
                 desc="Guests scan the QR at the venue, leave a name and a selfie, and get only their own photographs."
                 checked={acceptingRegistrations}
-                onChange={() => void toggleAcceptingRegistrations()}
+                onChange={(next) => void toggleAcceptingRegistrations(next)}
                 label="Accepting registrations"
               />
 
