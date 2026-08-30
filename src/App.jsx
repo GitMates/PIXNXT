@@ -135,7 +135,7 @@ function App() {
   // Email confirmation / OAuth callbacks must land on /auth so the session is handled.
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    if (location.pathname === '/auth') return;
+    if (location.pathname === '/auth' || location.pathname === '/auth/google/callback') return;
     if (!hasAuthCallbackInUrl()) return;
     navigate(`/auth${location.search}${window.location.hash}`, { replace: true });
   }, [location.pathname, location.search, navigate]);
@@ -166,6 +166,7 @@ function App() {
 
   const hideLayout =
     location.pathname === '/auth' ||
+    location.pathname === '/auth/google/callback' ||
     location.pathname === '/dashboard' ||
     location.pathname === '/client-gallery' ||
     location.pathname === '/client_gallery' ||
@@ -269,6 +270,7 @@ function App() {
         <Routes location={location} key={location.pathname}>
           <Route path="/" element={<Home />} />
           <Route path="/auth" element={<AuthPage />} />
+          <Route path="/auth/google/callback" element={<AuthPage />} />
           <Route path="/login" element={<Navigate to="/auth" replace />} />
           <Route path="/signup" element={<Navigate to="/auth?mode=signup" replace />} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />

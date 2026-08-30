@@ -1,4 +1,11 @@
 import { supabase } from '../lib/supabase/client';
+import {
+  buildGoogleStudioAuthUrl,
+  getGoogleStudioCallbackUrl,
+  GOOGLE_STUDIO_AUTH_STATE_KEY,
+  isGoogleStudioAuthConfigured,
+  isGoogleStudioCallbackPath,
+} from '../lib/googleStudioAuth';
 
 /**
  * Signs in a user with email and password.
@@ -71,6 +78,12 @@ export function hasAuthCallbackInUrl() {
   if (typeof window === 'undefined') return false;
   const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
   const search = new URLSearchParams(window.location.search);
+  if (
+    search.has('code') &&
+    isGoogleStudioCallbackPath(window.location.pathname)
+  ) {
+    return false;
+  }
   return (
     hash.has('access_token') ||
     hash.has('error') ||
@@ -120,9 +133,9 @@ export async function resolveInitialAuthSession() {
 }
 
 /**
- * Starts Google OAuth (login and sign-up share this flow).
+ * Starts Google OAuth via Supabase (fallback — Google shows *.supabase.co on the consent screen).
  */
-export async function signInWithGoogle() {
+async function signInWithGoogleViaSupabase() {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
@@ -142,6 +155,64 @@ export async function signInWithGoogle() {
 
   return data;
 }
+
+/**
+ * Starts Google OAuth (login and sign-up share this flow).
+ * When VITE_GOOGLE_CLIENT_ID is set, redirects through Google with a pixnxt.in callback
+ * so the account chooser shows your domain instead of *.supabase.co.
+ */
+export async function signInWithGoogle() {
+  const clientId = String(import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim();
+  if (clientId) {
+    window.location.assign(buildGoogleStudioAuthUrl(clientId));
+    return { provider: 'google' };
+  }
+  return signInWithGoogleViaSupabase();
+}
+
+/**
+ * Finish studio Google login after redirect to /auth/google/callback?code=...
+ */
+export async function completeGoogleStudioSignIn(code, state) {
+  const expectedState = sessionStorage.getItem(GOOGLE_STUDIO_AUTH_STATE_KEY);
+
+  if (!expectedState || !state || expectedState !== state) {
+    throw new Error('Google sign-in expired or was interrupted. Please try again.');
+  }
+
+  const redirectUri = getGoogleStudioCallbackUrl();
+  const res = await fetch('/api/google-auth', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code, redirectUri }),
+  });
+
+  const payload = await res.json().catch(() => ({}));
+  if (!res.ok || payload.ok === false) {
+    throw new Error(payload.error || 'Google sign-in failed.');
+  }
+
+  const tokens = payload.result || payload;
+  if (!tokens?.id_token) {
+    throw new Error('Google sign-in failed — no ID token returned.');
+  }
+
+  const { data, error } = await supabase.auth.signInWithIdToken({
+    provider: 'google',
+    token: tokens.id_token,
+    access_token: tokens.access_token || undefined,
+  });
+
+  if (error) {
+    console.error('Supabase Google token sign-in error:', error.message);
+    throw error;
+  }
+
+  sessionStorage.removeItem(GOOGLE_STUDIO_AUTH_STATE_KEY);
+  return data;
+}
+
+export { isGoogleStudioAuthConfigured };
 
 /**
  * Create a photographers row for first-time OAuth / email users when missing.

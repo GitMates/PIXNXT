@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase/client';
 import { LoginForm, SignupForm } from '../components/features/Auth';
 import { ForgotPasswordForm } from '../components/features/Auth/ForgotPasswordForm';
 import { ResetPasswordForm } from '../components/features/Auth/ResetPasswordForm';
 import { useAuth } from '../hooks/useAuth';
-import { clearOAuthCallbackParams, readOAuthCallbackError } from '../services/auth.service';
+import { clearOAuthCallbackParams, readOAuthCallbackError, completeGoogleStudioSignIn } from '../services/auth.service';
+import { isGoogleStudioCallbackPath } from '../lib/googleStudioAuth';
 import './AuthPage.css';
 
 const COPY = {
@@ -40,9 +41,64 @@ const AuthPage = () => {
   const [view, setView] = useState(
     mode === 'signup' ? 'signup' : mode === 'reset' ? 'reset' : 'login'
   );
-  const [oauthError, setOauthError] = useState('');
+  const [oauthError, setOauthError] = useState(
+    () => location.state?.oauthError || ''
+  );
   const [confirmBanner, setConfirmBanner] = useState('');
+  const [googleCallbackBusy, setGoogleCallbackBusy] = useState(
+    () => isGoogleStudioCallbackPath(location.pathname) && Boolean(searchParams.get('code'))
+  );
   const navigate = useNavigate();
+  const googleExchangeRef = useRef(null);
+
+  useEffect(() => {
+    if (!isGoogleStudioCallbackPath(location.pathname)) return undefined;
+
+    const code = searchParams.get('code');
+    const state = searchParams.get('state');
+    const googleError = searchParams.get('error');
+
+    if (googleError) {
+      const description = searchParams.get('error_description');
+      const message = description
+        ? decodeURIComponent(String(description).replace(/\+/g, ' '))
+        : 'Google sign-in was cancelled.';
+      setGoogleCallbackBusy(false);
+      navigate('/auth', { replace: true, state: { oauthError: message } });
+      return undefined;
+    }
+
+    if (!code) return undefined;
+    if (googleExchangeRef.current === code) return undefined;
+    googleExchangeRef.current = code;
+
+    setGoogleCallbackBusy(true);
+
+    (async () => {
+      try {
+        await completeGoogleStudioSignIn(code, state);
+        navigate('/dashboard', { replace: true });
+      } catch (err) {
+        setGoogleCallbackBusy(false);
+        navigate('/auth', {
+          replace: true,
+          state: { oauthError: err?.message || 'Google sign-in failed.' },
+        });
+      }
+    })();
+
+    return undefined;
+  }, [location.pathname, location.search, navigate]);
+
+  useEffect(() => {
+    if (location.state?.oauthError) {
+      setOauthError(location.state.oauthError);
+      navigate(`${location.pathname}${location.search}`, {
+        replace: true,
+        state: { ...location.state, oauthError: undefined },
+      });
+    }
+  }, [location.state, location.pathname, location.search, navigate]);
 
   useEffect(() => {
     const callbackError = readOAuthCallbackError();
@@ -76,7 +132,7 @@ const AuthPage = () => {
   }, []);
 
   useEffect(() => {
-    if (loading || !user || view === 'reset') return;
+    if (loading || !user || view === 'reset' || googleCallbackBusy) return;
 
     const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
     if (hash.get('type') === 'signup' || emailConfirmed) {
@@ -86,13 +142,17 @@ const AuthPage = () => {
 
     const from = location.state?.from?.pathname;
     navigate(from && from !== '/auth' ? from : '/dashboard', { replace: true });
-  }, [user, loading, view, navigate, location.state, emailConfirmed]);
+  }, [user, loading, view, navigate, location.state, emailConfirmed, googleCallbackBusy]);
 
   const handleAuthSuccess = () => {
     navigate('/dashboard');
   };
 
   const copy = COPY[view] || COPY.login;
+
+  if (googleCallbackBusy) {
+    return null;
+  }
 
   return (
     <div className="auth-page">
