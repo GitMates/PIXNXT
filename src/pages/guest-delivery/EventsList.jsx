@@ -5,6 +5,7 @@ import { guestDeliveryService } from '../../services/guestDelivery.service';
 import { getGuestDeliveryDbErrorMessage } from '../../lib/guestDeliveryDbError';
 import CreateEventModal from '../../components/guest-delivery/CreateEventModal';
 import { ClientGallerySearchField } from '../../components/features/ClientGallery/ClientGalleryPageShell';
+import { AppLoader } from '../../components/ui/AppLoading';
 import './GuestDelivery.css';
 
 function getEventInitial(name) {
@@ -129,7 +130,7 @@ export default function GuestDeliveryEventsList() {
       )}
 
       {!loadError && loading ? (
-        <p className="gd-muted">Loading events…</p>
+        <AppLoader label="Loading events" variant="page-short" className="gd-content app-loader" />
       ) : !loadError && events.length === 0 ? (
         <div className="gd-empty">
           <h2>Create your first event</h2>

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { galleryService } from '../../../services/gallery.service';
 import { CollectionCardCover } from '../ClientGallery/CollectionCardCover';
 import { showcasePhotoCount } from '../../../lib/showcaseFeature';
+import { AppLoader } from '../../ui/AppLoading';
 
 const MAX_FEATURED = 12;
 
@@ -144,7 +145,7 @@ export function FeaturedDeliveriesModal({ open, photographerId, onClose, onSaved
 
         <div className="set-modal__body">
           {loading ? (
-            <p className="set-modal__muted">Loading deliveries…</p>
+            <AppLoader label="Loading deliveries" variant="compact" className="app-loader" />
           ) : error && eligible.length === 0 ? (
             <p className="set-modal__muted">{error}</p>
           ) : eligible.length === 0 ? (

@@ -5,6 +5,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { galleryService } from '../../services/gallery.service';
 import { storageService } from '../../services/storage.service';
 import { mobileGallerySettingsService } from '../../services/mobileGallerySettings.service';
+import { AppLoader } from '../../components/ui/AppLoading';
 import '../../components/features/CollectionDashboard/Settings/Settings.css';
 import './MobileGallery.css';
 
@@ -186,8 +187,8 @@ const ModuleSettings = () => {
             Apps
           </Link>
           <h1 className="cg-page-title mg-settings-page-title">Settings</h1>
-          <p className="mg-settings-page-desc">Loading settings…</p>
         </header>
+        <AppLoader label="Loading settings" variant="page-short" className="mg-loading app-loader" />
       </div>
     );
   }

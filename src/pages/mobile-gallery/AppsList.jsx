@@ -6,6 +6,7 @@ import { getMobileGalleryDbErrorMessage } from '../../lib/mobileGalleryDbError';
 import CreateAppModal from '../../components/mobile-gallery/CreateAppModal';
 import AppContextMenu from '../../components/mobile-gallery/AppContextMenu';
 import { ClientGallerySearchField } from '../../components/features/ClientGallery/ClientGalleryPageShell';
+import { AppLoader } from '../../components/ui/AppLoading';
 import './MobileGallery.css';
 
 function getAppInitial(name) {
@@ -172,7 +173,7 @@ const AppsList = () => {
       )}
 
       {!loadError && loading ? (
-        <p className="mg-loading">Loading apps…</p>
+        <AppLoader label="Loading apps" variant="page-short" className="mg-loading app-loader" />
       ) : !loadError && showEmpty ? (
         <div className="mg-empty">
           <div className="mg-empty-icon">

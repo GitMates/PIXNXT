@@ -17,6 +17,7 @@ import { getAppDesignSettings } from '../../lib/mobileGalleryDesign';
 import { coverImageCssStyle } from '../../lib/focalPoint';
 import MobileGalleryPhotoGrid, { useMobileGalleryGridPhotos } from '../../components/mobile-gallery/MobileGalleryPhotoGrid';
 import './MobileGallery.css';
+import { AppLoader } from '../../components/ui/AppLoading';
 
 const IconHome = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
@@ -388,7 +389,7 @@ const AppPreview = () => {
   if (loading) {
     return (
       <div className="mg-preview-page">
-        <p className="mg-preview-loading">Loading preview…</p>
+        <AppLoader label="Loading preview" variant="page-short" className="mg-preview-loading app-loader" />
       </div>
     );
   }

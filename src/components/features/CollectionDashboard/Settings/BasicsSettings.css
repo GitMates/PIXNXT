@@ -579,17 +579,6 @@
   white-space: nowrap;
 }
 
-/* Name and link summary — warm highlight distinct from the white form below */
-.cd-dl-status.cd-dl-status--name-link {
-  background: linear-gradient(135deg, #f3ede4 0%, #ebe3d8 100%);
-  border-bottom: 1px solid #dfd6ca;
-}
-
-.cd-dl-status.cd-dl-status--name-link .cd-basics-card-badge {
-  background: #fffcf8;
-  border-color: #ddd4c8;
-  box-shadow: 0 1px 2px rgba(52, 45, 43, 0.04);
-}
 
 .cd-dl-select-input {
   display: inline-flex;

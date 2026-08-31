@@ -8,6 +8,7 @@ import {
     MoreVertical,
     ShoppingBag,
 } from 'lucide-react';
+import { AppLoader } from '../components/ui/AppLoading';
 import SidebarLayout from '../components/SidebarLayout';
 import { cn } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
@@ -789,7 +790,7 @@ const ClientGallery = () => {
                     </div>
 
                 {loading ? (
-                    <div className="px-2 py-20 text-center text-[#666] text-[16px]">Loading…</div>
+                    <AppLoader label="Loading deliveries" variant="page-short" className="cg-page-loading" />
                 ) : error ? (
                     <div className="cg-style-60">
                         <h3 className="cg-style-61">Couldn’t load deliveries</h3>

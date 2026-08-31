@@ -27,6 +27,7 @@ import {
 import { BulkEditCollectionsModal } from '../components/features/ClientGallery/BulkEditCollectionsModal';
 import { sortCollections } from '../utils/sortCollections';
 import { formatStorageBytes } from '../utils/formatStorageBytes';
+import { AppLoader } from '../components/ui/AppLoading';
 import './ClientGallery.css';
 import './FolderView.css';
 
@@ -538,7 +539,7 @@ const FolderView = () => {
           </div>
         </div>
 
-        {loading && <div className="fv-loading">Loading…</div>}
+        {loading && <AppLoader label="Loading" variant="compact" className="fv-loading app-loader" />}
         {error && !loading && <div className="fv-error">{error}</div>}
 
         {!loading && !error && sortedCollections.length === 0 && (

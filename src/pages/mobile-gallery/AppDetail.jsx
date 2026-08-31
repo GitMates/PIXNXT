@@ -9,6 +9,7 @@ import AppSettingsPanel from '../../components/mobile-gallery/AppSettingsPanel';
 import AppPreviewDropdown from '../../components/mobile-gallery/AppPreviewDropdown';
 import { ClientGallerySubpageTabs } from '../../components/features/ClientGallery/ClientGalleryPageShell';
 import { AppDetailIconButton, useAppIconEditor } from '../../components/mobile-gallery/useAppIconEditor';
+import { AppLoader } from '../../components/ui/AppLoading';
 import './MobileGallery.css';
 
 const TABS = [
@@ -57,7 +58,7 @@ const AppDetail = () => {
   if (loading) {
     return (
       <MobileGalleryLayout>
-        <p className="mg-loading">Loading app…</p>
+        <AppLoader label="Loading app" variant="page-short" className="mg-loading app-loader" />
       </MobileGalleryLayout>
     );
   }

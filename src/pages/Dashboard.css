@@ -39,19 +39,8 @@
   background: var(--sd-bg, #f7f6f2);
 }
 
-.sd-spinner {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: 3px solid #e7e2db;
-  border-top-color: #1a1614;
-  animation: sd-spin 0.7s linear infinite;
-}
-
-@keyframes sd-spin {
-  to {
-    transform: rotate(360deg);
-  }
+.sd-loading__inner {
+  min-height: 0;
 }
 
 /* ── Top bar ── */
@@ -1455,11 +1444,6 @@ body.dark-theme .sd-page {
 
 body.dark-theme .sd-loading {
   background: var(--sd-bg);
-}
-
-body.dark-theme .sd-spinner {
-  border-color: #2e2c29;
-  border-top-color: #f5f4f1;
 }
 
 /* Top bar */

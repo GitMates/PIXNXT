@@ -18,6 +18,7 @@ import {
   ManageEmailTemplatesModal,
 } from '../../components/mobile-gallery/EmailTemplateModals';
 import MobileGalleryLayout from '../../components/mobile-gallery/MobileGalleryLayout';
+import { AppLoader } from '../../components/ui/AppLoading';
 import './MobileGallery.css';
 
 function IconMegaphone() {
@@ -308,7 +309,7 @@ const AppShare = () => {
   if (loading) {
     return (
       <MobileGalleryLayout>
-        <p className="mg-loading">Loading…</p>
+        <AppLoader label="Loading" variant="page-short" className="mg-loading app-loader" />
       </MobileGalleryLayout>
     );
   }

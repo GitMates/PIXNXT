@@ -19,6 +19,7 @@ import {
   showcasePhotoCount,
 } from '../lib/showcaseFeature';
 import { ChangeCoverModal } from '../components/features/CollectionDashboard/CoverSettings/ChangeCoverModal';
+import { AppLoader } from '../components/ui/AppLoading';
 import ShowcaseSortableGrid from '../components/features/Showcase/ShowcaseSortableGrid';
 import { getPhotoGridDisplayUrl } from '../lib/photoDisplayUrl';
 import { getDefaultCoverFocals, parseFocalPoint } from '../lib/focalPoint';
@@ -182,6 +183,32 @@ function InfoIcon() {
   );
 }
 
+function LockIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+      <rect x="3" y="11" width="18" height="11" rx="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </svg>
+  );
+}
+
+function SortIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+      <path d="M3 6h18M7 12h10M10 18h4" />
+    </svg>
+  );
+}
+
+function SettingsIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
+  );
+}
+
 const Showcase = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -196,7 +223,7 @@ const Showcase = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(null);
   const [toastMessage, setToastMessage] = useState('');
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(true);
   const [menuId, setMenuId] = useState(null);
   const [menuPos, setMenuPos] = useState(null);
   const [removeTarget, setRemoveTarget] = useState(null);
@@ -683,10 +710,7 @@ const Showcase = () => {
         ) : null}
 
         {profileLoading && user ? (
-          <div className="sc-loading">
-            <div className="sc-loading-spinner" />
-            <span>Loading your profile…</span>
-          </div>
+          <AppLoader label="Loading your profile" variant="page-short" className="sc-loading" />
         ) : null}
 
         {user && !profileLoading ? (
@@ -758,21 +782,42 @@ const Showcase = () => {
             </div>
 
             <section className="sc-settings">
-              <button
-                type="button"
-                className="sc-settings__toggle"
-                aria-expanded={settingsOpen}
-                onClick={() => setSettingsOpen((v) => !v)}
-              >
-                <span>Page settings</span>
-                <span className="sc-settings__chev">{settingsOpen ? 'Hide' : 'Password, bio, sort & more'}</span>
-              </button>
+              <header className="sc-settings__head">
+                <span className="sc-card__icon" aria-hidden>
+                  <SettingsIcon />
+                </span>
+                <div className="sc-card__body">
+                  <h2 className="sc-card__title">Page settings</h2>
+                  <p className="sc-card__desc">Password, what visitors see, and how deliveries sort.</p>
+                </div>
+                <button
+                  type="button"
+                  className="sc-settings__collapse"
+                  aria-expanded={settingsOpen}
+                  onClick={() => setSettingsOpen((v) => !v)}
+                >
+                  {settingsOpen ? 'Collapse' : 'Expand'}
+                </button>
+              </header>
 
               {settingsOpen ? (
-                <div className="sc-settings__panel">
-                  <div className="sc-settings__grid">
-                    <div className="sc-form-group">
-                      <label className="sc-label">Showcase password</label>
+                <div className="sc-settings__body">
+                  <div className="sc-settings__blocks">
+                    <div className="sc-setting-block">
+                      <div className="sc-setting-block__head">
+                        <span className="sc-setting-block__icon" aria-hidden>
+                          <LockIcon />
+                        </span>
+                        <div className="sc-setting-block__meta">
+                          <h3 className="sc-setting-block__title">Privacy</h3>
+                          <p className="sc-setting-block__hint">Require a password before visitors can browse.</p>
+                        </div>
+                        {password ? (
+                          <span className="sc-status-pill sc-status-pill--ok">Protected</span>
+                        ) : (
+                          <span className="sc-status-pill">Open</span>
+                        )}
+                      </div>
                       <div className="sc-input-wrap">
                         <input
                           type={showPassword ? 'text' : 'password'}
@@ -810,96 +855,28 @@ const Showcase = () => {
                           </button>
                         )}
                       </div>
-                      <p className="sc-help-text">
-                        Protect your Showcase with a password
-                        {password ? (
+                      {password ? (
+                        <p className="sc-help-text">
+                          Visitors need this password to open your Showcase.
                           <button type="button" className="sc-pw-clear-btn" onClick={handleClearPassword}>
-                            Remove
+                            Remove password
                           </button>
-                        ) : null}
-                      </p>
+                        </p>
+                      ) : null}
                     </div>
 
-                    <div className="sc-form-group">
-                      <label className="sc-label">Biography</label>
-                      <div className="sc-textarea-wrap">
-                        <textarea
-                          className="sc-textarea"
-                          maxLength={500}
-                          placeholder="Tell your clients about yourself and your photography style…"
-                          value={bio}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setBio(val);
-                            autoSave({ bio: val, biography: val }, false);
-                          }}
-                        />
-                        <div className="sc-char-count">{bio.length} / 500</div>
+                    <div className="sc-setting-block">
+                      <div className="sc-setting-block__head sc-setting-block__head--compact">
+                        <div className="sc-setting-block__meta">
+                          <h3 className="sc-setting-block__title">Delivery sort order</h3>
+                          <p className="sc-setting-block__hint">
+                            Default order when you have not dragged cards.
+                          </p>
+                        </div>
+                        <span className="sc-setting-block__icon sc-setting-block__icon--muted" aria-hidden>
+                          <SortIcon />
+                        </span>
                       </div>
-                    </div>
-
-                    <div className="sc-form-group sc-form-group--wide">
-                      <label className="sc-label">Showcase info</label>
-                      <div className="sc-checkbox-list">
-                        <CheckboxItem
-                          checked={showBio}
-                          onChange={(v) => {
-                            setShowBio(v);
-                            autoSave({ show_bio: v }, true);
-                          }}
-                          label="Biography"
-                          sublabel={bio ? `"${bio.slice(0, 40)}${bio.length > 40 ? '…' : ''}"` : 'No bio yet'}
-                        />
-                        <CheckboxItem
-                          checked={showSocial}
-                          onChange={(v) => {
-                            setShowSocial(v);
-                            autoSave({ show_social: v }, true);
-                          }}
-                          label="Social links"
-                          sublabel="From Profile"
-                        />
-                        <CheckboxItem
-                          checked={showWebsite}
-                          onChange={(v) => {
-                            setShowWebsite(v);
-                            autoSave({ show_website: v }, true);
-                          }}
-                          label="Website"
-                          sublabel={displayWebsite || 'Not set'}
-                        />
-                        <CheckboxItem
-                          checked={showEmail}
-                          onChange={(v) => {
-                            setShowEmail(v);
-                            autoSave({ show_email: v }, true);
-                          }}
-                          label="Contact email"
-                          sublabel={displayEmail || 'Not set'}
-                        />
-                        <CheckboxItem
-                          checked={showPhone}
-                          onChange={(v) => {
-                            setShowPhone(v);
-                            autoSave({ show_phone: v }, true);
-                          }}
-                          label="Phone number"
-                          sublabel={displayPhone || 'Not set'}
-                        />
-                        <CheckboxItem
-                          checked={showAddress}
-                          onChange={(v) => {
-                            setShowAddress(v);
-                            autoSave({ show_address: v }, true);
-                          }}
-                          label="Business address"
-                          sublabel={displayAddress || 'Not set'}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="sc-form-group">
-                      <label className="sc-label">Delivery sort order</label>
                       <ClientGallerySelect
                         value={collectionSort}
                         onChange={(val) => {
@@ -917,9 +894,97 @@ const Showcase = () => {
                           { value: 'name-za', label: 'Name: Z → A' },
                         ]}
                       />
-                      <p className="sc-help-text">
-                        Default order when you have not dragged cards. Dragging on this page overrides it.
-                      </p>
+                      <p className="sc-help-text">Dragging on this page overrides the default.</p>
+                    </div>
+
+                    <div className="sc-setting-block sc-setting-block--full">
+                      <div className="sc-setting-block__head sc-setting-block__head--compact">
+                        <div className="sc-setting-block__meta">
+                          <h3 className="sc-setting-block__title">Biography</h3>
+                          <p className="sc-setting-block__hint">Shown on your public Showcase page.</p>
+                        </div>
+                        <span className="sc-char-count sc-char-count--inline">{bio.length} / 500</span>
+                      </div>
+                      <div className="sc-textarea-wrap sc-textarea-wrap--plain">
+                        <textarea
+                          className="sc-textarea"
+                          maxLength={500}
+                          placeholder="Tell your clients about yourself and your photography style…"
+                          value={bio}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setBio(val);
+                            autoSave({ bio: val, biography: val }, false);
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="sc-setting-block sc-setting-block--full">
+                      <div className="sc-setting-block__head sc-setting-block__head--compact">
+                        <div className="sc-setting-block__meta">
+                          <h3 className="sc-setting-block__title">What visitors see</h3>
+                          <p className="sc-setting-block__hint">
+                            Contact details come from your Studio profile.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="sc-info-tiles">
+                        <InfoTile
+                          checked={showBio}
+                          onChange={(v) => {
+                            setShowBio(v);
+                            autoSave({ show_bio: v }, true);
+                          }}
+                          label="Biography"
+                          sublabel={bio ? `"${bio.slice(0, 40)}${bio.length > 40 ? '…' : ''}"` : 'No bio yet'}
+                        />
+                        <InfoTile
+                          checked={showSocial}
+                          onChange={(v) => {
+                            setShowSocial(v);
+                            autoSave({ show_social: v }, true);
+                          }}
+                          label="Social links"
+                          sublabel="From Profile"
+                        />
+                        <InfoTile
+                          checked={showWebsite}
+                          onChange={(v) => {
+                            setShowWebsite(v);
+                            autoSave({ show_website: v }, true);
+                          }}
+                          label="Website"
+                          sublabel={displayWebsite || 'Not set'}
+                        />
+                        <InfoTile
+                          checked={showEmail}
+                          onChange={(v) => {
+                            setShowEmail(v);
+                            autoSave({ show_email: v }, true);
+                          }}
+                          label="Contact email"
+                          sublabel={displayEmail || 'Not set'}
+                        />
+                        <InfoTile
+                          checked={showPhone}
+                          onChange={(v) => {
+                            setShowPhone(v);
+                            autoSave({ show_phone: v }, true);
+                          }}
+                          label="Phone number"
+                          sublabel={displayPhone || 'Not set'}
+                        />
+                        <InfoTile
+                          checked={showAddress}
+                          onChange={(v) => {
+                            setShowAddress(v);
+                            autoSave({ show_address: v }, true);
+                          }}
+                          label="Business address"
+                          sublabel={displayAddress || 'Not set'}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -936,10 +1001,7 @@ const Showcase = () => {
               </div>
 
               {collectionsLoading ? (
-                <div className="sc-loading">
-                  <div className="sc-loading-spinner" />
-                  <span>Loading deliveries…</span>
-                </div>
+                <AppLoader label="Loading deliveries" variant="page-short" className="sc-loading" />
               ) : (
                 <div className="sc-grid">
                   <ShowcaseSortableGrid
@@ -950,7 +1012,6 @@ const Showcase = () => {
                     renderItem={(col, index, { isDragging }) => {
                       const meta = collectionMetaLine(col);
                       const title = showcaseDisplayName(col);
-                      const contact = showcaseContactName(col);
                       const perm = permissionStatus(col);
                       const isMenu = menuId === col.id;
                       return (
@@ -992,28 +1053,21 @@ const Showcase = () => {
                           <div className="sc-tile__meta">
                             <h3 className="sc-tile__title">{title}</h3>
                             {meta ? <p className="sc-tile__sub">{meta}</p> : null}
-                            <p className={`sc-tile__status is-${perm.tone}`}>
-                              <span className="sc-dot" />
-                              <span>{perm.text}</span>
-                              {perm.action === 'ask' ? (
-                                <button
-                                  type="button"
-                                  className="sc-tile__link"
-                                  onClick={() => void askPermission(col)}
-                                >
-                                  Ask {contact}
-                                </button>
-                              ) : null}
-                              {perm.action === 'remind' ? (
-                                <button
-                                  type="button"
-                                  className="sc-tile__link"
-                                  onClick={() => void askPermission(col, { remind: true })}
-                                >
-                                  Remind
-                                </button>
-                              ) : null}
-                            </p>
+                            {perm.action !== 'ask' ? (
+                              <p className={`sc-tile__status is-${perm.tone}`}>
+                                <span className="sc-dot" />
+                                <span>{perm.text}</span>
+                                {perm.action === 'remind' ? (
+                                  <button
+                                    type="button"
+                                    className="sc-tile__link"
+                                    onClick={() => void askPermission(col, { remind: true })}
+                                  >
+                                    Remind
+                                  </button>
+                                ) : null}
+                              </p>
+                            ) : null}
                           </div>
                         </article>
                       );
@@ -1287,10 +1341,7 @@ const Showcase = () => {
               The delivery gallery is unchanged.
             </p>
             {photosLoading ? (
-              <div className="sc-loading">
-                <div className="sc-loading-spinner" />
-                <span>Loading photographs…</span>
-              </div>
+              <AppLoader label="Loading photographs" variant="compact" className="sc-loading" />
             ) : (
               <>
                 <div className="sc-photo-toolbar">
@@ -1514,19 +1565,21 @@ const Showcase = () => {
   );
 };
 
-const CheckboxItem = ({ checked, onChange, label, sublabel }) => (
-  <label className="sc-checkbox-item">
-    <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
-    <span className="chk-box">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="20 6 9 17 4 12" />
-      </svg>
+const InfoTile = ({ checked, onChange, label, sublabel }) => (
+  <button
+    type="button"
+    className={`sc-info-tile${checked ? ' is-on' : ''}`}
+    onClick={() => onChange(!checked)}
+    aria-pressed={checked}
+  >
+    <span className="sc-info-tile__top">
+      <span className="sc-info-tile__label">{label}</span>
+      <span className={`sc-mini-switch${checked ? ' is-on' : ''}`} aria-hidden>
+        <span className="sc-mini-switch__thumb" />
+      </span>
     </span>
-    <span className="sc-checkbox-label-wrap">
-      <span className="sc-checkbox-main">{label}</span>
-      {sublabel ? <span className="sc-checkbox-sub">{sublabel}</span> : null}
-    </span>
-  </label>
+    {sublabel ? <span className="sc-info-tile__sub">{sublabel}</span> : null}
+  </button>
 );
 
 export default Showcase;

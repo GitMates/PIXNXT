@@ -1,7 +1,7 @@
 .cd-dl {
   --dl-accent: #d67d3a;
   --dl-border: #e6e1d9;
-  --dl-box: #fcfbf7;
+  --dl-box: #f5f1ea;
   --toggle-track-on: #d67d3a;
 }
 
@@ -97,7 +97,7 @@
   padding: 28px 32px 24px;
   background: var(--dl-box);
   border: none;
-  border-bottom: 1px solid #ece8e2;
+  border-bottom: 1px solid #e6e0d6;
   border-radius: 0;
 }
 
@@ -1403,13 +1403,8 @@
 }
 
 .theme-mono.cd-dashboard-shell .cd-dl-status {
-  background: #fcfbf7 !important;
-  border-bottom: 1px solid #ece8e2 !important;
-}
-
-.theme-mono.cd-dashboard-shell .cd-dl-status.cd-dl-status--name-link {
-  background: linear-gradient(135deg, #f3ede4 0%, #ebe3d8 100%) !important;
-  border-bottom: 1px solid #dfd6ca !important;
+  background: var(--dl-box, #f5f1ea) !important;
+  border-bottom: 1px solid #e6e0d6 !important;
 }
 
 .theme-mono.cd-dashboard-shell .cd-dl-body {

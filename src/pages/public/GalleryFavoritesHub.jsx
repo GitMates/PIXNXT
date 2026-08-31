@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Heart, Lock, MessageCircle } from 'lucide-react';
 import { galleryService } from '../../services/gallery.service';
+import { AppLoader } from '../../components/ui/AppLoading';
 import './GalleryFavoritesHub.css';
 
 function SelectionCardCover({ coverUrl }) {
@@ -235,7 +236,7 @@ export default function GalleryFavoritesHub() {
   };
 
   if (loading) {
-    return <div className="selections-loading">Loading</div>;
+    return <AppLoader label="Loading selections" variant="page-short" className="selections-loading app-loader" />;
   }
 
   if (error === 'not_found' || !collection) {

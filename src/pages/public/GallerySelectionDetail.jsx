@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Lock, MessageCircle } from 'lucide-react';
 import { galleryService } from '../../services/gallery.service';
 import { MasonryGrid } from '../../components/features/Gallery/MasonryGrid/MasonryGrid';
+import { AppLoader } from '../../components/ui/AppLoading';
 import './GalleryFavoritesHub.css';
 
 function noteStorageKey(listId) {
@@ -183,7 +184,7 @@ export default function GallerySelectionDetail() {
   };
 
   if (loading) {
-    return <div className="selections-loading">Loading</div>;
+    return <AppLoader label="Loading selection" variant="page-short" className="selections-loading app-loader" />;
   }
 
   if (!list) {

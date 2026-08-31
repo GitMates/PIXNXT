@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Wrench, Palette, Lock, Download, Heart, ShoppingCart, X } from 'lucide-react';
 import { supabase } from '../lib/supabase/client';
 import { useAuth } from '../hooks/useAuth';
+import { AppLoader } from '../components/ui/AppLoading';
 import './PresetEditor.css';
 import './CollectionDashboard.css';
 import { galleryService } from '../services/gallery.service';
@@ -136,7 +137,7 @@ export default function PresetEditor() {
   };
 
   if (loading) {
-    return <div className="preset-editor-loading">Loading...</div>;
+    return <AppLoader label="Loading preset" variant="page" className="preset-editor-loading app-loader" />;
   }
 
   if (!preset) {

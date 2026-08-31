@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   CATEGORY_TAG_SUGGESTIONS,
   normalizeCategoryTag,
@@ -21,6 +21,25 @@ export function CategoryTagsField({
   suggestions = CATEGORY_TAG_SUGGESTIONS,
 }: CategoryTagsFieldProps) {
   const [input, setInput] = useState('');
+  const [focused, setFocused] = useState(false);
+  const blurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearBlurTimeout = () => {
+    if (blurTimeoutRef.current) {
+      clearTimeout(blurTimeoutRef.current);
+      blurTimeoutRef.current = null;
+    }
+  };
+
+  const handleFocus = () => {
+    clearBlurTimeout();
+    setFocused(true);
+  };
+
+  const handleBlur = () => {
+    clearBlurTimeout();
+    blurTimeoutRef.current = setTimeout(() => setFocused(false), 120);
+  };
 
   const addTag = (raw: string) => {
     const tag = normalizeCategoryTag(raw);
@@ -83,11 +102,13 @@ export function CategoryTagsField({
           disabled={disabled}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
           aria-label="Add category tag"
         />
       </div>
 
-      {visibleSuggestions.length > 0 ? (
+      {focused && visibleSuggestions.length > 0 ? (
         <div className="category-tags-suggestions">
           <p className="category-tags-suggestions__label">Suggestions</p>
           <div className="category-tags-suggestions__box">
@@ -97,6 +118,7 @@ export function CategoryTagsField({
                 type="button"
                 className="category-tags-suggestion"
                 disabled={disabled}
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => {
                   if (addTag(suggestion)) setInput('');
                 }}

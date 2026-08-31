@@ -8,6 +8,7 @@ import GuestDeliveryLayout from '../../components/guest-delivery/GuestDeliveryLa
 import EventPhotosPanel from '../../components/guest-delivery/EventPhotosPanel';
 import EventGuestsPanel from '../../components/guest-delivery/EventGuestsPanel';
 import { ClientGallerySubpageTabs } from '../../components/features/ClientGallery/ClientGalleryPageShell';
+import { AppLoader } from '../../components/ui/AppLoading';
 import './GuestDelivery.css';
 
 const TABS = [
@@ -177,7 +178,7 @@ export default function EventDetail() {
   if (loading && !event) {
     return (
       <GuestDeliveryLayout>
-        <p className="gd-muted gd-content">Loading event…</p>
+        <AppLoader label="Loading event" variant="page-short" className="gd-content app-loader" />
       </GuestDeliveryLayout>
     );
   }

@@ -4,6 +4,7 @@ import {
   resolveTemplateBody,
   resolveTemplateSubject,
 } from '../../services/mobileGalleryEmailTemplates.service';
+import { AppLoader } from '../ui/AppLoading';
 import '../../pages/mobile-gallery/MobileGallery.css';
 
 function ManageEmailTemplatesModal({
@@ -122,7 +123,7 @@ function ManageEmailTemplatesModal({
 
           <div className="mg-email-templates-editor">
             {loading ? (
-              <p className="mg-loading">Loading templates…</p>
+              <AppLoader label="Loading templates" variant="compact" className="mg-loading app-loader" />
             ) : (
               <>
                 <label className="mg-share-field">
