@@ -10,6 +10,7 @@ import { navigateToAccount } from '../lib/accountBackNav';
 import { buildShowcaseUrl } from '../lib/showcaseUrl';
 import AlbumListCoverThumb from '../components/smart-albums/AlbumListCoverThumb';
 import DashboardCommandSearch from '../components/dashboard/DashboardCommandSearch';
+import StudioNotifications from '../components/dashboard/StudioNotifications';
 import { coverImageCssStyle } from '../lib/focalPoint';
 import './Dashboard.css';
 
@@ -466,13 +467,7 @@ const Dashboard = () => {
         <DashboardCommandSearch />
 
         <div className="sd-topbar-right">
-          <button type="button" className="sd-icon-btn" title="Notifications" aria-label="Notifications">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
-              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-            </svg>
-            <span className="sd-icon-btn-dot" aria-hidden />
-          </button>
+          <StudioNotifications userId={user?.id} />
 
           <div className="sd-profile-wrap" ref={profileRef}>
             <button

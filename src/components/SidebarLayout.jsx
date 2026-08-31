@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase/client';
 import {
-    Bell,
     Home,
     ChevronDown,
     ChevronUp,
@@ -20,7 +19,7 @@ import {
     getProductNavItems,
     isProductActive,
 } from '../lib/products';
-import ClientGalleryNotifications from './features/ClientGallery/ClientGalleryNotifications';
+import StudioNotifications from './dashboard/StudioNotifications';
 import { userStorageService, getStorageLimitBytes, formatStorageMeter, STORAGE_CHANGED_EVENT } from '../services/userStorage.service';
 import { getThemeMode, setThemeMode, THEME_CHANGE_EVENT } from '../lib/appearanceTheme';
 import { syncUploadDefaultsToLocalStorage } from '../lib/uploadDefaults';
@@ -399,14 +398,9 @@ const SidebarLayout = ({
         </div>
     );
 
-    const defaultNotifications =
-        productId === 'client-gallery' ? (
-            <ClientGalleryNotifications userId={user?.id} variant="sidebar" />
-        ) : (
-            <button type="button" className="sb-icon-btn" aria-label="Notifications">
-                <Bell className="size-4" strokeWidth={1.75} />
-            </button>
-        );
+    const defaultNotifications = (
+        <StudioNotifications userId={user?.id} variant="sidebar" />
+    );
 
     const renderNavButton = (item) => {
         const active = item.match(path);
