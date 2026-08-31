@@ -5,6 +5,7 @@ import { sortCollections } from '../../utils/sortCollections';
 import { CollectionCardCover } from '../../components/features/ClientGallery/CollectionCardCover';
 import { ShowcaseEnquiryForm } from '../../components/features/Showcase/ShowcaseEnquiryForm';
 import { getCollectionCardCoverSrc } from '../../lib/photoDisplayUrl';
+import { AppLoader } from '../../components/ui/AppLoading';
 
 const ITEMS_PER_PAGE = 12;
 
@@ -114,12 +115,9 @@ const CollectionList = ({ slug, photographerProfile = null }) => {
     setCurrentPage(1);
   };
 
-  if (loading) return (
-    <div style={{ display:'flex', height:'100vh', alignItems:'center', justifyContent:'center', background:'#fff' }}>
-      <div style={{ width:20, height:20, borderRadius:'50%', border:'2px solid #ccc', borderTopColor:'#333', animation:'spin 0.8s linear infinite' }} />
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-    </div>
-  );
+  if (loading) {
+    return <AppLoader label="Loading portfolio" variant="page" />;
+  }
 
   if (error || !profile) return (
     <div style={{ display:'flex', height:'100vh', flexDirection:'column', alignItems:'center', justifyContent:'center', background:'#fff' }}>

@@ -361,8 +361,9 @@
   gap: 18px;
   margin-top: 22px;
   padding: 8px 0 24px;
-  min-height: 96px;
+  min-height: 104px;
   border-bottom: 1px solid #eceae6;
+  overflow: visible;
 }
 
 .cdpw-people__label {
@@ -386,7 +387,8 @@
   flex: 1;
   min-width: 0;
   overflow-x: auto;
-  padding: 0 2px 4px;
+  overflow-y: visible;
+  padding: 8px 4px 4px;
   scrollbar-width: thin;
 }
 
@@ -421,10 +423,13 @@
 
 .cdpw-person__avatar-wrap {
   position: relative;
-  display: block;
-  width: 60px;
-  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 66px;
+  height: 66px;
   flex-shrink: 0;
+  overflow: visible;
 }
 
 /* Base avatar — must live here (toolbar CSS is not loaded on this view) */
@@ -451,9 +456,14 @@
   background: linear-gradient(180deg, #e8d5bc 0%, #b8956f 100%);
 }
 
+.cdpw-person__btn--active .cdpw-person__avatar-wrap {
+  box-shadow: 0 0 0 2px #1a1a1a;
+  border-radius: 50%;
+}
+
 .cdpw-person__btn--active .cd-person-face-avatar {
   border-color: #fff;
-  box-shadow: 0 0 0 2px #1a1a1a;
+  box-shadow: none;
 }
 
 .cdpw-person__btn .cd-person-face-avatar img {
@@ -492,8 +502,8 @@
 
 .cdpw-person__clear {
   position: absolute;
-  top: -2px;
-  right: -2px;
+  top: 0;
+  right: 0;
   z-index: 3;
   display: inline-flex;
   align-items: center;

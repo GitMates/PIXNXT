@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ArrowLeft, CheckCircle2, Loader2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { AppSpinner } from '../../../ui/AppLoading';
 import {
   fetchGalleryDownloadJob,
   getGalleryDownloadFileUrl,
@@ -120,7 +121,7 @@ export default function GalleryDownloadPopup({
         <div className="gallery-dl-popup__body">
           {isPreparing ? (
             <>
-              <Loader2 size={28} className="gallery-dl-popup__spinner" strokeWidth={1.5} />
+              <AppSpinner size="md" />
               <h1 id="gallery-dl-popup-title">We are preparing your photos</h1>
               <p>You will be notified by email once your download is ready.</p>
               <p>You can also stay on this page if you prefer.</p>

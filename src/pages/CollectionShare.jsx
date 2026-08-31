@@ -8,6 +8,7 @@ import RichTextEditor from '../components/RichTextEditor';
 import { getShareUrlForCollection, getQrCodeImageUrl } from '../lib/shareCollection';
 import { getCoverFocalForSurface, stripMediaUrlHash } from '../lib/focalPoint';
 import './CollectionShare.css';
+import { AppLoader } from '../components/ui/AppLoading';
 
 const CollectionShare = () => {
     const [searchParams] = useSearchParams();
@@ -381,11 +382,7 @@ const CollectionShare = () => {
     };
 
     if (loading) {
-        return (
-            <div className="flex h-screen w-full items-center justify-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-500"></div>
-            </div>
-        );
+        return <AppLoader label="Loading share page" variant="page" />;
     }
 
     const shareUrl = getShareUrlForCollection(collection, profile);

@@ -1,7 +1,8 @@
 import React, { useRef } from 'react';
-import { ScanFace, Loader2 } from 'lucide-react';
+import { ScanFace } from 'lucide-react';
 import { PersonFaceAvatar } from '../../CollectionDashboard/Photos/PersonFaceAvatar';
 import { PersonLabelEditor } from '../../CollectionDashboard/Photos/PersonLabelEditor';
+import { AppSpinner } from '../../../ui/AppLoading';
 import './GalleryPeopleStrip.css';
 
 export function GalleryPeopleStrip({
@@ -64,7 +65,7 @@ export function GalleryPeopleStrip({
         >
           <span className="gallery-people-strip__find-circle">
             {selfieSearching ? (
-              <Loader2 size={22} className="gallery-people-strip__spin" aria-hidden />
+              <AppSpinner size="sm" />
             ) : (
               <ScanFace size={22} strokeWidth={1.5} aria-hidden />
             )}
@@ -82,7 +83,7 @@ export function GalleryPeopleStrip({
 
         {loading && people.length === 0 ? (
           <p className="gallery-people-strip__loading">
-            <Loader2 size={16} className="gallery-people-strip__spin" /> Loading people…
+            <AppSpinner size="sm" /> Loading people…
           </p>
         ) : (
           people.map((person) => (

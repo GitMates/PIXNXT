@@ -11,6 +11,7 @@ import {
 import { countClientRootComments, getClientReviewerIdentity, smartAlbumCommentsService } from '../../services/smartAlbumComments.service';
 import { mergeAlbumProofTimestamps } from './albumProofStatus';
 import { buildGmailComposeUrl } from '../../lib/gmailComposeUrl';
+import { AppLoader } from '../ui/AppLoading';
 import { readSharePausedAt, writeSharePausedAt } from '../../lib/albumSharePause';
 import { formatRelativeTime } from '../../lib/relativeTime';
 import AeSettingsSelect from './AeSettingsSelect';
@@ -785,7 +786,7 @@ export default function AlbumSharePublishMenu({
                         </div>
                     </div>
                 ) : showLoading ? (
-                    <p className="ae-share-loading">Loading…</p>
+                    <AppLoader label="Loading" variant="compact" className="ae-share-loading app-loader" />
                 ) : mode === 'draft' ? (
                     <div className="ae-share-draft">
                         <div className="ae-share-draft-hero">

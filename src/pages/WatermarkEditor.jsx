@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase/client';
 import { storageService } from '../services/storage.service';
 import { galleryService } from '../services/gallery.service';
 import './WatermarkEditor.css';
+import { AppLoader } from '../components/ui/AppLoading';
 
 // ── Font options ──────────────────────────────────────────────────────────────
 const FONT_OPTIONS = [
@@ -163,9 +164,7 @@ const WatermarkEditor = () => {
     if (loading) {
         return (
             <div className="wm-editor">
-                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-500"></div>
-                </div>
+                <AppLoader label="Loading watermark" variant="page" />
             </div>
         );
     }

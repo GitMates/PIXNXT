@@ -7,7 +7,7 @@ import { supabase } from '../../lib/supabase/client';
 
 import { MasonryGrid } from '../../components/features/Gallery/MasonryGrid/MasonryGrid';
 import { PhotoLightbox } from '../../components/features/Gallery/PhotoLightbox/PhotoLightbox';
-import { galleryService } from '../../services/gallery.service';
+import { AppLoader } from '../../components/ui/AppLoading';
 import { cn } from '../../lib/utils';
 import { Container } from '../../components/ui/Container';
 import { Typography } from '../../components/ui/Typography';
@@ -90,7 +90,7 @@ import {
   SALES_CAMPAIGNS_STORAGE_KEY,
   SALES_CAMPAIGNS_UPDATED_EVENT,
 } from '../../lib/salesCampaignBanner';
-import { filterPhotosByIds } from '../../lib/photoAiSearch';
+import { filterPhotosByIds, filterPeopleForPhotos } from '../../lib/photoAiSearch';
 import { useGalleryPeople } from '../../hooks/useGalleryPeople';
 import { useAuth } from '../../hooks/useAuth';
 import { GalleryPeopleStrip } from '../../components/features/Gallery/GalleryPeopleStrip/GalleryPeopleStrip';
@@ -1686,6 +1686,15 @@ const GalleryView = () => {
       : source.filter((p) => !p.set_id);
   }, [collection, activeSetId, isFavoriteListMode, favoriteListPhotos, isClientViewer]);
 
+  const peopleForActiveSet = useMemo(
+    () => filterPeopleForPhotos(galleryPeople.people, photosForActiveSet),
+    [galleryPeople.people, photosForActiveSet]
+  );
+
+  useEffect(() => {
+    galleryPeople.clearFilter();
+  }, [activeSetId, galleryPeople.clearFilter]);
+
   const visibleSets = useMemo(() => {
     if (!collection?.sets) return [];
     return filterSetsForViewer(collection.sets, collection, isClientViewer);
@@ -1744,15 +1753,20 @@ const GalleryView = () => {
     // no-op: kept for reference - mediaFilter not needed as we stack videos first then photos
   }, [activeSetId, mediaCounts.photos, mediaCounts.videos]);
 
+  const activePersonInSet = useMemo(
+    () => peopleForActiveSet.find((person) => person.id === galleryPeople.activePersonId) || null,
+    [peopleForActiveSet, galleryPeople.activePersonId]
+  );
+
   const photosAfterPeopleFilter = useMemo(() => {
     if (galleryPeople.selfieMatchPhotoIds.length) {
       return filterPhotosByIds(filteredPhotosBase, galleryPeople.selfieMatchPhotoIds);
     }
-    if (galleryPeople.activePerson?.photoIds?.length) {
-      return filterPhotosByIds(filteredPhotosBase, galleryPeople.activePerson.photoIds);
+    if (activePersonInSet?.photoIds?.length) {
+      return filterPhotosByIds(filteredPhotosBase, activePersonInSet.photoIds);
     }
     return filteredPhotosBase;
-  }, [filteredPhotosBase, galleryPeople.selfieMatchPhotoIds, galleryPeople.activePerson]);
+  }, [filteredPhotosBase, galleryPeople.selfieMatchPhotoIds, activePersonInSet]);
 
   const { videos: galleryVideos, photos: galleryStills } = useMemo(
     () => partitionGalleryMedia(photosAfterPeopleFilter),
@@ -2196,13 +2210,9 @@ const GalleryView = () => {
     hasAutoSelectedSetRef.current = true;
   }, [collection, sharedPhotoIds, activeSetId]);
 
-  if (loading) return (
-    <div className="flex h-screen items-center justify-center bg-white">
-      <div className="text-sm font-bold tracking-[0.6em] uppercase text-zinc-200 animate-pulse">
-        PIXNXT
-      </div>
-    </div>
-  );
+  if (loading) {
+    return <AppLoader label="Loading gallery" variant="page" />;
+  }
 
   if (error || !collection) return (
     <div className="flex h-screen flex-col items-center justify-center p-6 text-center bg-white">
@@ -2566,7 +2576,7 @@ const GalleryView = () => {
           {!isFavoriteListMode ? (
             <GalleryPeopleStrip
               variant="gallery"
-              people={galleryPeople.people}
+              people={peopleForActiveSet}
               loading={galleryPeople.loading}
               activePersonId={galleryPeople.activePersonId}
               selfieSearching={galleryPeople.selfieSearching}

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react
 import { FolderThumbGrid } from '../ClientGallery/FolderThumbGrid';
 import { galleryService } from '../../../services/gallery.service';
 import './MoveCollectionModal.css';
+import { AppLoader } from '../../ui/AppLoading';
 
 export type MoveFolderOption = {
   id: string;
@@ -191,7 +192,7 @@ export function MoveCollectionModal({
               <span className="move-folder-row-name">Home</span>
             </button>
 
-            {loading && <p className="move-folder-status">Loading folders…</p>}
+            {loading && <AppLoader label="Loading folders" variant="compact" className="move-folder-status app-loader" />}
             {!loading && folders.length === 0 && (
               <p className="move-folder-status move-folder-status--muted">
                 No folders yet. Create one below to organize deliveries.

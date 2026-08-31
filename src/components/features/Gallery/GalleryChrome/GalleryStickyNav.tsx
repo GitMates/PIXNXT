@@ -1,5 +1,6 @@
 import React from 'react';
-import { Heart, Share2, Play, Download, Loader2, ShoppingCart, ArrowDownToLine, Infinity, Square } from 'lucide-react';
+import { Heart, Share2, Play, Download, ShoppingCart, ArrowDownToLine, Infinity, Square } from 'lucide-react';
+import { AppSpinner } from '../../../../components/ui/AppLoading';
 import { cn } from '../../../../lib/utils';
 import { galleryChromeStyles, GalleryChromeVariant, getGalleryChromeVariant } from './galleryChromeStyles';
 import { NavigationStyleSetting } from '../../../../lib/navStyle';
@@ -261,7 +262,7 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
             }}
           >
             {isDownloadingAll ? (
-              <Loader2 size={pillIconSize} className="animate-spin shrink-0" aria-hidden />
+              <AppSpinner size="sm" className="shrink-0" />
             ) : (
               <Download size={pillIconSize} className="shrink-0 stroke-[2.25]" />
             )}

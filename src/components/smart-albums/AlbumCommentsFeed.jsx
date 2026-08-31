@@ -11,6 +11,7 @@ import {
     truncateCommentPreview,
 } from '../../services/smartAlbumComments.service';
 import './AlbumSpreadComments.css';
+import { AppLoader } from '../ui/AppLoading';
 
 export default function AlbumCommentsFeed({
     albumId,
@@ -103,7 +104,7 @@ export default function AlbumCommentsFeed({
                 </div>
             </div>
             {loading ? (
-                <p className="asc-feed-muted">Loading comments…</p>
+                <AppLoader label="Loading comments" variant="compact" className="asc-feed-muted app-loader" />
             ) : total === 0 ? (
                 <p className="asc-feed-muted">
                     No comments yet. Open Preview, publish the album, and clients can leave feedback

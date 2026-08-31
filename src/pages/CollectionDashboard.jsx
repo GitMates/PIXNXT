@@ -14,6 +14,7 @@ import { photoAiService } from '../services/photoAi.service';
 import {
     filterPhotosByPerson,
     filterPhotosByIds,
+    filterPeopleForPhotos,
     peopleInPhoto,
 } from '../lib/photoAiSearch';
 import { CollectionPhotosWorkspaceHeader } from '../components/features/CollectionDashboard/Photos/CollectionPhotosWorkspaceHeader';
@@ -2824,6 +2825,11 @@ const CollectionDashboard = () => {
         return sortDashboardPhotos(filtered, sortOption);
     }, [photos, activeSetId, sortOption]);
 
+    const peopleForActiveSet = useMemo(
+        () => filterPeopleForPhotos(photoAiPeople, sortedPhotos),
+        [photoAiPeople, sortedPhotos]
+    );
+
     const photoAiMetadataMap = useMemo(
         () => photoAiService.metadataToMap(photoAiRows),
         [photoAiRows]
@@ -3068,6 +3074,10 @@ const CollectionDashboard = () => {
 
     useEffect(() => {
         setPhotoSearchQuery('');
+        setActivePersonId(null);
+        setSelfieMatchPhotoIds([]);
+        setSelfieMessage('');
+        setSelfiePreview('');
     }, [activeSetId]);
 
     useEffect(() => {
@@ -5350,7 +5360,7 @@ const CollectionDashboard = () => {
                                     }}
                                     sharingOverlaysEnabled={sharingOverlaysEnabled}
                                     onAddMedia={() => setShowUploadModal(true)}
-                                    people={photoAiPeople}
+                                    people={peopleForActiveSet}
                                     activePersonId={activePersonId}
                                     onSelectPerson={(id) => {
                                         setActivePersonId((current) => (current === id ? null : id));

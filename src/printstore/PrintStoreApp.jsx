@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase/client';
 import StoreHeader from './components/StoreHeader';
 import CoverHero from './components/CoverHero';
+import { AppLoader } from '../components/ui/AppLoading';
 import PhotoGrid from './components/PhotoGrid';
 import ShopLanding from './components/ShopLanding';
 import AllProducts from './components/AllProducts';
@@ -1751,22 +1752,7 @@ export default function PrintStoreApp() {
         fontWeight: '500',
         color: '#111111'
       }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
-          <div className="animate-spin" style={{
-            width: '48px',
-            height: '48px',
-            border: '4px solid rgba(0,0,0,0.1)',
-            borderTopColor: '#111111',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite'
-          }}></div>
-          <style>{`
-            @keyframes spin {
-              to { transform: rotate(360deg); }
-            }
-          `}</style>
-          <span>Loading Store...</span>
-        </div>
+        <AppLoader label="Loading store" variant="page" />
       </div>
     );
   }

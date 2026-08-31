@@ -6,6 +6,7 @@ import {
 } from '../../lib/mobileGalleryPhotoSort';
 import { useUploadQueue } from '../features/CollectionDashboard/Upload/useUploadQueue';
 import AppPhotosToolbar from '../mobile-gallery/AppPhotosToolbar';
+import { AppLoader } from '../ui/AppLoading';
 import AppPhotoGrid from '../mobile-gallery/AppPhotoGrid';
 import '../../pages/mobile-gallery/MobileGallery.css';
 
@@ -296,7 +297,11 @@ const EventPhotosPanel = ({ event, photographerId, onPhotoCountChange }) => {
         </>
       )}
 
-      {showInitialLoading && <p className="gd-muted" style={{ padding: '24px 40px' }}>Loading photos…</p>}
+      {showInitialLoading && (
+        <div style={{ padding: '24px 40px' }}>
+          <AppLoader label="Loading photos" variant="page-short" className="gd-muted app-loader" />
+        </div>
+      )}
     </div>
   );
 };

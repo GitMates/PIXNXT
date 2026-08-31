@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, ChevronDown, RefreshCw, Settings2, X } from 'lucide-react';
 import DatePicker from '../ui/DatePicker/DatePicker';
+import { AppLoader } from '../ui/AppLoading';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
 import { smartAlbumProoferSettingsService } from '../../services/smartAlbumProoferSettings.service';
 import { isAlbumClientApproved } from '../../services/albumProof.service';
@@ -259,7 +260,7 @@ export default function EditAlbumModal({
                         {showAdvanced ? (
                             <div className="eam-advanced__panel">
                                 {advancedLoading ? (
-                                    <p className="eam-advanced__loading">Loading settings…</p>
+                                    <AppLoader label="Loading settings" variant="compact" className="eam-advanced__loading app-loader" />
                                 ) : (
                                     <>
                                         <section className="eam-section">

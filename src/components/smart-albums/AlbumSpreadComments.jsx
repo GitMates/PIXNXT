@@ -19,6 +19,7 @@ import {
     notifyClientFeedbackEvent,
 } from './albumClientFeedbackNotify';
 import './AlbumSpreadComments.css';
+import { AppLoader } from '../ui/AppLoading';
 
 function commentCountFromThreads(threads) {
     return threads.reduce((n, t) => (hasCommentBody(t.root) ? n + 1 : n), 0);
@@ -923,7 +924,7 @@ export default function AlbumSpreadComments({
 
             <div className="asc-thread-area">
                 {loading ? (
-                    <p className="asc-muted">Loading comments…</p>
+                    <AppLoader label="Loading comments" variant="compact" className="asc-muted app-loader" />
                 ) : threads.length === 0 ? (
                     <p className="asc-empty">
                         {showClientCompose

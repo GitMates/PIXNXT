@@ -6,6 +6,7 @@ import { MoveCollectionModal } from '@/components/features/Collections/MoveColle
 import { CollectionDuplicateModal } from '@/components/features/ClientGallery/CollectionShareModals';
 import { supabase } from '@/lib/supabase/client';
 import { guestDeliveryGuestsService } from '@/services/guestDeliveryGuests.service';
+import { AppLoader } from '@/components/ui/AppLoading';
 import { GetDirectLinkModal } from '@/components/features/CollectionDashboard/Share/GetDirectLinkModal';
 import { DeleteDeliveryModal } from '@/components/features/ClientGallery/DeleteDeliveryModal';
 import { DELIVERY_PRODUCT_HOME } from '@/lib/deliveryIds';
@@ -579,7 +580,9 @@ export function CollectionMoreMenu({
                   <tbody>
                     {emailHistoryLoading ? (
                       <tr>
-                        <td colSpan={4} className="cd-email-history-empty">Loading…</td>
+                        <td colSpan={4} className="cd-email-history-empty">
+                          <AppLoader label="Loading" variant="compact" className="app-loader--table-cell app-loader" />
+                        </td>
                       </tr>
                     ) : emailHistoryError ? (
                       <tr>

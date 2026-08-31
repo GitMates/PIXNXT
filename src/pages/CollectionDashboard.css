@@ -6802,6 +6802,9 @@
 
 .cd-delivery-loader__spinner {
     position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     width: 52px;
     height: 52px;
 }
@@ -6826,15 +6829,14 @@
     animation: cd-delivery-spin-reverse 0.85s cubic-bezier(0.5, 0.1, 0.4, 0.9) infinite;
 }
 
-.cd-delivery-loader__dot {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 7px;
-    height: 7px;
-    margin: -3.5px 0 0 -3.5px;
-    border-radius: 50%;
-    background: #d67d3a;
+.cd-delivery-loader__mark {
+    position: relative;
+    z-index: 1;
+    display: block;
+    flex-shrink: 0;
+    width: 13px;
+    height: 13px;
+    color: #c46a3a;
     animation: cd-delivery-pulse 1.4s ease-in-out infinite;
 }
 
@@ -6952,7 +6954,7 @@
 @media (prefers-reduced-motion: reduce) {
     .cd-delivery-loader__bone,
     .cd-delivery-loader__ring,
-    .cd-delivery-loader__dot,
+    .cd-delivery-loader__mark,
     .cd-delivery-loader__ellipsis span {
         animation: none;
     }

@@ -6,6 +6,7 @@ import {
   formatActivityRelativeTime,
 } from '../../../../lib/buildActivityFeed';
 import './ActivityFeed.css';
+import { AppLoader } from '../../../ui/AppLoading';
 
 const FILTERS = [
   { id: 'everything', label: 'Everything' },
@@ -134,9 +135,7 @@ export function ActivityFeed({
 
           <div className="cd-activity-feed__box">
             {loadingActivity && visible.length === 0 ? (
-              <p className="cd-activity-feed__empty-sub cd-activity-feed__empty-sub--loading">
-                Loading activity…
-              </p>
+              <AppLoader label="Loading activity" variant="compact" className="cd-activity-feed__empty-sub cd-activity-feed__empty-sub--loading app-loader" />
             ) : visible.length === 0 ? (
               <div className="cd-activity-feed__empty">
                 <p>{emptyTitle}</p>

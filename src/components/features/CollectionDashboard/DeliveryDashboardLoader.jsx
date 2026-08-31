@@ -1,4 +1,5 @@
 import React from 'react';
+import { PixnxtMarkIcon } from '../../ui/AppLoading/PixnxtMarkIcon';
 
 /**
  * Full-screen loading state for CollectionDashboard — mirrors shell layout with shimmer.
@@ -50,7 +51,7 @@ export function DeliveryDashboardLoader() {
                         <div className="cd-delivery-loader__spinner" aria-hidden>
                             <span className="cd-delivery-loader__ring cd-delivery-loader__ring--outer" />
                             <span className="cd-delivery-loader__ring cd-delivery-loader__ring--inner" />
-                            <span className="cd-delivery-loader__dot" />
+                            <PixnxtMarkIcon className="cd-delivery-loader__mark" />
                         </div>
                         <p className="cd-delivery-loader__label">
                             Opening delivery

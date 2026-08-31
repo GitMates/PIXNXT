@@ -64,7 +64,8 @@
   align-items: flex-start;
   gap: 1.35rem;
   overflow-x: auto;
-  padding: 0.15rem 0.25rem 0.5rem;
+  overflow-y: visible;
+  padding: 0.4rem 0.35rem 0.5rem;
   scrollbar-width: thin;
 }
 
@@ -93,8 +94,10 @@
   align-items: center;
   border: 0;
   background: transparent;
-  padding: 0;
+  padding: 4px;
+  border-radius: 50%;
   cursor: pointer;
+  line-height: 0;
 }
 
 .gallery-people-strip__find:disabled {
@@ -130,12 +133,39 @@
   color: var(--gallery-meta-text, #71717a);
 }
 
+.gallery-people-strip__person.is-active .gallery-people-strip__person-select {
+  box-shadow:
+    0 0 0 2px var(--gallery-bg, #fff),
+    0 0 0 3.5px var(--gallery-text, #1a1a1a);
+}
+
 .gallery-people-strip__person.is-active .gallery-people-strip__avatar {
-  box-shadow: 0 0 0 2px var(--gallery-bg, #fff), 0 0 0 3.5px var(--gallery-text, #1a1a1a);
+  box-shadow: none;
 }
 
 .gallery-people-strip__avatar.cd-person-face-avatar {
+  display: block;
+  position: relative;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: #e8e8e8;
   border: 1px solid color-mix(in srgb, var(--gallery-text, #1a1a1a) 10%, transparent);
+}
+
+.gallery-people-strip__avatar.cd-person-face-avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.gallery-people-strip__avatar.cd-person-face-avatar.cd-person-face-avatar--selfie img {
+  object-position: center 20%;
+}
+
+.gallery-people-strip__avatar.cd-person-face-avatar.cd-person-face-avatar--empty {
+  background: linear-gradient(135deg, #eceae6, #d4d4d8);
 }
 
 .gallery-people-strip__file-input {
@@ -214,7 +244,21 @@
 
 .gallery-people-strip--preview .gallery-people-strip__row {
   gap: 0.6rem;
-  padding: 0.1rem 0.15rem 0.3rem;
+  padding: 0.28rem 0.2rem 0.3rem;
+}
+
+.gallery-people-strip--preview .gallery-people-strip__person-select {
+  padding: 2px;
+}
+
+.gallery-people-strip--preview .gallery-people-strip__person.is-active .gallery-people-strip__person-select {
+  box-shadow:
+    0 0 0 1px var(--gallery-bg, #fff),
+    0 0 0 2px var(--gallery-text, #1a1a1a);
+}
+
+.gallery-people-strip--preview .gallery-people-strip__person.is-active .gallery-people-strip__avatar {
+  box-shadow: none;
 }
 
 .gallery-people-strip--preview .gallery-people-strip__find,
@@ -228,6 +272,8 @@
 .gallery-people-strip--preview .gallery-people-strip__avatar.cd-person-face-avatar {
   width: 1.75rem !important;
   height: 1.75rem !important;
+  border-radius: 50% !important;
+  overflow: hidden !important;
 }
 
 .gallery-people-strip--preview .gallery-people-strip__find-circle svg {
@@ -244,6 +290,3 @@
   font-size: 0.38rem;
 }
 
-.gallery-people-strip--preview .gallery-people-strip__person.is-active .gallery-people-strip__avatar {
-  box-shadow: 0 0 0 1px var(--gallery-bg, #fff), 0 0 0 2px var(--gallery-text, #1a1a1a);
-}

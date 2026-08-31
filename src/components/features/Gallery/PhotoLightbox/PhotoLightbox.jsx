@@ -15,6 +15,7 @@ import {
   isVideoMedia,
 } from '../../../../lib/photoDisplayUrl';
 import { RawPhotoPlaceholder } from '../../CollectionDashboard/Media/RawPhotoPlaceholder';
+import { AppLoader } from '../../../ui/AppLoading';
 import './PhotoLightbox.css';
  
 export function PhotoLightbox({
@@ -302,10 +303,7 @@ export function PhotoLightbox({
                   </div>
                 )
               ) : (
-                <div className="flex flex-col items-center gap-4 opacity-20">
-                  <div className="h-12 w-12 animate-spin rounded-full border border-current border-t-transparent" />
-                  <span className="text-[12px] font-bold uppercase tracking-widest">Loading photo…</span>
-                </div>
+                <AppLoader label="Loading photo" variant="compact" className="opacity-80" />
               )}
             </div>
           </Motion.div>

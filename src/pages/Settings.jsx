@@ -192,9 +192,7 @@ const Settings = () => {
     if (authLoading) {
         return (
             <SidebarLayout>
-                <div className="flex h-screen w-full items-center justify-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1a1a1a]"></div>
-                </div>
+                <AppLoader label="Loading settings" variant="page" />
             </SidebarLayout>
         );
     }

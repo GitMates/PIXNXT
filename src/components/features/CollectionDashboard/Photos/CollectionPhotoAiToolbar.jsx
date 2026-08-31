@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import { Users, Loader2, Camera, Upload, Eye, EyeOff } from 'lucide-react';
+import { Users, Camera, Upload, Eye, EyeOff } from 'lucide-react';
+import { AppSpinner } from '../../../ui/AppLoading';
 import { PersonFaceAvatar } from './PersonFaceAvatar';
 import { prepareSelfieForRekognition } from '../../../../lib/selfieImageForRekognition';
 import './CollectionPhotoAiToolbar.css';
@@ -101,7 +102,7 @@ export function CollectionPhotoAiToolbar({
             </div>
             {analyzing && (
               <span className="cd-photo-ai-analyzing-badge" aria-live="polite">
-                <Loader2 size={14} className="cd-photo-ai-spin" />
+                <AppSpinner size="sm" />
                 Analyzing
               </span>
             )}
@@ -155,7 +156,7 @@ export function CollectionPhotoAiToolbar({
             </div>
             {selfieSearching && (
               <p className="cd-photo-ai-selfie-status">
-                <Loader2 size={14} className="cd-photo-ai-spin" /> Matching your face…
+                <AppSpinner size="sm" /> Matching your face…
               </p>
             )}
             {!selfieSearching && selfieMessage && (
@@ -176,7 +177,7 @@ export function CollectionPhotoAiToolbar({
 
           {loadingPeople ? (
             <p className="cd-photo-ai-people-empty">
-              <Loader2 size={16} className="cd-photo-ai-spin" /> Loading people…
+              <AppSpinner size="sm" /> Loading people…
             </p>
           ) : people.length > 0 ? (
             <div className="cd-photo-ai-people-circles">

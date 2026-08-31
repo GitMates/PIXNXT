@@ -58,6 +58,30 @@ export function filterPhotosByIds(photos, photoIds) {
   return photos.filter((photo) => idSet.has(photo.id));
 }
 
+/**
+ * Restrict clustered people to those appearing in the given photos (e.g. active photoset).
+ * Updates photoIds and count to only include photos in scope.
+ */
+export function filterPeopleForPhotos(people, photos) {
+  if (!people?.length || !photos?.length) return [];
+
+  const photoIdSet = new Set(
+    photos.map((photo) => photo?.id).filter(Boolean).map(String)
+  );
+
+  return people
+    .map((person) => {
+      const scopedPhotoIds = (person.photoIds || []).filter((id) => photoIdSet.has(String(id)));
+      if (!scopedPhotoIds.length) return null;
+      return {
+        ...person,
+        photoIds: scopedPhotoIds,
+        count: scopedPhotoIds.length,
+      };
+    })
+    .filter(Boolean);
+}
+
 /** Filter photos that contain any face from a clustered person */
 export function filterPhotosByPerson(photos, metadataByPhotoId, person) {
   if (!person?.faceIds?.length) return photos;

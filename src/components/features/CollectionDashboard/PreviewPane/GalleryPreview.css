@@ -1769,6 +1769,8 @@
 .cd-design-frame--desktop .gallery-people-strip--preview .gallery-people-strip__avatar.cd-person-face-avatar {
     width: 1.35rem !important;
     height: 1.35rem !important;
+    border-radius: 50% !important;
+    overflow: hidden !important;
 }
 
 .cd-design-frame--desktop .gallery-back-to-top-wrap--preview .gallery-back-to-top {

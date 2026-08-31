@@ -14,6 +14,7 @@ import PrintStoreApp from '../printstore/PrintStoreApp';
 import { galleryService } from '../services/gallery.service';
 import { GlobalUploadShell } from './features/CollectionDashboard/Upload/GlobalUploadShell';
 import { ErrorBoundary } from './ErrorBoundary';
+import { AppLoader } from './ui/AppLoading';
 
 function MobileGalleryViewRedirect() {
   const { slug } = useParams();
@@ -68,11 +69,7 @@ export function CustomDomainGalleryApp({ hostname }) {
     null;
 
   if (loading) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center bg-white">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-500" />
-      </div>
-    );
+    return <AppLoader label="Loading gallery" variant="page" />;
   }
 
   if (notFound || !profile || !slug) {

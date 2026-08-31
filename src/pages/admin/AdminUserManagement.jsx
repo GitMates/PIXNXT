@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, MoreVertical, Shield, User, Loader2, AlertCircle, X } from 'lucide-react';
+import { Search, Plus, MoreVertical, Shield, User, AlertCircle, X } from 'lucide-react';
+import { AppLoader, AppSpinner } from '../../components/ui/AppLoading';
 import { supabase } from '../../lib/supabase/client';
 
 const AdminUserManagement = () => {
@@ -139,10 +140,7 @@ const AdminUserManagement = () => {
 
       {/* Loading State */}
       {!error && loading && (
-        <div className="bg-[#fdfdfc] rounded-2xl shadow-sm border border-[#eae8e4] h-64 flex flex-col items-center justify-center">
-           <Loader2 className="w-8 h-8 text-slate-900 animate-spin mb-4" />
-           <p className="text-gray-500 text-sm font-medium">Fetching user records...</p>
-        </div>
+        <AppLoader label="Fetching user records" variant="page-short" />
       )}
 
       {/* Table */}
@@ -286,7 +284,7 @@ const AdminUserManagement = () => {
                   disabled={updating}
                   className="px-4 py-2 bg-[#1a1a1a] text-white text-sm font-medium rounded-xl hover:bg-[#2a2a2a] transition-colors disabled:opacity-75 flex items-center gap-2"
                 >
-                  {updating && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {updating && <AppSpinner size="xs" />}
                   Save Changes
                 </button>
               </div>
