@@ -13,6 +13,7 @@ import {
   replaceInstallUrlWithPwa,
   shouldShowSafariInstallFlow,
 } from '../../lib/mobileGalleryPwa';
+import { AppLoader } from '../../components/ui/AppLoading';
 import './MobileGalleryPublic.css';
 
 function AppIcon({ app, className = '' }) {
@@ -190,7 +191,11 @@ const MobileGalleryInstall = () => {
   }
 
   if (loading) {
-    return <div className="mg-install-page"><p className="mg-install-loading">Loading…</p></div>;
+    return (
+      <div className="mg-install-page">
+        <AppLoader label="Loading" variant="page-short" className="mg-install-loading app-loader" />
+      </div>
+    );
   }
 
   if (notFound || !app) {

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { guestDeliveryPublishService } from '../../services/guestDeliveryPublish.service';
+import { AppLoader } from '../../components/ui/AppLoading';
 import './EventGuestGallery.css';
 
 export default function EventGuestGallery() {
@@ -59,7 +60,9 @@ export default function EventGuestGallery() {
       </header>
 
       <main className="egg-main">
-        {loading && <p className="egg-muted">Loading your photos…</p>}
+        {loading && (
+          <AppLoader label="Loading your photos" variant="page-short" className="egg-muted app-loader" />
+        )}
 
         {!loading && error && (
           <div className="egg-empty">

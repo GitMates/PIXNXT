@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AppLoader } from '../components/ui/AppLoading';
 import SidebarLayout from '../components/SidebarLayout';
 import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
@@ -164,7 +165,7 @@ const PhotoLibrary = () => {
         </header>
 
         {loading ? (
-          <div className="pl-loading">Loading…</div>
+          <AppLoader label="Loading library" variant="page-short" className="pl-loading app-loader" />
         ) : error ? (
           <div className="pl-loading pl-loading--error">{error}</div>
         ) : !hasPhotos ? (

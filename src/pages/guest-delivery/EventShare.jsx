@@ -7,6 +7,7 @@ import { getGuestRegistrationUrl } from '../../lib/guestDeliveryLinks';
 import { getQrCodeImageUrl } from '../../lib/shareCollection';
 import { getShareUrlWarning } from '../../lib/publicSiteUrl';
 import GuestDeliveryLayout from '../../components/guest-delivery/GuestDeliveryLayout';
+import { AppLoader } from '../../components/ui/AppLoading';
 import './GuestDelivery.css';
 
 export default function EventShare() {
@@ -58,7 +59,7 @@ export default function EventShare() {
   if (loading) {
     return (
       <GuestDeliveryLayout>
-        <p className="gd-muted gd-content">Loading…</p>
+        <AppLoader label="Loading" variant="page-short" className="gd-content app-loader" />
       </GuestDeliveryLayout>
     );
   }

@@ -9,6 +9,7 @@ import { getThemeMode, setThemeMode, THEME_CHANGE_EVENT } from '../lib/appearanc
 import { navigateToAccount } from '../lib/accountBackNav';
 import { buildShowcaseUrl } from '../lib/showcaseUrl';
 import AlbumListCoverThumb from '../components/smart-albums/AlbumListCoverThumb';
+import { AppLoader } from '../components/ui/AppLoading';
 import DashboardCommandSearch from '../components/dashboard/DashboardCommandSearch';
 import StudioNotifications from '../components/dashboard/StudioNotifications';
 import { coverImageCssStyle } from '../lib/focalPoint';
@@ -423,7 +424,7 @@ const Dashboard = () => {
   if (loading && !profile) {
     return (
       <div className="sd-loading">
-        <div className="sd-spinner" />
+        <AppLoader label="Loading your studio" variant="page" className="sd-loading__inner" />
       </div>
     );
   }

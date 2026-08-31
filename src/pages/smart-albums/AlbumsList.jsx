@@ -29,6 +29,7 @@ import { runOptimisticDelete } from '../../lib/optimisticDelete';
 import '../../components/portal/portal.css';
 import '../../components/smart-albums/AlbumStatusFilterPopover.css';
 import './SmartAlbums.css';
+import { AppLoader } from '../../components/ui/AppLoading';
 import './SmartAlbumsListProofer.css';
 
 /** Status pipeline order for "Needs you first" sorting. */
@@ -764,10 +765,10 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
             <div className="sa-proofer-albums__content">
                 {awaitingFirstProof ? (
                     <div className="sa-proofer-albums__first-proof" aria-busy="true" aria-live="polite">
-                        <p className="sa-proofer-albums__first-proof-loading">Loading…</p>
+                        <AppLoader label="Loading" variant="compact" className="sa-proofer-albums__first-proof-loading app-loader" />
                     </div>
                 ) : loading ? (
-                    <p className="sa-proofer-albums__loading">Loading albums…</p>
+                    <AppLoader label="Loading albums" variant="page-short" className="sa-proofer-albums__loading app-loader" />
                 ) : showEmpty ? (
                     starredOnly ? (
                         <div className="sa-proofer-albums__empty">

@@ -20,6 +20,7 @@ import { isClientShareLinkLive } from '../../lib/shareSmartAlbum';
 import { getAlbumShareSlug } from '../../lib/albumPreviewSlug';
 import { supabase } from '../../lib/supabase/client';
 import { parseUrlPage } from './useAlbumWorkspace';
+import { AppLoader } from '../../components/ui/AppLoading';
 import './AlbumViewer.css';
 
 const SHARE_LINK_POLL_MS = 5000;
@@ -232,7 +233,7 @@ export default function PublicAlbumPreview() {
     if (loading) {
         return (
             <div className="av-page av-page--preview">
-                <div className="av-loading">Loading album…</div>
+                <AppLoader label="Loading album" variant="page-short" className="av-loading app-loader" />
             </div>
         );
     }

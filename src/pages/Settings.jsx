@@ -24,6 +24,7 @@ import {
     EnquiryFormEditorModal,
     normalizeEnquiryFields,
 } from '../components/features/Settings';
+import { AppLoader } from '../components/ui/AppLoading';
 import './Settings.css';
 import './ClientGallery.css';
 
@@ -1193,7 +1194,7 @@ const PresetsTab = ({ profile }) => {
             <span className="dt-overline">YOUR TEMPLATES</span>
 
             {loading ? (
-                <div className="dt-loading">Loading templates…</div>
+                <AppLoader label="Loading templates" variant="compact" className="dt-loading app-loader" />
             ) : presets.length === 0 ? (
                 <p className="dt-empty">No templates yet. Create one to reuse delivery settings.</p>
             ) : (

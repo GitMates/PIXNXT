@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { clientGalleryEmailTemplatesService, resolveTemplateBody } from '../services/clientGalleryEmailTemplates.service';
 import { AppToast, useAppToast } from '../components/ui/AppToast';
+import { AppLoader } from '../components/ui/AppLoading';
 import './EmailTemplateEditor.css';
 
 const EmailTemplateEditor = () => {
@@ -128,7 +129,7 @@ const EmailTemplateEditor = () => {
     };
 
     if (loading) {
-        return <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center' }}>Loading...</div>;
+        return <AppLoader label="Loading template" variant="page" />;
     }
 
     const resolvedPreviewBody = resolveTemplateBody(body, {

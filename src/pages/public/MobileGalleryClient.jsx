@@ -10,6 +10,7 @@ import { usePwaInstallPrompt } from '../../hooks/usePwaInstallPrompt';
 import { useMobileGalleryGridPhotos } from '../../components/mobile-gallery/MobileGalleryPhotoGrid';
 import { getAppDesignSettings } from '../../lib/mobileGalleryDesign';
 import '../mobile-gallery/MobileGallery.css';
+import { AppLoader } from '../../components/ui/AppLoading';
 import './MobileGalleryPublic.css';
 
 const IconHome = () => (
@@ -176,7 +177,11 @@ const MobileGalleryClient = () => {
   };
 
   if (loading) {
-    return <div className="mg-client-page"><p className="mg-install-loading">Loading…</p></div>;
+    return (
+      <div className="mg-client-page">
+        <AppLoader label="Loading" variant="page-short" className="mg-install-loading app-loader" />
+      </div>
+    );
   }
 
   if (!app) {

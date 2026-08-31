@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
+import { AppSpinner } from '../ui/AppLoading';
 import {
   buildStudioNotificationUrl,
   clearAllStudioNotifications,
@@ -247,7 +248,10 @@ export default function StudioNotifications({ userId, variant = 'default' }) {
               ) : null}
 
               {loading && !hasNotifications ? (
-                <div className="sd-notifications-empty">Loading…</div>
+                <div className="sd-notifications-empty app-loader app-loader--dropdown">
+                  <AppSpinner size="sm" />
+                  <span className="app-loader__label--sans">Loading</span>
+                </div>
               ) : !hasNotifications ? (
                 <div className="sd-notifications-empty">Nothing needs you right now</div>
               ) : (

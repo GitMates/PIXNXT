@@ -171,25 +171,9 @@ body.dark-theme .sc-page {
 .sc-loading {
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: center;
   padding: 40px 0;
   color: var(--sc-muted);
-  font-size: 0.95rem;
-}
-
-.sc-loading-spinner {
-  width: 18px;
-  height: 18px;
-  border: 2px solid color-mix(in srgb, var(--sc-ink) 10%, transparent);
-  border-top-color: var(--sc-accent);
-  border-radius: 50%;
-  animation: sc-spin 0.7s linear infinite;
-}
-
-@keyframes sc-spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 .sc-muted {

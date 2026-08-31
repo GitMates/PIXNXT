@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
+import { AppSpinner } from '../ui/AppLoading';
 import notificationPng from '../../assets/icons/notification.png';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
 import {
@@ -259,7 +260,10 @@ export default function SmartAlbumNotifications({ userId, variant = 'default' })
                         )}
 
                         {loading && !items.length ? (
-                            <div className="sa-notifications-empty">Loading…</div>
+                            <div className="sa-notifications-empty app-loader app-loader--dropdown">
+                                <AppSpinner size="sm" />
+                                <span className="app-loader__label--sans">Loading</span>
+                            </div>
                         ) : items.length === 0 ? (
                             <div className="sa-notifications-empty">No notifications</div>
                         ) : (

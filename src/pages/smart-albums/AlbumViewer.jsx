@@ -7,6 +7,7 @@ import { smartAlbumsService } from '../../services/smartAlbums.service';
 import { getAlbumSpreadOptions } from '../../components/smart-albums/albumSpreadUtils';
 import AlbumEditor from './AlbumEditor';
 import { useAlbumWorkspace, isAlbumPreviewView, parseUrlPage } from './useAlbumWorkspace';
+import { AppLoader } from '../../components/ui/AppLoading';
 import './AlbumViewer.css';
 
 /**
@@ -58,7 +59,7 @@ const AlbumViewer = () => {
     if (loading) {
         return (
             <div className="av-page">
-                <div className="av-loading">Loading album…</div>
+                <AppLoader label="Loading album" variant="page-short" className="av-loading app-loader" />
             </div>
         );
     }

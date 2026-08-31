@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
+import { AppSpinner } from '../../../components/ui/AppLoading';
 import {
   buildClientGalleryNotificationUrl,
   listClientGalleryNotifications,
@@ -165,7 +166,10 @@ export default function ClientGalleryNotifications({ userId, variant = 'default'
             style={{ top: panelPos.top, left: panelPos.left }}
           >
             {loading && !items.length ? (
-              <div className="cg-notifications-empty">Loading…</div>
+              <div className="cg-notifications-empty app-loader app-loader--dropdown">
+                <AppSpinner size="sm" />
+                <span className="app-loader__label--sans">Loading</span>
+              </div>
             ) : items.length === 0 ? (
               <div className="cg-notifications-empty">Nothing needs you right now</div>
             ) : (

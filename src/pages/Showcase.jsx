@@ -19,6 +19,7 @@ import {
   showcasePhotoCount,
 } from '../lib/showcaseFeature';
 import { ChangeCoverModal } from '../components/features/CollectionDashboard/CoverSettings/ChangeCoverModal';
+import { AppLoader } from '../components/ui/AppLoading';
 import ShowcaseSortableGrid from '../components/features/Showcase/ShowcaseSortableGrid';
 import { getPhotoGridDisplayUrl } from '../lib/photoDisplayUrl';
 import { getDefaultCoverFocals, parseFocalPoint } from '../lib/focalPoint';
@@ -709,10 +710,7 @@ const Showcase = () => {
         ) : null}
 
         {profileLoading && user ? (
-          <div className="sc-loading">
-            <div className="sc-loading-spinner" />
-            <span>Loading your profile…</span>
-          </div>
+          <AppLoader label="Loading your profile" variant="page-short" className="sc-loading" />
         ) : null}
 
         {user && !profileLoading ? (
@@ -1003,10 +1001,7 @@ const Showcase = () => {
               </div>
 
               {collectionsLoading ? (
-                <div className="sc-loading">
-                  <div className="sc-loading-spinner" />
-                  <span>Loading deliveries…</span>
-                </div>
+                <AppLoader label="Loading deliveries" variant="page-short" className="sc-loading" />
               ) : (
                 <div className="sc-grid">
                   <ShowcaseSortableGrid
@@ -1346,10 +1341,7 @@ const Showcase = () => {
               The delivery gallery is unchanged.
             </p>
             {photosLoading ? (
-              <div className="sc-loading">
-                <div className="sc-loading-spinner" />
-                <span>Loading photographs…</span>
-              </div>
+              <AppLoader label="Loading photographs" variant="compact" className="sc-loading" />
             ) : (
               <>
                 <div className="sc-photo-toolbar">

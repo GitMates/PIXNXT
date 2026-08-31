@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { AppLoader } from '../components/ui/AppLoading';
 import SidebarLayout from '../components/SidebarLayout';
 import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
@@ -105,7 +106,7 @@ const Starred = () => {
                 contentClassName="pt-8"
             >
                 {loading ? (
-                    <div className="st-loading">Loading…</div>
+                    <AppLoader label="Loading starred items" variant="page-short" className="st-loading app-loader" />
                 ) : error ? (
                     <div className="st-loading st-loading--error">{error}</div>
                 ) : isEmpty ? (

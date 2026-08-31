@@ -12,6 +12,7 @@ import {
     userHasPasswordIdentity,
 } from '../../../lib/accountSessions';
 import { PasswordField } from '../Auth/PasswordField';
+import { AppLoader } from '../../ui/AppLoading';
 import '../../../pages/Settings.css';
 
 const DEFAULT_NOTIFICATIONS = {
@@ -424,7 +425,7 @@ export default function YourAccountPanel({ user, showToast }) {
     const hasPassword = userHasPasswordIdentity(user, loginPasswordSet);
 
     if (loading) {
-        return <div className="ya-loading">Loading account…</div>;
+        return <AppLoader label="Loading account" variant="page-short" className="ya-loading app-loader" />;
     }
 
     return (
