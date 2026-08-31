@@ -7,10 +7,37 @@ import {
     getShareUrlWarning,
 } from './publicSiteUrl';
 
+function trimTrailingSlash(url) {
+    return String(url || '').replace(/\/+$/, '');
+}
+
 export { getShareUrlWarning, getClientFacingOrigin };
 
 export function getCollectionShareUrl(slug, photographerProfile) {
     return getPublicGalleryUrl(slug, { photographerProfile });
+}
+
+/**
+ * Dashboard “Preview” — always opens on the current studio origin (localhost / pixnxt.in),
+ * not the client custom domain, and passes collection id so owners can preview draft/hidden
+ * deliveries and recover from slug drift before autosave.
+ */
+export function getStudioPreviewGalleryUrl(slug, collectionId, query = {}) {
+    const origin =
+        typeof window !== 'undefined' && window.location?.origin
+            ? window.location.origin
+            : getPublicSiteOrigin();
+    const safeSlug = String(slug || '').trim();
+    const base = safeSlug
+        ? `${trimTrailingSlash(origin)}/gallery/${encodeURIComponent(safeSlug)}`
+        : `${trimTrailingSlash(origin)}/gallery`;
+    const params = new URLSearchParams();
+    Object.entries(query || {}).forEach(([key, value]) => {
+        if (value != null && value !== '') params.set(key, String(value));
+    });
+    if (collectionId) params.set('cid', String(collectionId));
+    const qs = params.toString();
+    return qs ? `${base}?${qs}` : base;
 }
 
 /** @deprecated Use getPublicSiteOrigin — re-export for callers that need the origin only. */

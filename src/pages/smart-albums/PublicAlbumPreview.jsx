@@ -78,14 +78,16 @@ export default function PublicAlbumPreview() {
         };
 
         const onSettingsChanged = (event) => {
-            if (event.detail?.albumId === albumId) reloadAlbum();
+            const detailId = event.detail?.albumId;
+            if (!detailId) return;
+            if (detailId === albumId || detailId === album?.id) reloadAlbum();
         };
 
         window.addEventListener(ALBUM_PROOFER_SETTINGS_CHANGED_EVENT, onSettingsChanged);
         return () => {
             window.removeEventListener(ALBUM_PROOFER_SETTINGS_CHANGED_EVENT, onSettingsChanged);
         };
-    }, [albumId]);
+    }, [albumId, album?.id]);
 
     // Keep share-link pause/resume in sync while the client tab stays open (no reload needed).
     useEffect(() => {
@@ -170,12 +172,13 @@ export default function PublicAlbumPreview() {
         };
     }, [album?.id]);
 
+    // Hydrate with album UUID — share URLs use slugs but all photo/collection caches key by id.
     useEffect(() => {
-        if (album?.preview_data) {
-            hydrateAlbumPreviewData(albumId, album.preview_data);
-            mergeRemotePreviewPagesIntoLocal(albumId);
-        }
-    }, [albumId, album?.preview_data]);
+        const storageAlbumId = album?.id;
+        if (!storageAlbumId || !album?.preview_data) return;
+        hydrateAlbumPreviewData(storageAlbumId, album.preview_data);
+        mergeRemotePreviewPagesIntoLocal(storageAlbumId);
+    }, [album?.id, album?.preview_data]);
 
     // Client share links have no localStorage — hydrate collection + placements from cloud/R2.
     useEffect(() => {
@@ -200,14 +203,15 @@ export default function PublicAlbumPreview() {
     }, [album?.id, album?.photographer_id]);
 
     useEffect(() => {
+        const storageAlbumId = album?.id;
         return () => {
-            clearAlbumPreviewDataCache(albumId);
+            if (storageAlbumId) clearAlbumPreviewDataCache(storageAlbumId);
         };
-    }, [albumId]);
+    }, [album?.id]);
 
     useEffect(() => {
-        if (albumId) setPhotoRevision(getAlbumPhotoRevision(albumId) || 0);
-    }, [albumId, album?.id, album?.preview_data]);
+        if (album?.id) setPhotoRevision(getAlbumPhotoRevision(album.id) || 0);
+    }, [album?.id, album?.preview_data]);
 
     const totalPages = album?.page_count || 21;
     const spreadOpts = getAlbumSpreadOptions(album);

@@ -2217,8 +2217,7 @@ const GalleryView = () => {
   if (error || !collection) return (
     <div className="flex h-screen flex-col items-center justify-center p-6 text-center bg-white">
       <Typography variant="h2" className="mb-4">Gallery Not Found</Typography>
-      <Typography variant="muted" className="mb-8">The delivery you are looking for does not exist or is private.</Typography>
-      <a href="/" className="text-[6px] font-bold underline uppercase tracking-[0.4em]">Back to Home</a>
+      <Typography variant="muted">The delivery you are looking for does not exist or is private.</Typography>
     </div>
   );
 

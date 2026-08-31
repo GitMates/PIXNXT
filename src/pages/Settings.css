@@ -4281,6 +4281,37 @@
   margin-bottom: 14px;
 }
 
+.ya-field--nested {
+  margin-bottom: 0;
+}
+
+.ya-label--sub {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6f6760;
+  margin-bottom: 6px;
+}
+
+.ya-social-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.ya-field-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+@media (max-width: 640px) {
+  .ya-field-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 .ya-handle {
   margin: 0;
   font-size: 15px;

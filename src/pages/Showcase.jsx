@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import SidebarLayout from '../components/SidebarLayout';
-import { ClientGallerySelect } from '../components/features/ClientGallery/ClientGallerySelect';
 import { CollectionCardCover } from '../components/features/ClientGallery/CollectionCardCover';
 import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
@@ -25,7 +24,16 @@ import { getPhotoGridDisplayUrl } from '../lib/photoDisplayUrl';
 import { getDefaultCoverFocals, parseFocalPoint } from '../lib/focalPoint';
 import './Showcase.css';
 
-const MAX_FEATURED = 12;
+const MAX_FEATURED = 6;
+
+const DELIVERY_SORT_OPTIONS = [
+  { value: 'created-new', group: 'Date created', direction: 'Newest first' },
+  { value: 'created-old', group: 'Date created', direction: 'Oldest first' },
+  { value: 'event-new', group: 'Event date', direction: 'Newest first' },
+  { value: 'event-old', group: 'Event date', direction: 'Oldest first' },
+  { value: 'name-az', group: 'Name', direction: 'A → Z' },
+  { value: 'name-za', group: 'Name', direction: 'Z → A' },
+];
 const ORDER_KEY_PREFIX = 'pixnxt_showcase_order:';
 
 const formatEventShort = (dateStr) => {
@@ -200,6 +208,29 @@ function SortIcon() {
   );
 }
 
+function DeliverySortOrderPicker({ value, onChange }) {
+  return (
+    <div className="sc-sort-picker" role="radiogroup" aria-label="Delivery sort order">
+      {DELIVERY_SORT_OPTIONS.map((opt) => {
+        const active = value === opt.value;
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            className={`sc-sort-picker__option${active ? ' is-active' : ''}`}
+            onClick={() => onChange(opt.value)}
+          >
+            <span className="sc-sort-picker__group">{opt.group}</span>
+            <span className="sc-sort-picker__direction">{opt.direction}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function SettingsIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden>
@@ -223,7 +254,7 @@ const Showcase = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(null);
   const [toastMessage, setToastMessage] = useState('');
-  const [settingsOpen, setSettingsOpen] = useState(true);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [menuId, setMenuId] = useState(null);
   const [menuPos, setMenuPos] = useState(null);
   const [removeTarget, setRemoveTarget] = useState(null);
@@ -604,15 +635,6 @@ const Showcase = () => {
     });
   };
 
-  const markApproved = async (col) => {
-    closeCardMenu();
-    await patchCollection(col.id, {
-      showcase_permission: 'approved',
-      showcase_permission_at: new Date().toISOString(),
-      showcase_permission_contact: showcaseContactName(col),
-    });
-  };
-
   const moveItem = (id, direction) => {
     const ids = onPage.map((c) => String(c.id));
     const index = ids.indexOf(String(id));
@@ -646,6 +668,11 @@ const Showcase = () => {
     [profile?.address_line_1, profile?.city, profile?.state_province].filter(Boolean).join(', ') ||
     '';
   const displayWebsite = profile?.website || '';
+  const displaySocial = [profile?.social_instagram, profile?.social_facebook, profile?.social_x_twitter].some(
+    Boolean
+  )
+    ? 'From your account'
+    : 'Not set';
   const showcaseUrl = buildShowcaseUrl(profile, user);
   const showcaseHost = showcaseUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
   const initial = String(photographerName).trim().charAt(0).toUpperCase() || 'S';
@@ -671,7 +698,6 @@ const Showcase = () => {
   const menuIndex = menuCol ? onPage.findIndex((c) => String(c.id) === String(menuId)) : -1;
   const menuFeaturedIds = menuCol ? showcaseFeaturedPhotoIds(menuCol) : null;
   const menuTitle = menuCol ? showcaseDisplayName(menuCol) : '';
-  const menuContact = menuCol ? showcaseContactName(menuCol) : '';
 
   return (
     <SidebarLayout>
@@ -765,7 +791,7 @@ const Showcase = () => {
                   <p className="sc-card__desc">{bioPreview}</p>
                 </div>
                 <div className="sc-card__actions">
-                  <Link to="/settings" className="sc-btn sc-btn--outline">
+                  <Link to="/account/account" className="sc-btn sc-btn--outline">
                     Change in Profile
                   </Link>
                 </div>
@@ -773,7 +799,7 @@ const Showcase = () => {
                   <InfoIcon />
                   <span>
                     The name, mark and contact details on the page come from{' '}
-                    <Link to="/settings">Studio profile</Link> and are read-only here. They are the
+                    <Link to="/account/account">Your account</Link> and are read-only here. They are the
                     same fields the galleries, albums and invoices use — editing them in two places
                     is how one studio ends up with two names.
                   </span>
@@ -781,7 +807,7 @@ const Showcase = () => {
               </div>
             </div>
 
-            <section className="sc-settings">
+            <section className={`sc-settings${settingsOpen ? '' : ' sc-settings--collapsed'}`}>
               <header className="sc-settings__head">
                 <span className="sc-card__icon" aria-hidden>
                   <SettingsIcon />
@@ -877,22 +903,13 @@ const Showcase = () => {
                           <SortIcon />
                         </span>
                       </div>
-                      <ClientGallerySelect
+                      <DeliverySortOrderPicker
                         value={collectionSort}
                         onChange={(val) => {
                           setCollectionSort(val);
                           autoSave({ showcase_sort: val }, true);
                           persistOrder([]);
                         }}
-                        aria-label="Delivery sort order"
-                        options={[
-                          { value: 'created-new', label: 'Date created: New to Old' },
-                          { value: 'created-old', label: 'Date created: Old to New' },
-                          { value: 'event-new', label: 'Event Date: New to Old' },
-                          { value: 'event-old', label: 'Event Date: Old to New' },
-                          { value: 'name-az', label: 'Name: A → Z' },
-                          { value: 'name-za', label: 'Name: Z → A' },
-                        ]}
                       />
                       <p className="sc-help-text">Dragging on this page overrides the default.</p>
                     </div>
@@ -925,7 +942,8 @@ const Showcase = () => {
                         <div className="sc-setting-block__meta">
                           <h3 className="sc-setting-block__title">What visitors see</h3>
                           <p className="sc-setting-block__hint">
-                            Contact details come from your Studio profile.
+                            Contact details come from{' '}
+                            <Link to="/account/account">Your account</Link>.
                           </p>
                         </div>
                       </div>
@@ -946,7 +964,7 @@ const Showcase = () => {
                             autoSave({ show_social: v }, true);
                           }}
                           label="Social links"
-                          sublabel="From Profile"
+                          sublabel={displaySocial}
                         />
                         <InfoTile
                           checked={showWebsite}
@@ -997,7 +1015,7 @@ const Showcase = () => {
                   <span>On the page</span>
                   <span className="sc-onpage__count">{onPageCount}</span>
                 </div>
-                <p className="sc-onpage__hint">Drag to reorder · or use the ··· menu</p>
+                <p className="sc-onpage__hint">Drag to reorder</p>
               </div>
 
               {collectionsLoading ? (
@@ -1128,14 +1146,7 @@ const Showcase = () => {
                   </div>
                 );
               }
-              return (
-                <div className="sc-hatch-note">
-                  <p>
-                    Use <strong>+ Feature work</strong> or an empty <strong>Feature work here</strong>{' '}
-                    slot. Drag cards to reorder. Ask permission from the ··· menu when you are ready.
-                  </p>
-                </div>
-              );
+              return null;
             })()}
           </>
         ) : null}
@@ -1211,46 +1222,6 @@ const Showcase = () => {
                   → {Math.min(onPage.length, menuIndex + 2)}
                 </span>
               </button>
-
-              <div className="sc-menu__rule" />
-
-              {showcasePermission(menuCol) === 'approved' ? (
-                <button
-                  type="button"
-                  className="sc-menu__item"
-                  onClick={() => void askPermission(menuCol, { remind: false })}
-                >
-                  <span className="sc-menu__title">Ask again for permission</span>
-                  <span className="sc-menu__sub">{menuContact} already said yes</span>
-                </button>
-              ) : showcasePermission(menuCol) === 'asked' ? (
-                <>
-                  <button
-                    type="button"
-                    className="sc-menu__item"
-                    onClick={() => void askPermission(menuCol, { remind: true })}
-                  >
-                    <span className="sc-menu__title">Remind {menuContact}</span>
-                    <span className="sc-menu__sub">Opens email with a nudge</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="sc-menu__item"
-                    onClick={() => void markApproved(menuCol)}
-                  >
-                    <span className="sc-menu__title">Mark as approved</span>
-                    <span className="sc-menu__sub">{menuContact} said yes</span>
-                  </button>
-                </>
-              ) : (
-                <button
-                  type="button"
-                  className="sc-menu__item"
-                  onClick={() => void askPermission(menuCol)}
-                >
-                  <span className="sc-menu__title">Ask {menuContact} for permission</span>
-                </button>
-              )}
 
               <button
                 type="button"

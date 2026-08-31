@@ -540,24 +540,26 @@
 }
 
 /* Dropzone */
-.theme-mono.cd-dashboard-shell .cd-dropzone {
-  border: 1px dashed #d4d4d8 !important;
-  border-radius: 0.75rem !important;
-  background-color: var(--cd-inset) !important;
-  box-shadow:
-    inset 3px 3px 7px oklch(0.4 0.01 70 / 0.06),
-    inset -3px -3px 7px oklch(1 0.004 85 / 0.85) !important;
+.theme-mono.cd-dashboard-shell .cd-dropzone,
+.theme-mono.cd-dashboard-shell .cd-modal-dropzone {
+  border: 1px dashed #d8d3cc !important;
+  border-radius: 12px !important;
+  background-color: #ffffff !important;
+  box-shadow: none !important;
 }
 
 .theme-mono.cd-dashboard-shell .cd-dropzone:hover,
-.theme-mono.cd-dashboard-shell .cd-dropzone.dragging {
-  border-color: var(--cd-muted) !important;
-  background-color: var(--cd-inset) !important;
+.theme-mono.cd-dashboard-shell .cd-dropzone.dragging,
+.theme-mono.cd-dashboard-shell .cd-modal-dropzone:hover,
+.theme-mono.cd-dashboard-shell .cd-modal-dropzone.dragging {
+  border-color: #c4b8a8 !important;
+  background-color: #ffffff !important;
 }
 
-.theme-mono.cd-dashboard-shell .cd-browse-link {
-  color: var(--cd-foreground) !important;
-  font-weight: 600 !important;
+.theme-mono.cd-dashboard-shell .cd-dropzone.dragging,
+.theme-mono.cd-dashboard-shell .cd-modal-dropzone.dragging {
+  border-color: #c46a3a !important;
+  background-color: #fdfaf7 !important;
 }
 
 /* Toggles */

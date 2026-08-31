@@ -360,10 +360,11 @@
   align-items: center;
   gap: 18px;
   margin-top: 22px;
-  padding: 8px 0 24px;
+  padding: 8px 0 20px;
   min-height: 104px;
-  border-bottom: 1px solid #eceae6;
   overflow: visible;
+  position: relative;
+  z-index: 2;
 }
 
 .cdpw-people__label {
@@ -536,16 +537,18 @@
   flex-shrink: 0;
   border: 1px dashed #cccccc;
   border-radius: 50%;
-  background: #fff;
+  background: #fbf9f6;
   font-family: inherit;
   font-size: 12px;
   font-weight: 500;
   color: #999999;
   cursor: pointer;
+  position: relative;
+  z-index: 1;
 }
 
 .cdpw-person__overflow:hover {
-  background: #fafafa;
+  background: #f5f2ed;
   border-color: #b0b0b0;
   color: #666666;
 }
@@ -637,9 +640,11 @@
   height: 60px;
   border-radius: 50%;
   border: 1px dashed #cccccc;
-  background: #fafafa;
+  background: #fbf9f6;
   color: #666666;
   overflow: hidden;
+  position: relative;
+  z-index: 1;
 }
 
 .cdpw-person__btn--find:hover:not(:disabled) .cdpw-person__avatar-wrap--find {

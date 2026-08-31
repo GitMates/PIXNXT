@@ -668,7 +668,7 @@ export async function loadAlbumAssetsFromCloud(albumId, photographerId) {
         return { collection: [], loaded: false };
     }
 
-    let previewData = null;
+    let previewData = getRemotePreviewData(albumId) || null;
     let repairedFromServer = false;
 
     try {

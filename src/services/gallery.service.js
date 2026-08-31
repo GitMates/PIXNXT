@@ -1267,10 +1267,13 @@ export const galleryService = {
 
   /**
    * Fetch a single published collection by slug (public gallery / QR).
+   * Studio preview may pass `collectionId` (`cid` query) to load the owner's delivery
+   * regardless of publish status or slug autosave lag.
    */
-  async getCollectionBySlug(slug) {
+  async getCollectionBySlug(slug, options = {}) {
     const normalized = decodeURIComponent(String(slug || '').trim());
-    if (!normalized) return null;
+    const studioCollectionId = options.collectionId || null;
+    if (!normalized && !studioCollectionId) return null;
 
     const select = `
         *,
@@ -1301,31 +1304,81 @@ export const galleryService = {
         )
       `;
 
-    const baseQuery = () =>
+    const sortGalleryRows = (row) => {
+      if (!row) return row;
+      if (row.photos) {
+        row.photos.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+      }
+      if (row.sets) {
+        row.sets.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+      }
+      return row;
+    };
+
+    const basePublishedQuery = () =>
       supabase
         .from('deliveries')
         .select(select)
         .eq('status', 'published');
 
-    let { data, error } = await baseQuery().eq('slug', normalized).maybeSingle();
+    let data = null;
+    let error = null;
 
-    if (!data && !error) {
-      const fallback = await baseQuery().ilike('slug', normalized).maybeSingle();
-      data = fallback.data;
-      error = fallback.error;
+    if (normalized) {
+      let result = await basePublishedQuery().eq('slug', normalized).maybeSingle();
+      data = result.data;
+      error = result.error;
+      if (!data && !error) {
+        const fallback = await basePublishedQuery().ilike('slug', normalized).maybeSingle();
+        data = fallback.data;
+        error = fallback.error;
+      }
     }
 
     if (error) throw error;
+
+    if (!data && studioCollectionId) {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const userId = sessionData?.session?.user?.id;
+      if (userId) {
+        const ownerById = await supabase
+          .from('deliveries')
+          .select(select)
+          .eq('id', studioCollectionId)
+          .eq('photographer_id', userId)
+          .maybeSingle();
+        if (ownerById.error) throw ownerById.error;
+        data = ownerById.data;
+      }
+    }
+
+    if (!data && normalized) {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const userId = sessionData?.session?.user?.id;
+      if (userId) {
+        let ownerBySlug = await supabase
+          .from('deliveries')
+          .select(select)
+          .eq('photographer_id', userId)
+          .eq('slug', normalized)
+          .maybeSingle();
+        if (ownerBySlug.error) throw ownerBySlug.error;
+        data = ownerBySlug.data;
+        if (!data) {
+          const ownerIlike = await supabase
+            .from('deliveries')
+            .select(select)
+            .eq('photographer_id', userId)
+            .ilike('slug', normalized)
+            .maybeSingle();
+          if (ownerIlike.error) throw ownerIlike.error;
+          data = ownerIlike.data;
+        }
+      }
+    }
+
     if (!data) return null;
-
-    if (data.photos) {
-      data.photos.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
-    }
-    if (data.sets) {
-      data.sets.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
-    }
-
-    return data;
+    return sortGalleryRows(data);
   },
 
   // ─── SET CRUD ──────────────────────────────────────────────
