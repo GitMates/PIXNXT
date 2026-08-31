@@ -1,7 +1,7 @@
 import { clusterFacesForCollection } from './clusterFaces.js';
 import { isIndexedSnapshotFresh } from './cacheFreshness.js';
-import { applyGuestLabelsToPeople, loadGuestDeliveryGuestsForCollection } from './applyGuestLabels.js';
-import { resolveFaceAvatarDisplayUrl } from './faceUtils.js';
+import { applyGuestLabelsToPeople, loadGuestDeliveryGuestsForCollection, applyGuestSelfieAvatarsForCollection } from './applyGuestLabels.js';
+import { resolveFaceAvatarDisplayUrl, pickBestAvatarFace } from './faceUtils.js';
 
 const PEOPLE_TABLE = 'photo_ai_people';
 const CLUSTER_STATE_TABLE = 'photo_ai_cluster_state';
@@ -87,6 +87,20 @@ async function attachPhotoUrls(supabase, people) {
   );
 
   return people.map((person) => {
+    if (person.guestSelfieUrl || person.avatarSource === 'guest_selfie') {
+      return {
+        id: person.id,
+        faceIds: person.faceIds,
+        photoIds: person.photoIds,
+        label: person.label,
+        count: person.count ?? person.photoIds.length,
+        imageUrl: person.guestSelfieUrl || person.imageUrl || null,
+        boundingBox: null,
+        guestSelfieUrl: person.guestSelfieUrl || person.imageUrl || null,
+        avatarSource: 'guest_selfie',
+      };
+    }
+
     const avatarPhotoId = person.avatarFace?.photoId || person.avatarPhotoId;
     return {
       id: person.id,
@@ -134,7 +148,16 @@ export async function loadPeopleFromDb(supabase, collectionId, { includeHidden =
     isHidden: Boolean(row.is_hidden),
   }));
 
-  const withUrls = await attachPhotoUrls(supabase, people);
+  let withBestAvatars = people;
+  try {
+    const faceEntryById = await loadFaceEntryMap(supabase, collectionId);
+    withBestAvatars = refreshPeopleAvatars(people, faceEntryById);
+    withBestAvatars = await applyGuestSelfieAvatarsForCollection(supabase, collectionId, withBestAvatars);
+  } catch (err) {
+    console.warn('[peopleCache] avatar refresh skipped:', err?.message || err);
+  }
+
+  const withUrls = await attachPhotoUrls(supabase, withBestAvatars);
   return { missingTables: false, people: withUrls };
 }
 
@@ -218,6 +241,47 @@ function buildFaceEntries(metadataRows) {
     }
   }
   return faceEntries;
+}
+
+function buildFaceEntryMap(metadataRows) {
+  const map = new Map();
+  for (const entry of buildFaceEntries(metadataRows)) {
+    map.set(entry.faceId, entry);
+  }
+  return map;
+}
+
+/** Re-score every face in a cluster and pick the best full-face portrait thumbnail. */
+function refreshPeopleAvatars(people, faceEntryById) {
+  if (!faceEntryById?.size) return people;
+
+  return people.map((person) => {
+    if (person.guestSelfieUrl || person.avatarSource === 'guest_selfie') return person;
+
+    let best = null;
+    for (const faceId of person.faceIds || []) {
+      const entry = faceEntryById.get(faceId);
+      if (entry) best = pickBestAvatarFace(best, entry);
+    }
+    if (!best) return person;
+
+    return {
+      ...person,
+      avatarPhotoId: best.photoId,
+      boundingBox: best.boundingBox,
+      avatarFace: best,
+    };
+  });
+}
+
+async function loadFaceEntryMap(supabase, collectionId) {
+  const { data: metadataRows, error } = await supabase
+    .from('photo_ai_metadata')
+    .select('photo_id, faces')
+    .eq('collection_id', collectionId);
+
+  if (error) throw error;
+  return buildFaceEntryMap(metadataRows);
 }
 
 export async function clusterAndPersistPeople(supabase, collectionId, photographerId) {

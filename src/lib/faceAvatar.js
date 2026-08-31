@@ -1,4 +1,4 @@
-import { expandBoundingBoxForDisplay } from './faceAvatarMath.js';
+import { expandBoundingBoxForPortraitAvatar } from './faceAvatarMath.js';
 
 /**
  * Build inline styles for a circular face crop from Rekognition bounding box (0–1).
@@ -12,13 +12,13 @@ export function buildFaceAvatarStyle(imageUrl, boundingBox, size = 72) {
     return { width: size, height: size };
   }
 
-  const box = expandBoundingBoxForDisplay(boundingBox);
+  const box = expandBoundingBoxForPortraitAvatar(boundingBox);
   const cx = (box.Left + box.Width / 2) * 100;
   const cy = (box.Top + box.Height / 2) * 100;
-  const faceSpan = Math.max(box.Width, box.Height, 0.2);
-  const padding = 2.15;
-  const rawPercent = (100 / faceSpan) * padding;
-  const bgSize = `${Math.min(360, Math.max(210, rawPercent))}%`;
+  const side = Math.max(box.Width, box.Height, 0.1);
+  const fillRatio = 0.9;
+  const bgSizePct = (100 / side) * fillRatio;
+  const bgSize = `${Math.min(480, Math.max(160, bgSizePct))}%`;
 
   return {
     width: size,

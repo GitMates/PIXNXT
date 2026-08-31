@@ -86,6 +86,7 @@ import '../components/features/CollectionDashboard/Activity/ActivityFeed.css';
 import '../components/features/CollectionDashboard/Settings/Settings.css';
 import { ActivityView } from '../components/features/CollectionDashboard/Activity/ActivityView';
 import { guestDeliveryGuestsService } from '../services/guestDeliveryGuests.service';
+import { DeliveryDashboardLoader } from '../components/features/CollectionDashboard/DeliveryDashboardLoader';
 import { DownloadSettings } from '../components/features/CollectionDashboard/Settings/DownloadSettings';
 import { FavoriteSettings } from '../components/features/CollectionDashboard/Settings/FavoriteSettings';
 import { GeneralSettings } from '../components/features/CollectionDashboard/Settings/GeneralSettings';
@@ -4735,14 +4736,7 @@ const CollectionDashboard = () => {
     };
 
     if (loading) {
-        return (
-            <div className="theme-mono cd-dashboard-shell flex h-screen items-center justify-center bg-[#F9F9F7]">
-                <div className="flex flex-col items-center gap-4">
-                    <div className="w-12 h-12 border-4 border-[#111111] border-t-transparent rounded-full animate-spin"></div>
-                    <p className="text-[#111111] font-medium tracking-widest uppercase text-[16px]">Loading Delivery...</p>
-                </div>
-            </div>
-        );
+        return <DeliveryDashboardLoader />;
     }
 
     if (error || !collection) {

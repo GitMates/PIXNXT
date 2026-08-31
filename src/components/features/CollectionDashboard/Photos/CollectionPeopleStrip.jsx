@@ -135,6 +135,7 @@ export function CollectionPeopleStrip({
                     <PersonFaceAvatar
                       imageUrl={person.imageUrl}
                       boundingBox={person.boundingBox}
+                      avatarSource={person.avatarSource}
                       size={AVATAR_SIZE}
                       variant="strip"
                     />

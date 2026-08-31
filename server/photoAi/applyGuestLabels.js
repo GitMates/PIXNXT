@@ -17,8 +17,6 @@ function overlapCount(a, b) {
 }
 
 function findBestCluster(people, faceIds, photoIds) {
-  const faceSet = new Set(faceIds || []);
-  const photoSet = new Set(photoIds || []);
   let best = null;
   let bestScore = 0;
 
@@ -35,6 +33,69 @@ function findBestCluster(people, faceIds, photoIds) {
   return bestScore > 0 ? best : null;
 }
 
+function applyGuestSelfieToCluster(cluster, guest) {
+  const selfieUrl = String(guest?.selfie_url || '').trim();
+  if (!cluster || !selfieUrl) return;
+  cluster.guestSelfieUrl = selfieUrl;
+  cluster.imageUrl = selfieUrl;
+  cluster.boundingBox = null;
+  cluster.avatarSource = 'guest_selfie';
+  cluster.avatarPhotoId = null;
+}
+
+export function applyGuestSelfieAvatarsToPeople(people, guests, matchRows) {
+  if (!people?.length) return people || [];
+
+  const guestList = (guests || []).filter((g) => String(g?.selfie_url || '').trim());
+  if (!guestList.length) return people;
+
+  const nextPeople = people.map((p) => ({ ...p }));
+  const matchesByGuest = new Map();
+  for (const row of matchRows || []) {
+    if (!matchesByGuest.has(row.guest_id)) matchesByGuest.set(row.guest_id, []);
+    matchesByGuest.get(row.guest_id).push(row);
+  }
+
+  for (const guest of guestList) {
+    const guestName = String(guest.name || '').trim();
+    const rows = matchesByGuest.get(guest.id) || [];
+    let cluster = null;
+
+    if (rows.length) {
+      const photoIds = rows.map((r) => r.photo_id).filter(Boolean);
+      const faceIds = rows.map((r) => r.face_id).filter(Boolean);
+      cluster = findBestCluster(nextPeople, faceIds, photoIds);
+    }
+
+    if (!cluster && guestName) {
+      cluster = nextPeople.find((p) => String(p.label || '').trim() === guestName);
+    }
+
+    if (!cluster) continue;
+
+    if (guestName && isPlaceholderLabel(cluster.label)) {
+      cluster.label = guestName;
+    }
+    applyGuestSelfieToCluster(cluster, guest);
+  }
+
+  return nextPeople;
+}
+
+export async function applyGuestSelfieAvatarsForCollection(supabase, collectionId, people) {
+  if (!collectionId || !people?.length) return people || [];
+
+  try {
+    const { guests } = await loadGuestDeliveryGuestsForCollection(supabase, collectionId);
+    if (!guests.length) return people;
+    const matchRows = await loadStoredGuestMatches(supabase, guests.map((g) => g.id));
+    return applyGuestSelfieAvatarsToPeople(people, guests, matchRows);
+  } catch (err) {
+    console.warn('[applyGuestLabels] guest selfie avatars skipped:', err?.message || err);
+    return people;
+  }
+}
+
 async function loadStoredGuestMatches(supabase, guestIds) {
   if (!guestIds.length) return [];
   const { data, error } = await supabase
@@ -48,42 +109,14 @@ async function loadStoredGuestMatches(supabase, guestIds) {
   return data || [];
 }
 
-/**
- * Apply guest names from persisted event_guest_matches (no Rekognition round-trip).
- */
 export async function applyGuestLabelsFromStoredMatches(supabase, collectionId, people) {
   if (!collectionId || !people?.length) return people || [];
 
   const { guests } = await loadGuestDeliveryGuestsForCollection(supabase, collectionId);
   if (!guests.length) return people;
 
-  const guestById = new Map(guests.map((g) => [g.id, g]));
   const matchRows = await loadStoredGuestMatches(supabase, guests.map((g) => g.id));
-  if (!matchRows.length) return people;
-
-  const nextPeople = people.map((p) => ({ ...p }));
-  const matchesByGuest = new Map();
-  for (const row of matchRows) {
-    if (!matchesByGuest.has(row.guest_id)) matchesByGuest.set(row.guest_id, []);
-    matchesByGuest.get(row.guest_id).push(row);
-  }
-
-  for (const [guestId, rows] of matchesByGuest) {
-    const guest = guestById.get(guestId);
-    const guestName = String(guest?.name || '').trim();
-    if (!guestName) continue;
-
-    const photoIds = rows.map((r) => r.photo_id).filter(Boolean);
-    const faceIds = rows.map((r) => r.face_id).filter(Boolean);
-    const cluster = findBestCluster(nextPeople, faceIds, photoIds);
-    if (!cluster) continue;
-
-    if (isPlaceholderLabel(cluster.label)) {
-      cluster.label = guestName;
-    }
-  }
-
-  return nextPeople;
+  return applyGuestSelfieAvatarsToPeople(people, guests, matchRows);
 }
 
 export async function loadGuestDeliveryGuestsForCollection(supabase, collectionId) {
@@ -147,8 +180,11 @@ async function persistGuestMatchResult(supabase, eventId, guest, matchResult) {
   if (guestError) throw guestError;
 }
 
-function applyGuestNameToCluster(nextPeople, guestName, matchResult, claimedClusterIds) {
+function applyGuestNameToCluster(nextPeople, guest, matchResult, claimedClusterIds) {
   if (!matchResult?.matched) return;
+
+  const guestName = String(guest?.name || '').trim();
+  if (!guestName) return;
 
   const cluster = findBestCluster(
     nextPeople,
@@ -163,6 +199,7 @@ function applyGuestNameToCluster(nextPeople, guestName, matchResult, claimedClus
   }
 
   cluster.label = guestName;
+  applyGuestSelfieToCluster(cluster, guest);
   claimedClusterIds.add(cluster.id);
 }
 
@@ -206,7 +243,7 @@ export async function applyGuestLabelsToPeople(
         threshold,
       });
 
-      applyGuestNameToCluster(nextPeople, guestName, matchResult, claimedClusterIds);
+      applyGuestNameToCluster(nextPeople, guest, matchResult, claimedClusterIds);
 
       if (syncGuestMatches) {
         try {

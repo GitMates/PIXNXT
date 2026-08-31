@@ -193,6 +193,7 @@ export function CollectionPhotoAiToolbar({
                     <PersonFaceAvatar
                       imageUrl={person.imageUrl}
                       boundingBox={person.boundingBox}
+                      avatarSource={person.avatarSource}
                       size={72}
                     />
                     <span className="cd-photo-ai-person-name">{person.label}</span>

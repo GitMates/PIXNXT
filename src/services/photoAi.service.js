@@ -1,6 +1,8 @@
 import { supabase } from '../lib/supabase/client';
 import { isIndexedSnapshotFresh, maxIndexedAtFromRows } from '../lib/photoAiCacheFreshness';
 import { broadcastPersonLabelUpdate } from '../lib/galleryLiveSync';
+import { refreshPeopleAvatars } from '../lib/faceAvatarMath';
+import { applyGuestSelfieAvatarsForCollection } from '../lib/guestPeopleAvatars';
 
 async function authHeaders() {
   const { data } = await supabase.auth.getSession();
@@ -82,6 +84,14 @@ async function attachAvatarUrls(people) {
   );
 
   return people.map((person) => {
+    if (person.guestSelfieUrl || person.avatarSource === 'guest_selfie') {
+      return {
+        ...person,
+        imageUrl: person.guestSelfieUrl || person.imageUrl || null,
+        boundingBox: null,
+      };
+    }
+
     const avatarPhotoId = person.avatarPhotoId || person.photoIds?.[0] || null;
     return {
       ...person,
@@ -197,7 +207,16 @@ export const photoAiService = {
       isHidden: Boolean(row.is_hidden),
     }));
 
-    const withUrls = await attachAvatarUrls(people);
+    let withBestAvatars = people;
+    try {
+      const { rows: metadataRows } = await this.getMetadataForCollection(collectionId);
+      withBestAvatars = refreshPeopleAvatars(people, metadataRows);
+      withBestAvatars = await applyGuestSelfieAvatarsForCollection(supabase, collectionId, withBestAvatars);
+    } catch (err) {
+      console.warn('[photoAi] avatar refresh skipped:', err?.message || err);
+    }
+
+    const withUrls = await attachAvatarUrls(withBestAvatars);
     return { people: withUrls, tableMissing: false };
   },
 

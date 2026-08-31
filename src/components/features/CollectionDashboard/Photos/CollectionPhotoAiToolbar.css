@@ -360,6 +360,11 @@
   object-fit: cover;
 }
 
+.cd-person-face-avatar--selfie img {
+  object-fit: cover;
+  object-position: center 20%;
+}
+
 .cd-person-face-avatar--empty {
   background: linear-gradient(135deg, #eceae6, #d4d4d8);
 }

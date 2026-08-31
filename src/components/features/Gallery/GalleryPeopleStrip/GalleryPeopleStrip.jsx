@@ -100,6 +100,7 @@ export function GalleryPeopleStrip({
                 <PersonFaceAvatar
                   imageUrl={person.imageUrl}
                   boundingBox={person.boundingBox}
+                  avatarSource={person.avatarSource}
                   size={64}
                   className="gallery-people-strip__avatar"
                 />
