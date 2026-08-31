@@ -14,21 +14,28 @@ import {
   isGifMedia,
   deriveStoragePathVariants,
 } from './photoDisplayUrl';
+import { resolveCrossOriginMediaUrl } from './r2MediaProxy';
+
+/** Client-facing store URLs — proxied on photographer custom domains (R2 CORS). */
+function resolveStoreViewUrl(url) {
+  if (!url) return '';
+  return resolveCrossOriginMediaUrl(resolveMediaUrl(url));
+}
 
 /** Fast mid-res URL for on-screen store / purchase UI. */
 export function getStoreViewPhotoUrl(photo) {
   if (!photo) return '';
-  if (typeof photo === 'string') return resolveMediaUrl(photo);
+  if (typeof photo === 'string') return resolveStoreViewUrl(photo);
   if (isVideoMedia(photo)) {
-    return resolveMediaUrl(photo.web_url || photo.full_url || photo.url || '');
+    return resolveStoreViewUrl(photo.web_url || photo.full_url || photo.url || '');
   }
   if (isRawMedia(photo)) {
     return (
-      getRawPreviewUrl(photo) ||
-      resolveMediaUrl(photo.web_url || photo.thumbnail_url || photo.display_url || '')
+      resolveStoreViewUrl(getRawPreviewUrl(photo)) ||
+      resolveStoreViewUrl(photo.web_url || photo.thumbnail_url || photo.display_url || '')
     );
   }
-  return resolveMediaUrl(
+  return resolveStoreViewUrl(
     photo.web_url ||
       photo.display_url ||
       photo.thumbnail_url ||
@@ -65,18 +72,25 @@ export function getStoreOriginalPhotoUrl(photo) {
 export function toStoreCartPhoto(photo) {
   if (!photo) return null;
   if (typeof photo === 'string') {
-    const url = resolveMediaUrl(photo);
-    return { url, web_url: url, display_url: url, full_url: url, thumbnail_url: url };
+    const url = resolveStoreViewUrl(photo);
+    const absolute = resolveMediaUrl(photo);
+    return {
+      url,
+      web_url: url,
+      display_url: url,
+      full_url: absolute,
+      thumbnail_url: url,
+    };
   }
   const viewUrl = getStoreViewPhotoUrl(photo);
-  const originalUrl = getStoreOriginalPhotoUrl(photo) || viewUrl;
+  const originalUrl = getStoreOriginalPhotoUrl(photo) || resolveMediaUrl(photo.full_url || photo.url || '') || viewUrl;
   return {
     ...photo,
     url: viewUrl,
     display_url: viewUrl,
-    web_url: photo.web_url ? resolveMediaUrl(photo.web_url) : viewUrl,
+    web_url: photo.web_url ? resolveStoreViewUrl(photo.web_url) : viewUrl,
     thumbnail_url: photo.thumbnail_url
-      ? resolveMediaUrl(photo.thumbnail_url)
+      ? resolveStoreViewUrl(photo.thumbnail_url)
       : viewUrl,
     full_url: photo.full_url ? resolveMediaUrl(photo.full_url) : originalUrl,
   };

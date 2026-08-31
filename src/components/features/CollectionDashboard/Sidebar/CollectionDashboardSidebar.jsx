@@ -17,14 +17,15 @@ import { navigateToAccount } from '../../../../lib/accountBackNav';
 import { SidebarCoverUpload } from '../CoverSettings/SidebarCoverUpload';
 import './CollectionDashboardSidebar.css';
 
-function PhotosGridIcon({ className, ...props }) {
+function GripIcon({ className }) {
   return (
-    <svg className={className} viewBox="0 0 16 16" fill="currentColor" aria-hidden {...props}>
-      {[0, 1, 2].map((row) =>
-        [0, 1, 2].map((col) => (
-          <circle key={`${row}-${col}`} cx={3 + col * 5} cy={3 + row * 5} r="1.2" />
-        ))
-      )}
+    <svg className={className} viewBox="0 0 16 16" fill="currentColor" aria-hidden>
+      <circle cx="5" cy="4" r="1.1" />
+      <circle cx="11" cy="4" r="1.1" />
+      <circle cx="5" cy="8" r="1.1" />
+      <circle cx="11" cy="8" r="1.1" />
+      <circle cx="5" cy="12" r="1.1" />
+      <circle cx="11" cy="12" r="1.1" />
     </svg>
   );
 }
@@ -32,6 +33,30 @@ function PhotosGridIcon({ className, ...props }) {
 function formatCount(n) {
   const value = Number(n) || 0;
   return value.toLocaleString();
+}
+
+function formatMediaSummary(photoCount = 0, videoCount = 0) {
+  const parts = [];
+  const photos = Number(photoCount) || 0;
+  const films = Number(videoCount) || 0;
+  if (photos > 0) parts.push(`${formatCount(photos)} ${photos === 1 ? 'photo' : 'photos'}`);
+  if (films > 0) parts.push(`${formatCount(films)} ${films === 1 ? 'film' : 'films'}`);
+  if (!parts.length) return '0 photos';
+  return parts.join(' · ');
+}
+
+function MediaSectionHeader({ active, summary, onClick }) {
+  return (
+    <button
+      type="button"
+      className={cn('cdsb-media-header', active && 'cdsb-media-header--active')}
+      onClick={onClick}
+      aria-current={active ? 'page' : undefined}
+    >
+      <span className="cdsb-media-header__label">Media</span>
+      <span className="cdsb-media-header__summary">{summary}</span>
+    </button>
+  );
 }
 
 const SETTINGS_TABS = [
@@ -99,6 +124,9 @@ function SetRow({
       onDragEnd={onSetDragEnd}
       onDrop={(e) => onSetDrop?.(e, index)}
     >
+      <span className="cdsb-set-row__grip" aria-hidden>
+        <GripIcon className="cdsb-set-row__grip-icon" />
+      </span>
       <button
         type="button"
         className={cn('cdsb-set-row', isActive && 'cdsb-set-row--active')}
@@ -106,7 +134,7 @@ function SetRow({
       >
         <span className="cdsb-set-row__label">{set.name}</span>
         {hidden ? <EyeOff className="cdsb-set-row__hidden" size={13} aria-label="Hidden from client" /> : null}
-        <span className="cdsb-set-row__count">{formatCount(set.photoCount)}</span>
+        <span className="cdsb-set-row__count">{formatCount(set.mediaCount ?? set.photoCount ?? 0)}</span>
       </button>
       <div className="cdsb-set-row__menu cd-set-menu-wrapper">
         <button
@@ -172,6 +200,7 @@ export function CollectionDashboardSidebar({
   activeActivitySubTab,
   onActivitySubTabChange,
   photoCount = 0,
+  videoCount = 0,
   guestCount = 0,
   activityCount = 0,
   guestDeliveryEnabled = false,
@@ -240,8 +269,11 @@ export function CollectionDashboardSidebar({
     return null;
   };
 
-  const visibleSetCount = sortedSidebarSets.filter((s) => s.isPrivate !== true).length;
-  const totalSetCount = sortedSidebarSets.length;
+  const namedSetCount = sortedSidebarSets.filter((s) => !s.isHighlights).length;
+  const visibleNamedSetCount = sortedSidebarSets.filter(
+    (s) => !s.isHighlights && s.isPrivate !== true
+  ).length;
+  const mediaSummary = formatMediaSummary(photoCount, videoCount);
 
   const photosActive = activeSidebarTab === 'photos';
   const designActive = activeSidebarTab === 'design';
@@ -266,51 +298,44 @@ export function CollectionDashboardSidebar({
       <div className="cdsb__scroll">
 
         <nav className="cdsb-nav" aria-label="Delivery navigation">
-          <p className="cdsb-nav__section">Media</p>
-
           <div className={cn('cdsb-photos-panel', photosActive && 'cdsb-photos-panel--active')}>
-            <NavItem
+            <MediaSectionHeader
               active={photosActive}
-              icon={PhotosGridIcon}
-              label="Photo set"
-              count={photoCount}
-              className="cdsb-nav-item--photos"
+              summary={mediaSummary}
               onClick={() => onSidebarTabChange('photos')}
             />
-            {photosActive ? (
-              <>
-                <div className="cdsb-tree">
-                  {sortedSidebarSets.map((set, index) => {
-                    const isActive = set.isHighlights ? !activeSetId : activeSetId === set.id;
-                    return (
-                      <SetRow
-                        key={set.id}
-                        set={set}
-                        index={index}
-                        isActive={isActive}
-                        draggedSetIndex={draggedSetIndex}
-                        dragOverSetIndex={dragOverSetIndex}
-                        onSetDragStart={onSetDragStart}
-                        onSetDragOver={onSetDragOver}
-                        onSetDragEnd={onSetDragEnd}
-                        onSetDrop={onSetDrop}
-                        onSetSelect={onSetSelect}
-                        onSetMenuToggle={onSetMenuToggle}
-                        showSetMenu={showSetMenu}
-                        renderSetMenu={renderSetMenu}
-                      />
-                    );
-                  })}
-                </div>
-                <button type="button" className="cdsb-add-set" onClick={onAddSet}>
-                  + Add set
-                </button>
-                {totalSetCount > 0 ? (
-                  <p className="cdsb-visible-sets">
-                    {visibleSetCount} of {totalSetCount} sets visible to your client
-                  </p>
-                ) : null}
-              </>
+            <div className="cdsb-tree cdsb-tree--media">
+              {sortedSidebarSets.map((set, index) => {
+                const isActive =
+                  photosActive &&
+                  (set.isHighlights ? !activeSetId : activeSetId === set.id);
+                return (
+                  <SetRow
+                    key={set.id}
+                    set={set}
+                    index={index}
+                    isActive={isActive}
+                    draggedSetIndex={draggedSetIndex}
+                    dragOverSetIndex={dragOverSetIndex}
+                    onSetDragStart={onSetDragStart}
+                    onSetDragOver={onSetDragOver}
+                    onSetDragEnd={onSetDragEnd}
+                    onSetDrop={onSetDrop}
+                    onSetSelect={onSetSelect}
+                    onSetMenuToggle={onSetMenuToggle}
+                    showSetMenu={showSetMenu}
+                    renderSetMenu={renderSetMenu}
+                  />
+                );
+              })}
+            </div>
+            <button type="button" className="cdsb-add-set" onClick={onAddSet}>
+              + Add set
+            </button>
+            {namedSetCount > 0 ? (
+              <p className="cdsb-visible-sets">
+                {visibleNamedSetCount} of {namedSetCount} sets visible to your client
+              </p>
             ) : null}
           </div>
 

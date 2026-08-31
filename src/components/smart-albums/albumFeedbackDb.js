@@ -1,5 +1,10 @@
 import { supabase } from '../../lib/supabase/client';
 import { storageService } from '../../services/storage.service';
+import {
+    buildUserModulePath,
+    getPhotographerR2Folder,
+    R2_USER_MODULES,
+} from '../../lib/photographerR2Folder';
 
 /** Shared helpers for album proofing feedback persisted in Supabase. */
 
@@ -83,7 +88,20 @@ export async function resolveCommentAttachmentForDb(
             : 'jpg');
     const filename =
         attachmentName || (type === 'audio' ? `voice-message.${ext}` : `attachment.${ext}`);
-    const path = `album-proofer/${albumId}/feedback/${crypto.randomUUID()}.${ext}`;
+
+    const { data: albumRow } = await supabase
+        .from('album_proofer_albums')
+        .select('photographer_id')
+        .eq('id', albumId)
+        .maybeSingle();
+    const photographerFolder = await getPhotographerR2Folder(albumRow?.photographer_id);
+    const path = buildUserModulePath(
+        photographerFolder,
+        R2_USER_MODULES.ALBUM_PROOFER,
+        albumId,
+        'feedback',
+        `${crypto.randomUUID()}.${ext}`
+    );
     const file = new File([blob], filename, { type: blob.type || undefined });
     const uploaded = await storageService.upload(path, file);
     return {

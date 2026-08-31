@@ -8,6 +8,7 @@ import { extractRawPreviewBlob } from '../lib/rawImagePreview';
 import { hasRawDisplayPreview, isRawMedia, resolveMediaUrl, toWebDerivativeUrl } from '../lib/photoDisplayUrl';
 import { generateCollectionSlug } from '../lib/collectionSlug';
 import { DELIVERY_R2_MODULE } from '../lib/deliveryIds';
+import { getPhotographerR2Folder } from '../lib/photographerR2Folder';
 import { buildDeliveryStatusPatch, toDbDeliveryStatus } from '../lib/deliveryStatus';
 import {
   resolveUploadDefaults,
@@ -223,7 +224,6 @@ const PHOTO_STORAGE_PATH_COLUMNS = [
 ];
 
 const collectionPathNameCache = new Map();
-const photographerPathNameCache = new Map();
 
 function safePathSegment(value, fallback = 'item') {
   return String(value || fallback)
@@ -251,26 +251,6 @@ async function getCollectionPathFolder(collectionId) {
     return folder;
   } catch {
     return `delivery__${collectionId}`;
-  }
-}
-
-async function getPhotographerPathFolder(photographerId) {
-  if (!photographerId) return 'photographer';
-  if (photographerPathNameCache.has(photographerId)) {
-    return photographerPathNameCache.get(photographerId);
-  }
-  try {
-    const { data } = await supabase
-      .from('photographers')
-      .select('id, display_name, email')
-      .eq('id', photographerId)
-      .maybeSingle();
-    const emailPrefix = String(data?.email || '').split('@')[0];
-    const folder = safePathSegment(data?.display_name || emailPrefix || photographerId, 'photographer');
-    photographerPathNameCache.set(photographerId, folder);
-    return folder;
-  } catch {
-    return safePathSegment(photographerId, 'photographer');
   }
 }
 
@@ -1356,7 +1336,7 @@ export const galleryService = {
   async getSets(collectionId) {
     const { data, error } = await supabase
       .from('sets')
-      .select('id, name, description, position, photo_count, is_private, created_at')
+      .select('id, name, description, position, photo_count, video_count, is_private, created_at')
       .eq('collection_id', collectionId)
       .order('position', { ascending: true })
       .order('created_at', { ascending: true });
@@ -1548,7 +1528,7 @@ export const galleryService = {
 
     if (!photographerFolder || !collectionFolder) {
       const [pF, cF] = await Promise.all([
-        photographerFolder || getPhotographerPathFolder(photographerId),
+        photographerFolder || getPhotographerR2Folder(photographerId),
         collectionFolder || getCollectionPathFolder(collectionId),
       ]);
       photographerFolder = pF;
@@ -1559,6 +1539,11 @@ export const galleryService = {
 
     const setFolder = setId ? `set__${safePathSegment(setId, 'set')}` : 'highlights';
     return `users/${photographerFolder}/${DELIVERY_R2_MODULE}/${collectionFolder}/photoset/${setFolder}`;
+  },
+
+  /** Public alias for watermark uploads and other delivery photo paths. */
+  resolveDeliveryPhotoBasePath(photographerId, collectionId, setId) {
+    return this._resolveUploadBasePath(photographerId, collectionId, setId);
   },
 
   /**
@@ -2054,7 +2039,7 @@ export const galleryService = {
     const fileExt = (file.name.split('.').pop() || 'jpg').toLowerCase();
     const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
     const [photographerFolder, collectionFolder] = await Promise.all([
-      getPhotographerPathFolder(photographerId),
+      getPhotographerR2Folder(photographerId),
       getCollectionPathFolder(collectionId),
     ]);
     const setFolder = existing?.set_id

@@ -117,6 +117,10 @@
   margin-top: 16px;
 }
 
+.cd-dl-box > .cd-dl-master + div > .cd-dl-master {
+  margin-top: 16px;
+}
+
 .cd-dl-box > :not(.cd-dl-status):not(.cd-dl-body) {
   margin-left: 32px;
   margin-right: 32px;
@@ -1401,6 +1405,11 @@
 .theme-mono.cd-dashboard-shell .cd-dl-status {
   background: #fcfbf7 !important;
   border-bottom: 1px solid #ece8e2 !important;
+}
+
+.theme-mono.cd-dashboard-shell .cd-dl-status.cd-dl-status--name-link {
+  background: linear-gradient(135deg, #f3ede4 0%, #ebe3d8 100%) !important;
+  border-bottom: 1px solid #dfd6ca !important;
 }
 
 .theme-mono.cd-dashboard-shell .cd-dl-body {

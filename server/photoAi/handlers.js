@@ -48,7 +48,8 @@ export async function handleSyncCollectionRequest(req, body) {
 
   const supabase = await assertCollectionAccess(req, collectionId);
   const limit = Math.min(Number(body?.limit) || 500, 500);
-  return syncCollectionPhotoAi(collectionId, { supabase, limit });
+  const forceReindex = Boolean(body?.forceReindex);
+  return syncCollectionPhotoAi(collectionId, { supabase, limit, forceReindex });
 }
 
 export async function handleReclusterRequest(req, body) {

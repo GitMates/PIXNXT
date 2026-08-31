@@ -76,12 +76,25 @@
   gap: 0.45rem;
   min-width: 4.75rem;
   max-width: 5.5rem;
+  padding: 0;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.gallery-people-strip__find {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.gallery-people-strip__person-select {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   border: 0;
   background: transparent;
   padding: 0;
   cursor: pointer;
-  text-align: center;
-  flex-shrink: 0;
 }
 
 .gallery-people-strip__find:disabled {

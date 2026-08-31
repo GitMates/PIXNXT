@@ -86,6 +86,7 @@ import '../components/features/CollectionDashboard/Activity/ActivityFeed.css';
 import '../components/features/CollectionDashboard/Settings/Settings.css';
 import { ActivityView } from '../components/features/CollectionDashboard/Activity/ActivityView';
 import { guestDeliveryGuestsService } from '../services/guestDeliveryGuests.service';
+import { DeliveryDashboardLoader } from '../components/features/CollectionDashboard/DeliveryDashboardLoader';
 import { DownloadSettings } from '../components/features/CollectionDashboard/Settings/DownloadSettings';
 import { FavoriteSettings } from '../components/features/CollectionDashboard/Settings/FavoriteSettings';
 import { GeneralSettings } from '../components/features/CollectionDashboard/Settings/GeneralSettings';
@@ -119,8 +120,9 @@ import {
     isVideoMedia,
 } from '../lib/photoDisplayUrl';
 import { formatCoverDate, formatSidebarDeliveryDate, formatLastSavedTime } from '../lib/formatCoverDate.js';
-import { broadcastGalleryLive } from '../lib/galleryLiveSync';
-import { partitionGalleryMedia } from '../lib/galleryMediaType';
+import { broadcastGalleryLive, subscribePersonLabelUpdates } from '../lib/galleryLiveSync';
+import { isDigitalDownloadEnabled } from '../lib/storePackages';
+import { partitionGalleryMedia, countGalleryMedia, isGalleryVideo } from '../lib/galleryMediaType';
 import {
     normalizeCoverStyleId,
     normalizeFontId,
@@ -217,7 +219,7 @@ const CollectionDashboard = () => {
     const [showGridSettings, setShowGridSettings] = useState(false);
     const [gridSize, setGridSize] = useState('small');
     const [showFilename, setShowFilename] = useState(
-        () => localStorage.getItem('filename_display') === 'show'
+        () => localStorage.getItem('cd_show_filenames') === '1'
     );
     const [showCameraBadges, setShowCameraBadges] = useState(
         () => localStorage.getItem('cd_show_camera_badges') === '1'
@@ -415,18 +417,30 @@ const CollectionDashboard = () => {
     };
 
     const sortedSidebarSets = React.useMemo(() => {
-        const setItems = sets.map((s) => ({
-            ...s,
-            isHighlights: false,
-            isPrivate: s.is_private === true,
-            photoCount: photos.filter((p) => String(p.set_id) === String(s.id)).length,
-        }));
+        const countForSet = (setId) => {
+            const items = setId === 'highlights'
+                ? photos.filter((p) => !p.set_id)
+                : photos.filter((p) => String(p.set_id) === String(setId));
+            const stills = items.filter((p) => !isGalleryVideo(p)).length;
+            const videos = items.filter((p) => isGalleryVideo(p)).length;
+            return { photoCount: stills, videoCount: videos, mediaCount: items.length };
+        };
+
+        const setItems = sets.map((s) => {
+            const counts = countForSet(s.id);
+            return {
+                ...s,
+                isHighlights: false,
+                isPrivate: s.is_private === true,
+                ...counts,
+            };
+        });
         const highlightsItem = highlightsEnabled
             ? {
                 id: 'highlights',
                 name: highlightsName,
                 isHighlights: true,
-                photoCount: photos.filter((p) => !p.set_id).length,
+                ...countForSet('highlights'),
             }
             : null;
 
@@ -463,6 +477,8 @@ const CollectionDashboard = () => {
         if (!list.length) return 0;
         return list.filter((set) => mobileAppSets[set.id] !== false).length;
     }, [sortedSidebarSets, sets, mobileAppSets]);
+
+    const deliveryMediaCounts = useMemo(() => countGalleryMedia(photos), [photos]);
 
     const duplicateShortcutLabel = useMemo(() => {
         if (typeof navigator === 'undefined') return 'Ctrl+D';
@@ -1476,6 +1492,11 @@ const CollectionDashboard = () => {
         pendingUploadScrollRef.current = true;
     }, [collectionId]);
 
+    const handleSetSelect = useCallback((setId) => {
+        setActiveSetId(setId);
+        setActiveSidebarTab('photos');
+    }, []);
+
     useEffect(() => {
         const uploadView = location.state?.uploadView;
         if (!uploadView || uploadView.collectionId !== collectionId) return;
@@ -2256,12 +2277,14 @@ const CollectionDashboard = () => {
         const watermarkedBlob = await applyWatermarkToBlob(blob, wmOptions);
 
         // 3. Upload to R2 Storage
-        const photographerFolder = user.id;
-        const collectionFolder = collectionId;
+        const basePath = await galleryService.resolveDeliveryPhotoBasePath(
+            user.id,
+            collectionId,
+            photo.set_id
+        );
         const fileExt = photo.filename.split('.').pop() || 'jpg';
         const fileName = `${photo.id || Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
-        const setFolder = photo.set_id ? `set__${photo.set_id}` : 'highlights';
-        const watermarkedPath = `users/${photographerFolder}/deliveries/${collectionFolder}/photoset/${setFolder}/watermarked/${fileName}`;
+        const watermarkedPath = `${basePath}/watermarked/${fileName}`;
 
         const uploadResult = await storageService.upload(watermarkedPath, watermarkedBlob);
         const watermarkedUrl = uploadResult.url;
@@ -2617,11 +2640,34 @@ const CollectionDashboard = () => {
             return;
         }
         let cancelled = false;
-        guestDeliveryService.getEventByCollectionId(collectionId).then((ev) => {
-            if (!cancelled) setGdEvent(ev);
-        }).catch(() => {});
+        (async () => {
+            try {
+                let ev = await guestDeliveryService.getEventByCollectionId(collectionId);
+                const ownerId = collection?.photographer_id || user?.id;
+                if (!ev && ownerId && collection?.name) {
+                    ev = await guestDeliveryService.createLinkedEvent({
+                        collectionId,
+                        photographerId: ownerId,
+                        name: collection.name,
+                        eventDate: collection.event_date || null,
+                        slug: collection.slug,
+                    });
+                }
+                if (!cancelled) setGdEvent(ev);
+            } catch (err) {
+                console.error('Failed to load guest delivery event:', err);
+            }
+        })();
         return () => { cancelled = true; };
-    }, [collectionId, collection?.guest_delivery_enabled]);
+    }, [
+        collectionId,
+        collection?.guest_delivery_enabled,
+        collection?.photographer_id,
+        collection?.name,
+        collection?.slug,
+        collection?.event_date,
+        user?.id,
+    ]);
 
     useEffect(() => {
         if (!collectionId) {
@@ -2854,6 +2900,23 @@ const CollectionDashboard = () => {
         setActivePersonId(null);
     }, []);
 
+    const handleRenamePerson = useCallback(async (personId, label) => {
+        if (!collectionId || !personId) return;
+        const trimmed = String(label || '').trim();
+        if (!trimmed) return;
+        setPhotoAiPeople((prev) =>
+            prev.map((person) =>
+                person.id === personId ? { ...person, label: trimmed } : person
+            )
+        );
+        try {
+            await photoAiService.setPersonLabel(collectionId, personId, trimmed);
+        } catch (err) {
+            console.warn('Failed to rename person:', err);
+            throw err;
+        }
+    }, [collectionId]);
+
     const handleTogglePersonHidden = useCallback(async (personId, hidden) => {
         if (!collectionId || !personId) return;
         try {
@@ -2969,7 +3032,9 @@ const CollectionDashboard = () => {
         photoAiSyncingRef.current = true;
         setPhotoAiIndexing(true);
         try {
-            await photoAiService.syncCollection(collectionId);
+            await photoAiService.syncCollection(collectionId, 500, {
+                forceReindex: force,
+            });
             await refreshPhotoAiMetadata();
             if (showPeoplePanel || activeSidebarTab === 'photos') {
                 await loadPhotoAiPeople({
@@ -3004,6 +3069,16 @@ const CollectionDashboard = () => {
     useEffect(() => {
         setPhotoSearchQuery('');
     }, [activeSetId]);
+
+    useEffect(() => {
+        if (!collectionId) return undefined;
+        return subscribePersonLabelUpdates(({ collectionId: cid, personId, label }) => {
+            if (cid !== collectionId || !personId || !label) return;
+            setPhotoAiPeople((prev) =>
+                prev.map((person) => (person.id === personId ? { ...person, label } : person))
+            );
+        });
+    }, [collectionId]);
 
     const sharingOverlaysEnabled = status === DELIVERY_STATUS.published;
 
@@ -3479,10 +3554,11 @@ const CollectionDashboard = () => {
         setDeleteSetId(setId);
     };
 
-    const confirmDeleteSet = async () => {
+    const confirmDeleteSet = () => {
         if (!deleteSetId) return;
 
         const isHighlights = deleteSetId === 'highlights';
+        const targetSetId = deleteSetId;
 
         if (!isHighlights && sets.length === 0) {
             setToastMessage('You must have at least one set.');
@@ -3490,56 +3566,87 @@ const CollectionDashboard = () => {
             setDeleteSetId(null);
             return;
         }
-        
-        try {
-            setSaving(true);
-            if (isHighlights) {
-                const unassignedPhotoIds = photos.filter((p) => !p.set_id).map((p) => p.id);
-                if (unassignedPhotoIds.length > 0) {
-                    await galleryService.deletePhotos(unassignedPhotoIds);
-                    setPhotos((prev) => prev.filter((p) => p.set_id));
-                    if (collection?.cover_photo_id && unassignedPhotoIds.includes(collection.cover_photo_id)) {
-                        setCollection((prev) => (prev ? { ...prev, cover_photo_id: null, cover_url: null } : prev));
+
+        const prevSets = sets;
+        const prevPhotos = photos;
+        const prevOrderedSetIds = orderedSetIds;
+        const prevActiveSetId = activeSetId;
+        const prevHighlightsEnabled = highlightsEnabled;
+        const prevCollection = collection;
+
+        setDeleteSetId(null);
+
+        if (isHighlights) {
+            const unassignedPhotoIds = new Set(
+                prevPhotos.filter((p) => !p.set_id).map((p) => p.id),
+            );
+            setPhotos((prev) => prev.filter((p) => p.set_id));
+            setHighlightsEnabled(false);
+            setCollection((prev) => {
+                if (!prev) return prev;
+                const next = { ...prev, highlights_enabled: false };
+                if (prev.cover_photo_id && unassignedPhotoIds.has(prev.cover_photo_id)) {
+                    next.cover_photo_id = null;
+                    next.cover_url = null;
+                }
+                return next;
+            });
+            setOrderedSetIds((prev) => (prev ? prev.filter((id) => id !== 'highlights') : prev));
+            setActiveSetId(prevSets[0]?.id ?? null);
+        } else {
+            const removedIds = new Set(
+                prevPhotos.filter((p) => p.set_id === targetSetId).map((p) => p.id),
+            );
+            setPhotos((prev) => prev.filter((p) => !removedIds.has(p.id)));
+            setSets((prev) => prev.filter((s) => s.id !== targetSetId));
+            setOrderedSetIds((prev) => (prev ? prev.filter((id) => id !== targetSetId) : prev));
+            if (prevCollection?.cover_photo_id && removedIds.has(prevCollection.cover_photo_id)) {
+                setCollection((prev) =>
+                    prev ? { ...prev, cover_photo_id: null, cover_url: null } : prev,
+                );
+            }
+            if (prevActiveSetId === targetSetId) {
+                setActiveSetId(
+                    prevHighlightsEnabled
+                        ? null
+                        : prevSets.find((s) => s.id !== targetSetId)?.id ?? null,
+                );
+            }
+        }
+
+        void (async () => {
+            try {
+                if (isHighlights) {
+                    const unassignedPhotoIds = prevPhotos
+                        .filter((p) => !p.set_id)
+                        .map((p) => p.id);
+                    if (unassignedPhotoIds.length > 0) {
+                        await galleryService.deletePhotos(unassignedPhotoIds);
+                    }
+                    await galleryService.updateCollection(collectionId, { highlights_enabled: false });
+                    if (prevOrderedSetIds) {
+                        const nextOrder = prevOrderedSetIds.filter((id) => id !== 'highlights');
+                        void persistSidebarOrder(collectionId, nextOrder);
+                    }
+                } else {
+                    await galleryService.deleteSet(targetSetId);
+                    if (prevOrderedSetIds) {
+                        const nextOrder = prevOrderedSetIds.filter((id) => id !== targetSetId);
+                        void persistSidebarOrder(collectionId, nextOrder);
                     }
                 }
-                await galleryService.updateCollection(collectionId, { highlights_enabled: false });
-                setHighlightsEnabled(false);
-                setCollection((prev) => (prev ? { ...prev, highlights_enabled: false } : prev));
-                setOrderedSetIds((prev) => {
-                    if (!prev) return prev;
-                    const next = prev.filter((id) => id !== 'highlights');
-                    void persistSidebarOrder(collectionId, next);
-                    return next;
-                });
-                setActiveSetId(sets[0]?.id ?? null);
-            } else {
-                const removedIds = new Set(
-                    photos.filter((p) => p.set_id === deleteSetId).map((p) => p.id)
-                );
-                await galleryService.deleteSet(deleteSetId);
-                setPhotos((prev) => prev.filter((p) => !removedIds.has(p.id)));
-                setSets((prev) => prev.filter((s) => s.id !== deleteSetId));
-                setOrderedSetIds((prev) => {
-                    if (!prev) return prev;
-                    const next = prev.filter((id) => id !== deleteSetId);
-                    void persistSidebarOrder(collectionId, next);
-                    return next;
-                });
-                if (collection?.cover_photo_id && removedIds.has(collection.cover_photo_id)) {
-                    setCollection((prev) => (prev ? { ...prev, cover_photo_id: null, cover_url: null } : prev));
-                }
-                if (activeSetId === deleteSetId) {
-                    setActiveSetId(highlightsEnabled ? null : sets.find((s) => s.id !== deleteSetId)?.id ?? null);
-                }
+            } catch (err) {
+                console.error('Failed to delete set:', err);
+                setSets(prevSets);
+                setPhotos(prevPhotos);
+                setOrderedSetIds(prevOrderedSetIds);
+                setActiveSetId(prevActiveSetId);
+                setHighlightsEnabled(prevHighlightsEnabled);
+                setCollection(prevCollection);
+                const detail = err?.message ? `\n\n${err.message}` : '';
+                alert(`Failed to delete set. Please try again.${detail}`);
             }
-            setDeleteSetId(null);
-        } catch (err) {
-            console.error('Failed to delete set:', err);
-            const detail = err?.message ? `\n\n${err.message}` : '';
-            alert(`Failed to delete set. Please try again.${detail}`);
-        } finally {
-            setSaving(false);
-        }
+        })();
     };
 
     const openEditSetModal = (set) => {
@@ -4151,6 +4258,7 @@ const CollectionDashboard = () => {
             downloads_enabled: photoDownload,
             gallery_download_enabled: galleryDownload,
             single_photo_download_enabled: singlePhotoDownload,
+            digital_download_enabled: isDigitalDownloadEnabled(collection),
             download_resolutions: (photoDownloadSizes || [])
                 .map((s) => (s === 'high' ? 'full' : s))
                 .filter((s) => s === 'web' || s === 'full' || s === 'original'),
@@ -4200,6 +4308,8 @@ const CollectionDashboard = () => {
                         selected_download_sets:
                             updated.selected_download_sets ?? patch.selected_download_sets,
                         pin_usage_limit: updated.pin_usage_limit ?? patch.pin_usage_limit,
+                        digital_download_enabled:
+                            updated.digital_download_enabled ?? patch.digital_download_enabled,
                     };
                 });
             }
@@ -4221,6 +4331,7 @@ const CollectionDashboard = () => {
         restrictToEmails,
         selectedDownloadSets,
         collection?.video_download_resolution,
+        collection?.digital_download_enabled,
         broadcastDownloadSettings,
     ]);
 
@@ -4625,14 +4736,7 @@ const CollectionDashboard = () => {
     };
 
     if (loading) {
-        return (
-            <div className="theme-mono cd-dashboard-shell flex h-screen items-center justify-center bg-[#F9F9F7]">
-                <div className="flex flex-col items-center gap-4">
-                    <div className="w-12 h-12 border-4 border-[#111111] border-t-transparent rounded-full animate-spin"></div>
-                    <p className="text-[#111111] font-medium tracking-widest uppercase text-[16px]">Loading Delivery...</p>
-                </div>
-            </div>
-        );
+        return <DeliveryDashboardLoader />;
     }
 
     if (error || !collection) {
@@ -5011,7 +5115,7 @@ const CollectionDashboard = () => {
                         s.isHighlights ? { ...s, isPrivate: clientOnlyHighlights === true } : s
                     ))}
                     activeSetId={activeSetId}
-                    onSetSelect={setActiveSetId}
+                    onSetSelect={handleSetSelect}
                     onAddSet={() => setShowAddSetModal(true)}
                     draggedSetIndex={draggedSetIndex}
                     dragOverSetIndex={dragOverSetIndex}
@@ -5106,7 +5210,8 @@ const CollectionDashboard = () => {
                     onSettingsTabChange={setActiveSettingsTab}
                     activeActivitySubTab={activeActivitySubTab}
                     onActivitySubTabChange={setActiveActivitySubTab}
-                    photoCount={photos.length}
+                    photoCount={deliveryMediaCounts.photos}
+                    videoCount={deliveryMediaCounts.videos}
                     guestCount={gdGuestCount || gdEvent?.guest_count || 0}
                     activityCount={sidebarActivityCount}
                     guestDeliveryEnabled={collection?.guest_delivery_enabled}
@@ -5224,7 +5329,7 @@ const CollectionDashboard = () => {
                                     showFilename={showFilename}
                                     onShowFilenameChange={(nextValue) => {
                                         setShowFilename(nextValue);
-                                        localStorage.setItem('filename_display', nextValue ? 'show' : 'hide');
+                                        localStorage.setItem('cd_show_filenames', nextValue ? '1' : '0');
                                     }}
                                     showCameraBadges={showCameraBadges}
                                     onShowCameraBadgesChange={(nextValue) => {
@@ -5269,6 +5374,7 @@ const CollectionDashboard = () => {
                                     onReanalyze={() => {
                                         void runPhotoAiAutoSync({ force: true });
                                     }}
+                                    onRenamePerson={handleRenamePerson}
                                 />
 
                                 {gridPhotos.length > 0 ? (
@@ -6071,9 +6177,7 @@ const CollectionDashboard = () => {
                     photographerProfile={profile}
                     onClose={() => setShowGdQrModal(false)}
                     onOpenGuestList={() => setActiveSidebarTab('guests')}
-                    onEventUpdated={(updated) => {
-                        if (updated) setGdEvent(updated);
-                    }}
+                    onEventUpdated={setGdEvent}
                 />
             )}
 
@@ -6313,8 +6417,8 @@ const CollectionDashboard = () => {
                         </div>
                         <div className="cd-modal-footer">
                             <button className="cd-cancel-btn" onClick={() => setDeleteSetId(null)}>Cancel</button>
-                            <button className="cd-save-btn" style={{ backgroundColor: '#009070', color: 'white', border: 'none', padding: '10px 24px', borderRadius: '4px', fontWeight: '500' }} onClick={confirmDeleteSet} disabled={saving}>
-                                {saving ? 'Deleting...' : 'Delete'}
+                            <button className="cd-save-btn" style={{ backgroundColor: '#009070', color: 'white', border: 'none', padding: '10px 24px', borderRadius: '4px', fontWeight: '500' }} onClick={confirmDeleteSet}>
+                                Delete
                             </button>
                         </div>
                     </div>
@@ -6436,17 +6540,14 @@ const CollectionDashboard = () => {
                 onClose={() => {
                     if (!deleteDeliveryBusy) setShowDeleteCollectionModal(false);
                 }}
-                onConfirm={async () => {
-                    try {
-                        setDeleteDeliveryBusy(true);
-                        await galleryService.deleteCollection(collectionId);
-                        setShowDeleteCollectionModal(false);
-                        navigate(backTo);
-                    } catch (err) {
+                onConfirm={() => {
+                    const deletedId = collectionId;
+                    setShowDeleteCollectionModal(false);
+                    navigate(backTo);
+                    void galleryService.deleteCollection(deletedId).catch((err) => {
                         console.error('Failed to delete collection:', err);
                         alert('Failed to delete delivery. Please try again.');
-                        setDeleteDeliveryBusy(false);
-                    }
+                    });
                 }}
             />
             {/* Rename Modal */}

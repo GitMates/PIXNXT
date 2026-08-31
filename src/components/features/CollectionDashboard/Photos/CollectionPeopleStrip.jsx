@@ -3,6 +3,7 @@ import { Camera, Loader2, Minus, RefreshCw, Upload } from 'lucide-react';
 import { cn } from '../../../../lib/utils';
 import { prepareSelfieForRekognition } from '../../../../lib/selfieImageForRekognition';
 import { PersonFaceAvatar } from './PersonFaceAvatar';
+import { PersonLabelEditor } from './PersonLabelEditor';
 
 const VISIBLE_LIMIT = 8;
 const AVATAR_SIZE = 60;
@@ -27,6 +28,7 @@ export function CollectionPeopleStrip({
   onSelfieSearch,
   onClearSelfie,
   onReanalyze,
+  onRenamePerson,
 }) {
   const [expanded, setExpanded] = useState(false);
   const selfieInputRef = useRef(null);
@@ -133,6 +135,7 @@ export function CollectionPeopleStrip({
                     <PersonFaceAvatar
                       imageUrl={person.imageUrl}
                       boundingBox={person.boundingBox}
+                      avatarSource={person.avatarSource}
                       size={AVATAR_SIZE}
                       variant="strip"
                     />
@@ -150,11 +153,12 @@ export function CollectionPeopleStrip({
                       </span>
                     ) : null}
                   </span>
-                  <span className="cdpw-person__name">
-                    {/^Person \d+$/i.test(String(person.label || '')) || person.label === 'Not named'
-                      ? 'Not named'
-                      : person.label || 'Not named'}
-                  </span>
+                  <PersonLabelEditor
+                    className="cdpw-person__name"
+                    label={person.label}
+                    editable={Boolean(onRenamePerson)}
+                    onSave={(name) => onRenamePerson?.(person.id, name)}
+                  />
                 </button>
               </div>
             );
@@ -204,7 +208,7 @@ export function CollectionPeopleStrip({
         {!loadingPeople && analyzing && shown.length === 0 ? (
           <span className="cdpw-people__status cdpw-people__status--analyzing">
             <Loader2 size={14} className="cdpw-spin" aria-hidden />
-            Analyzing photos…
+            Indexing faces…
           </span>
         ) : null}
 
@@ -221,7 +225,7 @@ export function CollectionPeopleStrip({
         {!loadingPeople && analyzing && shown.length > 0 ? (
           <span className="cdpw-people__status cdpw-people__status--analyzing">
             <Loader2 size={14} className="cdpw-spin" aria-hidden />
-            Updating…
+            Indexing faces…
           </span>
         ) : null}
       </div>

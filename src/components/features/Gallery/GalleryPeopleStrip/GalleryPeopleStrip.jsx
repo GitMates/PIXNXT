@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import { ScanFace, Loader2 } from 'lucide-react';
 import { PersonFaceAvatar } from '../../CollectionDashboard/Photos/PersonFaceAvatar';
+import { PersonLabelEditor } from '../../CollectionDashboard/Photos/PersonLabelEditor';
 import './GalleryPeopleStrip.css';
 
 export function GalleryPeopleStrip({
@@ -13,6 +14,7 @@ export function GalleryPeopleStrip({
   onSelectPerson,
   onSelfiePick,
   onClearFilter,
+  onRenamePerson,
   variant = 'gallery',
 }) {
   const selfieInputRef = useRef(null);
@@ -84,28 +86,35 @@ export function GalleryPeopleStrip({
           </p>
         ) : (
           people.map((person) => (
-            <button
+            <div
               key={person.id}
-              type="button"
               role="listitem"
               className={`gallery-people-strip__person${activePersonId === person.id ? ' is-active' : ''}`}
-              onClick={() => onSelectPerson?.(person.id)}
             >
-              <PersonFaceAvatar
-                imageUrl={person.imageUrl}
-                boundingBox={person.boundingBox}
-                size={64}
-                className="gallery-people-strip__avatar"
+              <button
+                type="button"
+                className="gallery-people-strip__person-select"
+                onClick={() => onSelectPerson?.(person.id)}
+                aria-pressed={activePersonId === person.id}
+              >
+                <PersonFaceAvatar
+                  imageUrl={person.imageUrl}
+                  boundingBox={person.boundingBox}
+                  avatarSource={person.avatarSource}
+                  size={64}
+                  className="gallery-people-strip__avatar"
+                />
+              </button>
+              <PersonLabelEditor
+                className="gallery-people-strip__person-name"
+                label={person.label}
+                editable={Boolean(onRenamePerson)}
+                onSave={(name) => onRenamePerson?.(person.id, name)}
               />
-              <span className="gallery-people-strip__person-name">
-                {/^Person \d+$/i.test(String(person.label || ''))
-                  ? 'Not named'
-                  : person.label || 'Not named'}
-              </span>
               <span className="gallery-people-strip__person-meta">
                 {person.count} photo{person.count === 1 ? '' : 's'}
               </span>
-            </button>
+            </div>
           ))
         )}
       </div>

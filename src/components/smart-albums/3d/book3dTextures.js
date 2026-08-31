@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { useEffect, useState } from 'react';
 import { useThree } from '@react-three/fiber';
-import { getProxiedMediaFetchUrl } from '../../../lib/r2MediaProxy';
+import { getProxiedMediaFetchUrl, loadCrossOriginImage, resolveCrossOriginMediaUrl } from '../../../lib/r2MediaProxy';
 import { parseGridSizeAspect } from '../albumGridSize';
 import { getBookWrapSpineLayout, resolveWrapSegmentBounds } from '../bookWrapSpine';
 import { albumHasBlankCovers, albumUsesBookWrap } from '../albumSpreadUtils';
@@ -169,14 +169,15 @@ function loadConfiguredTexture(src, config) {
             loader.load(url, resolve, undefined, reject);
         });
 
-    // Prefer direct R2 URL — /api/r2-media 404s on some production deploys and blanked covers.
-    const promise = loadUrl(src)
+    const primary = resolveCrossOriginMediaUrl(src);
+    const promise = loadUrl(primary)
         .catch(() => {
-            const proxied = getProxiedMediaFetchUrl(src);
-            if (!proxied || proxied === src) {
+            const fallback =
+                primary !== src ? src : getProxiedMediaFetchUrl(src);
+            if (!fallback || fallback === primary) {
                 return Promise.reject(new Error('3D texture failed to load'));
             }
-            return loadUrl(proxied);
+            return loadUrl(fallback);
         })
         .then((loadedTex) => {
             const tex = loadedTex.clone();

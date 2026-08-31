@@ -1,5 +1,8 @@
 import { supabase } from '../lib/supabase/client';
 import { isIndexedSnapshotFresh, maxIndexedAtFromRows } from '../lib/photoAiCacheFreshness';
+import { broadcastPersonLabelUpdate } from '../lib/galleryLiveSync';
+import { refreshPeopleAvatars } from '../lib/faceAvatarMath';
+import { applyGuestSelfieAvatarsForCollection } from '../lib/guestPeopleAvatars';
 
 async function authHeaders() {
   const { data } = await supabase.auth.getSession();
@@ -77,10 +80,18 @@ async function attachAvatarUrls(people) {
     .in('id', photoIds);
 
   const photoUrlById = new Map(
-    (photos || []).map((p) => [p.id, p.thumbnail_url || p.web_url || p.full_url || null])
+    (photos || []).map((p) => [p.id, p.web_url || p.full_url || p.thumbnail_url || null])
   );
 
   return people.map((person) => {
+    if (person.guestSelfieUrl || person.avatarSource === 'guest_selfie') {
+      return {
+        ...person,
+        imageUrl: person.guestSelfieUrl || person.imageUrl || null,
+        boundingBox: null,
+      };
+    }
+
     const avatarPhotoId = person.avatarPhotoId || person.photoIds?.[0] || null;
     return {
       ...person,
@@ -196,7 +207,16 @@ export const photoAiService = {
       isHidden: Boolean(row.is_hidden),
     }));
 
-    const withUrls = await attachAvatarUrls(people);
+    let withBestAvatars = people;
+    try {
+      const { rows: metadataRows } = await this.getMetadataForCollection(collectionId);
+      withBestAvatars = refreshPeopleAvatars(people, metadataRows);
+      withBestAvatars = await applyGuestSelfieAvatarsForCollection(supabase, collectionId, withBestAvatars);
+    } catch (err) {
+      console.warn('[photoAi] avatar refresh skipped:', err?.message || err);
+    }
+
+    const withUrls = await attachAvatarUrls(withBestAvatars);
     return { people: withUrls, tableMissing: false };
   },
 
@@ -218,6 +238,30 @@ export const photoAiService = {
     return { ok: true };
   },
 
+  async setPersonLabel(collectionId, personId, label) {
+    if (!collectionId || !personId) {
+      throw new Error('Missing delivery or person.');
+    }
+
+    const trimmed = String(label || '').trim();
+    if (!trimmed) {
+      throw new Error('Name is required.');
+    }
+
+    const { error } = await supabase
+      .from('photo_ai_people')
+      .update({
+        label: trimmed,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('collection_id', collectionId)
+      .eq('cluster_key', personId);
+
+    if (error) throw error;
+    broadcastPersonLabelUpdate({ collectionId, personId, label: trimmed });
+    return { ok: true };
+  },
+
   indexPhoto(photoId) {
     if (!photoId) return Promise.resolve(null);
     return postJson('/api/photo-ai/index', { photoId }).catch((err) => {
@@ -231,9 +275,9 @@ export const photoAiService = {
     return postJson('/api/photo-ai/sync-collection', { collectionId, limit });
   },
 
-  syncCollection(collectionId, limit = 500) {
+  syncCollection(collectionId, limit = 500, { forceReindex = false } = {}) {
     if (!collectionId) return Promise.resolve(null);
-    return postJson('/api/photo-ai/sync-collection', { collectionId, limit });
+    return postJson('/api/photo-ai/sync-collection', { collectionId, limit, forceReindex });
   },
 
   reclusterCollection(collectionId) {

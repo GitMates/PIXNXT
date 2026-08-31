@@ -92,6 +92,7 @@ export function CollectionPhotosWorkspaceHeader({
   onSelfieSearch,
   onClearSelfie,
   onReanalyze,
+  onRenamePerson,
 }) {
   const [viewOpen, setViewOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
@@ -114,18 +115,19 @@ export function CollectionPhotosWorkspaceHeader({
             <p className="cdpw-subtitle">{countLabel}</p>
           </div>
 
-          <label className="cdpw-search">
-            <Search size={16} aria-hidden />
-            <input
-              type="search"
-              value={searchQuery}
-              onChange={(e) => onSearchQueryChange(e.target.value)}
-              placeholder="Find a photo in this delivery…"
-              aria-label="Find a photo in this delivery"
-            />
-          </label>
-
           <div className="cdpw-header__actions">
+            <div className="cdpw-search neu-inset">
+              <Search size={16} strokeWidth={1.75} aria-hidden className="cdpw-search__icon" />
+              <input
+                type="search"
+                className="cdpw-search__input"
+                value={searchQuery}
+                onChange={(e) => onSearchQueryChange(e.target.value)}
+                placeholder="Find a photo in this delivery…"
+                aria-label="Find a photo in this delivery"
+              />
+            </div>
+
             <HeaderDropdown
               label="View"
               open={viewOpen}
@@ -217,6 +219,7 @@ export function CollectionPhotosWorkspaceHeader({
           onSelfieSearch={onSelfieSearch}
           onClearSelfie={onClearSelfie}
           onReanalyze={onReanalyze}
+          onRenamePerson={onRenamePerson}
         />
       ) : null}
     </div>

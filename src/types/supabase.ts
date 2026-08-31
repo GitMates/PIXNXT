@@ -1518,6 +1518,7 @@ export type Database = {
           is_private: boolean
           name: string
           photo_count: number
+          video_count: number
           photographer_id: string
           position: number
           updated_at: string
@@ -1530,6 +1531,7 @@ export type Database = {
           is_private?: boolean
           name: string
           photo_count?: number
+          video_count?: number
           photographer_id: string
           position?: number
           updated_at?: string
@@ -1542,6 +1544,7 @@ export type Database = {
           is_private?: boolean
           name?: string
           photo_count?: number
+          video_count?: number
           photographer_id?: string
           position?: number
           updated_at?: string

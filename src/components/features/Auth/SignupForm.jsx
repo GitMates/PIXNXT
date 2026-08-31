@@ -13,7 +13,12 @@ export const SignupForm = ({ onSuccess, onToggle }) => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [modal, setModal] = useState({ show: false, type: 'success', message: '' });
+  const [modal, setModal] = useState({
+    show: false,
+    type: 'success',
+    message: '',
+    needsEmailConfirmation: false,
+  });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -43,10 +48,14 @@ export const SignupForm = ({ onSuccess, onToggle }) => {
         return;
       }
 
+      const needsEmailConfirmation = Boolean(data?.user && !data?.session);
       setModal({
         show: true,
         type: 'success',
-        message: 'We sent a confirmation email. Please confirm your email address.',
+        message: needsEmailConfirmation
+          ? 'We sent a confirmation email. Open the link in that email to activate your studio.'
+          : 'Your studio is ready.',
+        needsEmailConfirmation,
       });
     } catch (err) {
       const errMsg = err.message || '';
@@ -148,9 +157,14 @@ export const SignupForm = ({ onSuccess, onToggle }) => {
             <button
               type="button"
               onClick={() => {
-                const currentType = modal.type;
-                setModal({ show: false, type: 'success', message: '' });
-                if (currentType === 'success') {
+                const { type: currentType, needsEmailConfirmation } = modal;
+                setModal({
+                  show: false,
+                  type: 'success',
+                  message: '',
+                  needsEmailConfirmation: false,
+                });
+                if (currentType === 'success' && !needsEmailConfirmation) {
                   onSuccess?.();
                 }
               }}

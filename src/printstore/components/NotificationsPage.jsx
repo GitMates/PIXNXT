@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { ChevronLeft, Bell, Info, Check, X, Upload, MessageSquare, AlertCircle, ArrowLeft, Image, CheckCircle2, Crop, RotateCw, RefreshCw } from 'lucide-react';
 import { supabase } from '../../lib/supabase/client';
 import { storageService } from '../../services/storage.service';
+import { resolveMediaUrl } from '../../lib/photoDisplayUrl';
+import { resolveCrossOriginMediaUrl } from '../../lib/r2MediaProxy';
 import Cropper from 'react-easy-crop';
 import getCroppedImg from '../../lib/cropImageUtils';
 import '../PrintStore.css';
@@ -166,10 +168,8 @@ export default function NotificationsPage({ sessionId, photographer, onBack }) {
 
   const resolvePhotoUrl = (url) => {
     if (!url) return '';
-    if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:') || url.startsWith('blob:')) return url;
-    const r2PublicUrl = import.meta.env.VITE_R2_PUBLIC_URL || '';
-    if (r2PublicUrl) { const baseUrl = r2PublicUrl.endsWith('/') ? r2PublicUrl : `${r2PublicUrl}/`; return `${baseUrl}${url}`; }
-    return url;
+    if (url.startsWith('blob:') || url.startsWith('data:')) return url;
+    return resolveCrossOriginMediaUrl(resolveMediaUrl(url));
   };
 
   const getAspect = (printSize) => {

@@ -3,6 +3,12 @@ import { storageService } from './storage.service';
 import { getFileMime } from '../lib/fileMime';
 import { getImageDimensionsFast } from '../lib/imageDimensions';
 import { userStorageService } from './userStorage.service';
+import {
+  buildUserModulePath,
+  getPhotographerR2Folder,
+  R2_USER_MODULES,
+  safeR2PathSegment,
+} from '../lib/photographerR2Folder';
 
 const PHOTO_FIELDS =
   'id, app_id, photographer_id, filename, full_url, thumbnail_url, storage_path, size_bytes, width, height, position, created_at';
@@ -10,24 +16,7 @@ const PHOTO_FIELDS =
 export const MAX_JPEG_BYTES = 100 * 1024 * 1024;
 
 function safePathSegment(value, fallback = 'item') {
-  const raw = String(value || fallback)
-    .trim()
-    .toLowerCase()
-    .replace(/[^\w-]+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
-  return raw || fallback;
-}
-
-async function getPhotographerPathFolder(photographerId) {
-  const { data } = await supabase
-    .from('photographers')
-    .select('display_name, email')
-    .eq('id', photographerId)
-    .maybeSingle();
-
-  const emailPrefix = data?.email?.split('@')[0];
-  return safePathSegment(data?.display_name || emailPrefix || photographerId, 'photographer');
+  return safeR2PathSegment(value, fallback);
 }
 
 async function getAppPathFolder(appId, appName) {
@@ -81,10 +70,16 @@ export const mobileGalleryPhotosService = {
     const fileExt = (file.name.split('.').pop() || 'jpg').toLowerCase();
     const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
     const [photographerFolder, appFolder] = await Promise.all([
-      getPhotographerPathFolder(photographerId),
+      getPhotographerR2Folder(photographerId),
       getAppPathFolder(appId, appName),
     ]);
-    const storagePath = `users/${photographerFolder}/mobilegallery/${appFolder}/photos/${fileName}`;
+    const storagePath = buildUserModulePath(
+      photographerFolder,
+      R2_USER_MODULES.MOBILE_GALLERY,
+      appFolder,
+      'photos',
+      fileName
+    );
 
     const mime = getFileMime(file);
     const uploadBody =

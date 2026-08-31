@@ -303,62 +303,6 @@
   color: #6f665d;
 }
 
-.cd-basics .category-tags-field {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  align-content: center;
-  min-height: 38px;
-  padding: 8px 10px;
-  gap: 6px;
-  border: 1px solid #e4e0d8;
-  border-radius: 8px;
-  background: #faf9f5;
-  box-shadow: none;
-  box-sizing: border-box;
-}
-
-.cd-basics .category-tags-chip {
-  display: inline-flex;
-  align-items: center;
-  height: 26px;
-  margin: 0;
-  gap: 6px;
-  padding: 0 8px 0 10px;
-  border: 1px solid #e6e1d9;
-  border-radius: 6px;
-  background: #ffffff;
-  font-size: 12px;
-  font-weight: 400;
-  line-height: 26px;
-  color: #3c3834;
-}
-
-.cd-basics .category-tags-chip-remove {
-  width: 12px;
-  height: 12px;
-  color: #b0a89e;
-}
-
-.cd-basics .category-tags-input {
-  flex: 1 1 140px;
-  min-width: 140px;
-  height: 26px;
-  margin: 0;
-  padding: 0;
-  font-size: 12px;
-  font-weight: 400;
-  line-height: 26px;
-  color: #3c3834;
-  background: transparent;
-}
-
-.cd-basics .category-tags-input::placeholder {
-  color: #c4bbb2;
-  font-size: 12px;
-  line-height: 26px;
-}
-
 .cd-basics-pills {
   display: flex;
   flex-wrap: wrap;
@@ -633,6 +577,18 @@
   text-transform: uppercase;
   color: #a39485;
   white-space: nowrap;
+}
+
+/* Name and link summary — warm highlight distinct from the white form below */
+.cd-dl-status.cd-dl-status--name-link {
+  background: linear-gradient(135deg, #f3ede4 0%, #ebe3d8 100%);
+  border-bottom: 1px solid #dfd6ca;
+}
+
+.cd-dl-status.cd-dl-status--name-link .cd-basics-card-badge {
+  background: #fffcf8;
+  border-color: #ddd4c8;
+  box-shadow: 0 1px 2px rgba(52, 45, 43, 0.04);
 }
 
 .cd-dl-select-input {

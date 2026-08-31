@@ -1,3 +1,5 @@
+import { resolveCrossOriginMediaUrl } from './r2MediaProxy';
+
 export const createImage = (url) =>
   new Promise((resolve, reject) => {
     const image = new Image()
@@ -103,10 +105,11 @@ export default async function getCroppedImg(
   rotation = 0,
   flip = { horizontal: false, vertical: false }
 ) {
-  let src = imageSrc;
-  if (imageSrc && typeof imageSrc === 'string' && (imageSrc.startsWith('http://') || imageSrc.startsWith('https://'))) {
-    const separator = imageSrc.includes('?') ? '&' : '?';
-    src = `${imageSrc}${separator}nocache=${Date.now()}`;
+  const proxiedSrc = resolveCrossOriginMediaUrl(imageSrc);
+  let src = proxiedSrc;
+  if (proxiedSrc && typeof proxiedSrc === 'string' && (proxiedSrc.startsWith('http://') || proxiedSrc.startsWith('https://'))) {
+    const separator = proxiedSrc.includes('?') ? '&' : '?';
+    src = `${proxiedSrc}${separator}nocache=${Date.now()}`;
   }
 
   // Attempt 1: load image with crossOrigin (allows getImageData on same-origin / CORS-enabled images)
@@ -120,7 +123,7 @@ export default async function getCroppedImg(
 
   // Attempt 2: load image without crossOrigin and use a data URL via fetch + blob
   try {
-    const resp = await fetch(imageSrc)
+    const resp = await fetch(proxiedSrc)
     const blob = await resp.blob()
     const dataUrl = await new Promise((resolve) => {
       const reader = new FileReader()
@@ -135,7 +138,7 @@ export default async function getCroppedImg(
 
   // Attempt 3: load without crossOrigin, draw directly (no getImageData — use drawImage crop)
   try {
-    const image = await createImageNoCors(imageSrc)
+    const image = await createImageNoCors(proxiedSrc)
     const canvas = document.createElement('canvas')
     const ctx = canvas.getContext('2d')
     if (!ctx) return null

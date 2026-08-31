@@ -1,9 +1,9 @@
 import { analyzeImageBytes } from '../rekognition/analyzeImage.js';
 import { rekognitionDeliveryId } from '../photoAi/indexPhoto.js';
-import { normalizeImageToJpegBytes } from '../photoAi/normalizeImage.js';
+import { prepareImageBytesForRekognition } from '../photoAi/normalizeImage.js';
 import { getSupabaseAdmin } from '../photoAi/supabaseAdmin.js';
 
-const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
+const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
 
 async function downloadImageBytes(url) {
   if (!url) throw new Error('Photo has no image URL to analyze.');
@@ -34,13 +34,14 @@ export async function indexGuestDeliveryPhoto(photoId, { supabase, force = false
 
   const imageUrl = photo.full_url || photo.thumbnail_url;
   const rawBytes = await downloadImageBytes(imageUrl);
-  const imageBytes = new Uint8Array(await normalizeImageToJpegBytes(rawBytes));
+  const imageBytes = await prepareImageBytesForRekognition(rawBytes);
   const deliveryFaceGroupId = rekognitionDeliveryId(photo.event_id);
 
   const analysis = await analyzeImageBytes(imageBytes, {
     deliveryFaceGroupId,
     externalImageId: String(photo.id),
     indexFaces: true,
+    detectLabels: false,
   });
 
   const faceCount = analysis.faces?.length || 0;
@@ -68,22 +69,23 @@ async function indexCollectionPhoto(photoId, eventId, { supabase, force = false 
   const db = supabase || getSupabaseAdmin();
   const { data: photo, error } = await db
     .from('photos')
-    .select('id, full_url, thumbnail_url')
+    .select('id, web_url, full_url, thumbnail_url')
     .eq('id', photoId)
     .maybeSingle();
 
   if (error) throw error;
   if (!photo) throw new Error('Photo not found.');
 
-  const imageUrl = photo.full_url || photo.thumbnail_url;
+  const imageUrl = photo.web_url || photo.full_url || photo.thumbnail_url;
   const rawBytes = await downloadImageBytes(imageUrl);
-  const imageBytes = new Uint8Array(await normalizeImageToJpegBytes(rawBytes));
+  const imageBytes = await prepareImageBytesForRekognition(rawBytes);
   const deliveryFaceGroupId = rekognitionDeliveryId(eventId);
 
   const analysis = await analyzeImageBytes(imageBytes, {
     deliveryFaceGroupId,
     externalImageId: String(photo.id),
     indexFaces: true,
+    detectLabels: false,
   });
 
   const faceCount = analysis.faces?.length || 0;

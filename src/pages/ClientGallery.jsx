@@ -17,7 +17,7 @@ import { openShareByEmail, openWhatsAppShare, getShareUrlForCollection } from '.
 import { CollectionCardCover } from '../components/features/ClientGallery/CollectionCardCover';
 import { CollectionContextMenu } from '../components/features/ClientGallery/CollectionContextMenu';
 import { DeleteDeliveryModal } from '../components/features/ClientGallery/DeleteDeliveryModal';
-import { DeliveryDeleteOverlay } from '../components/features/ClientGallery/DeliveryDeleteOverlay';
+import { runOptimisticDelete } from '../lib/optimisticDelete';
 import { getCollectionCardCoverSrc } from '../lib/photoDisplayUrl';
 import { FolderThumbGrid } from '../components/features/ClientGallery/FolderThumbGrid';
 import { EditCollectionModal } from '../components/features/ClientGallery/EditCollectionModal';
@@ -148,7 +148,6 @@ const ClientGallery = () => {
     const [showSelectionMenu, setShowSelectionMenu] = useState(false);
     const [pendingDelete, setPendingDelete] = useState(null);
     const [deleteBusy, setDeleteBusy] = useState(false);
-    const [deletingId, setDeletingId] = useState(null);
     const [leavingId, setLeavingId] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
     const sortRef = useRef(null);
@@ -590,28 +589,32 @@ const ClientGallery = () => {
         });
     };
 
-    const handleConfirmDeleteCollection = async () => {
+    const handleConfirmDeleteCollection = () => {
         if (!pendingDelete || deleteBusy) return;
         const collectionId = pendingDelete.id;
+        const snapshot = pendingDelete;
 
         setPendingDelete(null);
-        setDeletingId(collectionId);
-        setDeleteBusy(true);
+        setDeleteBusy(false);
+        setLeavingId(collectionId);
 
-        try {
-            await galleryService.deleteCollection(collectionId);
-            setLeavingId(collectionId);
-            await new Promise((resolve) => window.setTimeout(resolve, 520));
-            setCollections((prev) => prev.filter((c) => c.id !== collectionId));
-            setSelectedCards((prev) => prev.filter((id) => id !== collectionId));
-        } catch (err) {
-            console.error('Error deleting collection:', err);
-            alert(err?.message || 'Failed to delete delivery.');
-        } finally {
-            setDeletingId(null);
-            setLeavingId(null);
-            setDeleteBusy(false);
-        }
+        runOptimisticDelete({
+            onRemove: () => {
+                setCollections((prev) => prev.filter((c) => c.id !== collectionId));
+                setSelectedCards((prev) => prev.filter((id) => id !== collectionId));
+                setLeavingId(null);
+            },
+            onError: (err) => {
+                console.error('Error deleting collection:', err);
+                setLeavingId(null);
+                setCollections((prev) => {
+                    if (prev.some((c) => c.id === collectionId)) return prev;
+                    return [snapshot, ...prev];
+                });
+                alert(err?.message || 'Failed to delete delivery.');
+            },
+            task: () => galleryService.deleteCollection(collectionId),
+        });
     };
 
     // Close dropdowns on outside click
@@ -867,7 +870,6 @@ const ClientGallery = () => {
                                     const earn = formatInr(collection.store_earnings);
                                     const shortDate = formatDeliveryShortDate(deliveryDateValue(collection));
                                     const coverSrc = getCoverSrc(collection);
-                                    const isDeleting = deletingId === collection.id;
                                     const isLeaving = leavingId === collection.id;
                                     return (
                                         <div
@@ -876,7 +878,6 @@ const ClientGallery = () => {
                                                 'dl-card',
                                                 contextMenuId === collection.id && 'is-menu',
                                                 selectedCards.includes(collection.id) && 'is-selected',
-                                                isDeleting && 'is-deleting',
                                                 isLeaving && 'is-leaving',
                                             )}
                                             onClick={(e) => handleCardClick(collection, e)}
@@ -890,7 +891,6 @@ const ClientGallery = () => {
                                                         aria-hidden
                                                     />
                                                 )}
-                                                {isDeleting ? <DeliveryDeleteOverlay /> : null}
                                                 {attention ? (
                                                     <span className="dl-badge">
                                                         <span className="dl-badge__dot" />
@@ -993,7 +993,6 @@ const ClientGallery = () => {
                                             ? formatStorageBytes(collection.storage_bytes)
                                             : '';
                                     const coverSrc = getCoverSrc(collection);
-                                    const isDeleting = deletingId === collection.id;
                                     const isLeaving = leavingId === collection.id;
                                     return (
                                         <div
@@ -1002,7 +1001,6 @@ const ClientGallery = () => {
                                                 'dl-row',
                                                 contextMenuId === collection.id && 'is-menu',
                                                 selectedCards.includes(collection.id) && 'is-selected',
-                                                isDeleting && 'is-deleting',
                                                 isLeaving && 'is-leaving',
                                             )}
                                             onClick={(e) => handleCardClick(collection, e)}
@@ -1017,7 +1015,6 @@ const ClientGallery = () => {
                                                             aria-hidden
                                                         />
                                                     )}
-                                                    {isDeleting ? <DeliveryDeleteOverlay compact /> : null}
                                                 </div>
                                                 <div>
                                                     <div className="dl-row-title">

@@ -33,6 +33,8 @@ import {
   fetchStorePackages,
   PACKAGE_THRESHOLD,
   resolveDigitalCategoryPricing,
+  resolveLegacyDigitalPrices,
+  isDigitalDownloadEnabled,
 } from '../../lib/storePackages';
 import {
   countGalleryMedia,
@@ -90,6 +92,7 @@ import {
 } from '../../lib/salesCampaignBanner';
 import { filterPhotosByIds } from '../../lib/photoAiSearch';
 import { useGalleryPeople } from '../../hooks/useGalleryPeople';
+import { useAuth } from '../../hooks/useAuth';
 import { GalleryPeopleStrip } from '../../components/features/Gallery/GalleryPeopleStrip/GalleryPeopleStrip';
 import { GalleryEmailGate } from '../../components/features/Gallery/GalleryEmailGate/GalleryEmailGate';
 import {
@@ -124,6 +127,7 @@ function normalizeFavoritePhotoId(id) {
 const GalleryView = () => {
   const { slug } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const isMobileViewport = useIsMobileViewport();
   const [collection, setCollection] = useState(null);
   const [photographer, setPhotographer] = useState(null);
@@ -445,11 +449,7 @@ const GalleryView = () => {
     }
   }, [email]);
 
-  const isPaidDigitalDownloadOn = !!(
-    collection?.digital_download_enabled === true
-    || collection?.digital_download_enabled === 'true'
-    || collection?.digital_download_enabled === 1
-  );
+  const isPaidDigitalDownloadOn = isDigitalDownloadEnabled(collection);
 
   useEffect(() => {
     if (!isPaidDigitalDownloadOn) return undefined;
@@ -612,6 +612,23 @@ const GalleryView = () => {
     window.location.assign(`/printstore?slug=${collection.slug}${q}`);
   }, [collection?.slug]);
 
+  /** Previous-version paid download: product chooser → Print Lab cart (same checkout as prints). */
+  const openDigitalDownloadChooser = useCallback((photoOrEvent = null) => {
+    const requested = (photoOrEvent && photoOrEvent.id) ? photoOrEvent : null;
+    const stills = (collection?.photos || []).filter((p) => p && p.media_type !== 'video');
+    const photo = requested || stills[0] || (collection?.photos || [])[0] || null;
+    if (!photo) {
+      setShowNoImageShopModal(true);
+      return;
+    }
+    setDigitalDownloadPhoto(photo);
+    setIsPurchaseAllDefault(!requested);
+    setSelectedDownloadType(requested ? 'single' : 'all');
+    setSelectedStorePackage(null);
+    setShowDigitalPurchaseDetail(false);
+    setShowDigitalDownloadModal(true);
+  }, [collection]);
+
   const handleShopClick = useCallback(async (photo) => {
     if (!photo || !collection) return;
     const savedEmail = localStorage.getItem(`pixnxt_fav_email_${collection.id}`);
@@ -639,7 +656,7 @@ const GalleryView = () => {
         const photoToPass = isPendingDownloadAll ? null : pendingDownloadPhoto;
         setPendingDownloadPhoto(null);
         setIsPendingDownloadAll(false);
-        handleDigitalDownloadClick(photoToPass);
+        openDigitalDownloadChooser(photoToPass);
       } else if (pendingShopPhoto) {
         goToPrintstore(`photo=${pendingShopPhoto.id}`);
       }
@@ -661,6 +678,10 @@ const GalleryView = () => {
     enabled: Boolean(collection?.id),
     isPublic: true,
   });
+  const canManagePeople = Boolean(
+    user?.id &&
+      (collection?.photographer_id === user.id || collection?.user_id === user.id)
+  );
 
   const [pendingFavoritePhotoId, setPendingFavoritePhotoId] = useState(null);
   const [isSubmittingEmail, setIsSubmittingEmail] = useState(false);
@@ -1056,32 +1077,28 @@ const GalleryView = () => {
     };
   };
 
-  const handleDigitalDownloadClick = async (photoOrEvent = null) => {
+  const openPaidDownloadModal = useCallback((photoOrEvent = null) => {
     const photo = (photoOrEvent && photoOrEvent.id) ? photoOrEvent : null;
+    if (!collection?.id) return;
+
     const savedEmail = localStorage.getItem(`pixnxt_fav_email_${collection.id}`);
-    if (!savedEmail) {
-      if (photo) {
-        setPendingDownloadPhoto(photo);
-        setIsPendingDownloadAll(false);
-      } else {
-        setPendingDownloadPhoto(filteredPhotos[0] || null);
-        setIsPendingDownloadAll(true);
-      }
+    const needsEmail = !!collection?.email_capture_enabled && !savedEmail;
+    if (needsEmail) {
+      setPendingDownloadPhoto(photo);
+      setIsPendingDownloadAll(!photo);
       setShopEmail(email || '');
       setShowShopModal(true);
       return;
     }
 
-    // Always open buy popup when paid digital is on — do not short-circuit
-    // with “already purchased / check your email” (every download stays paid).
-    setDigitalDownloadPhoto(photo || filteredPhotos[0] || null);
-    setIsPurchaseAllDefault(!photo);
-    setShowDigitalDownloadModal(true);
-  };
+    openDigitalDownloadChooser(photo);
+  }, [collection, email, openDigitalDownloadChooser]);
+
+  const handleDigitalDownloadClick = openPaidDownloadModal;
 
   const handleDownloadClick = async (photoOrEvent = null) => {
     if (isPaidDigitalDownloadOn) {
-      handleDigitalDownloadClick(photoOrEvent);
+      openPaidDownloadModal(photoOrEvent);
       return;
     }
     const photo = (photoOrEvent && photoOrEvent.id) ? photoOrEvent : null;
@@ -1169,11 +1186,11 @@ const GalleryView = () => {
 
   const handleDownloadButtonAction = useCallback((photo) => {
     if (isPaidDigitalDownloadOn) {
-      handleDigitalDownloadClick(photo);
+      openPaidDownloadModal(photo);
     } else {
       handleDownloadClick(photo);
     }
-  }, [isPaidDigitalDownloadOn, handleDigitalDownloadClick, handleDownloadClick]);
+  }, [isPaidDigitalDownloadOn, openPaidDownloadModal, handleDownloadClick]);
 
   const galleryRef = useRef(null);
 
@@ -1422,6 +1439,18 @@ const GalleryView = () => {
           }
           return next;
         });
+
+        if (
+          'digital_download_enabled' in patch
+          || eventData.type === 'DIGITAL_PACKAGES_UPDATED'
+        ) {
+          const photographerId = collection?.photographer_id;
+          if (photographerId) {
+            fetchStorePackages(photographerId, { activeOnly: true })
+              .then((pkgs) => setStorePackages(pkgs || []))
+              .catch(() => {});
+          }
+        }
       }
 
       if (patch?.slideshow_enabled !== undefined) {
@@ -1463,6 +1492,24 @@ const GalleryView = () => {
   useEffect(() => {
     if (!collection?.id) return undefined;
 
+    const refreshStorePackagesIfNeeded = (row, prev) => {
+      if (!row || !prev) return;
+      const photographerId = prev.photographer_id;
+      if (!photographerId) return;
+      const digitalChanged =
+        row.digital_download_enabled !== undefined
+        && row.digital_download_enabled !== prev.digital_download_enabled;
+      const priceChanged =
+        (row.digital_download_price_single !== undefined
+          && row.digital_download_price_single !== prev.digital_download_price_single)
+        || (row.digital_download_price_all !== undefined
+          && row.digital_download_price_all !== prev.digital_download_price_all);
+      if (!digitalChanged && !priceChanged) return;
+      fetchStorePackages(photographerId, { activeOnly: true })
+        .then((pkgs) => setStorePackages(pkgs || []))
+        .catch(() => {});
+    };
+
     const channel = supabase
       .channel(`gallery-download-settings:${collection.id}`)
       .on(
@@ -1478,6 +1525,7 @@ const GalleryView = () => {
           if (!row) return;
           setCollection((prev) => {
             if (!prev || prev.id !== collection.id) return prev;
+            refreshStorePackagesIfNeeded(row, prev);
             const pin = row.download_pin_hash ?? null;
             return {
               ...prev,
@@ -1498,6 +1546,15 @@ const GalleryView = () => {
               pin_usage_limit: row.pin_usage_limit ?? prev.pin_usage_limit,
               video_download_resolution:
                 row.video_download_resolution ?? prev.video_download_resolution,
+              download_selling: row.download_selling ?? prev.download_selling,
+              download_contact_mode: row.download_contact_mode ?? prev.download_contact_mode,
+              large_download_contact: row.large_download_contact ?? prev.large_download_contact,
+              download_price_full: row.download_price_full ?? prev.download_price_full,
+              download_price_web: row.download_price_web ?? prev.download_price_web,
+              download_price_film: row.download_price_film ?? prev.download_price_film,
+              download_bundles: row.download_bundles ?? prev.download_bundles,
+              film_playback: row.film_playback ?? prev.film_playback,
+              single_film_download: row.single_film_download ?? prev.single_film_download,
               store_enabled: row.store_enabled ?? prev.store_enabled,
               guest_prints_enabled: row.guest_prints_enabled ?? prev.guest_prints_enabled,
               print_markup_percent: row.print_markup_percent ?? prev.print_markup_percent,
@@ -1520,6 +1577,12 @@ const GalleryView = () => {
                 row.social_sharing_enabled !== undefined
                   ? row.social_sharing_enabled
                   : prev.social_sharing_enabled,
+              digital_download_enabled:
+                row.digital_download_enabled ?? prev.digital_download_enabled,
+              digital_download_price_single:
+                row.digital_download_price_single ?? prev.digital_download_price_single,
+              digital_download_price_all:
+                row.digital_download_price_all ?? prev.digital_download_price_all,
             };
           });
         }
@@ -2512,6 +2575,7 @@ const GalleryView = () => {
               onSelectPerson={galleryPeople.selectPerson}
               onSelfiePick={galleryPeople.searchBySelfie}
               onClearFilter={galleryPeople.clearFilter}
+              onRenamePerson={canManagePeople ? galleryPeople.renamePerson : undefined}
             />
           ) : null}
 
@@ -2945,6 +3009,7 @@ const GalleryView = () => {
         watermarkOptions={getWatermarkOptions()}
         initialSetId={activeSetId}
         visitorEmail={email}
+        storePackages={storePackages}
         onOpenMedia={(photo) => {
           const idx = filteredPhotos.findIndex((item) => item.id === photo.id);
           setShowDownloadModal(false);
@@ -3037,7 +3102,7 @@ const GalleryView = () => {
           || collectionPhotos[0]
           || null;
         const selectedShopUrl = selectedShopPhoto
-          ? (getStoreViewPhotoUrl(selectedShopPhoto) || selectedShopPhoto.web_url || selectedShopPhoto.display_url || '')
+          ? (getStoreViewPhotoUrl(selectedShopPhoto) || '')
           : '';
         return (
           <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, padding: '20px', boxSizing: 'border-box', backdropFilter: 'blur(6px)' }}>
@@ -3424,7 +3489,11 @@ const GalleryView = () => {
                       selectedDownloadType === 'package' && selectedStorePackage
                         ? Number(selectedStorePackage.price) || 0
                         : selectedDownloadType === 'all'
-                          ? Number(collection.digital_download_price_all) || 0
+                          ? Number(
+                            resolveLegacyDigitalPrices(storePackages, collection, {
+                              photoCount: (filteredPhotos || []).filter((p) => p?.media_type !== 'video').length,
+                            }).entire || collection.digital_download_price_all || 0
+                          )
                           : Number(digitalPricing?.single?.price) || 0
                     ).toFixed(2)}
                   </span>
@@ -3498,14 +3567,17 @@ const GalleryView = () => {
                         return;
                       }
 
+                      const legacyPrices = resolveLegacyDigitalPrices(storePackages, collection, {
+                        photoCount: (filteredPhotos || []).filter((p) => p?.media_type !== 'video').length,
+                      });
                       const itemProductId = isAll ? 'digital_download_all' : 'digital_download';
                       const itemProductName = isAll
                         ? 'Entire Delivery Download (All Photos)'
                         : (digitalPricing?.single?.label || 'Single Photo Download');
                       const itemUnitPrice = Number(
                         isAll
-                          ? (collection.digital_download_price_all || 0)
-                          : (digitalPricing?.single?.price || 0)
+                          ? (legacyPrices.entire || collection.digital_download_price_all || 0)
+                          : (digitalPricing?.single?.price || legacyPrices.single || 0)
                       );
                       const photo = isAll ? null : digitalDownloadPhoto;
                       // toStoreCartPhoto keeps web for viewing + full_url for delivery (supersedes inline map)

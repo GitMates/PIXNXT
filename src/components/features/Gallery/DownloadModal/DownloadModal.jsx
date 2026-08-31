@@ -20,6 +20,10 @@ import {
   saveGalleryToGoogleDrive,
 } from '@/lib/googleDriveUpload';
 import { getPhotoVideoSrc, isVideoMedia } from '@/lib/photoDisplayUrl';
+import {
+  isDigitalDownloadEnabled,
+  resolveLegacyDigitalPrices,
+} from '@/lib/storePackages';
 import './DownloadModal.css';
 
 const LARGE_ZIP_BYTES = 4 * 1024 ** 3;
@@ -170,7 +174,15 @@ export const DownloadModal = ({
   initialSetId = 'all',
   visitorEmail = '',
   onOpenMedia,
+  storePackages = [],
 }) => {
+  const isPaidDigital = isDigitalDownloadEnabled(collection);
+
+  const digitalPrices = useMemo(() => {
+    if (!isPaidDigital) return null;
+    const photoCount = (photos || []).filter((p) => p?.media_type !== 'video').length;
+    return resolveLegacyDigitalPrices(storePackages, collection, { photoCount });
+  }, [isPaidDigital, storePackages, collection, photos]);
   const [step, setStep] = useState('auth'); // auth -> selection -> preparing -> complete
   const [email, setEmail] = useState('');
   const [pinDigits, setPinDigits] = useState(['', '', '', '']);
@@ -371,7 +383,9 @@ export const DownloadModal = ({
         setIsProcessing(false);
         setPinDigits(['', '', '', '']);
         setEmail(knownEmail);
-        setWhatScope(initialPhoto ? 'single' : 'sets');
+        setWhatScope(
+          initialPhoto ? 'single' : (isPaidDigital ? 'all' : 'sets'),
+        );
         setCheckedSetKeys(
           buildInitialCheckedSets({
             initialSetId,
@@ -402,7 +416,20 @@ export const DownloadModal = ({
     allowedHighlightsCount,
     offeredPhotoResolutions,
     visitorEmail,
+    isPaidDigital,
   ]);
+
+  const paidDownloadPrice = useMemo(() => {
+    if (!isPaidDigital) return null;
+    const isSingleScope = whatScope === 'single';
+    const amount = isSingleScope
+      ? (digitalPrices?.single || Number(collection?.digital_download_price_single) || 40)
+      : (digitalPrices?.entire || Number(collection?.digital_download_price_all) || 199);
+    return {
+      amount: Number(amount) || 0,
+      label: isSingleScope ? 'Single Photo Download' : 'Entire Delivery Download (All Photos)',
+    };
+  }, [isPaidDigital, whatScope, digitalPrices, collection]);
 
   const toggleSetKey = (key) => {
     setCheckedSetKeys((prev) => {
@@ -543,19 +570,18 @@ export const DownloadModal = ({
   }, [email]);
 
   const handleStartDownloadClick = () => {
-    if (collection?.digital_download_enabled === true) {
-      // Check if already paid
+    if (isPaidDigital) {
       const isSingle = whatScope === 'single';
       const paidAll = localStorage.getItem(`pixnxt_digital_paid_${collection.id}_all`) === 'true';
       const paidSingle = isSingle && localStorage.getItem(`pixnxt_digital_paid_${collection.id}_single_${initialPhoto?.id}`) === 'true';
-      
+
       if (!paidAll && !paidSingle) {
         setError('');
         setStep('payment');
         return;
       }
     }
-    
+
     startDownload();
   };
 
@@ -573,9 +599,9 @@ export const DownloadModal = ({
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       const isSingle = whatScope === 'single';
-      const price = isSingle 
-        ? (collection.digital_download_price_single || 40)
-        : (collection.digital_download_price_all || 199);
+      const price = isSingle
+        ? (digitalPrices?.single || Number(collection?.digital_download_price_single) || 40)
+        : (digitalPrices?.entire || Number(collection?.digital_download_price_all) || 199);
       
       const { data: order, error: orderError } = await supabase
         .from('printstore_orders')
@@ -1344,13 +1370,13 @@ export const DownloadModal = ({
                   <div>
                     <span style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b', fontWeight: 600 }}>Item to download</span>
                     <strong style={{ color: '#111', fontSize: '14px' }}>
-                      {whatScope === 'single' ? 'Single Photo Download' : 'Entire Gallery Download'}
+                      {paidDownloadPrice?.label || (whatScope === 'single' ? 'Single Photo Download' : 'Entire Gallery Download')}
                     </strong>
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <span style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b', fontWeight: 600 }}>Amount Due</span>
                     <strong style={{ color: '#111', fontSize: '18px', fontWeight: 700 }}>
-                      ₹{(whatScope === 'single' ? (collection.digital_download_price_single || 40) : (collection.digital_download_price_all || 199)).toFixed(2)}
+                      ₹{(paidDownloadPrice?.amount ?? 0).toFixed(2)}
                     </strong>
                   </div>
                 </div>

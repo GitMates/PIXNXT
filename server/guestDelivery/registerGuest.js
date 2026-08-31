@@ -1,6 +1,12 @@
 import { getSupabaseAdmin } from '../photoAi/supabaseAdmin.js';
 import { decodeBase64Image, uploadBytesToR2 } from './r2Server.js';
 import { matchGuestToCollectionPhotos } from '../photoAi/applyGuestLabels.js';
+import {
+  buildUserModulePath,
+  fetchPhotographerR2Folder,
+  R2_USER_MODULES,
+  safeR2PathSegment,
+} from '../../src/lib/photographerR2FolderCore.js';
 
 const GUEST_FIELDS =
   'id, event_id, name, email, phone, access_token, selfie_url, registered_at, delivery_status';
@@ -28,13 +34,7 @@ function generateAccessToken() {
 }
 
 function safePathSegment(value, fallback = 'item') {
-  const raw = String(value || fallback)
-    .trim()
-    .toLowerCase()
-    .replace(/[^\w-]+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
-  return raw || fallback;
+  return safeR2PathSegment(value, fallback);
 }
 
 export async function handleRegisterGuestRequest(body) {
@@ -84,7 +84,14 @@ export async function handleRegisterGuestRequest(body) {
   }
   const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.jpg`;
   const eventFolder = `${safePathSegment(event.name, 'event')}__${event.id}`;
-  const storagePath = `users/guestdelivery/public/${eventFolder}/selfies/${fileName}`;
+  const photographerFolder = await fetchPhotographerR2Folder(db, event.photographer_id);
+  const storagePath = buildUserModulePath(
+    photographerFolder,
+    R2_USER_MODULES.GUEST_DELIVERY,
+    eventFolder,
+    'selfies',
+    fileName
+  );
 
   const { url: selfieUrl } = await uploadBytesToR2(storagePath, imageBytes, 'image/jpeg');
 

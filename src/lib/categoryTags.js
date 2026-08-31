@@ -39,3 +39,16 @@ export function categoryTagsFromCollection(collection) {
 export function categoryTagsToDb(tags) {
   return normalizeCategoryTags(tags);
 }
+
+/** Common delivery category tags shown as quick-add suggestions. */
+export const CATEGORY_TAG_SUGGESTIONS = [
+  'Wedding',
+  'Portrait',
+  'Editorial',
+  'Engagement',
+  'Family',
+  'Fashion',
+  'Maternity',
+  'Event',
+  'Newborn',
+];

@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { getGuestRegistrationUrl } from '../../../lib/guestDeliveryLinks';
 import { getQrCodeImageUrl } from '../../../lib/shareCollection';
 import { guestDeliveryService } from '../../../services/guestDelivery.service';
+import { persistGuestDeliveryEventSettings } from '../../../lib/deliverySettingsSync';
 
 const FORM_LANGUAGES = [
   { id: 'en', label: 'English', locked: true },
@@ -152,13 +153,25 @@ export function GuestDeliveryQrModal({
   const [copied, setCopied] = useState(false);
   const [savingReg, setSavingReg] = useState(false);
   const [downloading, setDownloading] = useState('');
+  const [acceptingOverride, setAcceptingOverride] = useState(null);
   const registrationUrl = getGuestRegistrationUrl(slug, photographerProfile);
   const qrUrl = getQrCodeImageUrl(registrationUrl, 280);
   const shortPath = displayGuestPath(registrationUrl);
-  const accepting = event?.registration_enabled !== false;
-  const languages = Array.isArray(event?.settings?.languages) && event.settings.languages.length
+  const acceptingFromEvent = event?.registration_enabled !== false;
+  const accepting = acceptingOverride ?? acceptingFromEvent;
+
+  useEffect(() => {
+    setAcceptingOverride(null);
+  }, [event?.id, event?.registration_enabled]);
+
+  const eventLanguages = Array.isArray(event?.settings?.languages) && event.settings.languages.length
     ? event.settings.languages
     : ['en'];
+  const [languages, setLanguages] = useState(eventLanguages);
+
+  useEffect(() => {
+    setLanguages(eventLanguages);
+  }, [event?.id, JSON.stringify(eventLanguages)]);
 
   const stats = useMemo(() => {
     const registered = guests.length || Number(event?.guest_count) || 0;
@@ -180,39 +193,51 @@ export function GuestDeliveryQrModal({
     }
   };
 
-  const persistSettings = async (updates, settingsPatch) => {
-    if (!event?.id || !photographerId) return;
-    const nextSettings = { ...(event.settings || {}), ...settingsPatch };
-    const updated = await guestDeliveryService.updateEvent(photographerId, event.id, {
-      ...updates,
-      settings: nextSettings,
-    });
-    onEventUpdated?.(updated);
-  };
+  const resolvePhotographerId = () => photographerId || event?.photographer_id || null;
 
   const toggleAccepting = async () => {
-    if (savingReg) return;
+    if (savingReg || !event?.id) return;
+    const next = !accepting;
+    const previous = event.registration_enabled;
+    setAcceptingOverride(next);
+    onEventUpdated?.((prev) => (prev ? { ...prev, registration_enabled: next } : prev));
     setSavingReg(true);
     try {
-      await persistSettings({ registration_enabled: !accepting }, {});
+      const ownerId = resolvePhotographerId();
+      if (!ownerId) throw new Error('You must be signed in to change registration settings.');
+      const updated = await guestDeliveryService.setRegistrationEnabled(ownerId, event.id, next);
+      onEventUpdated?.(updated);
+      setAcceptingOverride(null);
     } catch (err) {
       console.error(err);
-      alert('Could not update registration. Please try again.');
+      setAcceptingOverride(null);
+      onEventUpdated?.((prev) => (prev ? { ...prev, registration_enabled: previous } : prev));
+      alert(err?.message || 'Could not update registration. Please try again.');
     } finally {
       setSavingReg(false);
     }
   };
 
   const toggleLanguage = async (id) => {
-    if (id === 'en') return;
+    if (id === 'en' || !event?.id) return;
+    const ownerId = resolvePhotographerId();
+    if (!ownerId) return;
+    const previous = languages;
     const next = languages.includes(id)
       ? languages.filter((lang) => lang !== id)
       : [...languages, id];
     if (!next.includes('en')) next.unshift('en');
+    setLanguages(next);
     try {
-      await persistSettings({}, { languages: next });
+      await persistGuestDeliveryEventSettings(
+        ownerId,
+        event,
+        { languages: next },
+        onEventUpdated,
+      );
     } catch (err) {
       console.error(err);
+      setLanguages(previous);
     }
   };
 

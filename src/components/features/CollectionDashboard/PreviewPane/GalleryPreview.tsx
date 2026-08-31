@@ -703,6 +703,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
           onSelectPerson={galleryPeople.selectPerson}
           onSelfiePick={galleryPeople.searchBySelfie}
           onClearFilter={galleryPeople.clearFilter}
+          onRenamePerson={galleryPeople.renamePerson}
         />
 
         {showOnlyFavorites && favFeatureOn && (

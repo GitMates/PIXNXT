@@ -41,7 +41,7 @@ export default function EventGuestRegister() {
         if (!cancelled) {
           if (!data) setError('This event was not found.');
           else if (data.registration_enabled === false) {
-            setError('Registration for this event has closed.');
+            setError('This event has finished. Registration is no longer open.');
           } else setEvent(data);
         }
       } catch (err) {

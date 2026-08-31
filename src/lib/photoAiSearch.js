@@ -68,6 +68,16 @@ export function filterPhotosByPerson(photos, metadataByPhotoId, person) {
   });
 }
 
+/** True when a person has no custom name yet. */
+export function isPlaceholderPersonLabel(label) {
+  const value = String(label || '').trim();
+  return !value || value === 'Not named' || /^Person \d+$/i.test(value);
+}
+
+export function displayPersonLabel(label, fallback = 'Not named') {
+  return isPlaceholderPersonLabel(label) ? fallback : String(label || fallback);
+}
+
 /** @deprecated Use clustered people from API instead */
 export function buildPeopleFromMetadata(metadataRows, photos) {
   const photoById = new Map((photos || []).map((p) => [p.id, p]));
@@ -96,7 +106,7 @@ export function buildPeopleFromMetadata(metadataRows, photos) {
 
   return Array.from(peopleMap.values())
     .sort((a, b) => b.photoIds.length - a.photoIds.length)
-    .map((person, index) => ({
+    .map((person) => ({
       ...person,
       label: 'Not named',
       count: person.photoIds.length,

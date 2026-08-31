@@ -119,6 +119,59 @@ export function resolveDigitalCategoryPricing(packages, collection, { photoCount
   };
 }
 
+/** True when paid digital downloads are enabled on a delivery. */
+export function isDigitalDownloadEnabled(collection) {
+  const v = collection?.digital_download_enabled;
+  return v === true || v === 'true' || v === 1 || v === '1';
+}
+
+/**
+ * Single + entire-delivery prices for the classic DownloadModal flow.
+ * Uses store_packages for the gallery category, then delivery column fallbacks.
+ */
+export function resolveLegacyDigitalPrices(packages, collection, { photoCount } = {}) {
+  const count = Number(photoCount) || 0;
+  const pricing = resolveDigitalCategoryPricing(packages, collection, { photoCount: count });
+  const category = pricing.category;
+
+  let single = Number(pricing.single?.price);
+  if (!Number.isFinite(single) || single <= 0) {
+    single = Number(collection?.digital_download_price_single) || 0;
+  }
+
+  let entire = Number(collection?.digital_download_price_all) || 0;
+
+  if (count > 0) {
+    const exactTier = findTierPrice(packages, category, count)
+      || (category !== 'Default' ? findTierPrice(packages, 'Default', count) : null);
+    if (exactTier && Number(exactTier.price) > 0) {
+      entire = Number(exactTier.price);
+    } else if (pricing.packs?.length) {
+      const largest = [...pricing.packs].sort((a, b) => b.photo_count - a.photo_count)[0];
+      if (largest && count <= largest.photo_count) {
+        entire = Number(largest.price);
+      }
+    }
+  }
+
+  if (!entire || entire <= 0) {
+    const tier10 = findTierPrice(packages, category, 10)
+      || (category !== 'Default' ? findTierPrice(packages, 'Default', 10) : null);
+    if (tier10 && Number(tier10.price) > 0) {
+      entire = Number(tier10.price);
+    } else if (pricing.packs?.[0]) {
+      entire = Number(pricing.packs[0].price);
+    }
+  }
+
+  return {
+    category,
+    single: Math.max(0, single),
+    entire: Math.max(0, entire),
+    pricing,
+  };
+}
+
 /** Packages whose category matches the gallery's resolved category (or Default). */
 export function filterPackagesForCollection(packages, collection) {
   const category = resolveCollectionPackageCategory(collection);

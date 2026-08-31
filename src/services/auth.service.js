@@ -1,4 +1,11 @@
 import { supabase } from '../lib/supabase/client';
+import {
+  buildGoogleStudioAuthUrl,
+  getGoogleStudioCallbackUrl,
+  GOOGLE_STUDIO_AUTH_STATE_KEY,
+  isGoogleStudioAuthConfigured,
+  isGoogleStudioCallbackPath,
+} from '../lib/googleStudioAuth';
 
 /**
  * Signs in a user with email and password.
@@ -34,6 +41,7 @@ export async function signUpWithEmail({ email, password }) {
     email,
     password,
     options: {
+      emailRedirectTo: authRedirectTo('/auth?confirmed=1'),
       data: {
         display_name: fallbackName,
         full_name: fallbackName,
@@ -51,15 +59,83 @@ export async function signUpWithEmail({ email, password }) {
   return data;
 }
 
+function trimTrailingSlash(url) {
+  return String(url || '').replace(/\/+$/, '');
+}
+
 function authRedirectTo(path = '/auth') {
-  if (typeof window === 'undefined') return path;
-  return `${window.location.origin}${path}`;
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return `${trimTrailingSlash(window.location.origin)}${normalizedPath}`;
+  }
+  const fromEnv = trimTrailingSlash(import.meta.env.VITE_PUBLIC_SITE_URL);
+  if (fromEnv) return `${fromEnv}${normalizedPath}`;
+  return normalizedPath;
+}
+
+/** True when the URL contains Supabase OAuth / email-confirmation callback params. */
+export function hasAuthCallbackInUrl() {
+  if (typeof window === 'undefined') return false;
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  const search = new URLSearchParams(window.location.search);
+  if (
+    search.has('code') &&
+    isGoogleStudioCallbackPath(window.location.pathname)
+  ) {
+    return false;
+  }
+  return (
+    hash.has('access_token') ||
+    hash.has('error') ||
+    hash.has('error_description') ||
+    search.has('code')
+  );
 }
 
 /**
- * Starts Google OAuth (login and sign-up share this flow).
+ * Resolves session on first load, waiting briefly when the URL carries auth tokens.
  */
-export async function signInWithGoogle() {
+export async function resolveInitialAuthSession() {
+  if (!hasAuthCallbackInUrl()) {
+    return resolveAuthSession();
+  }
+
+  return new Promise((resolve) => {
+    let settled = false;
+    let subscription = null;
+    let timeoutId = null;
+
+    const finish = async () => {
+      if (settled) return;
+      settled = true;
+      subscription?.unsubscribe();
+      if (timeoutId) clearTimeout(timeoutId);
+      resolve(await resolveAuthSession());
+    };
+
+    const { data } = supabase.auth.onAuthStateChange((event) => {
+      if (
+        event === 'SIGNED_IN' ||
+        event === 'INITIAL_SESSION' ||
+        event === 'PASSWORD_RECOVERY'
+      ) {
+        void finish();
+      }
+    });
+    subscription = data.subscription;
+
+    timeoutId = setTimeout(() => void finish(), 4000);
+
+    void supabase.auth.getSession().then(({ data: sessionData }) => {
+      if (sessionData.session) void finish();
+    });
+  });
+}
+
+/**
+ * Starts Google OAuth via Supabase (fallback — Google shows *.supabase.co on the consent screen).
+ */
+async function signInWithGoogleViaSupabase() {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
@@ -73,7 +149,135 @@ export async function signInWithGoogle() {
     throw error;
   }
 
+  if (data?.url) {
+    window.location.assign(data.url);
+  }
+
   return data;
+}
+
+/**
+ * Starts Google OAuth (login and sign-up share this flow).
+ * When VITE_GOOGLE_CLIENT_ID is set, redirects through Google with a pixnxt.in callback
+ * so the account chooser shows your domain instead of *.supabase.co.
+ */
+export async function signInWithGoogle() {
+  const clientId = String(import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim();
+  if (clientId) {
+    window.location.assign(buildGoogleStudioAuthUrl(clientId));
+    return { provider: 'google' };
+  }
+  return signInWithGoogleViaSupabase();
+}
+
+/**
+ * Finish studio Google login after redirect to /auth/google/callback?code=...
+ */
+export async function completeGoogleStudioSignIn(code, state) {
+  const expectedState = sessionStorage.getItem(GOOGLE_STUDIO_AUTH_STATE_KEY);
+
+  if (!expectedState || !state || expectedState !== state) {
+    throw new Error('Google sign-in expired or was interrupted. Please try again.');
+  }
+
+  const redirectUri = getGoogleStudioCallbackUrl();
+  const res = await fetch('/api/google-auth', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code, redirectUri }),
+  });
+
+  const payload = await res.json().catch(() => ({}));
+  if (!res.ok || payload.ok === false) {
+    throw new Error(payload.error || 'Google sign-in failed.');
+  }
+
+  const tokens = payload.result || payload;
+  if (!tokens?.id_token) {
+    throw new Error('Google sign-in failed — no ID token returned.');
+  }
+
+  const { data, error } = await supabase.auth.signInWithIdToken({
+    provider: 'google',
+    token: tokens.id_token,
+    access_token: tokens.access_token || undefined,
+  });
+
+  if (error) {
+    console.error('Supabase Google token sign-in error:', error.message);
+    throw error;
+  }
+
+  sessionStorage.removeItem(GOOGLE_STUDIO_AUTH_STATE_KEY);
+  return data;
+}
+
+export { isGoogleStudioAuthConfigured };
+
+/**
+ * Create a photographers row for first-time OAuth / email users when missing.
+ */
+export async function ensurePhotographerProfile(user) {
+  if (!user?.id) return null;
+
+  const existing = await getProfile(user.id);
+  if (existing) return existing;
+
+  const meta = user.user_metadata || {};
+  const email = String(user.email || '').trim().toLowerCase();
+  const fullName =
+    String(meta.full_name || meta.name || '').trim() ||
+    email.split('@')[0] ||
+    'Photographer';
+  const nameParts = fullName.split(/\s+/).filter(Boolean);
+  const firstName = nameParts[0] || '';
+  const lastName = nameParts.slice(1).join(' ');
+  const slugBase = email.split('@')[0] || user.id.slice(0, 8);
+  const showcaseSlug = slugBase.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'studio';
+
+  const { galleryService } = await import('./gallery.service');
+  return galleryService.updatePhotographerProfile(user.id, {
+    email,
+    contact_email: email,
+    display_name: fullName,
+    business_name: fullName,
+    first_name: firstName,
+    last_name: lastName,
+    profile_icon_url: meta.avatar_url || meta.picture || null,
+    showcase_slug: showcaseSlug,
+  });
+}
+
+export function readOAuthCallbackError() {
+  if (typeof window === 'undefined') return null;
+
+  const search = new URLSearchParams(window.location.search);
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  const error =
+    search.get('error_description') ||
+    search.get('error') ||
+    hash.get('error_description') ||
+    hash.get('error');
+
+  if (!error) return null;
+
+  const decoded = decodeURIComponent(String(error).replace(/\+/g, ' '));
+  if (/provider is not enabled/i.test(decoded)) {
+    return 'Google sign-in is not enabled yet. Enable the Google provider in Supabase → Authentication → Providers.';
+  }
+  if (/access_denied/i.test(decoded)) {
+    return 'Google sign-in was cancelled.';
+  }
+  return decoded;
+}
+
+export function clearOAuthCallbackParams() {
+  if (typeof window === 'undefined') return;
+  const url = new URL(window.location.href);
+  url.searchParams.delete('error');
+  url.searchParams.delete('error_description');
+  url.hash = '';
+  window.history.replaceState({}, '', `${url.pathname}${url.search}`);
 }
 
 /**
