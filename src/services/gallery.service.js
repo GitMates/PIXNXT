@@ -6,7 +6,7 @@ import { compressImageForUpload, compressImageVariants } from '../lib/prepareUpl
 import { isRawImageFile } from '../lib/rawImageFormats';
 import { extractRawPreviewBlob } from '../lib/rawImagePreview';
 import { hasRawDisplayPreview, isRawMedia, resolveMediaUrl, toWebDerivativeUrl } from '../lib/photoDisplayUrl';
-import { generateCollectionSlug } from '../lib/collectionSlug';
+import { deliverySlugLookupVariants, generateCollectionSlug } from '../lib/collectionSlug';
 import { DELIVERY_R2_MODULE } from '../lib/deliveryIds';
 import { getPhotographerR2Folder } from '../lib/photographerR2Folder';
 import { buildDeliveryStatusPatch, toDbDeliveryStatus } from '../lib/deliveryStatus';
@@ -1321,61 +1321,112 @@ export const galleryService = {
         .select(select)
         .eq('status', 'published');
 
+    const slugVariants = normalized ? deliverySlugLookupVariants(normalized) : [];
+
+    const queryPublishedBySlug = async () => {
+      for (const variant of slugVariants) {
+        let result = await basePublishedQuery().eq('slug', variant).maybeSingle();
+        if (result.error) throw result.error;
+        if (result.data) return result.data;
+        result = await basePublishedQuery().ilike('slug', variant).maybeSingle();
+        if (result.error) throw result.error;
+        if (result.data) return result.data;
+      }
+      return null;
+    };
+
+    const queryOwnerBySlug = async (userId) => {
+      for (const variant of slugVariants) {
+        let result = await supabase
+          .from('deliveries')
+          .select(select)
+          .eq('photographer_id', userId)
+          .eq('slug', variant)
+          .maybeSingle();
+        if (result.error) throw result.error;
+        if (result.data) return result.data;
+        result = await supabase
+          .from('deliveries')
+          .select(select)
+          .eq('photographer_id', userId)
+          .ilike('slug', variant)
+          .maybeSingle();
+        if (result.error) throw result.error;
+        if (result.data) return result.data;
+      }
+      return null;
+    };
+
     let data = null;
     let error = null;
 
-    if (normalized) {
-      let result = await basePublishedQuery().eq('slug', normalized).maybeSingle();
-      data = result.data;
-      error = result.error;
-      if (!data && !error) {
-        const fallback = await basePublishedQuery().ilike('slug', normalized).maybeSingle();
-        data = fallback.data;
-        error = fallback.error;
-      }
-    }
-
-    if (error) throw error;
-
-    if (!data && studioCollectionId) {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const userId = sessionData?.session?.user?.id;
-      if (userId) {
-        const ownerById = await supabase
+    if (studioCollectionId) {
+      try {
+        const { data: colById } = await supabase
           .from('deliveries')
           .select(select)
           .eq('id', studioCollectionId)
-          .eq('photographer_id', userId)
           .maybeSingle();
-        if (ownerById.error) throw ownerById.error;
-        data = ownerById.data;
+        if (colById) data = colById;
+      } catch (err) {
+        console.warn('Could not load delivery by studioCollectionId:', err);
+      }
+    }
+
+    if (!data && slugVariants.length > 0) {
+      try {
+        data = await queryPublishedBySlug();
+      } catch (err) {
+        error = err;
+      }
+    }
+
+    if (!data && slugVariants.length > 0) {
+      for (const variant of slugVariants) {
+        try {
+          let result = await supabase
+            .from('deliveries')
+            .select(select)
+            .ilike('slug', variant)
+            .maybeSingle();
+          if (result.data) {
+            data = result.data;
+            break;
+          }
+          result = await supabase
+            .from('deliveries')
+            .select(select)
+            .ilike('name', variant)
+            .maybeSingle();
+          if (result.data) {
+            data = result.data;
+            break;
+          }
+        } catch {
+          /* ignore */
+        }
       }
     }
 
     if (!data && normalized) {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const userId = sessionData?.session?.user?.id;
-      if (userId) {
-        let ownerBySlug = await supabase
-          .from('deliveries')
-          .select(select)
-          .eq('photographer_id', userId)
-          .eq('slug', normalized)
-          .maybeSingle();
-        if (ownerBySlug.error) throw ownerBySlug.error;
-        data = ownerBySlug.data;
-        if (!data) {
-          const ownerIlike = await supabase
+      // Direct ilike match for any delivery whose slug or name contains the base string
+      try {
+        const rawClean = normalized.replace(/[^a-zA-Z0-9 ]/g, ' ').trim();
+        if (rawClean) {
+          const { data: fuzzy } = await supabase
             .from('deliveries')
             .select(select)
-            .eq('photographer_id', userId)
-            .ilike('slug', normalized)
+            .ilike('name', `%${rawClean}%`)
+            .limit(1)
             .maybeSingle();
-          if (ownerIlike.error) throw ownerIlike.error;
-          data = ownerIlike.data;
+          if (fuzzy) data = fuzzy;
         }
+      } catch {
+        /* ignore */
       }
     }
+
+    if (error && !data) throw error;
 
     if (!data) return null;
     return sortGalleryRows(data);

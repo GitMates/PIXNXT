@@ -4,7 +4,6 @@ import { cn } from '../../../../lib/utils';
 import { prepareSelfieForRekognition } from '../../../../lib/selfieImageForRekognition';
 import { PersonFaceAvatar } from './PersonFaceAvatar';
 import { PersonLabelEditor } from './PersonLabelEditor';
-import { AppSpinner } from '../../../ui/AppLoading';
 
 const VISIBLE_LIMIT = 8;
 const AVATAR_SIZE = 60;
@@ -77,7 +76,7 @@ export function CollectionPeopleStrip({
             >
               <span className="cdpw-person__avatar-wrap cdpw-person__avatar-wrap--find">
                 {selfieSearching ? (
-                  <AppSpinner size="sm" />
+                  <Loader2 size={22} className="cdpw-spin" aria-hidden />
                 ) : selfiePreview ? (
                   <img src={selfiePreview} alt="" className="cdpw-person__selfie-img" />
                 ) : (
@@ -116,7 +115,7 @@ export function CollectionPeopleStrip({
 
         {loadingPeople ? (
           <span className="cdpw-people__status">
-            <AppSpinner size="sm" />
+            <Loader2 size={16} className="cdpw-spin" aria-hidden />
             Loading people…
           </span>
         ) : null}
@@ -201,14 +200,14 @@ export function CollectionPeopleStrip({
               title="Index faces again"
               onClick={() => onReanalyze?.()}
             >
-              {analyzing ? <AppSpinner size="sm" /> : <RefreshCw size={16} />}
+              {analyzing ? <Loader2 size={16} className="cdpw-spin" /> : <RefreshCw size={16} />}
             </button>
           </div>
         ) : null}
 
         {!loadingPeople && analyzing && shown.length === 0 ? (
           <span className="cdpw-people__status cdpw-people__status--analyzing">
-            <AppSpinner size="sm" />
+            <Loader2 size={14} className="cdpw-spin" aria-hidden />
             Indexing faces…
           </span>
         ) : null}
@@ -225,7 +224,7 @@ export function CollectionPeopleStrip({
 
         {!loadingPeople && analyzing && shown.length > 0 ? (
           <span className="cdpw-people__status cdpw-people__status--analyzing">
-            <AppSpinner size="sm" />
+            <Loader2 size={14} className="cdpw-spin" aria-hidden />
             Indexing faces…
           </span>
         ) : null}
@@ -234,7 +233,7 @@ export function CollectionPeopleStrip({
       <div className="cdpw-people__side">
         {selfieSearching ? (
           <p className="cdpw-people__selfie-status">
-            <AppSpinner size="xs" /> Matching your face…
+            <Loader2 size={12} className="cdpw-spin" aria-hidden /> Matching your face…
           </p>
         ) : null}
         {!selfieSearching && selfieMessage ? (

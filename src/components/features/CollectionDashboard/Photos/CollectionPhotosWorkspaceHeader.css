@@ -360,11 +360,9 @@
   align-items: center;
   gap: 18px;
   margin-top: 22px;
-  padding: 8px 0 20px;
-  min-height: 104px;
-  overflow: visible;
-  position: relative;
-  z-index: 2;
+  padding: 8px 0 24px;
+  min-height: 96px;
+  border-bottom: 1px solid #eceae6;
 }
 
 .cdpw-people__label {
@@ -388,8 +386,7 @@
   flex: 1;
   min-width: 0;
   overflow-x: auto;
-  overflow-y: visible;
-  padding: 8px 4px 4px;
+  padding: 0 2px 4px;
   scrollbar-width: thin;
 }
 
@@ -424,13 +421,10 @@
 
 .cdpw-person__avatar-wrap {
   position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 66px;
-  height: 66px;
+  display: block;
+  width: 60px;
+  height: 60px;
   flex-shrink: 0;
-  overflow: visible;
 }
 
 /* Base avatar — must live here (toolbar CSS is not loaded on this view) */
@@ -457,14 +451,9 @@
   background: linear-gradient(180deg, #e8d5bc 0%, #b8956f 100%);
 }
 
-.cdpw-person__btn--active .cdpw-person__avatar-wrap {
-  box-shadow: 0 0 0 2px #1a1a1a;
-  border-radius: 50%;
-}
-
 .cdpw-person__btn--active .cd-person-face-avatar {
   border-color: #fff;
-  box-shadow: none;
+  box-shadow: 0 0 0 2px #1a1a1a;
 }
 
 .cdpw-person__btn .cd-person-face-avatar img {
@@ -503,8 +492,8 @@
 
 .cdpw-person__clear {
   position: absolute;
-  top: 0;
-  right: 0;
+  top: -2px;
+  right: -2px;
   z-index: 3;
   display: inline-flex;
   align-items: center;
@@ -537,18 +526,16 @@
   flex-shrink: 0;
   border: 1px dashed #cccccc;
   border-radius: 50%;
-  background: #fbf9f6;
+  background: #fff;
   font-family: inherit;
   font-size: 12px;
   font-weight: 500;
   color: #999999;
   cursor: pointer;
-  position: relative;
-  z-index: 1;
 }
 
 .cdpw-person__overflow:hover {
-  background: #f5f2ed;
+  background: #fafafa;
   border-color: #b0b0b0;
   color: #666666;
 }
@@ -640,11 +627,9 @@
   height: 60px;
   border-radius: 50%;
   border: 1px dashed #cccccc;
-  background: #fbf9f6;
+  background: #fafafa;
   color: #666666;
   overflow: hidden;
-  position: relative;
-  z-index: 1;
 }
 
 .cdpw-person__btn--find:hover:not(:disabled) .cdpw-person__avatar-wrap--find {

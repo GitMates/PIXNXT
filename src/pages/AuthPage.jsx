@@ -5,7 +5,13 @@ import { LoginForm, SignupForm } from '../components/features/Auth';
 import { ForgotPasswordForm } from '../components/features/Auth/ForgotPasswordForm';
 import { ResetPasswordForm } from '../components/features/Auth/ResetPasswordForm';
 import { useAuth } from '../hooks/useAuth';
-import { clearOAuthCallbackParams, readOAuthCallbackError, completeGoogleStudioSignIn } from '../services/auth.service';
+import {
+  clearOAuthCallbackParams,
+  clearPasswordRecoveryParams,
+  completeGoogleStudioSignIn,
+  isPasswordRecoveryCallback,
+  readOAuthCallbackError,
+} from '../services/auth.service';
 import { isGoogleStudioCallbackPath } from '../lib/googleStudioAuth';
 import './AuthPage.css';
 
@@ -38,9 +44,12 @@ const AuthPage = () => {
   const emailConfirmed = searchParams.get('confirmed') === '1';
   const { user, loading } = useAuth();
 
-  const [view, setView] = useState(
-    mode === 'signup' ? 'signup' : mode === 'reset' ? 'reset' : 'login'
-  );
+  const [view, setView] = useState(() => {
+    if (mode === 'signup') return 'signup';
+    if (mode === 'reset' || isPasswordRecoveryCallback()) return 'reset';
+    return 'login';
+  });
+  const [recoveryActive, setRecoveryActive] = useState(() => isPasswordRecoveryCallback());
   const [oauthError, setOauthError] = useState(
     () => location.state?.oauthError || ''
   );
@@ -122,17 +131,30 @@ const AuthPage = () => {
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
+
+    if (isPasswordRecoveryCallback()) {
+      setRecoveryActive(true);
+      setView('reset');
+    }
+
     const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-    if (hash.get('type') === 'recovery') setView('reset');
+    if (hash.get('type') === 'recovery') {
+      setRecoveryActive(true);
+      setView('reset');
+    }
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') setView('reset');
+      if (event === 'PASSWORD_RECOVERY') {
+        setRecoveryActive(true);
+        setView('reset');
+      }
     });
     return () => subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
-    if (loading || !user || view === 'reset' || googleCallbackBusy) return;
+    if (loading || !user || googleCallbackBusy) return;
+    if (view === 'reset' || recoveryActive || isPasswordRecoveryCallback()) return;
 
     const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
     if (hash.get('type') === 'signup' || emailConfirmed) {
@@ -142,9 +164,13 @@ const AuthPage = () => {
 
     const from = location.state?.from?.pathname;
     navigate(from && from !== '/auth' ? from : '/dashboard', { replace: true });
-  }, [user, loading, view, navigate, location.state, emailConfirmed, googleCallbackBusy]);
+  }, [user, loading, view, recoveryActive, navigate, location.state, emailConfirmed, googleCallbackBusy]);
 
   const handleAuthSuccess = () => {
+    if (recoveryActive || view === 'reset') {
+      clearPasswordRecoveryParams();
+      setRecoveryActive(false);
+    }
     navigate('/dashboard');
   };
 
@@ -200,7 +226,10 @@ const AuthPage = () => {
             <ForgotPasswordForm onBack={() => setView('login')} />
           )}
           {view === 'reset' && (
-            <ResetPasswordForm onSuccess={handleAuthSuccess} />
+            <ResetPasswordForm
+              onSuccess={handleAuthSuccess}
+              onRequestNewLink={() => setView('forgot')}
+            />
           )}
         </div>
       </section>

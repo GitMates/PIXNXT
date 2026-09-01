@@ -3,7 +3,6 @@ import { useParams } from 'react-router-dom';
 import { guestDeliveryService } from '../../services/guestDelivery.service';
 import { registerGuestViaApi } from '../../services/guestDeliveryGuests.service';
 import { prepareSelfieForRekognition } from '../../lib/selfieImageForRekognition';
-import { AppLoader } from '../../components/ui/AppLoading';
 import './EventGuestRegister.css';
 
 function RequiredMark() {
@@ -94,7 +93,7 @@ export default function EventGuestRegister() {
   if (loading) {
     return (
       <div className="egr-page">
-        <AppLoader label="Loading registration form" variant="page-short" className="egr-loading app-loader" />
+        <div className="egr-loading">Loading registration form…</div>
       </div>
     );
   }

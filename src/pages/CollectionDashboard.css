@@ -1219,28 +1219,24 @@
 /* Upload Dropzone */
 .cd-dropzone {
     flex: 1;
-    border: 1px dashed #d8d3cc;
-    border-radius: 12px;
+    border: 1px dashed #d9d9d9;
+    border-radius: 0;
     display: flex;
     align-items: center;
     justify-content: center;
     background-color: #ffffff;
     min-height: 400px;
     cursor: pointer;
-    padding: 48px 24px;
-    margin-top: 8px;
-    position: relative;
-    z-index: 1;
-    transition: border-color 0.2s ease, background-color 0.2s ease;
+    transition: border-color 0.2s;
 }
 
 .cd-dropzone:hover {
-    border-color: #c4b8a8;
+    border-color: #111111;
 }
 
 .cd-dropzone.dragging {
-    border-color: #c46a3a;
-    background-color: #fdfaf7;
+    border-color: #111111;
+    background-color: #f0faf7;
 }
 
 .cd-dropzone-content {
@@ -1248,6 +1244,33 @@
     flex-direction: column;
     align-items: center;
     text-align: center;
+}
+
+.cd-drop-icon {
+    margin-bottom: 20px;
+}
+
+.cd-drop-title {
+    font-size: 17px;
+    font-weight: 600;
+    color: #333;
+    margin: 0 0 8px 0;
+}
+
+.cd-drop-subtitle {
+    font-size: 16px;
+    color: #666;
+    margin: 0;
+}
+
+.cd-browse-link {
+    color: #111111;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.cd-browse-link:hover {
+    text-decoration: underline;
 }
 
 /* ===== Photo Grid â€” Pixieset-exact ===== */
@@ -2549,20 +2572,18 @@
 
 .cd-modal-dropzone {
     margin: 24px 28px;
-    border: 1px dashed #d8d3cc;
-    border-radius: 12px;
+    border: 1px dashed #d9d9d9;
+    border-radius: 0;
     min-height: 340px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background-color: #ffffff;
-    padding: 40px 24px;
-    transition: border-color 0.2s ease, background-color 0.2s ease;
+    transition: border-color 0.2s, background-color 0.2s;
 }
 
 .cd-modal-dropzone.dragging {
-    border-color: #c46a3a;
-    background-color: #fdfaf7;
+    border-color: #111111;
+    background-color: #f0faf7;
 }
 
 .cd-modal-drop-content {
@@ -2570,7 +2591,18 @@
     flex-direction: column;
     align-items: center;
     text-align: center;
-    padding: 0;
+    padding: 20px;
+}
+
+.cd-modal-drop-icon {
+    margin-bottom: 20px;
+}
+
+.cd-modal-drop-text {
+    font-size: 17px;
+    font-weight: 600;
+    color: #333;
+    margin: 0 0 8px 0;
 }
 
 .cd-modal-drop-browse {
@@ -6505,33 +6537,33 @@
     background-color: #f3f4f6 !important;
 }
 
-/* 7. Dropzone */
+/* 7. Dropzone Premium Outline */
 .cd-dropzone {
-    border: 1px dashed #d8d3cc !important;
-    border-radius: 12px !important;
-    background-color: #ffffff !important;
-    box-shadow: none !important;
+    border: 1px dashed rgba(0, 0, 0, 0.15) !important;
+    border-radius: 8px !important;
+    background-color: #fafbfc !important;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.01) !important;
 }
 
 .cd-dropzone:hover {
-    border-color: #c4b8a8 !important;
-    background-color: #ffffff !important;
+    border-color: #8BDFDD !important;
+    background-color: rgba(139, 223, 221, 0.03) !important;
+    box-shadow: 0 4px 16px rgba(139, 223, 221, 0.05), inset 0 2px 8px rgba(0, 0, 0, 0.01) !important;
 }
 
 .cd-dropzone.dragging {
-    border-color: #c46a3a !important;
-    background-color: #fdfaf7 !important;
+    border-color: #8BDFDD !important;
+    background-color: rgba(139, 223, 221, 0.08) !important;
 }
 
-.cd-modal-dropzone {
-    border: 1px dashed #d8d3cc !important;
-    border-radius: 12px !important;
-    background-color: #ffffff !important;
+.cd-browse-link {
+    color: #8BDFDD !important;
+    font-weight: 700 !important;
 }
 
-.cd-modal-dropzone.dragging {
-    border-color: #c46a3a !important;
-    background-color: #fdfaf7 !important;
+.cd-browse-link:hover {
+    text-decoration: underline !important;
 }
 
 /* Standalone Toolbar Toggle Row */
@@ -6770,9 +6802,6 @@
 
 .cd-delivery-loader__spinner {
     position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     width: 52px;
     height: 52px;
 }
@@ -6797,14 +6826,15 @@
     animation: cd-delivery-spin-reverse 0.85s cubic-bezier(0.5, 0.1, 0.4, 0.9) infinite;
 }
 
-.cd-delivery-loader__mark {
-    position: relative;
-    z-index: 1;
-    display: block;
-    flex-shrink: 0;
-    width: 13px;
-    height: 13px;
-    color: #c46a3a;
+.cd-delivery-loader__dot {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 7px;
+    height: 7px;
+    margin: -3.5px 0 0 -3.5px;
+    border-radius: 50%;
+    background: #d67d3a;
     animation: cd-delivery-pulse 1.4s ease-in-out infinite;
 }
 
@@ -6922,7 +6952,7 @@
 @media (prefers-reduced-motion: reduce) {
     .cd-delivery-loader__bone,
     .cd-delivery-loader__ring,
-    .cd-delivery-loader__mark,
+    .cd-delivery-loader__dot,
     .cd-delivery-loader__ellipsis span {
         animation: none;
     }
