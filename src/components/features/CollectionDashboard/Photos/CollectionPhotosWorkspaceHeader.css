@@ -363,6 +363,7 @@
   padding: 8px 0 24px;
   min-height: 96px;
   border-bottom: 1px solid #eceae6;
+  overflow: visible;
 }
 
 .cdpw-people__label {
@@ -386,7 +387,8 @@
   flex: 1;
   min-width: 0;
   overflow-x: auto;
-  padding: 0 2px 4px;
+  overflow-y: visible;
+  padding: 12px 2px 6px;
   scrollbar-width: thin;
 }
 
@@ -397,7 +399,9 @@
 }
 
 .cdpw-person {
+  position: relative;
   flex-shrink: 0;
+  overflow: visible;
 }
 
 .cdpw-person--overflow-wrap {
@@ -421,10 +425,13 @@
 
 .cdpw-person__avatar-wrap {
   position: relative;
-  display: block;
-  width: 60px;
-  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
   flex-shrink: 0;
+  border-radius: 50%;
 }
 
 /* Base avatar — must live here (toolbar CSS is not loaded on this view) */
@@ -451,9 +458,18 @@
   background: linear-gradient(180deg, #e8d5bc 0%, #b8956f 100%);
 }
 
+.cdpw-person__btn--active .cdpw-person__avatar-wrap {
+  box-shadow: 0 0 0 2px #1a1a1a;
+}
+
 .cdpw-person__btn--active .cd-person-face-avatar {
   border-color: #fff;
-  box-shadow: 0 0 0 2px #1a1a1a;
+  box-shadow: none;
+}
+
+.cdpw-person__btn--active .cdpw-person__remove {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .cdpw-person__btn .cd-person-face-avatar img {
@@ -490,20 +506,179 @@
   font-variant-numeric: tabular-nums;
 }
 
-.cdpw-person__clear {
+.cdpw-person__remove {
   position: absolute;
-  top: -2px;
-  right: -2px;
-  z-index: 3;
+  top: -4px;
+  right: -4px;
+  z-index: 4;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 999px;
+  border: 2px solid #1a1a1a;
   background: #fff;
   color: #1a1a1a;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.cdpw-person__remove:hover {
+  background: #1a1a1a;
+  color: #fff;
+  transform: scale(1.05);
+}
+
+.cdpw-person__remove:focus-visible {
+  outline: 2px solid #bf7b47;
+  outline-offset: 2px;
+}
+
+@keyframes cdpw-person-delete-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-100% - 4px));
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, calc(-100% - 12px));
+  }
+}
+
+.cdpw-person-delete-popover {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 228px;
+  max-width: 280px;
+  padding: 12px 14px 11px;
+  border-radius: 12px;
+  border: 1px solid #eceae6;
+  background: #fff;
+  box-shadow:
+    0 4px 6px rgba(26, 26, 26, 0.04),
+    0 16px 40px rgba(26, 26, 26, 0.12);
+  text-align: left;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+.cdpw-person-delete-popover--portal {
+  position: fixed;
+  z-index: 4600;
+  transform: translate(-50%, calc(-100% - 12px));
+  animation: cdpw-person-delete-in 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.cdpw-person-delete-popover::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -7px;
+  transform: translateX(-50%);
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-top: 7px solid #eceae6;
+}
+
+.cdpw-person-delete-popover::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  transform: translateX(-50%);
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid #fff;
+}
+
+.cdpw-person-delete-popover__label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #999999;
+}
+
+.cdpw-person-delete-popover__body {
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #444444;
+}
+
+.cdpw-person-delete-popover__body strong {
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.cdpw-person-delete-popover__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.cdpw-person-delete-popover__cancel,
+.cdpw-person-delete-popover__confirm {
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.cdpw-person-delete-popover__cancel {
+  border: 1px solid #e0deda;
+  background: #faf9f7;
+  color: #555555;
+}
+
+.cdpw-person-delete-popover__cancel:hover:not(:disabled) {
+  background: #f3f2ef;
+  border-color: #ccc9c4;
+  color: #333333;
+}
+
+.cdpw-person-delete-popover__confirm {
+  border: none;
+  background: #1a1a1a;
+  color: #fff;
+}
+
+.cdpw-person-delete-popover__confirm:hover:not(:disabled) {
+  background: #333333;
+}
+
+.cdpw-person-delete-popover__confirm:disabled,
+.cdpw-person-delete-popover__cancel:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cdpw-person-delete-popover--portal {
+    animation: none;
+  }
+
+  .cdpw-person__remove {
+    transition: none;
+  }
 }
 
 .cdpw-person__name {
@@ -548,20 +723,88 @@
 .cdpw-people__status {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   padding-top: 20px;
   font-size: 12px;
-  color: #999999;
+  color: #777777;
   white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.cdpw-people__status-copy {
+  font-weight: 500;
+  color: #555555;
+}
+
+.cdpw-people__status--loading {
+  padding-top: 18px;
 }
 
 .cdpw-people__status--analyzing {
-  padding: 0 14px;
+  gap: 12px;
+  padding: 0 18px 0 14px;
   height: 60px;
   margin-top: 0;
+  padding-top: 0;
   border-radius: 999px;
-  background: #f0eee8;
+  background: linear-gradient(180deg, #faf8f4 0%, #f0eee8 100%);
+  border: 1px solid #e8e4dc;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
   align-self: flex-start;
+}
+
+.cdpw-people__status--analyzing .cdpw-people__status-copy {
+  font-size: 12px;
+  font-weight: 500;
+  color: #444444;
+  letter-spacing: -0.01em;
+}
+
+.cdpw-people__status-dots {
+  display: inline-flex;
+  gap: 1px;
+  margin-left: 1px;
+}
+
+.cdpw-people__status-dots span {
+  animation: cdpw-status-dot 1.2s ease-in-out infinite;
+}
+
+.cdpw-people__status-dots span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.cdpw-people__status-dots span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes cdpw-status-dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+
+.cdpw-person__avatar-wrap--find .app-spinner {
+  flex-shrink: 0;
+}
+
+.cdpw-person__overflow--reanalyze .app-spinner {
+  flex-shrink: 0;
+}
+
+.cdpw-person__overflow-icon--busy {
+  opacity: 0.35;
+}
+
+.cdpw-people__selfie-status .app-spinner {
+  flex-shrink: 0;
 }
 
 .cdpw-people__hint {
@@ -677,13 +920,10 @@
   cursor: not-allowed;
 }
 
-.cdpw-spin {
-  animation: cdpw-spin 0.8s linear infinite;
-}
-
-@keyframes cdpw-spin {
-  to {
-    transform: rotate(360deg);
+@media (prefers-reduced-motion: reduce) {
+  .cdpw-people__status-dots span {
+    animation: none;
+    opacity: 0.65;
   }
 }
 

@@ -1,4 +1,5 @@
 import React from 'react';
+import { AppSpinner } from '../../ui/AppLoading';
 
 /**
  * Full-screen loading state for CollectionDashboard — mirrors shell layout with shimmer.
@@ -47,11 +48,7 @@ export function DeliveryDashboardLoader() {
                     </div>
 
                     <div className="cd-delivery-loader__center">
-                        <div className="cd-delivery-loader__spinner" aria-hidden>
-                            <span className="cd-delivery-loader__ring cd-delivery-loader__ring--outer" />
-                            <span className="cd-delivery-loader__ring cd-delivery-loader__ring--inner" />
-                            <span className="cd-delivery-loader__dot" />
-                        </div>
+                        <AppSpinner size="lg" />
                         <p className="cd-delivery-loader__label">
                             Opening delivery
                             <span className="cd-delivery-loader__ellipsis" aria-hidden>

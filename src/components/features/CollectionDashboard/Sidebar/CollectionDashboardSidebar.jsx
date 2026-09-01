@@ -45,17 +45,12 @@ function formatMediaSummary(photoCount = 0, videoCount = 0) {
   return parts.join(' · ');
 }
 
-function MediaSectionHeader({ active, summary, onClick }) {
+function MediaSectionHeader({ summary }) {
   return (
-    <button
-      type="button"
-      className={cn('cdsb-media-header', active && 'cdsb-media-header--active')}
-      onClick={onClick}
-      aria-current={active ? 'page' : undefined}
-    >
-      <span className="cdsb-media-header__label">Media</span>
-      <span className="cdsb-media-header__summary">{summary}</span>
-    </button>
+    <div className="cdsb-nav__section cdsb-nav__section--media">
+      <span>Media</span>
+      <span className="cdsb-nav__section-meta">{summary}</span>
+    </div>
   );
 }
 
@@ -298,12 +293,8 @@ export function CollectionDashboardSidebar({
       <div className="cdsb__scroll">
 
         <nav className="cdsb-nav" aria-label="Delivery navigation">
-          <div className={cn('cdsb-photos-panel', photosActive && 'cdsb-photos-panel--active')}>
-            <MediaSectionHeader
-              active={photosActive}
-              summary={mediaSummary}
-              onClick={() => onSidebarTabChange('photos')}
-            />
+          <div className="cdsb-photos-panel">
+            <MediaSectionHeader summary={mediaSummary} />
             <div className="cdsb-tree cdsb-tree--media">
               {sortedSidebarSets.map((set, index) => {
                 const isActive =

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import SidebarLayout from '../components/SidebarLayout';
+import { ClientGallerySelect } from '../components/features/ClientGallery/ClientGallerySelect';
 import { CollectionCardCover } from '../components/features/ClientGallery/CollectionCardCover';
 import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
@@ -26,13 +27,13 @@ import './Showcase.css';
 
 const MAX_FEATURED = 6;
 
-const DELIVERY_SORT_OPTIONS = [
-  { value: 'created-new', group: 'Date created', direction: 'Newest first' },
-  { value: 'created-old', group: 'Date created', direction: 'Oldest first' },
-  { value: 'event-new', group: 'Event date', direction: 'Newest first' },
-  { value: 'event-old', group: 'Event date', direction: 'Oldest first' },
-  { value: 'name-az', group: 'Name', direction: 'A → Z' },
-  { value: 'name-za', group: 'Name', direction: 'Z → A' },
+const DELIVERY_SORT_SELECT_OPTIONS = [
+  { value: 'created-new', label: 'Date created: New to Old' },
+  { value: 'created-old', label: 'Date created: Old to New' },
+  { value: 'event-new', label: 'Event date: New to Old' },
+  { value: 'event-old', label: 'Event date: Old to New' },
+  { value: 'name-az', label: 'Name: A → Z' },
+  { value: 'name-za', label: 'Name: Z → A' },
 ];
 const ORDER_KEY_PREFIX = 'pixnxt_showcase_order:';
 
@@ -200,37 +201,6 @@ function LockIcon() {
   );
 }
 
-function SortIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
-      <path d="M3 6h18M7 12h10M10 18h4" />
-    </svg>
-  );
-}
-
-function DeliverySortOrderPicker({ value, onChange }) {
-  return (
-    <div className="sc-sort-picker" role="radiogroup" aria-label="Delivery sort order">
-      {DELIVERY_SORT_OPTIONS.map((opt) => {
-        const active = value === opt.value;
-        return (
-          <button
-            key={opt.value}
-            type="button"
-            role="radio"
-            aria-checked={active}
-            className={`sc-sort-picker__option${active ? ' is-active' : ''}`}
-            onClick={() => onChange(opt.value)}
-          >
-            <span className="sc-sort-picker__group">{opt.group}</span>
-            <span className="sc-sort-picker__direction">{opt.direction}</span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
 function SettingsIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden>
@@ -375,28 +345,29 @@ const Showcase = () => {
     };
   }, [menuId, closeCardMenu]);
 
-  const onPage = useMemo(() => {
-    const list = collections.filter((c) => c.status === 'published' && c.show_on_showcase !== false);
+  const featuredSlots = useMemo(() => {
+    const list = collections.filter(
+      (c) => c.show_on_showcase !== false && c.status !== 'archived'
+    );
     return sortByPreference(list, collectionSort, featuredOrder).slice(0, MAX_FEATURED);
   }, [collections, collectionSort, featuredOrder]);
 
-  const heldBack = useMemo(
-    () =>
-      collections.filter(
-        (c) => c.show_on_showcase !== false && c.status !== 'published' && c.status !== 'archived'
-      ),
-    [collections]
+  const onPage = useMemo(
+    () => featuredSlots.filter((c) => c.status === 'published'),
+    [featuredSlots]
   );
 
-  const featureCandidates = useMemo(
-    () =>
-      collections.filter(
-        (c) =>
-          c.status !== 'archived' &&
-          !(c.status === 'published' && c.show_on_showcase !== false)
-      ),
-    [collections]
+  const heldBack = useMemo(
+    () => featuredSlots.filter((c) => c.status !== 'published'),
+    [featuredSlots]
   );
+
+  const featureCandidates = useMemo(() => {
+    const featuredIds = new Set(featuredSlots.map((c) => String(c.id)));
+    return collections.filter(
+      (c) => c.status !== 'archived' && !featuredIds.has(String(c.id))
+    );
+  }, [collections, featuredSlots]);
 
   stateRef.current = {
     statusOn,
@@ -528,17 +499,36 @@ const Showcase = () => {
     window.open(buildShowcaseUrl(profile, user), '_blank');
   };
 
-  const setShowOnShowcase = async (collectionId, enabled) => {
+  const setShowOnShowcase = async (collectionId, enabled, collection = null) => {
+    const col =
+      collection || collections.find((c) => String(c.id) === String(collectionId));
     try {
       await galleryService.updateCollection(collectionId, { show_on_showcase: enabled });
       setCollections((prev) =>
-        prev.map((c) => (c.id === collectionId ? { ...c, show_on_showcase: enabled } : c))
+        prev.map((c) =>
+          String(c.id) === String(collectionId) ? { ...c, show_on_showcase: enabled } : c
+        )
       );
-      showToast(enabled ? 'Added to Showcase' : 'Removed from Showcase');
+      if (enabled) {
+        if (col?.status === 'published') {
+          showToast('Added to Showcase');
+        } else {
+          showToast('Queued for Showcase — publish the delivery to go live');
+        }
+      } else {
+        showToast('Removed from Showcase');
+      }
     } catch (err) {
       console.error('Failed to update showcase visibility:', err);
       setError('Could not update that delivery. Try again.');
     }
+  };
+
+  const addToFeatureWork = async (col) => {
+    await setShowOnShowcase(col.id, true, col);
+    const nextIds = [...featuredSlots.map((c) => String(c.id)), String(col.id)].slice(0, MAX_FEATURED);
+    persistOrder(nextIds);
+    setFeatureOpen(false);
   };
 
   const patchCollection = async (collectionId, patch) => {
@@ -636,7 +626,7 @@ const Showcase = () => {
   };
 
   const moveItem = (id, direction) => {
-    const ids = onPage.map((c) => String(c.id));
+    const ids = featuredSlots.map((c) => String(c.id));
     const index = ids.indexOf(String(id));
     if (index < 0) return;
     const next = direction === 'earlier' ? index - 1 : index + 1;
@@ -683,6 +673,7 @@ const Showcase = () => {
 
   const onPageCount = onPage.length;
   const heldCount = heldBack.length;
+  const featuredCount = featuredSlots.length;
   const statusLine =
     onPageCount === 0 && heldCount === 0
       ? 'Nothing on the page yet. Feature a delivery to begin.'
@@ -693,9 +684,9 @@ const Showcase = () => {
         : `${onPageCount} ${onPageCount === 1 ? 'set is' : 'sets are'} on the page.`;
 
   // One dashed “Feature work here” slot to add the next delivery (under the cap).
-  const showFeatureHereCard = onPageCount < MAX_FEATURED;
-  const menuCol = menuId ? onPage.find((c) => String(c.id) === String(menuId)) : null;
-  const menuIndex = menuCol ? onPage.findIndex((c) => String(c.id) === String(menuId)) : -1;
+  const showFeatureHereCard = featuredCount < MAX_FEATURED;
+  const menuCol = menuId ? featuredSlots.find((c) => String(c.id) === String(menuId)) : null;
+  const menuIndex = menuCol ? featuredSlots.findIndex((c) => String(c.id) === String(menuId)) : -1;
   const menuFeaturedIds = menuCol ? showcaseFeaturedPhotoIds(menuCol) : null;
   const menuTitle = menuCol ? showcaseDisplayName(menuCol) : '';
 
@@ -899,17 +890,16 @@ const Showcase = () => {
                             Default order when you have not dragged cards.
                           </p>
                         </div>
-                        <span className="sc-setting-block__icon sc-setting-block__icon--muted" aria-hidden>
-                          <SortIcon />
-                        </span>
                       </div>
-                      <DeliverySortOrderPicker
+                      <ClientGallerySelect
                         value={collectionSort}
                         onChange={(val) => {
                           setCollectionSort(val);
                           autoSave({ showcase_sort: val }, true);
                           persistOrder([]);
                         }}
+                        aria-label="Delivery sort order"
+                        options={DELIVERY_SORT_SELECT_OPTIONS}
                       />
                       <p className="sc-help-text">Dragging on this page overrides the default.</p>
                     </div>
@@ -1013,7 +1003,7 @@ const Showcase = () => {
               <div className="sc-onpage__head">
                 <div className="sc-onpage__label">
                   <span>On the page</span>
-                  <span className="sc-onpage__count">{onPageCount}</span>
+                  <span className="sc-onpage__count">{featuredCount}</span>
                 </div>
                 <p className="sc-onpage__hint">Drag to reorder</p>
               </div>
@@ -1024,7 +1014,7 @@ const Showcase = () => {
                 <div className="sc-grid">
                   <ShowcaseSortableGrid
                     className="sc-sortable-root"
-                    items={onPage}
+                    items={featuredSlots}
                     disabled={Boolean(menuId)}
                     onReorder={handleShowcaseReorder}
                     renderItem={(col, index, { isDragging }) => {
@@ -1032,12 +1022,14 @@ const Showcase = () => {
                       const title = showcaseDisplayName(col);
                       const perm = permissionStatus(col);
                       const isMenu = menuId === col.id;
+                      const isHeld = col.status !== 'published';
                       return (
                         <article
-                          className={`sc-tile${isDragging ? ' is-dragging' : ''}${isMenu ? ' is-menu-open' : ''}`}
+                          className={`sc-tile${isHeld ? ' sc-tile--held' : ''}${isDragging ? ' is-dragging' : ''}${isMenu ? ' is-menu-open' : ''}`}
                         >
                           <div className="sc-tile__media">
                             <span className="sc-tile__pos">{index + 1}</span>
+                            {isHeld ? <span className="sc-tile__held-badge">Draft</span> : null}
                             {getCollectionCardCoverSrc(col) ? (
                               <CollectionCardCover
                                 collection={col}
@@ -1071,7 +1063,19 @@ const Showcase = () => {
                           <div className="sc-tile__meta">
                             <h3 className="sc-tile__title">{title}</h3>
                             {meta ? <p className="sc-tile__sub">{meta}</p> : null}
-                            {perm.action !== 'ask' ? (
+                            {isHeld ? (
+                              <p className="sc-tile__status is-warn">
+                                <span className="sc-dot" />
+                                <span>Publish to go live</span>
+                                <button
+                                  type="button"
+                                  className="sc-tile__link"
+                                  onClick={() => navigate(`/deliveries/manage?id=${col.id}`)}
+                                >
+                                  Open delivery
+                                </button>
+                              </p>
+                            ) : perm.action !== 'ask' ? (
                               <p className={`sc-tile__status is-${perm.tone}`}>
                                 <span className="sc-dot" />
                                 <span>{perm.text}</span>
@@ -1103,7 +1107,7 @@ const Showcase = () => {
                           <span className="sc-tile__plus">+</span>
                           <span className="sc-tile__empty-title">Feature work here</span>
                           <span className="sc-tile__empty-sub">
-                            Position {onPageCount + 1} of {MAX_FEATURED}
+                            Position {featuredCount + 1} of {MAX_FEATURED}
                           </span>
                         </div>
                         <div className="sc-tile__meta sc-tile__meta--empty" aria-hidden="true">
@@ -1214,12 +1218,12 @@ const Showcase = () => {
               <button
                 type="button"
                 className="sc-menu__item sc-menu__item--row"
-                disabled={menuIndex < 0 || menuIndex >= onPage.length - 1}
+                disabled={menuIndex < 0 || menuIndex >= featuredSlots.length - 1}
                 onClick={() => moveItem(menuCol.id, 'later')}
               >
                 <span className="sc-menu__title">Move later</span>
                 <span className="sc-menu__badge">
-                  → {Math.min(onPage.length, menuIndex + 2)}
+                  → {Math.min(featuredSlots.length, menuIndex + 2)}
                 </span>
               </button>
 
@@ -1440,7 +1444,8 @@ const Showcase = () => {
               Feature work
             </h2>
             <p className="sc-modal__desc">
-              Choose a delivery to put on your public Showcase. Published deliveries appear at once.
+              Choose a delivery to put on your public Showcase. Published deliveries appear at once;
+              drafts are queued until you publish them.
             </p>
             <div className="sc-modal__list">
               {featureCandidates.length === 0 ? (
@@ -1451,15 +1456,7 @@ const Showcase = () => {
                     key={col.id}
                     type="button"
                     className="sc-pick"
-                    onClick={async () => {
-                      await setShowOnShowcase(col.id, true);
-                      const nextIds = [...onPage.map((c) => String(c.id)), String(col.id)].slice(
-                        0,
-                        MAX_FEATURED
-                      );
-                      persistOrder(nextIds);
-                      setFeatureOpen(false);
-                    }}
+                    onClick={() => void addToFeatureWork(col)}
                   >
                     <div className="sc-pick__thumb">
                       {getCollectionCardCoverSrc(col) ? (
@@ -1474,6 +1471,11 @@ const Showcase = () => {
                         {col.status === 'published' ? 'Published' : 'Draft'} · {photoCountLabel(col)}
                       </span>
                     </div>
+                    <span
+                      className={`sc-pick__badge${col.status === 'published' ? ' is-live' : ''}`}
+                    >
+                      {col.status === 'published' ? 'Live now' : 'Queued until published'}
+                    </span>
                   </button>
                 ))
               )}

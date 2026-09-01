@@ -1,6 +1,9 @@
-import React, { useRef, useState } from 'react';
-import { Camera, Loader2, Minus, RefreshCw, Upload } from 'lucide-react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { Camera, RefreshCw, Upload, X } from 'lucide-react';
+import { AppSpinner } from '../../../ui/AppLoading';
 import { cn } from '../../../../lib/utils';
+import { displayPersonLabel } from '../../../../lib/photoAiSearch';
 import { prepareSelfieForRekognition } from '../../../../lib/selfieImageForRekognition';
 import { PersonFaceAvatar } from './PersonFaceAvatar';
 import { PersonLabelEditor } from './PersonLabelEditor';
@@ -11,6 +14,88 @@ const AVATAR_SIZE = 60;
 function formatPersonCount(count) {
   const value = Number(count) || 0;
   return value.toLocaleString();
+}
+
+function IndexingFacesStatus() {
+  return (
+    <span className="cdpw-people__status cdpw-people__status--analyzing" role="status" aria-live="polite">
+      <AppSpinner size="sm" label="Indexing faces" />
+      <span className="cdpw-people__status-copy">
+        Indexing faces
+        <span className="cdpw-people__status-dots" aria-hidden>
+          <span>.</span>
+          <span>.</span>
+          <span>.</span>
+        </span>
+      </span>
+    </span>
+  );
+}
+
+function PersonDeletePopover({ anchorRef, person, deleting, onCancel, onConfirm }) {
+  const popoverRef = useRef(null);
+  const [position, setPosition] = useState(null);
+
+  const updatePosition = useCallback(() => {
+    const anchor = anchorRef.current;
+    if (!anchor) return;
+    const rect = anchor.getBoundingClientRect();
+    setPosition({
+      left: rect.left + rect.width / 2,
+      top: rect.top,
+    });
+  }, [anchorRef]);
+
+  useLayoutEffect(() => {
+    updatePosition();
+    const raf = window.requestAnimationFrame(updatePosition);
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    return () => {
+      window.cancelAnimationFrame(raf);
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [updatePosition, person?.id]);
+
+  if (!person || !position || typeof document === 'undefined') return null;
+
+  return createPortal(
+    <div
+      ref={popoverRef}
+      className="cdpw-person-delete-popover cdpw-person-delete-popover--portal"
+      style={{ left: `${position.left}px`, top: `${position.top}px` }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={`cdpw-person-delete-${person.id}`}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <span className="cdpw-person-delete-popover__label">Remove person</span>
+      <p id={`cdpw-person-delete-${person.id}`} className="cdpw-person-delete-popover__body">
+        <strong>{displayPersonLabel(person.label)}</strong> will be hidden from this delivery. Their
+        photos stay in the gallery.
+      </p>
+      <div className="cdpw-person-delete-popover__actions">
+        <button
+          type="button"
+          className="cdpw-person-delete-popover__cancel"
+          disabled={deleting}
+          onClick={onCancel}
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="cdpw-person-delete-popover__confirm"
+          disabled={deleting}
+          onClick={() => void onConfirm()}
+        >
+          {deleting ? 'Removing…' : 'Remove'}
+        </button>
+      </div>
+    </div>,
+    document.body
+  );
 }
 
 export function CollectionPeopleStrip({
@@ -29,13 +114,52 @@ export function CollectionPeopleStrip({
   onClearSelfie,
   onReanalyze,
   onRenamePerson,
+  onDeletePerson,
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
   const selfieInputRef = useRef(null);
+  const deleteAnchorRef = useRef(null);
   const visiblePeople = people.filter((person) => !person.isHidden);
   const overflow = Math.max(0, visiblePeople.length - VISIBLE_LIMIT);
   const shown = expanded ? visiblePeople : visiblePeople.slice(0, VISIBLE_LIMIT);
   const canSearch = Boolean(onSelfieSearch) && !tableMissing && indexedCount > 0 && !analyzing;
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget || deleting) return;
+    setDeleting(true);
+    try {
+      await onDeletePerson?.(deleteTarget.id);
+      setDeleteTarget(null);
+    } catch (err) {
+      alert(err?.message || 'Could not remove this person.');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!deleteTarget) return undefined;
+    const handlePointer = (event) => {
+      if (
+        event.target.closest('.cdpw-person-delete-popover') ||
+        event.target.closest('.cdpw-person__remove')
+      ) {
+        return;
+      }
+      if (!deleting) setDeleteTarget(null);
+    };
+    const handleKey = (event) => {
+      if (event.key === 'Escape' && !deleting) setDeleteTarget(null);
+    };
+    document.addEventListener('mousedown', handlePointer);
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('mousedown', handlePointer);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, [deleteTarget, deleting]);
 
   const handleSelfiePick = async (file) => {
     if (!file || !file.type.startsWith('image/')) return;
@@ -76,7 +200,7 @@ export function CollectionPeopleStrip({
             >
               <span className="cdpw-person__avatar-wrap cdpw-person__avatar-wrap--find">
                 {selfieSearching ? (
-                  <Loader2 size={22} className="cdpw-spin" aria-hidden />
+                  <AppSpinner size="sm" label="Matching selfie" />
                 ) : selfiePreview ? (
                   <img src={selfiePreview} alt="" className="cdpw-person__selfie-img" />
                 ) : (
@@ -114,15 +238,16 @@ export function CollectionPeopleStrip({
         ) : null}
 
         {loadingPeople ? (
-          <span className="cdpw-people__status">
-            <Loader2 size={16} className="cdpw-spin" aria-hidden />
-            Loading people…
+          <span className="cdpw-people__status cdpw-people__status--loading" role="status" aria-live="polite">
+            <AppSpinner size="sm" label="Loading people" />
+            <span className="cdpw-people__status-copy">Loading people…</span>
           </span>
         ) : null}
 
         {!loadingPeople &&
           shown.map((person) => {
             const active = activePersonId === person.id;
+            const isDeleteTarget = deleteTarget?.id === person.id;
             return (
               <div key={person.id} className="cdpw-person">
                 <button
@@ -131,7 +256,10 @@ export function CollectionPeopleStrip({
                   onClick={() => onSelectPerson?.(person.id)}
                   aria-pressed={active}
                 >
-                  <span className="cdpw-person__avatar-wrap">
+                  <span
+                    ref={isDeleteTarget ? deleteAnchorRef : null}
+                    className="cdpw-person__avatar-wrap"
+                  >
                     <PersonFaceAvatar
                       imageUrl={person.imageUrl}
                       boundingBox={person.boundingBox}
@@ -140,16 +268,30 @@ export function CollectionPeopleStrip({
                       variant="strip"
                     />
                     <span className="cdpw-person__count">{formatPersonCount(person.count)}</span>
-                    {active ? (
+                    {active && onDeletePerson ? (
                       <span
-                        className="cdpw-person__clear"
+                        className="cdpw-person__remove"
+                        role="button"
+                        tabIndex={0}
                         onClick={(e) => {
                           e.stopPropagation();
-                          onClearPerson?.();
+                          setDeleteTarget((current) =>
+                            current?.id === person.id ? null : person
+                          );
                         }}
-                        aria-label="Clear person filter"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setDeleteTarget((current) =>
+                              current?.id === person.id ? null : person
+                            );
+                          }
+                        }}
+                        aria-label={`Remove ${displayPersonLabel(person.label)}`}
+                        aria-expanded={isDeleteTarget}
                       >
-                        <Minus size={12} strokeWidth={2.5} />
+                        <X size={12} strokeWidth={2.25} />
                       </span>
                     ) : null}
                   </span>
@@ -200,17 +342,16 @@ export function CollectionPeopleStrip({
               title="Index faces again"
               onClick={() => onReanalyze?.()}
             >
-              {analyzing ? <Loader2 size={16} className="cdpw-spin" /> : <RefreshCw size={16} />}
+              {analyzing ? (
+                <RefreshCw size={16} className="cdpw-person__overflow-icon--busy" aria-hidden />
+              ) : (
+                <RefreshCw size={16} aria-hidden />
+              )}
             </button>
           </div>
         ) : null}
 
-        {!loadingPeople && analyzing && shown.length === 0 ? (
-          <span className="cdpw-people__status cdpw-people__status--analyzing">
-            <Loader2 size={14} className="cdpw-spin" aria-hidden />
-            Indexing faces…
-          </span>
-        ) : null}
+        {!loadingPeople && analyzing ? <IndexingFacesStatus /> : null}
 
         {!loadingPeople && !analyzing && shown.length === 0 && !selfiePreview ? (
           <span className="cdpw-people__status">
@@ -221,19 +362,12 @@ export function CollectionPeopleStrip({
                 : 'No people found yet'}
           </span>
         ) : null}
-
-        {!loadingPeople && analyzing && shown.length > 0 ? (
-          <span className="cdpw-people__status cdpw-people__status--analyzing">
-            <Loader2 size={14} className="cdpw-spin" aria-hidden />
-            Indexing faces…
-          </span>
-        ) : null}
       </div>
 
       <div className="cdpw-people__side">
         {selfieSearching ? (
           <p className="cdpw-people__selfie-status">
-            <Loader2 size={12} className="cdpw-spin" aria-hidden /> Matching your face…
+            <AppSpinner size="xs" label="Matching your face" /> Matching your face…
           </p>
         ) : null}
         {!selfieSearching && selfieMessage ? (
@@ -252,6 +386,16 @@ export function CollectionPeopleStrip({
           </p>
         ) : null}
       </div>
+
+      {deleteTarget ? (
+        <PersonDeletePopover
+          anchorRef={deleteAnchorRef}
+          person={deleteTarget}
+          deleting={deleting}
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={handleConfirmDelete}
+        />
+      ) : null}
     </section>
   );
 }
