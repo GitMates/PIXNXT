@@ -19,6 +19,7 @@ import {
 import { isCommentAudioAttachment } from './albumCommentAttachments';
 import { resolveFilmstripVisual, FilmstripThumb } from './AlbumSpreadFilmstrip';
 import { parseGridSizeAspect } from './albumGridSize';
+import { AppLoader } from '../ui/AppLoading';
 
 function getNotificationLocationLabel(item, album, totalPages) {
     const spreadOpts = { ...getAlbumSpreadOptions(album), totalPages };
@@ -261,7 +262,7 @@ export default function AlbumEditorNotifications({
 
             <div className="ae-notifications-scroll">
                 {loading ? (
-                    <div className="ae-notifications-empty">Loading…</div>
+                    <AppLoader label="Loading" variant="dropdown" className="ae-notifications-empty app-loader" />
                 ) : filteredItems.length === 0 ? (
                     <div className="ae-notifications-empty">No notifications</div>
                 ) : (

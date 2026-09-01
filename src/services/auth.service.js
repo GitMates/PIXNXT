@@ -73,22 +73,43 @@ function authRedirectTo(path = '/auth') {
   return normalizedPath;
 }
 
+function readAuthUrlParams() {
+  if (typeof window === 'undefined') {
+    return { hash: new URLSearchParams(), search: new URLSearchParams() };
+  }
+  return {
+    hash: new URLSearchParams(window.location.hash.replace(/^#/, '')),
+    search: new URLSearchParams(window.location.search),
+  };
+}
+
+/** True when the URL is a Supabase password-recovery callback (hash, query, or mode=reset). */
+export function isPasswordRecoveryCallback() {
+  if (typeof window === 'undefined') return false;
+  const { hash, search } = readAuthUrlParams();
+  if (hash.get('type') === 'recovery' || search.get('type') === 'recovery') return true;
+  if (search.get('mode') === 'reset') return true;
+  if (search.has('token_hash') && search.get('type') === 'recovery') return true;
+  return false;
+}
+
 /** True when the URL contains Supabase OAuth / email-confirmation callback params. */
 export function hasAuthCallbackInUrl() {
   if (typeof window === 'undefined') return false;
-  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-  const search = new URLSearchParams(window.location.search);
+  const { hash, search } = readAuthUrlParams();
   if (
     search.has('code') &&
     isGoogleStudioCallbackPath(window.location.pathname)
   ) {
     return false;
   }
+  if (isPasswordRecoveryCallback()) return true;
   return (
     hash.has('access_token') ||
     hash.has('error') ||
     hash.has('error_description') ||
-    search.has('code')
+    search.has('code') ||
+    search.has('token_hash')
   );
 }
 
@@ -276,6 +297,21 @@ export function clearOAuthCallbackParams() {
   const url = new URL(window.location.href);
   url.searchParams.delete('error');
   url.searchParams.delete('error_description');
+  url.searchParams.delete('code');
+  url.searchParams.delete('token_hash');
+  url.searchParams.delete('type');
+  url.hash = '';
+  window.history.replaceState({}, '', `${url.pathname}${url.search}`);
+}
+
+/** Strip recovery tokens from the URL after a successful password change. */
+export function clearPasswordRecoveryParams() {
+  if (typeof window === 'undefined') return;
+  const url = new URL(window.location.href);
+  url.searchParams.delete('mode');
+  url.searchParams.delete('code');
+  url.searchParams.delete('token_hash');
+  url.searchParams.delete('type');
   url.hash = '';
   window.history.replaceState({}, '', `${url.pathname}${url.search}`);
 }

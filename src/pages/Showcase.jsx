@@ -25,7 +25,16 @@ import { getPhotoGridDisplayUrl } from '../lib/photoDisplayUrl';
 import { getDefaultCoverFocals, parseFocalPoint } from '../lib/focalPoint';
 import './Showcase.css';
 
-const MAX_FEATURED = 12;
+const MAX_FEATURED = 6;
+
+const DELIVERY_SORT_SELECT_OPTIONS = [
+  { value: 'created-new', label: 'Date created: New to Old' },
+  { value: 'created-old', label: 'Date created: Old to New' },
+  { value: 'event-new', label: 'Event date: New to Old' },
+  { value: 'event-old', label: 'Event date: Old to New' },
+  { value: 'name-az', label: 'Name: A → Z' },
+  { value: 'name-za', label: 'Name: Z → A' },
+];
 const ORDER_KEY_PREFIX = 'pixnxt_showcase_order:';
 
 const formatEventShort = (dateStr) => {
@@ -192,14 +201,6 @@ function LockIcon() {
   );
 }
 
-function SortIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
-      <path d="M3 6h18M7 12h10M10 18h4" />
-    </svg>
-  );
-}
-
 function SettingsIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden>
@@ -223,7 +224,7 @@ const Showcase = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(null);
   const [toastMessage, setToastMessage] = useState('');
-  const [settingsOpen, setSettingsOpen] = useState(true);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [menuId, setMenuId] = useState(null);
   const [menuPos, setMenuPos] = useState(null);
   const [removeTarget, setRemoveTarget] = useState(null);
@@ -344,28 +345,29 @@ const Showcase = () => {
     };
   }, [menuId, closeCardMenu]);
 
-  const onPage = useMemo(() => {
-    const list = collections.filter((c) => c.status === 'published' && c.show_on_showcase !== false);
+  const featuredSlots = useMemo(() => {
+    const list = collections.filter(
+      (c) => c.show_on_showcase !== false && c.status !== 'archived'
+    );
     return sortByPreference(list, collectionSort, featuredOrder).slice(0, MAX_FEATURED);
   }, [collections, collectionSort, featuredOrder]);
 
-  const heldBack = useMemo(
-    () =>
-      collections.filter(
-        (c) => c.show_on_showcase !== false && c.status !== 'published' && c.status !== 'archived'
-      ),
-    [collections]
+  const onPage = useMemo(
+    () => featuredSlots.filter((c) => c.status === 'published'),
+    [featuredSlots]
   );
 
-  const featureCandidates = useMemo(
-    () =>
-      collections.filter(
-        (c) =>
-          c.status !== 'archived' &&
-          !(c.status === 'published' && c.show_on_showcase !== false)
-      ),
-    [collections]
+  const heldBack = useMemo(
+    () => featuredSlots.filter((c) => c.status !== 'published'),
+    [featuredSlots]
   );
+
+  const featureCandidates = useMemo(() => {
+    const featuredIds = new Set(featuredSlots.map((c) => String(c.id)));
+    return collections.filter(
+      (c) => c.status !== 'archived' && !featuredIds.has(String(c.id))
+    );
+  }, [collections, featuredSlots]);
 
   stateRef.current = {
     statusOn,
@@ -497,17 +499,36 @@ const Showcase = () => {
     window.open(buildShowcaseUrl(profile, user), '_blank');
   };
 
-  const setShowOnShowcase = async (collectionId, enabled) => {
+  const setShowOnShowcase = async (collectionId, enabled, collection = null) => {
+    const col =
+      collection || collections.find((c) => String(c.id) === String(collectionId));
     try {
       await galleryService.updateCollection(collectionId, { show_on_showcase: enabled });
       setCollections((prev) =>
-        prev.map((c) => (c.id === collectionId ? { ...c, show_on_showcase: enabled } : c))
+        prev.map((c) =>
+          String(c.id) === String(collectionId) ? { ...c, show_on_showcase: enabled } : c
+        )
       );
-      showToast(enabled ? 'Added to Showcase' : 'Removed from Showcase');
+      if (enabled) {
+        if (col?.status === 'published') {
+          showToast('Added to Showcase');
+        } else {
+          showToast('Queued for Showcase — publish the delivery to go live');
+        }
+      } else {
+        showToast('Removed from Showcase');
+      }
     } catch (err) {
       console.error('Failed to update showcase visibility:', err);
       setError('Could not update that delivery. Try again.');
     }
+  };
+
+  const addToFeatureWork = async (col) => {
+    await setShowOnShowcase(col.id, true, col);
+    const nextIds = [...featuredSlots.map((c) => String(c.id)), String(col.id)].slice(0, MAX_FEATURED);
+    persistOrder(nextIds);
+    setFeatureOpen(false);
   };
 
   const patchCollection = async (collectionId, patch) => {
@@ -604,17 +625,8 @@ const Showcase = () => {
     });
   };
 
-  const markApproved = async (col) => {
-    closeCardMenu();
-    await patchCollection(col.id, {
-      showcase_permission: 'approved',
-      showcase_permission_at: new Date().toISOString(),
-      showcase_permission_contact: showcaseContactName(col),
-    });
-  };
-
   const moveItem = (id, direction) => {
-    const ids = onPage.map((c) => String(c.id));
+    const ids = featuredSlots.map((c) => String(c.id));
     const index = ids.indexOf(String(id));
     if (index < 0) return;
     const next = direction === 'earlier' ? index - 1 : index + 1;
@@ -646,6 +658,11 @@ const Showcase = () => {
     [profile?.address_line_1, profile?.city, profile?.state_province].filter(Boolean).join(', ') ||
     '';
   const displayWebsite = profile?.website || '';
+  const displaySocial = [profile?.social_instagram, profile?.social_facebook, profile?.social_x_twitter].some(
+    Boolean
+  )
+    ? 'From your account'
+    : 'Not set';
   const showcaseUrl = buildShowcaseUrl(profile, user);
   const showcaseHost = showcaseUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
   const initial = String(photographerName).trim().charAt(0).toUpperCase() || 'S';
@@ -656,6 +673,7 @@ const Showcase = () => {
 
   const onPageCount = onPage.length;
   const heldCount = heldBack.length;
+  const featuredCount = featuredSlots.length;
   const statusLine =
     onPageCount === 0 && heldCount === 0
       ? 'Nothing on the page yet. Feature a delivery to begin.'
@@ -666,12 +684,11 @@ const Showcase = () => {
         : `${onPageCount} ${onPageCount === 1 ? 'set is' : 'sets are'} on the page.`;
 
   // One dashed “Feature work here” slot to add the next delivery (under the cap).
-  const showFeatureHereCard = onPageCount < MAX_FEATURED;
-  const menuCol = menuId ? onPage.find((c) => String(c.id) === String(menuId)) : null;
-  const menuIndex = menuCol ? onPage.findIndex((c) => String(c.id) === String(menuId)) : -1;
+  const showFeatureHereCard = featuredCount < MAX_FEATURED;
+  const menuCol = menuId ? featuredSlots.find((c) => String(c.id) === String(menuId)) : null;
+  const menuIndex = menuCol ? featuredSlots.findIndex((c) => String(c.id) === String(menuId)) : -1;
   const menuFeaturedIds = menuCol ? showcaseFeaturedPhotoIds(menuCol) : null;
   const menuTitle = menuCol ? showcaseDisplayName(menuCol) : '';
-  const menuContact = menuCol ? showcaseContactName(menuCol) : '';
 
   return (
     <SidebarLayout>
@@ -765,7 +782,7 @@ const Showcase = () => {
                   <p className="sc-card__desc">{bioPreview}</p>
                 </div>
                 <div className="sc-card__actions">
-                  <Link to="/settings" className="sc-btn sc-btn--outline">
+                  <Link to="/account/account" className="sc-btn sc-btn--outline">
                     Change in Profile
                   </Link>
                 </div>
@@ -773,7 +790,7 @@ const Showcase = () => {
                   <InfoIcon />
                   <span>
                     The name, mark and contact details on the page come from{' '}
-                    <Link to="/settings">Studio profile</Link> and are read-only here. They are the
+                    <Link to="/account/account">Your account</Link> and are read-only here. They are the
                     same fields the galleries, albums and invoices use — editing them in two places
                     is how one studio ends up with two names.
                   </span>
@@ -781,7 +798,7 @@ const Showcase = () => {
               </div>
             </div>
 
-            <section className="sc-settings">
+            <section className={`sc-settings${settingsOpen ? '' : ' sc-settings--collapsed'}`}>
               <header className="sc-settings__head">
                 <span className="sc-card__icon" aria-hidden>
                   <SettingsIcon />
@@ -873,9 +890,6 @@ const Showcase = () => {
                             Default order when you have not dragged cards.
                           </p>
                         </div>
-                        <span className="sc-setting-block__icon sc-setting-block__icon--muted" aria-hidden>
-                          <SortIcon />
-                        </span>
                       </div>
                       <ClientGallerySelect
                         value={collectionSort}
@@ -885,14 +899,7 @@ const Showcase = () => {
                           persistOrder([]);
                         }}
                         aria-label="Delivery sort order"
-                        options={[
-                          { value: 'created-new', label: 'Date created: New to Old' },
-                          { value: 'created-old', label: 'Date created: Old to New' },
-                          { value: 'event-new', label: 'Event Date: New to Old' },
-                          { value: 'event-old', label: 'Event Date: Old to New' },
-                          { value: 'name-az', label: 'Name: A → Z' },
-                          { value: 'name-za', label: 'Name: Z → A' },
-                        ]}
+                        options={DELIVERY_SORT_SELECT_OPTIONS}
                       />
                       <p className="sc-help-text">Dragging on this page overrides the default.</p>
                     </div>
@@ -925,7 +932,8 @@ const Showcase = () => {
                         <div className="sc-setting-block__meta">
                           <h3 className="sc-setting-block__title">What visitors see</h3>
                           <p className="sc-setting-block__hint">
-                            Contact details come from your Studio profile.
+                            Contact details come from{' '}
+                            <Link to="/account/account">Your account</Link>.
                           </p>
                         </div>
                       </div>
@@ -946,7 +954,7 @@ const Showcase = () => {
                             autoSave({ show_social: v }, true);
                           }}
                           label="Social links"
-                          sublabel="From Profile"
+                          sublabel={displaySocial}
                         />
                         <InfoTile
                           checked={showWebsite}
@@ -995,9 +1003,9 @@ const Showcase = () => {
               <div className="sc-onpage__head">
                 <div className="sc-onpage__label">
                   <span>On the page</span>
-                  <span className="sc-onpage__count">{onPageCount}</span>
+                  <span className="sc-onpage__count">{featuredCount}</span>
                 </div>
-                <p className="sc-onpage__hint">Drag to reorder · or use the ··· menu</p>
+                <p className="sc-onpage__hint">Drag to reorder</p>
               </div>
 
               {collectionsLoading ? (
@@ -1006,7 +1014,7 @@ const Showcase = () => {
                 <div className="sc-grid">
                   <ShowcaseSortableGrid
                     className="sc-sortable-root"
-                    items={onPage}
+                    items={featuredSlots}
                     disabled={Boolean(menuId)}
                     onReorder={handleShowcaseReorder}
                     renderItem={(col, index, { isDragging }) => {
@@ -1014,12 +1022,14 @@ const Showcase = () => {
                       const title = showcaseDisplayName(col);
                       const perm = permissionStatus(col);
                       const isMenu = menuId === col.id;
+                      const isHeld = col.status !== 'published';
                       return (
                         <article
-                          className={`sc-tile${isDragging ? ' is-dragging' : ''}${isMenu ? ' is-menu-open' : ''}`}
+                          className={`sc-tile${isHeld ? ' sc-tile--held' : ''}${isDragging ? ' is-dragging' : ''}${isMenu ? ' is-menu-open' : ''}`}
                         >
                           <div className="sc-tile__media">
                             <span className="sc-tile__pos">{index + 1}</span>
+                            {isHeld ? <span className="sc-tile__held-badge">Draft</span> : null}
                             {getCollectionCardCoverSrc(col) ? (
                               <CollectionCardCover
                                 collection={col}
@@ -1053,7 +1063,19 @@ const Showcase = () => {
                           <div className="sc-tile__meta">
                             <h3 className="sc-tile__title">{title}</h3>
                             {meta ? <p className="sc-tile__sub">{meta}</p> : null}
-                            {perm.action !== 'ask' ? (
+                            {isHeld ? (
+                              <p className="sc-tile__status is-warn">
+                                <span className="sc-dot" />
+                                <span>Publish to go live</span>
+                                <button
+                                  type="button"
+                                  className="sc-tile__link"
+                                  onClick={() => navigate(`/deliveries/manage?id=${col.id}`)}
+                                >
+                                  Open delivery
+                                </button>
+                              </p>
+                            ) : perm.action !== 'ask' ? (
                               <p className={`sc-tile__status is-${perm.tone}`}>
                                 <span className="sc-dot" />
                                 <span>{perm.text}</span>
@@ -1085,7 +1107,7 @@ const Showcase = () => {
                           <span className="sc-tile__plus">+</span>
                           <span className="sc-tile__empty-title">Feature work here</span>
                           <span className="sc-tile__empty-sub">
-                            Position {onPageCount + 1} of {MAX_FEATURED}
+                            Position {featuredCount + 1} of {MAX_FEATURED}
                           </span>
                         </div>
                         <div className="sc-tile__meta sc-tile__meta--empty" aria-hidden="true">
@@ -1128,14 +1150,7 @@ const Showcase = () => {
                   </div>
                 );
               }
-              return (
-                <div className="sc-hatch-note">
-                  <p>
-                    Use <strong>+ Feature work</strong> or an empty <strong>Feature work here</strong>{' '}
-                    slot. Drag cards to reorder. Ask permission from the ··· menu when you are ready.
-                  </p>
-                </div>
-              );
+              return null;
             })()}
           </>
         ) : null}
@@ -1203,54 +1218,14 @@ const Showcase = () => {
               <button
                 type="button"
                 className="sc-menu__item sc-menu__item--row"
-                disabled={menuIndex < 0 || menuIndex >= onPage.length - 1}
+                disabled={menuIndex < 0 || menuIndex >= featuredSlots.length - 1}
                 onClick={() => moveItem(menuCol.id, 'later')}
               >
                 <span className="sc-menu__title">Move later</span>
                 <span className="sc-menu__badge">
-                  → {Math.min(onPage.length, menuIndex + 2)}
+                  → {Math.min(featuredSlots.length, menuIndex + 2)}
                 </span>
               </button>
-
-              <div className="sc-menu__rule" />
-
-              {showcasePermission(menuCol) === 'approved' ? (
-                <button
-                  type="button"
-                  className="sc-menu__item"
-                  onClick={() => void askPermission(menuCol, { remind: false })}
-                >
-                  <span className="sc-menu__title">Ask again for permission</span>
-                  <span className="sc-menu__sub">{menuContact} already said yes</span>
-                </button>
-              ) : showcasePermission(menuCol) === 'asked' ? (
-                <>
-                  <button
-                    type="button"
-                    className="sc-menu__item"
-                    onClick={() => void askPermission(menuCol, { remind: true })}
-                  >
-                    <span className="sc-menu__title">Remind {menuContact}</span>
-                    <span className="sc-menu__sub">Opens email with a nudge</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="sc-menu__item"
-                    onClick={() => void markApproved(menuCol)}
-                  >
-                    <span className="sc-menu__title">Mark as approved</span>
-                    <span className="sc-menu__sub">{menuContact} said yes</span>
-                  </button>
-                </>
-              ) : (
-                <button
-                  type="button"
-                  className="sc-menu__item"
-                  onClick={() => void askPermission(menuCol)}
-                >
-                  <span className="sc-menu__title">Ask {menuContact} for permission</span>
-                </button>
-              )}
 
               <button
                 type="button"
@@ -1469,7 +1444,8 @@ const Showcase = () => {
               Feature work
             </h2>
             <p className="sc-modal__desc">
-              Choose a delivery to put on your public Showcase. Published deliveries appear at once.
+              Choose a delivery to put on your public Showcase. Published deliveries appear at once;
+              drafts are queued until you publish them.
             </p>
             <div className="sc-modal__list">
               {featureCandidates.length === 0 ? (
@@ -1480,15 +1456,7 @@ const Showcase = () => {
                     key={col.id}
                     type="button"
                     className="sc-pick"
-                    onClick={async () => {
-                      await setShowOnShowcase(col.id, true);
-                      const nextIds = [...onPage.map((c) => String(c.id)), String(col.id)].slice(
-                        0,
-                        MAX_FEATURED
-                      );
-                      persistOrder(nextIds);
-                      setFeatureOpen(false);
-                    }}
+                    onClick={() => void addToFeatureWork(col)}
                   >
                     <div className="sc-pick__thumb">
                       {getCollectionCardCoverSrc(col) ? (
@@ -1503,6 +1471,11 @@ const Showcase = () => {
                         {col.status === 'published' ? 'Published' : 'Draft'} · {photoCountLabel(col)}
                       </span>
                     </div>
+                    <span
+                      className={`sc-pick__badge${col.status === 'published' ? ' is-live' : ''}`}
+                    >
+                      {col.status === 'published' ? 'Live now' : 'Queued until published'}
+                    </span>
                   </button>
                 ))
               )}

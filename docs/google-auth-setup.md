@@ -52,13 +52,28 @@ Project: `oibvtecxxoqhvyejovsy`
 2. Paste the **same Client ID** and **Client secret** from step 1 (Supabase validates the Google ID token).
 3. **Authentication** → **URL configuration**:
    - **Site URL**: `https://www.pixnxt.in` (production) or `http://localhost:5173` (local)
-   - **Redirect URLs**:
-     - `http://localhost:5173/auth`
-     - `http://localhost:5173/auth/google/callback`
-     - `https://www.pixnxt.in/auth`
-     - `https://www.pixnxt.in/auth/google/callback`
-     - `https://pixnxt.in/auth`
-     - `https://pixnxt.in/auth/google/callback`
+   - **Redirect URLs** (add all — password reset needs `/auth?mode=reset`):
+     - `http://localhost:5173/**`
+     - `https://www.pixnxt.in/**`
+     - `https://pixnxt.in/**`
+     - Or explicitly:
+       - `http://localhost:5173/auth`
+       - `http://localhost:5173/auth?mode=reset`
+       - `https://www.pixnxt.in/auth`
+       - `https://www.pixnxt.in/auth?mode=reset`
+       - `https://pixnxt.in/auth`
+       - `https://pixnxt.in/auth?mode=reset`
+       - `http://localhost:5173/auth/google/callback`
+       - `https://www.pixnxt.in/auth/google/callback`
+       - `https://pixnxt.in/auth/google/callback`
+
+4. **Authentication** → **Emails** → **SMTP Settings** (password reset / confirm signup):
+   - Enable custom SMTP
+   - Sender: `PIXNXT` / `admin@pixnxt.in`
+   - Host: `smtp.gmail.com`, Port: `465`, User: `admin@pixnxt.in`, App Password
+   - In Google Admin → **Apps** → **Google Workspace** → **Gmail** → **Authenticate email**, add the SPF/DKIM DNS records for `pixnxt.in` so Gmail stops flagging reset emails as spam.
+
+5. **Authentication** → **Emails** → **Reset password** template — replace the default “Follow this link…” text with PIXNXT branding (studio name, support line). Plain default templates trigger Gmail phishing warnings.
 
 ## 4. Test
 
@@ -77,6 +92,9 @@ Project: `oibvtecxxoqhvyejovsy`
 | `access_denied` / 403 | Add your email under OAuth **Test users**, or publish the app. |
 | Sign-in succeeds but no Supabase session | Enable Google provider in Supabase with the **same** Client ID + secret. |
 | Button stuck on “Redirecting…” | Check browser console; confirm `/api/google-auth` returns 200 locally. |
+| Reset email in Gmail **Spam** / “might be dangerous” | In Google Admin, complete **Authenticate email** (SPF + DKIM) for `pixnxt.in`. Customize the Supabase reset-password template. For testing, open Spam → **Looks safe**. |
+| Reset link opens app but skips password form | Add `http://localhost:5173/**` and production `/**` redirect URLs in Supabase (see step 3). |
+| Reset link expired | Request a new link from **Forgot password**; links are single-use and time-limited. |
 
 ## Notes
 

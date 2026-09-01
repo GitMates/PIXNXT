@@ -4,6 +4,7 @@ import { storageService } from '../../../services/storage.service';
 import { CustomDomainPanel } from './CustomDomainPanel';
 import { supabase } from '../../../lib/supabase/client';
 import '../../../pages/Settings.css';
+import { AppLoader } from '../../ui/AppLoading';
 
 /* ── helpers ────────────────────────────────────────────────────── */
 
@@ -207,11 +208,7 @@ export default function StudioIdentityPanel({ profile, updateProfile }) {
     };
 
     if (!profile) {
-        return (
-            <div className="flex items-center justify-center py-16">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-500" />
-            </div>
-        );
+        return <AppLoader label="Loading studio identity" variant="page-short" />;
     }
 
     const galleryUrl = slug ? `${slug}.${baseHost}/g/` : '';

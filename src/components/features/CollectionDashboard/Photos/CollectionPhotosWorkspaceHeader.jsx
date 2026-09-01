@@ -93,6 +93,7 @@ export function CollectionPhotosWorkspaceHeader({
   onClearSelfie,
   onReanalyze,
   onRenamePerson,
+  onDeletePerson,
 }) {
   const [viewOpen, setViewOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
@@ -220,6 +221,7 @@ export function CollectionPhotosWorkspaceHeader({
           onClearSelfie={onClearSelfie}
           onReanalyze={onReanalyze}
           onRenamePerson={onRenamePerson}
+          onDeletePerson={onDeletePerson}
         />
       ) : null}
     </div>

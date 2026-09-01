@@ -965,6 +965,10 @@ export function resolveCoverImageSrc(album, { showSamples = false } = {}) {
             const fromCoverWrap = resolveCollectionItemUrl(albumId, coverWrap.id);
             if (fromCoverWrap) return fromCoverWrap;
         }
+        const fromSnapshot =
+            deriveFrontCoverUrlFromSnapshot(getRemotePreviewData(albumId), { blankCovers }) ??
+            deriveFrontCoverUrlFromSnapshot(album?.preview_data, { blankCovers });
+        if (fromSnapshot) return fromSnapshot;
     }
     if (blankCovers) {
         return null;

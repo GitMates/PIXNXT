@@ -112,6 +112,28 @@ export function useGalleryPeople(collectionId, { enabled = true, isPublic = true
     [collectionId]
   );
 
+  const deletePerson = useCallback(
+    async (personId) => {
+      if (!collectionId || !personId) return;
+      // Optimistically remove from local state
+      setPeople((prev) => prev.filter((person) => person.id !== personId));
+      // Clear filter if this person was active
+      if (activePersonId === personId) {
+        setActivePersonId(null);
+        setSelfieMatchPhotoIds([]);
+        setSelfieMessage('');
+      }
+      try {
+        await photoAiService.deletePerson(collectionId, personId);
+      } catch (err) {
+        console.error('[useGalleryPeople] deletePerson failed:', err?.message || err);
+        // Reload to restore correct state on failure
+        void loadPeople();
+      }
+    },
+    [collectionId, activePersonId, loadPeople]
+  );
+
   const isFilterActive = Boolean(activePersonId || selfieMatchPhotoIds.length);
 
   return {
@@ -127,6 +149,7 @@ export function useGalleryPeople(collectionId, { enabled = true, isPublic = true
     clearFilter,
     searchBySelfie,
     renamePerson,
+    deletePerson,
     reloadPeople: loadPeople,
   };
 }

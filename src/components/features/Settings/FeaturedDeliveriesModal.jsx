@@ -4,7 +4,7 @@ import { CollectionCardCover } from '../ClientGallery/CollectionCardCover';
 import { showcasePhotoCount } from '../../../lib/showcaseFeature';
 import { AppLoader } from '../../ui/AppLoading';
 
-const MAX_FEATURED = 12;
+const MAX_FEATURED = 6;
 
 function photoCountLabel(col) {
   const n = showcasePhotoCount(col);

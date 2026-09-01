@@ -6,6 +6,7 @@ import { useAuth } from '../hooks/useAuth';
 import { getUserDisplayLabel, getUserInitial } from '../lib/userInitials';
 import { supabase } from '../lib/supabase/client';
 import AccountTopbarIcons from '../components/account/AccountTopbarIcons';
+import { AppLoader } from '../components/ui/AppLoading';
 import { ClientGallerySubpageTabs } from '../components/features/ClientGallery/ClientGalleryPageShell';
 import StudioIdentityPanel from '../components/features/Settings/StudioIdentityPanel';
 import LegalConsentPanel from '../components/features/Settings/LegalConsentPanel';
@@ -478,11 +479,7 @@ function StudioIdentityTab({ user, showToast, embedded = false }) {
     };
 
     if (loading) {
-        return (
-            <div className="flex items-center justify-center py-16">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1a1a1a]" />
-            </div>
-        );
+        return <AppLoader label="Loading account" variant="page-short" />;
     }
 
     return (
@@ -1033,7 +1030,7 @@ function ReferTab({ user, showToast }) {
     };
 
     if (loading) {
-        return <div className="py-8 text-[#888]">Loading referral dashboard...</div>;
+        return <AppLoader label="Loading referral dashboard" variant="page-short" />;
     }
 
     return (

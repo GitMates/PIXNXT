@@ -1,5 +1,9 @@
 /* Shared loading animations — do not use for delivery photo grid cells (SmoothMediaImage). */
 
+:root {
+  --app-loader-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M6 4.25V19.75M6 19.75L18 4.25M18 4.25V19.75' stroke='%23c46a3a' stroke-width='3.15' stroke-linecap='butt'/%3E%3C/svg%3E");
+}
+
 @keyframes app-loader-spin {
   to {
     transform: rotate(360deg);
@@ -12,11 +16,11 @@
   }
 }
 
-@keyframes app-loader-pulse {
+@keyframes app-loader-mark-pulse {
   0%,
   100% {
-    transform: scale(0.88);
-    opacity: 0.5;
+    transform: scale(0.9);
+    opacity: 0.62;
   }
   50% {
     transform: scale(1);
@@ -59,8 +63,15 @@
 
 .app-spinner {
   position: relative;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
+}
+
+.app-spinner--xs {
+  width: 16px;
+  height: 16px;
 }
 
 .app-spinner--sm {
@@ -97,6 +108,10 @@
   animation: app-loader-spin-reverse 0.72s cubic-bezier(0.42, 0.05, 0.38, 0.95) infinite;
 }
 
+.app-spinner--xs .app-spinner__ring--inner {
+  inset: 3px;
+}
+
 .app-spinner--sm .app-spinner__ring--inner {
   inset: 4px;
 }
@@ -109,25 +124,38 @@
   inset: 8px;
 }
 
-.app-spinner__dot {
-  position: absolute;
-  top: 50%;
-  left: 50%;
+.app-spinner__mark {
+  position: relative;
+  z-index: 1;
+  display: block;
+  flex-shrink: 0;
+  width: 9px;
+  height: 9px;
+  color: #c46a3a;
+  animation: app-loader-mark-pulse 1.25s ease-in-out infinite;
+}
+
+.app-spinner--md .app-spinner__mark {
+  width: 11px;
+  height: 11px;
+}
+
+.app-spinner--lg .app-spinner__mark {
+  width: 13px;
+  height: 13px;
+}
+
+.app-spinner--xs .app-spinner__mark {
   width: 6px;
   height: 6px;
-  margin: -3px 0 0 -3px;
-  border-radius: 50%;
-  background: #d67d3a;
-  animation: app-loader-pulse 1.25s ease-in-out infinite;
 }
 
-.app-spinner--lg .app-spinner__dot {
-  width: 7px;
-  height: 7px;
-  margin: -3.5px 0 0 -3.5px;
+.app-spinner--sm .app-spinner__mark {
+  width: 8px;
+  height: 8px;
 }
 
-/* Legacy single-ring spinners */
+/* Legacy empty-element spinners — dual ring + PIXNXT mark */
 .app-spinner-ring,
 .sd-spinner,
 .sc-loading-spinner,
@@ -140,51 +168,169 @@
 .dl-delete-confirm-spinner,
 .dl-delete-overlay-card__spinner,
 .dl-preparing-overlay__spinner,
-.gallery-dl-popup__spinner {
+.gallery-dl-popup__spinner,
+.cdpw-spin,
+.cd-photo-ai-spin,
+.gallery-people-strip__spin,
+.ae-share-loading-spinner,
+.eam-advanced__loading-spinner,
+.asc-feed-loading-spinner,
+.asc-loading-spinner,
+.ae-notifications-loading-spinner,
+.move-folder-loading-spinner,
+.favorite-detail-loading-spinner,
+.cd-activity-feed__loading-spinner,
+.cd-email-history-loading-spinner,
+.gd-initial-loading-spinner,
+.cd-dl-code-loading-spinner,
+.store-panel-loading-spinner {
+  position: relative;
   display: inline-block;
   flex-shrink: 0;
-  width: 34px;
-  height: 34px;
+  width: 40px;
+  height: 40px;
   border: none !important;
+  border-radius: 0 !important;
+  background: var(--app-loader-mark) center / 11px 11px no-repeat !important;
+  mask: none !important;
+  -webkit-mask: none !important;
+  animation: none !important;
+  color: transparent;
+  overflow: visible;
+  vertical-align: middle;
+}
+
+.app-spinner-ring::before,
+.sd-spinner::before,
+.sc-loading-spinner::before,
+.lab-spinner::before,
+.store-spinner::before,
+.sa-preview-loading-spinner::before,
+.sa-analyze-spinner::before,
+.sa-create-progress-spinner::before,
+.ya-avatar-spinner::before,
+.dl-delete-confirm-spinner::before,
+.dl-delete-overlay-card__spinner::before,
+.dl-preparing-overlay__spinner::before,
+.gallery-dl-popup__spinner::before,
+.cdpw-spin::before,
+.cd-photo-ai-spin::before,
+.gallery-people-strip__spin::before,
+.ae-share-loading-spinner::before,
+.eam-advanced__loading-spinner::before,
+.asc-feed-loading-spinner::before,
+.asc-loading-spinner::before,
+.ae-notifications-loading-spinner::before,
+.move-folder-loading-spinner::before,
+.favorite-detail-loading-spinner::before,
+.cd-activity-feed__loading-spinner::before,
+.cd-email-history-loading-spinner::before,
+.gd-initial-loading-spinner::before,
+.cd-dl-code-loading-spinner::before,
+.store-panel-loading-spinner::before {
+  content: '';
+  position: absolute;
+  inset: 0;
   border-radius: 50%;
-  background: conic-gradient(
-    from 210deg,
-    rgba(214, 125, 58, 0.1) 0deg,
-    #d67d3a 300deg,
-    #c46a3a 360deg
-  );
-  mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
-  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
-  animation: app-loader-spin 0.82s cubic-bezier(0.42, 0.05, 0.38, 0.95) infinite;
+  border: 2px solid transparent;
+  border-top-color: #d67d3a;
+  border-right-color: rgba(214, 125, 58, 0.28);
+  animation: app-loader-spin 0.95s cubic-bezier(0.42, 0.05, 0.38, 0.95) infinite;
+}
+
+.app-spinner-ring::after,
+.sd-spinner::after,
+.sc-loading-spinner::after,
+.lab-spinner::after,
+.store-spinner::after,
+.sa-preview-loading-spinner::after,
+.sa-analyze-spinner::after,
+.sa-create-progress-spinner::after,
+.ya-avatar-spinner::after,
+.dl-delete-confirm-spinner::after,
+.dl-delete-overlay-card__spinner::after,
+.dl-preparing-overlay__spinner::after,
+.gallery-dl-popup__spinner::after,
+.cdpw-spin::after,
+.cd-photo-ai-spin::after,
+.gallery-people-strip__spin::after,
+.ae-share-loading-spinner::after,
+.eam-advanced__loading-spinner::after,
+.asc-feed-loading-spinner::after,
+.asc-loading-spinner::after,
+.ae-notifications-loading-spinner::after,
+.move-folder-loading-spinner::after,
+.favorite-detail-loading-spinner::after,
+.cd-activity-feed__loading-spinner::after,
+.cd-email-history-loading-spinner::after,
+.gd-initial-loading-spinner::after,
+.cd-dl-code-loading-spinner::after,
+.store-panel-loading-spinner::after {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-bottom-color: #c46a3a;
+  border-left-color: rgba(196, 106, 58, 0.2);
+  animation: app-loader-spin-reverse 0.72s cubic-bezier(0.42, 0.05, 0.38, 0.95) infinite;
 }
 
 .sc-loading-spinner,
-.sa-preview-loading-spinner {
-  width: 22px;
-  height: 22px;
-}
-
+.sa-preview-loading-spinner,
+.cdpw-spin,
+.cd-photo-ai-spin,
+.gallery-people-strip__spin,
 .ya-avatar-spinner,
 .dl-delete-confirm-spinner,
-.dl-delete-overlay-card__spinner {
-  width: 18px;
-  height: 18px;
+.dl-delete-overlay-card__spinner,
+.cd-email-history-loading-spinner,
+.cd-activity-feed__loading-spinner {
+  width: 22px;
+  height: 22px;
+  background-size: 8px 8px !important;
+}
+
+.sc-loading-spinner::after,
+.sa-preview-loading-spinner::after,
+.cdpw-spin::after,
+.cd-photo-ai-spin::after,
+.gallery-people-strip__spin::after,
+.ya-avatar-spinner::after,
+.dl-delete-confirm-spinner::after,
+.dl-delete-overlay-card__spinner::after,
+.cd-email-history-loading-spinner::after,
+.cd-activity-feed__loading-spinner::after {
+  inset: 4px;
 }
 
 .dl-delete-confirm-spinner,
 .dl-delete-overlay-card__spinner {
-  background: conic-gradient(
-    from 210deg,
-    rgba(255, 255, 255, 0.25) 0deg,
-    #ffffff 300deg,
-    rgba(255, 255, 255, 0.85) 360deg
-  ) !important;
+  filter: brightness(1.8);
 }
 
 .gallery-dl-popup__spinner {
   width: 28px;
   height: 28px;
-  animation-duration: 0.9s;
+  background-size: 9px 9px !important;
+}
+
+.gallery-dl-popup__spinner::after {
+  inset: 5px;
+}
+
+.store-panel-loading-spinner {
+  width: 34px;
+  height: 34px;
+}
+
+.app-loader--table-cell {
+  min-height: 0;
+  padding: 20px 12px;
+}
+
+.app-loader--table-cell .app-loader__label {
+  font-size: 13px;
 }
 
 .app-loader {
@@ -300,6 +446,10 @@ body.dark-theme .app-loader__label--sans {
 body.dark-theme .app-shimmer-bone {
   background: linear-gradient(90deg, #2a2826 0%, #34312e 42%, #2a2826 84%);
   background-size: 200% 100%;
+}
+
+body.dark-theme .app-spinner__mark {
+  color: #d4a574;
 }
 
 body.dark-theme .app-spinner-ring,

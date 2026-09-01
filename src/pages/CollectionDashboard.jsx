@@ -5375,6 +5375,7 @@ const CollectionDashboard = () => {
                                         void runPhotoAiAutoSync({ force: true });
                                     }}
                                     onRenamePerson={handleRenamePerson}
+                                    onDeletePerson={(personId) => handleTogglePersonHidden(personId, true)}
                                 />
 
                                 {gridPhotos.length > 0 ? (

@@ -29,7 +29,7 @@ import { smoothScrollToElement, smoothScrollToTop } from '../../../../lib/smooth
 import { getPhotoFullDisplayUrl } from '../../../../lib/photoDisplayUrl';
 import { getThumbnailSizeColumnCount } from '../../../../lib/masonryColumnDistribution';
 import { normalizeFontId, normalizePaletteId } from '../../../../lib/normalizeDesignTokens';
-import { filterPhotosByIds } from '../../../../lib/photoAiSearch';
+import { filterPhotosByIds, filterPeopleForPhotos } from '../../../../lib/photoAiSearch';
 import { useGalleryPeople } from '../../../../hooks/useGalleryPeople';
 import {
   SALES_CAMPAIGNS_STORAGE_KEY,
@@ -275,6 +275,28 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
       : gridPhotos.filter((p: any) => !p.set_id);
   }, [gridPhotos, dashboardState?.activeSetId]);
 
+  const {
+    people: galleryPeopleList,
+    loading: galleryPeopleLoading,
+    activePersonId: galleryActivePersonId,
+    selfieSearching: gallerySelfieSearching,
+    selfieMessage: gallerySelfieMessage,
+    isFilterActive: galleryPeopleFilterActive,
+    selectPerson: selectGalleryPerson,
+    searchBySelfie: searchGalleryBySelfie,
+    clearFilter: clearGalleryPeopleFilter,
+    renamePerson: renameGalleryPerson,
+  } = galleryPeople;
+
+  const peopleForActiveSet = useMemo(
+    () => filterPeopleForPhotos(galleryPeopleList, photosForActiveSet),
+    [galleryPeopleList, photosForActiveSet]
+  );
+
+  useEffect(() => {
+    clearGalleryPeopleFilter();
+  }, [dashboardState?.activeSetId, clearGalleryPeopleFilter]);
+
   const gallerySortKey = normalizeGalleryPhotoSort(dashboardState?.galleryPhotoSort);
 
   const photosSortedForGrid = useMemo(
@@ -282,15 +304,20 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
     [photosForActiveSet, gallerySortKey]
   );
 
+  const activePersonInSet = useMemo(
+    () => peopleForActiveSet.find((person) => person.id === galleryActivePersonId) || null,
+    [peopleForActiveSet, galleryActivePersonId]
+  );
+
   const photosAfterPeopleFilter = useMemo(() => {
     if (galleryPeople.selfieMatchPhotoIds.length) {
       return filterPhotosByIds(photosSortedForGrid, galleryPeople.selfieMatchPhotoIds);
     }
-    if (galleryPeople.activePerson?.photoIds?.length) {
-      return filterPhotosByIds(photosSortedForGrid, galleryPeople.activePerson.photoIds);
+    if (activePersonInSet?.photoIds?.length) {
+      return filterPhotosByIds(photosSortedForGrid, activePersonInSet.photoIds);
     }
     return photosSortedForGrid;
-  }, [photosSortedForGrid, galleryPeople.selfieMatchPhotoIds, galleryPeople.activePerson]);
+  }, [photosSortedForGrid, galleryPeople.selfieMatchPhotoIds, activePersonInSet]);
 
   const filteredPhotos = useMemo(() => {
     let list = photosAfterPeopleFilter;
@@ -694,16 +721,16 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
 
         <GalleryPeopleStrip
           variant="preview"
-          people={galleryPeople.people}
-          loading={galleryPeople.loading}
-          activePersonId={galleryPeople.activePersonId}
-          selfieSearching={galleryPeople.selfieSearching}
-          selfieMessage={galleryPeople.selfieMessage}
-          isFilterActive={galleryPeople.isFilterActive}
-          onSelectPerson={galleryPeople.selectPerson}
-          onSelfiePick={galleryPeople.searchBySelfie}
-          onClearFilter={galleryPeople.clearFilter}
-          onRenamePerson={galleryPeople.renamePerson}
+          people={peopleForActiveSet}
+          loading={galleryPeopleLoading}
+          activePersonId={galleryActivePersonId}
+          selfieSearching={gallerySelfieSearching}
+          selfieMessage={gallerySelfieMessage}
+          isFilterActive={galleryPeopleFilterActive}
+          onSelectPerson={selectGalleryPerson}
+          onSelfiePick={searchGalleryBySelfie}
+          onClearFilter={clearGalleryPeopleFilter}
+          onRenamePerson={renameGalleryPerson}
         />
 
         {showOnlyFavorites && favFeatureOn && (

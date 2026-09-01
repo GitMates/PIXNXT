@@ -137,6 +137,13 @@ export default function YourAccountPanel({ user, showToast }) {
     const [phone, setPhone] = useState('');
     const [phoneDisplay, setPhoneDisplay] = useState('');
     const [editingPhone, setEditingPhone] = useState(false);
+    const [website, setWebsite] = useState('');
+    const [socialInstagram, setSocialInstagram] = useState('');
+    const [socialFacebook, setSocialFacebook] = useState('');
+    const [socialXTwitter, setSocialXTwitter] = useState('');
+    const [addressLine1, setAddressLine1] = useState('');
+    const [city, setCity] = useState('');
+    const [stateProvince, setStateProvince] = useState('');
     const [handle, setHandle] = useState('');
     const [twoFactor, setTwoFactor] = useState(false);
     const [loginPasswordSet, setLoginPasswordSet] = useState(false);
@@ -219,6 +226,13 @@ export default function YourAccountPanel({ user, showToast }) {
                 setEmail(resolvedEmail);
                 setPhone(resolvedPhone);
                 setPhoneDisplay(maskPhone(resolvedPhone));
+                setWebsite(data?.website || '');
+                setSocialInstagram(data?.social_instagram || '');
+                setSocialFacebook(data?.social_facebook || '');
+                setSocialXTwitter(data?.social_x_twitter || '');
+                setAddressLine1(data?.address_line_1 || '');
+                setCity(data?.city || '');
+                setStateProvince(data?.state_province || '');
                 setHandle(resolvedHandle);
                 setHandleDraft(resolvedHandle);
                 setTwoFactor(Boolean(data?.two_factor_enabled));
@@ -295,6 +309,31 @@ export default function YourAccountPanel({ user, showToast }) {
         setEditingPhone(false);
         setPhoneDisplay(maskPhone(phone));
         if (user?.id) persist({ phone }, 'Phone saved');
+    };
+
+    const handleWebsiteChange = (value) => {
+        setWebsite(value);
+        debouncePersist('website', { website: value }, 'Website saved');
+    };
+
+    const handleSocialChange = (key, value, setter) => {
+        setter(value);
+        debouncePersist(key, { [key]: value }, 'Social links saved');
+    };
+
+    const handleAddressLineChange = (value) => {
+        setAddressLine1(value);
+        debouncePersist('address_line_1', { address_line_1: value }, 'Business address saved');
+    };
+
+    const handleCityChange = (value) => {
+        setCity(value);
+        debouncePersist('city', { city: value }, 'Business address saved');
+    };
+
+    const handleStateChange = (value) => {
+        setStateProvince(value);
+        debouncePersist('state_province', { state_province: value }, 'Business address saved');
     };
 
     const handleIconChange = async (e) => {
@@ -559,6 +598,131 @@ export default function YourAccountPanel({ user, showToast }) {
                     <p className="ya-field-hint">
                         Used for sign-in codes, never shown to clients or guests.
                     </p>
+                </div>
+            </section>
+
+            <section className="ya-section">
+                <span className="ya-overline">PUBLIC CONTACT</span>
+                <p className="ya-section-lead">
+                    Shown on your <strong>Showcase</strong> and public galleries when you turn each
+                    field on there.
+                </p>
+
+                <div className="ya-field">
+                    <label className="ya-label" htmlFor="ya-website">
+                        Website
+                    </label>
+                    <input
+                        id="ya-website"
+                        className="ya-input"
+                        type="url"
+                        placeholder="https://yourstudio.com"
+                        value={website}
+                        onChange={(e) => handleWebsiteChange(e.target.value)}
+                    />
+                </div>
+
+                <div className="ya-field">
+                    <span className="ya-label">Social links</span>
+                    <div className="ya-social-fields">
+                        <div className="ya-field ya-field--nested">
+                            <label className="ya-label ya-label--sub" htmlFor="ya-social-instagram">
+                                Instagram
+                            </label>
+                            <input
+                                id="ya-social-instagram"
+                                className="ya-input"
+                                type="text"
+                                placeholder="@username or full URL"
+                                value={socialInstagram}
+                                onChange={(e) =>
+                                    handleSocialChange(
+                                        'social_instagram',
+                                        e.target.value,
+                                        setSocialInstagram,
+                                    )
+                                }
+                            />
+                        </div>
+                        <div className="ya-field ya-field--nested">
+                            <label className="ya-label ya-label--sub" htmlFor="ya-social-facebook">
+                                Facebook
+                            </label>
+                            <input
+                                id="ya-social-facebook"
+                                className="ya-input"
+                                type="text"
+                                placeholder="Page URL or username"
+                                value={socialFacebook}
+                                onChange={(e) =>
+                                    handleSocialChange(
+                                        'social_facebook',
+                                        e.target.value,
+                                        setSocialFacebook,
+                                    )
+                                }
+                            />
+                        </div>
+                        <div className="ya-field ya-field--nested">
+                            <label className="ya-label ya-label--sub" htmlFor="ya-social-x">
+                                X (Twitter)
+                            </label>
+                            <input
+                                id="ya-social-x"
+                                className="ya-input"
+                                type="text"
+                                placeholder="@username or full URL"
+                                value={socialXTwitter}
+                                onChange={(e) =>
+                                    handleSocialChange(
+                                        'social_x_twitter',
+                                        e.target.value,
+                                        setSocialXTwitter,
+                                    )
+                                }
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="ya-field">
+                    <label className="ya-label" htmlFor="ya-address-line">
+                        Business address
+                    </label>
+                    <input
+                        id="ya-address-line"
+                        className="ya-input"
+                        type="text"
+                        placeholder="Street address"
+                        value={addressLine1}
+                        onChange={(e) => handleAddressLineChange(e.target.value)}
+                    />
+                    <div className="ya-field-row">
+                        <div className="ya-field ya-field--nested">
+                            <label className="ya-label ya-label--sub" htmlFor="ya-city">
+                                City
+                            </label>
+                            <input
+                                id="ya-city"
+                                className="ya-input"
+                                type="text"
+                                value={city}
+                                onChange={(e) => handleCityChange(e.target.value)}
+                            />
+                        </div>
+                        <div className="ya-field ya-field--nested">
+                            <label className="ya-label ya-label--sub" htmlFor="ya-state">
+                                State / province
+                            </label>
+                            <input
+                                id="ya-state"
+                                className="ya-input"
+                                type="text"
+                                value={stateProvince}
+                                onChange={(e) => handleStateChange(e.target.value)}
+                            />
+                        </div>
+                    </div>
                 </div>
             </section>
 

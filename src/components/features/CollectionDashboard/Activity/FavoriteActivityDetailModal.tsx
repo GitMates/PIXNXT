@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Play } from 'lucide-react';
 import { openSpaPath } from '../../../../lib/spaNavigation';
 import { formatActivityRelativeTime } from '../../../../lib/buildActivityFeed';
+import { AppLoader } from '../../../ui/AppLoading';
 
 export interface FavoriteListDetail {
   id: string | number;
@@ -230,7 +231,7 @@ export function FavoriteActivityDetailModal({
 
             <div className="favorite-detail-photo-grid">
               {favoriteDetailLoading ? (
-                <p className="favorite-detail-empty">Loading…</p>
+                <AppLoader label="Loading" variant="compact" className="favorite-detail-empty app-loader" />
               ) : heroPhotos.length === 0 ? (
                 <p className="favorite-detail-empty">No photos in this list yet.</p>
               ) : (
