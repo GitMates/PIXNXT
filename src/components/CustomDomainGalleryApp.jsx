@@ -4,6 +4,7 @@ import CollectionList from '../pages/public/CollectionList';
 import GalleryView from '../pages/public/GalleryView';
 import GalleryFavoritesHub from '../pages/public/GalleryFavoritesHub';
 import GallerySelectionDetail from '../pages/public/GallerySelectionDetail';
+import PublicFavoritesView from '../pages/public/PublicFavoritesView';
 import GalleryDownloadReady from '../pages/public/GalleryDownloadReady';
 import MobileGalleryClient from '../pages/public/MobileGalleryClient';
 import MobileGalleryInstall from '../pages/public/MobileGalleryInstall';
@@ -91,6 +92,7 @@ export function CustomDomainGalleryApp({ hostname }) {
       <Routes>
         <Route path="/" element={<CollectionList slug={slug} photographerProfile={profile} />} />
         <Route path="/gallery/:slug/f" element={<GalleryFavoritesHub />} />
+        <Route path="/gallery/:slug/f/:listId" element={<PublicFavoritesView />} />
         <Route path="/gallery/:slug/choose" element={<GalleryFavoritesHub />} />
         <Route path="/gallery/:slug/choose/:listId" element={<GallerySelectionDetail />} />
         <Route path="/g/:slug/choose" element={<GalleryFavoritesHub />} />

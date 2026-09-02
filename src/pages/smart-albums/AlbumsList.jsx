@@ -296,41 +296,28 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
     const deleteAlbumOptimistically = useCallback(
         (album) => {
             if (!user || !album?.id) return;
-            if (!window.confirm(`Delete "${album.name}"? This cannot be undone.`)) return;
 
             const snapshot = album;
             const albumId = album.id;
             closeContextMenu();
             setSettingsAlbum(null);
             setSettingsAnchor(null);
-            setLeavingAlbumIds((prev) => new Set(prev).add(albumId));
 
-            runOptimisticDelete({
-                onRemove: () => {
-                    setAlbums((prev) => prev.filter((a) => a.id !== albumId));
-                    setLeavingAlbumIds((prev) => {
-                        const next = new Set(prev);
-                        next.delete(albumId);
-                        return next;
-                    });
-                },
-                onError: (err) => {
-                    console.error(err);
-                    setLeavingAlbumIds((prev) => {
-                        const next = new Set(prev);
-                        next.delete(albumId);
-                        return next;
-                    });
-                    setAlbums((prev) => {
-                        if (prev.some((a) => a.id === albumId)) return prev;
-                        return [snapshot, ...prev];
-                    });
-                    alert('Failed to delete album. Please try again.');
-                },
-                task: () => smartAlbumsService.deleteAlbum(user.id, albumId),
+            // Immediately remove from list state so it vanishes instantly
+            setAlbums((prev) => prev.filter((a) => a.id !== albumId));
+
+            // Background deletion process
+            smartAlbumsService.deleteAlbum(user.id, albumId).catch((err) => {
+                console.error('Background album deletion failed:', err);
+                // Restore album if deletion fails
+                setAlbums((prev) => {
+                    if (prev.some((a) => a.id === albumId)) return prev;
+                    return [snapshot, ...prev];
+                });
+                showToast('Failed to delete album.', { variant: 'error', duration: 4000 });
             });
         },
-        [user, closeContextMenu],
+        [user, closeContextMenu, showToast],
     );
 
     const handleDeleteAlbum = (album) => {
