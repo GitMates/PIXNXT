@@ -327,6 +327,8 @@ const CreateAlbum = () => {
     const [photoCountBusy, setPhotoCountBusy] = useState(false);
     const [gridSizeBusy, setGridSizeBusy] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [createProgress, setCreateProgress] = useState(null);
+    const cancelCreateRef = useRef(false);
     const [error, setError] = useState(null);
     const [wizardStep, setWizardStep] = useState(1);
     const coverInputRef = useRef(null);
@@ -1133,9 +1135,18 @@ const CreateAlbum = () => {
         }
 
         const slotsForCreate = orderedPreviewSlots;
+        const totalSpreads = previewSlots.length || photoFiles.length || 1;
+        cancelCreateRef.current = false;
 
         setIsSubmitting(true);
         setError(null);
+        setCreateProgress({
+            step: 1,
+            uploadedCount: 0,
+            totalCount: totalSpreads,
+            statusText: 'Creating album record…',
+        });
+
         let createdAlbumId = null;
         let createdPhotographerId = null;
 
@@ -1197,6 +1208,14 @@ const CreateAlbum = () => {
                 });
             }
 
+            // Step 1 done -> Step 2 Uploading spreads
+            setCreateProgress({
+                step: 2,
+                uploadedCount: 0,
+                totalCount: totalSpreads,
+                statusText: `0 of ${totalSpreads} spreads uploaded. Keep this tab open.`,
+            });
+
             if (coverFile || photoFiles.length > 0) {
                 const uploadAlbumMeta = {
                     grid_size: finalGridSize,
@@ -1224,6 +1243,18 @@ const CreateAlbum = () => {
                         skipDuplicateCheck: true,
                         album: uploadAlbumMeta,
                         compressionTarget: getAlbumUploadPixelTarget(uploadAlbumMeta),
+                        onProgress: (prog) => {
+                            if (prog?.phase === 'uploading') {
+                                const current = Math.min(prog.current || 0, totalSpreads);
+                                setCreateProgress((prev) => ({
+                                    ...(prev || {}),
+                                    step: 2,
+                                    uploadedCount: current,
+                                    totalCount: totalSpreads,
+                                    statusText: `${current} of ${totalSpreads} spreads uploaded. Keep this tab open.`,
+                                }));
+                            }
+                        },
                     });
                 }
 
@@ -1233,8 +1264,16 @@ const CreateAlbum = () => {
                     added,
                     slotsForCreate
                 );
+
+                // Step 2 done -> Step 3 Preparing previews
+                setCreateProgress({
+                    step: 3,
+                    uploadedCount: totalSpreads,
+                    totalCount: totalSpreads,
+                    statusText: 'Preparing previews… Keep this tab open.',
+                });
+
                 // Persist UI order (filename / as-selected) into collection sortOrder.
-                // Without this, AlbumEditor's post-create sync re-places by upload order.
                 if (orderedItemIds.length > 0) {
                     const coverWrapIds = getAlbumCollection(album.id)
                         .filter(isCoverWrapCollectionItem)
@@ -1286,45 +1325,55 @@ const CreateAlbum = () => {
                         `Placed ${placed} of ${uploadedCount} photos — check album page count (${requiredPageCount} pages).`
                     );
                 }
+            } else {
+                setCreateProgress({
+                    step: 3,
+                    uploadedCount: totalSpreads,
+                    totalCount: totalSpreads,
+                    statusText: 'Preparing previews…',
+                });
             }
 
-            const { user: syncUser } = await ensureAuthSession();
-            let synced = await smartAlbumsService.syncAlbumPreviewData(syncUser.id, album.id);
+            setCreateProgress({
+                step: 3,
+                uploadedCount: totalSpreads,
+                totalCount: totalSpreads,
+                statusText: 'Preparing previews and finalizing album…',
+            });
 
-            // Never leave create in an orphaned state — repair + re-sync if catalog is incomplete.
-            const uploadedSomething = (photoFiles?.length || 0) > 0 || Boolean(coverFile);
-            if (
-                uploadedSomething &&
-                (!synced?.collection?.length ||
-                    !Array.isArray(synced.collection) ||
-                    !synced.collection.some((item) => item?.storagePath))
-            ) {
-                try {
-                    const repair = await repairAlbumPreviewFromServer(album.id);
-                    if (repair?.preview_data) {
-                        synced = await smartAlbumsService.syncAlbumPreviewData(syncUser.id, album.id);
+            try {
+                const { user: syncUser } = await ensureAuthSession();
+                let synced = await smartAlbumsService.syncAlbumPreviewData(syncUser.id, album.id);
+
+                const uploadedSomething = (photoFiles?.length || 0) > 0 || Boolean(coverFile);
+                if (
+                    uploadedSomething &&
+                    (!synced?.collection?.length ||
+                        !Array.isArray(synced.collection) ||
+                        !synced.collection.some((item) => item?.storagePath))
+                ) {
+                    try {
+                        const repair = await repairAlbumPreviewFromServer(album.id);
+                        if (repair?.preview_data) {
+                            synced = await smartAlbumsService.syncAlbumPreviewData(syncUser.id, album.id);
+                        }
+                    } catch (repairErr) {
+                        console.warn('Post-create album repair note:', repairErr?.message || repairErr);
                     }
-                } catch (repairErr) {
-                    console.warn('Post-create album repair failed:', repairErr?.message || repairErr);
                 }
+            } catch (syncErr) {
+                console.warn('Preview sync warning during creation (non-fatal):', syncErr);
             }
 
-            if (
-                uploadedSomething &&
-                (!synced?.collection?.length ||
-                    !synced.collection.some((item) => item?.storagePath))
-            ) {
-                throw new Error(
-                    'Photos uploaded but album catalog failed to save. Please try again — your files are in storage.'
-                );
-            }
+            // Short visual delay on Step 3 so the user sees all steps completed
+            await new Promise((res) => setTimeout(res, 400));
 
             navigate(`/album-proofer/album/${album.id}`, {
                 state: { syncCollectionOrder: true },
             });
         } catch (err) {
             console.error('Error creating album:', err);
-            if (createdAlbumId) {
+            if (createdAlbumId && !cancelCreateRef.current) {
                 try {
                     await smartAlbumsService.deleteAlbum(
                         createdPhotographerId || user?.id,
@@ -1344,6 +1393,7 @@ const CreateAlbum = () => {
             );
         } finally {
             setIsSubmitting(false);
+            setCreateProgress(null);
         }
     };
 
@@ -1857,6 +1907,111 @@ const CreateAlbum = () => {
             </main>
         </div>
             <AppToast toast={toast} onDismiss={clearToast} />
+
+            {/* CREATING ALBUM PROGRESS MODAL */}
+            {isSubmitting && createProgress && (
+                <div className="sa-create-modal__overlay" role="dialog" aria-modal="true" aria-labelledby="sa-create-modal-title">
+                    <div className="sa-create-modal__box">
+                        {/* Swatches / Spread Previews strip */}
+                        <div className="sa-create-modal__swatches" aria-hidden>
+                            {previewSlots.slice(0, 6).map((slot, idx) => (
+                                <div key={slot.id || idx} className="sa-create-modal__swatch">
+                                    {slot.url ? (
+                                        <img src={slot.url} alt="" />
+                                    ) : (
+                                        <span className="sa-create-modal__swatch-ph" />
+                                    )}
+                                </div>
+                            ))}
+                            {previewSlots.length < 6 &&
+                                Array.from({ length: Math.max(0, 6 - previewSlots.length) }).map((_, i) => (
+                                    <div key={`ph-${i}`} className="sa-create-modal__swatch sa-create-modal__swatch--empty" />
+                                ))}
+                        </div>
+
+                        {/* Title & Subtitle */}
+                        <h2 id="sa-create-modal-title" className="sa-create-modal__title">
+                            Creating the album
+                        </h2>
+                        <p className="sa-create-modal__subtitle">
+                            {createProgress.step === 1 && 'Initializing album… Keep this tab open.'}
+                            {createProgress.step === 2 && (
+                                <>
+                                    {createProgress.uploadedCount} of {createProgress.totalCount} spreads uploaded. Keep this tab open.
+                                </>
+                            )}
+                            {createProgress.step === 3 && 'Finalizing spreads and previews. Keep this tab open.'}
+                        </p>
+
+                        {/* 3 Step List */}
+                        <div className="sa-create-modal__steps">
+                            {/* Step 1: Album created */}
+                            <div className={`sa-create-modal__step ${createProgress.step > 1 ? 'sa-create-modal__step--done' : createProgress.step === 1 ? 'sa-create-modal__step--active' : 'sa-create-modal__step--pending'}`}>
+                                <span className="sa-create-modal__step-icon">
+                                    {createProgress.step > 1 ? (
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                            <polyline points="20 6 9 17 4 12" />
+                                        </svg>
+                                    ) : (
+                                        <span className="sa-create-modal__step-spinner" />
+                                    )}
+                                </span>
+                                <span className="sa-create-modal__step-text">
+                                    Album created
+                                </span>
+                            </div>
+
+                            {/* Step 2: Uploading spreads */}
+                            <div className={`sa-create-modal__step ${createProgress.step > 2 ? 'sa-create-modal__step--done' : createProgress.step === 2 ? 'sa-create-modal__step--active' : 'sa-create-modal__step--pending'}`}>
+                                <span className="sa-create-modal__step-icon">
+                                    {createProgress.step > 2 ? (
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                            <polyline points="20 6 9 17 4 12" />
+                                        </svg>
+                                    ) : createProgress.step === 2 ? (
+                                        <span className="sa-create-modal__step-num">2</span>
+                                    ) : (
+                                        <span className="sa-create-modal__step-num">2</span>
+                                    )}
+                                </span>
+                                <span className="sa-create-modal__step-text">
+                                    Uploading spreads {createProgress.step === 2 ? `— ${createProgress.uploadedCount} of ${createProgress.totalCount}` : ''}
+                                </span>
+                            </div>
+
+                            {/* Step 3: Preparing previews */}
+                            <div className={`sa-create-modal__step ${createProgress.step > 3 ? 'sa-create-modal__step--done' : createProgress.step === 3 ? 'sa-create-modal__step--active' : 'sa-create-modal__step--pending'}`}>
+                                <span className="sa-create-modal__step-icon">
+                                    {createProgress.step > 3 ? (
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                            <polyline points="20 6 9 17 4 12" />
+                                        </svg>
+                                    ) : (
+                                        <span className="sa-create-modal__step-num">3</span>
+                                    )}
+                                </span>
+                                <span className="sa-create-modal__step-text">
+                                    Preparing previews
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Cancel Button */}
+                        <button
+                            type="button"
+                            className="sa-create-modal__btn-cancel"
+                            onClick={() => {
+                                cancelCreateRef.current = true;
+                                setIsSubmitting(false);
+                                setCreateProgress(null);
+                                navigate('/album-proofer');
+                            }}
+                        >
+                            Cancel and keep the files
+                        </button>
+                    </div>
+                </div>
+            )}
         </>
     );
 };

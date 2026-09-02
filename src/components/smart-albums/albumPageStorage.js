@@ -266,3 +266,20 @@ export function pruneAlbumStorageForPageCount(albumId, newTotalPages) {
         writeJson(TRANSFORMS_KEY, transformsAll, albumId);
     }
 }
+
+export function clearAlbumPageStorage(albumId) {
+    if (!albumId) return;
+
+    const photosAll = readJson(PHOTOS_KEY);
+    if (photosAll[albumId]) {
+        delete photosAll[albumId];
+        writeJson(PHOTOS_KEY, photosAll);
+    }
+
+    const transformsAll = readJson(TRANSFORMS_KEY);
+    if (transformsAll[albumId]) {
+        delete transformsAll[albumId];
+        writeJson(TRANSFORMS_KEY, transformsAll);
+    }
+}
+

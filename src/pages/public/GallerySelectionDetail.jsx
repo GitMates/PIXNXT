@@ -1,9 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Lock, MessageCircle } from 'lucide-react';
+import { ArrowLeft, Check, Copy, Download, Heart, Link as LinkIcon, Lock, Mail, MessageCircle, Send, SendHorizontal, X } from 'lucide-react';
 import { galleryService } from '../../services/gallery.service';
+import { downloadPhotosToZip, generateZipBlob } from '../../lib/downloadPhoto';
 import { MasonryGrid } from '../../components/features/Gallery/MasonryGrid/MasonryGrid';
 import { AppLoader } from '../../components/ui/AppLoading';
+import JSZip from 'jszip';
 import './GalleryFavoritesHub.css';
 
 function noteStorageKey(listId) {
@@ -18,11 +20,25 @@ export default function GallerySelectionDetail() {
   const [photographerName, setPhotographerName] = useState('your photographer');
   const [loading, setLoading] = useState(true);
   const [sessionId, setSessionId] = useState(null);
+  const [userEmail, setUserEmail] = useState('');
   const [list, setList] = useState(null);
   const [photos, setPhotos] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [clientNote, setClientNote] = useState('');
   const [editingNote, setEditingNote] = useState(false);
+
+  // Top header Share & Download states
+  const [shareMenuOpen, setShareMenuOpen] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [showLinkModal, setShowLinkModal] = useState(false);
+  const [recipientEmails, setRecipientEmails] = useState('');
+  const [emailMessage, setEmailMessage] = useState('');
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(null);
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  const shareMenuRef = useRef(null);
 
   const galleryPath = `/gallery/${slug}`;
   const choosePath = `/gallery/${slug}/choose`;
@@ -73,6 +89,7 @@ export default function GallerySelectionDetail() {
           navigate(choosePath, { replace: true });
           return;
         }
+        setUserEmail(saved);
 
         const session = await galleryService.createOrGetSession(data.id, saved);
         if (cancelled) return;
@@ -95,6 +112,17 @@ export default function GallerySelectionDetail() {
     if (!listId || !clientNote) return;
     localStorage.setItem(noteStorageKey(listId), clientNote);
   }, [listId, clientNote]);
+
+  // Click outside to close share dropdown
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (shareMenuRef.current && !shareMenuRef.current.contains(e.target)) {
+        setShareMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const cap = useMemo(() => {
     if (list?.max_selection != null && Number(list.max_selection) > 0) {
@@ -172,6 +200,94 @@ export default function GallerySelectionDetail() {
     }
   };
 
+  const handleDownload = async () => {
+    if (photos.length === 0 || isDownloading) return;
+    try {
+      setIsDownloading(true);
+      setDownloadProgress({ current: 0, total: photos.length });
+
+      const zip = new JSZip();
+      const folderName = (list?.name || 'favorites').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const folder = zip.folder(folderName) || zip;
+
+      const result = await downloadPhotosToZip(folder, photos, {
+        onProgress: (current, total) => {
+          setDownloadProgress({ current, total });
+        },
+        preferOriginal: true,
+      });
+
+      if (result.fileCount === 0) {
+        alert('Could not download any photos. Please try again.');
+        return;
+      }
+
+      const zipBlob = await generateZipBlob(zip);
+      const blobUrl = URL.createObjectURL(zipBlob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = `${folderName}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+    } catch (err) {
+      console.error('Download failed:', err);
+      alert('Failed to create download. Please try again.');
+    } finally {
+      setIsDownloading(false);
+      setDownloadProgress(null);
+    }
+  };
+
+  const handleShareEmailSubmit = async (e) => {
+    e.preventDefault();
+    const emails = recipientEmails
+      .split(/[,;\s]+/)
+      .map((em) => em.trim())
+      .filter((em) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em));
+
+    if (emails.length === 0) {
+      alert('Please enter at least one valid recipient email address.');
+      return;
+    }
+
+    const publicShareUrl = `${window.location.origin}/gallery/${slug}/f/${listId}`;
+
+    try {
+      setIsSendingEmail(true);
+      for (const email of emails) {
+        await galleryService.shareCollectionByEmail({
+          collectionSlug: slug,
+          recipientEmail: email,
+          senderEmail: userEmail,
+          personalMessage: emailMessage ? `${emailMessage}\n\nSelection: ${list?.name || 'Favorites'}\n${publicShareUrl}` : `Here is the favorite selection (${list?.name || 'Favorites'}):\n${publicShareUrl}`,
+        });
+      }
+      alert('Favorites list shared successfully via email!');
+      setShowEmailModal(false);
+      setRecipientEmails('');
+      setEmailMessage('');
+    } catch (err) {
+      console.error('Failed to send share email:', err);
+      alert(err.message || 'Could not send email. Please try again.');
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
+  const publicShareUrl = `${window.location.origin}/gallery/${slug}/f/${listId}`;
+
+  const copySelectionLink = async () => {
+    try {
+      await navigator.clipboard.writeText(publicShareUrl);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2500);
+    } catch {
+      /* ignore */
+    }
+  };
+
   useEffect(() => {
     if (!collection?.id || !listId) return;
     sessionStorage.setItem(`pixnxt_fav_pick_list_${collection.id}`, listId);
@@ -204,32 +320,91 @@ export default function GallerySelectionDetail() {
     <div className="selections-page selection-detail-page">
       <div className="selection-detail__chrome">
         <div className="selection-detail__chrome-row">
-          <Link to={choosePath} className="selection-detail__crumb">
-            <ArrowLeft size={14} strokeWidth={1.5} aria-hidden />
-            Your selections
-          </Link>
-        </div>
-
-        <div className="selection-detail__toolbar-bar">
-          <div className="selection-detail__toolbar-inner">
+          <div className="selection-detail__chrome-left">
+            <Link to={choosePath} className="selection-detail__crumb" title="Back to selections">
+              <ArrowLeft size={15} strokeWidth={1.75} aria-hidden />
+              <span>Your selections</span>
+            </Link>
+            <span className="selection-detail__crumb-sep">/</span>
             <div className="selection-detail__toolbar-left">
               <h1 className="selection-detail__title">{list.name}</h1>
-              <p className="selection-detail__count">{countLabel}</p>
+              <span className="selection-detail__count">{countLabel}</span>
             </div>
+          </div>
+
+          <div className="selection-detail__chrome-right">
+            {/* Primary Action to add photos */}
+            {!isLocked && (
+              <button type="button" className="selection-detail__ghost-btn" onClick={openGalleryToAdd}>
+                Add more from the gallery
+              </button>
+            )}
+
+            <span className="selection-detail__actions-divider" aria-hidden />
+
+            {/* Download Button */}
+            <button
+              type="button"
+              className="selection-detail__top-action-btn"
+              onClick={handleDownload}
+              disabled={isDownloading || photos.length === 0}
+              title={photos.length === 0 ? 'No photos to download' : 'Download all selected photos'}
+            >
+              <Download size={14} strokeWidth={1.75} className="selection-detail__top-icon" />
+              <span>{isDownloading ? (downloadProgress ? `DOWNLOADING (${downloadProgress.current}/${downloadProgress.total})` : 'DOWNLOADING…') : 'DOWNLOAD'}</span>
+            </button>
+
+            {/* Share Menu */}
+            <div className="selection-detail__share-dropdown-wrap" ref={shareMenuRef}>
+              <button
+                type="button"
+                className={`selection-detail__top-action-btn ${shareMenuOpen ? 'selection-detail__top-action-btn--active' : ''}`}
+                onClick={() => setShareMenuOpen((prev) => !prev)}
+                aria-expanded={shareMenuOpen}
+              >
+                <SendHorizontal size={14} strokeWidth={1.75} className="selection-detail__top-icon" />
+                <span>SHARE</span>
+              </button>
+
+              {shareMenuOpen && (
+                <div className="selection-detail__dropdown-menu">
+                  <button
+                    type="button"
+                    className="selection-detail__dropdown-item"
+                    onClick={() => {
+                      setShareMenuOpen(false);
+                      setShowEmailModal(true);
+                    }}
+                  >
+                    <Mail size={15} strokeWidth={1.6} className="selection-detail__dropdown-icon" />
+                    <span>EMAIL FAVORITES</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="selection-detail__dropdown-item"
+                    onClick={() => {
+                      setShareMenuOpen(false);
+                      setShowLinkModal(true);
+                    }}
+                  >
+                    <LinkIcon size={15} strokeWidth={1.6} className="selection-detail__dropdown-icon" />
+                    <span>GET LINK</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Main Action Button */}
             {!isLocked ? (
-              <div className="selection-detail__toolbar-actions">
-                <button type="button" className="selection-detail__ghost-btn" onClick={openGalleryToAdd}>
-                  Add more from the gallery
-                </button>
-                <button
-                  type="button"
-                  className="selection-detail__send-btn"
-                  disabled={isSubmitting || photos.length < 1}
-                  onClick={() => void handleSend()}
-                >
-                  {isSubmitting ? 'Sending…' : `Send to ${photographerName}`}
-                </button>
-              </div>
+              <button
+                type="button"
+                className="selection-detail__send-btn"
+                disabled={isSubmitting || photos.length < 1}
+                onClick={() => void handleSend()}
+              >
+                {isSubmitting ? 'Sending…' : `Send to ${photographerName}`}
+              </button>
             ) : (
               <span className="selection-detail__locked-badge">
                 <Lock size={11} strokeWidth={2} aria-hidden />
@@ -321,6 +496,101 @@ export default function GallerySelectionDetail() {
           )}
         </div>
       </div>
+
+      {/* EMAIL FAVORITES MODAL */}
+      {showEmailModal && (
+        <div className="fav-share-modal__overlay" onClick={() => !isSendingEmail && setShowEmailModal(false)}>
+          <div className="fav-share-modal__box" onClick={(e) => e.stopPropagation()} role="dialog">
+            <h2 className="fav-share-modal__title">EMAIL FAVORITES</h2>
+            <p className="fav-share-modal__subtitle">
+              Share this favorite list with your family and friends via email.
+            </p>
+
+            <form onSubmit={handleShareEmailSubmit}>
+              <div className="fav-share-modal__field">
+                <input
+                  type="text"
+                  className="fav-share-modal__input"
+                  placeholder="Recipient emails (e.g. guest1@email.com, guest2@email.com)"
+                  value={recipientEmails}
+                  onChange={(e) => setRecipientEmails(e.target.value)}
+                  disabled={isSendingEmail}
+                  required
+                  autoFocus
+                />
+              </div>
+
+              <div className="fav-share-modal__field">
+                <textarea
+                  className="fav-share-modal__textarea"
+                  placeholder="Custom message (Optional)"
+                  rows={4}
+                  value={emailMessage}
+                  onChange={(e) => setEmailMessage(e.target.value)}
+                  disabled={isSendingEmail}
+                />
+              </div>
+
+              <div className="fav-share-modal__actions">
+                <button
+                  type="button"
+                  className="fav-share-modal__btn-cancel"
+                  onClick={() => setShowEmailModal(false)}
+                  disabled={isSendingEmail}
+                >
+                  CANCEL
+                </button>
+                <button
+                  type="submit"
+                  className="fav-share-modal__btn-submit"
+                  disabled={isSendingEmail || !recipientEmails.trim()}
+                >
+                  {isSendingEmail ? 'SENDING…' : 'SHARE'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* GET LINK MODAL */}
+      {showLinkModal && (
+        <div className="fav-share-modal__overlay" onClick={() => setShowLinkModal(false)}>
+          <div className="fav-share-modal__box" onClick={(e) => e.stopPropagation()} role="dialog">
+            <h2 className="fav-share-modal__title">GET LINK</h2>
+            <p className="fav-share-modal__subtitle">
+              Anyone with this link can view this favorites selection.
+            </p>
+
+            <div className="fav-share-modal__link-row">
+              <input
+                type="text"
+                readOnly
+                value={publicShareUrl}
+                className="fav-share-modal__input fav-share-modal__link-input"
+              />
+              <button
+                type="button"
+                className="fav-share-modal__btn-copy"
+                onClick={copySelectionLink}
+              >
+                {copiedLink ? 'COPIED' : 'COPY'}
+              </button>
+            </div>
+
+            <div className="fav-share-modal__actions" style={{ marginTop: '1.5rem' }}>
+              <button
+                type="button"
+                className="fav-share-modal__btn-submit"
+                onClick={() => setShowLinkModal(false)}
+              >
+                DONE
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

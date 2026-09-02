@@ -114,6 +114,16 @@ export function setAlbumCoverColor(albumId, presetId) {
     notifyCoverColorChanged(albumId);
 }
 
+export function clearAlbumCoverColor(albumId) {
+    if (!albumId) return;
+    const all = readAll();
+    if (!all[albumId]) return;
+    delete all[albumId];
+    writeAll(all);
+    clearCoverLeatherSurfaceCache();
+    notifyCoverColorChanged(albumId);
+}
+
 export function getCoverLeatherCssVars(presetId) {
     const preset = resolveCoverLeatherPreset(presetId);
     return {

@@ -2797,6 +2797,48 @@ export const galleryService = {
   },
 
   /**
+   * Public view of a favorite list — no session validation required.
+   * Used by the shareable "Get Link" public favorites page.
+   */
+  async getFavoriteListPublic(listId) {
+    if (!listId) return null;
+    const { data: list, error } = await supabase
+      .from('favorite_lists')
+      .select('id, name, max_selection, description, submitted_at, session_id, collection_id')
+      .eq('id', listId)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!list) return null;
+
+    // Fetch the session email (curated by)
+    let curatorEmail = '';
+    if (list.session_id) {
+      const { data: sess } = await supabase
+        .from('client_sessions')
+        .select('visitor_email')
+        .eq('id', list.session_id)
+        .maybeSingle();
+      curatorEmail = sess?.visitor_email || '';
+    }
+
+    // Fetch collection slug
+    let collectionSlug = '';
+    let collectionName = '';
+    if (list.collection_id) {
+      const { data: col } = await supabase
+        .from('deliveries')
+        .select('slug, name')
+        .eq('id', list.collection_id)
+        .maybeSingle();
+      collectionSlug = col?.slug || '';
+      collectionName = col?.name || '';
+    }
+
+    return { ...list, curatorEmail, collectionSlug, collectionName };
+  },
+
+  /**
    * Favorite list metadata for gallery selection UI.
    */
   async getFavoriteListById(listId, sessionId = null) {
@@ -3209,7 +3251,8 @@ export const galleryService = {
       countByList[lid] = (countByList[lid] || 0) + 1;
       if (it.photo) {
         const ph = Array.isArray(it.photo) ? it.photo[0] : it.photo;
-        const url = ph?.thumbnail_url || ph?.web_url || null;
+        const rawUrl = ph?.web_url || ph?.thumbnail_url || null;
+        const url = rawUrl ? resolveMediaUrl(rawUrl) : null;
         if (url) {
           if (!photosByList[lid]) photosByList[lid] = [];
           photosByList[lid].push({

@@ -5,7 +5,7 @@ import { getClientFacingOrigin } from '../lib/publicSiteUrl';
 import { categoryTagsToDb } from '../lib/categoryTags';
 import { getAlbumShareSlug, slugifyAlbumName } from '../lib/albumPreviewSlug';
 import { deleteAlbumCollectionAssets, getAlbumCollectionStorageBytes } from '../components/smart-albums/albumCollection';
-import { clampAlbumPageCount } from '../components/smart-albums/albumPageStorage';
+import { clearAlbumPageStorage, clampAlbumPageCount } from '../components/smart-albums/albumPageStorage';
 import { clearAllAlbumPagePhotos } from '../components/smart-albums/albumPagePhotos';
 import { clearAlbumTransforms } from '../components/smart-albums/albumPageTransforms';
 import { userStorageService } from './userStorage.service';
@@ -15,10 +15,11 @@ import {
   getRemotePreviewData,
   hydrateAlbumPreviewData,
   patchAlbumPreviewProoferAccess,
+  clearAlbumPreviewDataCache,
 } from '../components/smart-albums/albumPreviewData';
 import { protectPreviewSnapshot } from '../components/smart-albums/albumPreviewGuard';
-import { getAlbumCoverColor } from '../components/smart-albums/albumCoverColor';
-import { getAlbumSpineBoundsOverride } from '../components/smart-albums/albumSpineSettings';
+import { getAlbumCoverColor, clearAlbumCoverColor } from '../components/smart-albums/albumCoverColor';
+import { getAlbumSpineBoundsOverride, clearAlbumSpineBoundsOverride } from '../components/smart-albums/albumSpineSettings';
 import { duplicateAlbumAssets } from '../components/smart-albums/albumDuplicate';
 import { repairAlbumPreviewFromServer, previewNeedsAssetRepair, repairAllMyAlbumPreviewsFromServer } from '../lib/repairAlbumPreview';
 
@@ -581,6 +582,19 @@ function writeSettingsOverride(photographerId, albumId, patch) {
   }
 }
 
+function removeSettingsOverride(photographerId, albumId) {
+  try {
+    const raw = localStorage.getItem(SETTINGS_OVR_KEY);
+    const all = raw ? JSON.parse(raw) : {};
+    const userMap = { ...(all[photographerId] || {}) };
+    delete userMap[albumId];
+    all[photographerId] = userMap;
+    localStorage.setItem(SETTINGS_OVR_KEY, JSON.stringify(all));
+  } catch {
+    /* ignore */
+  }
+}
+
 function applySettingsOverrides(row, photographerId) {
   if (!row || !photographerId) return row;
   const ovr = readSettingsOverrides(photographerId)[row.id];
@@ -618,6 +632,19 @@ function writePageCountOverride(photographerId, albumId, pageCount) {
     const all = raw ? JSON.parse(raw) : {};
     const userMap = { ...(all[photographerId] || {}) };
     userMap[albumId] = Number(pageCount);
+    all[photographerId] = userMap;
+    localStorage.setItem(PAGECOUNT_OVR_KEY, JSON.stringify(all));
+  } catch {
+    /* ignore */
+  }
+}
+
+function removePageCountOverride(photographerId, albumId) {
+  try {
+    const raw = localStorage.getItem(PAGECOUNT_OVR_KEY);
+    const all = raw ? JSON.parse(raw) : {};
+    const userMap = { ...(all[photographerId] || {}) };
+    delete userMap[albumId];
     all[photographerId] = userMap;
     localStorage.setItem(PAGECOUNT_OVR_KEY, JSON.stringify(all));
   } catch {
@@ -942,8 +969,11 @@ async function deleteAlbumAssets(albumId) {
   }
 
   clearAllAlbumPagePhotos(albumId);
-
   clearAlbumTransforms(albumId);
+  clearAlbumPageStorage(albumId);
+  clearAlbumPreviewDataCache(albumId);
+  clearAlbumCoverColor(albumId);
+  clearAlbumSpineBoundsOverride(albumId);
 
 }
 
@@ -1747,10 +1777,10 @@ export const smartAlbumsService = {
 
     removeStarredOverride(photographerId, albumId);
     removeGridSettingsOverride(photographerId, albumId);
+    removeSettingsOverride(photographerId, albumId);
+    removePageCountOverride(photographerId, albumId);
 
     await deleteAlbumAssets(albumId);
-
-
 
     const { error } = await supabase
 
@@ -1761,8 +1791,6 @@ export const smartAlbumsService = {
       .eq('photographer_id', photographerId)
 
       .eq('id', albumId);
-
-
 
     if (error) {
 
