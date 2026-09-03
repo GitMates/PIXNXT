@@ -33,7 +33,7 @@
 }
 
 .cd-cover-image--empty .cd-sidebar-cover-dropzone {
-  height: 148px;
+  height: 156px;
   flex-shrink: 0;
 }
 
@@ -51,9 +51,9 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 22px;
+  gap: 16px;
   width: 100%;
-  padding: 20px 16px;
+  padding: 22px 16px 20px;
   box-sizing: border-box;
 }
 
@@ -97,6 +97,7 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
+  margin-top: 10px;
 }
 
 .cd-sidebar-cover-actions .cd-sidebar-cover-action-btn:not(.cd-sidebar-cover-action-btn--upload) {

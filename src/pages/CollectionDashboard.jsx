@@ -234,6 +234,7 @@ const CollectionDashboard = () => {
     const [clientFavoritedPhotoIds, setClientFavoritedPhotoIds] = useState(() => new Set());
     const [selectionListPhotoIds, setSelectionListPhotoIds] = useState(() => new Set());
     const [showMoreDropdown, setShowMoreDropdown] = useState(false);
+    const [showFaceRecogniseModal, setShowFaceRecogniseModal] = useState(false);
     const [photoMenu, setPhotoMenu] = useState(null);
     const [showRenameModal, setShowRenameModal] = useState(false);
     const [showMoveModal, setShowMoveModal] = useState(false);
@@ -3020,12 +3021,10 @@ const CollectionDashboard = () => {
         const stale = !(await photoAiService.isPeopleCacheFresh(collectionId, rows));
         const unindexed = indexablePhotoCount > rows.length;
         if (!force && !unindexed && !stale) {
-            if (showPeoplePanel || activeSidebarTab === 'photos') {
-                await loadPhotoAiPeople({
-                    silent: true,
-                    applyGuestLabels: Boolean(collection?.guest_delivery_enabled),
-                });
-            }
+            await loadPhotoAiPeople({
+                silent: true,
+                applyGuestLabels: Boolean(collection?.guest_delivery_enabled),
+            });
             return;
         }
 
@@ -3036,21 +3035,17 @@ const CollectionDashboard = () => {
                 forceReindex: force,
             });
             await refreshPhotoAiMetadata();
-            if (showPeoplePanel || activeSidebarTab === 'photos') {
-                await loadPhotoAiPeople({
-                    silent: true,
-                    forceRecluster: force,
-                    applyGuestLabels: Boolean(collection?.guest_delivery_enabled),
-                });
-            }
+            await loadPhotoAiPeople({
+                silent: true,
+                forceRecluster: force,
+                applyGuestLabels: Boolean(collection?.guest_delivery_enabled),
+            });
         } catch (err) {
             console.warn('Photo AI auto-sync failed:', err);
-            if (showPeoplePanel || activeSidebarTab === 'photos') {
-                await loadPhotoAiPeople({
-                    silent: true,
-                    applyGuestLabels: Boolean(collection?.guest_delivery_enabled),
-                });
-            }
+            await loadPhotoAiPeople({
+                silent: true,
+                applyGuestLabels: Boolean(collection?.guest_delivery_enabled),
+            });
         } finally {
             photoAiSyncingRef.current = false;
             setPhotoAiIndexing(false);
@@ -3059,8 +3054,6 @@ const CollectionDashboard = () => {
         collectionId,
         photoAiTableMissing,
         indexablePhotoCount,
-        showPeoplePanel,
-        activeSidebarTab,
         refreshPhotoAiMetadata,
         loadPhotoAiPeople,
         collection?.guest_delivery_enabled,
@@ -3121,14 +3114,19 @@ const CollectionDashboard = () => {
     ]);
 
     useEffect(() => {
-        if (!collectionId || indexablePhotoCount === 0 || photoAiTableMissing) return;
+        if (!collectionId || photoAiTableMissing) return;
 
-        const syncKey = `${collectionId}:${indexablePhotoCount}`;
-        if (photoAiAutoSyncKeyRef.current === syncKey) return;
-        photoAiAutoSyncKeyRef.current = syncKey;
-
-        void runPhotoAiAutoSync();
-    }, [collectionId, indexablePhotoCount, photoAiTableMissing, runPhotoAiAutoSync]);
+        // Load existing metadata and cached people without auto-indexing AWS Rekognition
+        void refreshPhotoAiMetadata().then(({ rows, tableMissing }) => {
+            if (!tableMissing && rows?.length) {
+                void photoAiService.getPeopleFromDb(collectionId, { includeHidden: true }).then((cached) => {
+                    if (!cached.tableMissing && cached.people?.length) {
+                        setPhotoAiPeople(cached.people);
+                    }
+                }).catch(() => {});
+            }
+        });
+    }, [collectionId, photoAiTableMissing, refreshPhotoAiMetadata]);
 
     // Get the active set object
     const activeSet = activeSetId ? sets.find(s => s.id === activeSetId) : null;
@@ -4841,6 +4839,21 @@ const CollectionDashboard = () => {
                 </div>
 
                 <div className="cd-topbar-right">
+                    <button
+                        type="button"
+                        className="cd-topbar-btn cd-face-recognise-btn"
+                        onClick={() => {
+                            setShowShareDropdown(false);
+                            setShowStatusMenu(false);
+                            setShowGdPublishedPopup(false);
+                            setShowMoreDropdown(false);
+                            setShowPresetsSubmenu(false);
+                            setShowFaceRecogniseModal(true);
+                        }}
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+                        <span>Face Recognise</span>
+                    </button>
                     <div className="cd-more-wrapper" ref={moreRef}>
                         <button
                             type="button"
@@ -5376,6 +5389,7 @@ const CollectionDashboard = () => {
                                     }}
                                     onRenamePerson={handleRenamePerson}
                                     onDeletePerson={(personId) => handleTogglePersonHidden(personId, true)}
+                                    showPeopleField={showPeoplePanel}
                                 />
 
                                 {gridPhotos.length > 0 ? (
@@ -6528,6 +6542,81 @@ const CollectionDashboard = () => {
                             <div style={{ display: 'flex', gap: '8px', marginTop: '20px', justifyContent: 'flex-end' }}>
                                 <button className="cd-btn-secondary" onClick={() => setShowPushToAppModal(false)}>Cancel</button>
                                 <button className="cd-btn-primary" onClick={() => { setShowPushToAppModal(false); }}>Push to app</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Face Recognise Confirm Modal */}
+            {showFaceRecogniseModal && (
+                <div className="cd-modal-overlay" onClick={() => !photoAiIndexing && setShowFaceRecogniseModal(false)}>
+                    <div className="cd-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '440px' }}>
+                        <div className="cd-modal-header">
+                            <h3 className="cd-modal-title">FACE RECOGNITION</h3>
+                            <button
+                                className="cd-modal-close"
+                                disabled={photoAiIndexing}
+                                onClick={() => setShowFaceRecogniseModal(false)}
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                            </button>
+                        </div>
+                        <div className="cd-modal-body" style={{ padding: '24px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '16px' }}>
+                                <div style={{
+                                    width: '44px',
+                                    height: '44px',
+                                    borderRadius: '50%',
+                                    backgroundColor: '#f4ece1',
+                                    color: '#c46a3a',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    flexShrink: 0,
+                                }}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+                                </div>
+                                <div>
+                                    <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 600, color: '#1a1a1a' }}>Ready to match faces</h4>
+                                    <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: '#7a7369' }}>AI face detection & grouping</p>
+                                </div>
+                            </div>
+                            <p style={{ margin: 0, fontSize: '14px', color: '#4a453f', lineHeight: 1.55 }}>
+                                Ready to run face recognition for <strong>{collection?.name || 'this delivery'}</strong>. This will index faces across all {indexablePhotoCount} photos and cluster matching people automatically.
+                            </p>
+                            {photoAiIndexing && (
+                                <div style={{ marginTop: '16px', padding: '10px 14px', backgroundColor: '#fcf8f2', borderRadius: '6px', border: '1px solid #f0e6d6', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: '#a05828' }}>
+                                    <span className="cd-spinner-ring" style={{ width: '14px', height: '14px', border: '2px solid #a05828', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }} />
+                                    <span>Scanning and recognizing faces…</span>
+                                </div>
+                            )}
+                            <div style={{ display: 'flex', gap: '8px', marginTop: '24px', justifyContent: 'flex-end' }}>
+                                <button
+                                    type="button"
+                                    className="cd-btn-secondary"
+                                    disabled={photoAiIndexing}
+                                    onClick={() => setShowFaceRecogniseModal(false)}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    className="cd-btn-primary"
+                                    disabled={photoAiIndexing || indexablePhotoCount === 0}
+                                    onClick={async () => {
+                                        setShowPeoplePanel(true);
+                                        try {
+                                            await runPhotoAiAutoSync({ force: true });
+                                            setShowFaceRecogniseModal(false);
+                                            showToast('Face recognition completed successfully.');
+                                        } catch (err) {
+                                            alert(err?.message || 'Face recognition failed. Please try again.');
+                                        }
+                                    }}
+                                >
+                                    {photoAiIndexing ? 'Processing…' : 'Confirm & Match Faces'}
+                                </button>
                             </div>
                         </div>
                     </div>
