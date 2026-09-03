@@ -94,16 +94,17 @@ export function CollectionPhotosWorkspaceHeader({
   onReanalyze,
   onRenamePerson,
   onDeletePerson,
+  showPeopleField = false,
 }) {
   const [viewOpen, setViewOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
 
   const showPeopleStrip =
+    Boolean(showPeopleField) ||
     analyzing ||
     loadingPeople ||
     indexedCount > 0 ||
     people.length > 0 ||
-    Boolean(onSelfieSearch) ||
     Boolean(selfiePreview);
   const sortTriggerLabel = sortFieldLabel(sortField);
 

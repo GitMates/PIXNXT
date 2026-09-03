@@ -1955,12 +1955,6 @@ export const galleryService = {
       console.warn('Photo original finalize select failed:', finalizeError);
     }
 
-    if (typeof window !== 'undefined' && photoId) {
-      void import('./photoAiUploadPipeline.js').then(({ queuePhotoAiIndex }) =>
-        queuePhotoAiIndex(collectionId, photoId)
-      );
-    }
-
     if (isVideo && thumbnailBlob) {
       const thumbnailPathVideo = `${basePath}/thumb/${fileNameJpg}`;
       void storageService

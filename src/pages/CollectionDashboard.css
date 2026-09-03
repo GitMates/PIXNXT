@@ -6962,3 +6962,30 @@
     }
 }
 
+/* Face Recognise Topbar Button */
+.cd-face-recognise-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 12px;
+    height: 34px;
+    background-color: #faf7f2;
+    border: 1px solid #e5dcce;
+    border-radius: 6px;
+    color: #4a453f;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.cd-face-recognise-btn svg {
+    stroke: #c46a3a;
+}
+
+.cd-face-recognise-btn:hover {
+    background-color: #f5ede0;
+    border-color: #d8cab7;
+    color: #1a1a1a;
+}
+
