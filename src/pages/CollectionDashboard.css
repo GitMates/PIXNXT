@@ -1219,24 +1219,25 @@
 /* Upload Dropzone */
 .cd-dropzone {
     flex: 1;
-    border: 1px dashed #d9d9d9;
-    border-radius: 0;
+    border: 1px dashed #c9c3b8;
+    border-radius: 16px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background-color: #ffffff;
+    background-color: #fffdf9;
     min-height: 400px;
     cursor: pointer;
-    transition: border-color 0.2s;
+    transition: border-color 0.2s, background-color 0.2s;
 }
 
 .cd-dropzone:hover {
-    border-color: #111111;
+    border-color: #a8a196;
+    background-color: #fffdf9;
 }
 
 .cd-dropzone.dragging {
-    border-color: #111111;
-    background-color: #f0faf7;
+    border-color: #a8a196;
+    background-color: #faf6ef;
 }
 
 .cd-dropzone-content {
@@ -1244,33 +1245,46 @@
     flex-direction: column;
     align-items: center;
     text-align: center;
+    padding: 48px 24px;
 }
 
 .cd-drop-icon {
-    margin-bottom: 20px;
+    margin-bottom: 22px;
 }
 
 .cd-drop-title {
-    font-size: 17px;
-    font-weight: 600;
-    color: #333;
-    margin: 0 0 8px 0;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 22px;
+    font-weight: 500;
+    color: #1a1a1a;
+    margin: 0 0 10px 0;
+    letter-spacing: 0.2px;
 }
 
 .cd-drop-subtitle {
-    font-size: 16px;
-    color: #666;
+    font-size: 15px;
+    color: #8a8378;
     margin: 0;
 }
 
+.cd-drop-hint {
+    margin: 22px 0 0 0;
+    font-size: 12px;
+    color: #a09a8e;
+    letter-spacing: 0.1px;
+}
+
 .cd-browse-link {
-    color: #111111;
+    color: #d97a2b;
     font-weight: 500;
     cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
 }
 
 .cd-browse-link:hover {
     text-decoration: underline;
+    color: #c06a22;
 }
 
 /* ===== Photo Grid â€” Pixieset-exact ===== */
@@ -2218,6 +2232,82 @@
     max-width: 95vw;
 }
 
+/* RAW skipped notice - centered compact popup instead of native alert */
+.cd-notice-overlay {
+    z-index: 1100;
+}
+
+.cd-notice-modal {
+    width: 380px;
+    max-width: calc(100vw - 32px);
+    padding: 28px 28px 24px;
+    text-align: center;
+    align-items: center;
+    border-radius: 12px;
+    animation: cdPopIn 0.18s ease;
+}
+
+.cd-notice-icon {
+    width: 44px;
+    height: 44px;
+    margin: 0 auto 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: #fef3e8;
+    color: #c46a3a;
+}
+
+.cd-notice-title {
+    margin: 0 0 8px;
+    font-size: 17px;
+    font-weight: 700;
+    color: #111;
+    letter-spacing: -0.2px;
+}
+
+.cd-notice-text {
+    margin: 0 0 20px;
+    font-size: 14px;
+    line-height: 1.55;
+    color: #555;
+}
+
+.cd-notice-actions {
+    display: flex;
+    justify-content: center;
+}
+
+.cd-notice-btn {
+    min-width: 120px;
+    height: 36px;
+    padding: 0 24px;
+    border: none;
+    border-radius: 8px;
+    background: #111;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+.cd-notice-btn:hover {
+    background: #333;
+}
+
+@keyframes cdPopIn {
+    from {
+        opacity: 0;
+        transform: scale(0.96) translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
 .cd-modal-header {
     padding: 24px 32px 20px;
     display: flex;
@@ -2572,8 +2662,9 @@
 
 .cd-modal-dropzone {
     margin: 24px 28px;
-    border: 1px dashed #d9d9d9;
-    border-radius: 0;
+    border: 1px dashed #c9c3b8;
+    border-radius: 16px;
+    background-color: #fffdf9;
     min-height: 340px;
     display: flex;
     align-items: center;
@@ -2582,8 +2673,8 @@
 }
 
 .cd-modal-dropzone.dragging {
-    border-color: #111111;
-    background-color: #f0faf7;
+    border-color: #a8a196;
+    background-color: #faf6ef;
 }
 
 .cd-modal-drop-content {
@@ -2591,24 +2682,32 @@
     flex-direction: column;
     align-items: center;
     text-align: center;
-    padding: 20px;
+    padding: 40px 20px;
 }
 
 .cd-modal-drop-icon {
-    margin-bottom: 20px;
+    margin-bottom: 22px;
 }
 
 .cd-modal-drop-text {
-    font-size: 17px;
-    font-weight: 600;
-    color: #333;
-    margin: 0 0 8px 0;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 22px;
+    font-weight: 500;
+    color: #1a1a1a;
+    margin: 0 0 10px 0;
+    letter-spacing: 0.2px;
 }
 
 .cd-modal-drop-browse {
-    font-size: 16px;
-    color: #666;
+    font-size: 15px;
+    color: #8a8378;
     margin: 0;
+}
+
+.cd-modal-drop-hint {
+    margin: 22px 0 0 0;
+    font-size: 12px;
+    color: #a09a8e;
 }
 
 .cd-modal-footer {
@@ -6539,31 +6638,34 @@
 
 /* 7. Dropzone Premium Outline */
 .cd-dropzone {
-    border: 1px dashed rgba(0, 0, 0, 0.15) !important;
-    border-radius: 8px !important;
-    background-color: #fafbfc !important;
-    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
-    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.01) !important;
+    border: 1px dashed #c9c3b8 !important;
+    border-radius: 16px !important;
+    background-color: #fffdf9 !important;
+    transition: border-color 0.2s, background-color 0.2s !important;
+    box-shadow: none !important;
 }
 
 .cd-dropzone:hover {
-    border-color: #8BDFDD !important;
-    background-color: rgba(139, 223, 221, 0.03) !important;
-    box-shadow: 0 4px 16px rgba(139, 223, 221, 0.05), inset 0 2px 8px rgba(0, 0, 0, 0.01) !important;
+    border-color: #a8a196 !important;
+    background-color: #fffdf9 !important;
+    box-shadow: none !important;
 }
 
 .cd-dropzone.dragging {
-    border-color: #8BDFDD !important;
-    background-color: rgba(139, 223, 221, 0.08) !important;
+    border-color: #a8a196 !important;
+    background-color: #faf6ef !important;
 }
 
 .cd-browse-link {
-    color: #8BDFDD !important;
-    font-weight: 700 !important;
+    color: #d97a2b !important;
+    font-weight: 500 !important;
+    text-decoration: underline !important;
+    text-underline-offset: 2px !important;
 }
 
 .cd-browse-link:hover {
     text-decoration: underline !important;
+    color: #c06a22 !important;
 }
 
 /* Standalone Toolbar Toggle Row */
@@ -6962,30 +7064,32 @@
     }
 }
 
-/* Face Recognise Topbar Button */
+/* Find People Topbar Button - same UI as More / Share / Preview */
 .cd-face-recognise-btn {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 6px;
-    padding: 0 12px;
-    height: 34px;
-    background-color: #faf7f2;
-    border: 1px solid #e5dcce;
-    border-radius: 6px;
-    color: #4a453f;
-    font-size: 13px;
+    padding: 0 13px;
+    height: 32px;
+    background-color: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 9px;
+    color: #1a1a1a;
+    font-size: 0.8125rem;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: background-color 0.15s ease;
 }
 
 .cd-face-recognise-btn svg {
-    stroke: #c46a3a;
+    stroke: currentColor;
+    flex-shrink: 0;
 }
 
 .cd-face-recognise-btn:hover {
-    background-color: #f5ede0;
-    border-color: #d8cab7;
+    background-color: #fafafa;
+    border-color: #e0e0e0;
     color: #1a1a1a;
 }
 

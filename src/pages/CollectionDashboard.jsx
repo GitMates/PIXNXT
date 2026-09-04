@@ -11,6 +11,7 @@ import {
 import { Heart, Play } from 'lucide-react';
 import { galleryService } from '../services/gallery.service';
 import { photoAiService } from '../services/photoAi.service';
+import { photographerQuotaService, isFaceRecognitionEnabled } from '../services/photographerQuota.service';
 import {
     filterPhotosByPerson,
     filterPhotosByIds,
@@ -174,6 +175,13 @@ const CollectionDashboard = () => {
             .catch((err) => console.error('Error loading photographer profile:', err));
     }, [user?.id]);
 
+    // Derive face recognition enabled/disabled from the photographer profile quota
+    useEffect(() => {
+        if (profile) {
+            setFaceAiEnabled(isFaceRecognitionEnabled(profile));
+        }
+    }, [profile]);
+
     useEffect(() => {
         if (!user?.id) {
             setPresets([]);
@@ -208,6 +216,7 @@ const CollectionDashboard = () => {
     const [error, setError] = useState(null);
     const [saving, setSaving] = useState(false);
     const [showUploadModal, setShowUploadModal] = useState(false);
+    const [rawSkippedInfo, setRawSkippedInfo] = useState(null);
     const [activeMediaTab, setActiveMediaTab] = useState('upload');
     const [status, setStatus] = useState(DELIVERY_STATUS.draft);
     const [showStatusMenu, setShowStatusMenu] = useState(false);
@@ -265,6 +274,7 @@ const CollectionDashboard = () => {
     const [selfieMessage, setSelfieMessage] = useState('');
   const [photoAiTableMissing, setPhotoAiTableMissing] = useState(false);
   const [photoAiIndexing, setPhotoAiIndexing] = useState(false);
+    const [faceAiEnabled, setFaceAiEnabled] = useState(true); // assume enabled until quota is loaded
     const [showGdQrModal, setShowGdQrModal] = useState(false);
     const [showGdPublishedPopup, setShowGdPublishedPopup] = useState(false);
     const [gdEvent, setGdEvent] = useState(null);
@@ -3031,6 +3041,12 @@ const CollectionDashboard = () => {
         photoAiSyncingRef.current = true;
         setPhotoAiIndexing(true);
         try {
+            const photographerId = collection?.photographer_id || user?.id;
+            if (photographerId) {
+                const unindexedCount = Math.max(0, indexablePhotoCount - rows.length);
+                const countToCheck = force ? indexablePhotoCount : (unindexedCount || 1);
+                await photographerQuotaService.assertImageQuota(photographerId, countToCheck);
+            }
             await photoAiService.syncCollection(collectionId, 500, {
                 forceReindex: force,
             });
@@ -3057,6 +3073,8 @@ const CollectionDashboard = () => {
         refreshPhotoAiMetadata,
         loadPhotoAiPeople,
         collection?.guest_delivery_enabled,
+        collection?.photographer_id,
+        user?.id,
     ]);
 
     useEffect(() => {
@@ -4599,8 +4617,9 @@ const CollectionDashboard = () => {
         if (!rawSupportEnabled) {
             const initialLength = filesToProcess.length;
             filesToProcess = filesToProcess.filter(f => !isRawImageFile(f));
-            if (filesToProcess.length < initialLength) {
-                alert('RAW photo support is currently disabled in your preferences. Those files have been skipped.');
+            const skippedCount = initialLength - filesToProcess.length;
+            if (skippedCount > 0) {
+                setRawSkippedInfo({ count: skippedCount });
             }
         }
 
@@ -4851,8 +4870,8 @@ const CollectionDashboard = () => {
                             setShowFaceRecogniseModal(true);
                         }}
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
-                        <span>Face Recognise</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/></svg>
+                        <span>Find People</span>
                     </button>
                     <div className="cd-more-wrapper" ref={moreRef}>
                         <button
@@ -5553,15 +5572,16 @@ const CollectionDashboard = () => {
                                         />
                                         <div className="cd-dropzone-content">
                                             <div className="cd-drop-icon">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#cfd5d8" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
-                                                    <path d="M4 6h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"></path>
-                                                    <path d="M8 2h12a2 2 0 0 1 2 2v10"></path>
-                                                    <circle cx="15" cy="15" r="5" fill="#fff" stroke="#cfd5d8"></circle>
-                                                    <line x1="15" y1="12" x2="15" y2="18"></line>
-                                                    <line x1="12" y1="15" x2="18" y2="15"></line>
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="#8a8378" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                                    <rect x="5" y="11" width="22" height="15" rx="2.5"></rect>
+                                                    <path d="M9 22.5l4-4.5 3.5 3.5 3-3 3.5 4"></path>
+                                                    <circle cx="15" cy="15.5" r="1.2" fill="#8a8378" stroke="none"></circle>
+                                                    <circle cx="29" cy="27" r="6" fill="#fffdf9" stroke="#8a8378"></circle>
+                                                    <line x1="29" y1="24.2" x2="29" y2="29.8"></line>
+                                                    <line x1="26.2" y1="27" x2="31.8" y2="27"></line>
                                                 </svg>
                                             </div>
-                                            <p className="cd-drop-title">Drag photos and videos here to upload</p>
+                                            <p className="cd-drop-title">Drag photographs and films here</p>
                                             <p className="cd-drop-subtitle">
                                                 or{' '}
                                                 <span
@@ -5576,9 +5596,10 @@ const CollectionDashboard = () => {
                                                         }
                                                     }}
                                                 >
-                                                    Browse files
+                                                    browse your files
                                                 </span>
                                             </p>
+                                            <p className="cd-drop-hint">JPEG, PNG, HEIC, MP4, MOV &middot; up to 5 GB a file &middot; originals are kept untouched</p>
                                         </div>
                                     </div>
                                 )}
@@ -5997,14 +6018,19 @@ const CollectionDashboard = () => {
                                     />
                                     <div className="cd-modal-drop-content">
                                         <div className="cd-modal-drop-icon">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#cfd5d8" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
-                                                <path d="M4 6h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"></path>
-                                                <path d="M8 2h12a2 2 0 0 1 2 2v10"></path>
-                                                <circle cx="15" cy="15" r="5" fill="#fff" stroke="#cfd5d8"></circle>
-                                                <line x1="15" y1="12" x2="15" y2="18"></line>
-                                                <line x1="12" y1="15" x2="18" y2="15"></line>
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="#8a8378" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                                <rect x="5" y="11" width="22" height="15" rx="2.5"></rect>
+                                                <path d="M9 22.5l4-4.5 3.5 3.5 3-3 3.5 4"></path>
+                                                <circle cx="15" cy="15.5" r="1.2" fill="#8a8378" stroke="none"></circle>
+                                                <circle cx="29" cy="27" r="6" fill="#fffdf9" stroke="#8a8378"></circle>
+                                                <line x1="29" y1="24.2" x2="29" y2="29.8"></line>
+                                                <line x1="26.2" y1="27" x2="31.8" y2="27"></line>
                                             </svg>
                                         </div>
+                                        <p className="cd-modal-drop-text">Drag photographs and films here</p>
+                                        <p className="cd-modal-drop-browse">or <span className="cd-browse-link" onClick={handleModalBrowse}>browse your files</span></p>
+                                        <p className="cd-modal-drop-hint">JPEG, PNG, HEIC, MP4, MOV &middot; up to 5 GB a file &middot; originals are kept untouched</p>
+                                    </div>
                                         <p className="cd-modal-drop-text">Drag photos and videos here to upload</p>
                                         <p className="cd-modal-drop-browse">or <span className="cd-browse-link" onClick={handleModalBrowse}>Browse files</span></p>
                                     </div>
@@ -6013,6 +6039,26 @@ const CollectionDashboard = () => {
                         </div>
                     )
                 }
+                {/* RAW files skipped notice */}
+                {rawSkippedInfo && (
+                    <div className="cd-modal-overlay cd-notice-overlay" onClick={() => setRawSkippedInfo(null)}>
+                        <div className="cd-modal cd-modal-sm cd-notice-modal" onClick={(e) => e.stopPropagation()} role="alertdialog" aria-modal="true" aria-labelledby="raw-skipped-title">
+                            <div className="cd-notice-icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+                            </div>
+                            <h3 id="raw-skipped-title" className="cd-notice-title">RAW files skipped</h3>
+                            <p className="cd-notice-text">
+                                RAW photo support is currently disabled in your preferences.{' '}
+                                {rawSkippedInfo.count === 1
+                                    ? '1 file has been skipped.'
+                                    : `${rawSkippedInfo.count} files have been skipped.`}
+                            </p>
+                            <div className="cd-notice-actions">
+                                <button type="button" className="cd-notice-btn" autoFocus onClick={() => setRawSkippedInfo(null)}>Got it</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div >
             {/* Add Set Modal */}
             {showAddSetModal && (

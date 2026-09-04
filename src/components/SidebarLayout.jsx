@@ -9,6 +9,7 @@ import {
     CreditCard,
     LogOut,
     FileText,
+    Shield,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { getUserDisplayLabel, getUserInitial } from '../lib/userInitials';
@@ -21,6 +22,8 @@ import {
 } from '../lib/products';
 import StudioNotifications from './dashboard/StudioNotifications';
 import { userStorageService, getStorageLimitBytes, formatStorageMeter, STORAGE_CHANGED_EVENT } from '../services/userStorage.service';
+import { photographerQuotaService, QUOTA_CHANGED_EVENT } from '../services/photographerQuota.service';
+import { AccountQuotaMeters } from './ui/AccountQuotaMeters';
 import { getThemeMode, setThemeMode, THEME_CHANGE_EVENT } from '../lib/appearanceTheme';
 import { syncUploadDefaultsToLocalStorage } from '../lib/uploadDefaults';
 import { navigateToAccount } from '../lib/accountBackNav';
@@ -59,6 +62,7 @@ const SidebarLayout = ({
     const profileDropdownRef = useRef(null);
     const { user, logout } = useAuth();
     const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+    const [isAdmin, setIsAdmin] = useState(false);
     const [themeMode, setThemeModeState] = useState(() => getThemeMode());
     const [profile, setProfile] = useState(() => {
         if (typeof window !== 'undefined' && user?.id) {
@@ -118,6 +122,7 @@ const SidebarLayout = ({
     const [realStorageBytes, setRealStorageBytes] = useState(() => {
         return userStorageService.getCachedStorageBytes(user?.id);
     });
+    const [quotaSnapshot, setQuotaSnapshot] = useState(null);
 
     useEffect(() => {
         if (!user?.id) {
@@ -149,13 +154,24 @@ const SidebarLayout = ({
                 }
             })
             .catch((err) => console.error('Error loading photographer profile:', err));
+
+        supabase
+            .from('admins')
+            .select('id')
+            .eq('id', user.id)
+            .maybeSingle()
+            .then(({ data }) => {
+                setIsAdmin(Boolean(data));
+            })
+            .catch(() => setIsAdmin(false));
     }, [user?.id]);
 
     useEffect(() => {
         if (!user?.id) return;
 
-        const refreshStorage = () => {
+        const refreshUsage = () => {
             userStorageService.invalidateCachedStorage(user.id);
+            photographerQuotaService.invalidate(user.id);
             userStorageService
                 .calculateUserStorageBytes(user, profile)
                 .then((bytes) => {
@@ -164,11 +180,19 @@ const SidebarLayout = ({
                     }
                 })
                 .catch((err) => console.error('Error calculating real storage:', err));
+            photographerQuotaService
+                .fetchSnapshot(user.id)
+                .then((snap) => setQuotaSnapshot(snap))
+                .catch((err) => console.error('Error loading account quotas:', err));
         };
 
-        refreshStorage();
-        window.addEventListener(STORAGE_CHANGED_EVENT, refreshStorage);
-        return () => window.removeEventListener(STORAGE_CHANGED_EVENT, refreshStorage);
+        refreshUsage();
+        window.addEventListener(STORAGE_CHANGED_EVENT, refreshUsage);
+        window.addEventListener(QUOTA_CHANGED_EVENT, refreshUsage);
+        return () => {
+            window.removeEventListener(STORAGE_CHANGED_EVENT, refreshUsage);
+            window.removeEventListener(QUOTA_CHANGED_EVENT, refreshUsage);
+        };
     }, [user?.id, profile?.storage_used_bytes]);
 
     const usedBytes = realStorageBytes ?? profile?.storage_used_bytes ?? 0;
@@ -281,6 +305,20 @@ const SidebarLayout = ({
                         <User className="size-4 shrink-0" strokeWidth={1.75} />
                         <span>Your account</span>
                     </button>
+                    {isAdmin && (
+                        <button
+                            type="button"
+                            role="menuitem"
+                            onClick={() => go('/admin/dashboard')}
+                            className={cn(
+                                'sb-profile-menu__item',
+                                pathName.startsWith('/admin') && 'sb-profile-menu__item--active',
+                            )}
+                        >
+                            <Shield className="size-4 shrink-0" strokeWidth={1.75} />
+                            <span>Admin Portal</span>
+                        </button>
+                    )}
                 </div>
 
                 <div className="sb-appearance-track sb-appearance-track--menu" role="group" aria-label="Appearance">
@@ -519,15 +557,14 @@ const SidebarLayout = ({
                         {showProfileDropdown && renderProfileDropdown('bottom-full left-0 mb-2.5')}
 
                         <div className="sb-storage">
-                            <div className="flex items-center justify-between gap-2">
-                                <span className="sb-storage__label">STORAGE</span>
-                                <span className="sb-storage__meta">
-                                    {formatStorageMeter(usedBytes, maxBytes)}
-                                </span>
-                            </div>
-                            <div className="sb-storage__bar">
-                                <div className="sb-storage__bar-fill" style={{ width: `${storagePct}%` }} />
-                            </div>
+                            <AccountQuotaMeters
+                                storageLabel={formatStorageMeter(usedBytes, maxBytes)}
+                                storagePct={storagePct}
+                                imageUsed={quotaSnapshot?.image_used_count ?? profile?.image_used_count}
+                                imageLimit={quotaSnapshot?.image_limit ?? profile?.image_limit}
+                                faceUsed={quotaSnapshot?.face_matching_delivery_used ?? profile?.face_matching_delivery_used}
+                                faceLimit={quotaSnapshot?.face_matching_delivery_limit ?? profile?.face_matching_delivery_limit}
+                            />
                         </div>
 
                         <button

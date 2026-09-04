@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase/client';
 import { userStorageService } from './userStorage.service';
+import { photographerQuotaService } from './photographerQuota.service';
 
 const EVENT_FIELDS =
   'id, photographer_id, name, event_date, slug, cover_image_url, status, registration_enabled, match_threshold, published_at, photo_count, guest_count, collection_id, settings, created_at, updated_at';
@@ -79,6 +80,7 @@ export const guestDeliveryService = {
     }
 
     await ensurePhotographer(photographer_id);
+    await photographerQuotaService.assertFaceMatchingDeliveryQuota(photographer_id, 1);
 
     const slug = generateSlug(trimmedName);
     const now = new Date().toISOString();
@@ -100,6 +102,8 @@ export const guestDeliveryService = {
       .single();
 
     if (error) throw error;
+    photographerQuotaService.invalidate(photographer_id);
+    photographerQuotaService.notifyQuotaChanged();
     return data;
   },
 
@@ -143,6 +147,8 @@ export const guestDeliveryService = {
 
     if (error) throw error;
     userStorageService.notifyStorageChanged();
+    photographerQuotaService.invalidate(photographerId);
+    photographerQuotaService.notifyQuotaChanged();
   },
 
   async incrementGuestCount(eventId, delta = 1) {
@@ -168,6 +174,7 @@ export const guestDeliveryService = {
 
   async createLinkedEvent({ collectionId, photographerId, name, eventDate, slug }) {
     await ensurePhotographer(photographerId);
+    await photographerQuotaService.assertFaceMatchingDeliveryQuota(photographerId, 1);
     const eventSlug = slug
       ? `${slug.replace(/[^\w-]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')}-${Date.now().toString(36)}`
       : generateSlug(name);
@@ -188,6 +195,8 @@ export const guestDeliveryService = {
       .select(EVENT_FIELDS)
       .single();
     if (error) throw error;
+    photographerQuotaService.invalidate(photographerId);
+    photographerQuotaService.notifyQuotaChanged();
     return data;
   },
 

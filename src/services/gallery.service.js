@@ -16,7 +16,7 @@ import {
   uploadMaxEdgeForQuality,
 } from '../lib/uploadDefaults';
 import { storageService } from './storage.service';
-import { userStorageService } from './userStorage.service';
+import { photographerQuotaService } from './photographerQuota.service';
 import {
   isIncompleteUploadPhoto,
   resolveOriginalStoragePath,
@@ -1208,7 +1208,7 @@ export const galleryService = {
       console.warn('R2 cleanup after delivery delete:', storageError);
     }
 
-    userStorageService.notifyStorageChanged();
+    photographerQuotaService.notifyQuotaChanged();
   },
 
   /**
@@ -1794,6 +1794,8 @@ export const galleryService = {
     if (onInserted) {
       onInserted(photoData);
     }
+    photographerQuotaService.invalidate(photographerId);
+    photographerQuotaService.notifyQuotaChanged();
 
     onProgress?.(100);
 
@@ -2337,7 +2339,7 @@ export const galleryService = {
     const { error } = await supabase.from('photos').delete().in('id', ids);
     if (error) throw error;
 
-    userStorageService.notifyStorageChanged();
+    photographerQuotaService.notifyQuotaChanged();
   },
 
   /**
