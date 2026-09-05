@@ -91,16 +91,19 @@ export const FavoriteSettings: React.FC<FavoriteSettingsProps> = ({
   const [notifyOnSubmit, setNotifyOnSubmit] = React.useState(collection?.selection_notify_on_submit !== false);
   const [lockOnSubmit, setLockOnSubmit] = React.useState(collection?.selection_lock_on_submit !== false);
   const [chaseAfterSilence, setChaseAfterSilence] = React.useState(collection?.selection_chase_enabled !== false);
+  const [allowDownloadShare, setAllowDownloadShare] = React.useState(collection?.selection_allow_download_share !== false);
   const [showTemplates, setShowTemplates] = React.useState(false);
 
   React.useEffect(() => {
     setNotifyOnSubmit(collection?.selection_notify_on_submit !== false);
     setLockOnSubmit(collection?.selection_lock_on_submit !== false);
     setChaseAfterSilence(collection?.selection_chase_enabled !== false);
+    setAllowDownloadShare(collection?.selection_allow_download_share !== false);
   }, [
     collection?.selection_notify_on_submit,
     collection?.selection_lock_on_submit,
     collection?.selection_chase_enabled,
+    collection?.selection_allow_download_share,
   ]);
 
   const persist = async (patch: Record<string, unknown>) => {
@@ -401,6 +404,20 @@ export const FavoriteSettings: React.FC<FavoriteSettingsProps> = ({
                         void persist({ favorites_allow_comments: next });
                       }}
                       label="Let them leave a note"
+                    />
+                  )}
+                />
+                <Row
+                  title="Allow download and share on selections"
+                  desc="Show the Download and Share buttons on selection pages. Off hides both — sending the selection to you still works."
+                  control={(
+                    <Toggle
+                      checked={allowDownloadShare}
+                      onChange={(next) => {
+                        setAllowDownloadShare(next);
+                        void persist({ selection_allow_download_share: next });
+                      }}
+                      label="Allow download and share on selections"
                     />
                   )}
                 />

@@ -157,7 +157,15 @@ export default function PublicFavoritesView() {
     };
 
     const onMessage = (data) => {
-      if (matchesCurrent(data)) void refreshCollection();
+      if (!matchesCurrent(data)) return;
+      // Apply the broadcast patch instantly (broadcast fires before the
+      // dashboard's DB update commits), then re-fetch to converge.
+      if (data.settings && typeof data.settings === 'object') {
+        setCollection((prev) => (prev ? { ...prev, ...data.settings } : prev));
+      }
+      setTimeout(() => {
+        if (!cancelled) void refreshCollection();
+      }, 1200);
     };
 
     let channel = null;
@@ -282,6 +290,10 @@ export default function PublicFavoritesView() {
 
   const handleDownload = async () => {
     if (photos.length === 0 || isDownloading) return;
+    const offered = Array.isArray(collection?.download_resolutions)
+      ? collection.download_resolutions.filter(Boolean)
+      : [];
+    const resolution = offered.includes('full') ? 'full' : offered[0] || 'full';
     try {
       setIsDownloading(true);
       setDownloadProgress({ current: 0, total: photos.length });
@@ -294,7 +306,8 @@ export default function PublicFavoritesView() {
         onProgress: (current, total) => {
           setDownloadProgress({ current, total });
         },
-        preferOriginal: true,
+        resolution,
+        videoResolution: collection?.video_download_resolution,
       });
 
       if (result.fileCount === 0) {
@@ -429,6 +442,7 @@ export default function PublicFavoritesView() {
 
           <div className="pub-fav-toolbar__right">
             {/* Share Menu */}
+            {collection?.selection_allow_download_share !== false && (
             <div className="pub-fav-menu-wrap" ref={shareMenuRef}>
               <button
                 type="button"
@@ -467,8 +481,10 @@ export default function PublicFavoritesView() {
                 </div>
               )}
             </div>
+            )}
 
             {/* Download Button */}
+            {collection?.selection_allow_download_share !== false && (
             <button
               type="button"
               className="pub-fav-toolbar__action-btn"
@@ -484,6 +500,7 @@ export default function PublicFavoritesView() {
                   : 'DOWNLOAD'}
               </span>
             </button>
+            )}
 
             {/* More Menu */}
             <div className="pub-fav-menu-wrap" ref={moreMenuRef}>
