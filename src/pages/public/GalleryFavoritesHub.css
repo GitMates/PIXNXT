@@ -1344,9 +1344,9 @@
 }
 
 .pub-fav-toolbar__inner {
-  max-width: 78rem;
+  max-width: none;
   margin: 0 auto;
-  padding: 0.875rem 2rem;
+  padding: 0.875rem 30px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1471,29 +1471,59 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.65rem;
-  font-size: 0.8125rem;
-  color: #78746e;
+  gap: 1rem;
+  font-size: 0.9rem;
+  color: #8f8b85;
   font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
 }
 
 .pub-fav-header-section__count {
-  font-weight: 400;
+  font-weight: 600;
+  color: #5b5852;
 }
 
 .pub-fav-header-section__sep {
-  color: #b5b1aa;
+  width: 1px;
+  height: 1.15rem;
+  background: #e2ded7;
+  flex-shrink: 0;
 }
 
 .pub-fav-header-section__curator {
   font-weight: 400;
+  color: #8f8b85;
 }
 
-/* 4. Photo Grid Container */
+.pub-fav-header-section__curator strong {
+  font-weight: 600;
+  color: #5b5852;
+}
+
+/* 4. Photo Grid Container — full-bleed like the Pixieset reference */
 .pub-fav-grid-container {
-  max-width: 78rem;
+  max-width: none;
   margin: 0 auto;
-  padding: 0 2rem 4rem;
+  padding: 0 25px 4rem;
+}
+
+/* Pixieset-style favorited hearts: dark disc, white outline heart, top-left, no hover actions */
+.pub-fav-grid-container .gallery-masonry-fav-always .gallery-masonry-action-btn {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  min-height: 34px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  cursor: default;
+}
+
+.pub-fav-grid-container .gallery-masonry-fav-always .gallery-masonry-action-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.pub-fav-grid-container .gallery-masonry-tile-overlay {
+  display: none;
 }
 
 .pub-fav-grid__empty {

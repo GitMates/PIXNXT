@@ -6031,9 +6031,6 @@ const CollectionDashboard = () => {
                                         <p className="cd-modal-drop-browse">or <span className="cd-browse-link" onClick={handleModalBrowse}>browse your files</span></p>
                                         <p className="cd-modal-drop-hint">JPEG, PNG, HEIC, MP4, MOV &middot; up to 5 GB a file &middot; originals are kept untouched</p>
                                     </div>
-                                        <p className="cd-modal-drop-text">Drag photos and videos here to upload</p>
-                                        <p className="cd-modal-drop-browse">or <span className="cd-browse-link" onClick={handleModalBrowse}>Browse files</span></p>
-                                    </div>
                                 </div>
                             </div>
                         </div>

@@ -558,6 +558,7 @@ const SidebarLayout = ({
 
                         <div className="sb-storage">
                             <AccountQuotaMeters
+                                compact
                                 storageLabel={formatStorageMeter(usedBytes, maxBytes)}
                                 storagePct={storagePct}
                                 imageUsed={quotaSnapshot?.image_used_count ?? profile?.image_used_count}

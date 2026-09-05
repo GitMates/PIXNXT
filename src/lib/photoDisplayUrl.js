@@ -34,7 +34,9 @@ export function isRawMedia(photo) {
 export function getRawPreviewUrl(photo) {
   if (!photo) return '';
   const original = resolveMediaUrl(photo.full_url || '');
-  const candidates = [photo.thumbnail_url, photo.web_url];
+  // Prefer the larger web derivative (up to 2048px) over the 400px thumb —
+  // grid and especially lightbox look blurry when fed the tiny thumb.
+  const candidates = [photo.web_url, photo.thumbnail_url];
   const preview = candidates.find((url) => {
     if (!url) return false;
     const resolved = resolveMediaUrl(url);

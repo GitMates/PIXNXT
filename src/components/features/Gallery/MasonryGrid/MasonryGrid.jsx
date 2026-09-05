@@ -48,6 +48,8 @@ export function MasonryGrid({
   isClientViewer = false,
   allowMarkPrivate = false,
   showPrivateBadge = false,
+  /** Render favorited hearts as non-interactive badges (e.g. shared selection links). */
+  favoriteReadOnly = false,
   activeCampaign = null,
   activeProducts = [],
   onVisitShop = null,
@@ -830,6 +832,14 @@ export function MasonryGrid({
           {/* Favourited heart — stays visible at rest (not inside the hover-only overlay) */}
           {showFavorite && isFav && !useClientActionBar && (
             <div className="gallery-masonry-actions gallery-masonry-fav-always absolute top-2.5 left-2.5 z-[14] flex gap-1.5">
+              {favoriteReadOnly ? (
+                <span
+                  className="gallery-masonry-action-btn gallery-masonry-action-btn--readonly flex items-center justify-center rounded-full"
+                  aria-hidden
+                >
+                  <Heart size={13} strokeWidth={2} fill="none" />
+                </span>
+              ) : (
               <button
                 type="button"
                 onClick={(e) => {
@@ -842,6 +852,7 @@ export function MasonryGrid({
               >
                 <Heart size={13} strokeWidth={1.75} fill="currentColor" />
               </button>
+              )}
             </div>
           )}
 
@@ -876,7 +887,7 @@ export function MasonryGrid({
               />
             ) : (
             <div className="gallery-masonry-actions absolute bottom-2.5 right-2.5 z-[12] flex gap-1.5">
-              {showFavorite && (
+              {showFavorite && !favoriteReadOnly && (
                 <button
                   type="button"
                   onClick={(e) => {

@@ -63,7 +63,7 @@ function canvasToJpegFile(canvas, quality, baseName, lastModified) {
   });
 }
 
-function applySharpening(ctx, outW, outH) {
+function applySharpening(ctx, outW, outH, force = false) {
   let sharpeningLevel = 'none';
   try {
     sharpeningLevel = localStorage.getItem('sharpening_level') || 'none';
@@ -75,7 +75,7 @@ function applySharpening(ctx, outW, outH) {
   } catch {
     /* ignore */
   }
-  if (sharpeningLevel !== 'high' && sharpeningLevel !== 'optimal') return;
+  if (!force && sharpeningLevel !== 'high' && sharpeningLevel !== 'optimal') return;
   try {
     const imageData = ctx.getImageData(0, 0, outW, outH);
     const data = imageData.data;
@@ -232,9 +232,32 @@ export async function compressImageForUpload(file, options = {}) {
 }
 
 /**
+ * Camera embedded RAW previews render flat next to a developed original —
+ * gentle contrast/saturation lift so the web file looks like the original.
+ * Uses ctx.filter when available; silently draws unfiltered otherwise.
+ */
+function applyRawPreviewEnhancement(ctx) {
+  try {
+    if (typeof ctx.filter === 'string') {
+      ctx.filter = 'contrast(1.07) saturate(1.14) brightness(1.015)';
+    }
+  } catch {
+    /* filter unsupported — draw unfiltered */
+  }
+}
+
+function clearCanvasFilter(ctx) {
+  try {
+    if (typeof ctx.filter === 'string') ctx.filter = 'none';
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
  * One decode → web + thumb JPEGs (avoids double createImageBitmap per photo).
  * @param {File} file
- * @param {{ webMaxEdge?: number, thumbMaxEdge?: number, thumbQuality?: number }} [options]
+ * @param {{ webMaxEdge?: number, thumbMaxEdge?: number, thumbQuality?: number, enhanceRaw?: boolean }} [options]
  * @returns {Promise<{ webFile: File, thumbFile: File }>}
  */
 export async function compressImageVariants(file, options = {}) {
@@ -246,6 +269,9 @@ export async function compressImageVariants(file, options = {}) {
   const webMaxEdge = options.webMaxEdge ?? 2048;
   const thumbMaxEdge = options.thumbMaxEdge ?? 400;
   const thumbQuality = options.thumbQuality ?? 0.6;
+  // RAW camera previews get fidelity treatment: near-lossless quality plus
+  // enhancement + forced sharpening so the web file mirrors the original.
+  const enhanceRaw = options.enhanceRaw === true;
 
   return withCompressSlot(async () => {
     try {
@@ -257,27 +283,36 @@ export async function compressImageVariants(file, options = {}) {
       const webSize = computeOutputSize(srcW, srcH, file.size, { maxEdge: webMaxEdge });
       const thumbSize = computeOutputSize(srcW, srcH, file.size, { maxEdge: thumbMaxEdge });
 
-      const encodeVariant = async (outW, outH, quality) => {
+      const encodeVariant = async (outW, outH, quality, withEnhance = false) => {
         const canvas = document.createElement('canvas');
         canvas.width = outW;
         canvas.height = outH;
         const ctx = canvas.getContext('2d', { alpha: false });
         if (!ctx) return null;
+        if (withEnhance) applyRawPreviewEnhancement(ctx);
         ctx.drawImage(bitmap, 0, 0, outW, outH);
-        applySharpening(ctx, outW, outH);
+        clearCanvasFilter(ctx);
+        applySharpening(ctx, outW, outH, withEnhance);
         return canvasToJpegFile(canvas, quality, baseName, file.lastModified);
       };
 
-      const webQuality = jpegQualityForOutput(srcW, srcH, webSize.outW, webSize.outH, file.size);
+      const baseWebQuality = jpegQualityForOutput(srcW, srcH, webSize.outW, webSize.outH, file.size);
+      const webQuality = enhanceRaw ? Math.max(baseWebQuality, 0.93) : baseWebQuality;
       const [webFileRaw, thumbFileRaw] = await Promise.all([
-        encodeVariant(webSize.outW, webSize.outH, webQuality),
+        encodeVariant(webSize.outW, webSize.outH, webQuality, enhanceRaw),
         encodeVariant(thumbSize.outW, thumbSize.outH, thumbQuality),
       ]);
 
       bitmap.close();
 
+      // Enhanced RAW previews always keep the treated encode even when it
+      // runs larger than the flat camera preview — fidelity over bytes.
       const webFile =
-        webFileRaw && (webSize.resized || webFileRaw.size < file.size * 0.95) ? webFileRaw : file;
+        enhanceRaw && webFileRaw
+          ? webFileRaw
+          : webFileRaw && (webSize.resized || webFileRaw.size < file.size * 0.95)
+            ? webFileRaw
+            : file;
       const thumbFile = thumbFileRaw || webFile;
 
       return { webFile, thumbFile };
