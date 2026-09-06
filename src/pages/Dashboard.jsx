@@ -642,7 +642,7 @@ const Dashboard = () => {
                       className="sd-recent-thumb"
                       style={
                         item.coverUrl
-                          ? coverImageCssStyle(item.coverUrl)
+                          ? coverImageCssStyle(item.coverUrl, item.focalX ?? 50, item.focalY ?? 50)
                           : { background: item.gradient }
                       }
                     />

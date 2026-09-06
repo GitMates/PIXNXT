@@ -3,7 +3,7 @@ import { storageService } from './storage.service';
 import { getFileMime } from '../lib/fileMime';
 import { getImageDimensionsFast } from '../lib/imageDimensions';
 import { guestDeliveryService } from './guestDelivery.service';
-import { userStorageService } from './userStorage.service';
+import { photographerQuotaService } from './photographerQuota.service';
 import {
   buildUserModulePath,
   getPhotographerR2Folder,
@@ -123,6 +123,7 @@ export const guestDeliveryPhotosService = {
       throw new Error(validationError);
     }
 
+
     onProgress?.(1);
 
     const fileExt = (file.name.split('.').pop() || 'jpg').toLowerCase();
@@ -170,7 +171,8 @@ export const guestDeliveryPhotosService = {
     if (error) throw error;
 
     await guestDeliveryService.incrementPhotoCount(eventId, 1);
-    userStorageService.notifyStorageChanged();
+    photographerQuotaService.invalidate(photographerId);
+    photographerQuotaService.notifyQuotaChanged();
     return data;
   },
 
@@ -193,7 +195,8 @@ export const guestDeliveryPhotosService = {
     }
 
     await guestDeliveryService.incrementPhotoCount(eventId, -1);
-    userStorageService.notifyStorageChanged();
+    photographerQuotaService.invalidate(photographerId);
+    photographerQuotaService.notifyQuotaChanged();
   },
 
   async deletePhotos(photographerId, eventId, photos) {

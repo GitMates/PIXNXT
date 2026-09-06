@@ -421,22 +421,32 @@ export const smartAlbumProoferSettingsService = {
         let parsed;
         if (hasRowSettings) {
             parsed = dbAlbumToSettings(album);
-            // Public clients may get access rules from the preview snapshot when the
-            // live row omits password fields under RLS.
+            // DB row (proofer_settings.access_level) is the source of truth for
+            // accessLevel. It reads identically on localhost, platform domain, and
+            // custom domains. Never let a stale preview_data.proofer_access snapshot
+            // re-lock an album the photographer switched to "Anyone with the link".
+            // Only backfill secrets RLS may omit, and only when the live level needs them.
             if (snapshotParsed) {
-                if (!parsed.albumPassword && snapshotParsed.albumPassword) {
+                const liveLevel = parsed.accessLevel || 'public';
+                if (
+                    liveLevel === 'password' &&
+                    !parsed.albumPassword &&
+                    snapshotParsed.albumPassword
+                ) {
                     parsed.albumPassword = snapshotParsed.albumPassword;
                 }
                 if (
-                    (!parsed.accessLevel || parsed.accessLevel === 'public') &&
-                    snapshotParsed.accessLevel &&
-                    snapshotParsed.accessLevel !== 'public'
+                    liveLevel === 'private' &&
+                    !parsed.privateShareToken &&
+                    snapshotParsed.privateShareToken
                 ) {
-                    parsed.accessLevel = snapshotParsed.accessLevel;
-                }
-                if (!parsed.privateShareToken && snapshotParsed.privateShareToken) {
                     parsed.privateShareToken = snapshotParsed.privateShareToken;
                 }
+            }
+            // Explicit public links must never carry a stale password/token to clients.
+            if ((parsed.accessLevel || 'public') === 'public') {
+                parsed.albumPassword = '';
+                parsed.privateShareToken = '';
             }
         } else if (photographerId && albumId && hasCachedAlbumSettings(photographerId, albumId)) {
             parsed = readCachedAlbumSettings(photographerId, albumId);

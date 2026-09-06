@@ -4,9 +4,9 @@ import {
     getAlbumPhotoRevision,
     healOrphanCollectionPlacements,
     embedPlacementStorageFallbacks,
-    mergeRemotePreviewPagesIntoLocal,
+    overwriteLocalPagesFromRemote,
 } from '../../components/smart-albums/albumPagePhotos';
-import { loadAlbumAssetsFromCloud } from '../../components/smart-albums/albumCollection';
+import { loadAlbumAssetsFromCloud, overwriteLocalCollectionFromRemote } from '../../components/smart-albums/albumCollection';
 import { hydrateAlbumPreviewData, clearAlbumPreviewDataCache, normalizeAlbumForClientPreview } from '../../components/smart-albums/albumPreviewData';
 import AlbumPreviewAccessGate from '../../components/smart-albums/AlbumPreviewAccessGate';
 import { smartAlbumCommentsService } from '../../services/smartAlbumComments.service';
@@ -173,11 +173,16 @@ export default function PublicAlbumPreview() {
     }, [album?.id]);
 
     // Hydrate with album UUID — share URLs use slugs but all photo/collection caches key by id.
+    // Public viewers have no local edits: sync local caches authoritatively from
+    // the cloud snapshot so a "New version" upload (spread:<left> replacing old
+    // page keys, possibly with an in-place file replace) shows immediately on
+    // custom domains instead of rendering stale localStorage pages.
     useEffect(() => {
         const storageAlbumId = album?.id;
         if (!storageAlbumId || !album?.preview_data) return;
         hydrateAlbumPreviewData(storageAlbumId, album.preview_data);
-        mergeRemotePreviewPagesIntoLocal(storageAlbumId);
+        overwriteLocalCollectionFromRemote(storageAlbumId);
+        overwriteLocalPagesFromRemote(storageAlbumId);
     }, [album?.id, album?.preview_data]);
 
     // Client share links have no localStorage — hydrate collection + placements from cloud/R2.
@@ -189,6 +194,10 @@ export default function PublicAlbumPreview() {
             try {
                 await loadAlbumAssetsFromCloud(album.id, album.photographer_id);
                 if (cancelled) return;
+                // loadAlbumAssetsFromCloud may have hydrated a fresher remote
+                // snapshot — re-assert it authoritatively before reading.
+                overwriteLocalCollectionFromRemote(album.id);
+                overwriteLocalPagesFromRemote(album.id);
                 healOrphanCollectionPlacements(album.id);
                 embedPlacementStorageFallbacks(album.id);
                 setPhotoRevision(getAlbumPhotoRevision(album.id) || 0);

@@ -16,7 +16,7 @@ import {
   uploadMaxEdgeForQuality,
 } from '../lib/uploadDefaults';
 import { storageService } from './storage.service';
-import { userStorageService } from './userStorage.service';
+import { photographerQuotaService } from './photographerQuota.service';
 import {
   isIncompleteUploadPhoto,
   resolveOriginalStoragePath,
@@ -1208,7 +1208,7 @@ export const galleryService = {
       console.warn('R2 cleanup after delivery delete:', storageError);
     }
 
-    userStorageService.notifyStorageChanged();
+    photographerQuotaService.notifyQuotaChanged();
   },
 
   /**
@@ -1714,7 +1714,10 @@ export const galleryService = {
       thumbnailBlob = meta.thumbnailBlob;
       if (thumbnailBlob) {
         const previewFile = new File([thumbnailBlob], 'preview.jpg', { type: 'image/jpeg' });
-        const variants = await compressImageVariants(previewFile, getUploadVariantOptions()).catch(
+        const variants = await compressImageVariants(previewFile, {
+          ...getUploadVariantOptions(),
+          enhanceRaw: true,
+        }).catch(
           () => ({ webFile: previewFile, thumbFile: previewFile })
         );
         webFile = variants.webFile;
@@ -1794,6 +1797,8 @@ export const galleryService = {
     if (onInserted) {
       onInserted(photoData);
     }
+    photographerQuotaService.invalidate(photographerId);
+    photographerQuotaService.notifyQuotaChanged();
 
     onProgress?.(100);
 
@@ -2057,14 +2062,33 @@ export const galleryService = {
     const previewBlob = meta.thumbnailBlob;
     if (!previewBlob) return photo;
 
-    const { url: previewUrl } = await this._uploadRawPreviewJpeg(storagePath, previewBlob);
+    // Build real web (large) + thumb (small) derivatives instead of pointing
+    // both URLs at the same file — otherwise the lightbox stays blurry.
+    const previewFile = new File([previewBlob], 'preview.jpg', { type: 'image/jpeg' });
+    const variants = await compressImageVariants(previewFile, {
+      ...getUploadVariantOptions(),
+      enhanceRaw: true,
+    }).catch(
+      () => ({ webFile: previewFile, thumbFile: previewFile })
+    );
+    const stem = String(storagePath.split('/').pop() || 'preview').replace(/\.[^.]+$/, '');
+    const origMatch = storagePath.match(/^(.*)\/original\/[^/]+$/);
+    const basePath = origMatch ? origMatch[1] : storagePath.replace(/\/[^/]+$/, '');
+    const webPath = `${basePath}/web/${stem}.jpg`;
+    const thumbPath = `${basePath}/thumb/${stem}.jpg`;
+    const [{ url: webUrl }, { url: thumbUrl }] = await Promise.all([
+      storageService.upload(webPath, variants.webFile),
+      storageService.upload(thumbPath, variants.thumbFile),
+    ]);
     const dimensions = meta.dimensions ?? { width: null, height: null };
 
     const { data, error } = await supabase
       .from('photos')
       .update({
-        web_url: previewUrl,
-        thumbnail_url: previewUrl,
+        web_url: webUrl,
+        thumbnail_url: thumbUrl,
+        web_storage_path: webPath,
+        thumbnail_storage_path: thumbPath,
         width: dimensions.width,
         height: dimensions.height,
       })
@@ -2175,7 +2199,10 @@ export const galleryService = {
       thumbnailBlob = meta.thumbnailBlob;
       if (thumbnailBlob) {
         const previewFile = new File([thumbnailBlob], 'preview.jpg', { type: 'image/jpeg' });
-        const variants = await compressImageVariants(previewFile, getUploadVariantOptions()).catch(
+        const variants = await compressImageVariants(previewFile, {
+          ...getUploadVariantOptions(),
+          enhanceRaw: true,
+        }).catch(
           () => ({ webFile: previewFile, thumbFile: previewFile })
         );
         webFile = variants.webFile;
@@ -2337,7 +2364,7 @@ export const galleryService = {
     const { error } = await supabase.from('photos').delete().in('id', ids);
     if (error) throw error;
 
-    userStorageService.notifyStorageChanged();
+    photographerQuotaService.notifyQuotaChanged();
   },
 
   /**

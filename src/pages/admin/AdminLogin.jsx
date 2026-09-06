@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase/client';
 import { useAuth } from '../../hooks/useAuth';
@@ -9,12 +9,43 @@ const AdminLogin = () => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [adminCheckDone, setAdminCheckDone] = useState(false);
+  const [isUserAdmin, setIsUserAdmin] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { user, loading } = useAuth();
 
   // Where to send the user after login
   const from = location.state?.from?.pathname || '/admin/dashboard';
+
+  // Check if already-authenticated user is actually an admin before auto-redirecting
+  useEffect(() => {
+    if (loading || !user) {
+      setAdminCheckDone(true);
+      return;
+    }
+
+    let isMounted = true;
+    supabase
+      .from('admins')
+      .select('id')
+      .eq('id', user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (isMounted) {
+          setIsUserAdmin(Boolean(data));
+          setAdminCheckDone(true);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setIsUserAdmin(false);
+          setAdminCheckDone(true);
+        }
+      });
+
+    return () => { isMounted = false; };
+  }, [user, loading]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -30,8 +61,27 @@ const AdminLogin = () => {
       if (authError) {
         throw authError;
       }
-      
-      // Successfully authenticated
+
+      // After sign-in, verify the user is in the admins table
+      const { data: sessionData } = await supabase.auth.getUser();
+      const signedInUser = sessionData?.user;
+
+      if (signedInUser) {
+        const { data: adminRow } = await supabase
+          .from('admins')
+          .select('id')
+          .eq('id', signedInUser.id)
+          .maybeSingle();
+
+        if (!adminRow) {
+          setError('Access denied. This account does not have admin privileges.');
+          await supabase.auth.signOut();
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      // Successfully authenticated as admin
       navigate(from, { replace: true });
     } catch (err) {
       setError(err.message || 'Invalid admin credentials.');
@@ -40,8 +90,8 @@ const AdminLogin = () => {
     }
   };
 
-  // If already authenticated, bypass login
-  if (!loading && user) {
+  // If already authenticated AND confirmed admin, bypass login
+  if (!loading && adminCheckDone && user && isUserAdmin) {
     return <Navigate to={from} replace />;
   }
 
@@ -79,6 +129,9 @@ const AdminLogin = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
+              shellClassName="relative"
+              inputClassName="w-full px-4 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm pr-10"
+              actionClassName="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
             />
           </div>
 
@@ -102,3 +155,4 @@ const AdminLogin = () => {
 };
 
 export default AdminLogin;
+

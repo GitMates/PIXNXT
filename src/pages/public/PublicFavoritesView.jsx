@@ -2,11 +2,11 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
-  ChevronDown,
   Download,
   Heart,
   Link as LinkIcon,
   Mail,
+  MoreVertical,
   SendHorizontal,
 } from 'lucide-react';
 import * as Covers from '../../components/features/CollectionDashboard/PreviewPane/CoverStyles';
@@ -18,6 +18,17 @@ import { MasonryGrid } from '../../components/features/Gallery/MasonryGrid/Mason
 import { AppLoader } from '../../components/ui/AppLoading';
 import { formatCoverDate } from '../../lib/formatCoverDate';
 import { getCollectionFocal, getCollectionFocals, stripMediaUrlHash } from '../../lib/focalPoint';
+import {
+  GALLERY_LIVE_CHANNEL,
+  GALLERY_MEDIA_STORAGE_PREFIX,
+  GALLERY_SETTINGS_STORAGE_PREFIX,
+} from '../../lib/galleryLiveSync';
+import {
+  normalizeFontId,
+  normalizePaletteId,
+  resolveCoverLayoutId,
+} from '../../lib/normalizeDesignTokens';
+import './GalleryView.css';
 import { useIsMobileViewport } from '../../hooks/useIsMobileViewport';
 import JSZip from 'jszip';
 import './GalleryFavoritesHub.css';
@@ -116,6 +127,73 @@ export default function PublicFavoritesView() {
     return () => { cancelled = true; };
   }, [listId, slug]);
 
+  // Live cover/design updates — when the photographer edits the delivery
+  // (cover, focal placement, title, date) the selection link refreshes instantly.
+  useEffect(() => {
+    if (!slug && !collection?.id) return undefined;
+    let cancelled = false;
+
+    const matchesCurrent = (data) => {
+      if (!data || typeof data !== 'object') return false;
+      if (data.slug && slug && String(data.slug).toLowerCase() === String(slug).toLowerCase()) return true;
+      if (data.collectionId && collection?.id && String(data.collectionId) === String(collection.id)) return true;
+      return false;
+    };
+
+    const refreshCollection = async () => {
+      const colSlug = slug || list?.collectionSlug;
+      if (!colSlug || cancelled) return;
+      try {
+        const updated = await galleryService.getCollectionBySlug(colSlug);
+        if (!updated || cancelled) return;
+        setCollection(updated);
+        if (updated.photographer_id) {
+          try {
+            const profile = await galleryService.getPhotographerProfile(updated.photographer_id);
+            if (profile && !cancelled) setPhotographer(profile);
+          } catch { /* optional */ }
+        }
+      } catch { /* keep showing the last good cover */ }
+    };
+
+    const onMessage = (data) => {
+      if (!matchesCurrent(data)) return;
+      // Apply the broadcast patch instantly (broadcast fires before the
+      // dashboard's DB update commits), then re-fetch to converge.
+      if (data.settings && typeof data.settings === 'object') {
+        setCollection((prev) => (prev ? { ...prev, ...data.settings } : prev));
+      }
+      setTimeout(() => {
+        if (!cancelled) void refreshCollection();
+      }, 1200);
+    };
+
+    let channel = null;
+    try {
+      channel = new BroadcastChannel(GALLERY_LIVE_CHANNEL);
+      channel.onmessage = (event) => onMessage(event.data);
+    } catch { /* BroadcastChannel optional */ }
+
+    const onStorage = (event) => {
+      if (!event?.newValue) return;
+      if (
+        event.key?.startsWith(GALLERY_SETTINGS_STORAGE_PREFIX) ||
+        event.key?.startsWith(GALLERY_MEDIA_STORAGE_PREFIX)
+      ) {
+        try {
+          onMessage(JSON.parse(event.newValue));
+        } catch { /* ignore */ }
+      }
+    };
+    window.addEventListener('storage', onStorage);
+
+    return () => {
+      cancelled = true;
+      try { channel?.close(); } catch { /* ignore */ }
+      window.removeEventListener('storage', onStorage);
+    };
+  }, [slug, list?.collectionSlug, collection?.id]);
+
   const galleryGridSettings = useMemo(() => {
     if (!collection) {
       return { style: 'vertical', size: 'regular', spacing: 'regular', aspectRatio: 'original' };
@@ -139,6 +217,24 @@ export default function PublicFavoritesView() {
     if (size === 'small') return 200;
     return 140;
   }, [galleryGridSettings.size]);
+
+  // Effective design settings — identical pipeline to the main gallery view
+  // so the selection cover renders the exact same UI (layout, typeface, palette).
+  // NOTE: must stay above the early returns to keep hook order stable.
+  const effectiveSettings = useMemo(() => {
+    if (!collection) {
+      return { cover_style: 'novel', font_family: 'sans', color_palette: 'light' };
+    }
+    const extras =
+      collection.design_options && typeof collection.design_options === 'object'
+        ? collection.design_options
+        : {};
+    return {
+      cover_style: resolveCoverLayoutId(collection),
+      font_family: normalizeFontId(extras.font_family || collection.font_family || 'sans'),
+      color_palette: normalizePaletteId(extras.color_palette || collection.color_palette || 'light'),
+    };
+  }, [collection]);
 
   const scrollToContent = () => {
     contentSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -194,6 +290,10 @@ export default function PublicFavoritesView() {
 
   const handleDownload = async () => {
     if (photos.length === 0 || isDownloading) return;
+    const offered = Array.isArray(collection?.download_resolutions)
+      ? collection.download_resolutions.filter(Boolean)
+      : [];
+    const resolution = offered.includes('full') ? 'full' : offered[0] || 'full';
     try {
       setIsDownloading(true);
       setDownloadProgress({ current: 0, total: photos.length });
@@ -206,7 +306,8 @@ export default function PublicFavoritesView() {
         onProgress: (current, total) => {
           setDownloadProgress({ current, total });
         },
-        preferOriginal: true,
+        resolution,
+        videoResolution: collection?.video_download_resolution,
       });
 
       if (result.fileCount === 0) {
@@ -281,7 +382,7 @@ export default function PublicFavoritesView() {
     : (focals.desktop || focals.website || getCollectionFocal(collection));
 
   // Cover Style from delivery settings
-  const coverStyle = collection?.design_options?.cover_style || collection?.cover_layout || collection?.cover_style || 'novel';
+  const coverStyle = effectiveSettings.cover_style;
 
   const coverProps = {
     title: collection?.name || list?.collectionName || 'COLLECTION',
@@ -313,7 +414,7 @@ export default function PublicFavoritesView() {
   };
 
   return (
-    <div className="pub-fav-page">
+    <div className={`pub-fav-page gallery-view-page style-${effectiveSettings.cover_style} theme-${effectiveSettings.color_palette} font-${effectiveSettings.font_family}`}>
       {/* 1. Full-Screen Delivery Cover with matching layout & focal point placement */}
       <div
         className="gallery-view-hero relative w-full h-[100dvh] [&>div]:!h-full"
@@ -341,6 +442,7 @@ export default function PublicFavoritesView() {
 
           <div className="pub-fav-toolbar__right">
             {/* Share Menu */}
+            {collection?.selection_allow_download_share !== false && (
             <div className="pub-fav-menu-wrap" ref={shareMenuRef}>
               <button
                 type="button"
@@ -379,8 +481,10 @@ export default function PublicFavoritesView() {
                 </div>
               )}
             </div>
+            )}
 
             {/* Download Button */}
+            {collection?.selection_allow_download_share !== false && (
             <button
               type="button"
               className="pub-fav-toolbar__action-btn"
@@ -396,6 +500,7 @@ export default function PublicFavoritesView() {
                   : 'DOWNLOAD'}
               </span>
             </button>
+            )}
 
             {/* More Menu */}
             <div className="pub-fav-menu-wrap" ref={moreMenuRef}>
@@ -404,8 +509,8 @@ export default function PublicFavoritesView() {
                 className="pub-fav-toolbar__action-btn"
                 onClick={() => setMoreMenuOpen((prev) => !prev)}
               >
+                <MoreVertical size={14} strokeWidth={1.75} />
                 <span>MORE</span>
-                <ChevronDown size={13} strokeWidth={1.75} />
               </button>
 
               {moreMenuOpen && (
@@ -433,9 +538,9 @@ export default function PublicFavoritesView() {
           </span>
           {curatorEmail && (
             <>
-              <span className="pub-fav-header-section__sep">·</span>
+              <span className="pub-fav-header-section__sep" aria-hidden />
               <span className="pub-fav-header-section__curator">
-                Curated by {curatorEmail}
+                Curated by <strong>{curatorEmail}</strong>
               </span>
             </>
           )}
@@ -458,7 +563,9 @@ export default function PublicFavoritesView() {
             customRowHeight={galleryCustomRowHeight}
             onImageClick={() => {}}
             showDownload={false}
-            showFavorite={false}
+            showFavorite
+            favoritedPhotoIds={photos.map((p) => p.id)}
+            favoriteReadOnly
             showShare={false}
             showShop={false}
             forceShow

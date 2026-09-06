@@ -311,7 +311,7 @@
   --cover-hairline: #e4e1da;
   display: flex;
   flex-direction: column;
-  width: min(680px, 95vw);
+  width: min(760px, 96vw);
   max-height: 94vh;
   border-radius: 10px;
   overflow: hidden;

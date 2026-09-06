@@ -1,9 +1,12 @@
 import exifr from 'exifr';
 import { RAW_IMAGE_EXTENSIONS } from './rawImageFormats';
 
-const PREVIEW_SCAN_BYTES = 32 * 1024 * 1024;
+const PREVIEW_SCAN_BYTES = 96 * 1024 * 1024;
 /** Load entire file for IFD1 thumbnail offsets (exifr chunked mode only maps the header). */
-const FULL_READ_MAX_BYTES = 48 * 1024 * 1024;
+const FULL_READ_MAX_BYTES = 120 * 1024 * 1024;
+/** Largest embedded JPEG to consider — full-res camera previews run several MB. */
+const MAX_EMBEDDED_JPEG_BYTES = 30 * 1024 * 1024;
+const MIN_EMBEDDED_JPEG_BYTES = 20 * 1024;
 
 const RAW_EXT_IN_URL_RE = new RegExp(
   `(${RAW_IMAGE_EXTENSIONS.map((e) => e.replace('.', '\\.')).join('|')})(\\?|#|$)`,
@@ -147,17 +150,19 @@ async function validateJpegBlob(blob) {
   try {
     const bitmap = await createImageBitmap(blob, { imageOrientation: 'from-image' });
     const ok = bitmap.width >= 80 && bitmap.height >= 80;
+    const dims = { width: bitmap.width, height: bitmap.height };
     bitmap.close();
-    return ok ? blob : null;
+    return ok ? { blob, ...dims } : null;
   } catch {
     return null;
   }
 }
 
 /**
- * Scan the start of a RAW file for an embedded JPEG (many cameras embed a full-size or thumb JPEG).
+ * Scan the file for embedded JPEGs (many cameras embed a full-size preview plus
+ * a tiny IFD1 thumbnail). Returns validated candidates, largest byte-size first.
  */
-async function extractEmbeddedJpegFallback(file) {
+async function extractEmbeddedJpegCandidates(file) {
   const slice = file.slice(0, Math.min(file.size, PREVIEW_SCAN_BYTES));
   const buffer = await slice.arrayBuffer();
   const bytes = new Uint8Array(buffer);
@@ -166,8 +171,11 @@ async function extractEmbeddedJpegFallback(file) {
   for (let i = 0; i < bytes.length - 3; i += 1) {
     if (bytes[i] !== 0xff || bytes[i + 1] !== 0xd8 || bytes[i + 2] !== 0xff) continue;
 
+    // Bound the forward scan — a valid candidate can't exceed the max size,
+    // and this keeps false-positive SOI markers in RAW data cheap.
+    const scanEnd = Math.min(bytes.length - 1, i + MAX_EMBEDDED_JPEG_BYTES + 2);
     let end = -1;
-    for (let j = i + 2; j < bytes.length - 1; j += 1) {
+    for (let j = i + 2; j < scanEnd; j += 1) {
       if (bytes[j] === 0xff && bytes[j + 1] === 0xd9) {
         end = j + 2;
         break;
@@ -176,20 +184,25 @@ async function extractEmbeddedJpegFallback(file) {
     if (end <= i) continue;
 
     const length = end - i;
-    if (length < 2048 || length > 12 * 1024 * 1024) continue;
+    if (length < MIN_EMBEDDED_JPEG_BYTES || length > MAX_EMBEDDED_JPEG_BYTES) continue;
     candidates.push({ start: i, length });
+    // Skip past this JPEG so nested thumbnails inside it aren't double-counted.
+    i = end - 2;
   }
 
-  if (candidates.length === 0) return null;
+  if (candidates.length === 0) return [];
 
   candidates.sort((a, b) => b.length - a.length);
-  for (const { start, length } of candidates) {
+  // Decoding is the expensive part — the byte-largest few contain the full preview.
+  const top = candidates.slice(0, 6);
+  const validated = [];
+  for (const { start, length } of top) {
     const blob = new Blob([bytes.slice(start, start + length)], { type: 'image/jpeg' });
     const valid = await validateJpegBlob(blob);
-    if (valid) return valid;
+    if (valid) validated.push(valid);
   }
 
-  return null;
+  return validated;
 }
 
 async function extractViaExifr(input) {
@@ -205,6 +218,20 @@ async function extractViaExifr(input) {
   return validateJpegBlob(new Blob([thumb], { type: 'image/jpeg' }));
 }
 
+function pickLargestPreview(validated) {
+  if (!validated?.length) return null;
+  let best = validated[0];
+  let bestPixels = best.width * best.height;
+  for (const cand of validated) {
+    const pixels = cand.width * cand.height;
+    if (pixels > bestPixels) {
+      best = cand;
+      bestPixels = pixels;
+    }
+  }
+  return best.blob;
+}
+
 async function finalizeRawPreview(jpegBlob, rawFile) {
   if (!jpegBlob) return null;
   return normalizeJpegOrientation(jpegBlob, rawFile);
@@ -212,26 +239,34 @@ async function finalizeRawPreview(jpegBlob, rawFile) {
 
 /**
  * Extract an embedded JPEG preview from a RAW file for grid thumbnails / web_url.
+ * Collects both the exifr IFD1 thumbnail and every embedded JPEG in the file,
+ * then keeps the largest by decoded pixels — exifr alone usually returns only
+ * the tiny thumbnail, which is what made RAW web files look blurry.
  * @param {File|Blob} file
  * @returns {Promise<Blob|null>}
  */
 export async function extractRawPreviewBlob(file) {
   if (!file) return null;
 
+  const found = [];
+
   try {
     const buffer = await readFileArrayBuffer(file);
     const input = buffer ?? file;
     const fromExifr = await extractViaExifr(input);
-    if (fromExifr) return finalizeRawPreview(fromExifr, file);
+    if (fromExifr) found.push(fromExifr);
   } catch (err) {
     console.warn('exifr thumbnail failed, trying embedded JPEG scan:', file.name, err);
   }
 
   try {
-    const embedded = await extractEmbeddedJpegFallback(file);
-    return finalizeRawPreview(embedded, file);
+    const embedded = await extractEmbeddedJpegCandidates(file);
+    found.push(...embedded);
   } catch (err) {
     console.warn('RAW embedded JPEG scan failed:', file.name, err);
-    return null;
   }
+
+  const best = pickLargestPreview(found);
+  if (!best) return null;
+  return finalizeRawPreview(best, file);
 }

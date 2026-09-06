@@ -23,6 +23,8 @@ export default function GuestDeliveryEventsList() {
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [loadError, setLoadError] = useState(null);
+  const [showDeleteAll, setShowDeleteAll] = useState(false);
+  const [deletingAll, setDeletingAll] = useState(false);
 
   useEffect(() => {
     if (searchParams.get('create') === '1') {
@@ -93,6 +95,26 @@ export default function GuestDeliveryEventsList() {
     }
   };
 
+  const handleDeleteAll = async () => {
+    if (!user || filteredEvents.length === 0) return;
+    setDeletingAll(true);
+    try {
+      for (const event of filteredEvents) {
+        await guestDeliveryService.deleteEvent(user.id, event.id);
+      }
+      const deletedIds = new Set(filteredEvents.map((e) => e.id));
+      setEvents((prev) => prev.filter((e) => !deletedIds.has(e.id)));
+      setShowDeleteAll(false);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to delete all events. Please try again.');
+    } finally {
+      setDeletingAll(false);
+    }
+  };
+
+  const pluralize = (count, singular) => `${count || 0} ${singular}${Number(count) === 1 ? '' : 's'}`;
+
   const filteredEvents = events.filter((event) => {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return true;
@@ -106,9 +128,21 @@ export default function GuestDeliveryEventsList() {
           <h1 className="gd-events-title">Guest Delivery Events</h1>
           <p className="gd-events-sub">QR registration → upload photos → publish to match &amp; deliver</p>
         </div>
-        <button type="button" className="gd-primary-btn" onClick={() => setCreateOpen(true)}>
-          + Create Event
-        </button>
+        <div className="gd-events-header-actions">
+          {events.length > 0 && (
+            <button
+              type="button"
+              className="gd-secondary-btn gd-danger-outline-btn"
+              onClick={() => setShowDeleteAll(true)}
+              disabled={deletingAll}
+            >
+              Delete all
+            </button>
+          )}
+          <button type="button" className="gd-primary-btn" onClick={() => setCreateOpen(true)}>
+            + Create Event
+          </button>
+        </div>
       </header>
 
       <div className="gd-events-toolbar">
@@ -120,6 +154,13 @@ export default function GuestDeliveryEventsList() {
           className="gd-events-search"
           typewriterPlaceholder
         />
+        {!loading && !loadError && events.length > 0 && (
+          <span className="gd-events-count">
+            {filteredEvents.length === events.length
+              ? `${events.length} event${events.length === 1 ? '' : 's'}`
+              : `${filteredEvents.length} of ${events.length} events`}
+          </span>
+        )}
       </div>
 
       {loadError && (
@@ -162,9 +203,9 @@ export default function GuestDeliveryEventsList() {
                 )}
               </div>
               <div className="gd-event-card-body">
-                <h3>{event.name}</h3>
+                <h3 title={event.name}>{event.name}</h3>
                 <p className="gd-muted">
-                  {event.guest_count || 0} guests · {event.photo_count || 0} photos
+                  {pluralize(event.guest_count, 'guest')} · {pluralize(event.photo_count, 'photo')}
                 </p>
                 <span className={`gd-badge gd-badge--${event.status}`}>{event.status}</span>
               </div>
@@ -175,9 +216,10 @@ export default function GuestDeliveryEventsList() {
                   e.stopPropagation();
                   handleDelete(event);
                 }}
-                aria-label="Delete event"
+                aria-label={`Delete ${event.name}`}
+                title="Delete event"
               >
-                Delete
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M3 6h18" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
               </button>
             </div>
           ))}
@@ -190,6 +232,39 @@ export default function GuestDeliveryEventsList() {
         onCreate={handleCreate}
         saving={creating}
       />
+
+      {showDeleteAll && (
+        <div className="gd-modal-overlay" onClick={() => !deletingAll && setShowDeleteAll(false)}>
+          <div className="gd-modal gd-delete-all-modal" onClick={(e) => e.stopPropagation()} role="alertdialog" aria-modal="true" aria-labelledby="gd-delete-all-title">
+            <h3 id="gd-delete-all-title" className="gd-modal-title">Delete all events?</h3>
+            <p className="gd-delete-all-text">
+              This will permanently delete{' '}
+              <strong>
+                {filteredEvents.length} event{filteredEvents.length === 1 ? '' : 's'}
+              </strong>
+              {searchQuery.trim() ? ' matching your search' : ''}. This cannot be undone.
+            </p>
+            <div className="gd-modal-actions">
+              <button
+                type="button"
+                className="gd-secondary-btn"
+                onClick={() => setShowDeleteAll(false)}
+                disabled={deletingAll}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="gd-primary-btn gd-delete-confirm-btn"
+                onClick={handleDeleteAll}
+                disabled={deletingAll}
+              >
+                {deletingAll ? 'Deleting…' : 'Delete all'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

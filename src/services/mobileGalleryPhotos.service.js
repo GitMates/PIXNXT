@@ -2,7 +2,7 @@ import { supabase } from '../lib/supabase/client';
 import { storageService } from './storage.service';
 import { getFileMime } from '../lib/fileMime';
 import { getImageDimensionsFast } from '../lib/imageDimensions';
-import { userStorageService } from './userStorage.service';
+import { photographerQuotaService } from './photographerQuota.service';
 import {
   buildUserModulePath,
   getPhotographerR2Folder,
@@ -67,6 +67,7 @@ export const mobileGalleryPhotosService = {
       throw new Error(validationError);
     }
 
+
     const fileExt = (file.name.split('.').pop() || 'jpg').toLowerCase();
     const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
     const [photographerFolder, appFolder] = await Promise.all([
@@ -112,7 +113,8 @@ export const mobileGalleryPhotosService = {
       .single();
 
     if (error) throw error;
-    userStorageService.notifyStorageChanged();
+    photographerQuotaService.invalidate(photographerId);
+    photographerQuotaService.notifyQuotaChanged();
     return data;
   },
 
@@ -134,7 +136,8 @@ export const mobileGalleryPhotosService = {
       }
     }
 
-    userStorageService.notifyStorageChanged();
+    photographerQuotaService.invalidate(photographerId);
+    photographerQuotaService.notifyQuotaChanged();
   },
 
   async deletePhotos(photographerId, appId, photos) {

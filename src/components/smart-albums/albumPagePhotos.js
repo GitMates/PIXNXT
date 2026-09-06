@@ -201,6 +201,57 @@ export function mergeRemotePreviewPagesIntoLocal(albumId) {
     return writeAll(all);
 }
 
+/**
+ * Authoritative page sync for public / client preview (custom domains, share links).
+ *
+ * The additive merge above is correct for the editor (it must preserve unsynced
+ * local edits), but a public viewer has no local edits — the cloud preview_data
+ * is the source of truth. A "New version" upload replaces `spread:<left>` and
+ * deletes the old `"<left>"` / `"<right>"` page keys. The additive merge kept
+ * those deleted page keys alive in the custom-domain origin's localStorage, so
+ * `getGridSlotPhoto` (single mode prefers pageSrc) kept rendering the old
+ * multi-cell layout instead of the new whole-spread image.
+ *
+ * This overwrite makes local match remote exactly: new/changed keys are copied,
+ * keys deleted on the server are removed locally.
+ */
+export function overwriteLocalPagesFromRemote(albumId) {
+    const remote = getRemotePreviewData(albumId);
+    if (!albumId || !remote || typeof remote.pages !== 'object') return false;
+
+    const all = readAll();
+    const local = all[albumId] || {};
+    const remotePages = remote.pages || {};
+
+    const localKeys = Object.keys(local).filter((k) => k !== '__revision');
+    const remoteKeys = Object.keys(remotePages);
+    const remoteKeySet = new Set(remoteKeys);
+
+    let changed = false;
+    const next = {};
+
+    for (const key of remoteKeys) {
+        const remoteVal = remotePages[key];
+        const localVal = local[key];
+        if (remoteVal == null) {
+            if (localVal != null) changed = true;
+            continue;
+        }
+        next[key] = remoteVal;
+        if (JSON.stringify(localVal) !== JSON.stringify(remoteVal)) changed = true;
+    }
+
+    for (const key of localKeys) {
+        if (!remoteKeySet.has(key)) changed = true;
+    }
+
+    if (!changed) return false;
+
+    next.__revision = (local.__revision || 0) + 1;
+    all[albumId] = next;
+    return writeAll(all);
+}
+
 /** Snapshot end-cover placement before removing pages (raw storage values). */
 export function captureEndCoverPlacement(albumId, totalPages) {
     if (!albumId || totalPages == null) return null;

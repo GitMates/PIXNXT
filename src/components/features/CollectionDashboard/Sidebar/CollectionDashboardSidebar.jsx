@@ -13,6 +13,8 @@ import { cn } from '../../../../lib/utils';
 import { useAuth } from '../../../../hooks/useAuth';
 import { getUserDisplayLabel, getUserInitial } from '../../../../lib/userInitials';
 import { userStorageService, getStorageLimitBytes, formatStorageMeter, STORAGE_CHANGED_EVENT } from '../../../../services/userStorage.service';
+import { photographerQuotaService, QUOTA_CHANGED_EVENT } from '../../../../services/photographerQuota.service';
+import { AccountQuotaMeters } from '../../../ui/AccountQuotaMeters';
 import { navigateToAccount } from '../../../../lib/accountBackNav';
 import { SidebarCoverUpload } from '../CoverSettings/SidebarCoverUpload';
 import './CollectionDashboardSidebar.css';
@@ -225,6 +227,7 @@ export function CollectionDashboardSidebar({
   const [storageBytes, setStorageBytes] = useState(() =>
     userStorageService.getCachedStorageBytes(user?.id)
   );
+  const [quotaSnapshot, setQuotaSnapshot] = useState(null);
 
   useEffect(() => {
     if (!user?.id) return undefined;
@@ -238,17 +241,21 @@ export function CollectionDashboardSidebar({
       /* ignore */
     }
 
-    const refreshStorage = () => {
+    const refreshUsage = () => {
       userStorageService.invalidateCachedStorage(user.id);
+      photographerQuotaService.invalidate(user.id);
       userStorageService.calculateUserStorageBytes(user, profile).then((bytes) => {
         if (typeof bytes === 'number' && bytes >= 0) setStorageBytes(bytes);
       });
+      photographerQuotaService.fetchSnapshot(user.id).then((snap) => setQuotaSnapshot(snap)).catch(() => {});
     };
 
-    refreshStorage();
-    window.addEventListener(STORAGE_CHANGED_EVENT, refreshStorage);
+    refreshUsage();
+    window.addEventListener(STORAGE_CHANGED_EVENT, refreshUsage);
+    window.addEventListener(QUOTA_CHANGED_EVENT, refreshUsage);
     return () => {
-      window.removeEventListener(STORAGE_CHANGED_EVENT, refreshStorage);
+      window.removeEventListener(STORAGE_CHANGED_EVENT, refreshUsage);
+      window.removeEventListener(QUOTA_CHANGED_EVENT, refreshUsage);
     };
   }, [user?.id, profile?.storage_used_bytes]);
 
@@ -390,13 +397,15 @@ export function CollectionDashboardSidebar({
 
       <footer className="cdsb-footer">
         <div className="cdsb-storage">
-          <div className="cdsb-storage__head">
-            <span className="cdsb-storage__label">Storage</span>
-            <span className="cdsb-storage__meta">{formatStorageMeter(usedBytes, maxBytes)}</span>
-          </div>
-          <div className="cdsb-storage__bar">
-            <div className="cdsb-storage__bar-fill" style={{ width: `${storagePct}%` }} />
-          </div>
+          <AccountQuotaMeters
+            compact
+            storageLabel={formatStorageMeter(usedBytes, maxBytes)}
+            storagePct={storagePct}
+            imageUsed={quotaSnapshot?.image_used_count ?? profile?.image_used_count}
+            imageLimit={quotaSnapshot?.image_limit ?? profile?.image_limit}
+            faceUsed={quotaSnapshot?.face_matching_delivery_used ?? profile?.face_matching_delivery_used}
+            faceLimit={quotaSnapshot?.face_matching_delivery_limit ?? profile?.face_matching_delivery_limit}
+          />
         </div>
 
         <button

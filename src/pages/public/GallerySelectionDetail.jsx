@@ -3,6 +3,12 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Check, Copy, Download, Heart, Link as LinkIcon, Lock, Mail, MessageCircle, Send, SendHorizontal, X } from 'lucide-react';
 import { galleryService } from '../../services/gallery.service';
 import { downloadPhotosToZip, generateZipBlob } from '../../lib/downloadPhoto';
+import { isCollectionFeatureEnabled } from '../../lib/collectionFeatureFlags';
+import {
+  GALLERY_LIVE_CHANNEL,
+  GALLERY_MEDIA_STORAGE_PREFIX,
+  GALLERY_SETTINGS_STORAGE_PREFIX,
+} from '../../lib/galleryLiveSync';
 import { MasonryGrid } from '../../components/features/Gallery/MasonryGrid/MasonryGrid';
 import { AppLoader } from '../../components/ui/AppLoading';
 import JSZip from 'jszip';
@@ -164,6 +170,19 @@ export default function GallerySelectionDetail() {
   const isSubmitted = Boolean(list?.submitted_at);
   const isLocked = isSubmitted;
 
+  // Download honors the delivery's download settings — same as the main gallery.
+  const downloadsAllowed = isCollectionFeatureEnabled(collection?.downloads_enabled);
+  // Selections setting: photographer can hide the Download and Share buttons.
+  const selectionActionsAllowed = collection?.selection_allow_download_share !== false;
+  const downloadResolution = useMemo(() => {
+    const offered = Array.isArray(collection?.download_resolutions)
+      ? collection.download_resolutions.filter(Boolean)
+      : [];
+    if (offered.includes('full')) return 'full';
+    if (offered.length > 0) return offered[0];
+    return 'full';
+  }, [collection?.download_resolutions]);
+
   const handleSend = async () => {
     if (!listId || !sessionId || !collection || isLocked) return;
     if (photos.length < 1) {
@@ -201,7 +220,7 @@ export default function GallerySelectionDetail() {
   };
 
   const handleDownload = async () => {
-    if (photos.length === 0 || isDownloading) return;
+    if (photos.length === 0 || isDownloading || !downloadsAllowed) return;
     try {
       setIsDownloading(true);
       setDownloadProgress({ current: 0, total: photos.length });
@@ -214,7 +233,8 @@ export default function GallerySelectionDetail() {
         onProgress: (current, total) => {
           setDownloadProgress({ current, total });
         },
-        preferOriginal: true,
+        resolution: downloadResolution,
+        videoResolution: collection?.video_download_resolution,
       });
 
       if (result.fileCount === 0) {
@@ -293,6 +313,61 @@ export default function GallerySelectionDetail() {
     sessionStorage.setItem(`pixnxt_fav_pick_list_${collection.id}`, listId);
   }, [collection?.id, listId]);
 
+  // Instant update when the photographer changes delivery settings
+  // (e.g. the selections download/share toggle) in another tab.
+  useEffect(() => {
+    if (!slug && !collection?.id) return undefined;
+    let cancelled = false;
+
+    const refreshCollection = async () => {
+      if (!slug || cancelled) return;
+      try {
+        const updated = await galleryService.getCollectionBySlug(slug);
+        if (updated && !cancelled) setCollection(updated);
+      } catch { /* keep showing the last good state */ }
+    };
+
+    const onMessage = (data) => {
+      if (!data || typeof data !== 'object') return;
+      const slugMatch = data.slug && slug && String(data.slug).toLowerCase() === String(slug).toLowerCase();
+      const idMatch = data.collectionId && collection?.id && String(data.collectionId) === String(collection.id);
+      if (!slugMatch && !idMatch) return;
+      // Apply the broadcast patch instantly (broadcast fires before the
+      // dashboard's DB update commits), then re-fetch to converge.
+      if (data.settings && typeof data.settings === 'object') {
+        setCollection((prev) => (prev ? { ...prev, ...data.settings } : prev));
+      }
+      setTimeout(() => {
+        if (!cancelled) void refreshCollection();
+      }, 1200);
+    };
+
+    let channel = null;
+    try {
+      channel = new BroadcastChannel(GALLERY_LIVE_CHANNEL);
+      channel.onmessage = (event) => onMessage(event.data);
+    } catch { /* BroadcastChannel optional */ }
+
+    const onStorage = (event) => {
+      if (!event?.newValue) return;
+      if (
+        event.key?.startsWith(GALLERY_SETTINGS_STORAGE_PREFIX) ||
+        event.key?.startsWith(GALLERY_MEDIA_STORAGE_PREFIX)
+      ) {
+        try {
+          onMessage(JSON.parse(event.newValue));
+        } catch { /* ignore */ }
+      }
+    };
+    window.addEventListener('storage', onStorage);
+
+    return () => {
+      cancelled = true;
+      try { channel?.close(); } catch { /* ignore */ }
+      window.removeEventListener('storage', onStorage);
+    };
+  }, [slug, collection?.id]);
+
   const openGalleryToAdd = () => {
     if (!collection?.id || !listId) return;
     sessionStorage.setItem(`pixnxt_fav_pick_list_${collection.id}`, listId);
@@ -343,18 +418,21 @@ export default function GallerySelectionDetail() {
             <span className="selection-detail__actions-divider" aria-hidden />
 
             {/* Download Button */}
+            {downloadsAllowed && selectionActionsAllowed && (
             <button
               type="button"
               className="selection-detail__top-action-btn"
               onClick={handleDownload}
               disabled={isDownloading || photos.length === 0}
-              title={photos.length === 0 ? 'No photos to download' : 'Download all selected photos'}
+              title={photos.length === 0 ? 'No photos to download' : `Download all selected photos (${downloadResolution} resolution)`}
             >
               <Download size={14} strokeWidth={1.75} className="selection-detail__top-icon" />
               <span>{isDownloading ? (downloadProgress ? `DOWNLOADING (${downloadProgress.current}/${downloadProgress.total})` : 'DOWNLOADING…') : 'DOWNLOAD'}</span>
             </button>
+            )}
 
             {/* Share Menu */}
+            {selectionActionsAllowed && (
             <div className="selection-detail__share-dropdown-wrap" ref={shareMenuRef}>
               <button
                 type="button"
@@ -394,6 +472,7 @@ export default function GallerySelectionDetail() {
                 </div>
               )}
             </div>
+            )}
 
             {/* Main Action Button */}
             {!isLocked ? (

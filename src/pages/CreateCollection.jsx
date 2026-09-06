@@ -5,6 +5,7 @@ import { ClientGallerySelect } from '../components/features/ClientGallery/Client
 import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
 import { guestDeliveryService } from '../services/guestDelivery.service';
+import { photographerQuotaService } from '../services/photographerQuota.service';
 import { supabase } from '../lib/supabase/client';
 import { resolveUploadDefaults } from '../lib/uploadDefaults';
 import '../styles/clientGalleryTheme.css';
@@ -110,20 +111,20 @@ const CreateCollection = () => {
                 ...presetSettings,
             };
 
+            if (guestDeliveryEnabled) {
+                await photographerQuotaService.assertFaceMatchingDeliveryQuota(user.id, 1);
+            }
+
             const newCollection = await galleryService.createCollection(collectionData);
 
             if (guestDeliveryEnabled) {
-                try {
-                    await guestDeliveryService.createLinkedEvent({
-                        collectionId: newCollection.id,
-                        photographerId: user.id,
-                        name,
-                        eventDate: date || null,
-                        slug: collectionSlug,
-                    });
-                } catch (gdErr) {
-                    console.error('Guest delivery event creation failed:', gdErr);
-                }
+                await guestDeliveryService.createLinkedEvent({
+                    collectionId: newCollection.id,
+                    photographerId: user.id,
+                    name,
+                    eventDate: date || null,
+                    slug: collectionSlug,
+                });
             }
             
             navigate(`/deliveries/manage?id=${newCollection.id}`);
