@@ -583,6 +583,40 @@ function mergeCloudCollectionToLocal(albumId, cloudItems, revision = 0) {
     return true;
 }
 
+/**
+ * Authoritative collection sync for public / client preview (custom domains).
+ *
+ * Public viewers have no local edits — the cloud preview_data.collection is the
+ * source of truth. An in-place "New version" file replace keeps the same
+ * collection item id but changes its storagePath. The additive merge above
+ * keeps the stale local path (it deliberately prefers local for the editor's
+ * in-flight uploads), so the custom domain kept rendering old file bytes.
+ * Overwriting aligns local with remote exactly.
+ */
+export function overwriteLocalCollectionFromRemote(albumId) {
+    if (!albumId) return false;
+    const remote = getRemotePreviewData(albumId);
+    const cloudItems = Array.isArray(remote?.collection) ? remote.collection : null;
+    if (!cloudItems) return false;
+
+    const all = readAll();
+    const local = all[albumId] || {};
+    const localItems = Array.isArray(local.items) ? local.items : [];
+
+    if (JSON.stringify(localItems) === JSON.stringify(cloudItems)) return false;
+
+    persistCollectionBucket(all, albumId, {
+        ...local,
+        items: cloudItems.map((item) => ({ ...item })),
+        __revision: Math.max(
+            Number(local.__revision) || 0,
+            Number(remote?.revision) || 0,
+            Date.now()
+        ),
+    });
+    return true;
+}
+
 async function listR2CollectionItems(albumId, photographerId) {
     const [photographerFolders, albumFolders] = await Promise.all([
         getPhotographerPathFolderVariants(photographerId),

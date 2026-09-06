@@ -10,7 +10,8 @@ import {
   mergeAlbumProofTimestamps,
 } from '../components/smart-albums/albumProofStatus';
 import { formatRelativeTime, formatAlbumCardTime } from '../lib/relativeTime';
-import { stripMediaUrlHash } from '../lib/focalPoint';
+import { getCoverFocalForSurface, stripMediaUrlHash } from '../lib/focalPoint';
+import { getCollectionCardCoverSrc } from '../lib/photoDisplayUrl';
 import { INITIAL_STAGES } from '../components/portal/portalData';
 import {
   LAB_PIPELINE_STEPS,
@@ -41,6 +42,14 @@ function formatInr(amount) {
 }
 
 function coverOf(item) {
+  // Use the same card src as the Client Gallery list (web → thumb → stored)
+  // so the dashboard thumbnail is pixel-identical to the delivery tile.
+  try {
+    const cardSrc = getCollectionCardCoverSrc(item);
+    if (cardSrc) return stripMediaUrlHash(cardSrc) || null;
+  } catch {
+    // fall through to legacy fields
+  }
   return stripMediaUrlHash(
     item?.cover_url ||
     item?.list_cover_url ||
@@ -49,6 +58,19 @@ function coverOf(item) {
     item?.cover ||
     ''
   ) || null;
+}
+
+function cardFocalOf(item) {
+  // Same focal surface as CollectionCardCover (Client Gallery list).
+  try {
+    const focal = getCoverFocalForSurface(item, 'card');
+    if (focal && Number.isFinite(Number(focal.x)) && Number.isFinite(Number(focal.y))) {
+      return { focalX: Number(focal.x), focalY: Number(focal.y) };
+    }
+  } catch {
+    // ignore and fall back to centre
+  }
+  return { focalX: 50, focalY: 50 };
 }
 
 function activityAt(item) {
@@ -320,6 +342,7 @@ function buildRecentWork({ collections, albums, events, apps }) {
     const at = activityAt(c);
     const rel = formatRelativeTime(at, { style: 'long' }) || 'recently';
     const shared = c.status === 'published';
+    const { focalX, focalY } = cardFocalOf(c);
     return {
       id: `cg-${c.id}`,
       title: c.name || 'Untitled delivery',
@@ -327,6 +350,8 @@ function buildRecentWork({ collections, albums, events, apps }) {
         ? `Client Gallery · shared ${rel}`
         : `Client Gallery · draft · ${rel}`,
       coverUrl: coverOf(c),
+      focalX,
+      focalY,
       gradient: 'linear-gradient(145deg, #4a2c6a 0%, #c45a3a 55%, #e8a060 100%)',
       sortAt: new Date(at || 0).getTime(),
       route: `/deliveries/manage?id=${c.id}`,
