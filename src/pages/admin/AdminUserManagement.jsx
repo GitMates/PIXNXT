@@ -1,7 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { Search, User, AlertCircle, X, HardDrive, ScanFace, Send, Pencil } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Search, User, AlertCircle, X, HardDrive, ScanFace, Send, Pencil, Images, RotateCcw } from 'lucide-react';
 import { AppLoader, AppSpinner } from '../../components/ui/AppLoading';
 import { supabase } from '../../lib/supabase/client';
+import {
+  broadcastPhotographerLimitsChanged,
+  onPhotographerLimitsBroadcast,
+  subscribeAllPhotographers,
+} from '../../lib/photographerLiveSync';
 
 function quotaState(used, limit) {
   const cap = Number(limit);
@@ -37,6 +42,101 @@ function MiniBar({ used, limit }) {
   );
 }
 
+/** Small on/off switch used inside quota cards. */
+function CardSwitch({ checked, onChange, label }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={() => onChange(!checked)}
+      className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors ${checked ? 'bg-emerald-500' : 'bg-gray-300'}`}
+    >
+      <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${checked ? 'left-4' : 'left-0.5'}`} />
+    </button>
+  );
+}
+
+/** "Reset used to 0" action with undo. Visible only when there is usage to clear. */
+function ResetUsedButton({ flagged, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={flagged ? 'Undo reset' : 'Reset used count to 0 on save'}
+      className={`inline-flex shrink-0 items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold transition-colors ${flagged ? 'bg-amber-100 text-amber-700 hover:bg-amber-200' : 'text-gray-400 hover:text-red-600 hover:bg-red-50'}`}
+    >
+      <RotateCcw className="w-3 h-3" />
+      {flagged ? 'Undo' : 'Reset'}
+    </button>
+  );
+}
+
+/** "Used X" subtitle that reflects a pending reset. */
+function UsedLabel({ used, wasUsed, resetFlag }) {
+  if (resetFlag) {
+    return (
+      <span>
+        Used 0{' '}
+        <span className="text-amber-600 font-medium">
+          (was {Number(wasUsed || 0).toLocaleString()} · resets on save)
+        </span>
+      </span>
+    );
+  }
+  return <span>Used {Number(used || 0).toLocaleString()}</span>;
+}
+
+/** ∞ Unlimited pill — clearer than a bare checkbox. */
+function UnlimitedPill({ unlimited, onChange }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!unlimited)}
+      aria-pressed={unlimited}
+      title="Toggle unlimited"
+      className={`inline-flex shrink-0 items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold transition-colors ${unlimited ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+    >
+      <span className="text-sm leading-none">∞</span>
+      {unlimited ? 'Unlimited' : 'Limited'}
+    </button>
+  );
+}
+
+/** Quota card shell: white elevated card with toggle + icon header. */
+function QuotaCard({ toggle, icon, title, usedLine, actions, children }) {
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="flex items-center gap-2.5">
+        {toggle}
+        {icon}
+        <div className="min-w-0 flex-1">
+          <p className="text-[13px] font-semibold text-gray-800 leading-tight">{title}</p>
+          <p className="text-[11px] text-gray-400">{usedLine}</p>
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">{actions}</div>
+      </div>
+      <div className="mt-3">{children}</div>
+    </div>
+  );
+}
+
+/** Segmented 1 / Multiple / ∞ picker for delivery limits. */
+function LimitSegmented({ unlimited, limitValue, onPickOne, onPickMultiple, onPickUnlimited }) {
+  const isOne = !unlimited && limitValue === '1';
+  const isMultiple = !unlimited && Number(limitValue) > 1;
+  const btn = (active) =>
+    `flex-1 px-2 py-1.5 text-[11px] rounded-lg font-semibold transition-all ${active ? 'bg-white text-[#1a1a1a] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`;
+  return (
+    <div className="flex gap-1 p-1 bg-gray-100 rounded-xl">
+      <button type="button" onClick={onPickOne} className={btn(isOne)}>1</button>
+      <button type="button" onClick={onPickMultiple} className={btn(isMultiple)}>Multiple</button>
+      <button type="button" onClick={onPickUnlimited} className={btn(unlimited)}>∞</button>
+    </div>
+  );
+}
+
 function formatBytes(bytes) {
   if (!bytes || bytes <= 0) return '0.00 MB';
   const tbLimit = 1024 * 1024 * 1024 * 1024;
@@ -61,6 +161,8 @@ const AdminUserManagement = () => {
   const [error, setError] = useState(null);
   const [migrationWarning, setMigrationWarning] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [planFilter, setPlanFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   const [editingUser, setEditingUser] = useState(null);
   const [storageValue, setStorageValue] = useState('');
@@ -84,6 +186,15 @@ const AdminUserManagement = () => {
   const [guestFeature, setGuestFeature] = useState(true);
   // AI search master switch: OFF hides Library nav + disables /photos search
   const [aiSearchEnabled, setAiSearchEnabled] = useState(true);
+  // Pending "reset used to 0" flags (applied on Save, per counter)
+  const [resetUsed, setResetUsed] = useState({
+    normalImage: false,
+    normalFace: false,
+    guestImage: false,
+    guestFace: false,
+  });
+  const toggleResetUsed = (key) =>
+    setResetUsed((prev) => ({ ...prev, [key]: !prev[key] }));
   const [updating, setUpdating] = useState(false);
   const [activeLimitTab, setActiveLimitTab] = useState('normal');
 
@@ -190,8 +301,27 @@ const AdminUserManagement = () => {
     }
   };
 
+  // Ref so the live subscription always calls the latest fetch without re-subscribing.
+  const fetchUsersRef = useRef(fetchUsers);
+  fetchUsersRef.current = fetchUsers;
+
   useEffect(() => {
-    fetchUsers();
+    fetchUsersRef.current();
+    // Instant sync both directions: photographer uploads (recount triggers bump
+    // *_used on their row) and other admins' saves refresh this table live.
+    // Debounced — bulk uploads fire one photographers UPDATE per photo.
+    let timer = null;
+    const schedule = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => fetchUsersRef.current(), 1200);
+    };
+    const offLive = subscribeAllPhotographers(schedule);
+    const offBroadcast = onPhotographerLimitsBroadcast(null, schedule);
+    return () => {
+      clearTimeout(timer);
+      offLive();
+      offBroadcast();
+    };
   }, []);
 
   const initTriState = (limit) => {
@@ -232,6 +362,7 @@ const AdminUserManagement = () => {
     setNormalFeature(user.normalFeature !== false);
     setGuestFeature(user.guestFeature !== false);
     setAiSearchEnabled(user.aiSearch !== false);
+    setResetUsed({ normalImage: false, normalFace: false, guestImage: false, guestFace: false });
     setActiveLimitTab('normal');
   };
 
@@ -323,6 +454,16 @@ const AdminUserManagement = () => {
         face_normal_enabled: normalFeature,
         face_guest_enabled: guestFeature,
         ai_search_enabled: aiSearchEnabled,
+        // Usage resets: zero only the counters the admin flagged. Note the DB
+        // recounts these from source tables on the next upload/delete trigger,
+        // so a reset gives fresh headroom until counts rebuild naturally.
+        ...(resetUsed.normalImage ? { face_normal_image_used: 0 } : {}),
+        ...(resetUsed.guestImage ? { face_guest_image_used: 0 } : {}),
+        ...(resetUsed.normalFace ? { face_normal_delivery_used: 0 } : {}),
+        ...(resetUsed.guestFace ? { face_guest_delivery_used: 0 } : {}),
+        // Legacy mirrors (used by older clients as fallback).
+        ...(resetUsed.normalImage && resetUsed.guestImage ? { image_used_count: 0 } : {}),
+        ...(resetUsed.guestFace ? { face_matching_delivery_used: 0 } : {}),
       };
       const { error: updateError } = await supabase.from('photographers').update(splitPayload).eq('id', editingUser.id);
 
@@ -342,6 +483,8 @@ const AdminUserManagement = () => {
                 storage_limit_bytes: splitPayload.storage_limit_bytes,
                 image_limit: legacyImage,
                 face_matching_delivery_limit: parsedGuestFace,
+                ...(resetUsed.normalImage && resetUsed.guestImage ? { image_used_count: 0 } : {}),
+                ...(resetUsed.guestFace ? { face_matching_delivery_used: 0 } : {}),
               })
               .eq('id', editingUser.id);
             if (legacyError) throw legacyError;
@@ -354,6 +497,9 @@ const AdminUserManagement = () => {
 
       setEditingUser(null);
       fetchUsers();
+      // Instant admin -> photographer (and admin -> admin tabs): push the change
+      // now instead of waiting for the realtime event.
+      broadcastPhotographerLimitsChanged(editingUser.id);
     } catch (err) {
       alert(err.message || 'Failed to update account limits.');
     } finally {
@@ -361,11 +507,51 @@ const AdminUserManagement = () => {
     }
   };
 
-  const filteredUsers = users.filter(
-    (u) =>
-      u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      u.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const isCappedLimit = (limit) => Number(limit) > 0;
+  const isDisabledLimit = (limit) => Number(limit) === -1;
+
+  const quotaPairsOf = (u) => [
+    [u.normalImageUsed, u.normalImageLimit],
+    [u.guestImageUsed, u.guestImageLimit],
+    [u.normalFaceUsed, u.normalFaceLimit],
+    [u.guestFaceUsed, u.guestFaceLimit],
+  ];
+
+  const isUserAtLimit = (u) =>
+    quotaPairsOf(u).some(([used, limit]) => isCappedLimit(limit) && Number(used || 0) >= Number(limit));
+
+  const isUserDisabled = (u) =>
+    u.normalFeature === false ||
+    u.guestFeature === false ||
+    quotaPairsOf(u).some(([, limit]) => isDisabledLimit(limit));
+
+  // Analysis strip (click a card to filter).
+  const analysis = {
+    total: users.length,
+    atLimit: users.filter(isUserAtLimit).length,
+    disabled: users.filter(isUserDisabled).length,
+    aiSearchOff: users.filter((u) => u.aiSearch === false).length,
+  };
+
+  const planOptions = [...new Set(users.map((u) => u.plan || 'Unknown'))];
+
+  const filteredUsers = users.filter((u) => {
+    const q = searchQuery.toLowerCase();
+    if (q && !(u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q))) return false;
+    if (planFilter !== 'all' && (u.plan || 'Unknown') !== planFilter) return false;
+    if (statusFilter === 'at-limit' && !isUserAtLimit(u)) return false;
+    if (statusFilter === 'disabled' && !isUserDisabled(u)) return false;
+    if (statusFilter === 'ai-search-off' && u.aiSearch !== false) return false;
+    if (statusFilter === 'face-off' && !(u.normalFeature === false || u.guestFeature === false)) return false;
+    return true;
+  });
+
+  const filtersActive = Boolean(searchQuery) || planFilter !== 'all' || statusFilter !== 'all';
+  const clearFilters = () => {
+    setSearchQuery('');
+    setPlanFilter('all');
+    setStatusFilter('all');
+  };
 
   return (
     <div className="space-y-6 relative">
@@ -376,16 +562,73 @@ const AdminUserManagement = () => {
         </div>
       </div>
 
-      <div className="bg-[#fdfdfc] p-4 rounded-2xl shadow-sm border border-[#eae8e4] flex items-center justify-between">
-        <div className="relative w-full max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search users by name or email..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-[#f8f7f4] border border-[#eae8e4] hover:border-[#eae8e4]/80 focus:border-[#1a1a1a] focus:bg-white rounded-xl text-sm outline-none transition-all focus:ring-1 focus:ring-[#1a1a1a]"
-          />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          { key: 'all', label: 'Photographers', value: analysis.total, tone: '' },
+          { key: 'at-limit', label: 'At quota limit', value: analysis.atLimit, tone: 'text-red-700' },
+          { key: 'disabled', label: 'Quotas disabled', value: analysis.disabled, tone: 'text-gray-500' },
+          { key: 'ai-search-off', label: 'Library off', value: analysis.aiSearchOff, tone: 'text-amber-700' },
+        ].map((s) => (
+          <button
+            key={s.key}
+            type="button"
+            onClick={() => setStatusFilter((prev) => (prev === s.key ? 'all' : s.key))}
+            title={s.key === 'all' ? 'Show everyone' : `Filter: ${s.label}`}
+            className={`bg-[#fdfdfc] p-4 rounded-2xl shadow-sm border text-left transition-all hover:shadow ${statusFilter === s.key ? 'border-[#1a1a1a] ring-1 ring-[#1a1a1a]' : 'border-[#eae8e4]'}`}
+          >
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">{s.label}</p>
+            <p className={`text-2xl font-bold mt-1 ${s.tone || 'text-gray-900'}`}>{loading ? '—' : s.value.toLocaleString()}</p>
+          </button>
+        ))}
+      </div>
+
+      <div className="bg-[#fdfdfc] p-4 rounded-2xl shadow-sm border border-[#eae8e4] space-y-3">
+        <div className="flex flex-col lg:flex-row gap-3">
+          <div className="relative flex-1 min-w-0">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search users by name or email..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 bg-[#f8f7f4] border border-[#eae8e4] hover:border-[#eae8e4]/80 focus:border-[#1a1a1a] focus:bg-white rounded-xl text-sm outline-none transition-all focus:ring-1 focus:ring-[#1a1a1a]"
+            />
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <select
+              value={planFilter}
+              onChange={(e) => setPlanFilter(e.target.value)}
+              aria-label="Filter by plan"
+              className="px-3 py-2 bg-[#f8f7f4] border border-[#eae8e4] rounded-xl text-sm outline-none focus:border-[#1a1a1a] focus:bg-white transition-all"
+            >
+              <option value="all">All plans</option>
+              {planOptions.map((p) => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              aria-label="Filter by status"
+              className="px-3 py-2 bg-[#f8f7f4] border border-[#eae8e4] rounded-xl text-sm outline-none focus:border-[#1a1a1a] focus:bg-white transition-all"
+            >
+              <option value="all">All statuses</option>
+              <option value="at-limit">At quota limit</option>
+              <option value="disabled">Quotas disabled</option>
+              <option value="ai-search-off">Library off</option>
+              <option value="face-off">Face recognition off</option>
+            </select>
+          </div>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs text-gray-500">
+            Showing <span className="font-semibold text-gray-800">{filteredUsers.length}</span> of <span className="font-semibold text-gray-800">{users.length}</span> photographers
+          </p>
+          {filtersActive && (
+            <button type="button" onClick={clearFilters} className="inline-flex items-center gap-1 text-xs font-semibold text-gray-500 hover:text-gray-900 transition-colors">
+              <X className="w-3.5 h-3.5" />Clear filters
+            </button>
+          )}
         </div>
       </div>
 
@@ -433,8 +676,15 @@ const AdminUserManagement = () => {
               <tbody className="divide-y divide-gray-100">
                 {filteredUsers.length === 0 ? (
                   <tr>
-                    <td colSpan="5" className="px-6 py-12 text-center text-gray-500">
-                      No users found matching "{searchQuery}"
+                    <td colSpan="5" className="px-6 py-12 text-center">
+                      <p className="text-gray-500">
+                        {filtersActive ? 'No photographers match the current filters.' : 'No photographers yet.'}
+                      </p>
+                      {filtersActive && (
+                        <button type="button" onClick={clearFilters} className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold bg-[#1a1a1a] text-white rounded-lg hover:bg-black transition-colors">
+                          <X className="w-3.5 h-3.5" />Clear filters
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ) : (
@@ -628,57 +878,90 @@ const AdminUserManagement = () => {
                       </div>
                     </div>
                     <div className={normalFeature ? '' : 'opacity-50 pointer-events-none'}>
-                    <div className="p-3.5 rounded-xl border border-gray-200 bg-gray-50/60">
-                      <div className="flex items-center justify-between gap-2 mb-2">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <button type="button" role="switch" aria-checked={normalImageEnabled} onClick={() => setNormalImageEnabled(!normalImageEnabled)} className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors ${normalImageEnabled ? 'bg-emerald-500' : 'bg-gray-300'}`}>
-                            <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${normalImageEnabled ? 'left-4' : 'left-0.5'}`} />
-                          </button>
-                          <div className="min-w-0">
-                            <p className="text-[13px] font-semibold text-gray-800 leading-tight">Face images</p>
-                            <p className="text-[11px] text-gray-400">Used {editingUser.normalImageUsed.toLocaleString()}</p>
-                          </div>
-                        </div>
+                    <QuotaCard
+                      toggle={<CardSwitch checked={normalImageEnabled} onChange={setNormalImageEnabled} label="Normal face images" />}
+                      icon={<span className="flex w-8 h-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-600"><Images className="w-4 h-4" /></span>}
+                      title="Face images"
+                      usedLine={<UsedLabel used={resetUsed.normalImage ? 0 : editingUser.normalImageUsed} wasUsed={editingUser.normalImageUsed} resetFlag={resetUsed.normalImage} />}
+                      actions={<>
+                        {normalImageEnabled && (editingUser.normalImageUsed > 0 || resetUsed.normalImage) && (
+                          <ResetUsedButton flagged={resetUsed.normalImage} onClick={() => toggleResetUsed('normalImage')} />
+                        )}
                         {normalImageEnabled && (
-                          <label className="flex items-center gap-1 text-[11px] text-gray-500 cursor-pointer shrink-0"><input type="checkbox" checked={normalImageUnlimited} onChange={(e) => setNormalImageUnlimited(e.target.checked)} className="rounded" />∞</label>
+                          <UnlimitedPill unlimited={normalImageUnlimited} onChange={setNormalImageUnlimited} />
                         )}
-                      </div>
+                      </>}
+                    >
                       {normalImageEnabled ? (
-                        <input type="number" min="1" step="1" disabled={normalImageUnlimited} value={normalImageLimit} onChange={(e) => setNormalImageLimit(e.target.value)} className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-[#1a1a1a] disabled:bg-gray-100 disabled:text-gray-400" placeholder={normalImageUnlimited ? 'Unlimited' : 'e.g. 500'} />
-                      ) : (
-                        <p className="text-[11px] font-medium text-gray-500 bg-gray-100 rounded-lg px-2.5 py-2">Disabled for this user</p>
-                      )}
-                    </div>
-                    <div className="p-3.5 rounded-xl border border-gray-200 bg-gray-50/60">
-                      <div className="flex items-center justify-between gap-2 mb-2">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <button type="button" role="switch" aria-checked={normalFaceEnabled} onClick={() => setNormalFaceEnabled(!normalFaceEnabled)} className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors ${normalFaceEnabled ? 'bg-emerald-500' : 'bg-gray-300'}`}>
-                            <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${normalFaceEnabled ? 'left-4' : 'left-0.5'}`} />
-                          </button>
-                          <div className="min-w-0">
-                            <p className="text-[13px] font-semibold text-gray-800 leading-tight">Deliveries</p>
-                            <p className="text-[11px] text-gray-400">Used {editingUser.normalFaceUsed.toLocaleString()}</p>
+                        normalImageUnlimited ? (
+                          <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-700">
+                            <span className="text-lg leading-none font-bold">∞</span>
+                            <span className="text-[13px] font-semibold">Unlimited</span>
+                            <span className="ml-auto text-[11px] font-normal text-emerald-600">no cap on uploads</span>
                           </div>
-                        </div>
-                        {normalFaceEnabled && (
-                          <label className="flex items-center gap-1 text-[11px] text-gray-500 cursor-pointer shrink-0"><input type="checkbox" checked={normalFaceUnlimited} onChange={(e) => setNormalFaceUnlimited(e.target.checked)} className="rounded" />∞</label>
+                        ) : (
+                          <>
+                            <label className="block text-[11px] font-medium text-gray-500 mb-1.5">Max images</label>
+                            <input type="number" min="1" step="1" value={normalImageLimit} onChange={(e) => setNormalImageLimit(e.target.value)} className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:bg-white focus:border-[#1a1a1a] transition-all" placeholder="e.g. 500" />
+                            {Number(normalImageLimit) > 0 && (
+                              <div className="mt-2.5">
+                                <MiniBar used={resetUsed.normalImage ? 0 : editingUser.normalImageUsed} limit={Number(normalImageLimit)} />
+                                <p className="mt-1 text-[11px] text-gray-400">
+                                  {(resetUsed.normalImage ? 0 : editingUser.normalImageUsed).toLocaleString()} of {Number(normalImageLimit).toLocaleString()} used
+                                </p>
+                              </div>
+                            )}
+                          </>
+                        )
+                      ) : (
+                        <p className="text-[11px] font-medium text-gray-500 bg-gray-100 rounded-xl px-3 py-2.5">Disabled for this user</p>
+                      )}
+                    </QuotaCard>
+                    <QuotaCard
+                      toggle={<CardSwitch checked={normalFaceEnabled} onChange={setNormalFaceEnabled} label="Normal deliveries" />}
+                      icon={<span className="flex w-8 h-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-600"><Send className="w-4 h-4" /></span>}
+                      title="Deliveries"
+                      usedLine={<UsedLabel used={resetUsed.normalFace ? 0 : editingUser.normalFaceUsed} wasUsed={editingUser.normalFaceUsed} resetFlag={resetUsed.normalFace} />}
+                      actions={<>
+                        {normalFaceEnabled && (editingUser.normalFaceUsed > 0 || resetUsed.normalFace) && (
+                          <ResetUsedButton flagged={resetUsed.normalFace} onClick={() => toggleResetUsed('normalFace')} />
                         )}
-                      </div>
+                      </>}
+                    >
                       {normalFaceEnabled ? (
-                        <div className="space-y-2">
-                          <div className="flex gap-1.5">
-                            <button type="button" onClick={() => { setNormalFaceUnlimited(false); setNormalFaceLimit('1'); }} className={`flex-1 px-2 py-1.5 text-[11px] rounded-lg border font-semibold ${!normalFaceUnlimited && normalFaceLimit === '1' ? 'bg-[#1a1a1a] text-white border-[#1a1a1a]' : 'bg-white text-gray-600 border-gray-200'}`}>1</button>
-                            <button type="button" onClick={() => { setNormalFaceUnlimited(false); if (normalFaceLimit === '1' || !normalFaceLimit) setNormalFaceLimit('5'); }} className={`flex-1 px-2 py-1.5 text-[11px] rounded-lg border font-semibold ${!normalFaceUnlimited && Number(normalFaceLimit) > 1 ? 'bg-[#1a1a1a] text-white border-[#1a1a1a]' : 'bg-white text-gray-600 border-gray-200'}`}>Multiple</button>
-                            <button type="button" onClick={() => { setNormalFaceUnlimited(true); setNormalFaceLimit(''); }} className={`flex-1 px-2 py-1.5 text-[11px] rounded-lg border font-semibold ${normalFaceUnlimited ? 'bg-[#1a1a1a] text-white border-[#1a1a1a]' : 'bg-white text-gray-600 border-gray-200'}`}>∞</button>
-                          </div>
-                          {!normalFaceUnlimited && (
-                            <input type="number" min="1" step="1" value={normalFaceLimit} onChange={(e) => setNormalFaceLimit(e.target.value)} className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-[#1a1a1a]" placeholder="e.g. 5" />
+                        <>
+                          <LimitSegmented
+                            unlimited={normalFaceUnlimited}
+                            limitValue={normalFaceLimit}
+                            onPickOne={() => { setNormalFaceUnlimited(false); setNormalFaceLimit('1'); }}
+                            onPickMultiple={() => { setNormalFaceUnlimited(false); if (normalFaceLimit === '1' || !normalFaceLimit) setNormalFaceLimit('5'); }}
+                            onPickUnlimited={() => { setNormalFaceUnlimited(true); setNormalFaceLimit(''); }}
+                          />
+                          {normalFaceUnlimited ? (
+                            <div className="mt-2.5 flex items-center gap-2 px-3 py-2.5 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-700">
+                              <span className="text-lg leading-none font-bold">∞</span>
+                              <span className="text-[13px] font-semibold">Unlimited</span>
+                              <span className="ml-auto text-[11px] font-normal text-emerald-600">no cap on deliveries</span>
+                            </div>
+                          ) : (
+                            <>
+                              <label className="mt-2.5 block text-[11px] font-medium text-gray-500 mb-1.5">Max deliveries</label>
+                              <input type="number" min="1" step="1" value={normalFaceLimit} onChange={(e) => setNormalFaceLimit(e.target.value)} className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:bg-white focus:border-[#1a1a1a] transition-all" placeholder="e.g. 5" />
+                              {Number(normalFaceLimit) > 0 && (
+                                <div className="mt-2.5">
+                                  <MiniBar used={resetUsed.normalFace ? 0 : editingUser.normalFaceUsed} limit={Number(normalFaceLimit)} />
+                                  <p className="mt-1 text-[11px] text-gray-400">
+                                    {(resetUsed.normalFace ? 0 : editingUser.normalFaceUsed).toLocaleString()} of {Number(normalFaceLimit).toLocaleString()} used
+                                  </p>
+                                </div>
+                              )}
+                            </>
                           )}
-                        </div>
+                        </>
                       ) : (
-                        <p className="text-[11px] font-medium text-gray-500 bg-gray-100 rounded-lg px-2.5 py-2">Disabled for this user</p>
+                        <p className="text-[11px] font-medium text-gray-500 bg-gray-100 rounded-xl px-3 py-2.5">Disabled for this user</p>
                       )}
-                    </div>
+                    </QuotaCard>
                     </div>
                   </>
                 ) : (
@@ -701,57 +984,90 @@ const AdminUserManagement = () => {
                       </div>
                     </div>
                     <div className={guestFeature ? '' : 'opacity-50 pointer-events-none'}>
-                    <div className="p-3.5 rounded-xl border border-gray-200 bg-gray-50/60">
-                      <div className="flex items-center justify-between gap-2 mb-2">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <button type="button" role="switch" aria-checked={guestImageEnabled} onClick={() => setGuestImageEnabled(!guestImageEnabled)} className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors ${guestImageEnabled ? 'bg-emerald-500' : 'bg-gray-300'}`}>
-                            <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${guestImageEnabled ? 'left-4' : 'left-0.5'}`} />
-                          </button>
-                          <div className="min-w-0">
-                            <p className="text-[13px] font-semibold text-gray-800 leading-tight">Face images</p>
-                            <p className="text-[11px] text-gray-400">Used {editingUser.guestImageUsed.toLocaleString()}</p>
-                          </div>
-                        </div>
+                    <QuotaCard
+                      toggle={<CardSwitch checked={guestImageEnabled} onChange={setGuestImageEnabled} label="Guest face images" />}
+                      icon={<span className="flex w-8 h-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-600"><Images className="w-4 h-4" /></span>}
+                      title="Face images"
+                      usedLine={<UsedLabel used={resetUsed.guestImage ? 0 : editingUser.guestImageUsed} wasUsed={editingUser.guestImageUsed} resetFlag={resetUsed.guestImage} />}
+                      actions={<>
+                        {guestImageEnabled && (editingUser.guestImageUsed > 0 || resetUsed.guestImage) && (
+                          <ResetUsedButton flagged={resetUsed.guestImage} onClick={() => toggleResetUsed('guestImage')} />
+                        )}
                         {guestImageEnabled && (
-                          <label className="flex items-center gap-1 text-[11px] text-gray-500 cursor-pointer shrink-0"><input type="checkbox" checked={guestImageUnlimited} onChange={(e) => setGuestImageUnlimited(e.target.checked)} className="rounded" />∞</label>
+                          <UnlimitedPill unlimited={guestImageUnlimited} onChange={setGuestImageUnlimited} />
                         )}
-                      </div>
+                      </>}
+                    >
                       {guestImageEnabled ? (
-                        <input type="number" min="1" step="1" disabled={guestImageUnlimited} value={guestImageLimit} onChange={(e) => setGuestImageLimit(e.target.value)} className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-[#1a1a1a] disabled:bg-gray-100 disabled:text-gray-400" placeholder={guestImageUnlimited ? 'Unlimited' : 'e.g. 500'} />
-                      ) : (
-                        <p className="text-[11px] font-medium text-gray-500 bg-gray-100 rounded-lg px-2.5 py-2">Disabled for this user</p>
-                      )}
-                    </div>
-                    <div className="p-3.5 rounded-xl border border-gray-200 bg-gray-50/60">
-                      <div className="flex items-center justify-between gap-2 mb-2">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <button type="button" role="switch" aria-checked={guestFaceEnabled} onClick={() => setGuestFaceEnabled(!guestFaceEnabled)} className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors ${guestFaceEnabled ? 'bg-emerald-500' : 'bg-gray-300'}`}>
-                            <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${guestFaceEnabled ? 'left-4' : 'left-0.5'}`} />
-                          </button>
-                          <div className="min-w-0">
-                            <p className="text-[13px] font-semibold text-gray-800 leading-tight">Deliveries</p>
-                            <p className="text-[11px] text-gray-400">Used {editingUser.guestFaceUsed.toLocaleString()}</p>
+                        guestImageUnlimited ? (
+                          <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-700">
+                            <span className="text-lg leading-none font-bold">∞</span>
+                            <span className="text-[13px] font-semibold">Unlimited</span>
+                            <span className="ml-auto text-[11px] font-normal text-emerald-600">no cap on uploads</span>
                           </div>
-                        </div>
-                        {guestFaceEnabled && (
-                          <label className="flex items-center gap-1 text-[11px] text-gray-500 cursor-pointer shrink-0"><input type="checkbox" checked={guestFaceUnlimited} onChange={(e) => setGuestFaceUnlimited(e.target.checked)} className="rounded" />∞</label>
+                        ) : (
+                          <>
+                            <label className="block text-[11px] font-medium text-gray-500 mb-1.5">Max images</label>
+                            <input type="number" min="1" step="1" value={guestImageLimit} onChange={(e) => setGuestImageLimit(e.target.value)} className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:bg-white focus:border-[#1a1a1a] transition-all" placeholder="e.g. 500" />
+                            {Number(guestImageLimit) > 0 && (
+                              <div className="mt-2.5">
+                                <MiniBar used={resetUsed.guestImage ? 0 : editingUser.guestImageUsed} limit={Number(guestImageLimit)} />
+                                <p className="mt-1 text-[11px] text-gray-400">
+                                  {(resetUsed.guestImage ? 0 : editingUser.guestImageUsed).toLocaleString()} of {Number(guestImageLimit).toLocaleString()} used
+                                </p>
+                              </div>
+                            )}
+                          </>
+                        )
+                      ) : (
+                        <p className="text-[11px] font-medium text-gray-500 bg-gray-100 rounded-xl px-3 py-2.5">Disabled for this user</p>
+                      )}
+                    </QuotaCard>
+                    <QuotaCard
+                      toggle={<CardSwitch checked={guestFaceEnabled} onChange={setGuestFaceEnabled} label="Guest deliveries" />}
+                      icon={<span className="flex w-8 h-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-600"><Send className="w-4 h-4" /></span>}
+                      title="Deliveries"
+                      usedLine={<UsedLabel used={resetUsed.guestFace ? 0 : editingUser.guestFaceUsed} wasUsed={editingUser.guestFaceUsed} resetFlag={resetUsed.guestFace} />}
+                      actions={<>
+                        {guestFaceEnabled && (editingUser.guestFaceUsed > 0 || resetUsed.guestFace) && (
+                          <ResetUsedButton flagged={resetUsed.guestFace} onClick={() => toggleResetUsed('guestFace')} />
                         )}
-                      </div>
+                      </>}
+                    >
                       {guestFaceEnabled ? (
-                        <div className="space-y-2">
-                          <div className="flex gap-1.5">
-                            <button type="button" onClick={() => { setGuestFaceUnlimited(false); setGuestFaceLimit('1'); }} className={`flex-1 px-2 py-1.5 text-[11px] rounded-lg border font-semibold ${!guestFaceUnlimited && guestFaceLimit === '1' ? 'bg-[#1a1a1a] text-white border-[#1a1a1a]' : 'bg-white text-gray-600 border-gray-200'}`}>1</button>
-                            <button type="button" onClick={() => { setGuestFaceUnlimited(false); if (guestFaceLimit === '1' || !guestFaceLimit) setGuestFaceLimit('5'); }} className={`flex-1 px-2 py-1.5 text-[11px] rounded-lg border font-semibold ${!guestFaceUnlimited && Number(guestFaceLimit) > 1 ? 'bg-[#1a1a1a] text-white border-[#1a1a1a]' : 'bg-white text-gray-600 border-gray-200'}`}>Multiple</button>
-                            <button type="button" onClick={() => { setGuestFaceUnlimited(true); setGuestFaceLimit(''); }} className={`flex-1 px-2 py-1.5 text-[11px] rounded-lg border font-semibold ${guestFaceUnlimited ? 'bg-[#1a1a1a] text-white border-[#1a1a1a]' : 'bg-white text-gray-600 border-gray-200'}`}>∞</button>
-                          </div>
-                          {!guestFaceUnlimited && (
-                            <input type="number" min="1" step="1" value={guestFaceLimit} onChange={(e) => setGuestFaceLimit(e.target.value)} className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-[#1a1a1a]" placeholder="e.g. 1" />
+                        <>
+                          <LimitSegmented
+                            unlimited={guestFaceUnlimited}
+                            limitValue={guestFaceLimit}
+                            onPickOne={() => { setGuestFaceUnlimited(false); setGuestFaceLimit('1'); }}
+                            onPickMultiple={() => { setGuestFaceUnlimited(false); if (guestFaceLimit === '1' || !guestFaceLimit) setGuestFaceLimit('5'); }}
+                            onPickUnlimited={() => { setGuestFaceUnlimited(true); setGuestFaceLimit(''); }}
+                          />
+                          {guestFaceUnlimited ? (
+                            <div className="mt-2.5 flex items-center gap-2 px-3 py-2.5 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-700">
+                              <span className="text-lg leading-none font-bold">∞</span>
+                              <span className="text-[13px] font-semibold">Unlimited</span>
+                              <span className="ml-auto text-[11px] font-normal text-emerald-600">no cap on deliveries</span>
+                            </div>
+                          ) : (
+                            <>
+                              <label className="mt-2.5 block text-[11px] font-medium text-gray-500 mb-1.5">Max deliveries</label>
+                              <input type="number" min="1" step="1" value={guestFaceLimit} onChange={(e) => setGuestFaceLimit(e.target.value)} className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:bg-white focus:border-[#1a1a1a] transition-all" placeholder="e.g. 1" />
+                              {Number(guestFaceLimit) > 0 && (
+                                <div className="mt-2.5">
+                                  <MiniBar used={resetUsed.guestFace ? 0 : editingUser.guestFaceUsed} limit={Number(guestFaceLimit)} />
+                                  <p className="mt-1 text-[11px] text-gray-400">
+                                    {(resetUsed.guestFace ? 0 : editingUser.guestFaceUsed).toLocaleString()} of {Number(guestFaceLimit).toLocaleString()} used
+                                  </p>
+                                </div>
+                              )}
+                            </>
                           )}
-                        </div>
+                        </>
                       ) : (
-                        <p className="text-[11px] font-medium text-gray-500 bg-gray-100 rounded-lg px-2.5 py-2">Disabled for this user</p>
+                        <p className="text-[11px] font-medium text-gray-500 bg-gray-100 rounded-xl px-3 py-2.5">Disabled for this user</p>
                       )}
-                    </div>
+                    </QuotaCard>
                     </div>
                   </>
                 )}

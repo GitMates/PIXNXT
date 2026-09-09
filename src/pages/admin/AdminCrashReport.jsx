@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { CRASH_CATEGORIES, CRASH_LIST, crashByNo } from '../../lib/crashTaxonomy';
+import { CRASH_DETECTION_EVENT, isCrashDetectionEnabled, setCrashDetectionEnabled } from '../../lib/crashLogger';
 
 const WORKER_URL = (import.meta.env.VITE_CRASH_WORKER_URL || '').replace(/\/+$/, '');
 
@@ -12,6 +13,22 @@ export default function AdminCrashReport() {
   const [hours, setHours] = useState(72);
   const [category, setCategory] = useState('');
   const [q, setQ] = useState('');
+  // Crash detection master switch (top-right toggle). Browser-local: OFF stops
+  // global error hooks + logCrash reporting from this browser immediately.
+  const [detectionOn, setDetectionOn] = useState(() => isCrashDetectionEnabled());
+
+  useEffect(() => {
+    const sync = (e) => {
+      if (e?.detail && typeof e.detail.enabled === 'boolean') setDetectionOn(e.detail.enabled);
+      else setDetectionOn(isCrashDetectionEnabled());
+    };
+    window.addEventListener(CRASH_DETECTION_EVENT, sync);
+    window.addEventListener('storage', sync);
+    return () => {
+      window.removeEventListener(CRASH_DETECTION_EVENT, sync);
+      window.removeEventListener('storage', sync);
+    };
+  }, []);
 
   const load = async () => {
     setLoading(true); setError('');
@@ -55,10 +72,35 @@ export default function AdminCrashReport() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 tracking-tight font-serif uppercase">Crash Report</h1>
-        <p className="text-gray-500 mt-1">Who crashed, crash type + name, reason. Source: Analytics Engine dataset <code>pixnxt_crashes</code> ({CRASH_LIST.length} crash names tracked). {!WORKER_URL && <span className="text-amber-600">Set VITE_CRASH_WORKER_URL to go live — showing taxonomy preview.</span>}</p>
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight font-serif uppercase">Crash Report</h1>
+          <p className="text-gray-500 mt-1">Who crashed, crash type + name, reason. Source: Analytics Engine dataset <code>pixnxt_crashes</code> ({CRASH_LIST.length} crash names tracked). {!WORKER_URL && <span className="text-amber-600">Set VITE_CRASH_WORKER_URL to go live — showing taxonomy preview.</span>}</p>
+        </div>
+        <div className={`shrink-0 flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl border shadow-sm transition-colors ${detectionOn ? 'bg-[#fdfdfc] border-[#eae8e4]' : 'bg-gray-50 border-gray-200'}`}>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={detectionOn}
+            aria-label="Crash detection"
+            onClick={() => { setCrashDetectionEnabled(!detectionOn); setDetectionOn(!detectionOn); }}
+            className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors ${detectionOn ? 'bg-emerald-500' : 'bg-gray-300'}`}
+          >
+            <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${detectionOn ? 'left-[22px]' : 'left-0.5'}`} />
+          </button>
+          <div className="leading-tight">
+            <p className="text-[13px] font-bold text-gray-900">Crash detection</p>
+            <p className="text-[11px] text-gray-500">{detectionOn ? 'Capturing errors' : 'Paused on this browser'}</p>
+          </div>
+          <span className={`shrink-0 px-2 py-0.5 rounded-full text-[11px] font-bold ${detectionOn ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-500'}`}>{detectionOn ? 'ON' : 'OFF'}</span>
+        </div>
       </div>
+
+      {!detectionOn && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
+          <p className="text-amber-800 text-sm">Crash detection is <strong>paused on this browser</strong> — new errors (including unhandled exceptions) will not be reported until you turn it back on. Past events below are still queryable.</p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {[['Total events', stats.total], ['Accounts affected', stats.accounts], ['Categories', Object.keys(stats.byCat).length]].map(([l, v]) => (

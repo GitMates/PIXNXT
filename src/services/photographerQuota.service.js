@@ -156,8 +156,8 @@ export function formatCountMeter(used, limit) {
   const cap = Number(limit);
   if (cap === -1) return 'Disabled';
   const usedCount = asUsed(used);
-  if (cap > 0) return `${usedCount.toLocaleString()} / ${cap.toLocaleString()}`;
-  return `${usedCount.toLocaleString()} / Unlimited`;
+  if (cap > 0) return `${usedCount.toLocaleString()}/${cap.toLocaleString()}`;
+  return `${usedCount.toLocaleString()}/Unlimited`;
 }
 
 export function quotaPercent(used, limit) {

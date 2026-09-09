@@ -1,7 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Search, User, AlertCircle, X, Layers, Send, Pencil } from 'lucide-react';
 import { AppLoader, AppSpinner } from '../../components/ui/AppLoading';
 import { supabase } from '../../lib/supabase/client';
+import {
+  broadcastPhotographerLimitsChanged,
+  onPhotographerLimitsBroadcast,
+  subscribeAllPhotographers,
+} from '../../lib/photographerLiveSync';
 
 function quotaState(used, limit) {
   const cap = Number(limit);
@@ -68,6 +73,8 @@ const AdminUsageManagement = () => {
   const [error, setError] = useState(null);
   const [migrationWarning, setMigrationWarning] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [planFilter, setPlanFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   const [editingUser, setEditingUser] = useState(null);
   const [albumEnabled, setAlbumEnabled] = useState(true);
@@ -138,8 +145,26 @@ const AdminUsageManagement = () => {
     }
   };
 
+  // Ref so the live subscription always calls the latest fetch without re-subscribing.
+  const fetchUsersRef = useRef(fetchUsers);
+  fetchUsersRef.current = fetchUsers;
+
   useEffect(() => {
-    fetchUsers();
+    fetchUsersRef.current();
+    // Instant sync both directions (see AdminUserManagement): debounced because
+    // bulk uploads fire one photographers UPDATE per photo.
+    let timer = null;
+    const schedule = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => fetchUsersRef.current(), 1200);
+    };
+    const offLive = subscribeAllPhotographers(schedule);
+    const offBroadcast = onPhotographerLimitsBroadcast(null, schedule);
+    return () => {
+      clearTimeout(timer);
+      offLive();
+      offBroadcast();
+    };
   }, []);
 
   const openEditor = (user) => {
@@ -173,6 +198,8 @@ const AdminUsageManagement = () => {
       }
       setEditingUser(null);
       fetchUsers();
+      // Instant admin -> photographer (and admin -> admin tabs).
+      broadcastPhotographerLimitsChanged(editingUser.id);
     } catch (err) {
       alert(err.message || 'Failed to update limits.');
     } finally {
@@ -180,9 +207,32 @@ const AdminUsageManagement = () => {
     }
   };
 
-  const filtered = users.filter(
-    (u) => u.name.toLowerCase().includes(searchQuery.toLowerCase()) || (u.email || '').toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const capStateOf = (used, limit) => {
+    const cap = Number(limit);
+    if (cap === -1) return 'disabled';
+    if (cap > 0 && Number(used || 0) >= cap) return 'at-limit';
+    return 'ok';
+  };
+  const isBlocked = (used, limit) => capStateOf(used, limit) !== 'ok';
+
+  const planOptions = [...new Set(users.map((u) => u.plan || 'Free'))];
+
+  const filtered = users.filter((u) => {
+    const q = searchQuery.toLowerCase();
+    if (q && !(u.name.toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q))) return false;
+    if (planFilter !== 'all' && (u.plan || 'Free') !== planFilter) return false;
+    if (statusFilter === 'blocked' && !(isBlocked(u.albumUsed, u.albumLimit) || isBlocked(u.deliveryUsed, u.deliveryLimit))) return false;
+    if (statusFilter === 'albums-blocked' && !isBlocked(u.albumUsed, u.albumLimit)) return false;
+    if (statusFilter === 'deliveries-blocked' && !isBlocked(u.deliveryUsed, u.deliveryLimit)) return false;
+    return true;
+  });
+
+  const filtersActive = Boolean(searchQuery) || planFilter !== 'all' || statusFilter !== 'all';
+  const clearFilters = () => {
+    setSearchQuery('');
+    setPlanFilter('all');
+    setStatusFilter('all');
+  };
   const totalAlbums = users.reduce((s, u) => s + (Number(u.albumUsed) || 0), 0);
   const totalDeliveries = users.reduce((s, u) => s + (Number(u.deliveryUsed) || 0), 0);
   const atLimit = users.filter((u) => {
@@ -217,16 +267,52 @@ const AdminUsageManagement = () => {
         </div>
       </div>
 
-      <div className="bg-[#fdfdfc] p-4 rounded-2xl shadow-sm border border-[#eae8e4]">
-        <div className="relative w-full max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search photographers..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-[#f8f7f4] border border-[#eae8e4] rounded-xl text-sm outline-none focus:border-[#1a1a1a] focus:bg-white transition-all"
-          />
+      <div className="bg-[#fdfdfc] p-4 rounded-2xl shadow-sm border border-[#eae8e4] space-y-3">
+        <div className="flex flex-col lg:flex-row gap-3">
+          <div className="relative flex-1 min-w-0">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search photographers..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 bg-[#f8f7f4] border border-[#eae8e4] rounded-xl text-sm outline-none focus:border-[#1a1a1a] focus:bg-white transition-all"
+            />
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <select
+              value={planFilter}
+              onChange={(e) => setPlanFilter(e.target.value)}
+              aria-label="Filter by plan"
+              className="px-3 py-2 bg-[#f8f7f4] border border-[#eae8e4] rounded-xl text-sm outline-none focus:border-[#1a1a1a] focus:bg-white transition-all"
+            >
+              <option value="all">All plans</option>
+              {planOptions.map((p) => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              aria-label="Filter by creation status"
+              className="px-3 py-2 bg-[#f8f7f4] border border-[#eae8e4] rounded-xl text-sm outline-none focus:border-[#1a1a1a] focus:bg-white transition-all"
+            >
+              <option value="all">All statuses</option>
+              <option value="blocked">At limit / disabled</option>
+              <option value="albums-blocked">Albums blocked</option>
+              <option value="deliveries-blocked">Deliveries blocked</option>
+            </select>
+          </div>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs text-gray-500">
+            Showing <span className="font-semibold text-gray-800">{filtered.length}</span> of <span className="font-semibold text-gray-800">{users.length}</span> photographers
+          </p>
+          {filtersActive && (
+            <button type="button" onClick={clearFilters} className="inline-flex items-center gap-1 text-xs font-semibold text-gray-500 hover:text-gray-900 transition-colors">
+              <X className="w-3.5 h-3.5" />Clear filters
+            </button>
+          )}
         </div>
       </div>
 
@@ -266,7 +352,16 @@ const AdminUsageManagement = () => {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {filtered.length === 0 ? (
-                  <tr><td colSpan="4" className="px-6 py-12 text-center text-gray-500">No photographers found.</td></tr>
+                  <tr>
+                    <td colSpan="4" className="px-6 py-12 text-center">
+                      <p className="text-gray-500">{filtersActive ? 'No photographers match the current filters.' : 'No photographers found.'}</p>
+                      {filtersActive && (
+                        <button type="button" onClick={clearFilters} className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold bg-[#1a1a1a] text-white rounded-lg hover:bg-black transition-colors">
+                          <X className="w-3.5 h-3.5" />Clear filters
+                        </button>
+                      )}
+                    </td>
+                  </tr>
                 ) : (
                   filtered.map((u) => (
                     <tr key={u.id} className="hover:bg-[#f8f7f4]/60 transition-colors align-top">

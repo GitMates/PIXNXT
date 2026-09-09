@@ -23,6 +23,11 @@ import {
 import StudioNotifications from './dashboard/StudioNotifications';
 import { userStorageService, getStorageLimitBytes, formatStorageMeter, STORAGE_CHANGED_EVENT } from '../services/userStorage.service';
 import { photographerQuotaService, QUOTA_CHANGED_EVENT } from '../services/photographerQuota.service';
+import {
+    handlePhotographerLiveUpdate,
+    onPhotographerLimitsBroadcast,
+    subscribePhotographerRow,
+} from '../lib/photographerLiveSync';
 import { AccountQuotaMeters } from './ui/AccountQuotaMeters';
 import { getThemeMode, setThemeMode, THEME_CHANGE_EVENT } from '../lib/appearanceTheme';
 import { syncUploadDefaultsToLocalStorage } from '../lib/uploadDefaults';
@@ -205,6 +210,31 @@ const SidebarLayout = ({
             window.removeEventListener(QUOTA_CHANGED_EVENT, refreshUsage);
         };
     }, [user?.id, profile?.storage_used_bytes]);
+
+    // Instant admin -> photographer sync: when the admin changes limits or
+    // features on this photographer's row, update profile + quotas at once
+    // (Realtime from any admin + same-browser broadcast, no reload needed).
+    useEffect(() => {
+        if (!user?.id) return;
+        const applyRow = (row) => {
+            if (row && typeof row === 'object') {
+                setProfile(row);
+                try {
+                    localStorage.setItem(`photographer_profile_${user.id}`, JSON.stringify(row));
+                    syncUploadDefaultsToLocalStorage(row);
+                } catch {
+                    /* ignore quota */
+                }
+            }
+            handlePhotographerLiveUpdate(user.id);
+        };
+        const offRow = subscribePhotographerRow(user.id, applyRow);
+        const offBroadcast = onPhotographerLimitsBroadcast(user.id, () => handlePhotographerLiveUpdate(user.id));
+        return () => {
+            offRow();
+            offBroadcast();
+        };
+    }, [user?.id]);
 
     const usedBytes = realStorageBytes ?? profile?.storage_used_bytes ?? 0;
     const maxBytes = getStorageLimitBytes(profile);

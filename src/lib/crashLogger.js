@@ -6,6 +6,33 @@ const WORKER_URL = (import.meta.env.VITE_CRASH_WORKER_URL || '').replace(/\/+$/,
 const QUEUE_KEY = 'pixnxt_crash_queue_v1';
 const MAX_QUEUE = 200;
 
+// Crash detection master switch (admin toggle in Crash Report, top right).
+// Browser-local: 'off' stops all reporting from this browser (global hooks +
+// manual logCrash calls). Defaults ON; stored so it survives reloads.
+const DETECTION_KEY = 'pixnxt_crash_detection';
+export const CRASH_DETECTION_EVENT = 'pixnxt-crash-detection-changed';
+
+export function isCrashDetectionEnabled() {
+  try {
+    if (typeof window !== 'undefined' && window.__PIXNXT_CRASH_DETECTION_OFF__) return false;
+    const v = (typeof localStorage !== 'undefined' && localStorage.getItem(DETECTION_KEY)) || 'on';
+    return v !== 'off';
+  } catch {
+    return true;
+  }
+}
+
+export function setCrashDetectionEnabled(on) {
+  try {
+    if (typeof window !== 'undefined') {
+      window.__PIXNXT_CRASH_DETECTION_OFF__ = !on;
+      localStorage.setItem(DETECTION_KEY, on ? 'on' : 'off');
+      window.dispatchEvent(new CustomEvent(CRASH_DETECTION_EVENT, { detail: { enabled: Boolean(on) } }));
+    }
+  } catch { /* storage unavailable: flag still applies via memory */ }
+  if (typeof window !== 'undefined') window.__PIXNXT_CRASH_DETECTION_OFF__ = !on;
+}
+
 function readQueue() {
   try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]'); } catch { return []; }
 }
@@ -32,7 +59,9 @@ function baseContext(extra = {}) {
 }
 
 // crashNo 1-266 required. crashType/category/name auto-filled from taxonomy if omitted.
+// No-op while crash detection is switched off (admin toggle).
 export async function logCrash({ crashNo, category, crashType, crashName, reason, ...extra }) {
+  if (!isCrashDetectionEnabled()) return { ok: false, via: 'disabled' };
   const ref = crashByNo(crashNo);
   const payload = {
     ...baseContext(extra),
@@ -86,14 +115,18 @@ export function reportCaught(crashNo, err, extra = {}) {
 }
 
 // Install once in main.jsx: window.onerror + unhandledrejection -> crashNo 77/78
+// Handlers check the detection flag at event time so the admin toggle
+// takes effect immediately without a reload.
 export function installGlobalCrashHooks() {
   if (window.__PIXNXT_CRASH_HOOKS__) return;
   window.__PIXNXT_CRASH_HOOKS__ = true;
   window.addEventListener('error', (e) => {
+    if (!isCrashDetectionEnabled()) return;
     void logCrash({ crashNo: 77, reason: String(e.message || 'window.onerror').slice(0, 300), route: window.location.pathname, stack: String(e.error?.stack || '').slice(0, 1000) });
   });
   window.addEventListener('unhandledrejection', (e) => {
+    if (!isCrashDetectionEnabled()) return;
     void logCrash({ crashNo: 78, reason: String(e.reason?.message || e.reason || 'unhandledrejection').slice(0, 300), route: window.location.pathname });
   });
-  flushQueue();
+  if (isCrashDetectionEnabled()) flushQueue();
 }

@@ -7,6 +7,11 @@ import { galleryService } from '../services/gallery.service';
 import { guestDeliveryPhotosService } from '../services/guestDeliveryPhotos.service';
 import { photoAiService } from '../services/photoAi.service';
 import { photographerQuotaService, canUseAiSearch } from '../services/photographerQuota.service';
+import {
+  handlePhotographerLiveUpdate,
+  onPhotographerLimitsBroadcast,
+  subscribePhotographerRow,
+} from '../lib/photographerLiveSync';
 import { collectLabelSuggestions, filterPhotosByAiSearch, filterPhotosByDateRange } from '../lib/photoAiSearch';
 import { formatFilterDateRangeLabel } from '../utils/clientGalleryFilters';
 import { groupPhotosByMonth } from '../lib/groupPhotosByMonth';
@@ -38,22 +43,41 @@ const PhotoLibrary = () => {
   useEffect(() => {
     if (!user?.id) return;
     let cancelled = false;
-    photographerQuotaService
-      .fetchSnapshot(user.id)
-      .then((snapshot) => {
-        if (!cancelled) {
-          setAiSearchEnabled(canUseAiSearch(snapshot));
-          setAiSearchChecked(true);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setAiSearchEnabled(true);
-          setAiSearchChecked(true);
-        }
-      });
+    const checkAiSearch = () => {
+      photographerQuotaService.invalidate(user.id);
+      photographerQuotaService
+        .fetchSnapshot(user.id)
+        .then((snapshot) => {
+          if (!cancelled) {
+            setAiSearchEnabled(canUseAiSearch(snapshot));
+            setAiSearchChecked(true);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setAiSearchEnabled(true);
+            setAiSearchChecked(true);
+          }
+        });
+    };
+    checkAiSearch();
+    // Instant admin -> photographer sync: AI search toggle applies live.
+    const offRow = subscribePhotographerRow(user.id, () => {
+      if (!cancelled) {
+        handlePhotographerLiveUpdate(user.id);
+        checkAiSearch();
+      }
+    });
+    const offBroadcast = onPhotographerLimitsBroadcast(user.id, () => {
+      if (!cancelled) {
+        handlePhotographerLiveUpdate(user.id);
+        checkAiSearch();
+      }
+    });
     return () => {
       cancelled = true;
+      offRow();
+      offBroadcast();
     };
   }, [user?.id]);
 

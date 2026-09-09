@@ -6,23 +6,28 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
+  flex-wrap: nowrap;
 }
 
 .aqm-row__label {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: #8c827a;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .aqm-row__meta {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   color: #8c827a;
   font-variant-numeric: tabular-nums;
   margin-left: auto;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .aqm-toggle {
@@ -76,12 +81,16 @@
 .cdsb-storage .aqm-row__label {
   font-size: 9px;
   font-weight: 600;
-  letter-spacing: 0.13em;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  flex-shrink: 0;
   color: var(--cdsb-muted, #8c827a);
 }
 
 .cdsb-storage .aqm-row__meta {
-  font-size: 11.5px;
+  font-size: 11px;
+  white-space: nowrap;
+  flex-shrink: 0;
   color: #4a453f;
 }
 
