@@ -11,7 +11,7 @@ import {
 import { Heart, Play } from 'lucide-react';
 import { galleryService } from '../services/gallery.service';
 import { photoAiService } from '../services/photoAi.service';
-import { photographerQuotaService, isFaceRecognitionEnabled } from '../services/photographerQuota.service';
+import { photographerQuotaService, canUseNormalFaceRecognition } from '../services/photographerQuota.service';
 import {
     filterPhotosByPerson,
     filterPhotosByIds,
@@ -175,10 +175,10 @@ const CollectionDashboard = () => {
             .catch((err) => console.error('Error loading photographer profile:', err));
     }, [user?.id]);
 
-    // Derive face recognition enabled/disabled from the photographer profile quota
+    // Master toggle + quota: OFF hides the Find People button (normal delivery)
     useEffect(() => {
         if (profile) {
-            setFaceAiEnabled(isFaceRecognitionEnabled(profile));
+            setFaceAiEnabled(canUseNormalFaceRecognition(profile));
         }
     }, [profile]);
 
@@ -3030,7 +3030,32 @@ const CollectionDashboard = () => {
 
         const stale = !(await photoAiService.isPeopleCacheFresh(collectionId, rows));
         const unindexed = indexablePhotoCount > rows.length;
-        if (!force && !unindexed && !stale) {
+        // Rows indexed while label detection was off carry no AI keywords.
+        // Repair when ANY row lacks labels (not only when ALL do), otherwise
+        // partially-labelled deliveries (e.g. food photos) never get repaired.
+        const missingLabels = rows.length > 0 && rows.some((r) => !((r.labels || []).length));
+        if (!force && !unindexed && !stale && !missingLabels) {
+            await loadPhotoAiPeople({
+                silent: true,
+                applyGuestLabels: Boolean(collection?.guest_delivery_enabled),
+            });
+            return;
+        }
+
+        // Labels-only backfill: fills AI keywords without re-indexing faces,
+        // so people clusters stay exactly as they are.
+        if (!force && missingLabels && !unindexed && !stale) {
+            photoAiSyncingRef.current = true;
+            setPhotoAiIndexing(true);
+            try {
+                await photoAiService.repairLabels(collectionId);
+                await refreshPhotoAiMetadata();
+            } catch (err) {
+                console.warn('Photo AI label repair failed:', err);
+            } finally {
+                photoAiSyncingRef.current = false;
+                setPhotoAiIndexing(false);
+            }
             await loadPhotoAiPeople({
                 silent: true,
                 applyGuestLabels: Boolean(collection?.guest_delivery_enabled),
@@ -3045,7 +3070,7 @@ const CollectionDashboard = () => {
             if (photographerId) {
                 const unindexedCount = Math.max(0, indexablePhotoCount - rows.length);
                 const countToCheck = force ? indexablePhotoCount : (unindexedCount || 1);
-                await photographerQuotaService.assertImageQuota(photographerId, countToCheck);
+                await photographerQuotaService.assertNormalImageQuota(photographerId, countToCheck);
             }
             await photoAiService.syncCollection(collectionId, 500, {
                 forceReindex: force,
@@ -4858,6 +4883,7 @@ const CollectionDashboard = () => {
                 </div>
 
                 <div className="cd-topbar-right">
+                    {faceAiEnabled && (
                     <button
                         type="button"
                         className="cd-topbar-btn cd-face-recognise-btn"
@@ -4873,6 +4899,7 @@ const CollectionDashboard = () => {
                         <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/></svg>
                         <span>Find People</span>
                     </button>
+                    )}
                     <div className="cd-more-wrapper" ref={moreRef}>
                         <button
                             type="button"

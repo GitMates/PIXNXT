@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Users, LogOut, ChevronDown, User, Shield } from 'lucide-react';
+import { LayoutDashboard, Users, LogOut, ChevronDown, User, Shield, AlertTriangle, Layers } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { supabase } from '../../lib/supabase/client';
 import { getUserDisplayLabel, getUserInitial } from '../../lib/userInitials';
@@ -41,6 +41,8 @@ const AdminLayout = () => {
   const navItems = [
     { name: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard },
     { name: 'User Management', path: '/admin/users', icon: Users },
+    { name: 'Albums & Deliveries', path: '/admin/usage', icon: Layers },
+    { name: 'Crash Report', path: '/admin/crashes', icon: AlertTriangle },
   ];
 
   const renderProfileDropdown = () => (

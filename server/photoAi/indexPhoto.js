@@ -20,7 +20,7 @@ export const rekognitionCollectionId = rekognitionDeliveryId;
 
 export { resolvePhotoAiSourceUrl } from './faceUtils.js';
 
-async function downloadImageBytes(url) {
+export async function downloadImageBytesForAnalysis(url) {
   if (!url) throw new Error('Photo has no image URL to analyze.');
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 45000);
@@ -66,14 +66,14 @@ export async function indexPhotoById(photoId, { supabase, skipClusterInvalidate 
   }
 
   const imageUrl = resolvePhotoAiSourceUrl(photo);
-  const rawBytes = await downloadImageBytes(imageUrl);
+  const rawBytes = await downloadImageBytesForAnalysis(imageUrl);
   const imageBytes = await prepareImageBytesForRekognition(rawBytes);
 
   const analysis = await analyzeImageBytes(imageBytes, {
     deliveryFaceGroupId: rekognitionDeliveryId(photo.collection_id),
     externalImageId: String(photo.id),
     indexFaces: true,
-    detectLabels: false,
+    detectLabels: true,
   });
 
   const labels = (analysis.labels || []).map((l) => l.name).filter(Boolean);

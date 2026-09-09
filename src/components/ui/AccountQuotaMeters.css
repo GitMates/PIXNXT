@@ -22,6 +22,35 @@
   font-weight: 500;
   color: #8c827a;
   font-variant-numeric: tabular-nums;
+  margin-left: auto;
+}
+
+.aqm-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-left: 2px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: #8c827a;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.aqm-toggle:hover {
+  background: #e8e5df;
+  color: #1a1a1a;
+}
+
+.aqm-toggle__icon {
+  transition: transform 0.2s ease;
+}
+
+.aqm-toggle__icon--open {
+  transform: rotate(180deg);
 }
 
 .aqm-row__bar {

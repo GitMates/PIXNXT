@@ -80,7 +80,7 @@ export const guestDeliveryService = {
     }
 
     await ensurePhotographer(photographer_id);
-    await photographerQuotaService.assertFaceMatchingDeliveryQuota(photographer_id, 1);
+    await photographerQuotaService.assertGuestDeliveryQuota(photographer_id, 1);
 
     const slug = generateSlug(trimmedName);
     const now = new Date().toISOString();
@@ -174,7 +174,7 @@ export const guestDeliveryService = {
 
   async createLinkedEvent({ collectionId, photographerId, name, eventDate, slug }) {
     await ensurePhotographer(photographerId);
-    await photographerQuotaService.assertFaceMatchingDeliveryQuota(photographerId, 1);
+    await photographerQuotaService.assertGuestDeliveryQuota(photographerId, 1);
     const eventSlug = slug
       ? `${slug.replace(/[^\w-]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')}-${Date.now().toString(36)}`
       : generateSlug(name);

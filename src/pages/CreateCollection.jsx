@@ -111,8 +111,11 @@ const CreateCollection = () => {
                 ...presetSettings,
             };
 
+            // Creation quota (how many deliveries allowed) + face quotas
+            await photographerQuotaService.assertCreationDeliveryQuota(user.id, 1);
+            await photographerQuotaService.assertNormalDeliveryQuota(user.id, 1);
             if (guestDeliveryEnabled) {
-                await photographerQuotaService.assertFaceMatchingDeliveryQuota(user.id, 1);
+                await photographerQuotaService.assertGuestDeliveryQuota(user.id, 1);
             }
 
             const newCollection = await galleryService.createCollection(collectionData);

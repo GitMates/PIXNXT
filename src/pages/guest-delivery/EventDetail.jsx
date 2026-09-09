@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { guestDeliveryService } from '../../services/guestDelivery.service';
 import { guestDeliveryPublishService } from '../../services/guestDeliveryPublish.service';
+import { photographerQuotaService, canUseGuestFaceRecognition } from '../../services/photographerQuota.service';
 import { galleryService } from '../../services/gallery.service';
 import GuestDeliveryLayout from '../../components/guest-delivery/GuestDeliveryLayout';
 import EventPhotosPanel from '../../components/guest-delivery/EventPhotosPanel';
@@ -82,12 +83,18 @@ export default function EventDetail() {
     setEvent((prev) => (prev ? { ...prev, photo_count: count } : prev));
   }, []);
 
+  const guestFaceAllowed = canUseGuestFaceRecognition(photographerProfile);
+
   const handlePublish = async () => {
     if (!event?.id || publishing) return;
 
     const photoCount = event.photo_count || 0;
     const guestCount = event.guest_count || 0;
 
+    if (!guestFaceAllowed) {
+      alert('Face matching (guest delivery) is disabled for this account. Ask an admin to enable it.');
+      return;
+    }
     if (photoCount < 1) {
       alert('Add at least one photo before publishing.');
       return;
@@ -108,6 +115,9 @@ export default function EventDetail() {
     setPublishStep('Indexing photos and matching faces…');
 
     try {
+      if (user?.id && photoCount > 0) {
+        await photographerQuotaService.assertGuestImageQuota(user.id, photoCount);
+      }
       const result = await guestDeliveryPublishService.publishEvent(event.id);
       setEvent((prev) => (prev ? { ...prev, ...result.event } : result.event));
 
@@ -219,17 +229,22 @@ export default function EventDetail() {
             >
               QR &amp; Link
             </button>
+            {!guestFaceAllowed && (
+              <span className="gd-muted" style={{ fontSize: 12 }}>Face matching is off — ask an admin to enable guest delivery.</span>
+            )}
             <button
               type="button"
               className="gd-primary-btn"
-              disabled={!canPublish || publishing}
+              disabled={!canPublish || publishing || !guestFaceAllowed}
               onClick={handlePublish}
               title={
-                !canPublish
-                  ? 'Add photos and register at least one guest before publishing'
-                  : event.status === 'published'
-                    ? 'Re-run matching and resend delivery emails'
-                    : 'Index photos, match guests, and send gallery links'
+                !guestFaceAllowed
+                  ? 'Face matching (guest delivery) is disabled for this account'
+                  : !canPublish
+                    ? 'Add photos and register at least one guest before publishing'
+                    : event.status === 'published'
+                      ? 'Re-run matching and resend delivery emails'
+                      : 'Index photos, match guests, and send gallery links'
               }
             >
               {publishing ? 'Publishing…' : event.status === 'published' ? 'Re-publish' : 'Publish'}

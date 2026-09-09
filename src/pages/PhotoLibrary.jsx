@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppLoader } from '../components/ui/AppLoading';
 import SidebarLayout from '../components/SidebarLayout';
@@ -6,6 +6,7 @@ import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
 import { guestDeliveryPhotosService } from '../services/guestDeliveryPhotos.service';
 import { photoAiService } from '../services/photoAi.service';
+import { photographerQuotaService, canUseAiSearch } from '../services/photographerQuota.service';
 import { collectLabelSuggestions, filterPhotosByAiSearch, filterPhotosByDateRange } from '../lib/photoAiSearch';
 import { formatFilterDateRangeLabel } from '../utils/clientGalleryFilters';
 import { groupPhotosByMonth } from '../lib/groupPhotosByMonth';
@@ -29,16 +30,46 @@ const PhotoLibrary = () => {
   const [dateRange, setDateRange] = useState(null);
   const [showSearchPanel, setShowSearchPanel] = useState(false);
   const [showDatePanel, setShowDatePanel] = useState(false);
+  // AI search master switch (admin). Default ON until the quota check resolves,
+  // so legacy accounts and pre-migration DBs keep the Library.
+  const [aiSearchEnabled, setAiSearchEnabled] = useState(true);
+  const [aiSearchChecked, setAiSearchChecked] = useState(false);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    photographerQuotaService
+      .fetchSnapshot(user.id)
+      .then((snapshot) => {
+        if (!cancelled) {
+          setAiSearchEnabled(canUseAiSearch(snapshot));
+          setAiSearchChecked(true);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAiSearchEnabled(true);
+          setAiSearchChecked(true);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   const loadLibrary = useCallback(async () => {
     if (!user?.id) return;
     setLoading(true);
     setError(null);
     try {
+      // AI search OFF: skip AI metadata entirely (search disabled, no indexing).
+      const metadataPromise = aiSearchEnabled
+        ? photoAiService.getAllMetadataForPhotographer(user.id)
+        : Promise.resolve({ rows: [], tableMissing: false });
       const [galleryResult, guestResult, metadataResult, collectionsResult] = await Promise.allSettled([
         galleryService.getLibraryPhotos(user.id),
         guestDeliveryPhotosService.getLibraryPhotos(user.id),
-        photoAiService.getAllMetadataForPhotographer(user.id),
+        metadataPromise,
         galleryService.getCollections(user.id),
       ]);
 
@@ -80,11 +111,71 @@ const PhotoLibrary = () => {
     } finally {
       setLoading(false);
     }
-  }, [user?.id]);
+  }, [user?.id, aiSearchEnabled]);
 
   useEffect(() => {
     loadLibrary();
   }, [loadLibrary]);
+
+  // Labels backfill for rows saved while label detection was off, or
+  // photos that were never indexed: fills AI keywords without touching
+  // faces or people clusters. Triggers when ANY photo in a delivery lacks
+  // labels (previously only when ALL lacked labels, so partially-labelled
+  // deliveries — e.g. food photos — never got repaired).
+  const repairedCollectionsRef = useRef(new Set());
+  useEffect(() => {
+    if (loading || !user?.id || photos.length === 0) return;
+    if (!aiSearchEnabled) return;
+    const idsByCollection = new Map();
+    for (const p of photos) {
+      if (!p.collection_id) continue;
+      if (p.source && p.source !== 'delivery') continue;
+      if (!idsByCollection.has(p.collection_id)) idsByCollection.set(p.collection_id, []);
+      idsByCollection.get(p.collection_id).push(p.id);
+    }
+    const labelCountByPhotoId = new Map();
+    for (const r of metadataRows) {
+      labelCountByPhotoId.set(r.photo_id, (r.labels || []).length);
+    }
+    const targets = [];
+    for (const [cid, ids] of idsByCollection) {
+      if (repairedCollectionsRef.current.has(cid)) continue;
+      const missing = ids.filter((id) => !(labelCountByPhotoId.get(id) > 0));
+      if (missing.length > 0) targets.push({ cid, missingCount: missing.length, total: ids.length });
+    }
+    if (!targets.length) return;
+    targets.forEach(({ cid }) => repairedCollectionsRef.current.add(cid));
+    (async () => {
+      for (const { cid, missingCount, total } of targets) {
+        try {
+          // Labels-only repair first (fills empty-label rows, keeps faces/clusters).
+          const repaired = await photoAiService.repairLabels(cid);
+          const stillMissing =
+            typeof repaired?.total === 'number'
+              ? repaired.total - (repaired?.repaired || 0)
+              : missingCount;
+          // Photos with no metadata row at all aren't fixed by repairLabels —
+          // run a full sync (indexes only pending photos) so they become searchable.
+          if (stillMissing > 0 || (repaired?.repaired ?? 0) === 0) {
+            try {
+              await photoAiService.syncCollection(cid, 500);
+            } catch (syncErr) {
+              console.warn('[library] label sync failed:', syncErr?.message || syncErr);
+            }
+          }
+          void total;
+        } catch (err) {
+          console.warn('[library] label repair failed:', err?.message || err);
+        }
+      }
+      try {
+        const meta = await photoAiService.getAllMetadataForPhotographer(user.id);
+        if (!meta.tableMissing) setMetadataRows(meta.rows || []);
+      } catch {
+        /* keep existing rows */
+      }
+    })();
+  }, [loading, user?.id, photos, metadataRows, aiSearchEnabled]);
 
   const metadataMap = useMemo(
     () => photoAiService.metadataToMap(metadataRows),
@@ -121,6 +212,9 @@ const PhotoLibrary = () => {
 
   const isFilterActive = Boolean(searchQuery.trim() || starredOnly || dateRange?.start);
   const hasPhotos = photos.length > 0;
+  // Admin master switch OFF: Library nav is hidden (SidebarLayout) and anyone
+  // landing on /photos directly sees a disabled state — no search, no grid.
+  const aiSearchDisabled = aiSearchChecked && !aiSearchEnabled;
 
   const openPhotoCollection = (photo) => {
     if (photo?.source === 'guest_delivery' && photo.event_id) {
@@ -148,23 +242,32 @@ const PhotoLibrary = () => {
             ) : null}
           </div>
           <div className="pl-header-actions">
-            <LibrarySearchBar
-              query={searchQuery}
-              onQueryChange={setSearchQuery}
-              labelSuggestions={labelSuggestions}
-              starredOnly={starredOnly}
-              onStarredOnlyChange={setStarredOnly}
-              dateRange={dateRange}
-              onDateRangeChange={setDateRange}
-              showPanel={showSearchPanel}
-              onShowPanelChange={setShowSearchPanel}
-              showDatePanel={showDatePanel}
-              onShowDatePanelChange={setShowDatePanel}
-            />
+            {!aiSearchDisabled ? (
+              <LibrarySearchBar
+                query={searchQuery}
+                onQueryChange={setSearchQuery}
+                labelSuggestions={labelSuggestions}
+                starredOnly={starredOnly}
+                onStarredOnlyChange={setStarredOnly}
+                dateRange={dateRange}
+                onDateRangeChange={setDateRange}
+                showPanel={showSearchPanel}
+                onShowPanelChange={setShowSearchPanel}
+                showDatePanel={showDatePanel}
+                onShowDatePanelChange={setShowDatePanel}
+              />
+            ) : null}
           </div>
         </header>
 
-        {loading ? (
+        {aiSearchDisabled ? (
+          <div className="pl-empty-state pl-empty-state--compact">
+            <h2 className="pl-empty-title">Photo Library is disabled</h2>
+            <p className="pl-empty-text">
+              AI search is turned off for this account. Ask an admin to enable it.
+            </p>
+          </div>
+        ) : loading ? (
           <AppLoader label="Loading library" variant="page-short" className="pl-loading app-loader" />
         ) : error ? (
           <div className="pl-loading pl-loading--error">{error}</div>

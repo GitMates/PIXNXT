@@ -42,7 +42,9 @@ import PublicAlbumPreview from './pages/smart-albums/PublicAlbumPreview';
 import AdminLayout from './components/admin/AdminLayout';
 import AdminLogin from './pages/admin/AdminLogin';
 import AdminDashboard from './pages/admin/AdminDashboard';
+import AdminCrashReport from './pages/admin/AdminCrashReport';
 import AdminUserManagement from './pages/admin/AdminUserManagement';
+import AdminUsageManagement from './pages/admin/AdminUsageManagement';
 import { AdminProtectedRoute } from './components/admin/AdminProtectedRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { UploadQueueProvider, UploadQueueRouteSync } from './contexts/uploadQueue';
@@ -357,7 +359,9 @@ function App() {
           <Route path="/admin" element={<AdminProtectedRoute><AdminLayout /></AdminProtectedRoute>}>
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<AdminDashboard />} />
+            <Route path="crashes" element={<AdminCrashReport />} />
             <Route path="users" element={<AdminUserManagement />} />
+            <Route path="usage" element={<AdminUsageManagement />} />
           </Route>
           <Route path="/printstore" element={<ErrorBoundary><PrintStoreApp /></ErrorBoundary>} />
           <Route path="/store/orders" element={<ProtectedRoute><StoreDashboard /></ProtectedRoute>} />

@@ -878,6 +878,10 @@ export const galleryService = {
     // Strip temp field before insert
     const { _vaultSettings, ...insertPayload } = finalCollectionData;
 
+    if (insertPayload.photographer_id) {
+      await photographerQuotaService.assertCreationDeliveryQuota(insertPayload.photographer_id, 1);
+    }
+
     const { data, error } = await supabase
       .from('deliveries')
       .insert([insertPayload])
@@ -885,6 +889,11 @@ export const galleryService = {
       .single();
 
     if (error) throw error;
+
+    if (data?.photographer_id) {
+      photographerQuotaService.invalidate(data.photographer_id);
+      photographerQuotaService.notifyQuotaChanged();
+    }
 
     // Create the vault extension plans record
     if (data?.id && _vaultSettings) {

@@ -122,6 +122,9 @@ export const guestDeliveryPhotosService = {
     if (validationError) {
       throw new Error(validationError);
     }
+    if (photographerId) {
+      await photographerQuotaService.assertGuestImageQuota(photographerId, 1);
+    }
 
 
     onProgress?.(1);
