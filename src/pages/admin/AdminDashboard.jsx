@@ -24,7 +24,7 @@ const FULL_SELECT = [
   'face_guest_image_limit', 'face_guest_image_used',
   'face_normal_delivery_limit', 'face_normal_delivery_used',
   'face_guest_delivery_limit', 'face_guest_delivery_used',
-  'face_normal_enabled', 'face_guest_enabled', 'ai_search_enabled',
+  'face_normal_enabled', 'face_guest_enabled', 'ai_search_enabled', 'is_disabled',
 ].join(', ');
 const BASIC_SELECT = 'id, display_name, email, plan, storage_used_bytes';
 
@@ -60,6 +60,7 @@ function isDisabled(p) {
 
 function blockReason(p) {
   const reasons = [];
+  if (p.is_disabled === true) reasons.push('Account disabled');
   if (p.face_normal_enabled === false) reasons.push('Find People off');
   if (p.face_guest_enabled === false) reasons.push('Guest matching off');
   if (p.ai_search_enabled === false) reasons.push('Library off');
@@ -161,6 +162,7 @@ const AdminDashboard = () => {
   const storageUsed = rows.reduce((s, p) => s + num(p.storage_used_bytes), 0);
   const atLimitRows = rows.filter(
     (p) =>
+      p.is_disabled === true ||
       isAtLimit(p) ||
       isDisabled(p) ||
       (isCapped(p.album_limit) && num(p.album_used_count) >= Number(p.album_limit)) ||
@@ -210,13 +212,13 @@ const AdminDashboard = () => {
       </Section>
 
       <Section title="Face AI usage">
-        <StatCard label="Normal Images Used" value={loading ? '---' : sum('face_normal_image_used').toLocaleString()} loading={loading} to="/admin/users" sub="Find People scans" />
-        <StatCard label="Guest Images Used" value={loading ? '---' : sum('face_guest_image_used').toLocaleString()} loading={loading} to="/admin/users" sub="Guest face matching scans" />
+        <StatCard label="Normal Images Used" value={loading ? '---' : sum('face_normal_image_used').toLocaleString()} loading={loading} to="/admin/quotas" sub="Find People scans" />
+        <StatCard label="Guest Images Used" value={loading ? '---' : sum('face_guest_image_used').toLocaleString()} loading={loading} to="/admin/quotas" sub="Guest face matching scans" />
         <StatCard
           label="Face Deliveries Used"
           value={loading ? '---' : (sum('face_normal_delivery_used') + sum('face_guest_delivery_used')).toLocaleString()}
           loading={loading}
-          to="/admin/users"
+          to="/admin/quotas"
           sub={`Normal ${sum('face_normal_delivery_used').toLocaleString()} · Guest ${sum('face_guest_delivery_used').toLocaleString()}`}
         />
       </Section>
@@ -226,21 +228,21 @@ const AdminDashboard = () => {
           label="Library Off"
           value={loading ? '---' : rows.filter((p) => p.ai_search_enabled === false).length.toLocaleString()}
           loading={loading}
-          to="/admin/users"
+          to="/admin/quotas"
           sub="AI search disabled"
         />
         <StatCard
           label="Find People Off"
           value={loading ? '---' : rows.filter((p) => p.face_normal_enabled === false).length.toLocaleString()}
           loading={loading}
-          to="/admin/users"
+          to="/admin/quotas"
           sub="Normal delivery feature"
         />
         <StatCard
           label="Guest Matching Off"
           value={loading ? '---' : rows.filter((p) => p.face_guest_enabled === false).length.toLocaleString()}
           loading={loading}
-          to="/admin/users"
+          to="/admin/quotas"
           sub="Guest delivery feature"
         />
       </Section>
@@ -258,7 +260,7 @@ const AdminDashboard = () => {
             <ul className="divide-y divide-gray-100">
               {needsAttention.map(({ p, reasons }) => (
                 <li key={p.id}>
-                  <Link to="/admin/users" className="flex items-center gap-3 px-5 py-3.5 hover:bg-[#f8f7f4]/60 transition-colors">
+                  <Link to="/admin/quotas" className="flex items-center gap-3 px-5 py-3.5 hover:bg-[#f8f7f4]/60 transition-colors">
                     <div className="w-9 h-9 rounded-full flex items-center justify-center bg-[#1a1a1a] text-white shrink-0 text-sm font-semibold">
                       {(p.display_name || p.email || 'U').charAt(0).toUpperCase()}
                     </div>

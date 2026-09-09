@@ -44,6 +44,7 @@ import AdminLogin from './pages/admin/AdminLogin';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminCrashReport from './pages/admin/AdminCrashReport';
 import AdminUserManagement from './pages/admin/AdminUserManagement';
+import AdminQuotas from './pages/admin/AdminQuotas';
 import AdminUsageManagement from './pages/admin/AdminUsageManagement';
 import { AdminProtectedRoute } from './components/admin/AdminProtectedRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -361,6 +362,7 @@ function App() {
             <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="crashes" element={<AdminCrashReport />} />
             <Route path="users" element={<AdminUserManagement />} />
+            <Route path="quotas" element={<AdminQuotas />} />
             <Route path="usage" element={<AdminUsageManagement />} />
           </Route>
           <Route path="/printstore" element={<ErrorBoundary><PrintStoreApp /></ErrorBoundary>} />

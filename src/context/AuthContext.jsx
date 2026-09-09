@@ -78,6 +78,18 @@ export const AuthProvider = ({ children }) => {
             console.warn('Could not ensure photographer profile:', err?.message || err);
           });
         }
+        // Stamp last login (admin User Management). SIGNED_IN only — not
+        // session restores — and fire-and-forget so login never blocks on it.
+        if (event === 'SIGNED_IN' && nextSession?.user?.id) {
+          const photographerId = nextSession.user.id;
+          void supabase
+            .from('photographers')
+            .update({ last_login_at: new Date().toISOString() })
+            .eq('id', photographerId)
+            .then(({ error }) => {
+              if (error) console.warn('Could not stamp last login:', error.message || error);
+            });
+        }
         setLoading(false);
       }
     );

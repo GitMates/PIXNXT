@@ -507,6 +507,31 @@ const SidebarLayout = ({
         );
     };
 
+    // Disabled-account gate (admin toggle in User Management): the whole
+    // photographer shell is replaced, and the live row subscription above
+    // re-enables instantly when an admin flips it back.
+    if (profile?.is_disabled) {
+        return (
+            <div className="theme-mono cg-shell flex min-h-screen w-full items-center justify-center p-6">
+                <div className="w-full max-w-md rounded-2xl border border-[#ECEAE6] bg-white p-8 text-center shadow-xl shadow-black/5">
+                    <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-red-50 text-red-600 text-xl font-bold" aria-hidden>!</span>
+                    <h1 className="mt-4 text-xl font-bold text-[#1A1A1A]">Account disabled</h1>
+                    <p className="mt-2 text-sm text-gray-500">
+                        Your PIXNXT studio account has been disabled by an administrator.
+                        Contact support if you think this is a mistake.
+                    </p>
+                    <button
+                        type="button"
+                        onClick={() => { void logout?.(); }}
+                        className="mt-6 w-full rounded-xl bg-[#1A1A1A] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-black"
+                    >
+                        Sign out
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className={cn(
             'theme-mono cg-shell flex flex-col md:flex-row min-h-screen md:h-screen w-full max-w-[100vw] overflow-x-hidden md:overflow-hidden',
