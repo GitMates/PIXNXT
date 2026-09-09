@@ -1,6 +1,6 @@
 import React from 'react';
-import { Heart, Share2, Play, Download, ShoppingCart, ArrowDownToLine, Infinity, Square } from 'lucide-react';
-import { AppSpinner } from '../../../../components/ui/AppLoading';
+import { Heart, Share2, Play, Download, ShoppingCart, ArrowDownToLine, Infinity } from 'lucide-react';
+import { AppSpinner } from '@/components/ui/AppLoading';
 import { cn } from '../../../../lib/utils';
 import { galleryChromeStyles, GalleryChromeVariant, getGalleryChromeVariant } from './galleryChromeStyles';
 import { NavigationStyleSetting } from '../../../../lib/navStyle';
@@ -249,7 +249,7 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
         {showDownload && (
           <button
             type="button"
-            aria-label="Download"
+            aria-label={isDownloadingAll ? 'Downloading' : isPaidDownload ? 'Buy' : downloadLabel}
             className={cn(
               'flex shrink-0 items-center justify-center transition-opacity hover:opacity-60',
               pillClass
@@ -263,10 +263,34 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
           >
             {isDownloadingAll ? (
               <AppSpinner size="sm" className="shrink-0" />
+            ) : isPaidDownload ? (
+              <span className="relative inline-flex items-center justify-center shrink-0">
+                <ArrowDownToLine size={pillIconSize} className="shrink-0 stroke-[2.25]" />
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: '-3px',
+                    right: '-5px',
+                    fontSize: isCompact ? '5px' : '6px',
+                    fontWeight: 800,
+                    lineHeight: 1,
+                    background: 'currentColor',
+                    color: 'var(--gallery-bg, #fff)',
+                    borderRadius: '2px',
+                    padding: '0.5px 1.5px',
+                  }}
+                >
+                  ₹
+                </span>
+              </span>
             ) : (
               <Download size={pillIconSize} className="shrink-0 stroke-[2.25]" />
             )}
-            <span>{isDownloadingAll ? 'Downloading' : 'Download'}</span>
+            <span>
+              {isDownloadingAll
+                ? (downloadLabel && downloadLabel !== 'Download' ? downloadLabel : 'Downloading')
+                : (isPaidDownload ? 'Buy' : downloadLabel)}
+            </span>
           </button>
         )}
 
