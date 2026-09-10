@@ -210,6 +210,33 @@ function SettingsIcon() {
   );
 }
 
+function SortIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+      <path d="M11 5h10M11 9h7M11 13h4" strokeLinecap="round" />
+      <path d="M7 5v14m0 0l-3.5-3.5M7 19l3.5-3.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function BioIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+      <path d="M4 20h16M6 16V8a6 6 0 0 1 12 0v8" strokeLinecap="round" />
+      <line x1="9" y1="11" x2="15" y2="11" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function VisibilityIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
 const Showcase = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -224,7 +251,7 @@ const Showcase = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(null);
   const [toastMessage, setToastMessage] = useState('');
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(true);
   const [menuId, setMenuId] = useState(null);
   const [menuPos, setMenuPos] = useState(null);
   const [removeTarget, setRemoveTarget] = useState(null);
@@ -695,7 +722,13 @@ const Showcase = () => {
       <main className="sc-page">
         <header className="sc-hero">
           <div className="sc-hero__copy">
-            <h1 className="sc-hero__title">Showcase</h1>
+            <div className="sc-hero__title-row">
+              <h1 className="sc-hero__title">Showcase</h1>
+              <span className={`sc-hero__pill${statusOn ? ' is-live' : ' is-off'}`}>
+                <span className="sc-dot" aria-hidden />
+                {statusOn ? 'Live' : 'Off'}
+              </span>
+            </div>
             <p className="sc-hero__lead">{statusLine}</p>
           </div>
           <div className="sc-hero__actions">
@@ -750,8 +783,11 @@ const Showcase = () => {
                   </p>
                 </div>
                 <div className="sc-card__actions">
+                  <span className={`sc-status-pill${statusOn ? ' sc-status-pill--ok' : ''}`}>
+                    {statusOn ? 'Live' : 'Off'}
+                  </span>
                   <button type="button" className="sc-btn sc-btn--outline" onClick={handleCopyUrl}>
-                    {copyDone ? 'Copied' : 'Copy address'}
+                    {copyDone ? 'Copied ✓' : 'Copy address'}
                   </button>
                   <button
                     type="button"
@@ -835,82 +871,97 @@ const Showcase = () => {
                           <span className="sc-status-pill">Open</span>
                         )}
                       </div>
-                      <div className="sc-input-wrap">
-                        <input
-                          type={showPassword ? 'text' : 'password'}
-                          className="sc-input"
-                          placeholder="Add a password"
-                          value={password}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setPassword(val);
-                            autoSave({ showcase_password: val }, false);
-                          }}
-                        />
-                        {password ? (
-                          <div className="sc-pw-actions">
-                            <button
-                              type="button"
-                              className="sc-pw-icon-btn"
-                              onClick={() => setShowPassword((v) => !v)}
-                              title={showPassword ? 'Hide password' : 'Show password'}
-                            >
-                              <EyeIcon />
+                      <div className="sc-field">
+                        <div className="sc-input-wrap">
+                          <input
+                            type={showPassword ? 'text' : 'password'}
+                            className="sc-input"
+                            placeholder="Add a password"
+                            value={password}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setPassword(val);
+                              autoSave({ showcase_password: val }, false);
+                            }}
+                          />
+                          {password ? (
+                            <div className="sc-pw-actions">
+                              <button
+                                type="button"
+                                className="sc-pw-icon-btn"
+                                onClick={() => setShowPassword((v) => !v)}
+                                title={showPassword ? 'Hide password' : 'Show password'}
+                              >
+                                <EyeIcon />
+                              </button>
+                              <button
+                                type="button"
+                                className={`sc-pw-icon-btn${pwCopyDone ? ' is-done' : ''}`}
+                                onClick={handleCopyPassword}
+                                title="Copy password"
+                              >
+                                {pwCopyDone ? '✓' : 'Copy'}
+                              </button>
+                            </div>
+                          ) : (
+                            <button type="button" className="sc-pw-generate-btn" onClick={generatePassword}>
+                              Generate
                             </button>
-                            <button
-                              type="button"
-                              className={`sc-pw-icon-btn${pwCopyDone ? ' is-done' : ''}`}
-                              onClick={handleCopyPassword}
-                              title="Copy password"
-                            >
-                              {pwCopyDone ? '✓' : 'Copy'}
-                            </button>
-                          </div>
-                        ) : (
-                          <button type="button" className="sc-pw-generate-btn" onClick={generatePassword}>
-                            Generate
-                          </button>
-                        )}
+                          )}
+                        </div>
                       </div>
-                      {password ? (
-                        <p className="sc-help-text">
-                          Visitors need this password to open your Showcase.
-                          <button type="button" className="sc-pw-clear-btn" onClick={handleClearPassword}>
-                            Remove password
-                          </button>
-                        </p>
-                      ) : null}
+                      <p className="sc-help-text sc-help-text--foot">
+                        {password ? (
+                          <>
+                            Visitors need this password to open your Showcase.
+                            <button type="button" className="sc-pw-clear-btn" onClick={handleClearPassword}>
+                              Remove password
+                            </button>
+                          </>
+                        ) : (
+                          'Leave empty for open access — anyone with the link can browse.'
+                        )}
+                      </p>
                     </div>
 
                     <div className="sc-setting-block">
-                      <div className="sc-setting-block__head sc-setting-block__head--compact">
+                      <div className="sc-setting-block__head">
+                        <span className="sc-setting-block__icon" aria-hidden>
+                          <SortIcon />
+                        </span>
                         <div className="sc-setting-block__meta">
                           <h3 className="sc-setting-block__title">Delivery sort order</h3>
                           <p className="sc-setting-block__hint">
                             Default order when you have not dragged cards.
                           </p>
                         </div>
+                        <span className="sc-status-pill sc-status-pill--ghost">Auto</span>
                       </div>
-                      <ClientGallerySelect
-                        value={collectionSort}
-                        onChange={(val) => {
-                          setCollectionSort(val);
-                          autoSave({ showcase_sort: val }, true);
-                          persistOrder([]);
-                        }}
-                        aria-label="Delivery sort order"
-                        options={DELIVERY_SORT_SELECT_OPTIONS}
-                      />
-                      <p className="sc-help-text">Dragging on this page overrides the default.</p>
+                      <div className="sc-field">
+                        <ClientGallerySelect
+                          value={collectionSort}
+                          onChange={(val) => {
+                            setCollectionSort(val);
+                            autoSave({ showcase_sort: val }, true);
+                            persistOrder([]);
+                          }}
+                          aria-label="Delivery sort order"
+                          options={DELIVERY_SORT_SELECT_OPTIONS}
+                        />
+                      </div>
+                      <p className="sc-help-text sc-help-text--foot">Dragging on this page overrides the default.</p>
                     </div>
 
                     <div className="sc-setting-block sc-setting-block--full">
-                      <div className="sc-setting-block__head sc-setting-block__head--compact">
+                      <div className="sc-setting-block__head">
+                        <span className="sc-setting-block__icon" aria-hidden>
+                          <BioIcon />
+                        </span>
                         <div className="sc-setting-block__meta">
                           <h3 className="sc-setting-block__title">Biography</h3>
                           <p className="sc-setting-block__hint">Shown on your public Showcase page.</p>
                         </div>
-                        <span className="sc-char-count sc-char-count--inline">{bio.length} / 500</span>
+                        <span className="sc-char-count sc-char-count--pill">{bio.length} / 500</span>
                       </div>
                       <div className="sc-textarea-wrap sc-textarea-wrap--plain">
                         <textarea
@@ -928,12 +979,16 @@ const Showcase = () => {
                     </div>
 
                     <div className="sc-setting-block sc-setting-block--full">
-                      <div className="sc-setting-block__head sc-setting-block__head--compact">
+                      <div className="sc-setting-block__head">
+                        <span className="sc-setting-block__icon" aria-hidden>
+                          <VisibilityIcon />
+                        </span>
                         <div className="sc-setting-block__meta">
                           <h3 className="sc-setting-block__title">What visitors see</h3>
                           <p className="sc-setting-block__hint">
                             Contact details come from{' '}
-                            <Link to="/account/account">Your account</Link>.
+                            <Link to="/account/account">Your account</Link>. Toggle each item to
+                            show or hide it.
                           </p>
                         </div>
                       </div>

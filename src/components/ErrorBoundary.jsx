@@ -12,6 +12,7 @@ export class ErrorBoundary extends React.Component {
 
   componentDidCatch(error, info) {
     console.error('ErrorBoundary caught:', error, info);
+    import('../lib/crashLogger').then((m) => m.logCrash({ crashNo: 20, reason: String(error?.message || 'ErrorBoundary').slice(0, 300), route: typeof window !== 'undefined' ? window.location.pathname : '' })).catch(() => {});
   }
 
   render() {

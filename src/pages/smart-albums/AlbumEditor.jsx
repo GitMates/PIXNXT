@@ -1341,7 +1341,7 @@ export default function AlbumEditor({
     );
 
     const handleRestoreImageReplacement = useCallback(
-        (row) => {
+        async (row) => {
             if (!albumId || !row) return;
             const result = restoreImageReplacementVersion(albumId, row, {
                 album,
@@ -1363,10 +1363,24 @@ export default function AlbumEditor({
                 return;
             }
             setImageReplacements(getImageReplacements(albumId));
+            // Remount flipbook immediately (same as New version uploads) so the
+            // restored spread paints at once instead of showing cached pages.
+            setPhotoContentEpoch((n) => n + 1);
             bumpWorkspace();
+            // Push restored placements + pruned history to preview_data, otherwise
+            // the client share link keeps showing the pre-restore spread while only
+            // the feed card propagates (persistReplacementsToDatabase writes just
+            // image_replacements, not pages).
+            if (user?.id) {
+                try {
+                    await smartAlbumsService.syncAlbumPreviewData(user.id, albumId);
+                } catch (err) {
+                    console.warn('Could not sync album preview after restore:', err);
+                }
+            }
             showToast(`Restored v${result.version}.`, { variant: 'success', duration: 3000 });
         },
-        [album, albumId, bumpWorkspace, showToast, spreadOpts, totalPages]
+        [album, albumId, bumpWorkspace, showToast, spreadOpts, totalPages, user?.id]
     );
 
     const handleSlotActivate = useCallback(

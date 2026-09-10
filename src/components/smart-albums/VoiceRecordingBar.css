@@ -1,26 +1,70 @@
+/* Claude-style light voice input: warm paper pill, red rec dot,
+   charcoal waveform, dark stop button. */
+
 .voice-recording-bar {
   display: flex;
   align-items: center;
   gap: 12px;
   width: 100%;
-  min-height: 48px;
-  padding: 8px 8px 8px 14px;
+  min-height: 56px;
+  padding: 8px 10px 8px 16px;
   box-sizing: border-box;
-  border-radius: 16px;
-  border: 1px solid #e6e2dc;
-  background: linear-gradient(180deg, #fbfaf8 0%, #f3f1ec 100%);
-  box-shadow: 0 1px 2px rgba(40, 32, 24, 0.04);
+  border-radius: 20px;
+  border: 1px solid #e7e4db;
+  background: #f6f5f1;
+  box-shadow:
+    0 1px 2px rgba(42, 38, 32, 0.05),
+    0 8px 24px rgba(42, 38, 32, 0.08);
   animation: voice-recording-bar-in 0.22s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @keyframes voice-recording-bar-in {
   from {
     opacity: 0;
-    transform: translateY(3px);
+    transform: translateY(4px) scale(0.99);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Pulsing red recording indicator */
+.voice-recording-bar__rec {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+}
+
+.voice-recording-bar__rec-dot {
+  position: relative;
+  display: block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #e5484d;
+}
+
+.voice-recording-bar__rec-dot::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(229, 72, 77, 0.45);
+  animation: voice-rec-pulse 1.6s ease-out infinite;
+}
+
+@keyframes voice-rec-pulse {
+  0% {
+    transform: scale(0.6);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.25);
+    opacity: 0;
   }
 }
 
@@ -31,7 +75,7 @@
   justify-content: flex-start;
   gap: 3.5px;
   min-width: 0;
-  height: 28px;
+  height: 30px;
   overflow: hidden;
 }
 
@@ -40,24 +84,24 @@
   flex: 0 0 3px;
   width: 3px;
   border-radius: 999px;
-  background: #6f6860;
+  background: #2b2722;
   transform-origin: center;
-  transition: height 0.18s ease-out;
+  transition: height 0.16s ease-out;
 }
 
 .voice-recording-bar__bar--dot {
-  background: #c4beb5;
+  background: #d9d5cb;
 }
 
 .voice-recording-bar__time {
   flex-shrink: 0;
-  min-width: 2.4em;
+  min-width: 2.6em;
   font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace;
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
-  color: #5c564f;
+  color: #2b2722;
   text-align: right;
 }
 
@@ -72,44 +116,51 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   padding: 0;
   border: none;
-  border-radius: 10px;
+  border-radius: 50%;
   cursor: pointer;
   transition:
     transform 0.12s ease,
     background 0.15s ease,
-    box-shadow 0.15s ease;
+    box-shadow 0.15s ease,
+    color 0.15s ease;
 }
 
 .voice-recording-bar__btn:hover {
-  transform: scale(1.04);
+  transform: scale(1.05);
 }
 
 .voice-recording-bar__btn:active {
-  transform: scale(0.97);
+  transform: scale(0.96);
+}
+
+.voice-recording-bar__btn:focus-visible {
+  outline: 2px solid #2b2722;
+  outline-offset: 2px;
 }
 
 .voice-recording-bar__btn--cancel {
-  background: #ebe7e1;
+  background: #e9e6df;
   color: #5c564f;
 }
 
 .voice-recording-bar__btn--cancel:hover {
-  background: #e0dbd3;
-  color: #2f2a26;
+  background: #ddd9cf;
+  color: #2b2722;
 }
 
 .voice-recording-bar__btn--accept {
-  background: #4f7cff;
+  background: #1f1c19;
   color: #ffffff;
-  box-shadow: 0 1px 3px rgba(79, 124, 255, 0.28);
+  box-shadow: 0 2px 8px rgba(31, 28, 25, 0.3);
 }
 
 .voice-recording-bar__btn--accept:hover {
-  background: #3d6af0;
+  background: #000000;
+  box-shadow: 0 4px 12px rgba(31, 28, 25, 0.36);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -119,5 +170,10 @@
 
   .voice-recording-bar__bar {
     transition: none;
+  }
+
+  .voice-recording-bar__rec-dot::after {
+    animation: none;
+    opacity: 0;
   }
 }

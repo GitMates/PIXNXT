@@ -1777,3 +1777,509 @@ body.dark-theme .sc-modal .sc-btn--danger {
     grid-template-columns: 1fr;
   }
 }
+
+/* ------- Professional polish: rhythm, elevation, feedback ------- */
+
+.sc-page {
+  --sc-shadow-sm: 0 1px 2px rgba(29, 25, 22, 0.05), 0 1px 6px rgba(29, 25, 22, 0.05);
+  --sc-shadow-md: 0 2px 6px rgba(29, 25, 22, 0.07), 0 10px 28px rgba(29, 25, 22, 0.1);
+  --sc-focus-ring: 0 0 0 3px color-mix(in srgb, var(--sc-accent) 28%, transparent);
+}
+
+.sc-page > *:not(.sc-toast) {
+  max-width: 1120px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Hero */
+.sc-hero__title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.sc-hero__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border: 1px solid var(--sc-line);
+  background: var(--sc-surface);
+  color: var(--sc-muted);
+}
+
+.sc-hero__pill.is-live {
+  color: var(--sc-ok);
+  border-color: color-mix(in srgb, var(--sc-ok) 40%, var(--sc-line));
+  background: color-mix(in srgb, var(--sc-ok) 10%, var(--sc-surface));
+}
+
+.sc-hero__pill.is-live .sc-dot {
+  animation: sc-pulse-dot 2s ease-in-out infinite;
+}
+
+@keyframes sc-pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* Cards: elevation + hover */
+.sc-card,
+.sc-settings {
+  box-shadow: var(--sc-shadow-sm);
+}
+
+.sc-card {
+  transition: box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.sc-card:hover {
+  box-shadow: var(--sc-shadow-md);
+}
+
+.sc-card--url .sc-card__icon {
+  background: color-mix(in srgb, var(--sc-ok) 16%, var(--sc-surface));
+  color: var(--sc-ok);
+}
+
+.sc-card__avatar {
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--sc-ink) 14%, transparent);
+}
+
+/* Buttons: feedback + focus */
+.sc-btn {
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.12s ease;
+}
+
+.sc-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.sc-btn--solid {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16);
+}
+
+.sc-btn--solid:hover:not(:disabled) {
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+}
+
+.sc-btn:focus-visible,
+.sc-settings__collapse:focus-visible,
+.sc-tile__link:focus-visible,
+.sc-pw-clear-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--sc-focus-ring);
+}
+
+.sc-switch:focus-visible {
+  outline: none;
+  box-shadow: var(--sc-focus-ring);
+}
+
+.sc-switch.is-on {
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+/* Collapse chevron */
+.sc-settings__collapse {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sc-settings__collapse::after {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-right: 1.6px solid currentColor;
+  border-bottom: 1.6px solid currentColor;
+  transform: rotate(45deg) translateY(-1px);
+  transition: transform 0.18s ease;
+}
+
+.sc-settings__collapse[aria-expanded='true']::after {
+  transform: rotate(225deg) translateY(-1px);
+}
+
+/* Setting blocks: lift + input focus */
+.sc-setting-block {
+  transition: box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.sc-setting-block:hover {
+  border-color: color-mix(in srgb, var(--sc-ink) 16%, var(--sc-line));
+  box-shadow: var(--sc-shadow-sm);
+}
+
+.sc-input:focus,
+.sc-textarea:focus {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.sc-input-wrap:focus-within,
+.sc-textarea-wrap--plain:focus-within {
+  border-color: var(--sc-accent);
+  box-shadow: var(--sc-focus-ring);
+}
+
+.sc-pw-generate-btn:hover,
+.sc-pw-icon-btn:hover {
+  color: var(--sc-accent);
+}
+
+.sc-status-pill--ok {
+  letter-spacing: 0.05em;
+}
+
+/* Visitor-visibility tiles: clearer on/off */
+.sc-info-tile {
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.12s ease;
+}
+
+.sc-info-tile:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--sc-shadow-sm);
+}
+
+.sc-info-tile.is-on {
+  box-shadow: var(--sc-shadow-sm);
+}
+
+.sc-info-tile:not(.is-on) .sc-info-tile__label {
+  color: var(--sc-body);
+}
+
+.sc-info-tile:focus-visible {
+  outline: none;
+  box-shadow: var(--sc-focus-ring);
+}
+
+/* Showcase tiles: hover lift + cover zoom */
+.sc-tile__media {
+  transition: box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.sc-sortable-wrap--draggable:hover .sc-tile__media {
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.14);
+  transform: translateY(-2px);
+}
+
+.sc-sortable-wrap--draggable .sc-tile__img,
+.sc-sortable-wrap--draggable .sc-tile__media img,
+.sc-sortable-wrap--draggable .sc-tile__media .cg-card-cover {
+  transition: transform 0.3s ease;
+}
+
+.sc-sortable-wrap--draggable:hover .sc-tile__img,
+.sc-sortable-wrap--draggable:hover .sc-tile__media img,
+.sc-sortable-wrap--draggable:hover .sc-tile__media .cg-card-cover {
+  transform: scale(1.035);
+}
+
+.sc-tile__held-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(26, 26, 26, 0.85);
+  backdrop-filter: blur(6px);
+}
+
+.sc-tile__held-badge::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #e8b34b;
+}
+
+.sc-tile__pos {
+  backdrop-filter: blur(6px);
+}
+
+/* Modal + menu entrances */
+.sc-modal-backdrop {
+  animation: sc-fade-in 0.18s ease-out;
+}
+
+.sc-modal {
+  animation: sc-modal-in 0.22s cubic-bezier(0.2, 0, 0.2, 1);
+}
+
+@keyframes sc-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes sc-modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.sc-menu--fixed {
+  animation: sc-menu-in 0.14s ease-out;
+  transform-origin: top right;
+}
+
+@keyframes sc-menu-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.sc-toast {
+  backdrop-filter: blur(8px);
+}
+
+/* Dark-theme shadow tuning */
+body.dark-theme .sc-page {
+  --sc-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 8px rgba(0, 0, 0, 0.3);
+  --sc-shadow-md: 0 2px 8px rgba(0, 0, 0, 0.4), 0 12px 32px rgba(0, 0, 0, 0.45);
+  --sc-focus-ring: 0 0 0 3px rgba(176, 125, 79, 0.35);
+}
+
+body.dark-theme .sc-btn--solid {
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+}
+
+/* ------- Page settings: aligned fields (polish pass) ------- */
+.sc-settings__body {
+  padding: 16px;
+}
+
+.sc-settings__blocks {
+  gap: 14px;
+  align-items: stretch;
+}
+
+.sc-setting-block {
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  gap: 0;
+  background: var(--sc-surface-sunk);
+}
+
+.sc-setting-block__head {
+  align-items: center;
+  min-height: 46px;
+  margin-bottom: 14px;
+}
+
+.sc-setting-block__head .sc-status-pill {
+  margin-left: auto;
+}
+
+.sc-status-pill--ghost {
+  color: var(--sc-muted);
+  background: transparent;
+  border-style: dashed;
+}
+
+.sc-field {
+  display: flex;
+  align-items: stretch;
+  min-height: 46px;
+}
+
+.sc-field .sc-input-wrap {
+  flex: 1;
+  min-height: 46px;
+  align-items: center;
+  border-radius: 12px;
+  background: var(--sc-surface);
+}
+
+.sc-field .sc-input {
+  height: 44px;
+  padding: 0 6px 0 14px;
+  font-size: 0.85rem;
+}
+
+.sc-field .sc-input::placeholder {
+  color: var(--sc-muted);
+}
+
+/* Unify custom select with text inputs */
+.sc-setting-block .cg-select {
+  flex: 1;
+  min-width: 0;
+}
+
+.sc-setting-block .cg-select-trigger.neu-inset {
+  height: 46px !important;
+  min-height: 46px !important;
+  border-radius: 12px !important;
+  border: 1px solid var(--sc-line) !important;
+  background: var(--sc-surface) !important;
+  box-shadow: none !important;
+  padding-right: 6px !important;
+}
+
+body.dark-theme .sc-setting-block .cg-select-trigger.neu-inset {
+  background: var(--sc-surface) !important;
+  border-color: var(--sc-line) !important;
+}
+
+.sc-setting-block .cg-select-trigger__label {
+  padding-left: 14px !important;
+  font-size: 0.85rem !important;
+  font-weight: 550 !important;
+  color: var(--sc-ink) !important;
+}
+
+.sc-pw-generate-btn {
+  height: 34px;
+  margin-right: 6px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--sc-accent) 12%, transparent);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.sc-pw-generate-btn:hover {
+  background: color-mix(in srgb, var(--sc-accent) 20%, transparent);
+}
+
+.sc-pw-actions {
+  gap: 0;
+}
+
+.sc-pw-icon-btn {
+  height: 34px;
+  min-width: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  padding: 0 8px;
+}
+
+.sc-help-text {
+  font-size: 0.72rem;
+}
+
+.sc-help-text--foot {
+  margin-top: auto;
+  padding-top: 10px;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.sc-char-count--pill {
+  flex-shrink: 0;
+  margin-left: auto;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--sc-line);
+  background: var(--sc-surface);
+  font-size: 0.7rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: var(--sc-muted);
+}
+
+.sc-textarea-wrap--plain {
+  background: var(--sc-surface);
+  border-radius: 12px;
+}
+
+.sc-textarea-wrap--plain .sc-textarea {
+  min-height: 110px;
+  padding: 14px;
+  font-size: 0.875rem;
+  line-height: 1.55;
+}
+
+/* Visitor visibility tiles */
+.sc-info-tiles {
+  gap: 10px;
+  margin-top: 2px;
+}
+
+.sc-info-tile {
+  min-height: 78px;
+  justify-content: center;
+  padding: 12px 14px;
+  gap: 4px;
+}
+
+.sc-info-tile__top {
+  gap: 10px;
+}
+
+.sc-info-tile__sub {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sc-info-tile:not(.is-on) {
+  background: var(--sc-surface);
+}
+
+.sc-info-tile:not(.is-on) .sc-mini-switch {
+  opacity: 0.55;
+}
+
+@media (max-width: 980px) {
+  .sc-settings__body {
+    padding: 12px;
+  }
+  .sc-setting-block__head {
+    min-height: 0;
+  }
+  .sc-help-text--foot {
+    min-height: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-page *,
+  .sc-page *::before,
+  .sc-page *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

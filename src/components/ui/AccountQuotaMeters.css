@@ -6,22 +6,56 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
+  flex-wrap: nowrap;
 }
 
 .aqm-row__label {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: #8c827a;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .aqm-row__meta {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   color: #8c827a;
   font-variant-numeric: tabular-nums;
+  margin-left: auto;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.aqm-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-left: 2px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: #8c827a;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.aqm-toggle:hover {
+  background: #e8e5df;
+  color: #1a1a1a;
+}
+
+.aqm-toggle__icon {
+  transition: transform 0.2s ease;
+}
+
+.aqm-toggle__icon--open {
+  transform: rotate(180deg);
 }
 
 .aqm-row__bar {
@@ -40,6 +74,25 @@
   transition: width 0.3s ease;
 }
 
+/* Over-limit state (used > cap): red text + red bar so "3/1" reads as a
+   warning instead of a plain full bar. */
+.aqm-row__meta--over {
+  color: #b3261e;
+  font-weight: 700;
+}
+
+.aqm-row__fill--over {
+  background: #b3261e;
+}
+
+.cdsb-storage .aqm-row__meta--over {
+  color: #b3261e;
+}
+
+.cdsb-storage .aqm-row__fill--over {
+  background: #b3261e;
+}
+
 .cdsb-storage .aqm-row + .aqm-row {
   margin-top: 8px;
 }
@@ -47,12 +100,16 @@
 .cdsb-storage .aqm-row__label {
   font-size: 9px;
   font-weight: 600;
-  letter-spacing: 0.13em;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  flex-shrink: 0;
   color: var(--cdsb-muted, #8c827a);
 }
 
 .cdsb-storage .aqm-row__meta {
-  font-size: 11.5px;
+  font-size: 11px;
+  white-space: nowrap;
+  flex-shrink: 0;
   color: #4a453f;
 }
 

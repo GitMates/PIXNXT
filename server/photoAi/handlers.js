@@ -3,6 +3,7 @@ import { indexPhotoById } from './indexPhoto.js';
 import { searchFacesBySelfie } from './searchBySelfie.js';
 import { clusterAndPersistPeople, filterPeopleByFaceIds, getPeopleForCollection } from './peopleCache.js';
 import { syncCollectionPhotoAi } from './syncCollection.js';
+import { repairMissingLabels } from './repairLabels.js';
 import { assertPublishedCollection } from './publicAccess.js';
 
 async function assertCollectionAccess(req, collectionId) {
@@ -50,6 +51,14 @@ export async function handleSyncCollectionRequest(req, body) {
   const limit = Math.min(Number(body?.limit) || 500, 500);
   const forceReindex = Boolean(body?.forceReindex);
   return syncCollectionPhotoAi(collectionId, { supabase, limit, forceReindex });
+}
+
+export async function handleRepairLabelsRequest(req, body) {
+  const collectionId = body?.collectionId;
+  if (!collectionId) throw new Error('collectionId is required.');
+
+  const supabase = await assertCollectionAccess(req, collectionId);
+  return repairMissingLabels(collectionId, { supabase });
 }
 
 export async function handleReclusterRequest(req, body) {

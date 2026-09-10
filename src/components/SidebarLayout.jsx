@@ -23,6 +23,11 @@ import {
 import StudioNotifications from './dashboard/StudioNotifications';
 import { userStorageService, getStorageLimitBytes, formatStorageMeter, STORAGE_CHANGED_EVENT } from '../services/userStorage.service';
 import { photographerQuotaService, QUOTA_CHANGED_EVENT } from '../services/photographerQuota.service';
+import {
+    handlePhotographerLiveUpdate,
+    onPhotographerLimitsBroadcast,
+    subscribePhotographerRow,
+} from '../lib/photographerLiveSync';
 import { AccountQuotaMeters } from './ui/AccountQuotaMeters';
 import { getThemeMode, setThemeMode, THEME_CHANGE_EVENT } from '../lib/appearanceTheme';
 import { syncUploadDefaultsToLocalStorage } from '../lib/uploadDefaults';
@@ -84,7 +89,7 @@ const SidebarLayout = ({
     );
     const navItems = useMemo(() => getProductNavItems(productId), [productId]);
 
-    const workNavItems = useMemo(
+    const baseWorkNavItems = useMemo(
         () => navItems.filter((item) => item.section === 'work' || !item.section),
         [navItems],
     );
@@ -123,6 +128,17 @@ const SidebarLayout = ({
         return userStorageService.getCachedStorageBytes(user?.id);
     });
     const [quotaSnapshot, setQuotaSnapshot] = useState(null);
+
+    // AI search master switch (admin): OFF hides the Library nav entry.
+    // Default ON (!== false) so legacy profiles and pre-migration DBs keep Library.
+    const aiSearchEnabled =
+        (quotaSnapshot?.ai_search_enabled ?? profile?.ai_search_enabled) !== false;
+    const workNavItems = useMemo(() => {
+        if (!aiSearchEnabled) {
+            return baseWorkNavItems.filter((item) => item.href !== '/photos' && item.label !== 'Library');
+        }
+        return baseWorkNavItems;
+    }, [baseWorkNavItems, aiSearchEnabled]);
 
     useEffect(() => {
         if (!user?.id) {
@@ -194,6 +210,31 @@ const SidebarLayout = ({
             window.removeEventListener(QUOTA_CHANGED_EVENT, refreshUsage);
         };
     }, [user?.id, profile?.storage_used_bytes]);
+
+    // Instant admin -> photographer sync: when the admin changes limits or
+    // features on this photographer's row, update profile + quotas at once
+    // (Realtime from any admin + same-browser broadcast, no reload needed).
+    useEffect(() => {
+        if (!user?.id) return;
+        const applyRow = (row) => {
+            if (row && typeof row === 'object') {
+                setProfile(row);
+                try {
+                    localStorage.setItem(`photographer_profile_${user.id}`, JSON.stringify(row));
+                    syncUploadDefaultsToLocalStorage(row);
+                } catch {
+                    /* ignore quota */
+                }
+            }
+            handlePhotographerLiveUpdate(user.id);
+        };
+        const offRow = subscribePhotographerRow(user.id, applyRow);
+        const offBroadcast = onPhotographerLimitsBroadcast(user.id, () => handlePhotographerLiveUpdate(user.id));
+        return () => {
+            offRow();
+            offBroadcast();
+        };
+    }, [user?.id]);
 
     const usedBytes = realStorageBytes ?? profile?.storage_used_bytes ?? 0;
     const maxBytes = getStorageLimitBytes(profile);
@@ -466,6 +507,31 @@ const SidebarLayout = ({
         );
     };
 
+    // Disabled-account gate (admin toggle in User Management): the whole
+    // photographer shell is replaced, and the live row subscription above
+    // re-enables instantly when an admin flips it back.
+    if (profile?.is_disabled) {
+        return (
+            <div className="theme-mono cg-shell flex min-h-screen w-full items-center justify-center p-6">
+                <div className="w-full max-w-md rounded-2xl border border-[#ECEAE6] bg-white p-8 text-center shadow-xl shadow-black/5">
+                    <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-red-50 text-red-600 text-xl font-bold" aria-hidden>!</span>
+                    <h1 className="mt-4 text-xl font-bold text-[#1A1A1A]">Account disabled</h1>
+                    <p className="mt-2 text-sm text-gray-500">
+                        Your PIXNXT studio account has been disabled by an administrator.
+                        Contact support if you think this is a mistake.
+                    </p>
+                    <button
+                        type="button"
+                        onClick={() => { void logout?.(); }}
+                        className="mt-6 w-full rounded-xl bg-[#1A1A1A] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-black"
+                    >
+                        Sign out
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className={cn(
             'theme-mono cg-shell flex flex-col md:flex-row min-h-screen md:h-screen w-full max-w-[100vw] overflow-x-hidden md:overflow-hidden',
@@ -557,6 +623,10 @@ const SidebarLayout = ({
                         {showProfileDropdown && renderProfileDropdown('bottom-full left-0 mb-2.5')}
 
                         <div className="sb-storage">
+                            {(() => {
+                                const normalOn = (quotaSnapshot?.face_normal_enabled ?? profile?.face_normal_enabled) !== false;
+                                const guestOn = (quotaSnapshot?.face_guest_enabled ?? profile?.face_guest_enabled) !== false;
+                                return (
                             <AccountQuotaMeters
                                 compact
                                 storageLabel={formatStorageMeter(usedBytes, maxBytes)}
@@ -565,7 +635,17 @@ const SidebarLayout = ({
                                 imageLimit={quotaSnapshot?.image_limit ?? profile?.image_limit}
                                 faceUsed={quotaSnapshot?.face_matching_delivery_used ?? profile?.face_matching_delivery_used}
                                 faceLimit={quotaSnapshot?.face_matching_delivery_limit ?? profile?.face_matching_delivery_limit}
+                                normalImageUsed={quotaSnapshot?.face_normal_image_used ?? profile?.face_normal_image_used ?? quotaSnapshot?.image_used_count ?? profile?.image_used_count}
+                                normalImageLimit={!normalOn ? -1 : (quotaSnapshot?.face_normal_image_limit ?? profile?.face_normal_image_limit ?? quotaSnapshot?.image_limit ?? profile?.image_limit)}
+                                guestImageUsed={quotaSnapshot?.face_guest_image_used ?? profile?.face_guest_image_used}
+                                guestImageLimit={!guestOn ? -1 : (quotaSnapshot?.face_guest_image_limit ?? profile?.face_guest_image_limit ?? quotaSnapshot?.image_limit ?? profile?.image_limit)}
+                                normalFaceUsed={quotaSnapshot?.face_normal_delivery_used ?? profile?.face_normal_delivery_used}
+                                normalFaceLimit={!normalOn ? -1 : (quotaSnapshot?.face_normal_delivery_limit ?? profile?.face_normal_delivery_limit)}
+                                guestFaceUsed={quotaSnapshot?.face_guest_delivery_used ?? profile?.face_guest_delivery_used ?? quotaSnapshot?.face_matching_delivery_used ?? profile?.face_matching_delivery_used}
+                                guestFaceLimit={!guestOn ? -1 : (quotaSnapshot?.face_guest_delivery_limit ?? profile?.face_guest_delivery_limit ?? quotaSnapshot?.face_matching_delivery_limit ?? profile?.face_matching_delivery_limit)}
                             />
+                                );
+                            })()}
                         </div>
 
                         <button

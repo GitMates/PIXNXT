@@ -1,82 +1,114 @@
-import React, { useState, useEffect } from 'react';
-import { Search, MoreVertical, User, AlertCircle, X } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Search, User, AlertCircle, X, Mail, Ban, CheckCircle2, Download } from 'lucide-react';
 import { AppLoader, AppSpinner } from '../../components/ui/AppLoading';
 import { supabase } from '../../lib/supabase/client';
+import {
+  broadcastPhotographerLimitsChanged,
+  onPhotographerLimitsBroadcast,
+  subscribeAllPhotographers,
+} from '../../lib/photographerLiveSync';
+
+const FULL_SELECT = 'id, display_name, email, plan, is_disabled, last_login_at, created_at, storage_used_bytes, delivery_used_count, album_used_count';
+const BASIC_SELECT = 'id, display_name, email, plan';
+
+const isMissingColumnError = (err) => {
+  const msg = String(err?.message || '');
+  return err?.code === '42703' || /does not exist|is_disabled|last_login_at/i.test(msg);
+};
 
 function formatBytes(bytes) {
-  if (!bytes || bytes <= 0) return '0.00 MB';
-  const tbLimit = 1024 * 1024 * 1024 * 1024;
-  const gbLimit = 1024 * 1024 * 1024;
-  if (bytes >= tbLimit) return `${(bytes / tbLimit).toFixed(2)} TB`;
-  if (bytes >= gbLimit) return `${(bytes / gbLimit).toFixed(2)} GB`;
-  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  if (!bytes || bytes <= 0) return '0 MB';
+  const tb = 1024 * 1024 * 1024 * 1024;
+  const gb = 1024 * 1024 * 1024;
+  const mb = 1024 * 1024;
+  if (bytes >= tb) return `${(bytes / tb).toFixed(2)} TB`;
+  if (bytes >= gb) return `${(bytes / gb).toFixed(2)} GB`;
+  return `${(bytes / mb).toFixed(1)} MB`;
 }
 
-function formatCountQuota(used, limit) {
-  const cap = Number(limit);
-  if (cap === -1) {
-    return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">Disabled</span>;
-  }
-  const usedCount = Number(used) || 0;
-  if (cap > 0) return `${usedCount.toLocaleString()} / ${cap.toLocaleString()}`;
-  return `${usedCount.toLocaleString()} / Unlimited`;
+function formatDateShort(value) {
+  if (!value) return '—';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
 }
 
-function splitStorageDisplay(label) {
-  const parts = String(label || '').trim().split(' ');
-  return { value: parts[0] || '', unit: parts[1] || 'GB' };
+const INACTIVE_AFTER_DAYS = 30;
+
+function daysSinceLogin(value) {
+  if (!value) return null;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return (Date.now() - d.getTime()) / (1000 * 60 * 60 * 24);
+}
+
+function formatLastLogin(value) {
+  if (!value) return { short: 'Never', title: 'No login recorded yet' };
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return { short: '—', title: String(value) };
+  const diffMs = Date.now() - d.getTime();
+  const mins = Math.floor(diffMs / 60000);
+  let short;
+  if (mins < 1) short = 'Just now';
+  else if (mins < 60) short = `${mins}m ago`;
+  else if (mins < 60 * 24) short = `${Math.floor(mins / 60)}h ago`;
+  else if (mins < 60 * 24 * 30) short = `${Math.floor(mins / (60 * 24))}d ago`;
+  else short = d.toLocaleDateString();
+  return { short, title: d.toLocaleString() };
 }
 
 const AdminUserManagement = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [migrationWarning, setMigrationWarning] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-
-  const [editingUser, setEditingUser] = useState(null);
-  const [storageValue, setStorageValue] = useState('');
-  const [storageUnit, setStorageUnit] = useState('GB');
-  const [imageEnabled, setImageEnabled] = useState(true);
-  const [imageLimit, setImageLimit] = useState('');
-  const [imageUnlimited, setImageUnlimited] = useState(true);
-
-  const [faceEnabled, setFaceEnabled] = useState(true);
-  const [faceLimit, setFaceLimit] = useState('');
-  const [faceUnlimited, setFaceUnlimited] = useState(true);
-  const [updating, setUpdating] = useState(false);
-  const [activeMenuId, setActiveMenuId] = useState(null);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('newest');
+  const [confirmDisableId, setConfirmDisableId] = useState(null);
+  const [actionBusyId, setActionBusyId] = useState(null);
+  const [emailTarget, setEmailTarget] = useState(null);
+  const [emailSubject, setEmailSubject] = useState('');
+  const [emailMessage, setEmailMessage] = useState('');
 
   const fetchUsers = async () => {
     setLoading(true);
     setError(null);
-
+    setMigrationWarning(null);
     try {
-      const { data, error: fetchError } = await supabase
-        .from('photographers')
-        .select(
-          'id, display_name, email, plan, storage_used_bytes, storage_limit_bytes, image_used_count, image_limit, face_matching_delivery_used, face_matching_delivery_limit'
-        )
-        .order('created_at', { ascending: false });
-
-      if (fetchError) throw fetchError;
-
-      const mappedPhotographers = (data || []).map((p) => ({
-        id: p.id,
-        name: p.display_name || 'Unnamed',
-        email: p.email,
-        plan: p.plan || 'Unknown',
-        role: 'Photographer',
-        usedStorage: formatBytes(p.storage_used_bytes),
-        totalStorage: formatBytes(p.storage_limit_bytes),
-        rawLimitBytes: p.storage_limit_bytes || 0,
-        rawUsedBytes: p.storage_used_bytes || 0,
-        imageUsed: Number(p.image_used_count) || 0,
-        imageLimit: p.image_limit != null ? Number(p.image_limit) : 0,
-        faceUsed: Number(p.face_matching_delivery_used) || 0,
-        faceLimit: p.face_matching_delivery_limit != null ? Number(p.face_matching_delivery_limit) : 0,
-      }));
-
-      setUsers(mappedPhotographers);
+      const res = await supabase.from('photographers').select(FULL_SELECT).order('created_at', { ascending: false });
+      let data = res.data;
+      if (res.error) {
+        if (!isMissingColumnError(res.error)) throw res.error;
+        const basic = await supabase.from('photographers').select(BASIC_SELECT).order('created_at', { ascending: false });
+        if (basic.error) throw basic.error;
+        data = (basic.data || []).map((p) => ({
+          ...p,
+          is_disabled: false,
+          last_login_at: null,
+          created_at: null,
+          storage_used_bytes: 0,
+          delivery_used_count: 0,
+          album_used_count: 0,
+        }));
+        setMigrationWarning(
+          'Database migration pending: run supabase/migrations/20260914000000_photographer_disabled_last_login.sql in Supabase SQL Editor to enable last login + disable account.'
+        );
+      }
+      setUsers(
+        (data || []).map((p) => ({
+          id: p.id,
+          name: p.display_name || 'Unnamed',
+          email: p.email,
+          plan: p.plan || 'Unknown',
+          isDisabled: p.is_disabled === true,
+          lastLoginAt: p.last_login_at || null,
+          joinedAt: p.created_at || null,
+          storageUsedBytes: Number(p.storage_used_bytes) || 0,
+          deliveryCount: Number(p.delivery_used_count) || 0,
+          albumCount: Number(p.album_used_count) || 0,
+        }))
+      );
     } catch (err) {
       console.error('Error fetching users:', err);
       setError(err.message || 'Failed to load users. Ensure RLS policies allow reading.');
@@ -85,93 +117,136 @@ const AdminUserManagement = () => {
     }
   };
 
+  // Ref so the live subscription always calls the latest fetch without re-subscribing.
+  const fetchUsersRef = useRef(fetchUsers);
+  fetchUsersRef.current = fetchUsers;
+
   useEffect(() => {
-    fetchUsers();
+    fetchUsersRef.current();
+    // Instant sync: account disable/enable from other admins refreshes live.
+    let timer = null;
+    const schedule = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => fetchUsersRef.current(), 1200);
+    };
+    const offLive = subscribeAllPhotographers(schedule);
+    const offBroadcast = onPhotographerLimitsBroadcast(null, schedule);
+    return () => {
+      clearTimeout(timer);
+      offLive();
+      offBroadcast();
+    };
   }, []);
 
-  const openLimitsEditor = (user) => {
-    const storage = splitStorageDisplay(user.totalStorage);
-    setEditingUser(user);
-    setStorageValue(storage.value);
-    setStorageUnit(storage.unit);
-
-    const isImgDisabled = user.imageLimit === -1;
-    setImageEnabled(!isImgDisabled);
-    setImageUnlimited(!isImgDisabled && !(user.imageLimit > 0));
-    setImageLimit(user.imageLimit > 0 ? String(user.imageLimit) : '');
-
-    const isFaceDisabled = user.faceLimit === -1;
-    setFaceEnabled(!isFaceDisabled);
-    setFaceUnlimited(!isFaceDisabled && !(user.faceLimit > 0));
-    setFaceLimit(user.faceLimit > 0 ? String(user.faceLimit) : '');
-
-    setActiveMenuId(null);
+  const openEmailComposer = (user) => {
+    setEmailTarget(user);
+    setEmailSubject('');
+    setEmailMessage(`Hi ${user.name},\n\n`);
   };
 
-  const handleUpdateLimits = async (e) => {
-    e.preventDefault();
-    if (!editingUser) return;
+  const sendEmail = () => {
+    if (!emailTarget?.email) return;
+    const href =
+      `mailto:${encodeURIComponent(emailTarget.email)}` +
+      `?subject=${encodeURIComponent(emailSubject)}` +
+      `&body=${encodeURIComponent(emailMessage)}`;
+    window.location.href = href;
+    setEmailTarget(null);
+  };
 
-    setUpdating(true);
+  const toggleDisabled = async (user) => {
+    if (confirmDisableId !== user.id) {
+      setConfirmDisableId(user.id);
+      setTimeout(() => setConfirmDisableId((prev) => (prev === user.id ? null : prev)), 4000);
+      return;
+    }
+    setConfirmDisableId(null);
+    setActionBusyId(user.id);
     try {
-      let multiplier = 1024 * 1024 * 1024;
-      if (storageUnit === 'MB') multiplier = 1024 * 1024;
-      if (storageUnit === 'TB') multiplier = 1024 * 1024 * 1024 * 1024;
-
-      const parsedStorage = parseFloat(storageValue);
-      if (!Number.isFinite(parsedStorage) || parsedStorage <= 0) {
-        throw new Error('Enter a storage limit greater than zero.');
-      }
-
-      let parsedImages = 0;
-      if (!imageEnabled) {
-        parsedImages = -1; // Disabled
-      } else if (imageUnlimited) {
-        parsedImages = 0; // Unlimited
-      } else {
-        parsedImages = Math.floor(Number(imageLimit));
-        if (!Number.isFinite(parsedImages) || parsedImages < 1) {
-          throw new Error('Enter an image limit of at least 1, or toggle unlimited.');
-        }
-      }
-
-      let parsedFace = 0;
-      if (!faceEnabled) {
-        parsedFace = -1; // Disabled
-      } else if (faceUnlimited) {
-        parsedFace = 0; // Unlimited
-      } else {
-        parsedFace = Math.floor(Number(faceLimit));
-        if (!Number.isFinite(parsedFace) || parsedFace < 1) {
-          throw new Error('Enter a face matching delivery limit of at least 1, or toggle unlimited.');
-        }
-      }
-
       const { error: updateError } = await supabase
         .from('photographers')
-        .update({
-          storage_limit_bytes: Math.round(parsedStorage * multiplier),
-          image_limit: parsedImages,
-          face_matching_delivery_limit: parsedFace,
-        })
-        .eq('id', editingUser.id);
-
-      if (updateError) throw updateError;
-
-      setEditingUser(null);
+        .update({ is_disabled: !user.isDisabled })
+        .eq('id', user.id);
+      if (updateError) {
+        if (isMissingColumnError(updateError)) {
+          throw new Error('Migration missing: run 20260914000000_photographer_disabled_last_login.sql in Supabase SQL Editor first.');
+        }
+        throw updateError;
+      }
       fetchUsers();
+      broadcastPhotographerLimitsChanged(user.id);
     } catch (err) {
-      alert(err.message || 'Failed to update account limits.');
+      alert(err.message || 'Failed to update account status.');
     } finally {
-      setUpdating(false);
+      setActionBusyId(null);
     }
   };
 
-  const filteredUsers = users.filter(
-    (u) =>
-      u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      u.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredUsers = users.filter((u) => {
+    const q = searchQuery.toLowerCase();
+    if (q && !(u.name.toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q))) return false;
+    if (statusFilter === 'active' && u.isDisabled) return false;
+    if (statusFilter === 'disabled' && !u.isDisabled) return false;
+    if (statusFilter === 'never-login' && u.lastLoginAt) return false;
+    if (statusFilter === 'inactive') {
+      const days = daysSinceLogin(u.lastLoginAt);
+      if (days === null || days < INACTIVE_AFTER_DAYS) return false;
+    }
+    return true;
+  });
+
+  const sortedUsers = [...filteredUsers].sort((a, b) => {
+    if (sortBy === 'name') return a.name.localeCompare(b.name);
+    if (sortBy === 'recent-login') {
+      const at = a.lastLoginAt ? new Date(a.lastLoginAt).getTime() : 0;
+      const bt = b.lastLoginAt ? new Date(b.lastLoginAt).getTime() : 0;
+      return bt - at;
+    }
+    if (sortBy === 'oldest') {
+      const at = a.joinedAt ? new Date(a.joinedAt).getTime() : 0;
+      const bt = b.joinedAt ? new Date(b.joinedAt).getTime() : 0;
+      return at - bt;
+    }
+    // newest (matches server order, falls back gracefully without joinedAt)
+    const at = a.joinedAt ? new Date(a.joinedAt).getTime() : 0;
+    const bt = b.joinedAt ? new Date(b.joinedAt).getTime() : 0;
+    return bt - at;
+  });
+
+  const filtersActive = Boolean(searchQuery) || statusFilter !== 'all' || sortBy !== 'newest';
+  const clearFilters = () => {
+    setSearchQuery('');
+    setStatusFilter('all');
+    setSortBy('newest');
+  };
+
+  const exportCsv = () => {
+    const head = 'name,email,plan,status,last_login,joined,deliveries,albums,storage_used_bytes';
+    const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const body = sortedUsers
+      .map((u) =>
+        [
+          u.name,
+          u.email,
+          u.plan,
+          u.isDisabled ? 'disabled' : 'active',
+          u.lastLoginAt || '',
+          u.joinedAt || '',
+          u.deliveryCount,
+          u.albumCount,
+          u.storageUsedBytes,
+        ]
+          .map(esc)
+          .join(',')
+      )
+      .join('\n');
+    const blob = new Blob([head + '\n' + body], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'pixnxt_photographers.csv';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  };
 
   return (
     <div className="space-y-6 relative">
@@ -182,18 +257,68 @@ const AdminUserManagement = () => {
         </div>
       </div>
 
-      <div className="bg-[#fdfdfc] p-4 rounded-2xl shadow-sm border border-[#eae8e4] flex items-center justify-between">
-        <div className="relative w-full max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search users by name or email..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-[#f8f7f4] border border-[#eae8e4] hover:border-[#eae8e4]/80 focus:border-[#1a1a1a] focus:bg-white rounded-xl text-sm outline-none transition-all focus:ring-1 focus:ring-[#1a1a1a]"
-          />
+      <div className="bg-[#fdfdfc] p-4 rounded-2xl shadow-sm border border-[#eae8e4] space-y-3">
+        <div className="flex flex-col lg:flex-row gap-3">
+          <div className="relative flex-1 min-w-0">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search users by name or email..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 bg-[#f8f7f4] border border-[#eae8e4] hover:border-[#eae8e4]/80 focus:border-[#1a1a1a] focus:bg-white rounded-xl text-sm outline-none transition-all focus:ring-1 focus:ring-[#1a1a1a]"
+            />
+          </div>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            aria-label="Filter by account status"
+            className="px-3 py-2 bg-[#f8f7f4] border border-[#eae8e4] rounded-xl text-sm outline-none focus:border-[#1a1a1a] focus:bg-white transition-all"
+          >
+            <option value="all">All statuses</option>
+            <option value="active">Active</option>
+            <option value="disabled">Disabled</option>
+            <option value="never-login">Never logged in</option>
+            <option value="inactive">Inactive 30+ days</option>
+          </select>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            aria-label="Sort photographers"
+            className="px-3 py-2 bg-[#f8f7f4] border border-[#eae8e4] rounded-xl text-sm outline-none focus:border-[#1a1a1a] focus:bg-white transition-all"
+          >
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="name">Name A–Z</option>
+            <option value="recent-login">Recent login</option>
+          </select>
+          <button
+            type="button"
+            onClick={exportCsv}
+            title="Export the current list as CSV"
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-[#eae8e4] rounded-xl text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <Download className="w-4 h-4" />Export
+          </button>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs text-gray-500">
+            Showing <span className="font-semibold text-gray-800">{sortedUsers.length}</span> of <span className="font-semibold text-gray-800">{users.length}</span> photographers
+          </p>
+          {filtersActive && (
+            <button type="button" onClick={clearFilters} className="inline-flex items-center gap-1 text-xs font-semibold text-gray-500 hover:text-gray-900 transition-colors">
+              <X className="w-3.5 h-3.5" />Clear filters
+            </button>
+          )}
         </div>
       </div>
+
+      {migrationWarning && !loading && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
+          <p className="text-amber-800 text-sm">{migrationWarning}</p>
+        </div>
+      )}
 
       {error && (
         <div className="bg-red-50 border border-red-100 rounded-2xl p-6 flex flex-col items-center justify-center text-center">
@@ -209,76 +334,103 @@ const AdminUserManagement = () => {
 
       {!error && !loading && (
         <div className="bg-[#fdfdfc] rounded-2xl shadow-sm border border-[#eae8e4] overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm whitespace-nowrap">
+          <div className="overflow-hidden">
+            <table className="w-full text-left text-sm" style={{ tableLayout: 'fixed' }}>
               <thead className="bg-[#f9f8f5]/85 border-b border-[#eae8e4]">
                 <tr>
-                  <th className="px-6 py-4 font-semibold text-gray-500 tracking-wider">User</th>
-                  <th className="px-6 py-4 font-semibold text-gray-500 tracking-wider">Role</th>
-                  <th className="px-6 py-4 font-semibold text-gray-500 tracking-wider">Plan</th>
-                  <th className="px-6 py-4 font-semibold text-gray-500 tracking-wider">Storage</th>
-                  <th className="px-6 py-4 font-semibold text-gray-500 tracking-wider">Face AI Images</th>
-                  <th className="px-6 py-4 font-semibold text-gray-500 tracking-wider">Face Matching</th>
-                  <th className="px-6 py-4 font-semibold text-gray-500 tracking-wider text-right">Actions</th>
+                  <th className="px-5 py-3.5 font-semibold text-gray-500 text-xs uppercase tracking-wider" style={{ width: '26%' }}>Photographer</th>
+                  <th className="px-4 py-3.5 font-semibold text-gray-500 text-xs uppercase tracking-wider" style={{ width: '16%' }}>Last login</th>
+                  <th className="px-4 py-3.5 font-semibold text-gray-500 text-xs uppercase tracking-wider" style={{ width: '18%' }}>Activity</th>
+                  <th className="px-4 py-3.5 font-semibold text-gray-500 text-xs uppercase tracking-wider" style={{ width: '12%' }}>Status</th>
+                  <th className="px-4 py-3.5 font-semibold text-gray-500 text-xs uppercase tracking-wider text-right" style={{ width: '28%' }}>Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {filteredUsers.length === 0 ? (
+                {sortedUsers.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="px-6 py-12 text-center text-gray-500">
-                      No users found matching "{searchQuery}"
+                    <td colSpan="5" className="px-6 py-12 text-center">
+                      <p className="text-gray-500">
+                        {filtersActive ? 'No photographers match the current filters.' : 'No photographers yet.'}
+                      </p>
+                      {filtersActive && (
+                        <button type="button" onClick={clearFilters} className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold bg-[#1a1a1a] text-white rounded-lg hover:bg-black transition-colors">
+                          <X className="w-3.5 h-3.5" />Clear filters
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ) : (
-                  filteredUsers.map((user) => (
-                    <tr key={user.id} className="hover:bg-[#f8f7f4]/60 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full flex items-center justify-center bg-[#f8f7f4] text-slate-600">
-                            <User className="w-4 h-4" />
+                  sortedUsers.map((user) => {
+                    const lastLogin = formatLastLogin(user.lastLoginAt);
+                    const confirming = confirmDisableId === user.id;
+                    const busy = actionBusyId === user.id;
+                    return (
+                      <tr key={user.id} className="hover:bg-[#f8f7f4]/60 transition-colors align-top">
+                        <td className="px-5 py-4 min-w-0">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-9 h-9 rounded-full flex items-center justify-center bg-[#1a1a1a] text-white shrink-0">
+                              <User className="w-4 h-4" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-semibold text-gray-900 truncate">{user.name}</p>
+                              <p className="text-gray-500 text-xs truncate">{user.email}</p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="font-medium text-gray-900">{user.name}</p>
-                            <p className="text-gray-500 text-xs mt-0.5">{user.email}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-gray-700 font-medium">{user.role}</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-gray-600 capitalize">{user.plan}</span>
-                      </td>
-                      <td className="px-6 py-4 text-gray-600">
-                        {user.usedStorage} / {user.totalStorage}
-                      </td>
-                      <td className="px-6 py-4 text-gray-600">
-                        {formatCountQuota(user.imageUsed, user.imageLimit)}
-                      </td>
-                      <td className="px-6 py-4 text-gray-600">
-                        {formatCountQuota(user.faceUsed, user.faceLimit)}
-                      </td>
-                      <td className="px-6 py-4 text-right relative">
-                        <button
-                          onClick={() => setActiveMenuId(activeMenuId === user.id ? null : user.id)}
-                          className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
-                        >
-                          <MoreVertical className="w-4 h-4" />
-                        </button>
-
-                        {activeMenuId === user.id && (
-                          <div className="absolute right-6 top-10 w-56 bg-white border border-[#eae8e4] rounded-xl shadow-lg py-1 z-20">
+                        </td>
+                        <td className="px-4 py-4 min-w-0">
+                          <p className="text-[13px] font-medium text-gray-800" title={lastLogin.title}>{lastLogin.short}</p>
+                          <p className="text-[11px] text-gray-400">Joined {formatDateShort(user.joinedAt)}</p>
+                        </td>
+                        <td className="px-4 py-4 min-w-0">
+                          <p className="text-[13px] font-medium text-gray-800">
+                            {user.deliveryCount.toLocaleString()} deliver{user.deliveryCount === 1 ? 'y' : 'ies'} · {user.albumCount.toLocaleString()} album{user.albumCount === 1 ? '' : 's'}
+                          </p>
+                          <p className="text-[11px] text-gray-400">{formatBytes(user.storageUsedBytes)} used</p>
+                        </td>
+                        <td className="px-4 py-4 min-w-0">
+                          {user.isDisabled ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-red-50 text-red-700 border border-red-200">Disabled</span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Active</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="flex items-center justify-end gap-2">
                             <button
-                              onClick={() => openLimitsEditor(user)}
-                              className="w-full text-left px-4 py-2 text-sm text-[#3c3c3b] hover:bg-[#f8f7f4] transition-colors"
+                              type="button"
+                              onClick={() => openEmailComposer(user)}
+                              title={`Send email to ${user.email}`}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                             >
-                              Edit Account Limits
+                              <Mail className="w-3.5 h-3.5" />Email
+                            </button>
+                            <button
+                              type="button"
+                              disabled={busy}
+                              onClick={() => toggleDisabled(user)}
+                              title={user.isDisabled ? 'Re-enable this account' : 'Disable this account'}
+                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors disabled:opacity-60 ${
+                                confirming
+                                  ? 'bg-red-600 text-white hover:bg-red-700'
+                                  : user.isDisabled
+                                    ? 'bg-[#1a1a1a] text-white hover:bg-black'
+                                    : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
+                              }`}
+                            >
+                              {busy ? (
+                                <AppSpinner size="xs" />
+                              ) : user.isDisabled ? (
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                              ) : (
+                                <Ban className="w-3.5 h-3.5" />
+                              )}
+                              {confirming ? `Confirm ${user.isDisabled ? 'enable' : 'disable'}?` : user.isDisabled ? 'Enable' : 'Disable'}
                             </button>
                           </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -286,233 +438,62 @@ const AdminUserManagement = () => {
         </div>
       )}
 
-      {editingUser && (
+      {emailTarget && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-[#fdfdfc] rounded-2xl max-w-md w-full shadow-xl border border-[#eae8e4] overflow-hidden">
-            <div className="px-6 py-4 border-b border-[#eae8e4] flex items-center justify-between">
-              <h3 className="font-semibold text-[#1a1a1a]">Edit Account Limits</h3>
-              <button
-                onClick={() => setEditingUser(null)}
-                className="p-1 text-gray-400 hover:text-[#3c3c3b] rounded-lg hover:bg-[#f8f7f4] transition-colors"
-              >
+          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-[#eae8e4] overflow-hidden flex flex-col" style={{ maxHeight: '88vh' }}>
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-3 shrink-0">
+              <div className="w-10 h-10 rounded-full bg-[#1a1a1a] text-white flex items-center justify-center font-semibold shrink-0">
+                {(emailTarget.name || emailTarget.email || 'U').charAt(0).toUpperCase()}
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="font-semibold text-[#1a1a1a] leading-tight">Send email</h3>
+                <p className="text-xs text-gray-500 truncate">{emailTarget.name} · {emailTarget.email}</p>
+              </div>
+              <button onClick={() => setEmailTarget(null)} className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleUpdateLimits} className="p-6 space-y-5">
-              <p className="text-sm text-gray-500">
-                Update storage, image, and face matching limits for{' '}
-                <strong className="text-gray-900">{editingUser.email}</strong>.
-              </p>
-
-              <div className="space-y-1.5">
-                <label className="block text-sm font-medium text-[#3c3c3b]">Storage capacity</label>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    required
-                    min="1"
-                    step="any"
-                    value={storageValue}
-                    onChange={(e) => setStorageValue(e.target.value)}
-                    className="flex-1 px-3 py-2 bg-white border border-[#eae8e4] rounded-xl focus:ring-2 focus:ring-[#1a1a1a] focus:border-[#1a1a1a] sm:text-sm outline-none transition-all"
-                    placeholder="Enter limit"
-                  />
-                  <select
-                    value={storageUnit}
-                    onChange={(e) => setStorageUnit(e.target.value)}
-                    className="w-24 px-3 py-2 border border-[#eae8e4] rounded-xl bg-[#f8f7f4] focus:ring-2 focus:ring-[#1a1a1a] focus:border-[#1a1a1a] sm:text-sm outline-none transition-all"
-                  >
-                    <option value="MB">MB</option>
-                    <option value="GB">GB</option>
-                    <option value="TB">TB</option>
-                  </select>
-                </div>
-                <p className="text-xs text-gray-400">Used: {editingUser.usedStorage}</p>
+            <div className="px-5 py-4 space-y-4 flex-1 min-h-0 overflow-y-auto">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">Subject</label>
+                <input
+                  type="text"
+                  value={emailSubject}
+                  onChange={(e) => setEmailSubject(e.target.value)}
+                  placeholder="e.g. Update to your PIXNXT limits"
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:bg-white focus:border-[#1a1a1a] transition-all"
+                />
               </div>
-
-              {/* Face Recognition Image Limit Section */}
-              <div className="space-y-2 p-3.5 rounded-xl border border-[#eae8e4] bg-[#faf9f6]/40">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={imageEnabled}
-                      onClick={() => setImageEnabled(!imageEnabled)}
-                      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                        imageEnabled ? 'bg-[#1a1a1a]' : 'bg-gray-300'
-                      }`}
-                    >
-                      <span
-                        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
-                          imageEnabled ? 'translate-x-4' : 'translate-x-0'
-                        }`}
-                      />
-                    </button>
-                    <div>
-                      <label className="text-sm font-medium text-[#3c3c3b] block">Face recognition image limit</label>
-                      <span className="text-[11px] text-gray-400">Max photos allowed to be scanned for face matching</span>
-                    </div>
-                  </div>
-
-                  {imageEnabled && (
-                    <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={imageUnlimited}
-                        onChange={(e) => setImageUnlimited(e.target.checked)}
-                        className="rounded text-[#1a1a1a] focus:ring-0"
-                      />
-                      Unlimited
-                    </label>
-                  )}
-                </div>
-
-                {!imageEnabled ? (
-                  <div className="px-3 py-2 bg-gray-100/80 rounded-xl text-xs text-gray-500 font-medium">
-                    Face recognition is turned off (disabled for this user)
-                  </div>
-                ) : (
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    disabled={imageUnlimited}
-                    value={imageLimit}
-                    onChange={(e) => setImageLimit(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-[#eae8e4] rounded-xl focus:ring-2 focus:ring-[#1a1a1a] focus:border-[#1a1a1a] sm:text-sm outline-none transition-all disabled:bg-[#f8f7f4] disabled:text-gray-400"
-                    placeholder="Max face recognition images (e.g. 500)"
-                  />
-                )}
-                <p className="text-xs text-gray-400">Used: {editingUser.imageUsed.toLocaleString()} images scanned</p>
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">Message</label>
+                <textarea
+                  value={emailMessage}
+                  onChange={(e) => setEmailMessage(e.target.value)}
+                  rows={8}
+                  placeholder="Write your message..."
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:bg-white focus:border-[#1a1a1a] transition-all resize-y"
+                />
               </div>
+              <p className="text-[11px] text-gray-400">Opens your mail app addressed to {emailTarget.email} with this subject and message.</p>
+            </div>
 
-              {/* Face Matching Delivery Limit Section */}
-              <div className="space-y-2.5 p-3.5 rounded-xl border border-[#eae8e4] bg-[#faf9f6]/40">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={faceEnabled}
-                      onClick={() => setFaceEnabled(!faceEnabled)}
-                      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                        faceEnabled ? 'bg-[#1a1a1a]' : 'bg-gray-300'
-                      }`}
-                    >
-                      <span
-                        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
-                          faceEnabled ? 'translate-x-4' : 'translate-x-0'
-                        }`}
-                      />
-                    </button>
-                    <div>
-                      <label className="text-sm font-medium text-[#3c3c3b] block">Face matching delivery limit</label>
-                    </div>
-                  </div>
-
-                  {faceEnabled && (
-                    <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={faceUnlimited}
-                        onChange={(e) => setFaceUnlimited(e.target.checked)}
-                        className="rounded text-[#1a1a1a] focus:ring-0"
-                      />
-                      Unlimited
-                    </label>
-                  )}
-                </div>
-
-                {!faceEnabled ? (
-                  <div className="px-3 py-2 bg-gray-100/80 rounded-xl text-xs text-gray-500 font-medium">
-                    Feature is turned off (disabled for this user)
-                  </div>
-                ) : (
-                  <>
-                    {/* Quick Preset Selector for 1 delivery vs multiple deliveries */}
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-400">Permission:</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setFaceUnlimited(false);
-                          setFaceLimit('1');
-                        }}
-                        className={`px-2.5 py-1 text-xs rounded-lg border font-medium transition-colors ${
-                          !faceUnlimited && faceLimit === '1'
-                            ? 'bg-[#1a1a1a] text-white border-[#1a1a1a]'
-                            : 'bg-white text-gray-600 border-[#eae8e4] hover:bg-gray-50'
-                        }`}
-                      >
-                        1 Delivery
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setFaceUnlimited(false);
-                          if (faceLimit === '1' || !faceLimit) setFaceLimit('5');
-                        }}
-                        className={`px-2.5 py-1 text-xs rounded-lg border font-medium transition-colors ${
-                          !faceUnlimited && Number(faceLimit) > 1
-                            ? 'bg-[#1a1a1a] text-white border-[#1a1a1a]'
-                            : 'bg-white text-gray-600 border-[#eae8e4] hover:bg-gray-50'
-                        }`}
-                      >
-                        Multiple Deliveries
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setFaceUnlimited(true);
-                          setFaceLimit('');
-                        }}
-                        className={`px-2.5 py-1 text-xs rounded-lg border font-medium transition-colors ${
-                          faceUnlimited
-                            ? 'bg-[#1a1a1a] text-white border-[#1a1a1a]'
-                            : 'bg-white text-gray-600 border-[#eae8e4] hover:bg-gray-50'
-                        }`}
-                      >
-                        Unlimited
-                      </button>
-                    </div>
-
-                    <input
-                      type="number"
-                      min="1"
-                      step="1"
-                      disabled={faceUnlimited}
-                      value={faceLimit}
-                      onChange={(e) => setFaceLimit(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-[#eae8e4] rounded-xl focus:ring-2 focus:ring-[#1a1a1a] focus:border-[#1a1a1a] sm:text-sm outline-none transition-all disabled:bg-[#f8f7f4] disabled:text-gray-400"
-                      placeholder={faceUnlimited ? 'Unlimited deliveries' : 'Max face matching deliveries (e.g. 1 or more)'}
-                    />
-                  </>
-                )}
-                <p className="text-xs text-gray-400">
-                  Used: {editingUser.faceUsed.toLocaleString()} face matching {editingUser.faceUsed === 1 ? 'delivery' : 'deliveries'}
-                </p>
-              </div>
-
-              <div className="pt-4 flex items-center justify-end gap-3 border-t border-[#eae8e4] mt-2">
-                <button
-                  type="button"
-                  onClick={() => setEditingUser(null)}
-                  className="px-4 py-2 border border-[#eae8e4] text-[#3c3c3b] text-sm font-medium rounded-xl hover:bg-[#f8f7f4] transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={updating}
-                  className="px-4 py-2 bg-[#1a1a1a] text-white text-sm font-medium rounded-xl hover:bg-[#2a2a2a] transition-colors disabled:opacity-75 flex items-center gap-2"
-                >
-                  {updating && <AppSpinner size="xs" />}
-                  Save Changes
-                </button>
-              </div>
-            </form>
+            <div className="px-5 py-4 flex items-center justify-end gap-2.5 border-t border-gray-100 shrink-0 bg-gray-50/60">
+              <button
+                type="button"
+                onClick={() => setEmailTarget(null)}
+                className="px-4 py-2 border border-gray-200 bg-white text-gray-700 text-[13px] font-semibold rounded-xl hover:bg-gray-100 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={sendEmail}
+                className="px-5 py-2 bg-[#1a1a1a] text-white text-[13px] font-semibold rounded-xl hover:bg-black transition-colors inline-flex items-center gap-2"
+              >
+                <Mail className="w-4 h-4" />Send email
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -285,6 +285,11 @@ export const photoAiService = {
     return postJson('/api/photo-ai/recluster', { collectionId });
   },
 
+  repairLabels(collectionId) {
+    if (!collectionId) return Promise.resolve(null);
+    return postJson('/api/photo-ai/repair-labels', { collectionId });
+  },
+
   async getPeople(
     collectionId,
     { forceRecluster = false, applyGuestLabels = false, metadataRows = null, includeHidden = false } = {}

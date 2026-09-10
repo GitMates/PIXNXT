@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, X } from 'lucide-react';
+import { Square, X } from 'lucide-react';
 import { VOICE_WAVEFORM_BARS } from './useFeedbackVoiceRecorder';
 import './VoiceRecordingBar.css';
 
@@ -28,6 +28,9 @@ export default function VoiceRecordingBar({
             aria-live="polite"
             aria-label={`Recording ${elapsedLabel}`}
         >
+            <span className="voice-recording-bar__rec" aria-hidden>
+                <span className="voice-recording-bar__rec-dot" />
+            </span>
             <div className="voice-recording-bar__waveform" aria-hidden>
                 {bars.map((level, i) => {
                     const amp = Math.max(0, Math.min(1, Number(level) || 0));
@@ -62,9 +65,10 @@ export default function VoiceRecordingBar({
                     type="button"
                     className="voice-recording-bar__btn voice-recording-bar__btn--accept"
                     onClick={onAccept}
-                    aria-label="Finish recording"
+                    aria-label="Stop and keep recording"
+                    title="Stop and keep"
                 >
-                    <Check size={15} strokeWidth={2.5} />
+                    <Square size={13} fill="currentColor" strokeWidth={0} />
                 </button>
             </div>
         </div>

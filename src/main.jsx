@@ -6,8 +6,10 @@ import './index.css'
 import App from './App.jsx'
 import { AuthProvider } from './context/AuthContext'
 import { migrateStripInlineDataFromAlbumLocalStorage } from './lib/albumLocalStorage'
+import { installGlobalCrashHooks } from './lib/crashLogger'
 
 migrateStripInlineDataFromAlbumLocalStorage()
+installGlobalCrashHooks()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

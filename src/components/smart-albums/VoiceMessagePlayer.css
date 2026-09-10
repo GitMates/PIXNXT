@@ -1,3 +1,6 @@
+/* Claude-style light voice player: warm paper card, charcoal play
+   button, dark-on-light waveform with played progress. */
+
 .av-voice-player,
 .av-voice-player * {
   font-family: var(--font-sans) !important;
@@ -12,7 +15,7 @@
 .av-voice-player__body {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   width: 100%;
   min-width: 0;
 }
@@ -22,33 +25,49 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   margin: 0;
   padding: 0;
   border: none;
   border-radius: 50%;
-  background: #ffffff;
-  color: #3f6f5b;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+  background: #1f1c19;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(31, 28, 25, 0.28);
   cursor: pointer;
   transition:
     background 0.16s ease,
-    color 0.16s ease,
     box-shadow 0.16s ease,
     transform 0.16s ease;
 }
 
 .av-voice-player__play:hover {
-  background: #f8faf9;
-  color: #2f5d4a;
-  transform: scale(1.02);
+  background: #000000;
+  box-shadow: 0 4px 12px rgba(31, 28, 25, 0.34);
+  transform: scale(1.03);
+}
+
+.av-voice-player__play:active {
+  transform: scale(0.97);
+}
+
+.av-voice-player__play:focus-visible {
+  outline: 2px solid #1f1c19;
+  outline-offset: 2px;
 }
 
 .av-voice-player--playing .av-voice-player__play {
-  background: #3f6f5b;
+  background: #1f1c19;
   color: #ffffff;
-  box-shadow: 0 2px 8px rgba(63, 111, 91, 0.24);
+  box-shadow: 0 2px 10px rgba(31, 28, 25, 0.36);
+}
+
+.av-voice-player__play svg {
+  margin-left: 1px;
+}
+
+.av-voice-player--playing .av-voice-player__play svg {
+  margin-left: 0;
 }
 
 .av-voice-player__wave-track {
@@ -59,29 +78,35 @@
   border: none;
   background: transparent;
   cursor: pointer;
+  border-radius: 8px;
+}
+
+.av-voice-player__wave-track:focus-visible {
+  outline: 2px solid #1f1c19;
+  outline-offset: 2px;
 }
 
 .av-voice-player__wave {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 2.5px;
   width: 100%;
-  height: 28px;
+  height: 30px;
 }
 
 .av-voice-player__bar {
   flex: 1 1 0;
   min-width: 2px;
   max-width: 3px;
-  height: calc(18px * var(--bar-scale, 0.55));
+  height: calc(20px * var(--bar-scale, 0.55));
   border-radius: 999px;
-  background: rgba(63, 111, 91, 0.22);
+  background: #d9d5cb;
   transform-origin: center center;
   transition: background 0.12s ease, transform 0.12s ease;
 }
 
 .av-voice-player__bar--played {
-  background: rgba(63, 111, 91, 0.72);
+  background: #2b2722;
 }
 
 .av-voice-player__bar--live {
@@ -117,12 +142,13 @@
 
 .av-voice-player__time {
   flex-shrink: 0;
-  min-width: 34px;
-  font-size: 12px;
-  font-weight: 500;
+  min-width: 36px;
+  font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace;
+  font-size: 12.5px;
+  font-weight: 600;
   line-height: 1;
-  letter-spacing: 0.01em;
-  color: #5f6f68;
+  letter-spacing: 0.02em;
+  color: #2b2722;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
@@ -132,33 +158,42 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   margin: 0;
   padding: 0;
   border: none;
   border-radius: 50%;
-  background: transparent;
-  color: #9ca3af;
+  background: #e9e6df;
+  color: #5c564f;
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.12s ease;
 }
 
 .av-voice-player__remove:hover {
-  background: rgba(15, 23, 42, 0.06);
-  color: #6b7280;
+  background: #ddd9cf;
+  color: #2b2722;
+  transform: scale(1.05);
+}
+
+.av-voice-player__remove:focus-visible {
+  outline: 2px solid #1f1c19;
+  outline-offset: 2px;
 }
 
 .av-voice-player__audio {
   display: none;
 }
 
+/* Recorded-clip preview inside the comment composer */
 .av-voice-player--compose .av-voice-player__body {
   padding: 10px 12px;
-  border-radius: 14px;
-  background: #ffffff;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  border-radius: 18px;
+  background: #f6f5f1;
+  border: 1px solid #e7e4db;
+  box-shadow:
+    0 1px 2px rgba(42, 38, 32, 0.05),
+    0 8px 24px rgba(42, 38, 32, 0.07);
 }
 
 .av-voice-player--bubble .av-voice-player__body {
@@ -175,5 +210,11 @@
 }
 
 .av-voice-player--bubble .av-voice-player__time {
-  color: #4f6158;
+  color: #2b2722;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .av-voice-player__bar--live {
+    animation: none;
+  }
 }

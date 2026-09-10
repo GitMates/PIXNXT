@@ -3,6 +3,7 @@ import { formatRelativeTime } from '../../lib/relativeTime';
 import { formatCommentTime } from '../../services/smartAlbumComments.service';
 import {
     getReplacementFeedVersionPair,
+    getSpreadCurrentVersionNumber,
     sortSpreadReplacements,
 } from './albumImageReplacements';
 import { formatSpreadDisplayLabel } from './albumSpreadUtils';
@@ -47,10 +48,19 @@ export default function AlbumPreviewReplacementCard({
     if (!rows.length) return null;
 
     const row = replacement || rows[rows.length - 1];
-    const { isRestore, from: versionFrom, to: versionTo } = getReplacementFeedVersionPair(row);
+    const spreadIdx = row.spreadIndex != null ? Number(row.spreadIndex) : null;
+    // Live current version as a hint so legacy restore rows (no versionFrom
+    // recorded) still render a truthful "v4 → v1" instead of "v1 → v1".
+    const currentVersionHint =
+        Number.isFinite(spreadIdx) && imageReplacements?.length
+            ? getSpreadCurrentVersionNumber(imageReplacements, spreadIdx)
+            : null;
+    const { isRestore, from: versionFrom, to: versionTo } = getReplacementFeedVersionPair(
+        row,
+        currentVersionHint
+    );
     const createdAt = row.createdAt;
     const timeLabel = formatRelativeTime(createdAt) || formatCommentTime(createdAt);
-    const spreadIdx = row.spreadIndex != null ? Number(row.spreadIndex) : null;
     const spreadText =
         spreadLabel ||
         (Number.isFinite(spreadIdx)

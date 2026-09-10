@@ -111,9 +111,10 @@ const CreateCollection = () => {
                 ...presetSettings,
             };
 
-            if (guestDeliveryEnabled) {
-                await photographerQuotaService.assertFaceMatchingDeliveryQuota(user.id, 1);
-            }
+            // Creation quota only — face switches (Find People / face matching)
+            // must not block delivery creation. They only hide the
+            // Find People button and gate actual face scans.
+            await photographerQuotaService.assertCreationDeliveryQuota(user.id, 1);
 
             const newCollection = await galleryService.createCollection(collectionData);
 

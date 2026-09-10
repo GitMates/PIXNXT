@@ -397,6 +397,10 @@ export function CollectionDashboardSidebar({
 
       <footer className="cdsb-footer">
         <div className="cdsb-storage">
+          {(() => {
+            const normalOn = (quotaSnapshot?.face_normal_enabled ?? profile?.face_normal_enabled) !== false;
+            const guestOn = (quotaSnapshot?.face_guest_enabled ?? profile?.face_guest_enabled) !== false;
+            return (
           <AccountQuotaMeters
             compact
             storageLabel={formatStorageMeter(usedBytes, maxBytes)}
@@ -405,7 +409,17 @@ export function CollectionDashboardSidebar({
             imageLimit={quotaSnapshot?.image_limit ?? profile?.image_limit}
             faceUsed={quotaSnapshot?.face_matching_delivery_used ?? profile?.face_matching_delivery_used}
             faceLimit={quotaSnapshot?.face_matching_delivery_limit ?? profile?.face_matching_delivery_limit}
+            normalImageUsed={quotaSnapshot?.face_normal_image_used ?? profile?.face_normal_image_used ?? quotaSnapshot?.image_used_count ?? profile?.image_used_count}
+            normalImageLimit={!normalOn ? -1 : (quotaSnapshot?.face_normal_image_limit ?? profile?.face_normal_image_limit ?? quotaSnapshot?.image_limit ?? profile?.image_limit)}
+            guestImageUsed={quotaSnapshot?.face_guest_image_used ?? profile?.face_guest_image_used}
+            guestImageLimit={!guestOn ? -1 : (quotaSnapshot?.face_guest_image_limit ?? profile?.face_guest_image_limit ?? quotaSnapshot?.image_limit ?? profile?.image_limit)}
+            normalFaceUsed={quotaSnapshot?.face_normal_delivery_used ?? profile?.face_normal_delivery_used}
+            normalFaceLimit={!normalOn ? -1 : (quotaSnapshot?.face_normal_delivery_limit ?? profile?.face_normal_delivery_limit)}
+            guestFaceUsed={quotaSnapshot?.face_guest_delivery_used ?? profile?.face_guest_delivery_used ?? quotaSnapshot?.face_matching_delivery_used ?? profile?.face_matching_delivery_used}
+            guestFaceLimit={!guestOn ? -1 : (quotaSnapshot?.face_guest_delivery_limit ?? profile?.face_guest_delivery_limit ?? quotaSnapshot?.face_matching_delivery_limit ?? profile?.face_matching_delivery_limit)}
           />
+            );
+          })()}
         </div>
 
         <button

@@ -1,6 +1,6 @@
 import { getCollectionItem, getCollectionItemDisplayUrl, restoreCollectionItemSnapshot } from './albumCollection';
 import { storageService } from '../../services/storage.service';
-import { resolveCrossOriginMediaUrl } from '../../lib/r2MediaProxy';
+import { getDisplayMediaUrl, resolveCrossOriginMediaUrl } from '../../lib/r2MediaProxy';
 import {
     getGridSlotPhoto,
     resolveSlotCollectionItemId,
@@ -221,6 +221,14 @@ export async function snapshotImageUrlForReview(url) {
  * always show the live collection file (stored newUrl can lag behind).
  * Historical versions must use frozen previousUrl / previousStoragePath only —
  * prefer storagePath so a mistaken previousUrl alias to the new file cannot win.
+ *
+ * NOTE: the result feeds plain <img> elements (feed thumbs + lightbox), which
+ * never need CORS — always return the direct display URL. Routing through the
+ * same-origin /api/r2-media proxy (resolveCrossOriginMediaUrl) breaks these
+ * thumbs on photographer custom domains, where that endpoint is not reliably
+ * served, while localhost / pixnxt.in keep working on direct R2 URLs.
+ * Fetch/canvas callers (snapshotImageUrlForReview, rasterizeImageToDataUrl)
+ * keep using resolveCrossOriginMediaUrl internally with fallbacks.
  */
 export function resolveReplacementPreviewUrl(
     albumId,
@@ -240,7 +248,7 @@ export function resolveReplacementPreviewUrl(
     if (!resolved && url) resolved = url;
     if (!resolved && storagePath) resolved = storageService.getPublicUrl(storagePath);
     if (!resolved) return null;
-    return resolveCrossOriginMediaUrl(resolved);
+    return getDisplayMediaUrl(resolved);
 }
 
 function stripUrlCacheToken(url) {
@@ -312,15 +320,26 @@ export function getSpreadUploadVersion(albumId, spreadIndex) {
     return getReplacementCurrentVersion(latest);
 }
 
-/** Version pair and labels for proof-feed cards (upload or restore). */
-export function getReplacementFeedVersionPair(replacement) {
+/**
+ * Version pair and labels for proof-feed cards (upload or restore).
+ * currentVersionHint lets legacy restore rows (written before versionFrom was
+ * recorded) reconstruct the "from" side from the spread's live version —
+ * otherwise they collapse to a misleading "v1 → v1".
+ */
+export function getReplacementFeedVersionPair(replacement, currentVersionHint = null) {
     if (isRestoreReplacementEvent(replacement)) {
         const to = Number(replacement.versionTo);
-        const from = Number(replacement.versionFrom);
+        const safeTo = Number.isFinite(to) && to > 0 ? to : 1;
+        let from = Number(replacement.versionFrom);
+        if (!(from > 0)) {
+            const hint = Number(currentVersionHint);
+            from = hint > 0 ? hint : NaN;
+        }
+        if (!(from > 0)) from = safeTo;
         return {
             isRestore: true,
-            from: Number.isFinite(from) && from > 0 ? from : Number.isFinite(to) ? to : 1,
-            to: Number.isFinite(to) && to > 0 ? to : 1,
+            from: Math.max(from, safeTo),
+            to: safeTo,
         };
     }
     const from = getReplacementVersion(replacement);
@@ -740,8 +759,14 @@ export function restoreImageReplacementVersion(albumId, row, { album, totalPages
         spreadLeft: row.pageNum,
     };
 
-    const versionFrom = getSpreadUploadVersion(albumId, row.spreadIndex);
     const versionTo = getReplacementVersion(row);
+    // Restoring goes backward by definition — never record from < to (e.g. when
+    // upload rows are missing from the working set, getSpreadUploadVersion
+    // falls back to 1 and would otherwise produce a nonsense "v1 → v3" row).
+    const versionFrom = Math.max(
+        getSpreadUploadVersion(albumId, row.spreadIndex),
+        versionTo
+    );
     const beforeRestore = captureSlotImageBeforeReplace(albumId, slot, album, totalPages);
 
     if (snapshot.collectionItemId && (snapshot.storagePath || snapshot.dataUrl)) {

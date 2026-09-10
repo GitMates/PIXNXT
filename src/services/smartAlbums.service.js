@@ -9,6 +9,7 @@ import { clearAlbumPageStorage, clampAlbumPageCount } from '../components/smart-
 import { clearAllAlbumPagePhotos } from '../components/smart-albums/albumPagePhotos';
 import { clearAlbumTransforms } from '../components/smart-albums/albumPageTransforms';
 import { userStorageService } from './userStorage.service';
+import { photographerQuotaService } from './photographerQuota.service';
 import {
   buildAlbumPreviewSnapshot,
   getAlbumIdsWithLocalAssets,
@@ -1183,6 +1184,9 @@ export const smartAlbumsService = {
     if (!trimmedName) {
       throw new Error('Album name is required.');
     }
+    if (photographer_id) {
+      await photographerQuotaService.assertAlbumQuota(photographer_id, 1);
+    }
     if (await this.albumNameExists(photographer_id, trimmedName)) {
       throw new Error(`An album named "${trimmedName}" already exists. Choose a different name.`);
     }
@@ -1230,6 +1234,8 @@ export const smartAlbumsService = {
         replies_enabled: defaults.multiUserCollaboration,
       });
       removeLocalAlbum(photographer_id, data.id);
+      photographerQuotaService.invalidate(photographer_id);
+      photographerQuotaService.notifyQuotaChanged();
       return mapAlbumRow(data, photographer_id);
     }
 
