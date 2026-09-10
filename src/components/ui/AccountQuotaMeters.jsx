@@ -69,46 +69,30 @@ export function AccountQuotaMeters({
     normalFaceUsed !== undefined ||
     guestFaceUsed !== undefined;
 
+  // Over-limit (used > limit) gets a warning state — otherwise e.g. "3/1"
+  // renders as a plain full bar and looks identical to "at limit".
+  const toRow = (key, label, used, limit) => {
+    const u = Number(used) || 0;
+    const cap = Number(limit);
+    return {
+      key,
+      label,
+      meta: formatCountMeter(used, limit),
+      pct: quotaPercent(used, limit),
+      over: cap > 0 && u > cap,
+    };
+  };
+
   const detailRows = hasSplit
     ? [
-        {
-          key: 'normal-images',
-          label: compact ? 'Face AI Normal' : 'Face recognition (Normal)',
-          meta: formatCountMeter(normalImageUsed ?? imageUsed, normalImageLimit ?? imageLimit),
-          pct: quotaPercent(normalImageUsed ?? imageUsed, normalImageLimit ?? imageLimit),
-        },
-        {
-          key: 'guest-images',
-          label: compact ? 'Face AI Guest' : 'Face recognition (Guest)',
-          meta: formatCountMeter(guestImageUsed ?? imageUsed, guestImageLimit ?? imageLimit),
-          pct: quotaPercent(guestImageUsed ?? imageUsed, guestImageLimit ?? imageLimit),
-        },
-        {
-          key: 'normal-face',
-          label: compact ? 'Deliveries Normal' : 'Face match deliveries (Normal)',
-          meta: formatCountMeter(normalFaceUsed ?? faceUsed, normalFaceLimit ?? faceLimit),
-          pct: quotaPercent(normalFaceUsed ?? faceUsed, normalFaceLimit ?? faceLimit),
-        },
-        {
-          key: 'guest-face',
-          label: compact ? 'Deliveries Guest' : 'Face match deliveries (Guest)',
-          meta: formatCountMeter(guestFaceUsed ?? faceUsed, guestFaceLimit ?? faceLimit),
-          pct: quotaPercent(guestFaceUsed ?? faceUsed, guestFaceLimit ?? faceLimit),
-        },
+        toRow('normal-images', compact ? 'Face AI Normal' : 'Face recognition (Normal)', normalImageUsed ?? imageUsed, normalImageLimit ?? imageLimit),
+        toRow('guest-images', compact ? 'Face AI Guest' : 'Face recognition (Guest)', guestImageUsed ?? imageUsed, guestImageLimit ?? imageLimit),
+        toRow('normal-face', compact ? 'Deliveries Normal' : 'Face match deliveries (Normal)', normalFaceUsed ?? faceUsed, normalFaceLimit ?? faceLimit),
+        toRow('guest-face', compact ? 'Deliveries Guest' : 'Face match deliveries (Guest)', guestFaceUsed ?? faceUsed, guestFaceLimit ?? faceLimit),
       ]
     : [
-        {
-          key: 'images',
-          label: compact ? 'Face AI' : 'Face recognition',
-          meta: formatCountMeter(imageUsed, imageLimit),
-          pct: quotaPercent(imageUsed, imageLimit),
-        },
-        {
-          key: 'face',
-          label: compact ? 'Deliveries' : 'Face match deliveries',
-          meta: formatCountMeter(faceUsed, faceLimit),
-          pct: quotaPercent(faceUsed, faceLimit),
-        },
+        toRow('images', compact ? 'Face AI' : 'Face recognition', imageUsed, imageLimit),
+        toRow('face', compact ? 'Deliveries' : 'Face match deliveries', faceUsed, faceLimit),
       ];
 
   return (
@@ -137,13 +121,21 @@ export function AccountQuotaMeters({
 
       {(!collapsible || expanded) &&
         detailRows.map((row) => (
-          <div key={row.key} className="aqm-row">
+          <div key={row.key} className={`aqm-row${row.over ? ' aqm-row--over' : ''}`}>
             <div className="aqm-row__head">
               <span className="aqm-row__label">{row.label}</span>
-              <span className="aqm-row__meta">{row.meta}</span>
+              <span
+                className={`aqm-row__meta${row.over ? ' aqm-row__meta--over' : ''}`}
+                title={row.over ? 'Over limit — usage exceeds the cap set by the admin' : undefined}
+              >
+                {row.meta}{row.over ? ' · over' : ''}
+              </span>
             </div>
             <div className="aqm-row__bar">
-              <div className="aqm-row__fill" style={{ width: `${row.pct}%` }} />
+              <div
+                className={`aqm-row__fill${row.over ? ' aqm-row__fill--over' : ''}`}
+                style={{ width: `${row.pct}%` }}
+              />
             </div>
           </div>
         ))}

@@ -123,6 +123,44 @@ function QuotaCard({ toggle, icon, title, usedLine, actions, children }) {
 }
 
 /** Segmented 1 / Multiple / ∞ picker for delivery limits. */
+/** Map one photographers row (split or legacy) to the table/modal shape. */
+function mapPhotographerRow(p) {
+  const nImgLimit = p.face_normal_image_limit != null ? Number(p.face_normal_image_limit) : (p.image_limit != null ? Number(p.image_limit) : 0);
+  const gImgLimit = p.face_guest_image_limit != null ? Number(p.face_guest_image_limit) : (p.image_limit != null ? Number(p.image_limit) : 0);
+  const nFaceLimit = p.face_normal_delivery_limit != null ? Number(p.face_normal_delivery_limit) : 0;
+  const gFaceLimit = p.face_guest_delivery_limit != null ? Number(p.face_guest_delivery_limit) : (p.face_matching_delivery_limit != null ? Number(p.face_matching_delivery_limit) : 0);
+  const nFeature = p.face_normal_enabled != null ? p.face_normal_enabled !== false : !(nImgLimit === -1 && nFaceLimit === -1);
+  const gFeature = p.face_guest_enabled != null ? p.face_guest_enabled !== false : !(gImgLimit === -1 && gFaceLimit === -1);
+  return {
+    normalFeature: nFeature,
+    guestFeature: gFeature,
+    aiSearch: p.ai_search_enabled !== false,
+    id: p.id,
+    name: p.display_name || 'Unnamed',
+    email: p.email,
+    plan: p.plan || 'Unknown',
+    role: 'Photographer',
+    usedStorage: formatBytes(p.storage_used_bytes),
+    totalStorage: formatBytes(p.storage_limit_bytes),
+    rawLimitBytes: p.storage_limit_bytes || 0,
+    rawUsedBytes: p.storage_used_bytes || 0,
+    // Legacy combined (for fallback)
+    imageUsed: Number(p.image_used_count) || 0,
+    imageLimit: p.image_limit != null ? Number(p.image_limit) : 0,
+    faceUsed: Number(p.face_matching_delivery_used) || 0,
+    faceLimit: p.face_matching_delivery_limit != null ? Number(p.face_matching_delivery_limit) : 0,
+    // Split
+    normalImageUsed: Number(p.face_normal_image_used ?? p.image_used_count) || 0,
+    normalImageLimit: nImgLimit,
+    guestImageUsed: Number(p.face_guest_image_used) || 0,
+    guestImageLimit: gImgLimit,
+    normalFaceUsed: Number(p.face_normal_delivery_used) || 0,
+    normalFaceLimit: nFaceLimit,
+    guestFaceUsed: Number(p.face_guest_delivery_used ?? p.face_matching_delivery_used) || 0,
+    guestFaceLimit: gFaceLimit,
+  };
+}
+
 function LimitSegmented({ unlimited, limitValue, onPickOne, onPickMultiple, onPickUnlimited }) {
   const isOne = !unlimited && limitValue === '1';
   const isMultiple = !unlimited && Number(limitValue) > 1;
@@ -165,6 +203,13 @@ const AdminQuotas = () => {
   const [statusFilter, setStatusFilter] = useState('all');
 
   const [editingUser, setEditingUser] = useState(null);
+  // Tracks which user's modal is open so the live-refresh below never
+  // overwrites a closed modal or a different user.
+  const editingIdRef = useRef(null);
+  const closeLimitsEditor = () => {
+    editingIdRef.current = null;
+    setEditingUser(null);
+  };
   const [storageValue, setStorageValue] = useState('');
   const [storageUnit, setStorageUnit] = useState('GB');
   // Split limits: normal delivery vs guest delivery
@@ -255,42 +300,7 @@ const AdminQuotas = () => {
         );
       }
 
-      const mappedPhotographers = (data || []).map((p) => {
-        const nImgLimit = p.face_normal_image_limit != null ? Number(p.face_normal_image_limit) : (p.image_limit != null ? Number(p.image_limit) : 0);
-        const gImgLimit = p.face_guest_image_limit != null ? Number(p.face_guest_image_limit) : (p.image_limit != null ? Number(p.image_limit) : 0);
-        const nFaceLimit = p.face_normal_delivery_limit != null ? Number(p.face_normal_delivery_limit) : 0;
-        const gFaceLimit = p.face_guest_delivery_limit != null ? Number(p.face_guest_delivery_limit) : (p.face_matching_delivery_limit != null ? Number(p.face_matching_delivery_limit) : 0);
-        const nFeature = p.face_normal_enabled != null ? p.face_normal_enabled !== false : !(nImgLimit === -1 && nFaceLimit === -1);
-        const gFeature = p.face_guest_enabled != null ? p.face_guest_enabled !== false : !(gImgLimit === -1 && gFaceLimit === -1);
-        return {
-          normalFeature: nFeature,
-          guestFeature: gFeature,
-          aiSearch: p.ai_search_enabled !== false,
-          id: p.id,
-          name: p.display_name || 'Unnamed',
-          email: p.email,
-          plan: p.plan || 'Unknown',
-          role: 'Photographer',
-          usedStorage: formatBytes(p.storage_used_bytes),
-          totalStorage: formatBytes(p.storage_limit_bytes),
-          rawLimitBytes: p.storage_limit_bytes || 0,
-          rawUsedBytes: p.storage_used_bytes || 0,
-          // Legacy combined (for fallback)
-          imageUsed: Number(p.image_used_count) || 0,
-          imageLimit: p.image_limit != null ? Number(p.image_limit) : 0,
-          faceUsed: Number(p.face_matching_delivery_used) || 0,
-          faceLimit: p.face_matching_delivery_limit != null ? Number(p.face_matching_delivery_limit) : 0,
-          // Split
-          normalImageUsed: Number(p.face_normal_image_used ?? p.image_used_count) || 0,
-          normalImageLimit: nImgLimit,
-          guestImageUsed: Number(p.face_guest_image_used) || 0,
-          guestImageLimit: gImgLimit,
-          normalFaceUsed: Number(p.face_normal_delivery_used) || 0,
-          normalFaceLimit: nFaceLimit,
-          guestFaceUsed: Number(p.face_guest_delivery_used ?? p.face_matching_delivery_used) || 0,
-          guestFaceLimit: gFaceLimit,
-        };
-      });
+      const mappedPhotographers = (data || []).map(mapPhotographerRow);
 
       setUsers(mappedPhotographers);
     } catch (err) {
@@ -333,37 +343,65 @@ const AdminQuotas = () => {
     };
   };
 
-  const openLimitsEditor = (user) => {
-    const storage = splitStorageDisplay(user.totalStorage);
-    setEditingUser(user);
+  const initEditorFromRow = (row) => {
+    const storage = splitStorageDisplay(row.totalStorage);
+    setEditingUser(row);
     setStorageValue(storage.value);
     setStorageUnit(storage.unit);
 
-    const nImg = initTriState(user.normalImageLimit);
+    const nImg = initTriState(row.normalImageLimit);
     setNormalImageEnabled(nImg.enabled);
     setNormalImageUnlimited(nImg.unlimited);
     setNormalImageLimit(nImg.value);
 
-    const gImg = initTriState(user.guestImageLimit);
+    const gImg = initTriState(row.guestImageLimit);
     setGuestImageEnabled(gImg.enabled);
     setGuestImageUnlimited(gImg.unlimited);
     setGuestImageLimit(gImg.value);
 
-    const nFace = initTriState(user.normalFaceLimit);
+    const nFace = initTriState(row.normalFaceLimit);
     setNormalFaceEnabled(nFace.enabled);
     setNormalFaceUnlimited(nFace.unlimited);
     setNormalFaceLimit(nFace.value);
 
-    const gFace = initTriState(user.guestFaceLimit);
+    const gFace = initTriState(row.guestFaceLimit);
     setGuestFaceEnabled(gFace.enabled);
     setGuestFaceUnlimited(gFace.unlimited);
     setGuestFaceLimit(gFace.value);
 
-    setNormalFeature(user.normalFeature !== false);
-    setGuestFeature(user.guestFeature !== false);
-    setAiSearchEnabled(user.aiSearch !== false);
+    setNormalFeature(row.normalFeature !== false);
+    setGuestFeature(row.guestFeature !== false);
+    setAiSearchEnabled(row.aiSearch !== false);
     setResetUsed({ normalImage: false, normalFace: false, guestImage: false, guestFace: false });
     setActiveLimitTab('normal');
+  };
+
+  const openLimitsEditor = (user) => {
+    // Show instantly from the table row, then refetch that photographer's row
+    // live — *_used counters are trigger-recomputed on every upload/delete,
+    // so the table snapshot can be stale (e.g. modal said "0 of 1 used"
+    // while the sidebar already showed "3/1").
+    const userId = user.id;
+    editingIdRef.current = userId;
+    initEditorFromRow(user);
+    (async () => {
+      try {
+        let row = null;
+        const fresh = await supabase.from('photographers').select(SPLIT_SELECT).eq('id', userId).maybeSingle();
+        if (!fresh.error && fresh.data) {
+          row = fresh.data;
+        } else if (fresh.error && isMissingColumnError(fresh.error)) {
+          const legacy = await supabase.from('photographers').select(LEGACY_SELECT).eq('id', userId).maybeSingle();
+          if (!legacy.error && legacy.data) row = { ...legacy.data, ai_search_enabled: true };
+        }
+        if (!row || editingIdRef.current !== userId) return;
+        const mapped = mapPhotographerRow(row);
+        initEditorFromRow(mapped);
+        setUsers((prev) => prev.map((u) => (u.id === userId ? mapped : u)));
+      } catch {
+        /* keep table snapshot on failure */
+      }
+    })();
   };
 
   // Master toggle drives both sub-toggles so ON/OFF always matches Face images + Deliveries.
@@ -495,7 +533,7 @@ const AdminQuotas = () => {
         }
       }
 
-      setEditingUser(null);
+      closeLimitsEditor();
       fetchUsers();
       // Instant admin -> photographer (and admin -> admin tabs): push the change
       // now instead of waiting for the realtime event.
@@ -796,7 +834,7 @@ const AdminQuotas = () => {
                 <h3 className="font-semibold text-[#1a1a1a] leading-tight">Edit limits</h3>
                 <p className="text-xs text-gray-500 truncate">{editingUser.name} · {editingUser.email}</p>
               </div>
-              <button onClick={() => setEditingUser(null)} className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
+              <button onClick={closeLimitsEditor} className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1078,7 +1116,7 @@ const AdminQuotas = () => {
               <div className="px-5 py-4 flex items-center justify-end gap-2.5 border-t border-gray-100 shrink-0 bg-gray-50/60">
                 <button
                   type="button"
-                  onClick={() => setEditingUser(null)}
+                  onClick={closeLimitsEditor}
                   className="px-4 py-2 border border-gray-200 bg-white text-gray-700 text-[13px] font-semibold rounded-xl hover:bg-gray-100 transition-colors"
                 >
                   Cancel

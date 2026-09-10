@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, User, AlertCircle, X, Mail, Ban, CheckCircle2 } from 'lucide-react';
+import { Search, User, AlertCircle, X, Mail, Ban, CheckCircle2, Download } from 'lucide-react';
 import { AppLoader, AppSpinner } from '../../components/ui/AppLoading';
 import { supabase } from '../../lib/supabase/client';
 import {
@@ -8,13 +8,39 @@ import {
   subscribeAllPhotographers,
 } from '../../lib/photographerLiveSync';
 
-const FULL_SELECT = 'id, display_name, email, plan, is_disabled, last_login_at';
+const FULL_SELECT = 'id, display_name, email, plan, is_disabled, last_login_at, created_at, storage_used_bytes, delivery_used_count, album_used_count';
 const BASIC_SELECT = 'id, display_name, email, plan';
 
 const isMissingColumnError = (err) => {
   const msg = String(err?.message || '');
   return err?.code === '42703' || /does not exist|is_disabled|last_login_at/i.test(msg);
 };
+
+function formatBytes(bytes) {
+  if (!bytes || bytes <= 0) return '0 MB';
+  const tb = 1024 * 1024 * 1024 * 1024;
+  const gb = 1024 * 1024 * 1024;
+  const mb = 1024 * 1024;
+  if (bytes >= tb) return `${(bytes / tb).toFixed(2)} TB`;
+  if (bytes >= gb) return `${(bytes / gb).toFixed(2)} GB`;
+  return `${(bytes / mb).toFixed(1)} MB`;
+}
+
+function formatDateShort(value) {
+  if (!value) return '—';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+}
+
+const INACTIVE_AFTER_DAYS = 30;
+
+function daysSinceLogin(value) {
+  if (!value) return null;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return (Date.now() - d.getTime()) / (1000 * 60 * 60 * 24);
+}
 
 function formatLastLogin(value) {
   if (!value) return { short: 'Never', title: 'No login recorded yet' };
@@ -38,6 +64,7 @@ const AdminUserManagement = () => {
   const [migrationWarning, setMigrationWarning] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('newest');
   const [confirmDisableId, setConfirmDisableId] = useState(null);
   const [actionBusyId, setActionBusyId] = useState(null);
   const [emailTarget, setEmailTarget] = useState(null);
@@ -55,7 +82,15 @@ const AdminUserManagement = () => {
         if (!isMissingColumnError(res.error)) throw res.error;
         const basic = await supabase.from('photographers').select(BASIC_SELECT).order('created_at', { ascending: false });
         if (basic.error) throw basic.error;
-        data = (basic.data || []).map((p) => ({ ...p, is_disabled: false, last_login_at: null }));
+        data = (basic.data || []).map((p) => ({
+          ...p,
+          is_disabled: false,
+          last_login_at: null,
+          created_at: null,
+          storage_used_bytes: 0,
+          delivery_used_count: 0,
+          album_used_count: 0,
+        }));
         setMigrationWarning(
           'Database migration pending: run supabase/migrations/20260914000000_photographer_disabled_last_login.sql in Supabase SQL Editor to enable last login + disable account.'
         );
@@ -68,6 +103,10 @@ const AdminUserManagement = () => {
           plan: p.plan || 'Unknown',
           isDisabled: p.is_disabled === true,
           lastLoginAt: p.last_login_at || null,
+          joinedAt: p.created_at || null,
+          storageUsedBytes: Number(p.storage_used_bytes) || 0,
+          deliveryCount: Number(p.delivery_used_count) || 0,
+          albumCount: Number(p.album_used_count) || 0,
         }))
       );
     } catch (err) {
@@ -148,13 +187,65 @@ const AdminUserManagement = () => {
     if (q && !(u.name.toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q))) return false;
     if (statusFilter === 'active' && u.isDisabled) return false;
     if (statusFilter === 'disabled' && !u.isDisabled) return false;
+    if (statusFilter === 'never-login' && u.lastLoginAt) return false;
+    if (statusFilter === 'inactive') {
+      const days = daysSinceLogin(u.lastLoginAt);
+      if (days === null || days < INACTIVE_AFTER_DAYS) return false;
+    }
     return true;
   });
 
-  const filtersActive = Boolean(searchQuery) || statusFilter !== 'all';
+  const sortedUsers = [...filteredUsers].sort((a, b) => {
+    if (sortBy === 'name') return a.name.localeCompare(b.name);
+    if (sortBy === 'recent-login') {
+      const at = a.lastLoginAt ? new Date(a.lastLoginAt).getTime() : 0;
+      const bt = b.lastLoginAt ? new Date(b.lastLoginAt).getTime() : 0;
+      return bt - at;
+    }
+    if (sortBy === 'oldest') {
+      const at = a.joinedAt ? new Date(a.joinedAt).getTime() : 0;
+      const bt = b.joinedAt ? new Date(b.joinedAt).getTime() : 0;
+      return at - bt;
+    }
+    // newest (matches server order, falls back gracefully without joinedAt)
+    const at = a.joinedAt ? new Date(a.joinedAt).getTime() : 0;
+    const bt = b.joinedAt ? new Date(b.joinedAt).getTime() : 0;
+    return bt - at;
+  });
+
+  const filtersActive = Boolean(searchQuery) || statusFilter !== 'all' || sortBy !== 'newest';
   const clearFilters = () => {
     setSearchQuery('');
     setStatusFilter('all');
+    setSortBy('newest');
+  };
+
+  const exportCsv = () => {
+    const head = 'name,email,plan,status,last_login,joined,deliveries,albums,storage_used_bytes';
+    const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const body = sortedUsers
+      .map((u) =>
+        [
+          u.name,
+          u.email,
+          u.plan,
+          u.isDisabled ? 'disabled' : 'active',
+          u.lastLoginAt || '',
+          u.joinedAt || '',
+          u.deliveryCount,
+          u.albumCount,
+          u.storageUsedBytes,
+        ]
+          .map(esc)
+          .join(',')
+      )
+      .join('\n');
+    const blob = new Blob([head + '\n' + body], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'pixnxt_photographers.csv';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   };
 
   return (
@@ -187,11 +278,32 @@ const AdminUserManagement = () => {
             <option value="all">All statuses</option>
             <option value="active">Active</option>
             <option value="disabled">Disabled</option>
+            <option value="never-login">Never logged in</option>
+            <option value="inactive">Inactive 30+ days</option>
           </select>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            aria-label="Sort photographers"
+            className="px-3 py-2 bg-[#f8f7f4] border border-[#eae8e4] rounded-xl text-sm outline-none focus:border-[#1a1a1a] focus:bg-white transition-all"
+          >
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="name">Name A–Z</option>
+            <option value="recent-login">Recent login</option>
+          </select>
+          <button
+            type="button"
+            onClick={exportCsv}
+            title="Export the current list as CSV"
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-[#eae8e4] rounded-xl text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <Download className="w-4 h-4" />Export
+          </button>
         </div>
         <div className="flex items-center justify-between gap-3">
           <p className="text-xs text-gray-500">
-            Showing <span className="font-semibold text-gray-800">{filteredUsers.length}</span> of <span className="font-semibold text-gray-800">{users.length}</span> photographers
+            Showing <span className="font-semibold text-gray-800">{sortedUsers.length}</span> of <span className="font-semibold text-gray-800">{users.length}</span> photographers
           </p>
           {filtersActive && (
             <button type="button" onClick={clearFilters} className="inline-flex items-center gap-1 text-xs font-semibold text-gray-500 hover:text-gray-900 transition-colors">
@@ -226,16 +338,17 @@ const AdminUserManagement = () => {
             <table className="w-full text-left text-sm" style={{ tableLayout: 'fixed' }}>
               <thead className="bg-[#f9f8f5]/85 border-b border-[#eae8e4]">
                 <tr>
-                  <th className="px-5 py-3.5 font-semibold text-gray-500 text-xs uppercase tracking-wider" style={{ width: '32%' }}>Photographer</th>
-                  <th className="px-4 py-3.5 font-semibold text-gray-500 text-xs uppercase tracking-wider" style={{ width: '22%' }}>Last login</th>
-                  <th className="px-4 py-3.5 font-semibold text-gray-500 text-xs uppercase tracking-wider" style={{ width: '16%' }}>Status</th>
-                  <th className="px-4 py-3.5 font-semibold text-gray-500 text-xs uppercase tracking-wider text-right" style={{ width: '30%' }}>Action</th>
+                  <th className="px-5 py-3.5 font-semibold text-gray-500 text-xs uppercase tracking-wider" style={{ width: '26%' }}>Photographer</th>
+                  <th className="px-4 py-3.5 font-semibold text-gray-500 text-xs uppercase tracking-wider" style={{ width: '16%' }}>Last login</th>
+                  <th className="px-4 py-3.5 font-semibold text-gray-500 text-xs uppercase tracking-wider" style={{ width: '18%' }}>Activity</th>
+                  <th className="px-4 py-3.5 font-semibold text-gray-500 text-xs uppercase tracking-wider" style={{ width: '12%' }}>Status</th>
+                  <th className="px-4 py-3.5 font-semibold text-gray-500 text-xs uppercase tracking-wider text-right" style={{ width: '28%' }}>Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {filteredUsers.length === 0 ? (
+                {sortedUsers.length === 0 ? (
                   <tr>
-                    <td colSpan="4" className="px-6 py-12 text-center">
+                    <td colSpan="5" className="px-6 py-12 text-center">
                       <p className="text-gray-500">
                         {filtersActive ? 'No photographers match the current filters.' : 'No photographers yet.'}
                       </p>
@@ -247,7 +360,7 @@ const AdminUserManagement = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredUsers.map((user) => {
+                  sortedUsers.map((user) => {
                     const lastLogin = formatLastLogin(user.lastLoginAt);
                     const confirming = confirmDisableId === user.id;
                     const busy = actionBusyId === user.id;
@@ -266,6 +379,13 @@ const AdminUserManagement = () => {
                         </td>
                         <td className="px-4 py-4 min-w-0">
                           <p className="text-[13px] font-medium text-gray-800" title={lastLogin.title}>{lastLogin.short}</p>
+                          <p className="text-[11px] text-gray-400">Joined {formatDateShort(user.joinedAt)}</p>
+                        </td>
+                        <td className="px-4 py-4 min-w-0">
+                          <p className="text-[13px] font-medium text-gray-800">
+                            {user.deliveryCount.toLocaleString()} deliver{user.deliveryCount === 1 ? 'y' : 'ies'} · {user.albumCount.toLocaleString()} album{user.albumCount === 1 ? '' : 's'}
+                          </p>
+                          <p className="text-[11px] text-gray-400">{formatBytes(user.storageUsedBytes)} used</p>
                         </td>
                         <td className="px-4 py-4 min-w-0">
                           {user.isDisabled ? (

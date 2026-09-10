@@ -4949,19 +4949,6 @@ const CollectionDashboard = () => {
                                 >
                                     <span>Rename</span>
                                 </button>
-                                <button
-                                    type="button"
-                                    className="cd-ctx-item"
-                                    role="menuitem"
-                                    onClick={() => {
-                                        setShowMoreDropdown(false);
-                                        setShowPresetsSubmenu(false);
-                                        setShowMoveToModal(true);
-                                    }}
-                                >
-                                    <span>Move to folder</span>
-                                </button>
-
                                 <div className="cd-dropdown-divider" />
                                 <div className="cd-dropdown-section-title">MOBILE APP</div>
                                 <button

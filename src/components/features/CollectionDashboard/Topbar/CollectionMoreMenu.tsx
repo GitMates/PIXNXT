@@ -319,18 +319,6 @@ export function CollectionMoreMenu({
           >
             <span>Rename</span>
           </button>
-          <button
-            type="button"
-            className="cd-ctx-item"
-            role="menuitem"
-            onClick={() => {
-              closeAll();
-              setMoveOpen(true);
-            }}
-          >
-            <span>Move to folder</span>
-          </button>
-
           <div className="cd-dropdown-divider" />
           <div className="cd-dropdown-section-title">MOBILE APP</div>
           <button

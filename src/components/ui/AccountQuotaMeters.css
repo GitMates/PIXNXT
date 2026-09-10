@@ -74,6 +74,25 @@
   transition: width 0.3s ease;
 }
 
+/* Over-limit state (used > cap): red text + red bar so "3/1" reads as a
+   warning instead of a plain full bar. */
+.aqm-row__meta--over {
+  color: #b3261e;
+  font-weight: 700;
+}
+
+.aqm-row__fill--over {
+  background: #b3261e;
+}
+
+.cdsb-storage .aqm-row__meta--over {
+  color: #b3261e;
+}
+
+.cdsb-storage .aqm-row__fill--over {
+  background: #b3261e;
+}
+
 .cdsb-storage .aqm-row + .aqm-row {
   margin-top: 8px;
 }

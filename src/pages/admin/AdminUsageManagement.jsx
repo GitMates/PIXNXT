@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, User, AlertCircle, X, Layers, Send, Pencil } from 'lucide-react';
+import { Search, User, AlertCircle, X, Layers, Send, Pencil, ChevronDown, BookOpen } from 'lucide-react';
 import { AppLoader, AppSpinner } from '../../components/ui/AppLoading';
 import { supabase } from '../../lib/supabase/client';
 import {
@@ -67,6 +67,142 @@ const parseTriState = (enabled, unlimited, raw, label) => {
   return v;
 };
 
+/** Small emerald on/off switch for quota cards. */
+function CardSwitch({ checked, onChange, label }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={() => onChange(!checked)}
+      className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors ${checked ? 'bg-emerald-500' : 'bg-gray-300'}`}
+    >
+      <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${checked ? 'left-4' : 'left-0.5'}`} />
+    </button>
+  );
+}
+
+/** ∞ Unlimited pill — clearer than a bare checkbox. */
+function UnlimitedPill({ unlimited, onChange }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!unlimited)}
+      aria-pressed={unlimited}
+      title="Toggle unlimited"
+      className={`inline-flex shrink-0 items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold transition-colors ${unlimited ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+    >
+      <span className="text-sm leading-none">∞</span>
+      {unlimited ? 'Unlimited' : 'Limited'}
+    </button>
+  );
+}
+
+/** Segmented 1 / Multiple / ∞ picker for creation limits. */
+function LimitSegmented({ unlimited, limitValue, onPickOne, onPickMultiple, onPickUnlimited }) {
+  const isOne = !unlimited && limitValue === '1';
+  const isMultiple = !unlimited && Number(limitValue) > 1;
+  const btn = (active) =>
+    `flex-1 px-2 py-1.5 text-[11px] rounded-lg font-semibold transition-all ${active ? 'bg-white text-[#1a1a1a] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`;
+  return (
+    <div className="flex gap-1 p-1 bg-gray-100 rounded-xl">
+      <button type="button" onClick={onPickOne} className={btn(isOne)}>1</button>
+      <button type="button" onClick={onPickMultiple} className={btn(isMultiple)}>Multiple</button>
+      <button type="button" onClick={onPickUnlimited} className={btn(unlimited)}>∞</button>
+    </div>
+  );
+}
+
+/** One creation-limit quota card (albums or deliveries). */
+function CreationLimitCard({
+  icon, title, created, enabled, onEnabledChange, unlimited, onUnlimitedChange,
+  limit, onLimitChange, placeholder, onPickOne, onPickMultiple, used, inactiveNote,
+}) {
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="flex items-center gap-2.5">
+        <CardSwitch checked={enabled} onChange={onEnabledChange} label={title} />
+        <span className="flex w-8 h-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-600">{icon}</span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[13px] font-semibold text-gray-800 leading-tight">{title}</p>
+          <p className="text-[11px] text-gray-400">Created {Number(created || 0).toLocaleString()}</p>
+        </div>
+        {enabled && <UnlimitedPill unlimited={unlimited} onChange={onUnlimitedChange} />}
+      </div>
+      <div className="mt-3">
+        {enabled ? (
+          <>
+            <LimitSegmented
+              unlimited={unlimited}
+              limitValue={limit}
+              onPickOne={onPickOne}
+              onPickMultiple={onPickMultiple}
+              onPickUnlimited={() => { onUnlimitedChange(true); onLimitChange(''); }}
+            />
+            {unlimited ? (
+              <div className="mt-2.5 flex items-center gap-2 px-3 py-2.5 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-700">
+                <span className="text-lg leading-none font-bold">∞</span>
+                <span className="text-[13px] font-semibold">Unlimited</span>
+                <span className="ml-auto text-[11px] font-normal text-emerald-600">no cap on creation</span>
+              </div>
+            ) : (
+              <>
+                <label className="mt-2.5 block text-[11px] font-medium text-gray-500 mb-1.5">Max allowed</label>
+                <input type="number" min="1" step="1" value={limit} onChange={(e) => onLimitChange(e.target.value)} className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:bg-white focus:border-[#1a1a1a] transition-all" placeholder={placeholder} />
+                {Number(limit) > 0 && (
+                  <div className="mt-2.5">
+                    <MiniBar used={used} limit={Number(limit)} />
+                    <p className="mt-1 text-[11px] text-gray-400">
+                      {Number(used || 0).toLocaleString()} of {Number(limit).toLocaleString()} used
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        ) : (
+          <p className="text-[11px] font-medium text-gray-500 bg-gray-100 rounded-xl px-3 py-2.5">{inactiveNote}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function formatDateMed(value) {
+  if (!value) return '—';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function deliveryTone(status) {
+  const s = String(status || 'draft').toLowerCase();
+  if (s === 'published') return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+  if (s === 'archived' || s === 'hidden') return 'bg-gray-100 text-gray-500 border-gray-200';
+  return 'bg-amber-50 text-amber-700 border-amber-200';
+}
+
+function deliveryLabel(status) {
+  const s = String(status || 'draft').toLowerCase();
+  if (s === 'published') return 'Published';
+  if (s === 'archived' || s === 'hidden') return 'Hidden';
+  return 'Draft';
+}
+
+function albumTone(status) {
+  const s = String(status || '').toLowerCase();
+  if (s.includes('approv') || s === 'published' || s === 'live') return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+  if (s.includes('draft')) return 'bg-amber-50 text-amber-700 border-amber-200';
+  return 'bg-gray-100 text-gray-500 border-gray-200';
+}
+
+function albumLabel(status) {
+  const s = String(status || '').trim();
+  if (!s) return '—';
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 const AdminUsageManagement = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -84,6 +220,53 @@ const AdminUsageManagement = () => {
   const [deliveryLimit, setDeliveryLimit] = useState('');
   const [deliveryUnlimited, setDeliveryUnlimited] = useState(true);
   const [updating, setUpdating] = useState(false);
+  // Expanded row -> { albums, deliveries, loading, error, loaded }
+  const [expandedId, setExpandedId] = useState(null);
+  const [detailsByUser, setDetailsByUser] = useState({});
+
+  const toggleExpand = async (user) => {
+    if (expandedId === user.id) {
+      setExpandedId(null);
+      return;
+    }
+    setExpandedId(user.id);
+    if (detailsByUser[user.id]?.loaded) return;
+    setDetailsByUser((prev) => ({ ...prev, [user.id]: { ...(prev[user.id] || {}), loading: true, error: null } }));
+    try {
+      const [albumsRes, deliveriesRes] = await Promise.all([
+        supabase
+          .from('album_proofer_albums')
+          .select('id, name, status, created_at, event_date')
+          .eq('photographer_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(100),
+        supabase
+          .from('deliveries')
+          .select('id, name, slug, status, created_at')
+          .eq('photographer_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(100),
+      ]);
+      const albumError = albumsRes.error && albumsRes.error.code !== 'PGRST116' ? albumsRes.error : null;
+      if (deliveriesRes.error) throw deliveriesRes.error;
+      setDetailsByUser((prev) => ({
+        ...prev,
+        [user.id]: {
+          albums: albumsRes.data || [],
+          albumsUnavailable: Boolean(albumError),
+          deliveries: deliveriesRes.data || [],
+          loading: false,
+          error: null,
+          loaded: true,
+        },
+      }));
+    } catch (err) {
+      setDetailsByUser((prev) => ({
+        ...prev,
+        [user.id]: { albums: [], deliveries: [], loading: false, error: err.message || 'Failed to load items.', loaded: false },
+      }));
+    }
+  };
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -241,9 +424,6 @@ const AdminUsageManagement = () => {
     return (aCap === -1 || (aCap > 0 && u.albumUsed >= aCap)) || (dCap === -1 || (dCap > 0 && u.deliveryUsed >= dCap));
   }).length;
 
-  const presetBtn = (active) =>
-    `flex-1 px-2 py-1.5 text-[11px] rounded-lg border font-semibold ${active ? 'bg-[#1a1a1a] text-white border-[#1a1a1a]' : 'bg-white text-gray-600 border-gray-200'}`;
-
   return (
     <div className="space-y-6">
       <div>
@@ -251,18 +431,51 @@ const AdminUsageManagement = () => {
         <p className="text-gray-500 mt-1 text-sm">See how many albums and deliveries each photographer created — and set creation limits.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-[#fdfdfc] p-5 rounded-2xl shadow-sm border border-[#eae8e4]">
-          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 inline-flex items-center gap-1.5"><Layers className="w-3.5 h-3.5" />Total albums</p>
-          <p className="text-3xl font-bold text-gray-900 mt-2">{loading ? '—' : totalAlbums.toLocaleString()}</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 inline-flex items-center gap-2">
+            <span className="flex w-7 h-7 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700"><Layers className="w-3.5 h-3.5" /></span>Total albums
+          </p>
+          <p className="text-3xl font-bold text-gray-900 mt-3">{loading ? '—' : totalAlbums.toLocaleString()}</p>
+          <p className="text-[11px] text-gray-400 mt-1">across {loading ? '—' : users.length.toLocaleString()} photographers</p>
         </div>
         <div className="bg-[#fdfdfc] p-5 rounded-2xl shadow-sm border border-[#eae8e4]">
-          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 inline-flex items-center gap-1.5"><Send className="w-3.5 h-3.5" />Total deliveries</p>
-          <p className="text-3xl font-bold text-gray-900 mt-2">{loading ? '—' : totalDeliveries.toLocaleString()}</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 inline-flex items-center gap-2">
+            <span className="flex w-7 h-7 items-center justify-center rounded-lg bg-blue-100 text-blue-700"><Send className="w-3.5 h-3.5" /></span>Total deliveries
+          </p>
+          <p className="text-3xl font-bold text-gray-900 mt-3">{loading ? '—' : totalDeliveries.toLocaleString()}</p>
+          <p className="text-[11px] text-gray-400 mt-1">client galleries shipped</p>
         </div>
         <div className="bg-[#fdfdfc] p-5 rounded-2xl shadow-sm border border-[#eae8e4]">
-          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">At limit / disabled</p>
-          <p className="text-3xl font-bold text-gray-900 mt-2">{loading ? '—' : atLimit.toLocaleString()}</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Content mix</p>
+          {loading ? (
+            <p className="text-3xl font-bold text-gray-900 mt-3">—</p>
+          ) : (totalAlbums + totalDeliveries) === 0 ? (
+            <p className="text-sm text-gray-400 mt-3">No content yet.</p>
+          ) : (
+            <div className="flex items-center gap-3 mt-3">
+              <span
+                className="w-12 h-12 shrink-0 rounded-full"
+                role="img"
+                aria-label={`${totalAlbums} albums, ${totalDeliveries} deliveries`}
+                style={{
+                  background: `conic-gradient(#10b981 0 ${(totalAlbums / (totalAlbums + totalDeliveries)) * 100}%, #3b82f6 ${(totalAlbums / (totalAlbums + totalDeliveries)) * 100}% 100%)`,
+                  mask: 'radial-gradient(circle, transparent 55%, black 56%)',
+                  WebkitMask: 'radial-gradient(circle, transparent 55%, black 56%)',
+                }}
+              />
+              <div className="min-w-0 space-y-1 text-[11px]">
+                <p className="flex items-center gap-1.5 text-gray-600"><span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />Albums · <strong className="text-gray-900">{totalAlbums.toLocaleString()}</strong></p>
+                <p className="flex items-center gap-1.5 text-gray-600"><span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />Deliveries · <strong className="text-gray-900">{totalDeliveries.toLocaleString()}</strong></p>
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="bg-[#fdfdfc] p-5 rounded-2xl shadow-sm border border-[#eae8e4]">
+          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 inline-flex items-center gap-2">
+            <span className={`flex w-7 h-7 items-center justify-center rounded-lg ${!loading && atLimit > 0 ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-500'}`}><AlertCircle className="w-3.5 h-3.5" /></span>At limit / disabled
+          </p>
+          <p className={`text-3xl font-bold mt-3 ${!loading && atLimit > 0 ? 'text-red-700' : 'text-gray-900'}`}>{loading ? '—' : atLimit.toLocaleString()}</p>
           <p className="text-[11px] text-gray-400 mt-1">0 / NULL = unlimited · −1 = cannot create</p>
         </div>
       </div>
@@ -363,8 +576,12 @@ const AdminUsageManagement = () => {
                     </td>
                   </tr>
                 ) : (
-                  filtered.map((u) => (
-                    <tr key={u.id} className="hover:bg-[#f8f7f4]/60 transition-colors align-top">
+                  filtered.map((u) => {
+                    const expanded = expandedId === u.id;
+                    const detail = detailsByUser[u.id] || {};
+                    return (
+                      <React.Fragment key={u.id}>
+                      <tr className={`transition-colors align-top ${expanded ? 'bg-[#f8f7f4]/70' : 'hover:bg-[#f8f7f4]/60'}`}>
                       <td className="px-5 py-4 min-w-0">
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="w-9 h-9 rounded-full flex items-center justify-center bg-[#1a1a1a] text-white shrink-0">
@@ -391,13 +608,82 @@ const AdminUsageManagement = () => {
                         </div>
                         <MiniBar used={u.deliveryUsed} limit={u.deliveryLimit} />
                       </td>
-                      <td className="px-4 py-4 text-right">
-                        <button onClick={() => openEditor(u)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-[#1a1a1a] text-white rounded-lg hover:bg-black transition-colors">
-                          <Pencil className="w-3.5 h-3.5" />Edit
-                        </button>
+                      <td className="px-4 py-4">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => toggleExpand(u)}
+                            title={expanded ? 'Hide albums & deliveries' : 'Show album & delivery names'}
+                            aria-expanded={expanded}
+                            className={`p-2 rounded-lg transition-colors ${expanded ? 'bg-[#1a1a1a] text-white' : 'text-gray-500 hover:bg-gray-100'}`}
+                          >
+                            <ChevronDown className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+                          </button>
+                          <button onClick={() => openEditor(u)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-[#1a1a1a] text-white rounded-lg hover:bg-black transition-colors">
+                            <Pencil className="w-3.5 h-3.5" />Edit
+                          </button>
+                        </div>
                       </td>
-                    </tr>
-                  ))
+                      </tr>
+                      {expanded && (
+                        <tr className="bg-[#f8f7f4]/50">
+                          <td colSpan="4" className="px-5 pb-5 pt-1">
+                            {detail.loading ? (
+                              <div className="flex items-center gap-2 py-4 text-sm text-gray-500">
+                                <AppSpinner size="xs" />Loading albums &amp; deliveries…
+                              </div>
+                            ) : detail.error ? (
+                              <p className="py-3 text-sm text-red-600">{detail.error}</p>
+                            ) : (
+                              <div className="grid md:grid-cols-2 gap-4">
+                                <div className="rounded-xl border border-[#eae8e4] bg-white overflow-hidden">
+                                  <div className="flex items-center gap-2 px-4 py-2.5 bg-[#f9f8f5]/80 border-b border-[#eae8e4]">
+                                    <BookOpen className="w-3.5 h-3.5 text-gray-500" />
+                                    <p className="text-xs font-semibold text-gray-700">Albums · {(detail.albums || []).length}</p>
+                                  </div>
+                                  <ul className="max-h-64 overflow-y-auto divide-y divide-gray-100">
+                                    {(detail.albums || []).length === 0 ? (
+                                      <li className="px-4 py-4 text-[13px] text-gray-400">
+                                        {detail.albumsUnavailable ? 'Album data unavailable.' : 'No albums yet.'}
+                                      </li>
+                                    ) : (
+                                      detail.albums.map((a) => (
+                                        <li key={a.id} className="flex items-center gap-2.5 px-4 py-2.5">
+                                          <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold border ${albumTone(a.status)}`}>{albumLabel(a.status)}</span>
+                                          <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-gray-800" title={a.name || 'Untitled'}>{a.name || 'Untitled album'}</span>
+                                          <span className="shrink-0 text-[11px] text-gray-400">{formatDateMed(a.created_at)}</span>
+                                        </li>
+                                      ))
+                                    )}
+                                  </ul>
+                                </div>
+                                <div className="rounded-xl border border-[#eae8e4] bg-white overflow-hidden">
+                                  <div className="flex items-center gap-2 px-4 py-2.5 bg-[#f9f8f5]/80 border-b border-[#eae8e4]">
+                                    <Send className="w-3.5 h-3.5 text-gray-500" />
+                                    <p className="text-xs font-semibold text-gray-700">Deliveries · {(detail.deliveries || []).length}</p>
+                                  </div>
+                                  <ul className="max-h-64 overflow-y-auto divide-y divide-gray-100">
+                                    {(detail.deliveries || []).length === 0 ? (
+                                      <li className="px-4 py-4 text-[13px] text-gray-400">No deliveries yet.</li>
+                                    ) : (
+                                      detail.deliveries.map((d) => (
+                                        <li key={d.id} className="flex items-center gap-2.5 px-4 py-2.5">
+                                          <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold border ${deliveryTone(d.status)}`}>{deliveryLabel(d.status)}</span>
+                                          <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-gray-800" title={d.name || d.slug || 'Untitled'}>{d.name || d.slug || 'Untitled delivery'}</span>
+                                          <span className="shrink-0 text-[11px] text-gray-400">{formatDateMed(d.created_at)}</span>
+                                        </li>
+                                      ))
+                                    )}
+                                  </ul>
+                                </div>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      )}
+                      </React.Fragment>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -422,68 +708,39 @@ const AdminUsageManagement = () => {
             </div>
 
             <form onSubmit={handleSave} className="flex flex-col min-h-0">
-              <div className="px-5 py-4 space-y-3 overflow-hidden">
-                <div className="p-3.5 rounded-xl border border-gray-200 bg-gray-50/60">
-                  <div className="flex items-center justify-between gap-2 mb-2">
-                    <div className="flex items-center gap-2">
-                      <button type="button" role="switch" aria-checked={albumEnabled} onClick={() => setAlbumEnabled(!albumEnabled)} className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors ${albumEnabled ? 'bg-[#1a1a1a]' : 'bg-gray-300'}`}>
-                        <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${albumEnabled ? 'left-4' : 'left-0.5'}`} />
-                      </button>
-                      <div>
-                        <p className="text-[13px] font-semibold text-gray-800 leading-tight">Albums</p>
-                        <p className="text-[11px] text-gray-400">Created {editingUser.albumUsed.toLocaleString()}</p>
-                      </div>
-                    </div>
-                    {albumEnabled && (
-                      <label className="flex items-center gap-1 text-[11px] text-gray-500 cursor-pointer shrink-0"><input type="checkbox" checked={albumUnlimited} onChange={(e) => setAlbumUnlimited(e.target.checked)} className="rounded" />∞</label>
-                    )}
-                  </div>
-                  {albumEnabled ? (
-                    <div className="space-y-2">
-                      <div className="flex gap-1.5">
-                        <button type="button" onClick={() => { setAlbumUnlimited(false); setAlbumLimit('1'); }} className={presetBtn(!albumUnlimited && albumLimit === '1')}>1</button>
-                        <button type="button" onClick={() => { setAlbumUnlimited(false); if (albumLimit === '1' || !albumLimit) setAlbumLimit('5'); }} className={presetBtn(!albumUnlimited && Number(albumLimit) > 1)}>Multiple</button>
-                        <button type="button" onClick={() => { setAlbumUnlimited(true); setAlbumLimit(''); }} className={presetBtn(albumUnlimited)}>∞</button>
-                      </div>
-                      {!albumUnlimited && (
-                        <input type="number" min="1" step="1" value={albumLimit} onChange={(e) => setAlbumLimit(e.target.value)} className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-[#1a1a1a]" placeholder="e.g. 10" />
-                      )}
-                    </div>
-                  ) : (
-                    <p className="text-[11px] font-medium text-gray-500 bg-gray-100 rounded-lg px-2.5 py-2">Cannot create new albums</p>
-                  )}
-                </div>
-
-                <div className="p-3.5 rounded-xl border border-gray-200 bg-gray-50/60">
-                  <div className="flex items-center justify-between gap-2 mb-2">
-                    <div className="flex items-center gap-2">
-                      <button type="button" role="switch" aria-checked={deliveryEnabled} onClick={() => setDeliveryEnabled(!deliveryEnabled)} className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors ${deliveryEnabled ? 'bg-[#1a1a1a]' : 'bg-gray-300'}`}>
-                        <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${deliveryEnabled ? 'left-4' : 'left-0.5'}`} />
-                      </button>
-                      <div>
-                        <p className="text-[13px] font-semibold text-gray-800 leading-tight">Deliveries</p>
-                        <p className="text-[11px] text-gray-400">Created {editingUser.deliveryUsed.toLocaleString()}</p>
-                      </div>
-                    </div>
-                    {deliveryEnabled && (
-                      <label className="flex items-center gap-1 text-[11px] text-gray-500 cursor-pointer shrink-0"><input type="checkbox" checked={deliveryUnlimited} onChange={(e) => setDeliveryUnlimited(e.target.checked)} className="rounded" />∞</label>
-                    )}
-                  </div>
-                  {deliveryEnabled ? (
-                    <div className="space-y-2">
-                      <div className="flex gap-1.5">
-                        <button type="button" onClick={() => { setDeliveryUnlimited(false); setDeliveryLimit('1'); }} className={presetBtn(!deliveryUnlimited && deliveryLimit === '1')}>1</button>
-                        <button type="button" onClick={() => { setDeliveryUnlimited(false); if (deliveryLimit === '1' || !deliveryLimit) setDeliveryLimit('5'); }} className={presetBtn(!deliveryUnlimited && Number(deliveryLimit) > 1)}>Multiple</button>
-                        <button type="button" onClick={() => { setDeliveryUnlimited(true); setDeliveryLimit(''); }} className={presetBtn(deliveryUnlimited)}>∞</button>
-                      </div>
-                      {!deliveryUnlimited && (
-                        <input type="number" min="1" step="1" value={deliveryLimit} onChange={(e) => setDeliveryLimit(e.target.value)} className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-[#1a1a1a]" placeholder="e.g. 10" />
-                      )}
-                    </div>
-                  ) : (
-                    <p className="text-[11px] font-medium text-gray-500 bg-gray-100 rounded-lg px-2.5 py-2">Cannot create new deliveries</p>
-                  )}
-                </div>
+              <div className="px-5 py-4 space-y-3 flex-1 min-h-0 overflow-y-auto">
+                <CreationLimitCard
+                  icon={<Layers className="w-4 h-4" />}
+                  title="Albums"
+                  created={editingUser.albumUsed}
+                  enabled={albumEnabled}
+                  onEnabledChange={setAlbumEnabled}
+                  unlimited={albumUnlimited}
+                  onUnlimitedChange={setAlbumUnlimited}
+                  limit={albumLimit}
+                  onLimitChange={setAlbumLimit}
+                  placeholder="e.g. 10"
+                  used={editingUser.albumUsed}
+                  inactiveNote="Cannot create new albums"
+                  onPickOne={() => { setAlbumUnlimited(false); setAlbumLimit('1'); }}
+                  onPickMultiple={() => { setAlbumUnlimited(false); if (albumLimit === '1' || !albumLimit) setAlbumLimit('5'); }}
+                />
+                <CreationLimitCard
+                  icon={<Send className="w-4 h-4" />}
+                  title="Deliveries"
+                  created={editingUser.deliveryUsed}
+                  enabled={deliveryEnabled}
+                  onEnabledChange={setDeliveryEnabled}
+                  unlimited={deliveryUnlimited}
+                  onUnlimitedChange={setDeliveryUnlimited}
+                  limit={deliveryLimit}
+                  onLimitChange={setDeliveryLimit}
+                  placeholder="e.g. 10"
+                  used={editingUser.deliveryUsed}
+                  inactiveNote="Cannot create new deliveries"
+                  onPickOne={() => { setDeliveryUnlimited(false); setDeliveryLimit('1'); }}
+                  onPickMultiple={() => { setDeliveryUnlimited(false); if (deliveryLimit === '1' || !deliveryLimit) setDeliveryLimit('5'); }}
+                />
                 <p className="text-[11px] text-gray-400">Toggle off = cannot create new · ∞ = unlimited · number = max allowed. Usage counts update automatically.</p>
               </div>
 

@@ -80,7 +80,8 @@ export const guestDeliveryService = {
     }
 
     await ensurePhotographer(photographer_id);
-    await photographerQuotaService.assertGuestDeliveryQuota(photographer_id, 1);
+    // Guest event creation must not be blocked by face switches —
+    // they only hide face-matching UI and gate actual matching scans.
 
     const slug = generateSlug(trimmedName);
     const now = new Date().toISOString();
@@ -174,7 +175,8 @@ export const guestDeliveryService = {
 
   async createLinkedEvent({ collectionId, photographerId, name, eventDate, slug }) {
     await ensurePhotographer(photographerId);
-    await photographerQuotaService.assertGuestDeliveryQuota(photographerId, 1);
+    // Linked guest event creation must not be blocked by face switches —
+    // they only hide face-matching UI and gate actual matching scans.
     const eventSlug = slug
       ? `${slug.replace(/[^\w-]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')}-${Date.now().toString(36)}`
       : generateSlug(name);
