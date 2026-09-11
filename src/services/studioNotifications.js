@@ -119,13 +119,41 @@ export const STUDIO_NOTIFICATION_SOURCE_SECTIONS = [
   { id: STUDIO_NOTIFICATION_SOURCES.GUEST_DELIVERY, label: 'Guest Delivery' },
 ];
 
+const NEEDS_YOU_SECTION = { id: 'needs-you', label: 'Needs you' };
+const NEEDS_YOU_LIMIT = 5;
+
+function sortNeedsYouFirst(items) {
+  return [...items].sort((a, b) => {
+    const unreadA = a.isUnread ? 0 : 1;
+    const unreadB = b.isUnread ? 0 : 1;
+    if (unreadA !== unreadB) return unreadA - unreadB;
+
+    const warnA = a.tone === 'warn' ? 0 : 1;
+    const warnB = b.tone === 'warn' ? 0 : 1;
+    if (warnA !== warnB) return warnA - warnB;
+
+    return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+  });
+}
+
 export function groupStudioNotificationSections(items) {
-  return STUDIO_NOTIFICATION_SOURCE_SECTIONS.map((section) => ({
+  const all = items || [];
+  // Action-needed items from every source come first in one top section, so a
+  // swap request under Smart Album never sits below informational Client
+  // Gallery activity. They are removed from the per-source groups below to
+  // avoid showing the same item twice.
+  const needsYou = sortNeedsYouFirst(
+    all.filter((item) => item.section === 'needs-you'),
+  ).slice(0, NEEDS_YOU_LIMIT);
+
+  const bySource = STUDIO_NOTIFICATION_SOURCE_SECTIONS.map((section) => ({
     ...section,
     items: sortByPriorityWithinSource(
-      (items || []).filter((item) => item.source === section.id),
+      all.filter((item) => item.source === section.id && item.section !== 'needs-you'),
     ).slice(0, SOURCE_LIMITS[section.id] ?? 3),
   })).filter((section) => section.items.length > 0);
+
+  return needsYou.length > 0 ? [{ ...NEEDS_YOU_SECTION, items: needsYou }, ...bySource] : bySource;
 }
 
 function mapClientGalleryItem(item) {

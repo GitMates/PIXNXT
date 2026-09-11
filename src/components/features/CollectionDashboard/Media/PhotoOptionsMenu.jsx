@@ -10,6 +10,9 @@ export function PhotoOptionsMenu({
   onToggleStar,
   onUseAsCover,
   onMoveToSet,
+  onReplace,
+  onRename,
+  onCopyFilename,
   onToggleHidden,
   onDownloadOriginal,
   onOpen,
@@ -20,6 +23,7 @@ export function PhotoOptionsMenu({
 
   const hidden = Boolean(photo.is_private);
   const isVideo = isVideoMedia(photo);
+  const filename = photo.filename || photo.original_filename || 'Untitled';
 
   return (
     <>
@@ -54,6 +58,28 @@ export function PhotoOptionsMenu({
         ) : null}
         <button type="button" className="cd-pom-item" role="menuitem" onClick={() => onMoveToSet?.(photo)}>
           Move to another set...
+        </button>
+        {!isVideo ? (
+          <button type="button" className="cd-pom-item" role="menuitem" onClick={() => onReplace?.(photo)}>
+            Replace image...
+          </button>
+        ) : null}
+        {!isVideo ? (
+          <button type="button" className="cd-pom-item" role="menuitem" onClick={() => onRename?.(photo)}>
+            Rename...
+          </button>
+        ) : null}
+        <button
+          type="button"
+          className="cd-pom-item cd-pom-item--split"
+          role="menuitem"
+          onClick={() => onCopyFilename?.(photo)}
+          title={filename}
+        >
+          <span>Copy filename</span>
+          <span className="cd-pom-meta cd-pom-filename" title={filename}>
+            {filename.length > 18 ? `${filename.slice(0, 15)}...` : filename}
+          </span>
         </button>
         <button type="button" className="cd-pom-item" role="menuitem" onClick={() => onToggleHidden?.(photo)}>
           {hidden ? 'Show to the client' : 'Hide from the client'}

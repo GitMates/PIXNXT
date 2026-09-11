@@ -709,7 +709,7 @@ const CollectionDashboard = () => {
                     max_selection: maxSel,
                     description: descTrim,
                 });
-                showToast('Selection updated.');
+                showToast('Selection updated.', 'success');
             } else {
                 const session = await galleryService.createOrGetSession(collectionId, email, {
                     ensureDefaultFavoriteList: false,
@@ -728,14 +728,14 @@ const CollectionDashboard = () => {
                             chooseUrl: payload.chooseUrl || '',
                             siteOrigin: getClientFacingOrigin(profile),
                         });
-                        showToast('Selection created and email sent.');
+                        showToast('Selection created and email sent.', 'success');
                     } catch (sendErr) {
                         console.error('Failed to send selection email:', sendErr);
                         showToast('Selection created, but the email could not be sent.');
                         alert(sendErr.message || 'Could not send email. Check your SMTP settings.');
                     }
                 } else {
-                    showToast('Selection created. It will stay unsent until you send it.');
+                    showToast('Selection created. It will stay unsent until you send it.', 'success');
                 }
             }
 
@@ -1028,7 +1028,7 @@ const CollectionDashboard = () => {
             setSelectedFavoriteListId(null);
             setFavoriteDetailRows([]);
             fetchFavoriteActivity();
-            showToast('Selection reopened. Your client can edit their choices again.');
+            showToast('Selection reopened. Your client can edit their choices again.', 'success');
         } catch (err) {
             console.error('Failed to reopen favorite list:', err);
             alert(err?.message || 'Could not reopen this selection.');
@@ -1903,8 +1903,41 @@ const CollectionDashboard = () => {
     };
 
     const handleCopyFilename = (photo) => {
-        navigator.clipboard.writeText(photo.filename);
-        alert('Filename copied to clipboard!');
+        const name = photo?.filename || photo?.original_filename || '';
+        if (!name) {
+            showToast('No filename to copy', 'default');
+            return;
+        }
+        const done = () => showToast('Filename copied to clipboard!', 'success');
+        try {
+            if (navigator?.clipboard?.writeText) {
+                navigator.clipboard.writeText(name).then(done).catch(() => {
+                    fallbackCopy(name);
+                    done();
+                });
+            } else {
+                fallbackCopy(name);
+                done();
+            }
+        } catch {
+            fallbackCopy(name);
+            done();
+        }
+    };
+
+    const fallbackCopy = (text) => {
+        try {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+        } catch {
+            /* clipboard unavailable */
+        }
     };
 
     const handleQuickShare = (photo) => {
@@ -5979,6 +6012,21 @@ const CollectionDashboard = () => {
                                         setMoveMode('move');
                                         setShowMoveModal(true);
                                     }}
+                                    onReplace={(p) => {
+                                        closePhotoMenu();
+                                        setEditingPhoto(p);
+                                        setShowReplaceModal(true);
+                                    }}
+                                    onRename={(p) => {
+                                        closePhotoMenu();
+                                        setEditingPhoto(p);
+                                        setNewPhotoName(p.filename || '');
+                                        setShowRenameModal(true);
+                                    }}
+                                    onCopyFilename={(p) => {
+                                        closePhotoMenu();
+                                        handleCopyFilename(p);
+                                    }}
                                     onToggleHidden={(p) => {
                                         closePhotoMenu();
                                         void handleTogglePhotoHidden(p);
@@ -6666,7 +6714,7 @@ const CollectionDashboard = () => {
                                         try {
                                             await runPhotoAiAutoSync({ force: true });
                                             setShowFaceRecogniseModal(false);
-                                            showToast('Face recognition completed successfully.');
+                                            showToast('Face recognition completed successfully.', 'success');
                                         } catch (err) {
                                             alert(err?.message || 'Face recognition failed. Please try again.');
                                         }
@@ -6729,55 +6777,143 @@ const CollectionDashboard = () => {
                 </div>
             )}
 
-            {/* Move/Copy Modal */}
-            {showMoveModal && (
-                <div className="cd-modal-overlay">
-                    <div className="cd-modal cd-modal-sm">
-                        <div className="cd-modal-header">
-                            <h3 className="cd-modal-title">Move or Copy Photo</h3>
-                            <button className="cd-modal-close" onClick={() => setShowMoveModal(false)}>
+            {/* Move/Copy Modal — light delivery theme */}
+            {showMoveModal && (() => {
+                const mcPhoto = editingPhoto;
+                const mcPreviewSrc = mcPhoto
+                    ? (getPhotoFullDisplayUrl(mcPhoto) || mcPhoto.thumbnail_url || mcPhoto.web_url || mcPhoto.full_url)
+                    : null;
+                const mcFilename = mcPhoto?.filename || mcPhoto?.original_filename || 'Untitled';
+                const mcCurrentSetId = mcPhoto?.set_id ?? null;
+                const mcCurrentSetName = mcCurrentSetId
+                    ? (sets.find((s) => String(s.id) === String(mcCurrentSetId))?.name || 'Set')
+                    : (highlightsName || 'Highlights');
+                const mcSelectedTarget = targetSetId ?? null;
+                const mcIsSameSet = String(mcSelectedTarget ?? '') === String(mcCurrentSetId ?? '');
+                const mcCountFor = (setId) => photos.filter((p) => String(p.set_id ?? '') === String(setId ?? '')).length;
+                return (
+                <div className="cd-modal-overlay cd-mc-overlay" onClick={() => { if (!saving) setShowMoveModal(false); }}>
+                    <div className="cd-modal cd-modal-sm cd-mc-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Move or copy photo">
+                        <div className="cd-modal-header cd-mc-header">
+                            <div>
+                                <p className="cd-mc-eyebrow">Organise photograph</p>
+                                <h3 className="cd-modal-title cd-mc-title">Move or Copy Photo</h3>
+                            </div>
+                            <button className="cd-modal-close" onClick={() => setShowMoveModal(false)} aria-label="Close">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                             </button>
                         </div>
-                        <div className="cd-modal-body">
-                            <div className="cd-form-group">
-                                <label className="cd-form-label">Action</label>
-                                <div className="flex gap-4 mt-2">
-                                    <label className="flex items-center gap-2 cursor-pointer">
-                                        <input type="radio" checked={moveMode === 'move'} onChange={() => setMoveMode('move')} />
-                                        <span className="text-[16px]">Move</span>
-                                    </label>
-                                    <label className="flex items-center gap-2 cursor-pointer">
-                                        <input type="radio" checked={moveMode === 'copy'} onChange={() => setMoveMode('copy')} />
-                                        <span className="text-[16px]">Copy</span>
-                                    </label>
+                        <div className="cd-modal-body cd-mc-body">
+                            {mcPhoto && (
+                                <div className="cd-mc-preview">
+                                    {mcPreviewSrc ? (
+                                        <img src={mcPreviewSrc} alt={mcFilename} className="cd-mc-thumb" />
+                                    ) : (
+                                        <div className="cd-mc-thumb cd-mc-thumb--empty">No preview</div>
+                                    )}
+                                    <div className="cd-mc-preview-meta">
+                                        <p className="cd-mc-filename" title={mcFilename}>{mcFilename}</p>
+                                        <p className="cd-mc-sub">Currently in <strong>{mcCurrentSetName}</strong></p>
+                                        <button
+                                            type="button"
+                                            className="cd-mc-copy-link"
+                                            onClick={() => handleCopyFilename(mcPhoto)}
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                            Copy filename
+                                        </button>
+                                    </div>
                                 </div>
+                            )}
+                            <p className="cd-form-label cd-mc-label">Action</p>
+                            <div className="cd-mc-segment" role="radiogroup" aria-label="Action">
+                                <button
+                                    type="button"
+                                    role="radio"
+                                    aria-checked={moveMode === 'move'}
+                                    className={`cd-mc-segment-btn${moveMode === 'move' ? ' is-active' : ''}`}
+                                    onClick={() => setMoveMode('move')}
+                                >
+                                    <span className="cd-mc-segment-title">Move</span>
+                                    <span className="cd-mc-segment-hint">Remove from current set</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    role="radio"
+                                    aria-checked={moveMode === 'copy'}
+                                    className={`cd-mc-segment-btn${moveMode === 'copy' ? ' is-active' : ''}`}
+                                    onClick={() => setMoveMode('copy')}
+                                >
+                                    <span className="cd-mc-segment-title">Copy</span>
+                                    <span className="cd-mc-segment-hint">Keep original, duplicate</span>
+                                </button>
                             </div>
-                            <div className="cd-form-group mt-6">
-                                <label className="cd-form-label">Target Set</label>
-                                <div className="settings-select-wrapper">
-                                    <select
-                                        className="settings-select"
-                                        value={targetSetId || ''}
-                                        onChange={(e) => setTargetSetId(e.target.value || null)}
-                                    >
-                                        <option value="">Highlights</option>
-                                        {sets.map(s => (
-                                            <option key={s.id} value={s.id}>{s.name}</option>
-                                        ))}
-                                    </select>
-                                </div>
+                            <div className="cd-mc-target-head">
+                                <p className="cd-form-label cd-mc-label" style={{ margin: 0 }}>Target set</p>
+                                <span className="cd-mc-count">{sets.length + 1} sets</span>
                             </div>
+                            <div className="cd-mc-set-list" role="listbox" aria-label="Target set">
+                                <button
+                                    type="button"
+                                    role="option"
+                                    aria-selected={mcSelectedTarget === null}
+                                    className={`cd-mc-set${mcSelectedTarget === null ? ' is-selected' : ''}`}
+                                    onClick={() => setTargetSetId(null)}
+                                >
+                                    <span className="cd-mc-set-name">{highlightsName || 'Highlights'}</span>
+                                    <span className="cd-mc-set-right">
+                                        <span className="cd-mc-set-count">{mcCountFor(null)} {mcCountFor(null) === 1 ? 'photo' : 'photos'}</span>
+                                        {mcSelectedTarget === null && (
+                                            <span className="cd-mc-check" aria-hidden="true">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                            </span>
+                                        )}
+                                    </span>
+                                </button>
+                                {sets.map(s => {
+                                    const selected = String(mcSelectedTarget ?? '') === String(s.id ?? '') && mcSelectedTarget !== null;
+                                    const count = mcCountFor(s.id);
+                                    return (
+                                        <button
+                                            key={s.id}
+                                            type="button"
+                                            role="option"
+                                            aria-selected={selected}
+                                            className={`cd-mc-set${selected ? ' is-selected' : ''}`}
+                                            onClick={() => setTargetSetId(s.id)}
+                                        >
+                                            <span className="cd-mc-set-name">{s.name}</span>
+                                            <span className="cd-mc-set-right">
+                                                <span className="cd-mc-set-count">{count} {count === 1 ? 'photo' : 'photos'}</span>
+                                                {selected && (
+                                                    <span className="cd-mc-check" aria-hidden="true">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                                    </span>
+                                                )}
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            {moveMode === 'move' && mcIsSameSet && (
+                                <p className="cd-mc-hint">This photo is already in the selected set.</p>
+                            )}
                         </div>
-                        <div className="cd-modal-footer">
-                            <button className="cd-btn-secondary" onClick={() => setShowMoveModal(false)}>Cancel</button>
-                            <button className="cd-btn-primary" onClick={handleMovePhoto} disabled={saving}>
+                        <div className="cd-modal-footer cd-mc-footer">
+                            <button className="cd-btn-secondary cd-mc-cancel" onClick={() => setShowMoveModal(false)}>Cancel</button>
+                            <button
+                                className="cd-btn-primary cd-mc-confirm"
+                                onClick={handleMovePhoto}
+                                disabled={saving || (moveMode === 'move' && mcIsSameSet)}
+                                title={moveMode === 'move' && mcIsSameSet ? 'Already in this set' : undefined}
+                            >
                                 {saving ? 'Processing...' : (moveMode === 'move' ? 'Move Photo' : 'Copy Photo')}
                             </button>
                         </div>
                     </div>
                 </div>
-            )}
+                );
+            })()}
 
             {/* Replace Photo Modal */}
             {showReplaceModal && (
@@ -7328,8 +7464,9 @@ const CollectionDashboard = () => {
                     position: 'fixed',
                     bottom: '24px',
                     right: '24px',
-                    backgroundColor: toastVariant === 'success' ? '#26a69a' : toastVariant === 'error' ? '#E74C3C' : '#E74C3C',
-                    color: 'white',
+                    backgroundColor: toastVariant === 'success' ? '#DCFCE7' : toastVariant === 'error' ? '#E74C3C' : '#E74C3C',
+                    color: toastVariant === 'success' ? '#166534' : 'white',
+                    border: toastVariant === 'success' ? '1px solid #86EFAC' : 'none',
                     padding: '16px 24px',
                     borderRadius: '4px',
                     boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
@@ -7341,7 +7478,7 @@ const CollectionDashboard = () => {
                     fontWeight: 500
                 }}>
                     <span>{toastMessage}</span>
-                    <button onClick={() => setToastMessage(null)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', padding: 0 }}>
+                    <button onClick={() => setToastMessage(null)} style={{ background: 'none', border: 'none', color: toastVariant === 'success' ? '#166534' : 'white', cursor: 'pointer', display: 'flex', padding: 0 }}>
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                     </button>
                 </div>

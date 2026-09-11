@@ -191,7 +191,7 @@ function spreadPhotoPercentToHalfPlacement(
 export function placementFromSwapThumbClick(
   event,
   targetSlot,
-  { spreadLeft, wholeSpread, totalPages, showSpreadFull }
+  { spreadLeft, totalPages, showSpreadFull }
 ) {
   if (!targetSlot) return null;
   const img = event.target instanceof Element ? event.target.closest('img') : null;
@@ -210,7 +210,11 @@ export function placementFromSwapThumbClick(
   const layerEl = pageEl || thumbEl || img.parentElement;
   const spot = pinPointFromPointer(event.clientX, event.clientY, layerEl, img);
 
-  if (showSpreadFull && wholeSpread) {
+  // A full-bleed spread thumbnail is a single .ab-overview-page element, so the
+  // pageIndex lookup below would always resolve to the left half. Split by
+  // click position instead — for whole-spread albums and full-bleed two-page
+  // spreads alike. Otherwise right-half clicks can never target right photos.
+  if (showSpreadFull) {
     return spreadPhotoPercentToHalfPlacement(
       spot.xPct,
       spot.yPct,

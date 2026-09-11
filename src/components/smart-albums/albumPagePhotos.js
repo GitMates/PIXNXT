@@ -993,9 +993,14 @@ export function resolveCoverImageSrc(album, { showSamples = false } = {}) {
     const albumId = album?.id;
     const blankCovers = albumHasBlankCovers(album);
     if (albumId) {
-        const onSpread = getSpreadPhotoOverride(albumId, 0);
+        // Legacy albums may keep the cover under page key '0' (never migrated on
+        // fresh origins) — check it as well as spread:0, local first then cloud.
+        const onSpread =
+            getSpreadPhotoOverride(albumId, 0) ?? getPagePhotoOverride(albumId, 0);
         if (onSpread) {
-            const wrapId = getSpreadPlacementCollectionItemId(albumId, 0);
+            const wrapId =
+                getSpreadPlacementCollectionItemId(albumId, 0) ??
+                getPagePlacementCollectionItemId(albumId, 0);
             if (wrapId && collectionItemHasInnerPlacement(albumId, wrapId)) {
                 return null;
             }
@@ -1024,6 +1029,10 @@ export function resolveCoverImageSrc(album, { showSamples = false } = {}) {
     if (blankCovers) {
         return null;
     }
+    // Last resort (fresh origins with thin snapshots): the album row's own cover
+    // columns, same fallback AlbumListCoverThumb / AlbumSpreadPage already use.
+    const fromRow = album?.cover_image_url || album?.preview_cover_url || null;
+    if (fromRow) return fromRow;
     return showSamples ? getSampleImageForPage(0) : null;
 }
 

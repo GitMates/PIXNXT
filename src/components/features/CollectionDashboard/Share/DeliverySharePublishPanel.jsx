@@ -72,7 +72,7 @@ export function DeliverySharePublishPanel({
     try {
       await navigator.clipboard.writeText(shareUrl);
       setCopied(true);
-      showToast?.('Link copied to clipboard');
+      showToast?.('Link copied to clipboard', 'success');
       window.setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error(err);

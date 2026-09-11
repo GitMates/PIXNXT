@@ -4,6 +4,7 @@ import {
     getAlbumPhotoRevision,
     healOrphanCollectionPlacements,
     embedPlacementStorageFallbacks,
+    migrateFrontCoverToFullSpread,
     overwriteLocalPagesFromRemote,
 } from '../../components/smart-albums/albumPagePhotos';
 import { loadAlbumAssetsFromCloud, overwriteLocalCollectionFromRemote } from '../../components/smart-albums/albumCollection';
@@ -183,6 +184,11 @@ export default function PublicAlbumPreview() {
         hydrateAlbumPreviewData(storageAlbumId, album.preview_data);
         overwriteLocalCollectionFromRemote(storageAlbumId);
         overwriteLocalPagesFromRemote(storageAlbumId);
+        // Normalize legacy page-'0'/'1' cover keys to spread:0. Fresh origins
+        // (e.g. custom domains with empty localStorage) otherwise miss the
+        // cover photo that localhost resolves from stale editor leftovers.
+        // Local-only and idempotent.
+        migrateFrontCoverToFullSpread(storageAlbumId);
     }, [album?.id, album?.preview_data]);
 
     // Client share links have no localStorage — hydrate collection + placements from cloud/R2.
