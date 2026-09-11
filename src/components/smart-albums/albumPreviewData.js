@@ -109,7 +109,9 @@ export function deriveFrontCoverUrlFromSnapshot(snapshot, { blankCovers = false 
 
     if (useBlank) return null;
     if (snapshot.cover_url) return snapshot.cover_url;
-    return null;
+    // Legacy snapshots may keep the cover under page key '0' instead of
+    // spread:0 (parity with deriveCoverUrlFromSnapshot).
+    return resolveStoredUrl(pages['0'], collection);
 }
 
 function listAlbumIdsWithLocalAssets() {
