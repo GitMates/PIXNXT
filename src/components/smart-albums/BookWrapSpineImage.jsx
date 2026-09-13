@@ -21,6 +21,9 @@ export default function BookWrapSpineImage({
     const hostRef = useRef(null);
     const [segmentUrl, setSegmentUrl] = useState(null);
     const [canvasFailed, setCanvasFailed] = useState(false);
+    // Track the previous src so we only clear the image on actual photo changes,
+    // not on layout-only recalculations (which cause the spine/front/back blink).
+    const prevSrcRef = useRef(src);
     const useCanvasSlice = Boolean(
         layout?.hasSpine &&
             side &&
@@ -31,9 +34,8 @@ export default function BookWrapSpineImage({
     );
 
     useEffect(() => {
-        // Drop stale canvas slices so the background/CSS crop shows while decoding.
-        setSegmentUrl(null);
-        setCanvasFailed(false);
+        const srcChanged = prevSrcRef.current !== src;
+        prevSrcRef.current = src;
 
         if (
             !layout?.hasSpine ||
@@ -65,8 +67,11 @@ export default function BookWrapSpineImage({
                 .then((url) => {
                     if (cancelled) return;
                     if (url) {
+                        // When the source image changed, clear the old canvas
+                        // render in the same batch as setting the new one so
+                        // React never shows a stale data-URL frame.
+                        if (srcChanged) setCanvasFailed(false);
                         setSegmentUrl(url);
-                        setCanvasFailed(false);
                     } else {
                         setCanvasFailed(true);
                     }
@@ -92,6 +97,7 @@ export default function BookWrapSpineImage({
             ro?.disconnect();
             window.removeEventListener('resize', schedule);
         };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [
         src,
         side,
