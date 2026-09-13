@@ -58,7 +58,7 @@ import RekognitionTest from './pages/dev/RekognitionTest';
 import WatermarkEditor from './pages/WatermarkEditor';
 import EmailTemplateEditor from './pages/EmailTemplateEditor';
 import { CustomDomainGalleryApp } from './components/CustomDomainGalleryApp';
-import { isPlatformHost, normalizeHost } from './lib/customDomain';
+import { isPlatformHost, isReservedPlatformSubdomain, normalizeHost } from './lib/customDomain';
 import { hasAuthCallbackInUrl } from './services/auth.service';
 
 function MobileGalleryViewRedirect() {
@@ -116,9 +116,10 @@ function App() {
   let isProductionSubdomain = false;
   if (host.endsWith('.vercel.app')) {
     // Vercel preview and main URLs have 3 parts (e.g. pixnxt.vercel.app). Only treat as subdomain if > 3 parts (e.g. pooja.pixnxt.vercel.app)
-    isProductionSubdomain = parts.length > 3 && parts[0] !== 'www';
+    isProductionSubdomain = parts.length > 3 && !isReservedPlatformSubdomain(parts[0]);
   } else {
-    isProductionSubdomain = parts.length > 2 && parts[0] !== 'www' && !host.endsWith('.localhost');
+    // Reserved platform labels (test, domain, api, …) are infrastructure, never portfolios.
+    isProductionSubdomain = parts.length > 2 && !isReservedPlatformSubdomain(parts[0]) && !host.endsWith('.localhost');
   }
   const prodSubdomain = isProductionSubdomain ? parts[0] : null;
 

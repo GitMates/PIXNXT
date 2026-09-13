@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "pages:deploy:test": "npm run build && wrangler pages deploy ./dist --project-name pixnxt-test --branch cloudflare-migration"
   },
   "dependencies": {
     "@aws-sdk/client-rekognition": "^3.1092.0",

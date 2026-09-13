@@ -7,6 +7,7 @@ import { getSession as getAuthSession } from '../../../services/auth.service';
 import { USE_WORKERS_AUTH } from '../../../lib/api/client';
 import { supabase } from '../../../lib/supabase/client';
 import { getUserDisplayLabel, getUserInitial } from '../../../lib/userInitials';
+import { isReservedPlatformSubdomain } from '../../../lib/customDomain';
 import {
     buildCurrentSessionRows,
     mergeStoredSessions,
@@ -422,6 +423,10 @@ export default function YourAccountPanel({ user, showToast }) {
             .replace(/[^a-z0-9-]/g, '')
             .replace(/^-+|-+$/g, '');
         if (!cleaned) return;
+        if (isReservedPlatformSubdomain(cleaned)) {
+            showToast?.('This handle is reserved — please choose another.');
+            return;
+        }
         setHandle(cleaned);
         setShowHandleModal(false);
         await persist({ showcase_slug: cleaned }, 'Handle updated');

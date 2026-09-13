@@ -2526,7 +2526,7 @@ const CollectionDashboard = () => {
 
                 // Initialize download settings
                 if (data.downloads_enabled !== undefined) setPhotoDownload(data.downloads_enabled);
-                if (data.download_resolutions) {
+                if (Array.isArray(data.download_resolutions)) {
                     const mapped = data.download_resolutions.map((s) => (s === 'full' ? 'high' : s));
                     const sizes = mapped.filter((s) => s === 'web' || s === 'high' || s === 'original' || s === 'video');
                     if (data.video_downloads_enabled && !sizes.includes('video')) sizes.push('video');
@@ -4441,7 +4441,7 @@ const CollectionDashboard = () => {
 
     // Keep preview/download state aligned when collection is patched live (e.g. settings sync).
     useEffect(() => {
-        if (!collection?.download_resolutions) return;
+        if (!Array.isArray(collection?.download_resolutions)) return;
         const mapped = collection.download_resolutions.map((s) => (s === 'full' ? 'high' : s));
         let sizes = mapped.filter((s) => s === 'web' || s === 'high' || s === 'original' || s === 'video');
         if (collection.video_downloads_enabled && !sizes.includes('video')) sizes = [...sizes, 'video'];

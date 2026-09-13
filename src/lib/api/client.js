@@ -47,22 +47,32 @@ export function jwtExpiresAt(token) {
   }
 }
 
+let refreshInflight = null;
+
 async function refreshAccessToken() {
-  const res = await fetch(`${apiBase()}/v1/auth/refresh`, {
-    method: 'POST',
-    credentials: 'include',
-  });
-  if (!res.ok) {
-    clearAccessToken();
-    return null;
+  if (refreshInflight) return refreshInflight;
+  refreshInflight = (async () => {
+    const res = await fetch(`${apiBase()}/v1/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    if (!res.ok) {
+      clearAccessToken();
+      return null;
+    }
+    const data = await res.json().catch(() => ({}));
+    if (!data?.accessToken) {
+      clearAccessToken();
+      return null;
+    }
+    setAccessToken(data.accessToken);
+    return data.accessToken;
+  })();
+  try {
+    return await refreshInflight;
+  } finally {
+    refreshInflight = null;
   }
-  const data = await res.json().catch(() => ({}));
-  if (!data?.accessToken) {
-    clearAccessToken();
-    return null;
-  }
-  setAccessToken(data.accessToken);
-  return data.accessToken;
 }
 
 /**

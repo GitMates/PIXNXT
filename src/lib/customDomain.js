@@ -92,6 +92,59 @@ export function isValidCustomDomain(domain) {
   return true;
 }
 
+/**
+ * First-label subdomains of the platform root domain that are infrastructure,
+ * not photographer portfolios — e.g. test.pixnxt.in is the test environment,
+ * domain.pixnxt.in is the custom-domain CNAME target. These must never be
+ * treated as a showcase slug in routing, and photographers may not claim them
+ * as handles (see YourAccountPanel + backend validation).
+ */
+export const PLATFORM_RESERVED_SUBDOMAINS = new Set([
+  'www',
+  'test',
+  'dev',
+  'development',
+  'staging',
+  'stage',
+  'qa',
+  'uat',
+  'demo',
+  'beta',
+  'alpha',
+  'preview',
+  'api',
+  'admin',
+  'app',
+  'auth',
+  'login',
+  'signup',
+  'account',
+  'accounts',
+  'dashboard',
+  'portal',
+  'domain',
+  'mail',
+  'email',
+  'blog',
+  'docs',
+  'help',
+  'support',
+  'status',
+  'cdn',
+  'assets',
+  'static',
+  'media',
+  'files',
+  'ftp',
+  'smtp',
+  'ns1',
+  'ns2',
+]);
+
+export function isReservedPlatformSubdomain(label) {
+  return PLATFORM_RESERVED_SUBDOMAINS.has(String(label || '').trim().toLowerCase());
+}
+
 /** Hosts served by the main PIXNXT app (not a photographer custom domain). */
 export function isPlatformHost(host) {
   const h = normalizeHost(host);
