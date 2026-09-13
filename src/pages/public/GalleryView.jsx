@@ -4,6 +4,7 @@ import { AnimatePresence, motion as Motion } from 'framer-motion';
 import * as Covers from '../../components/features/CollectionDashboard/PreviewPane/CoverStyles';
 import { CoverScrollHint, coverUsesEmbeddedScroll } from '../../components/features/CollectionDashboard/PreviewPane/CoverStyles/CoverScrollHint';
 import { supabase } from '../../lib/supabase/client';
+import { USE_WORKERS_AUTH } from '../../lib/api/client';
 
 import { MasonryGrid } from '../../components/features/Gallery/MasonryGrid/MasonryGrid';
 import { PhotoLightbox } from '../../components/features/Gallery/PhotoLightbox/PhotoLightbox';
@@ -307,6 +308,24 @@ const GalleryView = () => {
         if (plan) setVaultPlan(plan);
       });
       // 2. Fetch from database if they already purchased the permanent vault for this gallery!
+      if (USE_WORKERS_AUTH) {
+        import('../../lib/api/client').then(({ apiFetch }) => {
+          apiFetch(`/v1/store/buylink-status?collectionId=${encodeURIComponent(collection.id)}`, { auth: false })
+            .then((s) => {
+              if (s?.purchased) {
+                setVaultPurchasedState(true);
+              } else {
+                setVaultPurchasedState(localStorage.getItem(`pixnxt_vault_purchased_${collection.id}`) === 'true');
+              }
+            })
+            .catch(() => {
+              setVaultPurchasedState(localStorage.getItem(`pixnxt_vault_purchased_${collection.id}`) === 'true');
+            });
+        }).catch(() => {
+          setVaultPurchasedState(localStorage.getItem(`pixnxt_vault_purchased_${collection.id}`) === 'true');
+        });
+        return;
+      }
       supabase
         .from('buylink_plans')
         .select('id')
@@ -378,7 +397,30 @@ const GalleryView = () => {
         planName = 'Permanent Vault Storage Access';
       }
 
-      const { data: purchase, error: purchaseError } = await supabase
+      const { data: purchase, error: purchaseError } = USE_WORKERS_AUTH
+        ? await (async () => {
+            // Workers API records the mock purchase + queues the receipt email.
+            const { apiFetch } = await import('../../lib/api/client');
+            try {
+              const res = await apiFetch('/v1/store/buylink', {
+                method: 'POST',
+                auth: false,
+                body: {
+                  collectionId: collection.id,
+                  customerName: vaultCardName || 'Client Visitor',
+                  customerEmail: targetEmail,
+                  amountPaid: price,
+                  planType: selectedVaultPlan || 'lifetime',
+                  paymentMethod: vaultPaymentMethod || 'Credit Card',
+                  paymentIntentId: 'mock_pi_vault_' + Math.random().toString(36).substr(2, 9),
+                },
+              });
+              return { data: res?.plan ?? null, error: null };
+            } catch (err) {
+              return { data: null, error: err };
+            }
+          })()
+        : await supabase
         .from('buylink_plans')
         .insert({
           collection_id: collection.id,
@@ -399,21 +441,24 @@ const GalleryView = () => {
       localStorage.setItem(`pixnxt_vault_purchased_plan_${collection.id}`, selectedVaultPlan);
       setVaultPurchasedState(true);
 
-      try {
-        await fetch(`${supabase.supabaseUrl}/functions/v1/send-order-placed-email`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${supabase.supabaseKey}`
-          },
-          body: JSON.stringify({
-            orderId: purchase.id,
-            recipientEmail: targetEmail,
-            siteOrigin: window.location.origin
-          })
-        });
-      } catch (emailErr) {
-        console.warn('Could not trigger vault order placing email:', emailErr);
+      // Workers API already queued the receipt email server-side.
+      if (!USE_WORKERS_AUTH) {
+        try {
+          await fetch(`${supabase.supabaseUrl}/functions/v1/send-order-placed-email`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${supabase.supabaseKey}`
+            },
+            body: JSON.stringify({
+              orderId: purchase.id,
+              recipientEmail: targetEmail,
+              siteOrigin: window.location.origin
+            })
+          });
+        } catch (emailErr) {
+          console.warn('Could not trigger vault order placing email:', emailErr);
+        }
       }
 
       setIsVaultPaying(false);
@@ -428,6 +473,12 @@ const GalleryView = () => {
   useEffect(() => {
     async function loadActiveProducts() {
       try {
+        if (USE_WORKERS_AUTH) {
+          const { apiFetch } = await import('../../lib/api/client');
+          const data = await apiFetch('/v1/printstore/products', { auth: false });
+          if (data?.products) setActiveProducts(data.products);
+          return;
+        }
         const { data, error } = await supabase
           .from('printstore_products')
           .select('*')
@@ -1127,7 +1178,7 @@ const GalleryView = () => {
       // When PIN is ON, require it for single photo downloads too
       const pinRequiredForSingle = collection?.require_pin_for_single_photo !== false;
       const pinStored = collection?.download_pin ?? collection?.download_pin_hash ?? collection?.pin_value ?? collection?.pinValue;
-      const hasPin = pinStored != null && String(pinStored).trim().length > 0;
+      const hasPin = collection?.has_pin === true || (pinStored != null && String(pinStored).trim().length > 0);
       const needsPin = hasPin && (!photo || pinRequiredForSingle);
 
       const hasDownloadLimit = !!collection?.download_limit_gallery;
@@ -1510,6 +1561,36 @@ const GalleryView = () => {
         .catch(() => {});
     };
 
+    if (USE_WORKERS_AUTH && collection?.id) {
+      let cancelled = false;
+      let unsubscribe = null;
+      import('../../lib/api/client').then(({ subscribeSse }) => {
+        if (cancelled) return;
+        unsubscribe = subscribeSse(`/v1/public/gallery/${collection.id}/events`, {
+          onEvent: async () => {
+            try {
+              const fresh = await galleryService.getCollectionBySlug(collection.slug, { collectionId: collection.id });
+              if (cancelled || !fresh || fresh.id !== collection.id) return;
+              setCollection((prev) => {
+                if (!prev || prev.id !== collection.id) return prev;
+                refreshStorePackagesIfNeeded(fresh, prev);
+                return {
+                  ...prev,
+                  ...fresh,
+                  has_pin: Boolean(fresh.has_pin || fresh.download_pin_hash),
+                };
+              });
+            } catch {
+              // keep stale gallery on refresh failure
+            }
+          },
+        });
+      }).catch(() => {});
+      return () => {
+        cancelled = true;
+        if (unsubscribe) unsubscribe();
+      };
+    }
     const channel = supabase
       .channel(`gallery-download-settings:${collection.id}`)
       .on(
@@ -1802,6 +1883,17 @@ const GalleryView = () => {
     if (savedEmail) {
       galleryService.createOrGetSession(collection.id, savedEmail).then(async (session) => {
         if (!session?.id) return;
+        const { USE_WORKERS_AUTH } = await import('../../lib/api/client');
+        if (USE_WORKERS_AUTH) {
+          const { syncDigitalCartItem } = await import('../../services/workersGallery.service');
+          await syncDigitalCartItem(session.id, {
+            productType: 'digital_package',
+            name: selectedStorePackage.name,
+            unitPrice: Number(selectedStorePackage.price) || 0,
+            options: cartItem.options,
+          }).catch((e) => console.error('Error syncing package to cart:', e));
+          return;
+        }
         let productDbId = null;
         const { data: dbProducts } = await supabase
           .from('printstore_products')
@@ -3029,6 +3121,7 @@ const GalleryView = () => {
         themeClassName={cn(`theme-${effectiveSettings.color_palette}`, `font-${effectiveSettings.font_family}`)}
         downloadRequiresPassword={
           (() => {
+            if (collection?.has_pin === true) return true;
             const pin = collection?.download_pin ?? collection?.download_pin_hash ?? collection?.pin_value ?? collection?.pinValue;
             return pin != null && String(pin).trim().length > 0;
           })()
@@ -3045,6 +3138,7 @@ const GalleryView = () => {
       <ClientExclusiveLoginModal
         open={showClientLogin}
         storedPassword={collection?.client_password_hash}
+        collectionId={collection?.id}
         onSuccess={handleClientLoginSuccess}
         onClose={() => setShowClientLogin(false)}
       />
@@ -3526,6 +3620,18 @@ const GalleryView = () => {
                         if (savedEmail) {
                           galleryService.createOrGetSession(collection.id, savedEmail).then(async (session) => {
                             if (!session?.id) return;
+                            const { USE_WORKERS_AUTH } = await import('../../lib/api/client');
+                            const cartItem = buildDigitalPackageCartItem(selectedStorePackage);
+                            if (USE_WORKERS_AUTH) {
+                              const { syncDigitalCartItem } = await import('../../services/workersGallery.service');
+                              await syncDigitalCartItem(session.id, {
+                                productType: 'digital_package',
+                                name: selectedStorePackage.name,
+                                unitPrice: Number(selectedStorePackage.price) || 0,
+                                options: cartItem.options,
+                              }).catch((e) => console.error('Error syncing package to cart:', e));
+                              return;
+                            }
                             let productDbId = null;
                             const { data: dbProducts } = await supabase
                               .from('printstore_products')
@@ -3548,12 +3654,12 @@ const GalleryView = () => {
                                 .maybeSingle();
                               productDbId = inserted?.id || null;
                             }
-                            const cartItem = buildDigitalPackageCartItem(selectedStorePackage);
+                            const sbCartItem = buildDigitalPackageCartItem(selectedStorePackage);
                             await supabase.from('printstore_cart_items').insert({
                               session_id: session.id,
                               product_id: productDbId,
                               quantity: 1,
-                              options: cartItem.options,
+                              options: sbCartItem.options,
                             });
                           }).catch((e) => {
                             console.error('Error syncing package to Supabase cart:', e);
@@ -3621,6 +3727,23 @@ const GalleryView = () => {
                         galleryService.createOrGetSession(collection.id, savedEmail).then(async (session) => {
                           if (!session?.id) return;
 
+                          const { USE_WORKERS_AUTH } = await import('../../lib/api/client');
+                          if (USE_WORKERS_AUTH) {
+                            const { syncDigitalCartItem } = await import('../../services/workersGallery.service');
+                            await syncDigitalCartItem(session.id, {
+                              productType: itemProductId,
+                              name: itemProductName,
+                              unitPrice: itemUnitPrice,
+                              options: {
+                                productId: itemProductId,
+                                productName: itemProductName,
+                                photo: photoForCart,
+                                size,
+                                unitPrice: itemUnitPrice,
+                              },
+                            }).catch((e) => console.error('Error syncing digital item to cart:', e));
+                            return;
+                          }
                           let productDbId = null;
                           const { data: dbProducts } = await supabase
                             .from('printstore_products')

@@ -146,6 +146,7 @@ function isPhotoInAllowedDownloadSet(photo, allowlist, sets = [], highlightsName
 }
 
 function collectionHasDownloadPin(collection) {
+  if (collection?.has_pin === true) return true;
   const pin = collection?.download_pin ?? collection?.download_pin_hash ?? collection?.pin_value ?? collection?.pinValue;
   return pin != null && String(pin).trim().length > 0;
 }
@@ -494,11 +495,23 @@ export const DownloadModal = ({
     const validPin = collection?.download_pin ?? collection?.download_pin_hash ?? collection?.pin_value ?? collection?.pinValue;
     const needsPin = collectionHasDownloadPin(collection);
 
-    if (needsPin && pin !== String(validPin ?? '').trim()) {
-      setError('Incorrect PIN. Please check with your photographer.');
-      setPinDigits(['', '', '', '']);
-      setTimeout(() => pinRefs[0].current?.focus(), 50);
-      return;
+    if (needsPin) {
+      const { USE_WORKERS_AUTH } = await import('../../../../lib/api/client');
+      let pinOk = pin === String(validPin ?? '').trim();
+      if (USE_WORKERS_AUTH && collection?.id && !pinOk) {
+        try {
+          const { verifyGalleryAccess } = await import('../../../../services/workersGallery.service');
+          pinOk = (await verifyGalleryAccess(collection.id, { pin }))?.pinOk === true;
+        } catch {
+          pinOk = false;
+        }
+      }
+      if (!pinOk) {
+        setError('Incorrect PIN. Please check with your photographer.');
+        setPinDigits(['', '', '', '']);
+        setTimeout(() => pinRefs[0].current?.focus(), 50);
+        return;
+      }
     }
 
     // Check email restriction

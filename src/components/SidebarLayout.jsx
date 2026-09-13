@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase/client';
+import { USE_WORKERS_AUTH } from '../lib/api/client';
 import {
     Home,
     ChevronDown,
@@ -157,6 +158,33 @@ const SidebarLayout = ({
             }
         }
 
+        if (USE_WORKERS_AUTH) {
+            // Workers API owns profile + admin flag (no Supabase tables client-side).
+            void (async () => {
+                try {
+                    const [{ apiFetch }, { galleryService }] = await Promise.all([
+                        import('../lib/api/client'),
+                        import('../services/gallery.service'),
+                    ]);
+                    galleryService
+                        .getOwnProfile()
+                        .then((data) => {
+                            if (data) {
+                                setProfile(data);
+                                localStorage.setItem(`photographer_profile_${user.id}`, JSON.stringify(data));
+                                syncUploadDefaultsToLocalStorage(data);
+                            }
+                        })
+                        .catch((err) => console.error('Error loading photographer profile:', err));
+                    apiFetch('/v1/me')
+                        .then((me) => setIsAdmin(Boolean(me?.isAdmin)))
+                        .catch(() => setIsAdmin(false));
+                } catch (err) {
+                    console.error('Error loading photographer profile:', err);
+                }
+            })();
+            return;
+        }
         supabase
             .from('photographers')
             .select('*')

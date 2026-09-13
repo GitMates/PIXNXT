@@ -483,6 +483,24 @@ export default function StoreDashboard() {
       const { _campaignId, _bannerKey, _emailKey, ...cleanEmailConfig } = emailPayload;
       const offerStripColors = resolveEmailOfferStripColors(cleanEmailConfig, null);
 
+      const { USE_WORKERS_AUTH } = await import('../lib/api/client');
+      if (USE_WORKERS_AUTH) {
+        const { sendStoreCampaign } = await import('../services/workersGallery.service');
+        const result = await sendStoreCampaign({
+          mode: 'test',
+          testType: type,
+          recipient,
+          collectionId: colId,
+          campaignId: selectedCampaign,
+          emailKey: _emailKey,
+          emailConfig: cleanEmailConfig,
+          discount: currentCampaign?.discount,
+          discountCode: currentCampaign?.discountCode,
+          durationDays: currentCampaign?.durationDays,
+        });
+        alert(`Test ${type === 'email' ? 'email' : 'WhatsApp'} sent successfully to ${recipient}!`);
+        void result;
+      } else {
       const { data, error } = await supabase.functions.invoke('send-store-campaign-reminders', {
         body: {
           mode: 'test',
@@ -507,6 +525,7 @@ export default function StoreDashboard() {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       alert(`Test ${type === 'email' ? 'email' : 'WhatsApp'} sent successfully to ${recipient}!`);
+      }
     } catch (err) {
       console.error("Error sending test notification:", err);
       alert(`Failed to send test notification: ${err.message || err}`);
@@ -1490,7 +1509,13 @@ export default function StoreDashboard() {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    const { USE_WORKERS_AUTH } = await import('../lib/api/client');
+    if (USE_WORKERS_AUTH) {
+      const { signOut } = await import('../services/auth.service');
+      await signOut().catch(() => {});
+    } else {
+      await supabase.auth.signOut();
+    }
     localStorage.removeItem('pixnxt_session');
     navigate('/auth');
   };
@@ -3803,6 +3828,28 @@ export default function StoreDashboard() {
 
                               setApplyingReminder(true);
                               try {
+                                const { USE_WORKERS_AUTH } = await import('../lib/api/client');
+                                if (USE_WORKERS_AUTH) {
+                                  const { sendStoreCampaign } = await import('../services/workersGallery.service');
+                                  const applied = await sendStoreCampaign({
+                                    mode: 'apply',
+                                    photographerId: user.id,
+                                    collectionId: colId,
+                                    campaignId: _campaignId,
+                                    emailKey: _emailKey,
+                                    emailConfig: data,
+                                    discount: currentCampaign?.discount,
+                                    discountCode: currentCampaign?.discountCode,
+                                    durationDays: currentCampaign?.durationDays,
+                                  });
+                                  const emailed = applied?.emailed || 0;
+                                  const whatsapped = applied?.whatsapped || 0;
+                                  if (applied?.warning) {
+                                    alert(`Reminder design saved.\n${applied.warning}`);
+                                  } else {
+                                    alert(`Reminder applied.\nEmail sent: ${emailed}\nWhatsApp sent: ${whatsapped}`);
+                                  }
+                                } else {
                                 const offerStripColors = resolveEmailOfferStripColors(data, null);
                                 const { data: sendResult, error: sendError } = await supabase.functions.invoke('send-store-campaign-reminders', {
                                   body: {
@@ -3838,6 +3885,7 @@ export default function StoreDashboard() {
                                 } else {
                                   alert(`Reminder applied.\nEmail sent: ${emailed}\nWhatsApp sent: ${whatsapped}`);
                                 }
+                                }
                               } catch (sendErr) {
                                 console.error("Main Clients Reminders apply failed:", sendErr);
                                 alert(`Reminder design saved locally, but send failed: ${sendErr.message || sendErr}`);
@@ -3853,30 +3901,41 @@ export default function StoreDashboard() {
                                 const activeBannerKey = activeModal;
                                 const activeBanner = data;
 
-                                supabase.functions.invoke('send-store-campaign-reminders', {
-                                  body: {
-                                    mode: 'test',
-                                    test: true,
-                                    testType: 'email',
-                                    recipient: user.email,
-                                    collectionId: colId,
-                                    photographerId: user.id,
-                                    campaignId: _campaignId,
-                                    emailKey: 'announcement',
-                                    emailConfig: emailConfig,
-                                    activeBannerKey,
-                                    activeBanner,
-                                    discount: currentCampaign?.discount,
-                                    discountCode: currentCampaign?.discountCode,
-                                    durationDays: currentCampaign?.durationDays,
-                                    siteOrigin: window.location.origin
-                                  }
-                                }).then(({ error }) => {
-                                  if (error) {
-                                    console.error("Auto-apply email trigger failed:", error);
-                                  } else {
+                                const bannerPreviewPayload = {
+                                  mode: 'test',
+                                  testType: 'email',
+                                  recipient: user.email,
+                                  collectionId: colId,
+                                  campaignId: _campaignId,
+                                  emailKey: 'announcement',
+                                  emailConfig,
+                                  discount: currentCampaign?.discount,
+                                  discountCode: currentCampaign?.discountCode,
+                                  durationDays: currentCampaign?.durationDays,
+                                };
+                                import('../lib/api/client').then(async ({ USE_WORKERS_AUTH }) => {
+                                  if (USE_WORKERS_AUTH) {
+                                    const { sendStoreCampaign } = await import('../services/workersGallery.service');
+                                    await sendStoreCampaign(bannerPreviewPayload);
                                     console.log("Auto-apply email preview triggered successfully to:", user.email);
+                                    return;
                                   }
+                                  supabase.functions.invoke('send-store-campaign-reminders', {
+                                    body: {
+                                      ...bannerPreviewPayload,
+                                      test: true,
+                                      photographerId: user.id,
+                                      activeBannerKey,
+                                      activeBanner,
+                                      siteOrigin: window.location.origin
+                                    }
+                                  }).then(({ error }) => {
+                                    if (error) {
+                                      console.error("Auto-apply email trigger failed:", error);
+                                    } else {
+                                      console.log("Auto-apply email preview triggered successfully to:", user.email);
+                                    }
+                                  }).catch(err => console.error("Error triggering auto-apply email:", err));
                                 }).catch(err => console.error("Error triggering auto-apply email:", err));
                               }
                             }

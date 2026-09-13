@@ -1,5 +1,7 @@
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase/client';
+import { USE_WORKERS_AUTH } from '../lib/api/client';
+import { loadGuestGallery as workersLoadGuestGallery, publishEvent as workersPublishEvent, sendDeliveryEmail as workersSendDeliveryEmail } from './workersGuest.service';
 import { getClientFacingOrigin } from '../lib/publicSiteUrl';
 
 async function readFunctionErrorMessage(error) {
@@ -21,6 +23,7 @@ async function readFunctionErrorMessage(error) {
 
 export const guestDeliveryPublishService = {
   async publishEvent(eventId) {
+    if (USE_WORKERS_AUTH) return workersPublishEvent(eventId);
     const {
       data: { session },
       error: sessionError,
@@ -47,6 +50,7 @@ export const guestDeliveryPublishService = {
   },
 
   async sendDeliveryEmail({ eventId, guestId, sendCopy = false, photographerProfile = null }) {
+    if (USE_WORKERS_AUTH) return workersSendDeliveryEmail({ eventId, guestId, sendCopy });
     const {
       data: { session },
       error: sessionError,
@@ -80,6 +84,7 @@ export const guestDeliveryPublishService = {
   },
 
   async loadGuestGallery({ slug, accessToken }) {
+    if (USE_WORKERS_AUTH) return workersLoadGuestGallery({ slug, accessToken });
     const res = await fetch('/api/guest-delivery/gallery', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

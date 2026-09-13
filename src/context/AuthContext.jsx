@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase/client';
+import { USE_WORKERS_AUTH } from '../lib/api/client';
 import {
   resolveAuthSession,
   resolveInitialAuthSession,
@@ -30,13 +31,22 @@ export const AuthProvider = ({ children }) => {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const applyAuthState = useCallback(({ user: nextUser, session: nextSession }) => {
+    setSession((prev) => (sameAuthSession(prev, nextSession) ? prev : nextSession));
+    setUser((prev) => (sameAuthUser(prev, nextUser) ? prev : nextUser));
+  }, []);
+
+  // Re-resolve session on demand (required in Workers mode — there is no
+  // realtime subscription, so login/signup/OAuth landing must call this
+  // before navigating to a ProtectedRoute, or it will bounce to /auth).
+  const refresh = useCallback(async () => {
+    const resolved = await resolveAuthSession();
+    applyAuthState(resolved);
+    return resolved;
+  }, [applyAuthState]);
+
   useEffect(() => {
     // Initialize session and user state
-    const applyAuthState = ({ user: nextUser, session: nextSession }) => {
-      setSession((prev) => (sameAuthSession(prev, nextSession) ? prev : nextSession));
-      setUser((prev) => (sameAuthUser(prev, nextUser) ? prev : nextUser));
-    };
-
     const initializeAuth = async () => {
       try {
         const resolved = await resolveInitialAuthSession();
@@ -62,6 +72,15 @@ export const AuthProvider = ({ children }) => {
     };
     document.addEventListener('visibilitychange', refreshIfVisible);
     window.addEventListener('focus', refreshIfVisible);
+
+    // Workers mode: no realtime subscription — AuthPage effects re-resolve
+    // via resolveAuthSession (refresh cookie) after login/logout actions.
+    if (USE_WORKERS_AUTH) {
+      return () => {
+        document.removeEventListener('visibilitychange', refreshIfVisible);
+        window.removeEventListener('focus', refreshIfVisible);
+      };
+    }
 
     // Subscribe to auth state changes (login, logout, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -99,13 +118,14 @@ export const AuthProvider = ({ children }) => {
       window.removeEventListener('focus', refreshIfVisible);
       subscription.unsubscribe();
     };
-  }, []);
+  }, [applyAuthState]);
 
   const value = {
     user,
     session,
     loading,
     isAuthenticated: !!user,
+    refresh,
   };
 
   return (

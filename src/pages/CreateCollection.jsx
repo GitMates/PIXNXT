@@ -6,7 +6,6 @@ import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
 import { guestDeliveryService } from '../services/guestDelivery.service';
 import { photographerQuotaService } from '../services/photographerQuota.service';
-import { supabase } from '../lib/supabase/client';
 import { resolveUploadDefaults } from '../lib/uploadDefaults';
 import '../styles/clientGalleryTheme.css';
 import '../styles/collectionDashboardTheme.css';
@@ -30,11 +29,8 @@ const CreateCollection = () => {
         if (!user) return;
         const fetchPresets = async () => {
             try {
-                const { data, error } = await supabase
-                    .from('presets')
-                    .select('*')
-                    .eq('photographer_id', user.id);
-                if (!error && data) {
+                const data = await galleryService.getPresets(user.id);
+                if (data) {
                     setPresets(data);
                     const options = [
                         { value: 'default', label: 'Default' },

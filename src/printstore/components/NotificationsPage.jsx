@@ -50,6 +50,40 @@ export default function NotificationsPage({ sessionId, photographer, onBack }) {
     croppedAreaPixels: null
   });
 
+  const openReviewWorkspace = (review) => {
+    setSelectedReview(review);
+    const item = review.orderItem;
+    // D1 returns options as JSON text; Supabase returned objects.
+    let opts = item?.options;
+    if (typeof opts === 'string') {
+      try {
+        opts = JSON.parse(opts);
+      } catch {
+        opts = {};
+      }
+    }
+    opts = opts && typeof opts === 'object' ? opts : {};
+    const rawUrl = resolvePhotoUrl(opts.photo?.url || opts.photos?.[0]?.url || opts.photo);
+
+    setSugPhotoState({
+      url: rawUrl,
+      editedPhotoUrl: resolvePhotoUrl(opts.editedPhotoUrl || rawUrl),
+      rotation: opts.rotation || 0,
+      crop: opts.crop || { x: 0, y: 0 },
+      zoom: opts.zoom || 1
+    });
+    setNewUploadPreview(null);
+    setNewPhotoState({
+      file: null,
+      url: '',
+      editedPhotoUrl: '',
+      rotation: 0,
+      crop: { x: 0, y: 0 },
+      zoom: 1
+    });
+    setSelectedChoice(null);
+  };
+
   // Load pending artwork reviews for client session / orders
   const fetchNotifications = async () => {
     try {
@@ -57,6 +91,37 @@ export default function NotificationsPage({ sessionId, photographer, onBack }) {
       const urlParams = new URLSearchParams(window.location.search);
       const reviewId = urlParams.get('review_id');
 
+      const { USE_WORKERS_AUTH } = await import('../../lib/api/client');
+      if (USE_WORKERS_AUTH) {
+        const { apiFetch } = await import('../../lib/api/client');
+        if (reviewId) {
+          const data = await apiFetch(`/v1/printstore/reviews/notifications?reviewId=${encodeURIComponent(reviewId)}`).catch(() => null);
+          const review = data?.reviews?.[0] ?? null;
+          if (review) {
+            setNotifications([review]);
+            if (review.review_status !== 'Waiting Customer') {
+              setReviewResolved(true);
+              setSelectedReview(null);
+              setLoading(false);
+              return;
+            }
+            openReviewWorkspace(review);
+            setLoading(false);
+            return;
+          }
+        }
+        const params = new URLSearchParams();
+        if (sessionId) params.set('sessionId', sessionId);
+        else {
+          const { getUser } = await import('../../services/auth.service');
+          const user = await getUser().catch(() => null);
+          if (user?.email) params.set('email', user.email);
+        }
+        const list = await apiFetch(`/v1/printstore/reviews/notifications?${params.toString()}`).catch(() => null);
+        setNotifications(list?.reviews || []);
+        setLoading(false);
+        return;
+      }
       if (reviewId) {
         const { data: review, error: reviewErr } = await supabase
           .from('printstore_artwork_reviews')
@@ -73,28 +138,7 @@ export default function NotificationsPage({ sessionId, photographer, onBack }) {
             return;
           }
           // Open the review workspace directly
-          setSelectedReview(review);
-          const item = review.orderItem;
-          const opts = item?.options || {};
-          const rawUrl = resolvePhotoUrl(opts.photo?.url || opts.photos?.[0]?.url || opts.photo);
-
-          setSugPhotoState({
-            url: rawUrl,
-            editedPhotoUrl: resolvePhotoUrl(opts.editedPhotoUrl || rawUrl),
-            rotation: opts.rotation || 0,
-            crop: opts.crop || { x: 0, y: 0 },
-            zoom: opts.zoom || 1
-          });
-          setNewUploadPreview(null);
-          setNewPhotoState({
-            file: null,
-            url: '',
-            editedPhotoUrl: '',
-            rotation: 0,
-            crop: { x: 0, y: 0 },
-            zoom: 1
-          });
-          setSelectedChoice(null);
+          openReviewWorkspace(review);
           setLoading(false);
           return;
         }
@@ -134,29 +178,7 @@ export default function NotificationsPage({ sessionId, photographer, onBack }) {
   useEffect(() => { fetchNotifications(); }, [sessionId, photographer?.id]);
 
   const handleOpenReview = (review) => {
-    setSelectedReview(review);
-    const item = review.orderItem;
-    const opts = item?.options || {};
-    const rawUrl = resolvePhotoUrl(opts.photo?.url || opts.photos?.[0]?.url || opts.photo);
-
-    setSugPhotoState({
-      url: rawUrl,
-      editedPhotoUrl: resolvePhotoUrl(opts.editedPhotoUrl || rawUrl),
-      rotation: opts.rotation || 0,
-      crop: opts.crop || { x: 0, y: 0 },
-      zoom: opts.zoom || 1
-    });
-
-    setNewUploadPreview(null);
-    setNewPhotoState({
-      file: null,
-      url: '',
-      editedPhotoUrl: '',
-      rotation: 0,
-      crop: { x: 0, y: 0 },
-      zoom: 1
-    });
-    setSelectedChoice(null);
+    openReviewWorkspace(review);
   };
 
   const handleCloseReview = () => {
@@ -185,6 +207,18 @@ export default function NotificationsPage({ sessionId, photographer, onBack }) {
       const response = await fetch(blobUrl);
       const blob = await response.blob();
       const file = new File([blob], `cropped_${Date.now()}.jpeg`, { type: 'image/jpeg' });
+      const { USE_WORKERS_AUTH, apiBase } = await import('../../lib/api/client');
+      if (USE_WORKERS_AUTH) {
+        const form = new FormData();
+        form.append('file', file);
+        const res = await fetch(
+          `${apiBase()}/v1/printstore/orders/${orderId}/upload?sessionId=${encodeURIComponent(sessionId ?? '')}`,
+          { method: 'POST', body: form }
+        );
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data?.error?.message || 'Upload failed');
+        return data?.path || '';
+      }
       const path = `orders/${orderId}/crops/cropped_${Date.now()}.jpeg`;
       const uploadRes = await storageService.upload(path, file);
       return uploadRes?.path || '';
@@ -194,7 +228,30 @@ export default function NotificationsPage({ sessionId, photographer, onBack }) {
     }
   };
 
+  // D1 returns options as JSON text; Supabase returned objects.
+  const parseReviewOptions = (orderItem) => {
+    const raw = orderItem?.options;
+    if (!raw) return {};
+    if (typeof raw === 'string') {
+      try {
+        return JSON.parse(raw);
+      } catch {
+        return {};
+      }
+    }
+    return raw;
+  };
+
   // ── Accept Suggestion ──
+  const respondReviewWorkers = async (reviewId, action, extra = {}) => {
+    const { apiFetch } = await import('../../lib/api/client');
+    await apiFetch(`/v1/printstore/reviews/${reviewId}/respond`, {
+      method: 'POST',
+      auth: false,
+      body: { sessionId: sessionId ?? null, action, ...extra },
+    });
+  };
+
   const handleAcceptSuggestion = async () => {
     if (!selectedReview) return;
     try {
@@ -206,7 +263,7 @@ export default function NotificationsPage({ sessionId, photographer, onBack }) {
         r2Path = await uploadCroppedImage(r2Path, order_id);
       }
 
-      const currentOpts = orderItem.options || {};
+      const currentOpts = parseReviewOptions(orderItem);
       const updatedOpts = {
         ...currentOpts,
         editedPhotoUrl: r2Path,
@@ -215,6 +272,12 @@ export default function NotificationsPage({ sessionId, photographer, onBack }) {
         rotation: sugPhotoState.rotation
       };
 
+      const { USE_WORKERS_AUTH } = await import('../../lib/api/client');
+      if (USE_WORKERS_AUTH) {
+        await respondReviewWorkers(id, 'accept-suggested', { options: updatedOpts });
+        setConfirmAction(null); handleCloseReview(); fetchNotifications();
+        return;
+      }
       const { error: itemErr } = await supabase
         .from('printstore_order_items')
         .update({ options: updatedOpts })
@@ -247,9 +310,15 @@ export default function NotificationsPage({ sessionId, photographer, onBack }) {
     try {
       setSubmitting(true);
       const { order_id, order_item_id, id, orderItem } = selectedReview;
-      const currentOpts = orderItem.options || {};
+      const currentOpts = parseReviewOptions(orderItem);
       const updatedOpts = { ...currentOpts, editedPhotoUrl: null, crop: { x: 0, y: 0 }, zoom: 1, rotation: 0 };
 
+      const { USE_WORKERS_AUTH } = await import('../../lib/api/client');
+      if (USE_WORKERS_AUTH) {
+        await respondReviewWorkers(id, 'keep-original', { options: updatedOpts });
+        setConfirmAction(null); handleCloseReview(); fetchNotifications();
+        return;
+      }
       const { error: itemErr } = await supabase.from('printstore_order_items').update({ options: updatedOpts }).eq('id', order_item_id);
       if (itemErr) throw itemErr;
 
@@ -300,8 +369,23 @@ export default function NotificationsPage({ sessionId, photographer, onBack }) {
 
       // 1. Upload original replacement
       const cleanFileName = `${Date.now()}_${newPhotoState.file.name.replace(/\s+/g, '_')}`;
-      const origPath = `orders/${order_id}/replacements/${cleanFileName}`;
-      const uploadRes = await storageService.upload(origPath, newPhotoState.file);
+      const { USE_WORKERS_AUTH } = await import('../../lib/api/client');
+      let uploadRes;
+      if (USE_WORKERS_AUTH) {
+        const { apiBase } = await import('../../lib/api/client');
+        const form = new FormData();
+        form.append('file', newPhotoState.file);
+        const res = await fetch(
+          `${apiBase()}/v1/printstore/orders/${order_id}/upload?sessionId=${encodeURIComponent(sessionId ?? '')}`,
+          { method: 'POST', body: form }
+        );
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data?.error?.message || 'Upload failed');
+        uploadRes = { path: data?.path };
+      } else {
+        const origPath = `orders/${order_id}/replacements/${cleanFileName}`;
+        uploadRes = await storageService.upload(origPath, newPhotoState.file);
+      }
       if (!uploadRes?.path) throw new Error('R2 Upload failed');
 
       // 2. Upload cropped replacement if customized
@@ -310,7 +394,7 @@ export default function NotificationsPage({ sessionId, photographer, onBack }) {
         r2CroppedPath = await uploadCroppedImage(r2CroppedPath, order_id);
       }
 
-      const currentOpts = orderItem.options || {};
+      const currentOpts = parseReviewOptions(orderItem);
       const updatedOpts = {
         ...currentOpts,
         photo: { id: `replaced_${Date.now()}`, url: uploadRes.path },
@@ -321,6 +405,14 @@ export default function NotificationsPage({ sessionId, photographer, onBack }) {
         rotation: newPhotoState.rotation
       };
 
+      if (USE_WORKERS_AUTH) {
+        await respondReviewWorkers(id, 'upload-new', {
+          options: updatedOpts,
+          newUploadedPhotoUrl: uploadRes.path,
+        });
+        handleCloseReview(); fetchNotifications();
+        return;
+      }
       const { error: itemErr } = await supabase.from('printstore_order_items').update({ options: updatedOpts }).eq('id', order_item_id);
       if (itemErr) throw itemErr;
 

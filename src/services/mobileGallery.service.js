@@ -1,4 +1,6 @@
 import { supabase } from '../lib/supabase/client';
+import { USE_WORKERS_AUTH } from '../lib/api/client';
+const workersMobile = () => import('./workersMobile.service');
 import { userStorageService } from './userStorage.service';
 
 const APP_FIELDS =
@@ -55,6 +57,7 @@ async function ensurePhotographer(photographerId) {
 
 export const mobileGalleryService = {
   async getApps(photographerId) {
+    if (USE_WORKERS_AUTH) return (await workersMobile()).getApps(photographerId);
     const { data, error } = await supabase
       .from('mobile_gallery_apps')
       .select(APP_FIELDS)
@@ -66,6 +69,7 @@ export const mobileGalleryService = {
   },
 
   async getApp(photographerId, appId) {
+    if (USE_WORKERS_AUTH) return (await workersMobile()).getApp(photographerId, appId);
     const { data, error } = await supabase
       .from('mobile_gallery_apps')
       .select(APP_FIELDS)
@@ -78,6 +82,7 @@ export const mobileGalleryService = {
   },
 
   async createApp({ photographer_id, name, event_date = null }) {
+    if (USE_WORKERS_AUTH) return (await workersMobile()).createApp({ photographer_id, name, event_date });
     const trimmedName = normalizeName(name);
     if (!trimmedName) {
       throw new Error('App name is required.');
@@ -108,6 +113,7 @@ export const mobileGalleryService = {
   },
 
   async updateApp(photographerId, appId, updates) {
+    if (USE_WORKERS_AUTH) return (await workersMobile()).updateApp(photographerId, appId, updates);
     const payload = {
       ...updates,
       updated_at: new Date().toISOString(),
@@ -126,6 +132,7 @@ export const mobileGalleryService = {
   },
 
   async deleteApp(photographerId, appId) {
+    if (USE_WORKERS_AUTH) return (await workersMobile()).deleteApp(photographerId, appId);
     const { error } = await supabase
       .from('mobile_gallery_apps')
       .delete()

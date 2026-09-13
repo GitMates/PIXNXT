@@ -186,6 +186,16 @@ export function filterPackagesForCollection(packages, collection) {
 
 export async function fetchStorePackages(photographerId, { activeOnly = false } = {}) {
   if (!photographerId) return [];
+  const { USE_WORKERS_AUTH, apiFetch } = await import('./api/client');
+  if (USE_WORKERS_AUTH) {
+    // Public endpoint serves active packages; studio callers needing
+    // inactive rows use the authed list (same shape, plus items).
+    const path = activeOnly
+      ? `/v1/store/packages/public?photographerId=${encodeURIComponent(photographerId)}`
+      : '/v1/store/packages';
+    const data = await apiFetch(path);
+    return data?.packages || [];
+  }
   let query = supabase
     .from('store_packages')
     .select('*')

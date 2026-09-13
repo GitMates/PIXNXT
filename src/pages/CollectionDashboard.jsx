@@ -161,12 +161,9 @@ const CollectionDashboard = () => {
             setProfile(null);
             return;
         }
-        supabase
-            .from('photographers')
-            .select('*')
-            .eq('id', user.id)
-            .single()
-            .then(({ data }) => {
+        galleryService
+            .getPhotographerProfile(user.id)
+            .then((data) => {
                 if (data) {
                     setProfile(data);
                     syncUploadDefaultsToLocalStorage(data);
@@ -187,30 +184,19 @@ const CollectionDashboard = () => {
             setPresets([]);
             return;
         }
-        supabase
-            .from('presets')
-            .select('*')
-            .eq('photographer_id', user.id)
-            .order('created_at', { ascending: false })
-            .then(({ data, error }) => {
-                if (error) {
-                    console.error('Error fetching presets:', error);
-                } else if (data) {
-                    setPresets(data);
-                }
-            });
+        galleryService
+            .getPresets(user.id)
+            .then((data) => {
+                if (data) setPresets(data);
+            })
+            .catch((error) => console.error('Error fetching presets:', error));
 
-        supabase
-            .from('watermarks')
-            .select('*')
-            .eq('photographer_id', user.id)
-            .then(({ data, error }) => {
-                if (error) {
-                    console.error('Error fetching watermarks:', error);
-                } else if (data) {
-                    setWatermarks(data);
-                }
-            });
+        galleryService
+            .getWatermarks(user.id)
+            .then((data) => {
+                if (data) setWatermarks(data);
+            })
+            .catch((error) => console.error('Error fetching watermarks:', error));
     }, [user?.id]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -536,12 +522,17 @@ const CollectionDashboard = () => {
         handleSetDragEnd();
 
         try {
-            await Promise.all([
-                persistSidebarOrder(collectionId, newOrderIds),
-                ...dbSets.map((set) =>
-                    supabase.from('sets').update({ position: set.position }).eq('id', set.id)
-                ),
-            ]);
+            const { USE_WORKERS_AUTH } = await import('../lib/api/client');
+            if (USE_WORKERS_AUTH) {
+                await Promise.all(dbSets.map((set) => galleryService.updateSet(set.id, { position: set.position })));
+            } else {
+                await Promise.all([
+                    ...dbSets.map((set) =>
+                        supabase.from('sets').update({ position: set.position }).eq('id', set.id)
+                    ),
+                ]);
+            }
+            await persistSidebarOrder(collectionId, newOrderIds);
         } catch (err) {
             console.error('Failed to update set positions:', err);
         }
@@ -1400,6 +1391,18 @@ const CollectionDashboard = () => {
         if (!collectionId) return;
         try {
             setStoreOrdersLoading(true);
+            const { USE_WORKERS_AUTH } = await import('../lib/api/client');
+            if (USE_WORKERS_AUTH) {
+                // New orders schema is already scoped by collection_id server-side.
+                const { apiFetch } = await import('../lib/api/client');
+                const [ordersRes, itemsRes] = await Promise.all([
+                    apiFetch(`/v1/store/orders?collectionId=${encodeURIComponent(collectionId)}`),
+                    apiFetch(`/v1/store/order-items?collectionId=${encodeURIComponent(collectionId)}`).catch(() => ({ items: [] })),
+                ]);
+                setStoreOrders(ordersRes?.orders || []);
+                setStoreOrderItems(itemsRes?.items || []);
+                return;
+            }
             const { data: colPhotos, error: photosErr } = await supabase
                 .from('photos')
                 .select('id')
@@ -1851,9 +1854,21 @@ const CollectionDashboard = () => {
 
     const handleDownloadPhoto = async (photo) => {
         const pinRequiredForSingle = collection?.require_pin_for_single_photo !== false;
-        if (collection?.download_pin_hash && pinRequiredForSingle) {
+        if ((collection?.download_pin_hash || collection?.has_pin) && pinRequiredForSingle) {
             const enteredPin = prompt("Please enter the download PIN to download this photo:");
-            if (enteredPin !== collection.download_pin_hash) {
+            let pinOk = enteredPin === collection.download_pin_hash;
+            if (!pinOk) {
+                const { USE_WORKERS_AUTH } = await import('../lib/api/client');
+                if (USE_WORKERS_AUTH && collection?.id) {
+                    try {
+                        const { verifyGalleryAccess } = await import('../services/workersGallery.service');
+                        pinOk = (await verifyGalleryAccess(collection.id, { pin: enteredPin }))?.pinOk === true;
+                    } catch {
+                        pinOk = false;
+                    }
+                }
+            }
+            if (!pinOk) {
                 alert("Incorrect PIN.");
                 return;
             }
@@ -2248,19 +2263,11 @@ const CollectionDashboard = () => {
 
         try {
             setSaving(true);
-            const { data, error } = await supabase
-                .from('presets')
-                .insert({
-                    photographer_id: user.id,
-                    name: savePresetName.trim(),
-                    settings: newPresetSettings,
-                    created_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString(),
-                })
-                .select()
-                .single();
-
-            if (error) throw error;
+            const data = await galleryService.createPreset(
+                user.id,
+                savePresetName.trim(),
+                newPresetSettings
+            );
 
             if (data) {
                 setPresets(prev => [data, ...prev]);
@@ -3847,9 +3854,21 @@ const CollectionDashboard = () => {
         if (sel.length === 0) return;
         closeSelectionChrome();
         const pinRequiredForSingle = collection?.require_pin_for_single_photo !== false;
-        if (collection?.download_pin_hash && pinRequiredForSingle) {
+        if ((collection?.download_pin_hash || collection?.has_pin) && pinRequiredForSingle) {
             const enteredPin = prompt('Please enter the download PIN to download:');
-            if (enteredPin !== collection.download_pin_hash) {
+            let pinOk = enteredPin === collection.download_pin_hash;
+            if (!pinOk) {
+                const { USE_WORKERS_AUTH } = await import('../lib/api/client');
+                if (USE_WORKERS_AUTH && collection?.id) {
+                    try {
+                        const { verifyGalleryAccess } = await import('../services/workersGallery.service');
+                        pinOk = (await verifyGalleryAccess(collection.id, { pin: enteredPin }))?.pinOk === true;
+                    } catch {
+                        pinOk = false;
+                    }
+                }
+            }
+            if (!pinOk) {
                 alert('Incorrect PIN.');
                 return;
             }

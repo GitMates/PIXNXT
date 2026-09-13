@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase/client';
+import { USE_WORKERS_AUTH } from '../lib/api/client';
 import { isIndexedSnapshotFresh, maxIndexedAtFromRows } from '../lib/photoAiCacheFreshness';
 import { broadcastPersonLabelUpdate } from '../lib/galleryLiveSync';
 import { refreshPeopleAvatars } from '../lib/faceAvatarMath';
@@ -16,6 +17,19 @@ async function authHeaders() {
 }
 
 async function postJson(path, body) {
+  const { USE_WORKERS_AUTH, apiBase, getAccessToken } = await import('../lib/api/client');
+  if (USE_WORKERS_AUTH) {
+    const url = `${apiBase()}/v1${path.replace(/^\/api\/photo-ai/, '/photo-ai')}`;
+    const headers = { 'Content-Type': 'application/json' };
+    const token = getAccessToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const res = await fetch(url, { method: 'POST', headers, credentials: 'include', body: JSON.stringify(body) });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data?.error?.message || `Request failed (${res.status})`);
+    }
+    return data;
+  }
   const res = await fetch(path, {
     method: 'POST',
     headers: await authHeaders(),
@@ -51,6 +65,41 @@ function isMissingPhotoAiTableError(error) {
   return isMissingTableError(error, 'photo_ai_metadata');
 }
 
+function parseJsonArray(value) {
+  if (Array.isArray(value)) return value;
+  if (typeof value !== 'string' || !value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+/** D1 stores labels/faces as JSON text; Supabase returned arrays. */
+function normalizeMetadataRow(row) {
+  if (!row) return row;
+  return { ...row, labels: parseJsonArray(row.labels), faces: parseJsonArray(row.faces) };
+}
+
+function normalizePersonRow(row) {
+  if (!row) return row;
+  let bbox = row.avatar_bounding_box ?? null;
+  if (typeof bbox === 'string' && bbox.trim().startsWith('{')) {
+    try {
+      bbox = JSON.parse(bbox);
+    } catch {
+      bbox = null;
+    }
+  }
+  return {
+    ...row,
+    face_ids: parseJsonArray(row.face_ids),
+    photo_ids: parseJsonArray(row.photo_ids),
+    avatar_bounding_box: bbox,
+  };
+}
+
 const SUPABASE_PAGE_SIZE = 1000;
 
 async function fetchAllSupabaseRows(runPage) {
@@ -74,10 +123,19 @@ async function attachAvatarUrls(people) {
   const photoIds = [...new Set(people.flatMap((p) => p.photoIds || []))];
   if (!photoIds.length) return people;
 
-  const { data: photos } = await supabase
-    .from('photos')
-    .select('id, thumbnail_url, web_url, full_url')
-    .in('id', photoIds);
+  // D1 returns JSON strings where Supabase returned arrays — normalize below.
+  let photos = [];
+  if (USE_WORKERS_AUTH) {
+    const { apiFetch } = await import('../lib/api/client');
+    const data = await apiFetch(`/v1/photos/by-ids?ids=${photoIds.slice(0, 200).map(encodeURIComponent).join(',')}`).catch(() => null);
+    photos = data?.photos || [];
+  } else {
+    const { data } = await supabase
+      .from('photos')
+      .select('id, thumbnail_url, web_url, full_url')
+      .in('id', photoIds);
+    photos = data || [];
+  }
 
   const photoUrlById = new Map(
     (photos || []).map((p) => [p.id, p.web_url || p.full_url || p.thumbnail_url || null])
@@ -104,6 +162,16 @@ export const photoAiService = {
   async getAllMetadataForPhotographer(photographerId) {
     if (!photographerId) return { rows: [], tableMissing: false };
 
+    if (USE_WORKERS_AUTH) {
+      try {
+        const { apiFetch } = await import('../lib/api/client');
+        const data = await apiFetch('/v1/photo-ai/metadata');
+        return { rows: (data?.rows || []).map(normalizeMetadataRow), tableMissing: false };
+      } catch (error) {
+        console.warn('[photoAi] library metadata load failed:', error.message || error);
+        return { rows: [], tableMissing: false };
+      }
+    }
     try {
       const rows = await fetchAllSupabaseRows((from, to) =>
         supabase
@@ -125,6 +193,16 @@ export const photoAiService = {
   async getMetadataForCollection(collectionId) {
     if (!collectionId) return { rows: [], tableMissing: false };
 
+    if (USE_WORKERS_AUTH) {
+      try {
+        const { apiFetch } = await import('../lib/api/client');
+        const data = await apiFetch(`/v1/photo-ai/metadata?collectionId=${encodeURIComponent(collectionId)}`);
+        return { rows: (data?.rows || []).map(normalizeMetadataRow), tableMissing: false, state: data?.state ?? null };
+      } catch (error) {
+        console.warn('[photoAi] metadata load failed:', error.message || error);
+        return { rows: [], tableMissing: false, error: error.message };
+      }
+    }
     const { data, error } = await supabase
       .from('photo_ai_metadata')
       .select('photo_id, collection_id, labels, faces, indexed_at')
@@ -154,6 +232,19 @@ export const photoAiService = {
   },
 
   async isPeopleCacheFresh(collectionId, metadataRows) {
+    if (USE_WORKERS_AUTH) {
+      try {
+        const { apiFetch } = await import('../lib/api/client');
+        const data = await apiFetch(`/v1/photo-ai/metadata?collectionId=${encodeURIComponent(collectionId)}`);
+        const state = data?.state;
+        if (!state) return false;
+        const count = (metadataRows || []).length;
+        const maxIndexedAt = maxIndexedAtFromRows(metadataRows);
+        return isIndexedSnapshotFresh(state, count, maxIndexedAt);
+      } catch {
+        return false;
+      }
+    }
     const { data: state, error } = await supabase
       .from('photo_ai_cluster_state')
       .select('indexed_photo_count, max_indexed_at')
@@ -174,6 +265,41 @@ export const photoAiService = {
   async getPeopleFromDb(collectionId, { includeHidden = false } = {}) {
     if (!collectionId) return { people: [], tableMissing: false };
 
+    if (USE_WORKERS_AUTH) {
+      const { apiFetch } = await import('../lib/api/client');
+      const data = await apiFetch('/v1/photo-ai/people', {
+        method: 'POST',
+        body: { collectionId, includeHidden },
+      });
+      const people = ((data?.people || []).map(normalizePersonRow)).map((row) => ({
+        id: row.cluster_key || row.id,
+        faceIds: row.face_ids || [],
+        photoIds: row.photo_ids || [],
+        label: row.label,
+        count: (row.photo_ids || []).length,
+        imageUrl: null,
+        boundingBox: row.avatar_bounding_box || null,
+        avatarPhotoId: row.avatar_photo_id || null,
+        isHidden: Boolean(row.is_hidden),
+      }));
+      let withBestAvatars = people;
+      try {
+        const { rows: metadataRows } = await this.getMetadataForCollection(collectionId);
+        withBestAvatars = refreshPeopleAvatars(people, metadataRows);
+        const ctx = await apiFetch(`/v1/guest/selfie-context?collectionId=${encodeURIComponent(collectionId)}`).catch(() => null);
+        const { apiBase } = await import('../lib/api/client');
+        const guests = (ctx?.guests || []).map((g) => ({
+          ...g,
+          selfie_url: g.selfie_url || (g.selfie_storage_path ? `${apiBase()}/v1/r2/media?path=${encodeURIComponent(g.selfie_storage_path)}` : null),
+        }));
+        const { applyGuestSelfieAvatarsToPeople } = await import('../lib/guestPeopleAvatars');
+        withBestAvatars = applyGuestSelfieAvatarsToPeople(withBestAvatars, guests, ctx?.matchRows || []);
+      } catch (err) {
+        console.warn('[photoAi] avatar refresh skipped:', err?.message || err);
+      }
+      const withUrls = await attachAvatarUrls(withBestAvatars);
+      return { people: withUrls, tableMissing: false };
+    }
     let query = supabase
       .from('photo_ai_people')
       .select(
@@ -225,6 +351,14 @@ export const photoAiService = {
       throw new Error('Missing delivery or person.');
     }
 
+    if (USE_WORKERS_AUTH) {
+      const { apiFetch } = await import('../lib/api/client');
+      await apiFetch(`/v1/photo-ai/people/${encodeURIComponent(personId)}`, {
+        method: 'PATCH',
+        body: { isHidden: Boolean(hidden) },
+      });
+      return { ok: true };
+    }
     const { error } = await supabase
       .from('photo_ai_people')
       .update({
@@ -248,6 +382,15 @@ export const photoAiService = {
       throw new Error('Name is required.');
     }
 
+    if (USE_WORKERS_AUTH) {
+      const { apiFetch } = await import('../lib/api/client');
+      await apiFetch(`/v1/photo-ai/people/${encodeURIComponent(personId)}`, {
+        method: 'PATCH',
+        body: { label: trimmed },
+      });
+      broadcastPersonLabelUpdate({ collectionId, personId, label: trimmed });
+      return { ok: true };
+    }
     const { error } = await supabase
       .from('photo_ai_people')
       .update({

@@ -1,4 +1,6 @@
 import { supabase } from '../lib/supabase/client';
+import { USE_WORKERS_AUTH } from '../lib/api/client';
+const workersProofer = () => import('./workersProofer.service');
 import { getClientTimezone } from './albumProof.service';
 import { smartAlbumsService } from './smartAlbums.service';
 import { hasCommentAttachment } from '../components/smart-albums/albumCommentAttachments';
@@ -422,6 +424,19 @@ export async function purgeSpreadCommentsOnSpreadDelete(albumId, deletedSpreadIn
     }
 
     try {
+        if (USE_WORKERS_AUTH) {
+            const w = await workersProofer();
+            await w.purgeSpreadComments(albumId, idx);
+            const bundle = await w.feedbackBundle(albumId);
+            const rows = (bundle.comments || []).filter((c) => c.spread_index > idx);
+            await Promise.all(
+                rows.map((row) =>
+                    w.patchComment(albumId, row.id, { spread_index: row.spread_index - 1 })
+                )
+            );
+            notifyCommentsChanged(albumId);
+            return;
+        }
         const { error: deleteError } = await supabase
             .from('album_proofer_comments')
             .delete()
@@ -499,6 +514,42 @@ export function reorderLocalSpreadCommentsForOverview(albumId, draggable, newOrd
 export async function reorderRemoteSpreadCommentsForOverview(albumId, draggable, newOrder) {
     if (!albumId || !draggable?.length || !newOrder?.length) return false;
 
+    if (USE_WORKERS_AUTH) {
+        try {
+            const w = await workersProofer();
+            const bundle = await w.feedbackBundle(albumId);
+            const rows = (bundle.comments || []).filter((r) => draggable.includes(r.spread_index));
+            if (!rows.length) return false;
+            const updates = rows
+                .map((row) => {
+                    const nextIndex = remapSpreadIndexForOverviewReorder(row.spread_index, draggable, newOrder);
+                    if (nextIndex === row.spread_index) return null;
+                    return { ...row, spread_index: nextIndex };
+                })
+                .filter(Boolean);
+            if (!updates.length) return false;
+            await Promise.all(
+                updates.map((row) =>
+                    w.patchComment(albumId, row.id, { spread_index: row.spread_index })
+                )
+            );
+            const bucket = { ...(commentsByAlbum[albumId] || {}) };
+            updates.forEach((row) => {
+                const mapped = mapRow(row);
+                const spreadKey = mapped.spread_index;
+                Object.keys(bucket).forEach((key) => {
+                    bucket[key] = (bucket[key] || []).filter((c) => c.id !== mapped.id);
+                });
+                bucket[spreadKey] = [...(bucket[spreadKey] || []), mapped];
+            });
+            writeMemoryComments(albumId, bucket);
+            notifyCommentsChanged(albumId);
+            return true;
+        } catch (err) {
+            console.warn('reorderRemoteSpreadCommentsForOverview failed:', err);
+            return false;
+        }
+    }
     try {
         const { data, error } = await supabase
             .from('album_proofer_comments')
@@ -559,6 +610,25 @@ export async function reorderRemoteSpreadCommentsForOverview(albumId, draggable,
 export const smartAlbumCommentsService = {
     async listSpreadComments(albumId, spreadIndex) {
         const local = listLocalAlbumComments(albumId, spreadIndex);
+        if (USE_WORKERS_AUTH) {
+            try {
+                const w = await workersProofer();
+                const remote = (await w.listComments(albumId, spreadIndex)).map(mapRow);
+                const merged = new Map();
+                local.forEach((c) => merged.set(c.id, c));
+                remote.forEach((c) => merged.set(c.id, mergeCommentRows(merged.get(c.id), c)));
+                const rows = [...merged.values()]
+                    .filter((c) => c.spread_index === spreadIndex)
+                    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+                const bucket = { ...(commentsByAlbum[albumId] || {}) };
+                bucket[spreadIndex] = rows;
+                writeMemoryComments(albumId, bucket);
+                return rows;
+            } catch (err) {
+                console.warn('listSpreadComments:', err?.message || err);
+                return local.filter((c) => c.spread_index === spreadIndex);
+            }
+        }
         const { data, error } = await supabase
             .from('album_proofer_comments')
             .select('*')
@@ -590,6 +660,31 @@ export const smartAlbumCommentsService = {
 
     async listAlbumComments(albumId) {
         const local = listLocalAlbumComments(albumId);
+        if (USE_WORKERS_AUTH) {
+            try {
+                const w = await workersProofer();
+                const remote = (await w.listComments(albumId, null)).map(mapRow);
+                const merged = new Map();
+                local.forEach((c) => merged.set(c.id, c));
+                remote.forEach((c) => merged.set(c.id, mergeCommentRows(merged.get(c.id), c)));
+                const rows = [...merged.values()].sort(
+                    (a, b) =>
+                        a.spread_index - b.spread_index ||
+                        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+                );
+                const bucket = {};
+                rows.forEach((row) => {
+                    const key = row.spread_index;
+                    if (!bucket[key]) bucket[key] = [];
+                    bucket[key].push(row);
+                });
+                writeMemoryComments(albumId, bucket);
+                return rows;
+            } catch (err) {
+                console.warn('listAlbumComments:', err?.message || err);
+                return local;
+            }
+        }
         const { data, error } = await supabase
             .from('album_proofer_comments')
             .select('*')
@@ -693,6 +788,37 @@ export const smartAlbumCommentsService = {
         };
 
         if (resolvedCommentId) {
+            if (USE_WORKERS_AUTH) {
+                try {
+                    const w = await workersProofer();
+                    const updated = await w.patchComment(albumId, resolvedCommentId, {
+                        body: payload.body,
+                        spread_index: spreadIndex,
+                        ...(attachmentFields.attachment_url !== undefined ? {
+                            attachment_url: attachmentFields.attachment_url,
+                            attachment_name: attachmentFields.attachment_name,
+                            attachment_type: attachmentFields.attachment_type,
+                        } : {}),
+                    });
+                    if (updated) {
+                        return saveMemory({ ...mapRow(updated), ...attachmentFields });
+                    }
+                } catch (e) {
+                    console.warn('saveClientComment update failed:', e);
+                }
+                const localRow = listLocalAlbumComments(albumId, spreadIndex).find(
+                    (c) => c.id === resolvedCommentId
+                );
+                if (localRow) {
+                    return saveMemory({
+                        ...payload,
+                        id: resolvedCommentId,
+                        created_at: localRow.created_at,
+                        ...attachmentFields,
+                    });
+                }
+                resolvedCommentId = null;
+            } else
             try {
                 const updatePayload = {
                     body: payload.body,
@@ -756,6 +882,20 @@ export const smartAlbumCommentsService = {
         };
 
         try {
+            if (USE_WORKERS_AUTH) {
+                const w = await workersProofer();
+                const created = await w.saveComment({
+                    albumId,
+                    spreadIndex,
+                    body: insertPayload.body,
+                    authorName: insertPayload.author_name,
+                    authorEmail: insertPayload.author_email,
+                    attachmentUrl: insertPayload.attachment_url,
+                    attachmentName: insertPayload.attachment_name,
+                    attachmentType: insertPayload.attachment_type,
+                });
+                return saveMemory({ ...mapRow(created), ...attachmentFields });
+            }
             let insertBody = {
                 id: insertPayload.id,
                 album_id: insertPayload.album_id,
@@ -851,6 +991,20 @@ export const smartAlbumCommentsService = {
         };
 
         try {
+            if (USE_WORKERS_AUTH) {
+                const w = await workersProofer();
+                const created = await w.saveComment({
+                    albumId,
+                    spreadIndex,
+                    body: payload.body,
+                    authorName: payload.author_name,
+                    authorType: 'photographer',
+                });
+                const mapped = mapRow(created);
+                this._saveLocalComment(albumId, spreadIndex, mapped);
+                notifyCommentsChanged(albumId);
+                return mapped;
+            }
             const { data, error } = await supabase
                 .from('album_proofer_comments')
                 .insert({
@@ -883,6 +1037,16 @@ export const smartAlbumCommentsService = {
         if (!commentId) return;
         removeLocalCommentTree(albumId, commentId);
 
+        if (USE_WORKERS_AUTH) {
+            try {
+                const w = await workersProofer();
+                await w.removeComment(albumId, commentId);
+            } catch (e) {
+                console.warn('deleteClientComment failed:', e);
+            }
+            notifyCommentsChanged(albumId);
+            return;
+        }
         try {
             const { error } = await supabase
                 .from('album_proofer_comments')
@@ -902,6 +1066,26 @@ export const smartAlbumCommentsService = {
     async updateCommentBody({ albumId, spreadIndex, commentId, body }) {
         const nextBody = (body || '').trim();
         const updatedAt = new Date().toISOString();
+        if (USE_WORKERS_AUTH) {
+            try {
+                const w = await workersProofer();
+                const updated = await w.patchComment(albumId, commentId, { body: nextBody });
+                const mapped = mapRow(updated);
+                this._saveLocalComment(albumId, spreadIndex, mapped);
+                notifyCommentsChanged(albumId);
+                return mapped;
+            } catch (e) {
+                console.warn('updateCommentBody failed:', e);
+            }
+            const saved = this._saveLocalComment(albumId, spreadIndex, {
+                id: commentId,
+                spread_index: spreadIndex,
+                body: nextBody,
+                updated_at: updatedAt,
+            });
+            notifyCommentsChanged(albumId);
+            return saved;
+        }
         try {
             const { data, error } = await supabase
                 .from('album_proofer_comments')
@@ -933,6 +1117,16 @@ export const smartAlbumCommentsService = {
     async deleteComment({ albumId, commentId }) {
         if (!commentId) return;
         removeLocalCommentTree(albumId, commentId);
+        if (USE_WORKERS_AUTH) {
+            try {
+                const w = await workersProofer();
+                await w.removeComment(albumId, commentId);
+            } catch (e) {
+                console.warn('deleteComment failed:', e);
+            }
+            notifyCommentsChanged(albumId);
+            return;
+        }
         try {
             const { error } = await supabase.from('album_proofer_comments').delete().eq('id', commentId);
             if (error && !isMissingTableError(error)) {
@@ -998,6 +1192,21 @@ export const smartAlbumCommentsService = {
         };
 
         try {
+            if (USE_WORKERS_AUTH) {
+                const w = await workersProofer();
+                const created = await w.saveComment({
+                    albumId,
+                    spreadIndex,
+                    parentId,
+                    body: payload.body,
+                    authorName: payload.author_name,
+                    authorType: 'photographer',
+                });
+                const mapped = mapRow(created);
+                this._saveLocalComment(albumId, spreadIndex, mapped);
+                notifyCommentsChanged(albumId);
+                return mapped;
+            }
             const { data, error } = await supabase
                 .from('album_proofer_comments')
                 .insert({
@@ -1041,6 +1250,22 @@ export const smartAlbumCommentsService = {
         };
 
         try {
+            if (USE_WORKERS_AUTH) {
+                const w = await workersProofer();
+                const created = await w.saveComment({
+                    albumId,
+                    spreadIndex,
+                    parentId,
+                    body: payload.body,
+                    authorName: payload.author_name,
+                    authorEmail: payload.author_email,
+                    authorType: 'client',
+                });
+                const mapped = mapRow(created);
+                this._saveLocalComment(albumId, spreadIndex, mapped);
+                notifyCommentsChanged(albumId);
+                return mapped;
+            }
             const { data, error } = await supabase
                 .from('album_proofer_comments')
                 .insert({
@@ -1082,6 +1307,27 @@ export const smartAlbumCommentsService = {
             resolved_at: resolved ? new Date().toISOString() : null,
             updated_at: new Date().toISOString(),
         };
+        if (USE_WORKERS_AUTH) {
+            try {
+                const w = await workersProofer();
+                const updated = await w.patchComment(albumId, rootId, {
+                    resolved: payload.resolved,
+                });
+                const mapped = mapRow(updated);
+                this._saveLocalComment(albumId, spreadIndex, mapped);
+                notifyCommentsChanged(albumId);
+                return mapped;
+            } catch (e) {
+                console.warn('setThreadResolved failed:', e);
+            }
+            const saved = this._saveLocalComment(albumId, spreadIndex, {
+                id: rootId,
+                spread_index: spreadIndex,
+                ...payload,
+            });
+            notifyCommentsChanged(albumId);
+            return saved;
+        }
         try {
             const { data, error } = await supabase
                 .from('album_proofer_comments')
@@ -1119,6 +1365,11 @@ export const smartAlbumCommentsService = {
     async getAlbumPublic(albumIdOrSlug) {
         const key = String(albumIdOrSlug || '').trim();
         if (!key) return null;
+
+        if (USE_WORKERS_AUTH) {
+            const w = await workersProofer();
+            return w.getAlbumPublic(key);
+        }
 
         const looksLikeUuid =
             /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
@@ -1166,6 +1417,10 @@ export const smartAlbumCommentsService = {
         siteOrigin,
         comments,
     }) {
+        if (USE_WORKERS_AUTH) {
+            const w = await workersProofer();
+            return w.notify.comments({ albumId, guestName, guestEmail });
+        }
         const payload = {
             albumId,
             guestName: guestName?.trim() || null,
@@ -1208,6 +1463,41 @@ export const smartAlbumCommentsService = {
                 latestClientActivityAt: null,
             };
         });
+
+        if (USE_WORKERS_AUTH) {
+            const spreadSets = {};
+            try {
+                const w = await workersProofer();
+                for (const albumId of albumIds) {
+                    const bundle = await w.feedbackBundle(albumId).catch(() => null);
+                    for (const row of bundle?.comments || []) {
+                        if (row.parent_id || row.author_type !== 'client' || !hasCommentBody(row)) continue;
+                        if (!summaries[albumId]) continue;
+                        summaries[albumId].clientCommentCount += 1;
+                        if (!spreadSets[albumId]) spreadSets[albumId] = new Set();
+                        spreadSets[albumId].add(row.spread_index);
+                        const stamp = row.updated_at || row.created_at;
+                        if (stamp && (!summaries[albumId].latestClientActivityAt ||
+                            new Date(stamp).getTime() > new Date(summaries[albumId].latestClientActivityAt).getTime())) {
+                            summaries[albumId].latestClientActivityAt = stamp;
+                        }
+                    }
+                }
+            } catch (err) {
+                console.warn('getAlbumProofSummaries:', err?.message || err);
+            }
+            albumIds.forEach((albumId) => {
+                summaries[albumId].clientSpreadCount = spreadSets[albumId]?.size || 0;
+                const localCount = countClientRootComments(albumId);
+                if (localCount > summaries[albumId].clientCommentCount) {
+                    summaries[albumId].clientCommentCount = localCount;
+                    if (!summaries[albumId].latestClientActivityAt) {
+                        summaries[albumId].latestClientActivityAt = new Date().toISOString();
+                    }
+                }
+            });
+            return summaries;
+        }
 
         try {
             const { data, error } = await supabase

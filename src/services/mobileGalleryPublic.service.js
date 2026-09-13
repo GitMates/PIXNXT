@@ -1,10 +1,13 @@
 import { supabase } from '../lib/supabase/client';
+import { USE_WORKERS_AUTH } from '../lib/api/client';
+const workersMobile = () => import('./workersMobile.service');
 
 const PUBLIC_APP_FIELDS =
   'id, photographer_id, name, event_date, slug, icon_url, cover_image_url, status, settings';
 
 export const mobileGalleryPublicService = {
   async getPublishedAppBySlug(slug) {
+    if (USE_WORKERS_AUTH) return (await workersMobile()).getPublishedAppBySlug(slug);
     const { data, error } = await supabase
       .from('mobile_gallery_apps')
       .select(PUBLIC_APP_FIELDS)
@@ -17,6 +20,7 @@ export const mobileGalleryPublicService = {
   },
 
   async getPublishedAppPhotos(appId) {
+    if (USE_WORKERS_AUTH) return (await workersMobile()).getPublishedAppPhotos(appId);
     const { data, error } = await supabase
       .from('mobile_gallery_photos')
       .select('id, filename, full_url, thumbnail_url, width, height, position')
@@ -29,6 +33,7 @@ export const mobileGalleryPublicService = {
   },
 
   async getModuleBranding(photographerId) {
+    if (USE_WORKERS_AUTH) return (await workersMobile()).getModuleBranding(photographerId);
     const { data, error } = await supabase
       .from('mobile_gallery_settings')
       .select('settings')
@@ -40,6 +45,7 @@ export const mobileGalleryPublicService = {
   },
 
   async getPhotographerBranding(photographerId) {
+    if (USE_WORKERS_AUTH) return (await workersMobile()).getPhotographerBranding(photographerId);
     const { data, error } = await supabase
       .from('photographers')
       .select('business_name, display_name, profile_icon_url')

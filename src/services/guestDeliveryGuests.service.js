@@ -1,4 +1,6 @@
 import { supabase } from '../lib/supabase/client';
+import { USE_WORKERS_AUTH } from '../lib/api/client';
+import { deleteGuest as workersDeleteGuest, getGuests as workersGetGuests } from './workersGuest.service';
 import { guestDeliveryService } from './guestDelivery.service';
 
 const GUEST_FIELDS =
@@ -17,6 +19,7 @@ function filterGuestsByPhotographer(rows, photographerId) {
 export const guestDeliveryGuestsService = {
   async getGuests(photographerId, eventId) {
     if (!eventId) return [];
+    if (USE_WORKERS_AUTH) return workersGetGuests(photographerId, eventId);
 
     const ordered = await supabase
       .from('event_guests')
@@ -39,6 +42,11 @@ export const guestDeliveryGuestsService = {
   },
 
   async deleteGuest(photographerId, eventId, guestId) {
+    if (USE_WORKERS_AUTH) {
+      await workersDeleteGuest(photographerId, eventId, guestId);
+      await guestDeliveryService.incrementGuestCount(eventId, -1);
+      return;
+    }
     const { error } = await supabase
       .from('event_guests')
       .delete()
@@ -53,6 +61,17 @@ export const guestDeliveryGuestsService = {
 };
 
 export async function registerGuestViaApi({ slug, name, email, phone, selfieBase64 }) {
+  const { USE_WORKERS_AUTH: useWorkers } = await import('../lib/api/client');
+  if (useWorkers) {
+    const { apiFetch } = await import('../lib/api/client');
+    const data = await apiFetch('/v1/guest/register', {
+      method: 'POST',
+      auth: false,
+      body: { slug, name, email, phone: phone || null, selfieBase64 },
+    });
+    if (!data?.guest) throw new Error('Registration failed. Please try again.');
+    return data.guest;
+  }
   const res = await fetch('/api/guest-delivery/register', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

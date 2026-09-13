@@ -147,13 +147,22 @@ async function getAlbumPathFolder(albumId) {
     if (!albumId) return 'album';
     if (ALBUM_PATH_CACHE.has(albumId)) return ALBUM_PATH_CACHE.get(albumId);
     try {
-        const { data } = await supabase
-            .from('album_proofer_albums')
-            .select('id, name')
-            .eq('id', albumId)
-            .maybeSingle();
+        const { USE_WORKERS_AUTH } = await import('../../lib/api/client');
+        let name = null;
+        if (USE_WORKERS_AUTH) {
+            const { apiFetch } = await import('../../lib/api/client');
+            const data = await apiFetch(`/v1/proofer/studio/albums/${albumId}`).catch(() => null);
+            name = data?.album?.name;
+        } else {
+            const { data } = await supabase
+                .from('album_proofer_albums')
+                .select('id, name')
+                .eq('id', albumId)
+                .maybeSingle();
+            name = data?.name;
+        }
         // New uploads use name__albumId. Legacy R2 folders used a single underscore.
-        const folder = `${safeSegment(data?.name, 'album')}__${albumId}`;
+        const folder = `${safeSegment(name, 'album')}__${albumId}`;
         ALBUM_PATH_CACHE.set(albumId, folder);
         return folder;
     } catch {
@@ -175,12 +184,21 @@ async function getAlbumPathFolderVariants(albumId) {
     variants.add(`album_${albumId}`);
 
     try {
-        const { data } = await supabase
-            .from('album_proofer_albums')
-            .select('name')
-            .eq('id', albumId)
-            .maybeSingle();
-        const nameSeg = safeSegment(data?.name, 'album');
+        const { USE_WORKERS_AUTH } = await import('../../lib/api/client');
+        let name = null;
+        if (USE_WORKERS_AUTH) {
+            const { apiFetch } = await import('../../lib/api/client');
+            const data = await apiFetch(`/v1/proofer/studio/albums/${albumId}`).catch(() => null);
+            name = data?.album?.name;
+        } else {
+            const { data } = await supabase
+                .from('album_proofer_albums')
+                .select('name')
+                .eq('id', albumId)
+                .maybeSingle();
+            name = data?.name;
+        }
+        const nameSeg = safeSegment(name, 'album');
         variants.add(`${nameSeg}__${albumId}`);
         variants.add(`${nameSeg}_${albumId}`);
     } catch {
@@ -706,26 +724,41 @@ export async function loadAlbumAssetsFromCloud(albumId, photographerId) {
     let repairedFromServer = false;
 
     try {
-        let { data, error } = await supabase
-            .from('album_proofer_albums')
-            .select('preview_data, cover_image_url')
-            .eq('id', albumId)
-            .eq('photographer_id', photographerId)
-            .maybeSingle();
+        const { USE_WORKERS_AUTH } = await import('../../lib/api/client');
+        let data = null;
+        let error = null;
+        if (USE_WORKERS_AUTH) {
+            try {
+                const { apiFetch } = await import('../../lib/api/client');
+                const res = await apiFetch(`/v1/proofer/studio/albums/${albumId}`);
+                data = res?.album?.photographer_id === photographerId
+                    ? { preview_data: res.album.preview_data, cover_image_url: res.album.cover_image_url }
+                    : null;
+            } catch (err) {
+                error = err;
+            }
+        } else {
+            ({ data, error } = await supabase
+                .from('album_proofer_albums')
+                .select('preview_data, cover_image_url')
+                .eq('id', albumId)
+                .eq('photographer_id', photographerId)
+                .maybeSingle());
 
-        if (error) {
-            const msg = (error.message || '').toLowerCase();
-            const missingPreview =
-                error.status === 400 ||
-                msg.includes('preview_data') ||
-                msg.includes('column');
-            if (missingPreview) {
-                ({ data, error } = await supabase
-                    .from('album_proofer_albums')
-                    .select('cover_image_url')
-                    .eq('id', albumId)
-                    .eq('photographer_id', photographerId)
-                    .maybeSingle());
+            if (error) {
+                const msg = (error.message || '').toLowerCase();
+                const missingPreview =
+                    error.status === 400 ||
+                    msg.includes('preview_data') ||
+                    msg.includes('column');
+                if (missingPreview) {
+                    ({ data, error } = await supabase
+                        .from('album_proofer_albums')
+                        .select('cover_image_url')
+                        .eq('id', albumId)
+                        .eq('photographer_id', photographerId)
+                        .maybeSingle());
+                }
             }
         }
 

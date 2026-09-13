@@ -45,6 +45,11 @@ export function createDefaultEmailTemplates() {
 }
 
 async function readTemplatesFromProfile(photographerId) {
+  // Workers note: photographers.client_gallery_email_templates has no D1
+  // counterpart (photographers table is at the D1 column limit), so templates
+  // live in localStorage when the flag is on — same as the offline fallback.
+  const { USE_WORKERS_AUTH } = await import('../lib/api/client');
+  if (USE_WORKERS_AUTH) return null;
   const { data, error } = await supabase
     .from('photographers')
     .select('client_gallery_email_templates')
@@ -56,6 +61,15 @@ async function readTemplatesFromProfile(photographerId) {
 }
 
 async function writeTemplatesToProfile(photographerId, templates) {
+  const { USE_WORKERS_AUTH } = await import('../lib/api/client');
+  if (USE_WORKERS_AUTH) {
+    try {
+      localStorage.setItem(`client_gallery_email_templates_${photographerId}`, JSON.stringify(templates));
+    } catch {
+      // ignore quota errors
+    }
+    return;
+  }
   const { error } = await supabase
     .from('photographers')
     .update({ client_gallery_email_templates: templates })

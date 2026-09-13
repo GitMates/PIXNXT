@@ -122,6 +122,21 @@ function toSwapInsert(albumId, mark) {
 
 async function persistSwapInsert(albumId, mark) {
     try {
+        const { USE_WORKERS_AUTH } = await import('../../lib/api/client');
+        if (USE_WORKERS_AUTH) {
+            const { apiFetch } = await import('../../lib/api/client');
+            await apiFetch(`/v1/proofer/albums/${albumId}/swaps`, {
+                method: 'POST',
+                body: {
+                    slotA: mark.a, slotB: mark.b,
+                    labelA: mark.labelA || '', labelB: mark.labelB || '',
+                    locked: mark.locked !== false,
+                    pointA: mark.pointA || null, pointB: mark.pointB || null,
+                    authorName: mark.authorName || null, authorEmail: mark.authorEmail || null,
+                },
+            });
+            return;
+        }
         const { error } = await supabase
             .from('album_proofer_swap_marks')
             .insert(toSwapInsert(albumId, mark));
@@ -133,8 +148,15 @@ async function persistSwapInsert(albumId, mark) {
     }
 }
 
-async function persistSwapDelete(markId) {
+async function persistSwapDelete(albumId, markId) {
     try {
+        const { USE_WORKERS_AUTH } = await import('../../lib/api/client');
+        if (USE_WORKERS_AUTH) {
+            if (!albumId) return;
+            const { apiFetch } = await import('../../lib/api/client');
+            await apiFetch(`/v1/proofer/albums/${albumId}/swaps/${markId}`, { method: 'DELETE' });
+            return;
+        }
         const { error } = await supabase
             .from('album_proofer_swap_marks')
             .delete()
@@ -149,6 +171,20 @@ async function persistSwapDelete(markId) {
 
 async function persistSwapUpdate(albumId, mark) {
     try {
+        const { USE_WORKERS_AUTH } = await import('../../lib/api/client');
+        if (USE_WORKERS_AUTH) {
+            const { apiFetch } = await import('../../lib/api/client');
+            await apiFetch(`/v1/proofer/albums/${albumId}/swaps/${mark.id}`, {
+                method: 'PATCH',
+                body: {
+                    slotA: mark.a, slotB: mark.b,
+                    labelA: mark.labelA || '', labelB: mark.labelB || '',
+                    locked: mark.locked !== false,
+                    pointA: mark.pointA || null, pointB: mark.pointB || null,
+                },
+            });
+            return;
+        }
         const { error } = await supabase
             .from('album_proofer_swap_marks')
             .update({
@@ -175,18 +211,27 @@ async function persistSwapUpdate(albumId, mark) {
 export async function hydrateSwapMarks(albumId) {
     if (!albumId) return [];
     try {
-        const { data, error } = await supabase
-            .from('album_proofer_swap_marks')
-            .select('*')
-            .eq('album_id', albumId)
-            .order('created_at', { ascending: true });
-        if (error) {
-            if (!isMissingRelationError(error, 'album_proofer_swap_marks')) {
-                console.warn('hydrateSwapMarks:', error.message);
+        const { USE_WORKERS_AUTH } = await import('../../lib/api/client');
+        let rows = null;
+        if (USE_WORKERS_AUTH) {
+            const { apiFetch } = await import('../../lib/api/client');
+            const data = await apiFetch(`/v1/proofer/albums/${albumId}/swaps`);
+            rows = data?.swaps || [];
+        } else {
+            const { data, error } = await supabase
+                .from('album_proofer_swap_marks')
+                .select('*')
+                .eq('album_id', albumId)
+                .order('created_at', { ascending: true });
+            if (error) {
+                if (!isMissingRelationError(error, 'album_proofer_swap_marks')) {
+                    console.warn('hydrateSwapMarks:', error.message);
+                }
+                return getSwapMarks(albumId);
             }
-            return getSwapMarks(albumId);
+            rows = data || [];
         }
-        const list = (data || []).map(mapSwapRow);
+        const list = rows.map(mapSwapRow);
         setAlbumMarks(albumId, list);
         return list;
     } catch (err) {
@@ -506,7 +551,7 @@ export function removeSwapMark(albumId, markId) {
     const next = list.filter((m) => m.id !== markId);
     if (next.length === list.length) return;
     setAlbumMarks(albumId, next);
-    void persistSwapDelete(markId);
+    void persistSwapDelete(albumId, markId);
 }
 
 function shiftPageNumForStorage(page, insertAt, delta) {
@@ -582,7 +627,7 @@ export function shiftAlbumSwapMarks(albumId, insertAt, delta) {
     if (!changed) return;
 
     setAlbumMarks(albumId, next);
-    removedIds.forEach((id) => void persistSwapDelete(id));
+    removedIds.forEach((id) => void persistSwapDelete(albumId, id));
     next.forEach((mark) => void persistSwapUpdate(albumId, mark));
 }
 

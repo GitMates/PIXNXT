@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase/client';
+import { USE_WORKERS_AUTH } from '../lib/api/client';
 
 const inFlightByUser = new Map();
 const PAGE_SIZE = 1000;
@@ -115,13 +116,20 @@ export const userStorageService = {
     }
   },
 
-  async calculateUserStorageBytes(user, profile) {
+  async calculateUserStorageBytes(user) {
     if (!user?.id) return 0;
 
     const existing = inFlightByUser.get(user.id);
     if (existing) return existing;
 
     const run = (async () => {
+      if (USE_WORKERS_AUTH) {
+        const { apiFetch } = await import('../lib/api/client');
+        const data = await apiFetch('/v1/me/storage').catch(() => null);
+        const finalTotalBytes = Number(data?.totalBytes) || 0;
+        cacheStorageBytes(user.id, finalTotalBytes);
+        return finalTotalBytes;
+      }
       const [deliveryBytes, albumProoferBytes, guestDeliveryBytes, mobileGalleryBytes] =
         await Promise.all([
           fetchDeliveryPhotoBytes(user.id),

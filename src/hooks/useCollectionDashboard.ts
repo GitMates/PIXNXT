@@ -264,6 +264,12 @@ export function useCollectionDashboard(collectionId: string | null) {
     setSets(updated);
 
     try {
+      const { USE_WORKERS_AUTH } = await import('../lib/api/client');
+      if (USE_WORKERS_AUTH) {
+        const { galleryService } = await import('../services/gallery.service');
+        await Promise.all(updated.map((set) => galleryService.updateSet(set.id, { position: set.position })));
+        return;
+      }
       const promises = updated.map((set) =>
         supabase.from("sets").update({ position: set.position }).eq("id", set.id)
       );

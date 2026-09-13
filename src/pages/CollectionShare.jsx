@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ChevronDown, Mail, Check, X, Calendar, Clock, History, Palette, ChevronRight } from 'lucide-react';
 import { supabase } from '../lib/supabase/client';
+import { USE_WORKERS_AUTH } from '../lib/api/client';
+import { getProfile, getUser } from '../services/auth.service';
 import { galleryService } from '../services/gallery.service';
 import { clientGalleryEmailTemplatesService, resolveTemplateBody } from '../services/clientGalleryEmailTemplates.service';
 import RichTextEditor from '../components/RichTextEditor';
@@ -156,19 +158,21 @@ const CollectionShare = () => {
             setLoading(true);
             
             // Get current session user
-            const { data: { session } } = await supabase.auth.getSession();
-            const activeUser = session?.user;
+            const activeUser = USE_WORKERS_AUTH
+                ? await getUser().catch(() => null)
+                : (await supabase.auth.getSession()).data?.session?.user ?? null;
             setCurrentUser(activeUser);
 
             if (activeUser?.id) {
                 // 1. Fetch photographer profile
-                const { data: prof, error: profErr } = await supabase
-                    .from('photographers')
-                    .select('*')
-                    .eq('id', activeUser.id)
-                    .single();
-                if (profErr) throw profErr;
-                setProfile(prof);
+                const prof = USE_WORKERS_AUTH
+                    ? await getProfile(activeUser.id).catch(() => null)
+                    : (await supabase
+                        .from('photographers')
+                        .select('*')
+                        .eq('id', activeUser.id)
+                        .single()).data ?? null;
+                if (prof) setProfile(prof);
 
                 // 3. Fetch templates
                 const tpls = await clientGalleryEmailTemplatesService.getTemplates(activeUser.id);
@@ -320,6 +324,20 @@ const CollectionShare = () => {
             }
 
             let sendSucceeded = false;
+            if (USE_WORKERS_AUTH) {
+                // The API sends the email AND writes the share-history row.
+                try {
+                    await galleryService.shareCollectionByEmail({
+                        collectionSlug: collection.slug,
+                        recipientEmail: recipientEmail.trim(),
+                        senderEmail: profile?.email || currentUser?.email,
+                        personalMessage: convertHtmlToPlainText(finalMessage),
+                    });
+                    sendSucceeded = true;
+                } catch (sendErr) {
+                    console.warn('Share send failed:', sendErr?.message || sendErr);
+                }
+            } else
             try {
                 const { error: sendErr } = await supabase.functions.invoke('share-collection-email', {
                     body: sendPayload,
@@ -335,7 +353,9 @@ const CollectionShare = () => {
                 sendSucceeded = true;
             }
 
-            // Record sharing in database logs — Pending while delivering, then Sent / Rejected
+            // Record sharing in database logs — Pending while delivering, then Sent / Rejected.
+            // Workers mode: the API already wrote the history row — skip the duplicate.
+            if (!USE_WORKERS_AUTH) {
             const historyStatus = scheduledDate
                 ? 'Scheduled'
                 : (sendSucceeded ? 'Sent' : 'Pending');
@@ -352,6 +372,7 @@ const CollectionShare = () => {
                 }
             } catch (dbErr) {
                 console.error('Database insert exception:', dbErr);
+            }
             }
 
             const newHistoryItem = {

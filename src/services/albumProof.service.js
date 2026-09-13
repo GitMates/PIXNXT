@@ -1,5 +1,7 @@
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase/client';
+import { USE_WORKERS_AUTH } from '../lib/api/client';
+import { trackActivity as workersTrackActivity, notify as workersNotify } from './workersProofer.service';
 import { getClientFacingOrigin, getPublicSiteOrigin } from '../lib/publicSiteUrl';
 
 const APPROVED_KEY = 'pixnxt_album_proof_approved';
@@ -73,6 +75,7 @@ export async function trackAlbumProofActivity({
     guestEmail = null,
 } = {}) {
     if (!albumId) return null;
+    if (USE_WORKERS_AUTH) return workersTrackActivity({ albumId, action, guestName, guestEmail });
     try {
         const { data, error } = await supabase.functions.invoke('track-album-proof-activity', {
             body: {
@@ -146,6 +149,9 @@ export const albumProofService = {
         guestEmail,
         siteOrigin,
     }) {
+        if (USE_WORKERS_AUTH) {
+            return workersNotify.approved({ albumId, guestName: guestName?.trim() || null, guestEmail: guestEmail?.trim() || null });
+        }
         return invokeProofEmail({
             albumId,
             action: 'approve',
@@ -164,6 +170,9 @@ export const albumProofService = {
         swapRequests = [],
         spreadComments = [],
     }) {
+        if (USE_WORKERS_AUTH) {
+            return workersNotify.changes({ albumId, guestName: guestName?.trim() || null, guestEmail: guestEmail?.trim() || null });
+        }
         return invokeProofEmail({
             albumId,
             action: 'submit_changes',
@@ -182,6 +191,9 @@ export const albumProofService = {
         guestEmail,
         siteOrigin,
     }) {
+        if (USE_WORKERS_AUTH) {
+            return workersNotify.startedCommenting({ albumId, guestName: guestName?.trim() || null, guestEmail: guestEmail?.trim() || null });
+        }
         return invokeProofEmail({
             albumId,
             action: 'client_started_commenting',
@@ -201,6 +213,9 @@ export const albumProofService = {
         eventDetail,
         comments = [],
     }) {
+        if (USE_WORKERS_AUTH) {
+            return workersNotify.instantFeedback({ albumId, guestName: guestName?.trim() || null, guestEmail: guestEmail?.trim() || null });
+        }
         const { data, error } = await supabase.functions.invoke('send-album-comments-email', {
             body: {
                 albumId,
@@ -232,6 +247,9 @@ export const albumProofService = {
         siteOrigin,
         photographerProfile = null,
     }) {
+        if (USE_WORKERS_AUTH) {
+            return workersNotify.revisionReady({ albumId, guestName: guestName?.trim() || null, guestEmail: guestEmail?.trim() || null });
+        }
         const { data, error } = await supabase.functions.invoke('send-smart-album-client-email', {
             body: {
                 albumId,
@@ -260,6 +278,9 @@ export const albumProofService = {
         photographerProfile = null,
         force = true,
     }) {
+        if (USE_WORKERS_AUTH) {
+            return workersNotify.reminder({ albumId, guestName: guestName?.trim() || null, guestEmail: guestEmail?.trim() || null });
+        }
         const { data, error } = await supabase.functions.invoke('send-smart-album-client-email', {
             body: {
                 albumId,

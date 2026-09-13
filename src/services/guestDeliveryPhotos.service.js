@@ -1,4 +1,6 @@
 import { supabase } from '../lib/supabase/client';
+import { USE_WORKERS_AUTH } from '../lib/api/client';
+import { deleteGuestPhoto as workersDeleteGuestPhoto, getLibraryPhotos as workersGetLibraryPhotos, getPhotos as workersGetPhotos, updateGuestPhotoOrder as workersUpdateGuestPhotoOrder, uploadGuestPhoto as workersUploadGuestPhoto } from './workersGuest.service';
 import { storageService } from './storage.service';
 import { getFileMime } from '../lib/fileMime';
 import { getImageDimensionsFast } from '../lib/imageDimensions';
@@ -48,6 +50,7 @@ export function validateGuestDeliveryJpeg(file) {
 
 export const guestDeliveryPhotosService = {
   async getPhotos(photographerId, eventId) {
+    if (USE_WORKERS_AUTH) return workersGetPhotos(photographerId, eventId);
     const { data, error } = await supabase
       .from('guest_delivery_photos')
       .select(PHOTO_FIELDS)
@@ -63,6 +66,7 @@ export const guestDeliveryPhotosService = {
   /** Guest Delivery photos across all events, shaped for Photo Library. */
   async getLibraryPhotos(photographerId) {
     if (!photographerId) return [];
+    if (USE_WORKERS_AUTH) return workersGetLibraryPhotos();
 
     const mapRows = (rows, eventsById = null) =>
       (rows || []).map((row) => {
@@ -126,6 +130,9 @@ export const guestDeliveryPhotosService = {
       await photographerQuotaService.assertGuestImageQuota(photographerId, 1);
     }
 
+    if (USE_WORKERS_AUTH) {
+      return workersUploadGuestPhoto({ photographerId, eventId, file, position, onProgress });
+    }
 
     onProgress?.(1);
 
@@ -180,6 +187,7 @@ export const guestDeliveryPhotosService = {
   },
 
   async deletePhoto(photographerId, eventId, photoId, storagePath) {
+    if (USE_WORKERS_AUTH) return workersDeleteGuestPhoto(photographerId, eventId, photoId);
     const { error } = await supabase
       .from('guest_delivery_photos')
       .delete()
@@ -209,6 +217,7 @@ export const guestDeliveryPhotosService = {
   },
 
   async updatePhotoOrder(photographerId, eventId, orderedPhotoIds) {
+    if (USE_WORKERS_AUTH) return workersUpdateGuestPhotoOrder(photographerId, eventId, orderedPhotoIds);
     for (let index = 0; index < orderedPhotoIds.length; index += 1) {
       const id = orderedPhotoIds[index];
       const { error } = await supabase

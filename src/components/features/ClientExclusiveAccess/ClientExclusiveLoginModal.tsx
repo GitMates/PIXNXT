@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { verifyClientPassword } from '../../../lib/clientExclusiveAccess';
+import { USE_WORKERS_AUTH } from '../../../lib/api/client';
 import './ClientExclusiveAccess.css';
 
 export interface ClientExclusiveLoginModalProps {
   open: boolean;
   storedPassword: string | null | undefined;
+  collectionId?: string | null;
   onSuccess: () => void;
   onClose?: () => void;
 }
@@ -13,14 +15,36 @@ export interface ClientExclusiveLoginModalProps {
 export const ClientExclusiveLoginModal: React.FC<ClientExclusiveLoginModalProps> = ({
   open,
   storedPassword,
+  collectionId = null,
   onSuccess,
   onClose,
 }) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [checking, setChecking] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Workers mode verifies server-side (hashes never leave the API).
+    if (USE_WORKERS_AUTH && collectionId) {
+      setChecking(true);
+      try {
+        const { verifyGalleryAccess } = await import('../../../services/workersGallery.service');
+        const { passwordOk } = await verifyGalleryAccess(collectionId, { password });
+        if (passwordOk) {
+          setError('');
+          setPassword('');
+          onSuccess();
+        } else {
+          setError('Incorrect client password. Please try again.');
+        }
+      } catch {
+        setError('Could not verify password. Please try again.');
+      } finally {
+        setChecking(false);
+      }
+      return;
+    }
     console.log('Client Login Attempt:', { entered: password, stored: storedPassword });
     if (verifyClientPassword(password, storedPassword)) {
       console.log('Client Login Success!');
@@ -65,8 +89,8 @@ export const ClientExclusiveLoginModal: React.FC<ClientExclusiveLoginModalProps>
                 autoFocus
               />
               {error ? <p className="cea-login-error">{error}</p> : null}
-              <button type="submit" className="cea-login-submit">
-                Continue
+              <button type="submit" className="cea-login-submit" disabled={checking}>
+                {checking ? 'Checking…' : 'Continue'}
               </button>
             </form>
           </motion.div>

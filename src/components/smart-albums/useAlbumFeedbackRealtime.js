@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase/client';
+import { USE_WORKERS_AUTH, subscribeSse } from '../../lib/api/client';
 import { hydrateAlbumClientFeedback } from './hydrateAlbumClientFeedback';
 import { hydrateAlbumPreviewData } from './albumPreviewData';
 import { applyRemoteImageReplacements } from './albumImageReplacements';
@@ -55,17 +56,28 @@ export function useAlbumFeedbackRealtime(
 
                 if (includePreview) {
                     try {
-                        const { data, error } = await supabase
-                            .from('album_proofer_albums')
-                            .select('preview_data')
-                            .eq('id', albumId)
-                            .maybeSingle();
-                        if (!error && data?.preview_data) {
-                            hydrateAlbumPreviewData(albumId, data.preview_data);
-                            applyRemoteImageReplacements(
-                                albumId,
-                                data.preview_data.image_replacements
-                            );
+                        if (USE_WORKERS_AUTH) {
+                            const { apiFetch } = await import('../../lib/api/client');
+                            const data = await apiFetch(`/v1/proofer/studio/albums/${albumId}`).catch(() => null);
+                            const preview = data?.album?.preview_data;
+                            const parsed = typeof preview === 'string' ? JSON.parse(preview) : preview;
+                            if (parsed) {
+                                hydrateAlbumPreviewData(albumId, parsed);
+                                applyRemoteImageReplacements(albumId, parsed.image_replacements);
+                            }
+                        } else {
+                            const { data, error } = await supabase
+                                .from('album_proofer_albums')
+                                .select('preview_data')
+                                .eq('id', albumId)
+                                .maybeSingle();
+                            if (!error && data?.preview_data) {
+                                hydrateAlbumPreviewData(albumId, data.preview_data);
+                                applyRemoteImageReplacements(
+                                    albumId,
+                                    data.preview_data.image_replacements
+                                );
+                            }
                         }
                     } catch (err) {
                         console.warn('album feedback preview refresh:', err);
@@ -101,8 +113,18 @@ export function useAlbumFeedbackRealtime(
         // Initial sync in case another tab posted while this view was mounting.
         void refreshFeedback({ includePreview: true });
 
-        let channel = supabase.channel(`album-feedback:${albumId}`);
-        FEEDBACK_TABLES.forEach((table) => {
+        // Workers SSE replaces the postgres_changes channels (same debounce).
+        let unsubscribeSse = null;
+        let channel = null;
+        if (USE_WORKERS_AUTH) {
+            unsubscribeSse = subscribeSse(`/v1/proofer/albums/${albumId}/events`, {
+                onEvent: (_data, _event, type) => {
+                    scheduleRefresh({ includePreview: type !== 'feedback-updated' });
+                },
+            });
+        } else {
+            channel = supabase.channel(`album-feedback:${albumId}`);
+            FEEDBACK_TABLES.forEach((table) => {
             channel = channel.on(
                 'postgres_changes',
                 {
@@ -125,6 +147,7 @@ export function useAlbumFeedbackRealtime(
             () => scheduleRefresh({ includePreview: true })
         );
         channel.subscribe();
+        } // end Supabase realtime branch
 
         const pollId = window.setInterval(() => {
             if (Date.now() - lastRefreshAt < Math.max(2000, pollMs / 2)) return;
@@ -143,7 +166,8 @@ export function useAlbumFeedbackRealtime(
             if (debounceTimer) window.clearTimeout(debounceTimer);
             window.clearInterval(pollId);
             document.removeEventListener('visibilitychange', onVisible);
-            void supabase.removeChannel(channel);
+            if (unsubscribeSse) unsubscribeSse();
+            else if (channel) void supabase.removeChannel(channel);
         };
     }, [albumId, enabled, pollMs]);
 }

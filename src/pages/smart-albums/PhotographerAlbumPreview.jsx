@@ -103,6 +103,13 @@ export default function PhotographerAlbumPreview() {
         const refreshShareLink = async () => {
             if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
             try {
+                const { USE_WORKERS_AUTH } = await import('../../lib/api/client');
+                if (USE_WORKERS_AUTH) {
+                    const { apiFetch } = await import('../../lib/api/client');
+                    const data = await apiFetch(`/v1/proofer/studio/albums/${resolvedId}`).catch(() => null);
+                    if (data?.album) applyShareFields(data.album);
+                    return;
+                }
                 const { data, error } = await supabase
                     .from('album_proofer_albums')
                     .select('id, share_link_enabled, share_link_paused_at')
@@ -115,19 +122,30 @@ export default function PhotographerAlbumPreview() {
             }
         };
 
-        const channel = supabase
-            .channel(`photographer-album-share-link:${resolvedId}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: 'UPDATE',
-                    schema: 'public',
-                    table: 'album_proofer_albums',
-                    filter: `id=eq.${resolvedId}`,
-                },
-                (payload) => applyShareFields(payload.new)
-            )
-            .subscribe();
+        let channel = null;
+        let unsubscribeSse = null;
+        import('../../lib/api/client').then(({ USE_WORKERS_AUTH, subscribeSse }) => {
+            if (cancelled) return;
+            if (USE_WORKERS_AUTH) {
+                unsubscribeSse = subscribeSse(`/v1/proofer/albums/${resolvedId}/events`, {
+                    onEvent: () => refreshShareLink(),
+                });
+                return;
+            }
+            channel = supabase
+                .channel(`photographer-album-share-link:${resolvedId}`)
+                .on(
+                    'postgres_changes',
+                    {
+                        event: 'UPDATE',
+                        schema: 'public',
+                        table: 'album_proofer_albums',
+                        filter: `id=eq.${resolvedId}`,
+                    },
+                    (payload) => applyShareFields(payload.new)
+                )
+                .subscribe();
+        }).catch(() => {});
 
         const pollId = window.setInterval(refreshShareLink, SHARE_LINK_POLL_MS);
         const onVisible = () => {
@@ -139,7 +157,8 @@ export default function PhotographerAlbumPreview() {
             cancelled = true;
             window.clearInterval(pollId);
             document.removeEventListener('visibilitychange', onVisible);
-            void supabase.removeChannel(channel);
+            if (unsubscribeSse) unsubscribeSse();
+            else if (channel) void supabase.removeChannel(channel);
         };
     }, [album?.id]);
 

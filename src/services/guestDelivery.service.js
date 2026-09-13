@@ -1,4 +1,6 @@
 import { supabase } from '../lib/supabase/client';
+import { USE_WORKERS_AUTH } from '../lib/api/client';
+import { createEvent as workersCreateEvent, createLinkedEvent as workersCreateLinkedEvent, deleteEvent as workersDeleteEvent, getEvent as workersGetEvent, getEventByCollectionId as workersGetEventByCollectionId, getEventBySlug as workersGetEventBySlug, getEvents as workersGetEvents, updateEvent as workersUpdateEvent } from './workersGuest.service';
 import { userStorageService } from './userStorage.service';
 import { photographerQuotaService } from './photographerQuota.service';
 
@@ -40,6 +42,7 @@ async function ensurePhotographer(photographerId) {
 
 export const guestDeliveryService = {
   async getEvents(photographerId) {
+    if (USE_WORKERS_AUTH) return workersGetEvents();
     const { data, error } = await supabase
       .from('guest_delivery_events')
       .select(EVENT_FIELDS)
@@ -51,6 +54,7 @@ export const guestDeliveryService = {
   },
 
   async getEvent(photographerId, eventId) {
+    if (USE_WORKERS_AUTH) return workersGetEvent(photographerId, eventId);
     const { data, error } = await supabase
       .from('guest_delivery_events')
       .select(EVENT_FIELDS)
@@ -63,6 +67,7 @@ export const guestDeliveryService = {
   },
 
   async getEventBySlug(slug) {
+    if (USE_WORKERS_AUTH) return workersGetEventBySlug(slug);
     const { data, error } = await supabase
       .from('guest_delivery_events')
       .select('id, name, slug, event_date, status, registration_enabled, cover_image_url')
@@ -74,6 +79,7 @@ export const guestDeliveryService = {
   },
 
   async createEvent({ photographer_id, name, event_date = null }) {
+    if (USE_WORKERS_AUTH) return workersCreateEvent({ photographer_id, name, event_date });
     const trimmedName = normalizeName(name);
     if (!trimmedName) {
       throw new Error('Event name is required.');
@@ -109,6 +115,7 @@ export const guestDeliveryService = {
   },
 
   async updateEvent(photographerId, eventId, updates) {
+    if (USE_WORKERS_AUTH) return workersUpdateEvent(photographerId, eventId, updates);
     if (!photographerId || !eventId) {
       throw new Error('Missing photographer or event id.');
     }
@@ -140,6 +147,13 @@ export const guestDeliveryService = {
   },
 
   async deleteEvent(photographerId, eventId) {
+    if (USE_WORKERS_AUTH) {
+      await workersDeleteEvent(photographerId, eventId);
+      userStorageService.notifyStorageChanged();
+      photographerQuotaService.invalidate(photographerId);
+      photographerQuotaService.notifyQuotaChanged();
+      return;
+    }
     const { error } = await supabase
       .from('guest_delivery_events')
       .delete()
@@ -153,6 +167,8 @@ export const guestDeliveryService = {
   },
 
   async incrementGuestCount(eventId, delta = 1) {
+    // Server-maintained in Workers mode (register/delete adjust counts).
+    if (USE_WORKERS_AUTH) return;
     const { data: event, error: fetchError } = await supabase
       .from('guest_delivery_events')
       .select('guest_count')
@@ -174,6 +190,12 @@ export const guestDeliveryService = {
   },
 
   async createLinkedEvent({ collectionId, photographerId, name, eventDate, slug }) {
+    if (USE_WORKERS_AUTH) {
+      const data = await workersCreateLinkedEvent({ collectionId, photographerId, name, eventDate, slug });
+      photographerQuotaService.invalidate(photographerId);
+      photographerQuotaService.notifyQuotaChanged();
+      return data;
+    }
     await ensurePhotographer(photographerId);
     // Linked guest event creation must not be blocked by face switches —
     // they only hide face-matching UI and gate actual matching scans.
@@ -203,6 +225,7 @@ export const guestDeliveryService = {
   },
 
   async getEventByCollectionId(collectionId) {
+    if (USE_WORKERS_AUTH) return workersGetEventByCollectionId(collectionId);
     const { data, error } = await supabase
       .from('guest_delivery_events')
       .select(EVENT_FIELDS)
@@ -213,6 +236,8 @@ export const guestDeliveryService = {
   },
 
   async incrementPhotoCount(eventId, delta = 1) {
+    // Server-maintained in Workers mode (photo create/delete adjust counts).
+    if (USE_WORKERS_AUTH) return;
     const { data: event, error: fetchError } = await supabase
       .from('guest_delivery_events')
       .select('photo_count')

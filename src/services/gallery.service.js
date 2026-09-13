@@ -1,4 +1,67 @@
 import { supabase } from '../lib/supabase/client';
+import { USE_WORKERS_AUTH } from '../lib/api/client';
+/** Lazy so the Workers bundle stays code-split and Supabase default is untouched. */
+const workersGallery = () => import('./workersGallery.service');
+
+/** Photo-row writes honoring the backend flag (snake_case in, row out). */
+async function dbInsertPhotoRow(row) {
+  if (!USE_WORKERS_AUTH) {
+    const { data, error } = await supabase.from('photos').insert([row]).select().single();
+    if (error) {
+      throw new Error(
+        [error.message, error.details, error.hint, error.code].filter(Boolean).join(' — ') ||
+          'Photo database insert failed'
+      );
+    }
+    return data;
+  }
+  const { apiFetch } = await import('../lib/api/client');
+  const data = await apiFetch(`/v1/galleries/${row.collection_id}/photos`, {
+    method: 'POST',
+    body: {
+      filename: row.filename,
+      mimeType: row.mime_type,
+      sizeBytes: row.size_bytes ?? 0,
+      width: row.width ?? null,
+      height: row.height ?? null,
+      storagePath: row.original_storage_path,
+      status: row.status ?? 'uploading',
+      mediaType: row.media_type ?? 'image',
+      position: row.position ?? 0,
+      setId: row.set_id ?? null,
+      thumbnailUrl: row.thumbnail_url ?? null,
+      webUrl: row.web_url ?? null,
+      watermarkedUrl: row.watermarked_url ?? null,
+      fullUrl: row.full_url ?? null,
+      thumbnailStoragePath: row.thumbnail_storage_path ?? null,
+      webStoragePath: row.web_storage_path ?? null,
+      watermarkedStoragePath: row.watermarked_storage_path ?? null,
+      exifTakenAt: row.exif_taken_at ?? null,
+      exifCamera: row.exif_camera ?? null,
+      exifLens: row.exif_lens ?? null,
+    },
+  });
+  if (!data?.photo) throw new Error('Photo database insert failed');
+  return data.photo;
+}
+
+/** Photo-row patch honoring the backend flag (throws with details). */
+async function dbUpdatePhotoRow(id, patch) {
+  if (!USE_WORKERS_AUTH) {
+    const { data, error } = await supabase.from('photos').update(patch).eq('id', id).select().single();
+    if (error) {
+      throw new Error(
+        [error.message, error.details, error.hint, error.code].filter(Boolean).join(' — ') ||
+          'Photo database update failed'
+      );
+    }
+    return data;
+  }
+  const { apiFetch } = await import('../lib/api/client');
+  const data = await apiFetch(`/v1/galleries/photos/${id}`, { method: 'PATCH', body: patch });
+  if (!data?.photo) throw new Error('Photo database update failed');
+  return data.photo;
+}
 import { customDomainLookupCandidates } from '../lib/customDomain';
 import { getImageDimensionsFast } from '../lib/imageDimensions';
 import { getFileMime, isVideoMime, getUploadMediaType } from '../lib/fileMime';
@@ -240,6 +303,16 @@ async function getCollectionPathFolder(collectionId) {
   if (collectionPathNameCache.has(collectionId)) {
     return collectionPathNameCache.get(collectionId);
   }
+  if (USE_WORKERS_AUTH) {
+    try {
+      const gallery = await (await workersGallery()).getCollectionById(collectionId);
+      const folder = `${safePathSegment(gallery?.name, 'delivery')}__${collectionId}`;
+      collectionPathNameCache.set(collectionId, folder);
+      return folder;
+    } catch {
+      return `delivery__${collectionId}`;
+    }
+  }
   try {
     const { data } = await supabase
       .from('deliveries')
@@ -321,7 +394,7 @@ async function fetchAllSupabaseRows(runPage) {
 }
 
 /** Dashboard list row: storage totals + filenames for client-gallery search. */
-function mapCollectionDashboardRow(c) {
+export function mapCollectionDashboardRow(c) {
   const photoRows = c.photos || [];
   const storage_bytes = photoRows.reduce((sum, p) => sum + (Number(p.size_bytes) || 0), 0);
   const storedTotal = Number(c.total_size_bytes);
@@ -382,6 +455,7 @@ export const galleryService = {
    * Fetch all collections for a specific photographer (Dashboard view)
    */
   async getCollections(photographerId) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).getCollections(photographerId);
     const { data, error } = await supabase
       .from('deliveries')
       .select(`
@@ -400,6 +474,7 @@ export const galleryService = {
    * Attention + earnings for the Deliveries board (submitted lists, stuck orders, store totals).
    */
   async getDeliveryBoardExtras(collectionIds) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).getDeliveryBoardExtras(collectionIds);
     const ids = [...new Set((collectionIds || []).filter(Boolean))];
     const empty = { submittedIds: new Set(), stuckIds: new Set(), earningsById: {} };
     if (!ids.length) return empty;
@@ -443,6 +518,7 @@ export const galleryService = {
 
   /** Starred collections for the dashboard Starred page. */
   async getStarredCollections(photographerId) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).getStarredCollections(photographerId);
     if (!photographerId) return [];
     const { data, error } = await supabase
       .from('deliveries')
@@ -460,6 +536,7 @@ export const galleryService = {
 
   /** Starred photos across all deliveries for the dashboard Starred → Photos tab. */
   async getStarredPhotos(photographerId) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).getStarredPhotos();
     if (!photographerId) return [];
     const { data, error } = await supabase
       .from('photos')
@@ -480,6 +557,7 @@ export const galleryService = {
 
   /** Every client-gallery photo for the photographer Photo Library. */
   async getLibraryPhotos(photographerId) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).getLibraryPhotos();
     if (!photographerId) return [];
     const rows = await fetchAllSupabaseRows((from, to) =>
       supabase
@@ -503,6 +581,7 @@ export const galleryService = {
    * Folders for the move-collection picker, with cover from folder or first collection inside.
    */
   async getFoldersForMove(photographerId) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).getFoldersForMove();
     if (!photographerId) return [];
 
     const { data: folders, error: folderError } = await supabase
@@ -552,6 +631,7 @@ export const galleryService = {
    * @param {string | { name: string; eventDate?: string | null; showOnShowcase?: boolean; passwordEnabled?: boolean; password?: string | null }} nameOrOptions
    */
   async createFolder(photographerId, nameOrOptions) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).createFolder(photographerId, nameOrOptions);
     const options =
       typeof nameOrOptions === 'string' ? { name: nameOrOptions } : nameOrOptions ?? {};
     const name = options.name?.trim();
@@ -593,6 +673,7 @@ export const galleryService = {
   },
 
   async moveCollectionToFolder(collectionId, folderId) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).moveCollectionToFolder(collectionId, folderId);
     if (!collectionId) {
       throw new Error('Delivery is required.');
     }
@@ -612,6 +693,7 @@ export const galleryService = {
    * Folders for the client gallery grid (with collection counts).
    */
   async listFoldersForGallery(photographerId) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).listFoldersForGallery(photographerId);
     if (!photographerId) return [];
 
     const { data: folders, error } = await supabase
@@ -654,6 +736,7 @@ export const galleryService = {
   },
 
   async getFolderById(folderId, photographerId) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).getFolderById(folderId);
     if (!folderId || !photographerId) return null;
     const { data, error } = await supabase
       .from('folders')
@@ -671,6 +754,7 @@ export const galleryService = {
 
   /** Collections inside a folder (same shape as getCollections rows). */
   async getCollectionsForFolder(photographerId, folderId) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).getCollectionsForFolder(photographerId, folderId);
     if (!photographerId || !folderId) return [];
 
     const { data, error } = await supabase
@@ -689,6 +773,7 @@ export const galleryService = {
   },
 
   async updateFolder(folderId, photographerId, updates) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).updateFolder(folderId, photographerId, updates);
     if (!folderId || !photographerId) {
       throw new Error('Folder and photographer are required.');
     }
@@ -717,6 +802,7 @@ export const galleryService = {
   },
 
   async deleteFolder(folderId, photographerId) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).deleteFolder(folderId);
     if (!folderId || !photographerId) {
       throw new Error('Folder is required.');
     }
@@ -733,6 +819,7 @@ export const galleryService = {
    * Fetch all published collections for a specific photographer (Public view)
    */
   async getPublicCollections(photographerId) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).getPublicCollections(photographerId);
     const { data, error } = await supabase
       .from('deliveries')
       .select(`
@@ -754,6 +841,7 @@ export const galleryService = {
 
   /** Public Showcase enquiry form submission */
   async submitShowcaseEnquiry({ photographerId, name, email, message }) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).submitShowcaseEnquiry({ photographerId, name, email, message });
     if (!photographerId) throw new Error('Photographer is required.');
     const trimmedName = String(name || '').trim();
     const trimmedEmail = String(email || '').trim();
@@ -779,6 +867,7 @@ export const galleryService = {
 
   /** Studio inbox: recent Showcase enquiries */
   async getShowcaseEnquiries(photographerId, limit = 20) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).getShowcaseEnquiries(photographerId, limit);
     if (!photographerId) return [];
     const { data, error } = await supabase
       .from('showcase_enquiries')
@@ -798,6 +887,7 @@ export const galleryService = {
    * Create a new delivery
    */
   async createCollection(collectionData) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).createCollection(collectionData);
     if (collectionData.photographer_id) {
       try {
         const { data: existingPhotographer } = await supabase
@@ -916,6 +1006,7 @@ export const galleryService = {
    * Duplicate a collection: copies metadata, sets, and all media (photos + videos, same storage URLs).
    */
   async duplicateCollection(sourceCollectionId, photographerId) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).duplicateCollection(sourceCollectionId, photographerId);
     if (!sourceCollectionId || !photographerId) {
       throw new Error('Delivery and photographer are required to duplicate.');
     }
@@ -1102,6 +1193,7 @@ export const galleryService = {
    * cannot block the rest of a design autosave.
    */
   async updateCollection(id, updateData) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).updateCollection(id, updateData);
     let payload = { ...updateData };
     if (payload.cover_focal_x != null) payload.cover_focal_x = normalizeFocalForDb(payload.cover_focal_x);
     if (payload.cover_focal_y != null) payload.cover_focal_y = normalizeFocalForDb(payload.cover_focal_y);
@@ -1163,6 +1255,7 @@ export const galleryService = {
    * Never drops `status` on retry — design autosave stripping must not apply here.
    */
   async updateCollectionStatus(id, status, collection) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).updateCollectionStatus(id, status);
     const payload = buildDeliveryStatusPatch(status, collection);
     payload.status = toDbDeliveryStatus(payload.status);
 
@@ -1196,6 +1289,7 @@ export const galleryService = {
    * Delete a collection and all associated files
    */
   async deleteCollection(id) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).deleteCollection(id);
     const { data: collection, error: fetchError } = await supabase
       .from('deliveries')
       .select(
@@ -1224,6 +1318,7 @@ export const galleryService = {
    * Fetch collection + sets + photos for the manage dashboard (parallel, slim photo fields).
    */
   async getCollectionDashboardData(id) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).getCollectionDashboardData(id);
     const [collectionRes, photosRes] = await Promise.all([
       supabase
         .from('deliveries')
@@ -1252,6 +1347,7 @@ export const galleryService = {
    * Fetch a single collection by ID (for management) — includes sets and photos
    */
   async getCollectionById(id) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).getCollectionById(id);
     const { data, error } = await supabase
       .from('deliveries')
       .select(`
@@ -1280,6 +1376,7 @@ export const galleryService = {
    * regardless of publish status or slug autosave lag.
    */
   async getCollectionBySlug(slug, options = {}) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).getCollectionBySlug(slug, options);
     const normalized = decodeURIComponent(String(slug || '').trim());
     const studioCollectionId = options.collectionId || null;
     if (!normalized && !studioCollectionId) return null;
@@ -1447,6 +1544,7 @@ export const galleryService = {
    * Fetch all sets for a collection
    */
   async getSets(collectionId) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).getSets(collectionId);
     const { data, error } = await supabase
       .from('sets')
       .select('id, name, description, position, photo_count, video_count, is_private, created_at')
@@ -1462,6 +1560,7 @@ export const galleryService = {
    * Create a new set
    */
   async createSet({ collectionId, photographerId, name, description, position }) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).createSet({ collectionId, photographerId, name, description, position });
     const { data, error } = await supabase
       .from('sets')
       .insert([{
@@ -1482,6 +1581,7 @@ export const galleryService = {
    * Update a set's name/description
    */
   async updateSet(setId, updateData) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).updateSet(setId, updateData);
     const { data, error } = await supabase
       .from('sets')
       .update(updateData)
@@ -1497,6 +1597,7 @@ export const galleryService = {
    * Delete a set and all photos in it (DB + Cloudflare R2).
    */
   async deleteSet(setId) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).deleteSet(setId);
     const { data: photosInSet, error: fetchError } = await supabase
       .from('photos')
       .select('id')
@@ -1517,6 +1618,7 @@ export const galleryService = {
    * Assign photos to a specific set (or unassign by passing null)
    */
   async assignPhotosToSet(photoIds, setId) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).assignPhotosToSet(photoIds, setId);
     if (!photoIds || photoIds.length === 0) return;
 
     const { error } = await supabase
@@ -1594,6 +1696,11 @@ export const galleryService = {
         Date.now() - globalThis.__pixnxtProfileCache.time < 45000
       ) {
         profile = globalThis.__pixnxtProfileCache.data;
+      } else if (USE_WORKERS_AUTH) {
+        const { apiFetch } = await import('../lib/api/client');
+        const data = await apiFetch('/v1/me');
+        profile = data?.photographer ?? null;
+        globalThis.__pixnxtProfileCache = { id: photographerId, data: profile, time: Date.now() };
       } else {
         const { data } = await supabase
           .from('photographers')
@@ -1770,38 +1877,24 @@ export const galleryService = {
       thumbUrl = thumbFile ? prepResults[webFile ? 1 : 0]?.url : null;
     }
 
-    const { data: photoData, error: dbError } = await supabase
-      .from('photos')
-      .insert([
-        {
-          collection_id: collectionId,
-          photographer_id: photographerId,
-          set_id: setId,
-          filename: file.name,
-          full_url: null,
-          web_url: webUrl,
-          thumbnail_url: thumbUrl,
-          original_storage_path: null,
-          web_storage_path: webStoragePath,
-          thumbnail_storage_path: thumbnailStoragePath,
-          size_bytes: file.size,
-          width: Number.isFinite(dimensions.width) ? dimensions.width : null,
-          height: Number.isFinite(dimensions.height) ? dimensions.height : null,
-          media_type: mediaType,
-          position: index,
-          status: 'ready',
-        },
-      ])
-      .select()
-      .single();
-
-    if (dbError) {
-      throw new Error(
-        [dbError.message, dbError.details, dbError.hint, dbError.code]
-          .filter(Boolean)
-          .join(' — ') || 'Photo database insert failed'
-      );
-    }
+    const photoData = await dbInsertPhotoRow({
+      collection_id: collectionId,
+      photographer_id: photographerId,
+      set_id: setId,
+      filename: file.name,
+      full_url: null,
+      web_url: webUrl,
+      thumbnail_url: thumbUrl,
+      original_storage_path: null,
+      web_storage_path: webStoragePath,
+      thumbnail_storage_path: thumbnailStoragePath,
+      size_bytes: file.size,
+      width: Number.isFinite(dimensions.width) ? dimensions.width : null,
+      height: Number.isFinite(dimensions.height) ? dimensions.height : null,
+      media_type: mediaType,
+      position: index,
+      status: 'ready',
+    });
 
     if (onInserted) {
       onInserted(photoData);
@@ -1837,16 +1930,23 @@ export const galleryService = {
     if (!collectionId || !filenames?.length) return [];
 
     const unique = [...new Set(filenames.filter(Boolean))];
-    const { data, error } = await supabase
-      .from('photos')
-      .select(DASHBOARD_PHOTO_FIELDS)
-      .eq('collection_id', collectionId)
-      .in('filename', unique);
+    let rows;
+    if (USE_WORKERS_AUTH) {
+      const gallery = await (await workersGallery()).getCollectionDashboardData(collectionId);
+      rows = gallery.photos || [];
+    } else {
+      const { data, error } = await supabase
+        .from('photos')
+        .select(DASHBOARD_PHOTO_FIELDS)
+        .eq('collection_id', collectionId)
+        .in('filename', unique);
 
-    if (error) throw error;
+      if (error) throw error;
+      rows = data || [];
+    }
 
     const byName = new Map();
-    for (const photo of data || []) {
+    for (const photo of rows || []) {
       if (!photo?.filename) continue;
       const key = String(photo.filename).toLowerCase();
       const existing = byName.get(key);
@@ -1955,18 +2055,14 @@ export const galleryService = {
 
     const uploadResult = await storageService.upload(filePath, uploadBody, onProgress, signal);
 
-    const { data: finalPhoto, error: finalizeError } = await supabase
-      .from('photos')
-      .update({
+    let finalPhoto = null;
+    try {
+      finalPhoto = await dbUpdatePhotoRow(photoId, {
         full_url: uploadResult.url,
         original_storage_path: filePath,
-      })
-      .eq('id', photoId)
-      .select(DASHBOARD_PHOTO_FIELDS)
-      .single();
-
-    if (finalizeError) {
-      console.warn('Photo original finalize select failed:', finalizeError);
+      });
+    } catch (err) {
+      console.warn('Photo original finalize select failed:', err?.message || err);
     }
 
     if (isVideo && thumbnailBlob) {
@@ -1974,10 +2070,7 @@ export const galleryService = {
       void storageService
         .upload(thumbnailPathVideo, thumbnailBlob)
         .then(({ url: thumbUrl }) =>
-          supabase
-            .from('photos')
-            .update({ thumbnail_url: thumbUrl, thumbnail_storage_path: thumbnailPathVideo })
-            .eq('id', photoId)
+          dbUpdatePhotoRow(photoId, { thumbnail_url: thumbUrl, thumbnail_storage_path: thumbnailPathVideo })
         )
         .catch((err) => console.warn('Video thumbnail upload deferred failed:', err));
     }
@@ -2091,21 +2184,15 @@ export const galleryService = {
     ]);
     const dimensions = meta.dimensions ?? { width: null, height: null };
 
-    const { data, error } = await supabase
-      .from('photos')
-      .update({
-        web_url: webUrl,
-        thumbnail_url: thumbUrl,
-        web_storage_path: webPath,
-        thumbnail_storage_path: thumbPath,
-        width: dimensions.width,
-        height: dimensions.height,
-      })
-      .eq('id', photo.id)
-      .select()
-      .single();
-
-    if (error) throw error;
+    const data = await dbUpdatePhotoRow(photo.id, {
+      web_url: webUrl,
+      thumbnail_url: thumbUrl,
+      web_storage_path: webPath,
+      thumbnail_storage_path: thumbPath,
+      width: dimensions.width,
+      height: dimensions.height,
+    });
+    if (!data) throw new Error('Photo preview update failed');
     return data;
   },
 
@@ -2153,15 +2240,22 @@ export const galleryService = {
       throw new Error('Delivery or photographer is missing. Refresh the page and try again.');
     }
 
-    const { data: existing, error: fetchError } = await supabase
-      .from('photos')
-      .select(
-        `id, collection_id, set_id, ${PHOTO_STORAGE_PATH_COLUMNS.join(', ')}`
-      )
-      .eq('id', photoId)
-      .single();
+    let existing;
+    if (USE_WORKERS_AUTH) {
+      const gallery = await (await workersGallery()).getCollectionDashboardData(collectionId);
+      existing = (gallery.photos || []).find((p) => p.id === photoId) ?? null;
+    } else {
+      const { data, error: fetchError } = await supabase
+        .from('photos')
+        .select(
+          `id, collection_id, set_id, ${PHOTO_STORAGE_PATH_COLUMNS.join(', ')}`
+        )
+        .eq('id', photoId)
+        .single();
 
-    if (fetchError) throw fetchError;
+      if (fetchError) throw fetchError;
+      existing = data;
+    }
     if (!existing || existing.collection_id !== collectionId) {
       throw new Error('Photo not found in this delivery.');
     }
@@ -2263,38 +2357,28 @@ export const galleryService = {
       thumbUrl = thumbFile ? uploadResults[2]?.url : publicUrl;
     }
 
-    const { data: photoData, error: dbError } = await supabase
-      .from('photos')
-      .update({
-        filename: file.name,
-        full_url: publicUrl,
-        web_url: webUrl,
-        thumbnail_url: thumbUrl,
-        original_storage_path: filePath,
-        web_storage_path: webStoragePath,
-        thumbnail_storage_path: thumbnailStoragePath,
-        size_bytes: file.size,
-        width: dimensions.width,
-        height: dimensions.height,
-        media_type: mediaType,
-        status: 'ready',
-      })
-      .eq('id', photoId)
-      .select()
-      .single();
-
-    if (dbError) {
-      throw new Error(
-        [dbError.message, dbError.details, dbError.hint, dbError.code]
-          .filter(Boolean)
-          .join(' — ') || 'Photo database update failed'
-      );
+    const photoData = await dbUpdatePhotoRow(photoId, {
+      filename: file.name,
+      full_url: publicUrl,
+      web_url: webUrl,
+      thumbnail_url: thumbUrl,
+      original_storage_path: filePath,
+      web_storage_path: webStoragePath,
+      thumbnail_storage_path: thumbnailStoragePath,
+      size_bytes: file.size,
+      width: dimensions.width,
+      height: dimensions.height,
+      media_type: mediaType,
+      status: 'ready',
+    });
+    if (!photoData) {
+      throw new Error('Photo database update failed');
     }
 
     if (isVideo && thumbnailBlob) {
       const thumbnailPathVideo = `${basePath}/thumb/${fileNameJpg}`;
       void storageService.upload(thumbnailPathVideo, thumbnailBlob).then(({ url: thumbUrl }) =>
-        supabase.from('photos').update({ thumbnail_url: thumbUrl, thumbnail_storage_path: thumbnailPathVideo }).eq('id', photoId)
+        dbUpdatePhotoRow(photoId, { thumbnail_url: thumbUrl, thumbnail_storage_path: thumbnailPathVideo })
       ).catch((err) => console.warn('Video thumbnail upload deferred failed:', err));
     }
 
@@ -2310,6 +2394,7 @@ export const galleryService = {
    * Update photo metadata (filename, set_id, etc.)
    */
   async updatePhoto(id, updateData) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).updatePhoto(id, updateData);
     const { data, error } = await supabase
       .from('photos')
       .update(updateData)
@@ -2325,6 +2410,7 @@ export const galleryService = {
    * Delete photos from Cloudflare R2 and the database (plus related rows).
    */
   async deletePhotos(ids) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).deletePhotos(ids);
     if (!ids || ids.length === 0) return;
 
     const { data: rows, error: fetchError } = await supabase
@@ -2380,6 +2466,7 @@ export const galleryService = {
    * Toggle the is_starred status of a photo
    */
   async togglePhotoStar(id, isStarred) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).togglePhotoStar(id, isStarred);
     const { data, error } = await supabase
       .from('photos')
       .update({ is_starred: isStarred })
@@ -2395,6 +2482,7 @@ export const galleryService = {
    * Fetch a photographer's profile/branding
    */
   async getPhotographerProfile(photographerId) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).getPhotographerProfile(photographerId);
     const { data, error } = await supabase
       .from('photographers')
       .select('*')
@@ -2409,9 +2497,20 @@ export const galleryService = {
   },
 
   /**
+   * Own full photographer row (sidebar shell, upload defaults).
+   */
+  async getOwnProfile() {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).getOwnFullProfile();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+    return this.getPhotographerProfile(user.id);
+  },
+
+  /**
    * Fetch all watermarks for a photographer
    */
   async getWatermarks(photographerId) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).listWatermarks();
     const { data, error } = await supabase
       .from('watermarks')
       .select('*')
@@ -2426,6 +2525,7 @@ export const galleryService = {
    * Fetch a single watermark by ID
    */
   async getWatermark(id) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).getWatermark(id);
     const { data, error } = await supabase
       .from('watermarks')
       .select('*')
@@ -2443,6 +2543,7 @@ export const galleryService = {
    * Create a new watermark
    */
   async createWatermark(watermarkData) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).createWatermark(watermarkData);
     const { data, error } = await supabase
       .from('watermarks')
       .insert([watermarkData])
@@ -2457,6 +2558,7 @@ export const galleryService = {
    * Update an existing watermark
    */
   async updateWatermark(id, updates) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).updateWatermark(id, updates);
     const { data, error } = await supabase
       .from('watermarks')
       .update(updates)
@@ -2472,8 +2574,56 @@ export const galleryService = {
    * Delete a watermark
    */
   async deleteWatermark(id) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).deleteWatermark(id);
     const { error } = await supabase
       .from('watermarks')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+  },
+
+  /**
+   * Delivery presets (photographer-saved delivery settings).
+   */
+  async getPresets(photographerId) {
+    if (USE_WORKERS_AUTH) {
+      const rows = await (await workersGallery()).listPresets();
+      return [...rows].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    }
+    const { data, error } = await supabase
+      .from('presets')
+      .select('*')
+      .eq('photographer_id', photographerId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  },
+
+  async createPreset(photographerId, name, settings) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).createPreset(name, settings);
+    const at = new Date().toISOString();
+    const { data, error } = await supabase
+      .from('presets')
+      .insert({
+        photographer_id: photographerId,
+        name,
+        settings,
+        created_at: at,
+        updated_at: at,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async deletePreset(id) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).deletePreset(id);
+    const { error } = await supabase
+      .from('presets')
       .delete()
       .eq('id', id);
 
@@ -2484,6 +2634,7 @@ export const galleryService = {
    * Fetch a photographer's profile/branding by their showcase slug (DB: showcase_slug)
    */
   async getPhotographerProfileBySlug(slug) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).getPhotographerProfileBySlug(slug);
     if (!slug) return null;
 
     // 1. Try to find by showcase_slug
@@ -2533,6 +2684,7 @@ export const galleryService = {
    * Resolve a verified custom domain to a photographer profile (public galleries).
    */
   async getPhotographerProfileByCustomDomain(domain) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).getPhotographerProfileByCustomDomain(domain);
     const candidates = customDomainLookupCandidates(domain);
 
     if (!candidates.length) return null;
@@ -2556,6 +2708,7 @@ export const galleryService = {
    * Update a photographer's profile (bio, contact info, showcase settings, etc.)
    */
   async updatePhotographerProfile(photographerId, updates) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).updatePhotographerProfile(photographerId, updates);
     if (!photographerId) throw new Error('Photographer ID is required.');
 
     // First verify if the row exists because upsert can sometimes cause issues with RLS if not configured properly
@@ -2587,6 +2740,7 @@ export const galleryService = {
    * Stores email / name / phone on the session and studio contacts list.
    */
   async registerGalleryVisitor({ collectionId, email, name, phone } = {}) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).registerGalleryVisitor({ collectionId, email, name, phone });
     const trimmedEmail = String(email || '').trim().toLowerCase();
     const trimmedName = String(name || '').trim() || null;
     const trimmedPhone = String(phone || '').trim() || null;
@@ -2626,6 +2780,7 @@ export const galleryService = {
    * @param {{ ensureDefaultFavoriteList?: boolean, name?: string|null, phone?: string|null }} [options] Pass `{ ensureDefaultFavoriteList: false }` when the caller will insert their own preset list (e.g. dashboard "Create favorite list") so a duplicate "My Favorites" row is not created.
    */
   async createOrGetSession(collectionId, email, options = {}) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).createOrGetSession(collectionId, email, options);
     const { ensureDefaultFavoriteList = true, name = null, phone = null } = options;
     if (!collectionId || !email) {
       throw new Error('Delivery ID and email are required');
@@ -2797,6 +2952,7 @@ export const galleryService = {
 
   /** Public: list row used for gallery hearts / toasts (name + cap). */
   async getSessionDefaultFavoriteList(sessionId) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).getSessionDefaultFavoriteList(sessionId);
     return this._resolveDefaultFavoriteList(sessionId);
   },
 
@@ -2804,6 +2960,7 @@ export const galleryService = {
    * Favorited photo IDs for a visitor list (defaults to active preset / My Favorites).
    */
   async getFavorites(sessionId, listId = null) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).getFavorites(sessionId, listId);
     if (!sessionId) return [];
     try {
       let targetListId = listId;
@@ -2831,6 +2988,7 @@ export const galleryService = {
    * Used by the shareable "Get Link" public favorites page.
    */
   async getFavoriteListPublic(listId) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).getFavoriteListPublic(listId);
     if (!listId) return null;
     const { data: list, error } = await supabase
       .from('favorite_lists')
@@ -2872,6 +3030,7 @@ export const galleryService = {
    * Favorite list metadata for gallery selection UI.
    */
   async getFavoriteListById(listId, sessionId = null) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).getFavoriteListById(listId);
     if (!listId) return null;
     const { data, error } = await supabase
       .from('favorite_lists')
@@ -2889,6 +3048,7 @@ export const galleryService = {
    * Submit (lock) a visitor favorite list — requires at least one photo.
    */
   async submitFavoriteList(listId, sessionId) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).submitFavoriteList(listId, sessionId);
     if (!listId || !sessionId) {
       throw new Error('List and session are required');
     }
@@ -2927,6 +3087,7 @@ export const galleryService = {
    * Reopen a submitted favorite list so the client can edit choices again (clears lock).
    */
   async reopenFavoriteList(listId) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).reopenFavoriteList(listId);
     if (!listId) throw new Error('List id is required');
 
     const { data, error } = await supabase
@@ -2949,6 +3110,7 @@ export const galleryService = {
    * Email the collection photographer after a client confirms favorites.
    */
   async notifyPhotographerFavoriteSubmit({ listId, sessionId, siteOrigin, clientMessage }) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).notifyPhotographerFavoriteSubmit({ listId, sessionId, clientMessage });
     const { data, error } = await supabase.functions.invoke('send-favorite-submit-email', {
       body: {
         listId,
@@ -2972,6 +3134,7 @@ export const galleryService = {
    * @param {{ maxSelection?: number|null, description?: string|null }} [meta]
    */
   async createFavoriteList(collectionId, sessionId, listName, meta = {}) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).createFavoriteList(collectionId, sessionId, listName, meta);
     const name = (listName && String(listName).trim()) || 'My Favorites';
     let maxVal = null;
     if (meta.maxSelection != null && meta.maxSelection !== '') {
@@ -3007,6 +3170,7 @@ export const galleryService = {
    * Toggle a photo as favorite
    */
   async toggleFavorite(sessionId, photoId, isFavorite, listId = null) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).toggleFavorite(sessionId, photoId, isFavorite, listId);
     let targetListId = listId;
 
     if (!targetListId) {
@@ -3071,6 +3235,7 @@ export const galleryService = {
    * Get favorite activity for a collection
    */
   async getFavoriteActivity(collectionId) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).getFavoriteActivity(collectionId);
     try {
       console.log('Fetching favorite activity for collection:', collectionId);
       // 1. Fetch lists
@@ -3162,6 +3327,7 @@ export const galleryService = {
    * Photo ids used in client favorite / selection-list overlays (dashboard View menu).
    */
   async getCollectionFavoriteOverlayPhotoIds(collectionId) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).getCollectionFavoriteOverlayPhotoIds(collectionId);
     if (!collectionId) {
       return { favoritedPhotoIds: [], selectionListPhotoIds: [] };
     }
@@ -3213,6 +3379,7 @@ export const galleryService = {
    * Get all photos for a favorite list
    */
   async getFavoriteListPhotos(listId) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).getFavoriteListPhotos(listId);
     const { data, error } = await supabase
       .from('favorite_items')
       .select('photo:photos(*)')
@@ -3229,6 +3396,7 @@ export const galleryService = {
    * Favorite list rows with item timestamps (dashboard detail panel).
    */
   async getFavoriteListItemRows(listId) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).getFavoriteListItemRows(listId);
     if (!listId) return [];
     const { data, error } = await supabase
       .from('favorite_items')
@@ -3253,6 +3421,7 @@ export const galleryService = {
    * Visitor's favorite lists for the favorites hub (/gallery/:slug/f).
    */
   async getFavoriteListsForSession(sessionId) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).getFavoriteListsForSession(sessionId);
     if (!sessionId) return [];
     const { data: lists, error } = await supabase
       .from('favorite_lists')
@@ -3307,6 +3476,7 @@ export const galleryService = {
    * Update a favorite list's metadata
    */
   async updateFavoriteList(listId, updateData) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).updateFavoriteList(listId, updateData);
     const { data, error } = await supabase
       .from('favorite_lists')
       .update(updateData)
@@ -3331,6 +3501,7 @@ export const galleryService = {
    * Uses RPC with SECURITY DEFINER so deletes succeed even when direct table DELETE is blocked by RLS.
    */
   async deleteFavoriteList(listId) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).deleteFavoriteList(listId);
     if (!listId) throw new Error('List id is required');
 
     const { data: deletedCount, error } = await supabase.rpc('delete_favorite_list_owned', {
@@ -3361,6 +3532,7 @@ export const galleryService = {
    * Remove one photo from a favorite list (collection owner / dashboard).
    */
   async removePhotoFromFavoriteList(listId, photoId) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).removePhotoFromFavoriteList(listId, photoId);
     if (!listId || !photoId) throw new Error('List id and photo id are required');
     const { error } = await supabase
       .from('favorite_items')
@@ -3376,6 +3548,7 @@ export const galleryService = {
    * Combines free gallery downloads (activity_log) + paid digital purchase downloads (printstore).
    */
   async getDownloadActivity(collectionId) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).getDownloadActivity(collectionId);
     try {
       console.log('Fetching download activity for collection:', collectionId);
 
@@ -3562,6 +3735,7 @@ export const galleryService = {
    * Uses RPC with SECURITY DEFINER so deletes persist under RLS.
    */
   async deleteActivity(activityId) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).deleteActivity(activityId);
     const id = Number(activityId);
     if (!Number.isFinite(id)) {
       throw new Error('Invalid activity id');
@@ -3595,6 +3769,7 @@ export const galleryService = {
    * Log an activity event
    */
   async logActivity(collectionId, eventType, data = {}) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).logActivity(collectionId, eventType, data);
     try {
       let photographerId = data.photographerId || null;
       if (!photographerId && collectionId) {
@@ -3634,6 +3809,7 @@ export const galleryService = {
    * Get the download count for a collection
    */
   async getDownloadCount(collectionId) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).getDownloadCount(collectionId);
     try {
       const { count, error } = await supabase
         .from('activity_log')
@@ -3653,6 +3829,7 @@ export const galleryService = {
    * Get the number of times the download PIN has been successfully used
    */
   async getPinUsageCount(collectionId) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).getPinUsageCount(collectionId);
     try {
       const { data, error } = await supabase
         .from('activity_log')
@@ -3677,6 +3854,7 @@ export const galleryService = {
    * Source: client_sessions, one row per unique email (earliest registration).
    */
   async getEmailRegistrationActivity(collectionId) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).getEmailRegistrationActivity(collectionId);
     if (!collectionId) return [];
     try {
       let { data, error } = await supabase
@@ -3737,6 +3915,7 @@ export const galleryService = {
    * Get aggregate counts for different activity types (for Expiry Reminder modal)
    */
   async getGalleryOpenActivity(collectionId) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).getGalleryOpenActivity(collectionId);
     try {
       const { data, error } = await supabase
         .from('activity_log')
@@ -3774,6 +3953,7 @@ export const galleryService = {
   },
 
   async getActivityCounts(collectionId) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).getActivityCounts(collectionId);
     if (!collectionId) return { contacts: 0, downloaded: 0, registered: 0, favorited: 0, purchased: 0 };
 
     try {
@@ -3845,6 +4025,7 @@ export const galleryService = {
    * Fetch all expiry reminders for a collection
    */
   async getCollectionReminders(collectionId) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).getCollectionReminders(collectionId);
     const { data, error } = await reminderQuery((table) =>
       supabase
         .from(table)
@@ -3861,6 +4042,7 @@ export const galleryService = {
    * Create a new expiry reminder
    */
   async createCollectionReminder(reminderData) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).createCollectionReminder(reminderData);
     const payload = sanitizeReminderPayload(reminderData);
     const { data, error } = await reminderMutate(
       (table, row) => supabase.from(table).insert([row]).select().single(),
@@ -3875,6 +4057,7 @@ export const galleryService = {
    * Update an existing expiry reminder
    */
   async updateCollectionReminder(id, updateData) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).updateCollectionReminder(id, updateData);
     const payload = { ...updateData };
     if ('activity_lists' in payload && !Array.isArray(payload.activity_lists)) {
       payload.activity_lists = [];
@@ -3892,6 +4075,7 @@ export const galleryService = {
    * Delete an expiry reminder
    */
   async deleteCollectionReminder(id) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).deleteCollectionReminder(id);
     const { error } = await reminderQuery((table) =>
       supabase.from(table).delete().eq('id', id)
     );
@@ -3903,6 +4087,7 @@ export const galleryService = {
    * Create a default reminder if this delivery has none yet.
    */
   async ensureCollectionReminder(collectionId, patch = {}) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).ensureCollectionReminder(collectionId, patch);
     const existing = await this.getCollectionReminders(collectionId);
     if (existing[0]) {
       if (patch && Object.keys(patch).length) {
@@ -3921,6 +4106,7 @@ export const galleryService = {
    * Send a gallery share email from one visitor to another (public share modal).
    */
   async shareCollectionByEmail({ collectionSlug, recipientEmail, senderEmail, personalMessage }) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).shareCollectionByEmail({ collectionSlug, recipientEmail, senderEmail, personalMessage });
     const { data, error } = await supabase.functions.invoke('share-collection-email', {
       body: {
         collectionSlug,
@@ -3943,6 +4129,7 @@ export const galleryService = {
    * Send a selection-list invite email to a client (photographer dashboard).
    */
   async sendSelectionListEmail({ collectionSlug, recipientEmail, subject, message, chooseUrl, siteOrigin }) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).sendSelectionListEmail({ collectionSlug, recipientEmail, subject, message, chooseUrl });
     const {
       data: { session },
       error: sessionError,
@@ -3980,6 +4167,7 @@ export const galleryService = {
    * Email history for photographer dashboard (visitor share emails).
    */
   async getCollectionShareEmailHistory(collectionId) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).getCollectionShareEmailHistory(collectionId);
     const { data, error } = await supabase
       .from('delivery_share_emails')
       .select('id, sender_email, recipient_email, subject, status, created_at')
@@ -3998,6 +4186,7 @@ export const galleryService = {
    * Returns null if no row exists yet.
    */
   async fetchVaultPlan(collectionId) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).fetchVaultPlan(collectionId);
     if (!collectionId) return null;
     const { data, error } = await supabase
       .from('vault_extension_plans')
@@ -4017,6 +4206,7 @@ export const galleryService = {
    * Creates a new row if none exists, updates if it does.
    */
   async upsertVaultPlan(collectionId, settings) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).upsertVaultPlan(collectionId, settings);
     if (!collectionId) throw new Error('collectionId is required');
     const { data, error } = await supabase
       .from('vault_extension_plans')
@@ -4036,6 +4226,7 @@ export const galleryService = {
    * Upsert vault extension plan settings for multiple collections at once.
    */
   async upsertVaultPlanBatch(collectionIds, settings) {
+    if (USE_WORKERS_AUTH) return (await workersGallery()).upsertVaultPlanBatch(collectionIds, settings);
     if (!collectionIds || collectionIds.length === 0) return;
     const rows = collectionIds.map(id => ({
       collection_id: id,

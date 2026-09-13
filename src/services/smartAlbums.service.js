@@ -1,4 +1,9 @@
 import { supabase } from '../lib/supabase/client';
+import { USE_WORKERS_AUTH } from '../lib/api/client';
+/** Lazy so the Workers bundle stays code-split and Supabase default is untouched. */
+async function workersApi() {
+  return import('../lib/api/client');
+}
 import { albumProofService } from './albumProof.service';
 import { smartAlbumProoferSettingsService } from './smartAlbumProoferSettings.service';
 import { getClientFacingOrigin } from '../lib/publicSiteUrl';
@@ -59,6 +64,15 @@ function generateSlug(name) {
 async function albumSlugTaken(slug, excludeId = null) {
   const key = String(slug || '').trim();
   if (!key) return true;
+  if (USE_WORKERS_AUTH) {
+    try {
+      const { apiFetch } = await workersApi();
+      const data = await apiFetch('/v1/proofer/studio/albums');
+      return (data?.albums || []).some((a) => a.slug === key && a.id !== excludeId);
+    } catch {
+      return false;
+    }
+  }
   let query = supabase
     .from('album_proofer_albums')
     .select('id')
@@ -284,6 +298,18 @@ const ALBUM_DETAIL_FIELDS_MINIMAL =
 const ALBUM_DETAIL_GRID_FIELDS = `${ALBUM_DETAIL_FIELDS_MINIMAL}, grid_size, grid_layout`;
 
 async function selectAlbumRow(photographerId, albumId, fields) {
+  if (USE_WORKERS_AUTH) {
+    try {
+      const { apiFetch } = await workersApi();
+      const data = await apiFetch(`/v1/proofer/studio/albums/${albumId}`);
+      if (!data?.album || (photographerId && data.album.photographer_id !== photographerId)) {
+        return { data: null, error: { code: 'PGRST116', message: 'No rows' } };
+      }
+      return { data: data.album, error: null };
+    } catch (err) {
+      return { data: null, error: err };
+    }
+  }
   return supabase
     .from('album_proofer_albums')
     .select(fields)
@@ -382,6 +408,35 @@ function buildAlbumRowFromLocal(local, photographerId) {
 }
 
 async function insertAlbumRowResilient(row) {
+  if (USE_WORKERS_AUTH) {
+    try {
+      const { apiFetch } = await workersApi();
+      const data = await apiFetch('/v1/proofer/studio/albums', {
+        method: 'POST',
+        body: {
+          name: row.name,
+          event_date: row.event_date ?? null,
+          page_count: row.page_count ?? 21,
+          grid_size: row.grid_size ?? 'square',
+          grid_layout: row.grid_layout ?? 'two-page',
+          preview_data: row.preview_data ?? null,
+          proofer_settings: row.proofer_settings ?? null,
+        },
+      });
+      return { data: data?.album ?? null, error: null };
+    } catch (err) {
+      if (String(err?.code) === 'CONFLICT' && row.id) {
+        try {
+          const { apiFetch } = await workersApi();
+          const existing = await apiFetch(`/v1/proofer/studio/albums/${row.id}`);
+          return { data: existing?.album ?? null, error: null };
+        } catch {
+          // fall through to error return
+        }
+      }
+      return { data: null, error: err };
+    }
+  }
   let payload = { ...row, updated_at: new Date().toISOString() };
   const droppable = OPTIONAL_ALBUM_INSERT_COLUMNS.filter((col) => col in payload);
 
@@ -420,6 +475,38 @@ async function insertAlbumRowResilient(row) {
 }
 
 async function updateAlbumRowResilient(photographerId, albumId, patch) {
+  if (USE_WORKERS_AUTH) {
+    // Same previewData orphan guard as below, then a single PATCH (the API
+    // accepts every real column, so no column-dropping retries are needed).
+    let payload = { ...patch };
+    if (payload.preview_data && typeof payload.preview_data === 'object') {
+      let existingPreview = null;
+      try {
+        const { apiFetch } = await workersApi();
+        const current = await apiFetch(`/v1/proofer/studio/albums/${albumId}`);
+        const raw = current?.album?.preview_data;
+        existingPreview = raw && typeof raw === 'object' ? raw
+          : typeof raw === 'string' ? JSON.parse(raw) : null;
+      } catch {
+        existingPreview = null;
+      }
+      const { previewData, shouldSkipWrite } = protectPreviewSnapshot(payload.preview_data, existingPreview);
+      if (shouldSkipWrite || !previewData) {
+        console.warn('[album-proofer] blocked unsafe preview_data write (would orphan photos)', albumId);
+        delete payload.preview_data;
+      } else {
+        payload.preview_data = previewData;
+      }
+      if (Object.keys(payload).length === 0) return { data: null, error: null };
+    }
+    try {
+      const { apiFetch } = await workersApi();
+      const data = await apiFetch(`/v1/proofer/studio/albums/${albumId}`, { method: 'PATCH', body: payload });
+      return { data: data?.album ?? null, error: null };
+    } catch (err) {
+      return { data: null, error: err };
+    }
+  }
   let payload = { ...patch, updated_at: new Date().toISOString() };
 
   // Hard gate: never persist a preview_data blob that orphans page placements.
@@ -509,6 +596,21 @@ async function updateAlbumRowResilient(photographerId, albumId, patch) {
 
 /** Must persist share_link_enabled — never drop that column on retry. */
 async function updateShareLinkEnabledRow(photographerId, albumId, enabled, pausedAt = null) {
+  if (USE_WORKERS_AUTH) {
+    try {
+      const { apiFetch } = await workersApi();
+      const data = await apiFetch(`/v1/proofer/studio/albums/${albumId}`, {
+        method: 'PATCH',
+        body: {
+          share_link_enabled: enabled,
+          share_link_paused_at: enabled ? null : pausedAt || new Date().toISOString(),
+        },
+      });
+      return { data: data?.album ?? null, error: null };
+    } catch (err) {
+      return { data: null, error: err };
+    }
+  }
   const base = {
     share_link_enabled: enabled,
     updated_at: new Date().toISOString(),
@@ -1045,6 +1147,12 @@ export const smartAlbumsService = {
   },
 
   async getAlbums(photographerId) {
+    if (USE_WORKERS_AUTH) {
+      const { apiFetch } = await workersApi();
+      const data = await apiFetch('/v1/proofer/studio/albums');
+      // Same local merge as below, without the Supabase back-syncs.
+      return mergeAlbumRows(data?.albums || [], photographerId);
+    }
 
     const { data, error } = await supabase
 
@@ -1312,6 +1420,17 @@ export const smartAlbumsService = {
   async updateAlbumPageCount(photographerId, albumId, pageCount) {
     const count = clampAlbumPageCount(pageCount, 21);
     writePageCountOverride(photographerId, albumId, count);
+
+    if (USE_WORKERS_AUTH) {
+      const { data, error } = await updateAlbumRowResilient(photographerId, albumId, {
+        page_count: count,
+        updated_at: new Date().toISOString(),
+      });
+      if (!error && data) return mapAlbumRow(data, photographerId);
+      const album = await this.getAlbum(photographerId, albumId);
+      if (!album) throw new Error('Album not found');
+      return { ...album, page_count: count };
+    }
 
     const { data, error } = await supabase
       .from('album_proofer_albums')
@@ -1699,6 +1818,15 @@ export const smartAlbumsService = {
       payload.category_tags = categoryTagsToDb(patch.category_tags);
     }
 
+    if (USE_WORKERS_AUTH) {
+      const { data, error } = await updateAlbumRowResilient(photographerId, albumId, payload);
+      if (!error && data) return mapAlbumRow(data, photographerId);
+      const album = await this.getAlbum(photographerId, albumId);
+      if (!album) throw new Error('Album not found');
+      if (error) console.warn('smart_albums update:', error.message);
+      return { ...album, ...payload };
+    }
+
     const { data, error } = await supabase
       .from('album_proofer_albums')
       .update(payload)
@@ -1787,6 +1915,14 @@ export const smartAlbumsService = {
     removePageCountOverride(photographerId, albumId);
 
     await deleteAlbumAssets(albumId);
+
+    if (USE_WORKERS_AUTH) {
+      const { apiFetch } = await workersApi();
+      await apiFetch(`/v1/proofer/studio/albums/${albumId}`, { method: 'DELETE' });
+      removeLocalAlbum(photographerId, albumId);
+      userStorageService.notifyStorageChanged();
+      return;
+    }
 
     const { error } = await supabase
 

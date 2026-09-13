@@ -1,4 +1,5 @@
 import { supabase } from './supabase/client';
+import { USE_WORKERS_AUTH } from './api/client';
 import { photographerQuotaService, QUOTA_CHANGED_EVENT } from '../services/photographerQuota.service';
 import { userStorageService, STORAGE_CHANGED_EVENT } from '../services/userStorage.service';
 
@@ -111,6 +112,9 @@ export function onPhotographerLimitsBroadcast(photographerIdOrNull, callback) {
 
 function subscribePhotographers(filter, callback) {
   if (typeof callback !== 'function') return () => {};
+  // Workers mode has no Supabase Realtime — same-browser BroadcastChannel
+  // sync (above) still applies; polling/caches cover the rest.
+  if (USE_WORKERS_AUTH) return () => {};
   let channel = null;
   let closed = false;
   try {

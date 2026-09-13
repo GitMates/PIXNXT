@@ -5,7 +5,10 @@ const accessKeyId = import.meta.env.VITE_R2_ACCESS_KEY_ID;
 const secretAccessKey = import.meta.env.VITE_R2_SECRET_ACCESS_KEY;
 
 if (!accountId || !accessKeyId || !secretAccessKey) {
-  console.warn('Missing Cloudflare R2 environment variables. Storage functionality may be limited.');
+  // Workers mode uploads via the API (no client-side bucket credentials needed).
+  if (String(import.meta.env.VITE_USE_WORKERS_API || '') !== '1') {
+    console.warn('Missing Cloudflare R2 environment variables. Storage functionality may be limited.');
+  }
 }
 
 export const r2Client = new S3Client({

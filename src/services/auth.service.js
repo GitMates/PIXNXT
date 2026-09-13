@@ -1,4 +1,12 @@
 import { supabase } from '../lib/supabase/client';
+import { USE_WORKERS_AUTH, isWorkersResetCallback, isWorkersSuccessPath } from '../lib/api/client';
+import {
+  readOAuthCallbackError as workersReadOAuthCallbackError,
+  clearOAuthCallbackParams as workersClearOAuthCallbackParams,
+  clearPasswordRecoveryParams as workersClearPasswordRecoveryParams,
+} from './workersAuth.service';
+/** Lazy so the Workers bundle stays code-split and Supabase default is untouched. */
+const workers = () => import('./workersAuth.service');
 import {
   buildGoogleStudioAuthUrl,
   getGoogleStudioCallbackUrl,
@@ -15,6 +23,7 @@ import {
  * @returns {Promise<Object>} - Auth data including user and session.
  */
 export async function signInWithEmail({ email, password }) {
+  if (USE_WORKERS_AUTH) return (await workers()).signInWithEmail({ email, password });
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
@@ -36,6 +45,7 @@ export async function signInWithEmail({ email, password }) {
  * @returns {Promise<Object>} - Auth data including user and session.
  */
 export async function signUpWithEmail({ email, password }) {
+  if (USE_WORKERS_AUTH) return (await workers()).signUpWithEmail({ email, password });
   const fallbackName = email.split('@')[0] || 'Photographer';
   const { data, error } = await supabase.auth.signUp({
     email,
@@ -86,6 +96,7 @@ function readAuthUrlParams() {
 /** True when the URL is a Supabase password-recovery callback (hash, query, or mode=reset). */
 export function isPasswordRecoveryCallback() {
   if (typeof window === 'undefined') return false;
+  if (USE_WORKERS_AUTH && isWorkersResetCallback()) return true;
   const { hash, search } = readAuthUrlParams();
   if (hash.get('type') === 'recovery' || search.get('type') === 'recovery') return true;
   if (search.get('mode') === 'reset') return true;
@@ -96,6 +107,7 @@ export function isPasswordRecoveryCallback() {
 /** True when the URL contains Supabase OAuth / email-confirmation callback params. */
 export function hasAuthCallbackInUrl() {
   if (typeof window === 'undefined') return false;
+  if (USE_WORKERS_AUTH && (isWorkersResetCallback() || isWorkersSuccessPath())) return true;
   const { hash, search } = readAuthUrlParams();
   if (
     search.has('code') &&
@@ -117,6 +129,7 @@ export function hasAuthCallbackInUrl() {
  * Resolves session on first load, waiting briefly when the URL carries auth tokens.
  */
 export async function resolveInitialAuthSession() {
+  if (USE_WORKERS_AUTH) return (await workers()).resolveInitialAuthSession();
   if (!hasAuthCallbackInUrl()) {
     return resolveAuthSession();
   }
@@ -183,6 +196,7 @@ async function signInWithGoogleViaSupabase() {
  * so the account chooser shows your domain instead of *.supabase.co.
  */
 export async function signInWithGoogle() {
+  if (USE_WORKERS_AUTH) return (await workers()).signInWithGoogle();
   const clientId = String(import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim();
   if (clientId) {
     window.location.assign(buildGoogleStudioAuthUrl(clientId));
@@ -195,6 +209,7 @@ export async function signInWithGoogle() {
  * Finish studio Google login after redirect to /auth/google/callback?code=...
  */
 export async function completeGoogleStudioSignIn(code, state) {
+  if (USE_WORKERS_AUTH) return (await workers()).completeGoogleStudioSignIn();
   const expectedState = sessionStorage.getItem(GOOGLE_STUDIO_AUTH_STATE_KEY);
 
   if (!expectedState || !state || expectedState !== state) {
@@ -239,6 +254,7 @@ export { isGoogleStudioAuthConfigured };
  * Create a photographers row for first-time OAuth / email users when missing.
  */
 export async function ensurePhotographerProfile(user) {
+  if (USE_WORKERS_AUTH) return (await workers()).ensurePhotographerProfile(user);
   if (!user?.id) return null;
 
   const existing = await getProfile(user.id);
@@ -271,7 +287,7 @@ export async function ensurePhotographerProfile(user) {
 
 export function readOAuthCallbackError() {
   if (typeof window === 'undefined') return null;
-
+  if (USE_WORKERS_AUTH) return workersReadOAuthCallbackError();
   const search = new URLSearchParams(window.location.search);
   const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
   const error =
@@ -294,6 +310,7 @@ export function readOAuthCallbackError() {
 
 export function clearOAuthCallbackParams() {
   if (typeof window === 'undefined') return;
+  if (USE_WORKERS_AUTH) return workersClearOAuthCallbackParams();
   const url = new URL(window.location.href);
   url.searchParams.delete('error');
   url.searchParams.delete('error_description');
@@ -307,6 +324,7 @@ export function clearOAuthCallbackParams() {
 /** Strip recovery tokens from the URL after a successful password change. */
 export function clearPasswordRecoveryParams() {
   if (typeof window === 'undefined') return;
+  if (USE_WORKERS_AUTH) return workersClearPasswordRecoveryParams();
   const url = new URL(window.location.href);
   url.searchParams.delete('mode');
   url.searchParams.delete('code');
@@ -320,6 +338,7 @@ export function clearPasswordRecoveryParams() {
  * Emails a password-reset link that returns to the auth page.
  */
 export async function sendPasswordReset(email) {
+  if (USE_WORKERS_AUTH) return (await workers()).sendPasswordReset(email);
   const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: authRedirectTo('/auth?mode=reset'),
   });
@@ -336,6 +355,7 @@ export async function sendPasswordReset(email) {
  * Sets a new password during the recovery session.
  */
 export async function updatePassword(password) {
+  if (USE_WORKERS_AUTH) return (await workers()).updatePassword(password);
   const { data, error } = await supabase.auth.updateUser({ password });
 
   if (error) {
@@ -351,6 +371,7 @@ export async function updatePassword(password) {
  * @returns {Promise<void>}
  */
 export async function signOut() {
+  if (USE_WORKERS_AUTH) return (await workers()).signOut();
   const { error } = await supabase.auth.signOut();
   
   if (error) {
@@ -374,6 +395,7 @@ function isSessionExpired(session) {
  * @returns {Promise<{ user: Object|null, session: Object|null }>}
  */
 export async function resolveAuthSession() {
+  if (USE_WORKERS_AUTH) return (await workers()).resolveAuthSession();
   const { data: { session }, error } = await supabase.auth.getSession();
 
   if (error) {
@@ -420,6 +442,7 @@ export function isAuthExpiredError(error) {
  * @returns {Promise<{ user: Object, session: Object }>}
  */
 export async function ensureAuthSession() {
+  if (USE_WORKERS_AUTH) return (await workers()).ensureAuthSession();
   const { user, session } = await resolveAuthSession();
   if (!user || !session) {
     const err = new Error('Your session has expired. Please sign in again.');
@@ -434,6 +457,7 @@ export async function ensureAuthSession() {
  * @returns {Promise<Object|null>} - Current session data.
  */
 export async function getSession() {
+  if (USE_WORKERS_AUTH) return (await workers()).getSession();
   const { session } = await resolveAuthSession();
   return session;
 }
@@ -443,6 +467,7 @@ export async function getSession() {
  * @returns {Promise<Object|null>} - Current user object.
  */
 export async function getUser() {
+  if (USE_WORKERS_AUTH) return (await workers()).getUser();
   const { data: { user }, error } = await supabase.auth.getUser();
   
   if (error) {
@@ -458,6 +483,7 @@ export async function getUser() {
  * @returns {Promise<Object|null>} - Photographer profile.
  */
 export async function getProfile(userId) {
+  if (USE_WORKERS_AUTH) return (await workers()).getProfile();
   const { data, error } = await supabase
     .from('photographers')
     .select('*')

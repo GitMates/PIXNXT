@@ -86,6 +86,28 @@ function toPinInsert(albumId, pin) {
 
 async function persistPinInsert(albumId, pin) {
     try {
+        const { USE_WORKERS_AUTH } = await import('../../lib/api/client');
+        if (USE_WORKERS_AUTH) {
+            const { apiFetch } = await import('../../lib/api/client');
+            await apiFetch(`/v1/proofer/albums/${albumId}/pins`, {
+                method: 'POST',
+                body: {
+                    pageNum: pin.pageNum ?? null,
+                    cellId: pin.cellId ?? 0,
+                    xPct: pin.xPct ?? null,
+                    yPct: pin.yPct ?? null,
+                    message: pin.message || '',
+                    label: pin.label || null,
+                    pinType: pin.type || 'comment',
+                    authorName: pin.authorName || null,
+                    authorEmail: pin.authorEmail || null,
+                    attachmentUrl: pin.attachment_url || null,
+                    attachmentName: pin.attachment_name || null,
+                    attachmentType: pin.attachment_type || null,
+                },
+            });
+            return;
+        }
         const payload = toPinInsert(albumId, pin);
         let { error } = await supabase
             .from('album_proofer_photo_pins')
@@ -107,8 +129,15 @@ async function persistPinInsert(albumId, pin) {
     }
 }
 
-async function persistPinDelete(pinId) {
+async function persistPinDelete(albumId, pinId) {
     try {
+        const { USE_WORKERS_AUTH } = await import('../../lib/api/client');
+        if (USE_WORKERS_AUTH) {
+            if (!albumId) return;
+            const { apiFetch } = await import('../../lib/api/client');
+            await apiFetch(`/v1/proofer/albums/${albumId}/pins/${pinId}`, { method: 'DELETE' });
+            return;
+        }
         const { error } = await supabase.from('album_proofer_photo_pins').delete().eq('id', pinId);
         if (error && !isMissingRelationError(error, 'album_proofer_photo_pins')) {
             console.warn('persistPinDelete:', error.message);
@@ -120,6 +149,22 @@ async function persistPinDelete(pinId) {
 
 async function persistPinUpdate(albumId, pin) {
     try {
+        const { USE_WORKERS_AUTH } = await import('../../lib/api/client');
+        if (USE_WORKERS_AUTH) {
+            const { apiFetch } = await import('../../lib/api/client');
+            await apiFetch(`/v1/proofer/albums/${albumId}/pins/${pin.id}`, {
+                method: 'PATCH',
+                body: {
+                    pageNum: pin.pageNum,
+                    cellId: pin.cellId ?? 0,
+                    xPct: pin.xPct,
+                    yPct: pin.yPct,
+                    message: pin.message || '',
+                    label: pin.label || null,
+                },
+            });
+            return;
+        }
         const updatePayload = {
             page_num: pin.pageNum,
             cell_id: pin.cellId ?? 0,
@@ -160,18 +205,27 @@ async function persistPinUpdate(albumId, pin) {
 export async function hydratePhotoPins(albumId) {
     if (!albumId) return [];
     try {
-        const { data, error } = await supabase
-            .from('album_proofer_photo_pins')
-            .select('*')
-            .eq('album_id', albumId)
-            .order('created_at', { ascending: true });
-        if (error) {
-            if (!isMissingRelationError(error, 'album_proofer_photo_pins')) {
-                console.warn('hydratePhotoPins:', error.message);
+        const { USE_WORKERS_AUTH } = await import('../../lib/api/client');
+        let rows = null;
+        if (USE_WORKERS_AUTH) {
+            const { apiFetch } = await import('../../lib/api/client');
+            const data = await apiFetch(`/v1/proofer/albums/${albumId}/pins`);
+            rows = data?.pins || [];
+        } else {
+            const { data, error } = await supabase
+                .from('album_proofer_photo_pins')
+                .select('*')
+                .eq('album_id', albumId)
+                .order('created_at', { ascending: true });
+            if (error) {
+                if (!isMissingRelationError(error, 'album_proofer_photo_pins')) {
+                    console.warn('hydratePhotoPins:', error.message);
+                }
+                return getPhotoPins(albumId);
             }
-            return getPhotoPins(albumId);
+            rows = data || [];
         }
-        const list = (data || []).map(mapPinRow);
+        const list = rows.map(mapPinRow);
         setAlbumPins(albumId, list);
         return list;
     } catch (err) {
@@ -441,7 +495,7 @@ export function shiftAlbumPhotoPins(albumId, insertAt, delta) {
     if (!changed) return;
 
     setAlbumPins(albumId, next);
-    removedIds.forEach((id) => void persistPinDelete(id));
+    removedIds.forEach((id) => void persistPinDelete(albumId, id));
     next.forEach((pin) => void persistPinUpdate(albumId, pin));
 }
 
@@ -451,7 +505,7 @@ export function removePhotoPin(albumId, pinId) {
     const next = list.filter((p) => p.id !== pinId);
     if (next.length === list.length) return;
     setAlbumPins(albumId, next);
-    void persistPinDelete(pinId);
+    void persistPinDelete(albumId, pinId);
 }
 
 export function updatePhotoPin(albumId, pinId, patch = {}) {

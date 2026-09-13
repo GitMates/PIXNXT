@@ -1,5 +1,7 @@
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase/client';
+import { USE_WORKERS_AUTH } from '../lib/api/client';
+import { getInviteHistory as workersGetInviteHistory, sendInvite as workersSendInvite } from './workersMobile.service';
 import { getClientFacingOrigin } from '../lib/publicSiteUrl';
 import { isLocalOrigin, resolveInstallOrigin } from '../lib/mobileGalleryInstall';
 
@@ -29,6 +31,9 @@ export const mobileGalleryShareService = {
     websiteLink = null,
     photographerProfile = null,
   }) {
+    if (USE_WORKERS_AUTH) {
+      return workersSendInvite({ appId, recipientEmail, subject, message, sendCopy, websiteLink, photographerProfile });
+    }
     const {
       data: { session },
       error: sessionError,
@@ -96,6 +101,7 @@ export const mobileGalleryShareService = {
   },
 
   async getInviteHistory(photographerId, appId) {
+    if (USE_WORKERS_AUTH) return workersGetInviteHistory(photographerId, appId);
     const { data, error } = await supabase
       .from('mobile_gallery_invites')
       .select('id, recipient_email, subject, status, created_at')

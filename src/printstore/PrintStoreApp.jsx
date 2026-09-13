@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase/client';
+import { USE_WORKERS_AUTH } from '../lib/api/client';
+import { getUser } from '../services/auth.service';
 import StoreHeader from './components/StoreHeader';
 import CoverHero from './components/CoverHero';
 import { AppLoader } from '../components/ui/AppLoading';
@@ -44,6 +46,435 @@ import paymentSuccessAnimation from '../assets/animations/payment-success.json';
 import './PrintStore.css';
 import { getStoreViewPhotoUrl, toStoreCartPhoto } from '../lib/storePhotoQuality';
 import { galleryService } from '../services/gallery.service';
+
+const DIGITAL_PRODUCT_TYPES = ['digital_download', 'digital_download_all', 'digital_package'];
+
+/** D1 returns JSON columns (options, shipping_address) as TEXT — Supabase returns objects. */
+const parseWorkersJson = (value, fallback) => {
+  if (value == null) return fallback;
+  if (typeof value !== 'string') return value;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed ?? fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+const normalizeWorkersProductRow = (p) => ({
+  ...p,
+  options: parseWorkersJson(p.options, {}),
+  is_visible: p.is_visible === true || p.is_visible === 1 || p.is_visible === '1',
+  base_price: Number(p.base_price ?? 0),
+});
+
+const normalizeWorkersOrderRow = (o) => ({
+  ...o,
+  shipping_address: parseWorkersJson(o.shipping_address, {}),
+  subtotal: Number(o.subtotal ?? 0),
+  total: Number(o.total ?? 0),
+  shipping_amount: Number(o.shipping_amount ?? 0),
+  tax_amount: Number(o.tax_amount ?? 0),
+  discount_amount: Number(o.discount_amount ?? 0),
+});
+
+/** Workers has no shopper order-list endpoint — remember this device's D1 order ids for TrackOrderPage. */
+const rememberWorkersOrderId = (id) => {
+  if (!id) return;
+  try {
+    const raw = localStorage.getItem('pixnxt_printstore_order_ids');
+    const parsed = raw ? JSON.parse(raw) : [];
+    const list = Array.isArray(parsed) ? parsed : [];
+    if (!list.includes(id)) {
+      list.push(id);
+      localStorage.setItem('pixnxt_printstore_order_ids', JSON.stringify(list.slice(-50)));
+    }
+  } catch {
+    // persistence is best-effort
+  }
+};
+
+/** Same cart-row content key the Supabase merge uses (product + photo + size). */
+const sameCartContent = (a, b) => (
+  a.productId === b.productId
+  && ((a.photo?.id ?? null) === (b.photo?.id ?? null))
+  && ((a.size?.label ?? a.size?.id ?? '') === (b.size?.label ?? b.size?.id ?? ''))
+);
+
+const buildWorkersCartOptions = (item) => ({
+  productId: item.productId,
+  productName: item.productName,
+  photo: item.photo || item.options?.photo || null,
+  photos: item.photos || item.options?.photos || [],
+  size: item.size || item.options?.size || null,
+  frame: item.frame || item.options?.frame || null,
+  paper: item.paper || item.options?.paper || null,
+  border: item.border || item.options?.border || 'none',
+  layout: item.layout || item.options?.layout || null,
+  rotation: item.rotation || item.options?.rotation || 0,
+  unitPrice: item.unitPrice,
+});
+
+/** Re-fetch the Workers cart and align local row ids with server row ids by
+ * content, so later update/remove calls hit the right server rows. */
+const reconcileWorkersCartIds = async ({ apiFetch, sessionId, setCartItems, mapRow }) => {
+  try {
+    const data = await apiFetch(`/v1/printstore/cart?sessionId=${encodeURIComponent(sessionId)}`, { auth: false });
+    const server = (data?.items || []).map((row) => mapRow({ ...row, options: parseWorkersJson(row.options, {}) }));
+    const used = new Set();
+    setCartItems((prev) => {
+      const updated = (prev || []).map((local) => {
+        const match = server.find((s) => !used.has(s.id) && sameCartContent(s, local));
+        if (match) {
+          used.add(match.id);
+          return local.id === match.id ? local : { ...local, id: match.id };
+        }
+        return local;
+      });
+      try {
+        localStorage.setItem('pixnxt_printstore_cart', JSON.stringify(updated));
+      } catch {
+        // persistence is best-effort
+      }
+      return updated;
+    });
+  } catch {
+    // id reconciliation is best-effort
+  }
+};
+
+/**
+ * Workers order placement: POST /v1/printstore/orders then the same receipt /
+ * activity / email tail as the Supabase path. The server computes and stores
+ * subtotal-as-total (no shipping/tax columns in D1); the receipt below keeps
+ * the client-computed breakdown so the UI matches the Supabase flow.
+ */
+const handlePlaceOrderWorkers = async ({
+  shippingDetails,
+  cartItems,
+  photographerId,
+  sessionId,
+  collectionId,
+  setSessionId,
+  setCompletedOrder,
+  setSavedShippingAddress,
+  setHasPlacedOrder,
+  setCheckoutState,
+}) => {
+  const subtotal = cartItems.reduce((acc, item) => acc + item.unitPrice * item.quantity, 0);
+  const allDigital = cartItems.length > 0 && cartItems.every(i => DIGITAL_PRODUCT_TYPES.includes(i.productId));
+  const shipping = allDigital ? 0 : (subtotal > 100 ? 0 : 9.99);
+  const tax = allDigital ? 0 : subtotal * 0.08;
+  const total = subtotal + shipping + tax;
+
+  const { apiFetch } = await import('../lib/api/client');
+
+  // POST /v1/printstore/orders requires sessionId — resolve one from the
+  // shopper's email when the slug bootstrap hasn't produced one yet.
+  let activeSessionId = sessionId;
+  if (!activeSessionId && collectionId && shippingDetails.email) {
+    try {
+      const session = await galleryService.createOrGetSession(collectionId, String(shippingDetails.email).trim().toLowerCase());
+      if (session?.id) {
+        activeSessionId = session.id;
+        setSessionId(session.id);
+      }
+    } catch {
+      // fall through to the error below
+    }
+  }
+  if (!activeSessionId) {
+    throw new Error('Could not resolve a shopping session. Please reload the store and try again.');
+  }
+
+  const data = await apiFetch('/v1/printstore/orders', {
+    method: 'POST',
+    auth: false,
+    body: {
+      sessionId: activeSessionId,
+      photographerId,
+      collectionId: collectionId || null,
+      customerName: shippingDetails.name,
+      customerEmail: shippingDetails.email,
+      shippingAddress: {
+        address: shippingDetails.address,
+        city: shippingDetails.city,
+        zip: shippingDetails.zip,
+        phone: shippingDetails.phone || '',
+        country: 'India'
+      },
+      items: cartItems.map(item => ({
+        productId: item.product_db_id || item.productId,
+        productName: item.productName || item.productId,
+        productType: item.productId,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        options: {
+          size: item.size,
+          frame: item.frame,
+          paper: item.paper,
+          border: item.border,
+          layout: item.layout,
+          photos: item.photos,
+          photo: item.photo,
+          rotation: item.rotation,
+          ...(item.options || {}),
+        }
+      })),
+      paymentIntentId: 'mock_pi_' + Math.random().toString(36).substr(2, 9),
+      paymentProvider: 'stripe',
+    },
+  });
+  const orderId = data?.order?.id;
+  if (!orderId) throw new Error('Order could not be placed. Please try again.');
+  rememberWorkersOrderId(orderId);
+
+  // Log digital downloads into collection Download Activity (galleryService is flag-aware).
+  try {
+    const digitalItems = cartItems.filter((i) => DIGITAL_PRODUCT_TYPES.includes(i.productId));
+    for (const item of digitalItems) {
+      const photo = item.photo || item.options?.photo || null;
+      const isAll = item.productId === 'digital_download_all';
+      const isPackage = item.productId === 'digital_package';
+      await galleryService.logActivity(collectionId, 'download', {
+        email: shippingDetails.email,
+        photographerId,
+        photoId: photo?.id || null,
+        resolution: 'original',
+        metadata: {
+          type: isAll || isPackage ? 'gallery' : 'photo',
+          resolution: 'Original',
+          quality: 'Original',
+          source: 'Digital Purchase',
+          destination: 'email',
+          photoCount: isPackage
+            ? Number(item.options?.photo_count || item.size?.label?.match(/\d+/)?.[0] || item.quantity || 1)
+            : isAll
+              ? null
+              : 1,
+          filename: photo?.filename || photo?.name || null,
+          setName: isAll ? 'All Photos' : isPackage ? 'Photo Package' : 'Digital Download',
+          orderId,
+        },
+      });
+    }
+    try {
+      const channel = new BroadcastChannel('pixnxt-gallery-update');
+      channel.postMessage({ type: 'ACTIVITY_UPDATED', collectionId });
+      channel.close();
+    } catch {
+      // broadcast is best-effort
+    }
+  } catch (logErr) {
+    console.warn('Failed to log digital download activity:', logErr);
+  }
+
+  // Keep cartItems in React state until payment success UI finishes (same as Supabase path).
+
+  const completedOrderData = {
+    id: orderId,
+    customer_name: shippingDetails.name,
+    customer_email: shippingDetails.email,
+    shipping_address: {
+      address: shippingDetails.address,
+      city: shippingDetails.city,
+      zip: shippingDetails.zip,
+      phone: shippingDetails.phone || '',
+      country: 'India'
+    },
+    shipping_amount: shipping,
+    tax_amount: tax,
+    subtotal: subtotal,
+    total: total,
+    created_at: new Date().toISOString(),
+    items: cartItems.map(item => ({
+      productId: item.productId,
+      product_type: item.productId,
+      productName: item.productName,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      size: item.size,
+      frame: item.frame,
+      paper: item.paper,
+      border: item.border,
+      layout: item.layout,
+      photo: item.photo
+    }))
+  };
+  setCompletedOrder(completedOrderData);
+  // Update local shipping address state so it persists
+  setSavedShippingAddress({
+    recipientName: shippingDetails.name,
+    accountName: shippingDetails.name,
+    email: shippingDetails.email,
+    street: shippingDetails.address,
+    city: shippingDetails.city,
+    zipCode: shippingDetails.zip,
+    country: 'India',
+    phoneNumber: shippingDetails.phone || '',
+    phone: shippingDetails.phone || '',
+    sameBilling: true
+  });
+
+  // Trigger order placed email (queued server-side via /v1/emails/order-placed).
+  try {
+    const urlParams = new URLSearchParams(window.location.search);
+    const slugVal = urlParams.get('slug') || urlParams.get('collection') || '';
+    await apiFetch('/v1/emails/order-placed', {
+      method: 'POST',
+      auth: false,
+      body: {
+        orderId,
+        recipientEmail: shippingDetails.email,
+        collectionSlug: slugVal || undefined,
+      },
+    });
+  } catch (emailErr) {
+    console.error("Error sending order confirmation email:", emailErr);
+  }
+
+  setHasPlacedOrder(true);
+  setCheckoutState('completed');
+};
+
+/**
+ * Workers storefront bootstrap (collection + photos + visitor session +
+ * photographer branding) via the flag-aware galleryService. Throws on
+ * transport errors so the caller can fall back to Supabase.
+ */
+const loadPhotographerWorkers = async ({
+  searchParams,
+  setCollection,
+  setCollectionId,
+  setCollectionPhotos,
+  setGallerySelectedPhoto,
+  setActiveTab,
+  setSessionId,
+  setPhotographer,
+}) => {
+  let resolvedSessionId = '';
+
+  const slug = searchParams.get('slug') || searchParams.get('collection');
+  const photoIdParam = searchParams.get('photo');
+  const orderIdParam = searchParams.get('orderId');
+  let hasCartItems = false;
+  try {
+    const items = JSON.parse(localStorage.getItem('pixnxt_printstore_cart') || '[]');
+    hasCartItems = items.length > 0;
+  } catch {
+    // treat as empty cart
+  }
+
+  if (!slug || (!photoIdParam && !orderIdParam && !searchParams.get('cart') && !hasCartItems)) {
+    if (slug) {
+      window.location.assign(`/gallery/${slug}`);
+    } else {
+      window.location.assign('/');
+    }
+    return '';
+  }
+
+  let id = '';
+  let display_name = '';
+  let email = '';
+
+  const collection = await galleryService.getCollectionBySlug(slug);
+  if (collection?.id) {
+    setCollection(collection);
+    setCollectionId(collection.id);
+
+    const photosData = Array.isArray(collection.photos) ? collection.photos : [];
+    if (photosData.length > 0) {
+      const mappedPhotos = photosData.map(p => toStoreCartPhoto({
+        id: p.id,
+        name: p.filename || `Photo`,
+        filename: p.filename || '',
+        url: p.web_url || p.thumbnail_url || '',
+        web_url: p.web_url || p.thumbnail_url || '',
+        thumbnail_url: p.thumbnail_url || p.web_url || '',
+        full_url: p.full_url || p.web_url || p.thumbnail_url || '',
+        display_url: p.web_url || p.thumbnail_url || '',
+        aspectRatio: p.width && p.height ? (p.width > p.height ? '3:2' : '2:3') : '2:3'
+      }));
+      setCollectionPhotos(mappedPhotos);
+
+      let matchedPhoto = null;
+      if (photoIdParam) {
+        matchedPhoto = mappedPhotos.find(p => String(p.id) === String(photoIdParam));
+      }
+      if (!matchedPhoto && mappedPhotos.length > 0) {
+        matchedPhoto = mappedPhotos[0];
+      }
+      if (matchedPhoto) {
+        setGallerySelectedPhoto(matchedPhoto);
+        setActiveTab('shop');
+      }
+    }
+
+    // POST /v1/engage/sessions is get-or-create — matches the Supabase lookup when a row exists.
+    const visitorEmail = localStorage.getItem(`pixnxt_fav_email_${collection.id}`);
+    if (visitorEmail) {
+      try {
+        const session = await galleryService.createOrGetSession(collection.id, visitorEmail);
+        if (session?.id) {
+          setSessionId(session.id);
+          resolvedSessionId = session.id;
+        }
+      } catch {
+        // stay anonymous — cart still works locally
+      }
+    }
+
+    if (collection.photographer_id) {
+      try {
+        const profile = await galleryService.getPhotographerProfile(collection.photographer_id);
+        if (profile?.display_name) {
+          id = profile.id;
+          display_name = profile.display_name;
+          email = profile.email || profile.contact_email || 'kbaskaran@example.com';
+        }
+      } catch {
+        // branding stays empty
+      }
+    }
+  }
+
+  if (!display_name) {
+    const user = await getUser().catch(() => null);
+    if (user) {
+      try {
+        const profile = await galleryService.getPhotographerProfile(user.id);
+        if (profile?.display_name) {
+          id = profile.id;
+          display_name = profile.display_name;
+          email = profile.email || profile.contact_email || user.email || 'kbaskaran@example.com';
+        }
+      } catch {
+        // branding stays empty
+      }
+    }
+  }
+
+  // NOTE: the Supabase path also resolves via a raw sessionId lookup — Workers
+  // has no shopper session-read endpoint, so that step is Supabase-only.
+
+  if (display_name) {
+    const profileData = {
+      id,
+      display_name,
+      email: email || 'kbaskaran@example.com'
+    };
+    setPhotographer(profileData);
+    const cacheSlug = searchParams.get('slug') || searchParams.get('collection') || 'default';
+    try {
+      localStorage.setItem(`pixnxt_printstore_photographer_${cacheSlug}`, JSON.stringify(profileData));
+    } catch {
+      // cache is best-effort
+    }
+  }
+
+  return resolvedSessionId;
+};
 
 export default function PrintStoreApp() {
   const [searchParams] = useSearchParams();
@@ -220,6 +651,32 @@ export default function PrintStoreApp() {
     if (orderId) {
       const loadOrderFromParams = async () => {
         try {
+          if (USE_WORKERS_AUTH && sessionId) {
+            const { apiFetch } = await import('../lib/api/client');
+            const data = await apiFetch(`/v1/printstore/orders/${encodeURIComponent(orderId)}?sessionId=${encodeURIComponent(sessionId)}`, { auth: false });
+            if (!data?.order) throw new Error('Order not found');
+            const order = normalizeWorkersOrderRow(data.order);
+            const items = (data.items || []).map((row) => ({ ...row, options: parseWorkersJson(row.options, {}) }));
+            rememberWorkersOrderId(order.id);
+            setCompletedOrder({
+              ...order,
+              items: items.map(item => ({
+                productName: item.product_name,
+                quantity: item.quantity,
+                unitPrice: item.unit_price,
+                productId: item.product_type,
+                product_type: item.product_type,
+                size: item.options?.size,
+                frame: item.options?.frame,
+                paper: item.options?.paper,
+                border: item.options?.border,
+                layout: item.options?.layout,
+                photo: item.options?.photo
+              }))
+            });
+            setCheckoutState('completed');
+            return;
+          }
           const { data: order, error } = await supabase
             .from('printstore_orders')
             .select('*')
@@ -256,7 +713,7 @@ export default function PrintStoreApp() {
       };
       loadOrderFromParams();
     }
-  }, [searchParams]);
+  }, [searchParams, sessionId]);
 
   useEffect(() => {
     fetchNotifCount();
@@ -372,6 +829,22 @@ export default function PrintStoreApp() {
   // Refs for scroll-spy sections
   const loadPhotographer = async () => {
     try {
+      if (USE_WORKERS_AUTH) {
+        try {
+          return await loadPhotographerWorkers({
+            searchParams,
+            setCollection,
+            setCollectionId,
+            setCollectionPhotos,
+            setGallerySelectedPhoto,
+            setActiveTab,
+            setSessionId,
+            setPhotographer,
+          });
+        } catch (workersErr) {
+          console.warn('Workers storefront lookup failed, falling back to Supabase:', workersErr);
+        }
+      }
       let id = '';
       let display_name = '';
       let email = '';
@@ -655,6 +1128,18 @@ export default function PrintStoreApp() {
 
   const loadProducts = async () => {
     try {
+      if (USE_WORKERS_AUTH) {
+        // Workers owns the catalog — read-only public list, no client-side seeding.
+        const { apiFetch } = await import('../lib/api/client');
+        const data = await apiFetch('/v1/printstore/products', { auth: false });
+        const rows = (data?.products || []).map(normalizeWorkersProductRow);
+        // Digital downloads are sold via gallery, not Print Lab shop (same filter as Supabase path).
+        const visibleProducts = rows
+          .filter((p) => p.is_visible && !['digital_download', 'digital_download_all'].includes(p.product_type))
+          .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+        setProducts(visibleProducts.map(mapProductRow));
+        return;
+      }
       // Fetch all products currently in the database (visible or hidden)
       let { data, error } = await supabase
         .from('printstore_products')
@@ -766,6 +1251,7 @@ export default function PrintStoreApp() {
   // ── Supabase Realtime: Products ──
   // Listen for changes to printstore_products and re-fetch visible products live
   useEffect(() => {
+    if (USE_WORKERS_AUTH) return; // Workers has no printstore realtime channel; catalog refreshes on load.
     const channel = supabase
       .channel('printstore-products-realtime')
       .on(
@@ -803,6 +1289,7 @@ export default function PrintStoreApp() {
 
   // ── Supabase Realtime: Cart Items ──
   useEffect(() => {
+    if (USE_WORKERS_AUTH) return; // Workers cart syncs via the cart API + id reconciliation instead.
     if (!sessionId) return;
 
     const channel = supabase
@@ -892,6 +1379,114 @@ export default function PrintStoreApp() {
 
   const loadCart = async (activeSessionId) => {
     try {
+      if (USE_WORKERS_AUTH) {
+        // Workers cart is session-scoped (no Supabase user_id branch).
+        const { apiFetch } = await import('../lib/api/client');
+        const mapWorkersCartRows = (rows) => (rows || []).map((row) => mapCartItemRow({ ...row, options: parseWorkersJson(row.options, {}) }));
+        const persistWorkersCart = (items) => {
+          try {
+            localStorage.setItem('pixnxt_printstore_cart', JSON.stringify(items));
+          } catch {
+            // persistence is best-effort
+          }
+        };
+        const currentSessionId = activeSessionId || sessionId;
+
+        let localItems = [];
+        try {
+          localItems = (JSON.parse(localStorage.getItem('pixnxt_printstore_cart') || '[]') || [])
+            .map(normalizeLocalCartItem)
+            .filter(Boolean);
+        } catch {
+          localItems = [];
+        }
+
+        if (currentSessionId) {
+          let serverItems = [];
+          try {
+            const data = await apiFetch(`/v1/printstore/cart?sessionId=${encodeURIComponent(currentSessionId)}`, { auth: false });
+            serverItems = mapWorkersCartRows(data?.items);
+          } catch (cartErr) {
+            console.warn('Workers cart fetch failed, using local cart:', cartErr);
+          }
+
+          // Push local-only items to the server (best effort). Workers dedupes
+          // physical rows per product, so the local cart stays the UI source of truth.
+          const missingLocals = localItems.filter((local) => !serverItems.some((s) => sameCartContent(s, local)));
+          if (missingLocals.length > 0) {
+            let catalog = [];
+            try {
+              const data = await apiFetch('/v1/printstore/products', { auth: false });
+              catalog = (data?.products || []).map(normalizeWorkersProductRow).map(mapProductRow);
+            } catch {
+              catalog = [];
+            }
+            for (const local of missingLocals) {
+              try {
+                const matched = catalog.find((p) => p.id === local.productId);
+                if (DIGITAL_PRODUCT_TYPES.includes(local.productId)) {
+                  await apiFetch('/v1/printstore/cart/sync-digital', {
+                    method: 'POST',
+                    auth: false,
+                    body: {
+                      sessionId: currentSessionId,
+                      productType: local.productId,
+                      name: local.productName || local.productId,
+                      unitPrice: local.unitPrice || 0,
+                      options: buildWorkersCartOptions(local),
+                    },
+                  });
+                } else if (matched?.db_id) {
+                  await apiFetch('/v1/printstore/cart', {
+                    method: 'POST',
+                    auth: false,
+                    body: {
+                      sessionId: currentSessionId,
+                      productId: matched.db_id,
+                      quantity: local.quantity || 1,
+                      options: buildWorkersCartOptions(local),
+                    },
+                  });
+                }
+              } catch {
+                // keep the item local-only
+              }
+            }
+            try {
+              const data = await apiFetch(`/v1/printstore/cart?sessionId=${encodeURIComponent(currentSessionId)}`, { auth: false });
+              serverItems = mapWorkersCartRows(data?.items);
+            } catch {
+              // keep the earlier snapshot
+            }
+          }
+
+          const merged = [...serverItems];
+          for (const local of localItems) {
+            if (!merged.some((s) => sameCartContent(s, local))) merged.push(local);
+          }
+          // Reconcile local ids with server ids by content so later
+          // update/remove calls hit the right server rows.
+          const usedServerIds = new Set();
+          const reconciled = merged.map((local) => {
+            const match = serverItems.find((s) => !usedServerIds.has(s.id) && sameCartContent(s, local));
+            if (match) {
+              usedServerIds.add(match.id);
+              return { ...local, id: match.id };
+            }
+            return local;
+          });
+          setCartItems(reconciled);
+          persistWorkersCart(reconciled);
+          return;
+        }
+
+        // No session yet, just use local items
+        setCartItems(localItems);
+        if (localItems.length > 0) {
+          persistWorkersCart(localItems);
+        }
+        return;
+      }
       const currentSessionId = activeSessionId || sessionId;
       let userId = null;
 
@@ -1287,6 +1882,43 @@ export default function PrintStoreApp() {
       openCart();
     }
 
+    if (USE_WORKERS_AUTH) {
+      // Sync to Workers in the background (optimistic local state above is untouched).
+      // Workers has no PATCH-cart endpoint: edits replace the server row via DELETE + POST.
+      try {
+        const { apiFetch } = await import('../lib/api/client');
+        if (sessionId) {
+          if (editingCartItemId && typeof editingCartItemId === 'string' && editingCartItemId.indexOf('local_') !== 0) {
+            await apiFetch(`/v1/printstore/cart/${encodeURIComponent(editingCartItemId)}?sessionId=${encodeURIComponent(sessionId)}`, { method: 'DELETE', auth: false }).catch(() => null);
+          }
+          const options = buildWorkersCartOptions(newItem);
+          if (DIGITAL_PRODUCT_TYPES.includes(newItem.productId)) {
+            await apiFetch('/v1/printstore/cart/sync-digital', {
+              method: 'POST',
+              auth: false,
+              body: {
+                sessionId,
+                productType: newItem.productId,
+                name: newItem.productName || newItem.productId,
+                unitPrice: newItem.unitPrice || 0,
+                options,
+              },
+            }).catch(() => null);
+          } else if (productDbId) {
+            await apiFetch('/v1/printstore/cart', {
+              method: 'POST',
+              auth: false,
+              body: { sessionId, productId: productDbId, quantity: newItem.quantity || 1, options },
+            }).catch(() => null);
+          }
+          await reconcileWorkersCartIds({ apiFetch, sessionId, setCartItems, mapRow: mapCartItemRow });
+        }
+      } catch (err) {
+        console.error('Error syncing cart item to Workers:', err);
+      }
+      return;
+    }
+
     // Sync to Supabase in the background
     let userId = null;
     if (!sessionId) {
@@ -1462,7 +2094,39 @@ export default function PrintStoreApp() {
   };
 
   const handleUpdateCartQuantity = async (itemId, newQty) => {
-    if (typeof itemId === 'string' && !itemId.startsWith('local_')) {
+    if (USE_WORKERS_AUTH) {
+      // Workers has no PATCH-cart endpoint — replace the row (DELETE + POST).
+      if (typeof itemId === 'string' && itemId.indexOf('local_') !== 0 && sessionId) {
+        try {
+          const { apiFetch } = await import('../lib/api/client');
+          const target = (cartItems || []).find((i) => i.id === itemId);
+          await apiFetch(`/v1/printstore/cart/${encodeURIComponent(itemId)}?sessionId=${encodeURIComponent(sessionId)}`, { method: 'DELETE', auth: false }).catch(() => null);
+          if (target?.product_db_id) {
+            await apiFetch('/v1/printstore/cart', {
+              method: 'POST',
+              auth: false,
+              body: { sessionId, productId: target.product_db_id, quantity: newQty, options: target.options || buildWorkersCartOptions(target) },
+            }).catch(() => null);
+          } else if (target && DIGITAL_PRODUCT_TYPES.includes(target.productId)) {
+            // sync-digital always stores quantity 1 — local state keeps newQty until reload.
+            await apiFetch('/v1/printstore/cart/sync-digital', {
+              method: 'POST',
+              auth: false,
+              body: {
+                sessionId,
+                productType: target.productId,
+                name: target.productName || target.productId,
+                unitPrice: target.unitPrice || 0,
+                options: target.options || buildWorkersCartOptions(target),
+              },
+            }).catch(() => null);
+          }
+          await reconcileWorkersCartIds({ apiFetch, sessionId, setCartItems, mapRow: mapCartItemRow });
+        } catch (err) {
+          console.error("Error updating cart quantity via Workers:", err);
+        }
+      }
+    } else if (typeof itemId === 'string' && !itemId.startsWith('local_')) {
       try {
         await supabase
           .from('printstore_cart_items')
@@ -1485,7 +2149,16 @@ export default function PrintStoreApp() {
   };
 
   const handleRemoveCartItem = async (itemId) => {
-    if (typeof itemId === 'string' && !itemId.startsWith('local_')) {
+    if (USE_WORKERS_AUTH) {
+      if (typeof itemId === 'string' && itemId.indexOf('local_') !== 0 && sessionId) {
+        try {
+          const { apiFetch } = await import('../lib/api/client');
+          await apiFetch(`/v1/printstore/cart/${encodeURIComponent(itemId)}?sessionId=${encodeURIComponent(sessionId)}`, { method: 'DELETE', auth: false });
+        } catch (err) {
+          console.error("Error removing cart item via Workers:", err);
+        }
+      }
+    } else if (typeof itemId === 'string' && !itemId.startsWith('local_')) {
       try {
         await supabase
           .from('printstore_cart_items')
@@ -1539,6 +2212,22 @@ export default function PrintStoreApp() {
       const photographerId = photographer?.id;
       if (!photographerId) {
         throw new Error("No photographer ID resolved. Order cannot be placed.");
+      }
+
+      if (USE_WORKERS_AUTH) {
+        await handlePlaceOrderWorkers({
+          shippingDetails,
+          cartItems,
+          photographerId,
+          sessionId,
+          collectionId,
+          setSessionId,
+          setCompletedOrder,
+          setSavedShippingAddress,
+          setHasPlacedOrder,
+          setCheckoutState,
+        });
+        return;
       }
 
       const { data: order, error: orderError } = await supabase
@@ -1856,14 +2545,15 @@ export default function PrintStoreApp() {
             shippingAddress={savedShippingAddress}
             onPaymentSuccess={async () => {
               try {
+                // Workers clears the server cart at order creation — local cleanup only.
                 let userId = null;
-                if (!sessionId) {
+                if (!USE_WORKERS_AUTH && !sessionId) {
                   try {
                     const { data } = await supabase.auth.getUser();
                     if (data?.user) userId = data.user.id;
                   } catch (_) { /* ignore */ }
                 }
-                if (userId || sessionId) {
+                if (!USE_WORKERS_AUTH && (userId || sessionId)) {
                   const query = supabase.from('printstore_cart_items').delete();
                   if (userId) await query.eq('user_id', userId);
                   else await query.eq('session_id', sessionId);

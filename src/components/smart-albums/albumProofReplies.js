@@ -95,6 +95,20 @@ export function addProofReply(albumId, parentKey, { body, authorName, authorType
 
     void (async () => {
         try {
+            const { USE_WORKERS_AUTH } = await import('../../lib/api/client');
+            if (USE_WORKERS_AUTH) {
+                const { apiFetch } = await import('../../lib/api/client');
+                await apiFetch(`/v1/proofer/albums/${albumId}/replies`, {
+                    method: 'POST',
+                    body: {
+                        parentKey: parentKey,
+                        body: reply.body,
+                        authorName: reply.authorName,
+                        authorType: type,
+                    },
+                });
+                return;
+            }
             const { error } = await supabase.from('album_proofer_proof_replies').insert({
                 id: reply.id,
                 album_id: albumId,

@@ -173,26 +173,46 @@ function guestNeedsReview(guest, eventStatus) {
   return false;
 }
 
-async function listPrintLabNotifications(photographerId) {
-  const { data: collections, error } = await supabase
-    .from('deliveries')
-    .select('id, name')
-    .eq('photographer_id', photographerId);
+async function studioOverview() {
+  const { USE_WORKERS_AUTH } = await import('../lib/api/client');
+  if (!USE_WORKERS_AUTH) return null;
+  const { apiFetch } = await import('../lib/api/client');
+  return apiFetch('/v1/engage/studio-overview').catch(() => null);
+}
 
-  if (error) throw error;
+async function listPrintLabNotifications(photographerId) {
+  const overview = await studioOverview();
+  let collections;
+  if (overview) {
+    collections = overview.deliveries || [];
+  } else {
+    const { data, error } = await supabase
+      .from('deliveries')
+      .select('id, name')
+      .eq('photographer_id', photographerId);
+
+    if (error) throw error;
+    collections = data;
+  }
   if (!collections?.length) return [];
 
   const collectionIds = collections.map((c) => c.id);
   const nameById = Object.fromEntries(collections.map((c) => [c.id, c.name || 'Delivery']));
 
-  const { data: orders, error: ordersErr } = await supabase
-    .from('printstore_orders')
-    .select('id, collection_id, customer_email, customer_name, created_at, status, total_amount, total')
-    .in('collection_id', collectionIds)
-    .order('created_at', { ascending: false })
-    .limit(40);
+  let orders;
+  if (overview) {
+    orders = (overview.printOrders || []).filter((o) => collectionIds.includes(o.collection_id));
+  } else {
+    const { data, error: ordersErr } = await supabase
+      .from('printstore_orders')
+      .select('id, collection_id, customer_email, customer_name, created_at, status, total_amount, total')
+      .in('collection_id', collectionIds)
+      .order('created_at', { ascending: false })
+      .limit(40);
 
-  if (ordersErr) throw ordersErr;
+    if (ordersErr) throw ordersErr;
+    orders = data;
+  }
 
   const threeDaysAgo = Date.now() - 3 * 86400000;
   const items = [];
@@ -255,29 +275,42 @@ async function listPrintLabNotifications(photographerId) {
 }
 
 async function listGuestDeliveryNotifications(photographerId) {
-  const { data: events, error } = await supabase
-    .from('guest_delivery_events')
-    .select('id, name, status, published_at, updated_at')
-    .eq('photographer_id', photographerId)
-    .eq('status', 'published');
+  const overview = await studioOverview();
+  let events;
+  if (overview) {
+    events = (overview.guestEvents || []).filter((e) => e.status === 'published');
+  } else {
+    const { data, error } = await supabase
+      .from('guest_delivery_events')
+      .select('id, name, status, published_at, updated_at')
+      .eq('photographer_id', photographerId)
+      .eq('status', 'published');
 
-  if (error) throw error;
+    if (error) throw error;
+    events = data;
+  }
   if (!events?.length) return [];
 
   const eventIds = events.map((e) => e.id);
   const eventById = Object.fromEntries(events.map((e) => [e.id, e]));
 
-  const { data: guests, error: guestsErr } = await supabase
-    .from('event_guests')
-    .select(
-      'id, event_id, name, email, delivery_status, matched_photo_count, selfie_url, registered_at, updated_at',
-    )
-    .eq('photographer_id', photographerId)
-    .in('event_id', eventIds)
-    .order('updated_at', { ascending: false })
-    .limit(50);
+  let guests;
+  if (overview) {
+    guests = (overview.guests || []).filter((g) => eventIds.includes(g.event_id)).slice(0, 50);
+  } else {
+    const { data, error: guestsErr } = await supabase
+      .from('event_guests')
+      .select(
+        'id, event_id, name, email, delivery_status, matched_photo_count, selfie_url, registered_at, updated_at',
+      )
+      .eq('photographer_id', photographerId)
+      .in('event_id', eventIds)
+      .order('updated_at', { ascending: false })
+      .limit(50);
 
-  if (guestsErr) throw guestsErr;
+    if (guestsErr) throw guestsErr;
+    guests = data;
+  }
 
   const items = [];
 

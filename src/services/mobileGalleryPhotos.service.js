@@ -1,4 +1,6 @@
 import { supabase } from '../lib/supabase/client';
+import { USE_WORKERS_AUTH } from '../lib/api/client';
+import { deletePhoto as workersDeletePhoto, getPhotos as workersGetPhotos, updatePhotoOrder as workersUpdatePhotoOrder, uploadPhoto as workersUploadPhoto } from './workersMobile.service';
 import { storageService } from './storage.service';
 import { getFileMime } from '../lib/fileMime';
 import { getImageDimensionsFast } from '../lib/imageDimensions';
@@ -42,6 +44,7 @@ export function validateMobileGalleryJpeg(file) {
 
 export const mobileGalleryPhotosService = {
   async getPhotos(photographerId, appId) {
+    if (USE_WORKERS_AUTH) return workersGetPhotos(photographerId, appId);
     const { data, error } = await supabase
       .from('mobile_gallery_photos')
       .select(PHOTO_FIELDS)
@@ -67,6 +70,9 @@ export const mobileGalleryPhotosService = {
       throw new Error(validationError);
     }
 
+    if (USE_WORKERS_AUTH) {
+      return workersUploadPhoto({ photographerId, appId, appName, file, position, onProgress });
+    }
 
     const fileExt = (file.name.split('.').pop() || 'jpg').toLowerCase();
     const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
@@ -119,6 +125,7 @@ export const mobileGalleryPhotosService = {
   },
 
   async deletePhoto(photographerId, appId, photoId, storagePath) {
+    if (USE_WORKERS_AUTH) return workersDeletePhoto(photographerId, appId, photoId);
     const { error } = await supabase
       .from('mobile_gallery_photos')
       .delete()
@@ -147,6 +154,7 @@ export const mobileGalleryPhotosService = {
   },
 
   async updatePhotoOrder(photographerId, appId, orderedPhotoIds) {
+    if (USE_WORKERS_AUTH) return workersUpdatePhotoOrder(photographerId, appId, orderedPhotoIds);
     const updates = orderedPhotoIds.map((id, index) => ({ id, position: index }));
 
     for (const { id, position } of updates) {

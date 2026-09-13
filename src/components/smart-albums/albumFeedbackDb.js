@@ -118,9 +118,16 @@ export async function resolveCommentAttachmentForDb(
 export async function resolvePhotographerViewerKey(explicitKey) {
     if (explicitKey && explicitKey !== 'default') return explicitKey;
     try {
-        const { data } = await supabase.auth.getSession();
-        const userId = data?.session?.user?.id;
-        if (userId) return userId;
+        const { USE_WORKERS_AUTH } = await import('../../lib/api/client');
+        if (USE_WORKERS_AUTH) {
+            const { getUser } = await import('../../services/auth.service');
+            const user = await getUser().catch(() => null);
+            if (user?.id) return user.id;
+        } else {
+            const { data } = await supabase.auth.getSession();
+            const userId = data?.session?.user?.id;
+            if (userId) return userId;
+        }
     } catch {
         /* ignore */
     }
@@ -165,6 +172,24 @@ function mergeSeenMaps(primary, fallback) {
 
 async function fetchFeedbackSeenMap(albumId, viewerRole, viewerKey) {
     const empty = {};
+    const { USE_WORKERS_AUTH } = await import('../../lib/api/client');
+    if (USE_WORKERS_AUTH) {
+        try {
+            const { apiFetch } = await import('../../lib/api/client');
+            const data = await apiFetch(
+                `/v1/proofer/albums/${albumId}/seen?role=${encodeURIComponent(viewerRole)}&key=${encodeURIComponent(viewerKey || 'default')}`
+            );
+            const map = {};
+            for (const row of data?.seen || []) {
+                if (!map[row.item_kind]) map[row.item_kind] = {};
+                map[row.item_kind][row.item_id] = row.seen_at;
+            }
+            return map;
+        } catch (err) {
+            console.warn('loadFeedbackSeenMap:', err?.message || err);
+            return empty;
+        }
+    }
     const { data, error } = await supabase
         .from('album_proofer_feedback_seen')
         .select('item_kind, item_id, seen_at')
@@ -188,6 +213,27 @@ async function fetchFeedbackSeenMap(albumId, viewerRole, viewerKey) {
 export async function upsertFeedbackSeenRows(rows) {
     if (!rows?.length) return { ok: false, error: null };
     try {
+        const { USE_WORKERS_AUTH } = await import('../../lib/api/client');
+        if (USE_WORKERS_AUTH) {
+            const { apiFetch } = await import('../../lib/api/client');
+            const byAlbum = new Map();
+            for (const row of rows) {
+                if (!byAlbum.has(row.album_id)) byAlbum.set(row.album_id, []);
+                byAlbum.get(row.album_id).push(row);
+            }
+            for (const [albumId, group] of byAlbum) {
+                const first = group[0];
+                await apiFetch(`/v1/proofer/albums/${albumId}/seen`, {
+                    method: 'POST',
+                    body: {
+                        viewerRole: first.viewer_role,
+                        viewerKey: first.viewer_key,
+                        items: group.map((r) => ({ kind: r.item_kind, id: String(r.item_id) })),
+                    },
+                });
+            }
+            return { ok: true, error: null };
+        }
         const { error } = await supabase.from('album_proofer_feedback_seen').upsert(rows, {
             onConflict: 'album_id,viewer_role,viewer_key,item_kind,item_id',
         });

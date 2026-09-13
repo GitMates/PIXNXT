@@ -86,6 +86,13 @@ function activityAt(item) {
 async function countUnopenedDeliveries(publishedIds) {
   if (!publishedIds.length) return 0;
   try {
+    const { USE_WORKERS_AUTH } = await import('../lib/api/client');
+    if (USE_WORKERS_AUTH) {
+      const { apiFetch } = await import('../lib/api/client');
+      const overview = await apiFetch('/v1/engage/studio-overview');
+      const opened = new Set(overview?.openedCollectionIds || []);
+      return publishedIds.filter((id) => !opened.has(id)).length;
+    }
     const { data, error } = await supabase
       .from('client_sessions')
       .select('collection_id')
@@ -107,6 +114,17 @@ async function countUnopenedDeliveries(publishedIds) {
 async function countGuestNeedReview(photographerId, liveEventIds) {
   if (!liveEventIds.length) return 0;
   try {
+    const { USE_WORKERS_AUTH } = await import('../lib/api/client');
+    if (USE_WORKERS_AUTH) {
+      const { apiFetch } = await import('../lib/api/client');
+      const overview = await apiFetch('/v1/engage/studio-overview');
+      const wanted = new Set(liveEventIds);
+      return (overview?.guests || []).filter((g) => {
+        if (!wanted.has(g.event_id)) return false;
+        const s = g.delivery_status || 'pending';
+        return s !== 'sent' && s !== 'matched';
+      }).length;
+    }
     const { data, error } = await supabase
       .from('event_guests')
       .select('id, delivery_status, event_id')
@@ -130,17 +148,25 @@ async function countGuestNeedReview(photographerId, liveEventIds) {
 
 async function loadPrintLabStats(photographerId) {
   try {
-    let query = supabase
-      .from('printstore_orders')
-      .select('id, total, status, created_at, photographer_id')
-      .order('created_at', { ascending: false });
+    const { USE_WORKERS_AUTH } = await import('../lib/api/client');
+    let orders;
+    if (USE_WORKERS_AUTH) {
+      const { apiFetch } = await import('../lib/api/client');
+      const overview = await apiFetch('/v1/engage/studio-overview');
+      orders = overview?.printOrders || [];
+    } else {
+      let query = supabase
+        .from('printstore_orders')
+        .select('id, total, status, created_at, photographer_id')
+        .order('created_at', { ascending: false });
 
-    const { data, error } = await query;
-    if (error) throw error;
+      const { data, error } = await query;
+      if (error) throw error;
 
-    const orders = (data || []).filter(
-      (o) => !o.photographer_id || o.photographer_id === photographerId
-    );
+      orders = (data || []).filter(
+        (o) => !o.photographer_id || o.photographer_id === photographerId
+      );
+    }
 
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);

@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { galleryService } from '../../../services/gallery.service';
 import { storageService } from '../../../services/storage.service';
 import { signOut } from '../../../services/auth.service';
+import { getSession as getAuthSession } from '../../../services/auth.service';
+import { USE_WORKERS_AUTH } from '../../../lib/api/client';
 import { supabase } from '../../../lib/supabase/client';
 import { getUserDisplayLabel, getUserInitial } from '../../../lib/userInitials';
 import {
@@ -125,7 +127,7 @@ export default function YourAccountPanel({ user, showToast }) {
     const [showPasswordModal, setShowPasswordModal] = useState(false);
     const [showPasswordSuccess, setShowPasswordSuccess] = useState(false);
     const [handleDraft, setHandleDraft] = useState('');
-    const [passwordForm, setPasswordForm] = useState({ next: '', confirm: '' });
+    const [passwordForm, setPasswordForm] = useState({ current: '', next: '', confirm: '' });
     const [passwordError, setPasswordError] = useState('');
     const [passwordSaving, setPasswordSaving] = useState(false);
     const [handleCounts, setHandleCounts] = useState({ deliveries: 12, guestLinks: 148 });
@@ -254,9 +256,11 @@ export default function YourAccountPanel({ user, showToast }) {
                     ...(storedNotifications || {}),
                 });
 
-                const { data: authData } = await supabase.auth.getSession();
+                const session = USE_WORKERS_AUTH
+                    ? await getAuthSession().catch(() => null)
+                    : (await supabase.auth.getSession()).data?.session ?? null;
                 const location = await resolveSessionLocation();
-                const currentRows = buildCurrentSessionRows(authData?.session ?? null, location);
+                const currentRows = buildCurrentSessionRows(session, location);
                 const nextSessions = mergeStoredSessions(data?.active_sessions, currentRows);
                 setSessions(nextSessions);
                 await galleryService.updatePhotographerProfile(user.id, {
@@ -429,6 +433,10 @@ export default function YourAccountPanel({ user, showToast }) {
     const savePassword = async (e) => {
         e.preventDefault();
         setPasswordError('');
+        if (USE_WORKERS_AUTH && hasPassword && !passwordForm.current) {
+            setPasswordError('Enter your current password.');
+            return;
+        }
         if (!passwordForm.next) {
             setPasswordError('Password cannot be empty.');
             return;
@@ -443,13 +451,18 @@ export default function YourAccountPanel({ user, showToast }) {
         }
         setPasswordSaving(true);
         try {
-            const { error } = await supabase.auth.updateUser({ password: passwordForm.next });
-            if (error) throw error;
+            if (USE_WORKERS_AUTH) {
+                const { changePassword } = await import('../../../services/workersAuth.service');
+                await changePassword(passwordForm.current, passwordForm.next);
+            } else {
+                const { error } = await supabase.auth.updateUser({ password: passwordForm.next });
+                if (error) throw error;
+            }
             const now = new Date().toISOString();
             setPasswordChangedAt(now);
             setLoginPasswordSet(true);
             setShowPasswordModal(false);
-            setPasswordForm({ next: '', confirm: '' });
+            setPasswordForm({ current: '', next: '', confirm: '' });
             setShowPasswordSuccess(true);
             showToast?.('Password changed successfully');
             void persist({ login_password_set: true, password_changed_at: now });
@@ -938,6 +951,24 @@ export default function YourAccountPanel({ user, showToast }) {
                             </button>
                         </div>
                         <div className="ya-modal__body">
+                            {USE_WORKERS_AUTH && hasPassword ? (
+                                <>
+                                    <label className="ya-label" htmlFor="ya-pass-current">
+                                        Current password
+                                    </label>
+                                    <PasswordField
+                                        id="ya-pass-current"
+                                        value={passwordForm.current}
+                                        onChange={(e) =>
+                                            setPasswordForm((p) => ({ ...p, current: e.target.value }))
+                                        }
+                                        autoComplete="current-password"
+                                        shellClassName="ya-password-shell"
+                                        inputClassName="ya-input ya-input--password"
+                                        actionClassName="ya-password-action"
+                                    />
+                                </>
+                            ) : null}
                             <label className="ya-label" htmlFor="ya-pass-next">
                                 New password
                             </label>

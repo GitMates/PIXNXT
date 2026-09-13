@@ -13,6 +13,7 @@ import {
   readOAuthCallbackError,
 } from '../services/auth.service';
 import { isGoogleStudioCallbackPath } from '../lib/googleStudioAuth';
+import { USE_WORKERS_AUTH, isWorkersSuccessPath } from '../lib/api/client';
 import './AuthPage.css';
 
 const COPY = {
@@ -42,7 +43,7 @@ const AuthPage = () => {
   const searchParams = new URLSearchParams(location.search);
   const mode = searchParams.get('mode');
   const emailConfirmed = searchParams.get('confirmed') === '1';
-  const { user, loading } = useAuth();
+  const { user, loading, refresh } = useAuth();
 
   const [view, setView] = useState(() => {
     if (mode === 'signup') return 'signup';
@@ -57,8 +58,46 @@ const AuthPage = () => {
   const [googleCallbackBusy, setGoogleCallbackBusy] = useState(
     () => isGoogleStudioCallbackPath(location.pathname) && Boolean(searchParams.get('code'))
   );
+  const [workersCallbackBusy, setWorkersCallbackBusy] = useState(
+    () => USE_WORKERS_AUTH && isWorkersSuccessPath()
+  );
   const navigate = useNavigate();
   const googleExchangeRef = useRef(null);
+
+  // Workers Google flow lands on /auth/success with the refresh cookie set.
+  // The AuthProvider mounted earlier (user=null), so re-resolve before
+  // navigating — otherwise ProtectedRoute bounces straight back to /auth.
+  useEffect(() => {
+    if (!USE_WORKERS_AUTH || !isWorkersSuccessPath()) return undefined;
+    let cancelled = false;
+    setWorkersCallbackBusy(true);
+    (async () => {
+      try {
+        const resolved = await refresh?.();
+        if (cancelled) return;
+        if (resolved?.user) {
+          navigate('/dashboard', { replace: true });
+        } else {
+          navigate('/auth', {
+            replace: true,
+            state: { oauthError: 'Google sign-in failed. Please try again.' },
+          });
+        }
+      } catch {
+        if (!cancelled) {
+          navigate('/auth', {
+            replace: true,
+            state: { oauthError: 'Google sign-in failed. Please try again.' },
+          });
+        }
+      } finally {
+        if (!cancelled) setWorkersCallbackBusy(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [location.pathname, navigate, refresh]);
 
   useEffect(() => {
     if (!isGoogleStudioCallbackPath(location.pathname)) return undefined;
@@ -143,7 +182,9 @@ const AuthPage = () => {
       setView('reset');
     }
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+    const { data: { subscription } } = USE_WORKERS_AUTH
+      ? { data: { subscription: { unsubscribe: () => {} } } }
+      : supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
         setRecoveryActive(true);
         setView('reset');
@@ -153,7 +194,7 @@ const AuthPage = () => {
   }, []);
 
   useEffect(() => {
-    if (loading || !user || googleCallbackBusy) return;
+    if (loading || !user || googleCallbackBusy || workersCallbackBusy) return;
     if (view === 'reset' || recoveryActive || isPasswordRecoveryCallback()) return;
 
     const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
@@ -164,19 +205,29 @@ const AuthPage = () => {
 
     const from = location.state?.from?.pathname;
     navigate(from && from !== '/auth' ? from : '/dashboard', { replace: true });
-  }, [user, loading, view, recoveryActive, navigate, location.state, emailConfirmed, googleCallbackBusy]);
+  }, [user, loading, view, recoveryActive, navigate, location.state, emailConfirmed, googleCallbackBusy, workersCallbackBusy]);
 
-  const handleAuthSuccess = () => {
+  const handleAuthSuccess = async () => {
     if (recoveryActive || view === 'reset') {
       clearPasswordRecoveryParams();
       setRecoveryActive(false);
+    }
+    // Email login already refreshed context in useAuth, but re-resolve here
+    // as a safety net so /dashboard never sees a stale null user.
+    if (USE_WORKERS_AUTH) {
+      try {
+        const resolved = await refresh?.();
+        if (!resolved?.user) return;
+      } catch {
+        return;
+      }
     }
     navigate('/dashboard');
   };
 
   const copy = COPY[view] || COPY.login;
 
-  if (googleCallbackBusy) {
+  if (googleCallbackBusy || workersCallbackBusy) {
     return null;
   }
 

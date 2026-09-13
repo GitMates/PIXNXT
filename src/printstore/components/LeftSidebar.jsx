@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Upload, FlaskConical, LayoutDashboard, Eye, ShoppingCart, Package, Camera, Bell } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase/client';
+import { USE_WORKERS_AUTH } from '../../lib/api/client';
 
 export default function LeftSidebar({ isOpen, onClose, onSeeGallery, onGoToCart, onGoToOrders, onGoToNotifications, sessionId, photographer }) {
   const navigate = useNavigate();
@@ -50,6 +51,27 @@ export default function LeftSidebar({ isOpen, onClose, onSeeGallery, onGoToCart,
   useEffect(() => {
     async function fetchPhotographerName() {
       try {
+        if (USE_WORKERS_AUTH) {
+          // Workers has no public photographer-directory endpoint, so we only
+          // resolve the signed-in photographer's own branding here. The
+          // storefront name otherwise comes in via the `photographer` prop.
+          // (Notification counts below stay on Supabase — no shopper
+          // artwork-review endpoint exists in Workers yet.)
+          try {
+            const { getUser } = await import('../../services/auth.service');
+            const user = await getUser().catch(() => null);
+            if (user?.id) {
+              const { apiFetch } = await import('../../lib/api/client');
+              const data = await apiFetch(`/v1/public/photographer/by-id/${encodeURIComponent(user.id)}`, { auth: false }).catch(() => null);
+              if (data?.photographer?.display_name) {
+                setPhotographerName(data.photographer.display_name);
+              }
+            }
+          } catch (workersErr) {
+            console.error('Error loading photographer name:', workersErr);
+          }
+          return;
+        }
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           const { data: photoProfile } = await supabase

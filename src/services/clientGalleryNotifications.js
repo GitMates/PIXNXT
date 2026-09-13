@@ -124,26 +124,61 @@ export function buildClientGalleryNotificationUrl(item) {
 export async function listClientGalleryNotifications(photographerId) {
   if (!photographerId) return { items: [], footer: '' };
 
-  const { data: collections, error: colErr } = await supabase
-    .from('deliveries')
-    .select('id, name')
-    .eq('photographer_id', photographerId)
-    .order('created_at', { ascending: false });
+  const { USE_WORKERS_AUTH } = await import('../lib/api/client');
+  let collections = null;
+  if (USE_WORKERS_AUTH) {
+    const { apiFetch } = await import('../lib/api/client');
+    const dash = await apiFetch('/v1/galleries/dashboard');
+    collections = (dash?.galleries || [])
+      .filter((g) => g.photographer_id === photographerId)
+      .map((g) => ({ id: g.id, name: g.name }));
+  } else {
+    const { data, error: colErr } = await supabase
+      .from('deliveries')
+      .select('id, name')
+      .eq('photographer_id', photographerId)
+      .order('created_at', { ascending: false });
 
-  if (colErr) throw colErr;
+    if (colErr) throw colErr;
+    collections = data;
+  }
   if (!collections?.length) return { items: [], footer: '' };
 
   const collectionIds = collections.map((c) => c.id);
   const nameById = Object.fromEntries(collections.map((c) => [c.id, c.name || 'Delivery']));
 
-  const [downloadsRes, favoritesRes, ordersRes, emailsRes] = await Promise.all([
-    supabase
-      .from('activity_log')
-      .select('id, collection_id, visitor_email, created_at, metadata, photo_id')
-      .in('collection_id', collectionIds)
-      .eq('event_type', 'download')
-      .order('created_at', { ascending: false })
-      .limit(40),
+  let downloadsRes;
+  let favoritesRes;
+  let ordersRes;
+  let emailsRes;
+  let preloadedSessionEmails = null;
+  if (USE_WORKERS_AUTH) {
+    const { apiFetch } = await import('../lib/api/client');
+    const bulk = await apiFetch(`/v1/engage/notifications?ids=${collectionIds.map(encodeURIComponent).join(',')}`);
+    const parseMeta = (row) => {
+      if (row && typeof row.metadata === 'string') {
+        try {
+          return { ...row, metadata: JSON.parse(row.metadata) };
+        } catch {
+          return { ...row, metadata: null };
+        }
+      }
+      return row;
+    };
+    downloadsRes = { data: (bulk?.downloads || []).map(parseMeta) };
+    favoritesRes = { data: bulk?.favorites || [] };
+    ordersRes = { data: bulk?.orders || [] };
+    emailsRes = { data: bulk?.sessions || [] };
+    preloadedSessionEmails = bulk?.sessionEmails || [];
+  } else {
+    [downloadsRes, favoritesRes, ordersRes, emailsRes] = await Promise.all([
+      supabase
+        .from('activity_log')
+        .select('id, collection_id, visitor_email, created_at, metadata, photo_id')
+        .in('collection_id', collectionIds)
+        .eq('event_type', 'download')
+        .order('created_at', { ascending: false })
+        .limit(40),
     supabase
       .from('favorite_lists')
       .select('id, name, collection_id, session_id, created_at, submitted_at, description')
@@ -162,7 +197,8 @@ export async function listClientGalleryNotifications(photographerId) {
       .in('collection_id', collectionIds)
       .order('created_at', { ascending: false })
       .limit(50),
-  ]);
+    ]);
+  }
 
   const items = [];
   const threeDaysAgo = Date.now() - 3 * 86400000;
@@ -201,7 +237,11 @@ export async function listClientGalleryNotifications(photographerId) {
     ...new Set((favoritesRes.data || []).map((r) => r.session_id).filter(Boolean)),
   ];
   let emailBySession = {};
-  if (favoriteSessionIds.length) {
+  if (preloadedSessionEmails) {
+    emailBySession = Object.fromEntries(
+      preloadedSessionEmails.map((s) => [s.id, s.visitor_email || 'Unknown visitor']),
+    );
+  } else if (favoriteSessionIds.length) {
     const { data: sessions } = await supabase
       .from('client_sessions')
       .select('id, visitor_email')

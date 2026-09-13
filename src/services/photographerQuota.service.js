@@ -314,6 +314,15 @@ export const photographerQuotaService = {
       return existing.data;
     }
 
+    const { USE_WORKERS_AUTH } = await import('../lib/api/client');
+    if (USE_WORKERS_AUTH) {
+      const { apiFetch } = await import('../lib/api/client');
+      const data = await apiFetch('/v1/me/quota');
+      const snapshot = normalizeSnapshot(data?.quota ?? {});
+      quotaCache.set(photographerId, { data: snapshot, time: Date.now() });
+      return snapshot;
+    }
+
     const fullRes = await supabase.from('photographers').select(FULL_FIELDS).eq('id', photographerId).maybeSingle();
     if (!fullRes.error) {
       const snapshot = normalizeSnapshot(fullRes.data);

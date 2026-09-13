@@ -4,6 +4,7 @@
  */
 
 import { supabase } from './supabase/client';
+import { USE_WORKERS_AUTH } from './api/client';
 import {
   R2_USERS_ROOT,
   R2_USER_MODULES,
@@ -38,11 +39,23 @@ export async function getPhotographerR2Folder(photographerId) {
   if (folderCache.has(photographerId)) return folderCache.get(photographerId);
 
   try {
-    const { data } = await supabase
-      .from('photographers')
-      .select(PHOTOGRAPHER_R2_FIELDS)
-      .eq('id', photographerId)
-      .maybeSingle();
+    let data = null;
+    if (USE_WORKERS_AUTH) {
+      const { apiFetch } = await import('./api/client');
+      const me = await apiFetch('/v1/me/profile').catch(() => null);
+      data = me?.profile?.id === photographerId ? me.profile : null;
+      if (!data) {
+        const pub = await apiFetch(`/v1/public/photographer/by-id/${photographerId}`).catch(() => null);
+        data = pub?.photographer ?? null;
+      }
+    } else {
+      const res = await supabase
+        .from('photographers')
+        .select(PHOTOGRAPHER_R2_FIELDS)
+        .eq('id', photographerId)
+        .maybeSingle();
+      data = res.data;
+    }
     const folder = resolvePhotographerR2Folder(data);
     folderCache.set(photographerId, folder);
     return folder;
@@ -56,11 +69,23 @@ export async function getPhotographerR2FolderVariants(photographerId) {
   if (variantCache.has(photographerId)) return variantCache.get(photographerId);
 
   try {
-    const { data } = await supabase
-      .from('photographers')
-      .select(PHOTOGRAPHER_R2_FIELDS)
-      .eq('id', photographerId)
-      .maybeSingle();
+    let data = null;
+    if (USE_WORKERS_AUTH) {
+      const { apiFetch } = await import('./api/client');
+      const me = await apiFetch('/v1/me/profile').catch(() => null);
+      data = me?.profile?.id === photographerId ? me.profile : null;
+      if (!data) {
+        const pub = await apiFetch(`/v1/public/photographer/by-id/${photographerId}`).catch(() => null);
+        data = pub?.photographer ?? null;
+      }
+    } else {
+      const res = await supabase
+        .from('photographers')
+        .select(PHOTOGRAPHER_R2_FIELDS)
+        .eq('id', photographerId)
+        .maybeSingle();
+      data = res.data;
+    }
     const variants = photographerR2FolderVariants(data);
     variantCache.set(photographerId, variants);
     return variants;
