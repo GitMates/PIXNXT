@@ -1495,7 +1495,11 @@ const AlbumBook = ({
             if (target.closest('.ab-photo-pin-layer--placing-swap')) return;
             if (target.closest('.ab-proof-tool-btn')) return;
             if (target.closest('.ab-proof-tools-hover')) return;
+            // Picking a target spread inside the swap picker must not cancel
+            // the flow — the pick is stored first, then the modal closes.
+            if (target.closest('.ab-swap-modal')) return;
             setSwapPinFlow(null);
+            setSwapPickerOrigin(null);
         };
 
         const timer = window.setTimeout(() => {
@@ -1534,7 +1538,10 @@ const AlbumBook = ({
     useEffect(() => {
         if (!swapPinFlow) return undefined;
         const onKey = (e) => {
-            if (e.key === 'Escape') setSwapPinFlow(null);
+            if (e.key === 'Escape') {
+                setSwapPinFlow(null);
+                setSwapPickerOrigin(null);
+            }
         };
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
@@ -1683,6 +1690,7 @@ const AlbumBook = ({
                         });
                     }
                     setSwapPinFlow(null);
+                    setSwapPickerOrigin(null);
                 }
                 return;
             }
@@ -1706,6 +1714,7 @@ const AlbumBook = ({
                         });
                     }
                     setSwapPinFlow(null);
+                    setSwapPickerOrigin(null);
                 }
                 return;
             }
@@ -1728,6 +1737,7 @@ const AlbumBook = ({
                     });
                 }
                 setSwapPinFlow(null);
+                setSwapPickerOrigin(null);
             }
         },
         [album?.id, swapPinFlow, swapMarkMode, proofSpotPicker, previewMode, ensureClientFeedback]
@@ -2280,6 +2290,42 @@ const AlbumBook = ({
                                 <rect x="16" y="16" width="8" height="8" rx="1.2" stroke="currentColor" strokeWidth="1.8" />
                             </svg>
                         </button>
+                        {spreadIndex > 0 && (
+                            <button
+                                type="button"
+                                className="ab-control-icon ab-control-icon--button"
+                                aria-label={
+                                    spreadOpts.hasCovers
+                                        ? 'Back to front cover'
+                                        : 'Back to first spread'
+                                }
+                                title={
+                                    spreadOpts.hasCovers
+                                        ? 'Back to front cover'
+                                        : 'Back to first spread'
+                                }
+                                onClick={() =>
+                                    goToPage(
+                                        spreadIndexToPage(0, { ...spreadOpts, totalPages })
+                                    )
+                                }
+                            >
+                                <svg width="18" height="18" viewBox="0 0 28 28" fill="none" aria-hidden>
+                                    <path
+                                        d="M7 5v18"
+                                        stroke="currentColor"
+                                        strokeWidth="2.2"
+                                        strokeLinecap="round"
+                                    />
+                                    <path
+                                        d="M21 6.5v15L11 14l10-7.5z"
+                                        stroke="currentColor"
+                                        strokeWidth="1.8"
+                                        strokeLinejoin="round"
+                                    />
+                                </svg>
+                            </button>
+                        )}
                     </div>
                     <span className="ab-spread-controls-divider" aria-hidden />
                     {!previewMode ? (
@@ -2625,6 +2671,9 @@ const AlbumBook = ({
                 onClose={() => {
                     setSwapPickerOrigin(null);
                     setSwapPinFlow(null);
+                }}
+                onDismissPicker={() => {
+                    setSwapPickerOrigin(null);
                 }}
             />
 

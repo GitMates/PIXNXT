@@ -70,7 +70,11 @@ export function setAlbumSpineBoundsOverride(albumId, spineStartFraction, spineEn
         updatedAt: Date.now(),
     };
     writeAll(all);
-    clearWrapSegmentCache();
+    // Cache keys already include spine fractions — different positions naturally
+    // get different cache entries. Clearing the entire cache on every drag frame
+    // forces all 5 segments to re-render from scratch, causing the spine flash.
+    // Only clear on destructive operations (clearAlbumSpineBoundsOverride) or
+    // when the source image changes (AlbumEditor).
     clearBook3dTextureCache();
     notifySpineBoundsChanged(albumId);
 }

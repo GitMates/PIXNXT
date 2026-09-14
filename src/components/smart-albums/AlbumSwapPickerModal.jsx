@@ -20,6 +20,7 @@ import { getSampleImageForPage } from './sampleAlbumImages';
 import {
     enumerateAlbumPhotoSlots,
     getSwapPickerDockSide,
+    normalizeWholeGridSwapSlot,
     slotsMatch,
 } from './albumSwapMarks';
 import { placementFromSwapThumbClick } from '../../lib/photoSpotPoint';
@@ -179,6 +180,8 @@ export default function AlbumSwapPickerModal({
     onNavigateToSpread = null,
     onSelect,
     onClose,
+    /** Close only the picker panel, keeping a pending pin flow alive. */
+    onDismissPicker = null,
 }) {
     const [panelStyle, setPanelStyle] = useState(null);
 
@@ -195,12 +198,21 @@ export default function AlbumSwapPickerModal({
     const totalSpreads = getTotalSpreads(totalPages, spreadOpts);
 
     const spreadRows = useMemo(() => {
+        // Whole-spread albums enumerate one canonical slot per spread
+        // (left slot key), but a book spot click produces a half-specific
+        // origin (right half → right page key). Canonicalize so the origin
+        // spread still matches: otherwise no row shows "Selected" and the
+        // current spread can't be picked.
+        const matchOriginSlot =
+            gridLayout === 'whole-spread' && originSlot && originSlot.pageNum !== 0
+                ? normalizeWholeGridSwapSlot(originSlot, totalPages, album)
+                : originSlot;
         return Array.from({ length: totalSpreads }, (_, spreadIndex) => {
             if (!isInnerSwapSpread(spreadIndex, totalPages, spreadOpts)) return null;
             const spreadSlots = slotsForSpread(spreadIndex, slots, totalPages, spreadOpts);
-            const availableSlots = spreadSlots.filter((slot) => !slotsMatch(slot, originSlot));
-            const targetSlot = pickSwapTargetSlot(availableSlots, originSlot);
-            const isOrigin = spreadSlots.some((slot) => slotsMatch(slot, originSlot));
+            const availableSlots = spreadSlots.filter((slot) => !slotsMatch(slot, matchOriginSlot));
+            const targetSlot = pickSwapTargetSlot(availableSlots, matchOriginSlot);
+            const isOrigin = spreadSlots.some((slot) => slotsMatch(slot, matchOriginSlot));
             const disabled = !targetSlot;
             const { left: spreadLeft } = getSpreadPages(spreadIndex, totalPages, spreadOpts);
             const isCover = spreadOpts.hasCovers && spreadIndex === 0;
@@ -223,7 +235,7 @@ export default function AlbumSwapPickerModal({
                 wholeSpread,
             };
         }).filter(Boolean);
-    }, [totalSpreads, slots, totalPages, spreadOpts, originSlot, gridLayout, albumId]);
+    }, [totalSpreads, slots, totalPages, spreadOpts, originSlot, gridLayout, albumId, album]);
 
     useLayoutEffect(() => {
         if (!open || !originSlot) {
@@ -333,14 +345,39 @@ export default function AlbumSwapPickerModal({
                                 disabled={!navigateOnlyOnPick && disabled}
                                 onClick={(e) => {
                                     onNavigateToSpread?.(spreadIndex);
-                                    if (!targetSlot) return;
                                     if (navigateOnlyOnPick) {
+                                        // Same spread: respect which half (left/right) was clicked.
+                                        // Without this, right-half clicks on a full-bleed thumb always
+                                        // resolved to the left target, making right-side same-spread
+                                        // swaps feel broken.
+                                        if (isOrigin) {
+                                            if (targetSlot) {
+                                                const placement = placementFromSwapThumbClick(e, targetSlot, {
+                                                    spreadLeft,
+                                                    totalPages,
+                                                    showSpreadFull,
+                                                });
+                                                if (placement && !slotsMatch(placement, originSlot)) {
+                                                    onSelect?.({ ...placement, spreadIndex });
+                                                    return;
+                                                }
+                                                onSelect?.({ ...targetSlot, spreadIndex });
+                                                return;
+                                            }
+                                            // No second slot on this spread (e.g. a whole-spread
+                                            // photo): land here and dismiss the picker — the
+                                            // precise target spot is picked on the book.
+                                            if (onDismissPicker) onDismissPicker();
+                                            else onClose?.();
+                                            return;
+                                        }
+                                        if (!targetSlot) return;
                                         onSelect?.({ ...targetSlot, spreadIndex });
                                         return;
                                     }
+                                    if (!targetSlot) return;
                                     const placement = placementFromSwapThumbClick(e, targetSlot, {
                                         spreadLeft,
-                                        wholeSpread,
                                         totalPages,
                                         showSpreadFull,
                                     });
