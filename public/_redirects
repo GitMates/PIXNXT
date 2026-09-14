@@ -1,0 +1,3 @@
+# Cloudflare Pages SPA fallback - required for react-router.
+# Without this, /gallery/:slug, /admin/* etc. return 404 on Pages.
+/* /index.html 200
