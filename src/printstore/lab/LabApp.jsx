@@ -1,6 +1,6 @@
 import React, { useState, useEffect, createContext, useContext } from 'react';
 import { Routes, Route, Navigate, Outlet, useNavigate } from 'react-router-dom';
-import { apiFetch } from '../../lib/api/client';
+import { apiFetch, setAccessToken } from '../../lib/api/client';
 import LabSidebarLayout from './LabSidebarLayout';
 import LabDashboard from './LabDashboard';
 import LabAuth from './LabAuth';
@@ -27,8 +27,10 @@ import './labTheme.css';
 import { filterLabPhysicalItems } from './labPhotoUrl';
 
 // Create a Lab Auth Context
+// eslint-disable-next-line react-refresh/only-export-components
 export const LabAuthContext = createContext(null);
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useLabAuth = () => useContext(LabAuthContext);
 
 function LabShell() {
@@ -49,9 +51,13 @@ const LabApp = () => {
     const navigate = useNavigate();
     const [labUser, setLabUser] = useState(() => {
         try {
+            // Restore the opaque lab token on reload — studio auth can overwrite
+            // the in-memory token, and lab routes only accept `Bearer lab_…`.
+            const token = localStorage.getItem('pixnxt_lab_token');
+            if (token) setAccessToken(token);
             const cached = localStorage.getItem('pixnxt_lab_session');
             return cached ? JSON.parse(cached) : null;
-        } catch (e) {
+        } catch {
             return null;
         }
     });
@@ -64,6 +70,7 @@ const LabApp = () => {
 
     const logout = () => {
         localStorage.removeItem('pixnxt_lab_session');
+        localStorage.removeItem('pixnxt_lab_token');
         setLabUser(null);
         navigate('/lab/auth', { replace: true });
     };
@@ -118,7 +125,7 @@ const LabApp = () => {
             try {
                 const cached = localStorage.getItem('pixnxt_lab_session');
                 setLabUser(cached ? JSON.parse(cached) : null);
-            } catch (e) {
+            } catch {
                 setLabUser(null);
             }
         };

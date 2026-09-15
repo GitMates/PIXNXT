@@ -1,9 +1,4 @@
 import { storageService } from '../../services/storage.service';
-import {
-    buildUserModulePath,
-    getPhotographerR2Folder,
-    R2_USER_MODULES,
-} from '../../lib/photographerR2Folder';
 
 /** Shared helpers for album proofing feedback persisted via the Workers API. */
 
@@ -44,6 +39,8 @@ function dataUrlToBlob(dataUrl) {
 
 /**
  * Upload a data-URL or keep an already-hosted URL for comment attachments.
+ * Uses the share-gated album attachment endpoint so guests (clients on the
+ * album link) can attach photos/voice notes without a photographer session.
  * Returns { url, name, type } suitable for smart_album_comments.
  */
 export async function resolveCommentAttachmentForDb(
@@ -88,26 +85,27 @@ export async function resolveCommentAttachmentForDb(
     const filename =
         attachmentName || (type === 'audio' ? `voice-message.${ext}` : `attachment.${ext}`);
 
-    const { apiFetch } = await import('../../lib/api/client');
-    let photographerId = null;
-    const studio = await apiFetch(`/v1/proofer/studio/albums/${albumId}`).catch(() => null);
-    photographerId = studio?.album?.photographer_id ?? null;
-    if (!photographerId) {
-        const pub = await apiFetch(`/v1/proofer/public/${encodeURIComponent(albumId)}`, { auth: false }).catch(() => null);
-        photographerId = pub?.album?.photographer_id ?? null;
-    }
-    const photographerFolder = await getPhotographerR2Folder(photographerId);
-    const path = buildUserModulePath(
-        photographerFolder,
-        R2_USER_MODULES.ALBUM_PROOFER,
-        albumId,
-        'feedback',
-        `${crypto.randomUUID()}.${ext}`
+    const { apiBase } = await import('../../lib/api/client');
+    const res = await fetch(
+        `${apiBase()}/v1/proofer/albums/${encodeURIComponent(albumId)}/attachments`,
+        {
+            method: 'POST',
+            headers: {
+                'Content-Type': blob.type || (type === 'audio' ? 'audio/webm' : 'image/jpeg'),
+                'X-File-Name': filename,
+            },
+            body: blob,
+        }
     );
-    const file = new File([blob], filename, { type: blob.type || undefined });
-    const uploaded = await storageService.upload(path, file);
+    if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(payload?.error?.message || `Attachment upload failed (${res.status})`);
+    }
+    const data = await res.json().catch(() => ({}));
+    const path = data?.path;
+    if (!path) throw new Error('Attachment upload returned no path.');
     return {
-        url: uploaded.url,
+        url: storageService.getPublicUrl(path),
         name: filename,
         type,
     };

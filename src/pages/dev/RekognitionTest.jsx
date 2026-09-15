@@ -1,6 +1,7 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Upload, ScanFace, Tag, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { apiFetch } from '../../lib/api/client';
 import './RekognitionTest.css';
 
 function fileToDataUrl(file) {
@@ -93,22 +94,15 @@ const RekognitionTest = () => {
     setResult(null);
 
     try {
-      const res = await fetch('/api/rekognition/analyze', {
+      const data = await apiFetch('/v1/photo-ai/analyze', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        body: {
           imageBase64,
-          externalImageId: fileName || 'local-test',
-          indexFaces: true,
-        }),
+          detectLabels: true,
+        },
       });
 
-      const data = await res.json();
-      if (!res.ok || !data.ok) {
-        throw new Error(data.error || `Request failed (${res.status})`);
-      }
-
-      setResult(data.result);
+      setResult(data);
       setOverlayTick((t) => t + 1);
     } catch (err) {
       setError(err?.message || 'Analysis failed');

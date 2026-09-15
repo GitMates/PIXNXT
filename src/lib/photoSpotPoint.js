@@ -191,7 +191,7 @@ function spreadPhotoPercentToHalfPlacement(
 export function placementFromSwapThumbClick(
   event,
   targetSlot,
-  { spreadLeft, wholeSpread, totalPages, showSpreadFull }
+  { spreadLeft, totalPages, showSpreadFull }
 ) {
   if (!targetSlot) return null;
   const img = event.target instanceof Element ? event.target.closest('img') : null;
@@ -210,7 +210,10 @@ export function placementFromSwapThumbClick(
   const layerEl = pageEl || thumbEl || img.parentElement;
   const spot = pinPointFromPointer(event.clientX, event.clientY, layerEl, img);
 
-  if (showSpreadFull && wholeSpread) {
+  // A spread-full photo (full-bleed or whole-grid) is shown as one image, so
+  // its percents must be mapped to the half page under the click — otherwise
+  // the pin lands at the wrong spot (and looks like it moved upward).
+  if (showSpreadFull) {
     return spreadPhotoPercentToHalfPlacement(
       spot.xPct,
       spot.yPct,

@@ -98,12 +98,17 @@ export default function LabAuth() {
         setLoading(false);
         return;
       }
-      if (data.labToken) setAccessToken(data.labToken);
       try {
         const workersAuth = await import('../../services/workersAuth.service');
         await workersAuth.signInWithEmail({ email: email.trim().toLowerCase(), password });
       } catch {
         // lab-only account — lab session still valid, studio JWT unavailable
+      }
+      if (data.labToken) {
+        // Set AFTER studio sign-in: workersAuth replaces the shared client token
+        // with the studio JWT, and lab routes require the opaque lab_ token.
+        setAccessToken(data.labToken);
+        localStorage.setItem('pixnxt_lab_token', data.labToken);
       }
       setSuccess('Authentication successful! Loading dashboard...');
       const sessionData = {

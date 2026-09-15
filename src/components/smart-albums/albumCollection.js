@@ -146,7 +146,8 @@ async function getAlbumPathFolder(albumId) {
     if (!albumId) return 'album';
     if (ALBUM_PATH_CACHE.has(albumId)) return ALBUM_PATH_CACHE.get(albumId);
     try {
-        const { apiFetch } = await import('../../lib/api/client');
+        const { apiFetch, getAccessToken } = await import('../../lib/api/client');
+        if (!getAccessToken()) return `album__${albumId}`;
         const data = await apiFetch(`/v1/proofer/studio/albums/${albumId}`).catch(() => null);
         const name = data?.album?.name;
         // New uploads use name__albumId. Legacy R2 folders used a single underscore.
@@ -172,7 +173,8 @@ async function getAlbumPathFolderVariants(albumId) {
     variants.add(`album_${albumId}`);
 
     try {
-        const { apiFetch } = await import('../../lib/api/client');
+        const { apiFetch, getAccessToken } = await import('../../lib/api/client');
+        if (!getAccessToken()) return [...variants];
         const data = await apiFetch(`/v1/proofer/studio/albums/${albumId}`).catch(() => null);
         const name = data?.album?.name;
         const nameSeg = safeSegment(name, 'album');

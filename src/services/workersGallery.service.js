@@ -295,14 +295,28 @@ export async function duplicateCollection(sourceCollectionId, photographerId) {
   return created;
 }
 
+/**
+ * Autosaves merge the whole PATCH response into dashboard state. The response
+ * is read at write time, so a concurrent autosave can return a pre-cover-write
+ * row and clobber the optimistic cover. Only carry cover fields through when
+ * this PATCH actually changed them.
+ */
+function keepCoverOnlyIfPatched(gallery, updateData) {
+  if (!gallery || typeof gallery !== 'object') return gallery;
+  if (updateData && ('cover_url' in updateData || 'cover_photo_id' in updateData)) return gallery;
+  delete gallery.cover_url;
+  delete gallery.cover_photo_id;
+  return gallery;
+}
+
 export async function updateCollection(id, updateData) {
   const data = await apiFetch(`/v1/galleries/${id}`, { method: 'PATCH', body: updateData });
-  return data?.gallery;
+  return keepCoverOnlyIfPatched(data?.gallery, updateData);
 }
 
 export async function updateCollectionStatus(id, status) {
   const data = await apiFetch(`/v1/galleries/${id}`, { method: 'PATCH', body: { status } });
-  return data?.gallery;
+  return keepCoverOnlyIfPatched(data?.gallery, { status });
 }
 
 export async function deleteCollection(id) {
@@ -871,13 +885,21 @@ export async function saveCollectionCoverFocals(collectionId, coverUrl, focals, 
 
 export async function getStoreOrders(collectionId) {
   if (!collectionId) return [];
-  const data = await apiFetch(`/v1/store/orders?collectionId=${encodeURIComponent(collectionId)}`);
+  // Live storefront writes printstore_orders (the legacy `orders` table is dead).
+  const data = await apiFetch(
+    `/v1/printstore/studio/orders?collectionId=${encodeURIComponent(collectionId)}`
+  ).catch(() => null);
   return data?.orders || [];
 }
 
 export async function getStoreOrderItems(collectionId) {
   if (!collectionId) return [];
-  const data = await apiFetch(`/v1/store/order-items?collectionId=${encodeURIComponent(collectionId)}`).catch(() => null);
+  const orders = await getStoreOrders(collectionId);
+  const ids = orders.map((o) => o.id).filter(Boolean).slice(0, 50);
+  if (ids.length === 0) return [];
+  const data = await apiFetch(
+    `/v1/printstore/studio/order-items?ids=${encodeURIComponent(ids.join(','))}`
+  ).catch(() => null);
   return data?.items || [];
 }
 

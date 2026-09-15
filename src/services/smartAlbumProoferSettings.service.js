@@ -160,27 +160,6 @@ function settingsToDbFull(settings) {
     return out;
 }
 
-function settingsToDb(patch) {
-    const out = {};
-    if (patch.accessLevel !== undefined) out.access_level = patch.accessLevel;
-    if (patch.albumPassword !== undefined) out.album_password = patch.albumPassword;
-    if (patch.privateShareToken !== undefined) out.private_share_token = patch.privateShareToken;
-    if (patch.requireNameForComments !== undefined) {
-        out.require_name_for_comments = patch.requireNameForComments;
-    }
-    if (patch.maxFreeSwaps !== undefined) out.max_free_swaps = patch.maxFreeSwaps;
-    if (patch.allowExternalUploads !== undefined) {
-        out.allow_external_uploads = patch.allowExternalUploads;
-    }
-    if (patch.allowVoiceRecordings !== undefined) {
-        out.allow_voice_recordings = patch.allowVoiceRecordings !== false;
-    }
-    if (patch.maxRevisionRounds !== undefined) out.max_revision_rounds = patch.maxRevisionRounds;
-    if (patch.approvalPin !== undefined) out.approval_pin = patch.approvalPin;
-    if (patch.sendReminderEmails !== undefined) out.send_reminder_emails = patch.sendReminderEmails;
-    return out;
-}
-
 function cachePhotographerDefaults(photographerId, settings) {
     const all = readJson(DEFAULTS_CACHE_KEY, {});
     all[photographerId] = settings;
@@ -246,7 +225,10 @@ export const smartAlbumProoferSettingsService = {
         if (!photographerId) return withDownloadsLockedOff({ ...DEFAULT_PROOFER_SETTINGS });
 
         try {
-            const { apiFetch } = await import('../lib/api/client');
+            const { apiFetch, getAccessToken } = await import('../lib/api/client');
+            // Studio settings need a photographer session — guests on a share
+            // link fall back to the local cache instead of a guaranteed 401.
+            if (!getAccessToken()) return readCachedPhotographerDefaults(photographerId);
             const data = await apiFetch('/v1/proofer/studio/settings');
             const stored = data?.settings;
 
@@ -274,7 +256,8 @@ export const smartAlbumProoferSettingsService = {
         cachePhotographerDefaults(photographerId, next);
 
         try {
-            const { apiFetch } = await import('../lib/api/client');
+            const { apiFetch, getAccessToken } = await import('../lib/api/client');
+            if (!getAccessToken()) return next;
             await apiFetch('/v1/proofer/studio/settings', { method: 'PUT', body: { settings: next } });
         } catch (err) {
             console.warn('savePhotographerDefaults:', err?.message || err);
