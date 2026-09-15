@@ -7,6 +7,9 @@
 
 const DEFAULT_API = "https://pixnxt-api.pixnxt.workers.dev";
 
+/** Same list as the Worker's public.ts — only crawlers get OG HTML. */
+const CRAWLER_RE = /whatsapp|facebookexternalhit|twitterbot|linkedinbot|telegrambot|discordbot|slackbot|pinterest|googlebot|bingbot/i;
+
 function apiOrigin(env) {
   const raw = String(env.API_ORIGIN || env.VITE_API_URL || DEFAULT_API).trim();
   return raw.replace(/\/+$/, "");
@@ -56,8 +59,11 @@ export async function onRequest(context) {
     return forward(api, `/v1/public/m/${m[1]}/icon`, request);
   }
 
-  // Share pages without ?app are crawler/OG entry points.
-  if (!url.searchParams.has("app")) {
+  // Share pages without ?app are crawler/OG entry points. Browsers must fall
+  // through to the SPA — proxying them would hit the API's browser redirect and
+  // bounce the visitor to the API's PUBLIC_SITE_URL (i.e. production).
+  const ua = request.headers.get("user-agent") || "";
+  if (CRAWLER_RE.test(ua) && !url.searchParams.has("app")) {
     if ((m = path.match(/^\/gallery\/([^/]+)\/?$/))) {
       return forward(api, `/v1/public/gallery/${m[1]}/og`, request);
     }
