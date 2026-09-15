@@ -3026,7 +3026,9 @@ const CollectionDashboard = () => {
             // state actually updates instead of showing stale clusters.
             if (syncResult && syncResult.queued) {
                 const startCount = rows.length;
-                const deadline = Date.now() + 90000;
+                // Force reindex re-uploads every photo to Rekognition, so give
+                // it a longer poll window than an incremental sync.
+                const deadline = Date.now() + (force ? 300000 : 150000);
                 let latest = rows;
                 // Give the queue a head start before the first poll.
                 await new Promise((r) => setTimeout(r, 4000));
