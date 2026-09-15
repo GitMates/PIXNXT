@@ -174,8 +174,8 @@ export async function trackActivity({ albumId, action = 'activity', guestName = 
 
 // ---------- notifications (via /v1/emails) ----------
 
-async function postEmail(path, body) {
-  const data = await apiFetch(path, { method: 'POST', auth: false, body });
+async function postEmail(path, body, { auth = false } = {}) {
+  const data = await apiFetch(path, { method: 'POST', auth, body });
   if (data?.error) throw new Error(data.error);
   return data;
 }
@@ -185,8 +185,9 @@ export const notify = {
   changes: (p) => postEmail('/v1/emails/album-proof', { albumId: p.albumId, action: 'submit_changes', guestName: p.guestName ?? null, guestEmail: p.guestEmail ?? null }),
   startedCommenting: (p) => postEmail('/v1/emails/album-proof', { albumId: p.albumId, action: 'client_started_commenting', guestName: p.guestName ?? null, guestEmail: p.guestEmail ?? null }),
   instantFeedback: (p) => postEmail('/v1/emails/album-comments', { albumId: p.albumId, guestName: p.guestName ?? null, guestEmail: p.guestEmail ?? null }),
-  revisionReady: (p) => postEmail('/v1/emails/smart-album-client', { albumId: p.albumId, template: 'revision_ready', guestName: p.guestName ?? null, guestEmail: p.guestEmail ?? null }),
-  reminder: (p) => postEmail('/v1/emails/smart-album-client', { albumId: p.albumId, template: 'reminder', guestName: p.guestName ?? null, guestEmail: p.guestEmail ?? null }),
+  // Studio-sent: /v1/emails/smart-album-client is owner-scoped, so it needs the Bearer token.
+  revisionReady: (p) => postEmail('/v1/emails/smart-album-client', { albumId: p.albumId, template: 'revision_ready', guestName: p.guestName ?? null, guestEmail: p.guestEmail ?? null }, { auth: true }),
+  reminder: (p) => postEmail('/v1/emails/smart-album-client', { albumId: p.albumId, template: 'reminder', guestName: p.guestName ?? null, guestEmail: p.guestEmail ?? null }, { auth: true }),
   comments: (p) => postEmail('/v1/emails/album-comments', { albumId: p.albumId, guestName: p.guestName ?? null, guestEmail: p.guestEmail ?? null }),
 };
 

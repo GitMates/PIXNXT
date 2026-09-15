@@ -20,13 +20,18 @@ export function getGalleryApexIps() {
 
 export function getPlatformRootDomain() {
   const fromEnv = String(import.meta.env.VITE_PLATFORM_ROOT_DOMAIN || '').trim().toLowerCase();
-  if (fromEnv) return fromEnv.replace(/^\.+/, '');
+  if (fromEnv) return fromEnv.replace(/^\.+/, '').replace(/\.$/, '');
   try {
     const site = String(import.meta.env.VITE_PUBLIC_SITE_URL || '').trim();
     if (site) {
-      const host = new URL(site).hostname.toLowerCase();
-      if (host.startsWith('www.')) return host.slice(4);
-      return host;
+      const host = new URL(site).hostname.toLowerCase().replace(/\.$/, '');
+      // Localhost / loopback origins carry no platform-root signal — ignore
+      // them so manual `vite build` runs with a localhost .env don't bake
+      // "localhost" as the root and misroute *.pixnxt.in as gallery domains.
+      if (host && host !== 'localhost' && host !== '127.0.0.1' && !host.endsWith('.localhost')) {
+        if (host.startsWith('www.')) return host.slice(4);
+        return host;
+      }
     }
   } catch {
     /* ignore */
@@ -86,6 +91,8 @@ export function isValidCustomDomain(domain) {
   if (!normalized || normalized.includes(' ')) return false;
   if (normalized === 'localhost' || normalized.endsWith('.localhost')) return false;
   if (normalized.includes('pixnxt.in') || normalized.includes('vercel.app')) return false;
+  if (normalized.endsWith('.pages.dev') || normalized.endsWith('.workers.dev')) return false;
+  if (normalized === 'pages.dev' || normalized === 'workers.dev') return false;
   if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/.test(normalized)) {
     return false;
   }
@@ -147,14 +154,25 @@ export function isReservedPlatformSubdomain(label) {
 
 /** Hosts served by the main PIXNXT app (not a photographer custom domain). */
 export function isPlatformHost(host) {
-  const h = normalizeHost(host);
+  const h = normalizeHost(host).split(':')[0];
   if (!h || h === 'localhost' || h === '127.0.0.1') return true;
   if (h.endsWith('.localhost')) return true;
   if (h.endsWith('.vercel.app')) return true;
+  // Cloudflare hosting suffixes are always the platform app, never a
+  // photographer custom domain (custom domains point at domain.pixnxt.in,
+  // they are never *.pages.dev themselves).
+  if (h.endsWith('.pages.dev') || h === 'pages.dev') return true;
+  if (h.endsWith('.workers.dev') || h === 'workers.dev') return true;
+
+  // Hardcoded platform root — must hold even when VITE_PLATFORM_ROOT_DOMAIN
+  // was not baked into the bundle (e.g. manual `vite build` with a localhost
+  // .env uploaded via `wrangler pages deploy`, which bypasses Pages CI env).
+  if (h === 'pixnxt.in' || h === 'www.pixnxt.in') return true;
+  if (h.endsWith('.pixnxt.in')) return true;
 
   const root = getPlatformRootDomain();
   if (h === root || h === `www.${root}`) return true;
-  if (h.endsWith(`.${root}`)) return true;
+  if (root && h.endsWith(`.${root}`)) return true;
   return false;
 }
 

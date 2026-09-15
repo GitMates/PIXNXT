@@ -117,6 +117,10 @@ function App() {
   if (host.endsWith('.vercel.app')) {
     // Vercel preview and main URLs have 3 parts (e.g. pixnxt.vercel.app). Only treat as subdomain if > 3 parts (e.g. pooja.pixnxt.vercel.app)
     isProductionSubdomain = parts.length > 3 && !isReservedPlatformSubdomain(parts[0]);
+  } else if (host.endsWith('.pages.dev') || host.endsWith('.workers.dev')) {
+    // Cloudflare Pages/Workers hosts (pixnxt-test.pages.dev, branch previews)
+    // are always the platform app — never a photographer portfolio slug.
+    isProductionSubdomain = false;
   } else {
     // Reserved platform labels (test, domain, api, …) are infrastructure, never portfolios.
     isProductionSubdomain = parts.length > 2 && !isReservedPlatformSubdomain(parts[0]) && !host.endsWith('.localhost');
