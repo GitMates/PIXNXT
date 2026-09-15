@@ -14,13 +14,11 @@ function trimTrailingSlash(url) {
 
 /**
  * Platform / local origin (never a photographer custom domain).
- * - Dev: localhost so share/QR work without deploy
- * - Prod: VITE_PUBLIC_SITE_URL, else current origin
+ * - Configured VITE_PUBLIC_SITE_URL always wins (so local dev can share
+ *   links that point at the deployed site instead of localhost)
+ * - Fallback: current origin
  */
 export function getPublicSiteOrigin() {
-    if (import.meta.env.DEV && typeof window !== 'undefined' && window.location?.origin) {
-        return window.location.origin;
-    }
     const fromEnv = trimTrailingSlash(import.meta.env.VITE_PUBLIC_SITE_URL);
     if (fromEnv) return fromEnv;
     if (typeof window !== 'undefined' && window.location?.origin) {
