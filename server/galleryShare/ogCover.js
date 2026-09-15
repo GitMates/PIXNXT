@@ -1,39 +1,44 @@
-import { createClient } from '@supabase/supabase-js';
-import { getSupabaseAdmin, getSupabaseUrl } from '../photoAi/supabaseAdmin.js';
 import { getRequestOrigin } from '../albumPreview/ogCover.js';
 
 export { getRequestOrigin };
 
-function createGalleryClient() {
-  const admin = getSupabaseAdmin();
-  if (admin) return admin;
+function getWorkersBase() {
+  const base =
+    process.env.VITE_API_URL || process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || '';
+  return String(base || '').trim().replace(/\/+$/, '');
+}
 
-  const supabaseUrl = getSupabaseUrl() || process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey =
-    process.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ||
-    process.env.VITE_SUPABASE_ANON_KEY ||
-    process.env.SUPABASE_ANON_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!supabaseUrl || !anonKey) return null;
-  return createClient(supabaseUrl, anonKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+function workersMediaUrl(storagePath) {
+  const base = getWorkersBase();
+  if (!base) return null;
+  const key = String(storagePath || '').trim().replace(/^\//, '').split('#')[0];
+  if (!key) return null;
+  return `${base}/v1/r2/media?path=${encodeURIComponent(key)}`;
+}
+
+async function fetchWorkersJson(path, { timeoutMs = 5000, authHeader } = {}) {
+  const base = getWorkersBase();
+  if (!base) return null;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const headers = { Accept: 'application/json' };
+    if (authHeader) headers.Authorization = authHeader;
+    const res = await fetch(`${base}${path}`, { headers, signal: controller.signal });
+    if (!res.ok) return null;
+    return await res.json().catch(() => null);
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function publicStorageUrl(storagePath) {
   if (!storagePath || typeof storagePath !== 'string') return null;
   const trimmed = storagePath.trim();
   if (/^(https?:|data:image)/i.test(trimmed)) return trimmed.split('#')[0];
-  const base =
-    process.env.VITE_R2_PUBLIC_URL ||
-    process.env.R2_PUBLIC_URL ||
-    process.env.NEXT_PUBLIC_R2_PUBLIC_URL ||
-    '';
-  if (!base) return null;
-  const root = base.endsWith('/') ? base : `${base}/`;
-  const key = trimmed.replace(/^\//, '').split('#')[0];
-  if (key.startsWith(root)) return key;
-  return `${root}${key}`;
+  return workersMediaUrl(trimmed);
 }
 
 function firstImageUrl(...candidates) {
@@ -47,18 +52,32 @@ function firstImageUrl(...candidates) {
 
 /** Prefer a smaller derivative so WhatsApp can fetch the image quickly. */
 export function preferShareablePhotoUrl(url) {
-  const resolved = publicStorageUrl(url);
-  if (!resolved) return null;
-  if (resolved.startsWith('data:image')) return resolved;
-  if (resolved.includes('/original/')) {
-    let next = resolved.replace('/original/', '/web/');
-    if (!/\.jpe?g(\?|#|$)/i.test(next)) {
-      next = next.replace(/(\/[^/?#]+)\.[^./?#]+/, '$1.jpg');
+  if (!url || typeof url !== 'string') return null;
+  const trimmed = url.trim();
+  if (/^data:image/i.test(trimmed)) return trimmed.split('#')[0];
+  if (/^https?:/i.test(trimmed)) {
+    const clean = trimmed.split('#')[0];
+    if (clean.includes('/original/')) {
+      let next = clean.replace('/original/', '/web/');
+      if (!/\.jpe?g(\?|#|$)/i.test(next)) {
+        next = next.replace(/(\/[^/?#]+)\.[^./?#]+/, '$1.jpg');
+      }
+      return next;
     }
-    return next;
+    if (clean.includes('/thumb/')) return clean.replace('/thumb/', '/web/');
+    return clean;
   }
-  if (resolved.includes('/thumb/')) return resolved.replace('/thumb/', '/web/');
-  return resolved;
+  let key = trimmed.replace(/^\//, '').split('#')[0];
+  if (!key) return null;
+  if (key.includes('/original/')) {
+    key = key.replace('/original/', '/web/');
+    if (!/\.jpe?g(\?|#|$)/i.test(key)) {
+      key = key.replace(/(\/[^/?#]+)\.[^./?#]+/, '$1.jpg');
+    }
+  } else if (key.includes('/thumb/')) {
+    key = key.replace('/thumb/', '/web/');
+  }
+  return workersMediaUrl(key);
 }
 
 function photoShareUrl(photo) {
@@ -107,89 +126,38 @@ export function galleryCoverImageUrl(origin, slug, updated) {
   return `${origin}/gallery/${encodedSlug}/og-${cacheKey}.jpg`;
 }
 
-async function selectDelivery(supabase, column, value, fields) {
-  const published = await supabase
-    .from('deliveries')
-    .select(fields)
-    .eq(column, value)
-    .eq('status', 'published')
-    .maybeSingle();
-  if (!published.error) return { data: published.data, error: null };
-
-  const { data, error } = await supabase
-    .from('deliveries')
-    .select(fields)
-    .eq(column, value)
-    .maybeSingle();
-  if (error) {
-    console.error('[gallery-og] select failed', column, fields, error.message);
-    return { data: null, error };
-  }
-  if (data?.status && data.status !== 'published') return { data: null, error: null };
-  return { data, error: null };
-}
-
-export async function loadPublicGallery(slugOrId) {
+export async function loadPublicGallery(slugOrId, authHeader) {
   const key = decodeURIComponent(String(slugOrId || '')).trim();
   if (!key) return { collection: null, photos: [] };
-  const supabase = createGalleryClient();
-  if (!supabase) {
-    console.error('[gallery-og] missing Supabase env');
+  if (!getWorkersBase()) {
+    console.error('[gallery-og] missing VITE_API_URL');
     return { collection: null, photos: [] };
   }
-
-  const fullFields = 'id, name, slug, status, cover_url, updated_at, created_at';
-  const lightFields = 'id, name, slug, status, cover_url';
-  const lookups = /^[0-9a-f-]{36}$/i.test(key)
-    ? [
-        ['id', key],
-        ['slug', key],
-      ]
-    : [['slug', key]];
+  const header =
+    typeof authHeader === 'string' ? authHeader : authHeader?.headers?.authorization || null;
 
   let collection = null;
-  for (const [column, value] of lookups) {
-    let result = await selectDelivery(supabase, column, value, fullFields);
-    if (result.error) {
-      result = await selectDelivery(supabase, column, value, lightFields);
-    }
-    if (result.data) {
-      collection = result.data;
-      break;
-    }
+  try {
+    const data = await fetchWorkersJson(
+      `/v1/public/gallery-by-slug/${encodeURIComponent(key)}`,
+      { authHeader: header }
+    );
+    collection = data?.gallery || null;
+  } catch (err) {
+    console.error('[gallery-og] gallery fetch failed', err?.message || err);
+    return { collection: null, photos: [] };
   }
-
-  if (!collection && !/^[0-9a-f-]{36}$/i.test(key)) {
-    const { data } = await supabase
-      .from('deliveries')
-      .select(fullFields)
-      .ilike('slug', key)
-      .eq('status', 'published')
-      .maybeSingle();
-    collection = data || null;
-  }
-
   if (!collection) return { collection: null, photos: [] };
 
-  let photos = [];
-  const { data, error } = await supabase
-    .from('photos')
-    .select('web_url, thumbnail_url, full_url, watermarked_url, is_private, position, created_at')
-    .eq('collection_id', collection.id)
-    .order('position', { ascending: true })
-    .order('created_at', { ascending: true })
-    .limit(8);
-  if (error) {
-    const fallback = await supabase
-      .from('photos')
-      .select('web_url, thumbnail_url, full_url, position, created_at')
-      .eq('collection_id', collection.id)
-      .order('position', { ascending: true })
-      .limit(8);
-    photos = fallback.data || [];
-  } else {
-    photos = data || [];
+  try {
+    const photosData = await fetchWorkersJson(
+      `/v1/public/gallery/${encodeURIComponent(collection.id)}/photos?limit=8`,
+      { authHeader: header }
+    );
+    const photos = Array.isArray(photosData?.photos) ? photosData.photos : [];
+    return { collection, photos };
+  } catch (err) {
+    console.error('[gallery-og] photos fetch failed', err?.message || err);
+    return { collection, photos: [] };
   }
-
-  return { collection, photos };
 }

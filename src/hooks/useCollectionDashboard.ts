@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/lib/supabase/client";
+import { galleryService } from "@/services/gallery.service";
 import {
   Collection,
   PhotoSet,
@@ -108,15 +108,12 @@ export function useCollectionDashboard(collectionId: string | null) {
 
     setIsLoading(true);
     try {
-      // 1. Fetch Collection
-      const { data: collectionData, error: colError } = await supabase
-        .from("deliveries")
-        .select("*")
-        .eq("id", collectionId)
-        .single();
-
-      if (colError) throw colError;
-      setCollection(collectionData);
+      // 1. Fetch Collection + sets + photos via the gallery service
+      // (Cloudflare Workers GET /v1/galleries/:id/dashboard).
+      const dashboard = await galleryService.getCollectionDashboardData(collectionId);
+      const { sets: setsNested, photos: photosNested, ...collectionData } = dashboard || {};
+      if (!collectionData?.id) throw new Error('Collection not found');
+      setCollection(collectionData as Collection);
 
       // Sync settings from collection data
       if (collectionData.status)
@@ -147,21 +144,19 @@ export function useCollectionDashboard(collectionId: string | null) {
         setClientOnlyHighlights(collectionData.client_only_highlights);
       }
 
-      const { data: setsData, error: setsError } = await supabase
-        .from("sets")
-        .select("*")
-        .eq("collection_id", collectionId)
-        .order("position", { ascending: true })
-        .order("created_at", { ascending: true });
-
-      if (setsError) throw setsError;
-      const sortedSets = (setsData || []).sort(
+      const sortedSets = ((setsNested as PhotoSet[]) || []).sort(
         (a, b) => (a.position ?? 0) - (b.position ?? 0)
       );
       setSets(sortedSets);
 
       // 3. Fetch Photos (Highlights initially or based on activeSetId)
-      await fetchPhotos(activeSetId);
+      const all = ((photosNested as Photo[]) || []).sort(
+        (a, b) => (a.position ?? 0) - (b.position ?? 0)
+      );
+      setAllPhotos(all);
+      setPhotos(
+        activeSetId ? all.filter((p) => p.set_id === activeSetId) : all.filter((p) => !p.set_id)
+      );
     } catch (error) {
       console.error("Error fetching collection data:", error);
     } finally {
@@ -172,28 +167,17 @@ export function useCollectionDashboard(collectionId: string | null) {
   const fetchPhotos = useCallback(
     async (setId: string | null) => {
       if (!collectionId) return;
-
-      let query = supabase
-        .from("photos")
-        .select("*")
-        .eq("collection_id", collectionId);
-
-      if (setId) {
-        query = query.eq("set_id", setId);
-      } else {
-        query = query.is("set_id", null);
+      try {
+        const dashboard = await galleryService.getCollectionDashboardData(collectionId);
+        const all = ((dashboard?.photos as Photo[]) || []).sort(
+          (a, b) => (a.position ?? 0) - (b.position ?? 0)
+        );
+        setPhotos(
+          setId ? all.filter((p) => p.set_id === setId) : all.filter((p) => !p.set_id)
+        );
+      } catch (err) {
+        console.error("Error fetching photos:", err);
       }
-
-      const { data: photosData, error: photosError } = await query.order(
-        "position",
-        { ascending: true },
-      ).order("created_at", { ascending: false });
-
-      if (photosError) {
-        console.error("Error fetching photos:", photosError);
-        return;
-      }
-      setPhotos(photosData || []);
     },
     [collectionId],
   );
@@ -201,13 +185,15 @@ export function useCollectionDashboard(collectionId: string | null) {
   // Fetch all photos for the collection (no set filter) — used for the preview pane
   const fetchAllPhotos = useCallback(async () => {
     if (!collectionId) return;
-    const { data, error } = await supabase
-      .from("photos")
-      .select("*")
-      .eq("collection_id", collectionId)
-      .order("position", { ascending: true })
-      .order("created_at", { ascending: false });
-    if (!error) setAllPhotos(data || []);
+    try {
+      const dashboard = await galleryService.getCollectionDashboardData(collectionId);
+      const all = ((dashboard?.photos as Photo[]) || []).sort(
+        (a, b) => (a.position ?? 0) - (b.position ?? 0)
+      );
+      setAllPhotos(all);
+    } catch (err) {
+      console.error("Error fetching all photos:", err);
+    }
   }, [collectionId]);
 
   useEffect(() => {
@@ -224,9 +210,8 @@ export function useCollectionDashboard(collectionId: string | null) {
     const saveDesignSettings = async () => {
       if (!collectionId || !collection) return;
 
-      const { error } = await supabase
-        .from('deliveries')
-        .update({
+      try {
+        await galleryService.updateCollection(collectionId, {
           ...toDeliveryDesignPatch({
             coverStyle: designSettings.coverStyle,
             fontFamily: designSettings.fontFamily,
@@ -239,10 +224,8 @@ export function useCollectionDashboard(collectionId: string | null) {
           allow_clients_mark_private: allowClientsMarkPrivate,
           client_only_highlights: clientOnlyHighlights,
           privacy: clientExclusiveAccess ? 'client_exclusive' : undefined,
-        })
-        .eq('id', collectionId);
-
-      if (error) {
+        });
+      } catch (error) {
         console.error('Error saving design settings:', error);
       }
     };
@@ -264,16 +247,7 @@ export function useCollectionDashboard(collectionId: string | null) {
     setSets(updated);
 
     try {
-      const { USE_WORKERS_AUTH } = await import('../lib/api/client');
-      if (USE_WORKERS_AUTH) {
-        const { galleryService } = await import('../services/gallery.service');
-        await Promise.all(updated.map((set) => galleryService.updateSet(set.id, { position: set.position })));
-        return;
-      }
-      const promises = updated.map((set) =>
-        supabase.from("sets").update({ position: set.position }).eq("id", set.id)
-      );
-      await Promise.all(promises);
+      await Promise.all(updated.map((set) => galleryService.updateSet(set.id, { position: set.position })));
     } catch (err) {
       console.error("Failed to update set positions in database:", err);
     }

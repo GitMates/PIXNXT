@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { verifyClientPassword } from '../../../lib/clientExclusiveAccess';
-import { USE_WORKERS_AUTH } from '../../../lib/api/client';
 import './ClientExclusiveAccess.css';
 
 export interface ClientExclusiveLoginModalProps {
@@ -25,8 +24,8 @@ export const ClientExclusiveLoginModal: React.FC<ClientExclusiveLoginModalProps>
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Workers mode verifies server-side (hashes never leave the API).
-    if (USE_WORKERS_AUTH && collectionId) {
+    // Workers verifies server-side (hashes never leave the API).
+    if (collectionId) {
       setChecking(true);
       try {
         const { verifyGalleryAccess } = await import('../../../services/workersGallery.service');
@@ -45,7 +44,6 @@ export const ClientExclusiveLoginModal: React.FC<ClientExclusiveLoginModalProps>
       }
       return;
     }
-    console.log('Client Login Attempt:', { entered: password, stored: storedPassword });
     if (verifyClientPassword(password, storedPassword)) {
       console.log('Client Login Success!');
       setError('');

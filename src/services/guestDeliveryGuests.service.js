@@ -1,97 +1,25 @@
-import { supabase } from '../lib/supabase/client';
-import { USE_WORKERS_AUTH } from '../lib/api/client';
-import { deleteGuest as workersDeleteGuest, getGuests as workersGetGuests } from './workersGuest.service';
+const workersGuest = () => import('./workersGuest.service');
 import { guestDeliveryService } from './guestDelivery.service';
-
-const GUEST_FIELDS =
-  'id, event_id, photographer_id, name, email, phone, access_token, selfie_url, registered_at, delivery_status, delivery_email_sent_at, matched_photo_count, created_at';
-
-function filterGuestsByPhotographer(rows, photographerId) {
-  const list = rows || [];
-  if (!photographerId) return list;
-  const matched = list.filter((row) => row.photographer_id === photographerId);
-  // Prefer exact photographer match; if column is missing/null on older rows, keep all.
-  if (matched.length > 0) return matched;
-  if (list.some((row) => row.photographer_id != null)) return matched;
-  return list;
-}
 
 export const guestDeliveryGuestsService = {
   async getGuests(photographerId, eventId) {
     if (!eventId) return [];
-    if (USE_WORKERS_AUTH) return workersGetGuests(photographerId, eventId);
-
-    const ordered = await supabase
-      .from('event_guests')
-      .select(GUEST_FIELDS)
-      .eq('event_id', eventId)
-      .order('registered_at', { ascending: false });
-
-    if (!ordered.error) {
-      return filterGuestsByPhotographer(ordered.data, photographerId);
-    }
-
-    const fallback = await supabase
-      .from('event_guests')
-      .select('*')
-      .eq('event_id', eventId)
-      .order('created_at', { ascending: false });
-
-    if (fallback.error) throw ordered.error;
-    return filterGuestsByPhotographer(fallback.data, photographerId);
+    return (await workersGuest()).getGuests(photographerId, eventId);
   },
 
   async deleteGuest(photographerId, eventId, guestId) {
-    if (USE_WORKERS_AUTH) {
-      await workersDeleteGuest(photographerId, eventId, guestId);
-      await guestDeliveryService.incrementGuestCount(eventId, -1);
-      return;
-    }
-    const { error } = await supabase
-      .from('event_guests')
-      .delete()
-      .eq('photographer_id', photographerId)
-      .eq('event_id', eventId)
-      .eq('id', guestId);
-
-    if (error) throw error;
-
+    await (await workersGuest()).deleteGuest(photographerId, eventId, guestId);
     await guestDeliveryService.incrementGuestCount(eventId, -1);
   },
 };
 
 export async function registerGuestViaApi({ slug, name, email, phone, selfieBase64 }) {
-  const { USE_WORKERS_AUTH: useWorkers } = await import('../lib/api/client');
-  if (useWorkers) {
-    const { apiFetch } = await import('../lib/api/client');
-    const data = await apiFetch('/v1/guest/register', {
-      method: 'POST',
-      auth: false,
-      body: { slug, name, email, phone: phone || null, selfieBase64 },
-    });
-    if (!data?.guest) throw new Error('Registration failed. Please try again.');
-    return data.guest;
-  }
-  const res = await fetch('/api/guest-delivery/register', {
+  const { apiFetch } = await import('../lib/api/client');
+  const data = await apiFetch('/v1/guest/register', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      slug,
-      name,
-      email,
-      phone: phone || null,
-      selfieBase64,
-    }),
+    auth: false,
+    body: { slug, name, email, phone: phone || null, selfieBase64 },
   });
-
-  const payload = await res.json().catch(() => ({}));
-  if (!res.ok || !payload.ok) {
-    const detail =
-      payload.error ||
-      (res.status === 404
-        ? 'Registration service is unavailable. Please try again in a moment.'
-        : 'Registration failed. Please try again.');
-    throw new Error(detail);
-  }
-  return payload.result;
+  if (!data?.guest) throw new Error('Registration failed. Please try again.');
+  return data.guest;
 }

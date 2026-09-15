@@ -10,7 +10,7 @@ export function useGalleryPeople(collectionId, { enabled = true, isPublic = true
   const [selfieMatchPhotoIds, setSelfieMatchPhotoIds] = useState([]);
   const [selfieSearching, setSelfieSearching] = useState(false);
   const [selfieMessage, setSelfieMessage] = useState('');
-  const loadedRef = useRef(false);
+  const loadedForRef = useRef(null);
 
   const loadPeople = useCallback(async () => {
     if (!collectionId || !enabled) return;
@@ -29,11 +29,17 @@ export function useGalleryPeople(collectionId, { enabled = true, isPublic = true
   useEffect(() => {
     if (!collectionId || !enabled) {
       setPeople([]);
-      loadedRef.current = false;
+      setActivePersonId(null);
+      setSelfieMatchPhotoIds([]);
+      setSelfieMessage('');
+      loadedForRef.current = null;
       return;
     }
-    if (loadedRef.current) return;
-    loadedRef.current = true;
+    if (loadedForRef.current === collectionId) return;
+    loadedForRef.current = collectionId;
+    setActivePersonId(null);
+    setSelfieMatchPhotoIds([]);
+    setSelfieMessage('');
     void loadPeople();
   }, [collectionId, enabled, loadPeople]);
 

@@ -1,5 +1,4 @@
-import { supabase } from './supabase/client';
-import { USE_WORKERS_AUTH } from './api/client';
+import { subscribeSse, apiFetch } from './api/client';
 import { photographerQuotaService, QUOTA_CHANGED_EVENT } from '../services/photographerQuota.service';
 import { userStorageService, STORAGE_CHANGED_EVENT } from '../services/userStorage.service';
 
@@ -11,13 +10,13 @@ const PROFILE_CACHE_PREFIX = 'photographer_profile_';
  * Instant quota/feature sync between admin and photographer, both directions.
  *
  * - Admin saves limits in User Management -> photographer's open app updates
- *   within ~a second (Supabase Realtime postgres_changes on `photographers`).
- * - Photographer uploads / creates deliveries (DB recount triggers bump the
- *   `*_used` counters on their `photographers` row) -> admin tables refresh.
+ *   within ~a second (Workers SSE photographer events).
+ * - Photographer uploads / creates deliveries (usage counters bump on their
+ *   profile row) -> admin tables refresh.
  * - Same-browser tabs also sync instantly via BroadcastChannel + window event,
- *   so no reload is needed even before the realtime event arrives.
+ *   so no reload is needed even before the SSE event arrives.
  *
- * All subscriptions fail soft: if Realtime is unavailable, the existing
+ * All subscriptions fail soft: if SSE is unavailable, the existing
  * quota-cache TTL + manual refreshes keep working as before.
  */
 export function handlePhotographerLiveUpdate(photographerId, row) {
@@ -110,57 +109,62 @@ export function onPhotographerLimitsBroadcast(photographerIdOrNull, callback) {
   };
 }
 
-function subscribePhotographers(filter, callback) {
+function subscribePhotographers(filter, callback, { galleryId = null, pollMs = 30000 } = {}) {
   if (typeof callback !== 'function') return () => {};
-  // Workers mode has no Supabase Realtime — same-browser BroadcastChannel
-  // sync (above) still applies; polling/caches cover the rest.
-  if (USE_WORKERS_AUTH) return () => {};
-  let channel = null;
-  let closed = false;
-  try {
-    channel = supabase.channel(
-      filter ? `photographer-live:${filter}` : 'photographer-live:all'
-    );
-    const config = {
-      event: 'UPDATE',
-      schema: 'public',
-      table: 'photographers',
-    };
-    if (filter) config.filter = filter;
-    channel
-      .on('postgres_changes', config, (payload) => {
-        if (closed) return;
-        callback(payload.new || null, payload);
-      })
-      .subscribe((status) => {
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          try {
-            channel?.unsubscribe();
-          } catch {
-            /* ignore */
-          }
-        }
-      });
-  } catch {
-    /* Realtime unavailable: callers keep their existing refresh behavior */
-  }
-  return () => {
-    closed = true;
+  // Workers-only backend: use SSE (GET /v1/public/gallery/:id/events → gallery-updated)
+  // with a polling fallback at the previous interval; otherwise poll the profile.
+  let stopped = false;
+  let stopSse = () => {};
+  let pollTimer = null;
+  const refresh = async () => {
+    if (stopped) return;
     try {
-      channel?.unsubscribe();
+      if (galleryId) {
+        await apiFetch(`/v1/public/gallery/${encodeURIComponent(galleryId)}/photos?limit=1`, { auth: false }).catch(() => null);
+      } else if (filter && filter.startsWith('id=eq.')) {
+        const id = filter.slice('id=eq.'.length);
+        const data = await apiFetch('/v1/me/profile').catch(() => null);
+        if (data?.profile && (!id || data.profile.id === id)) callback(data.profile, { source: 'poll' });
+        return;
+      } else {
+        await apiFetch('/v1/me/profile').catch(() => null);
+      }
+      callback(null, { source: 'poll' });
+    } catch {
+      // polling is best-effort
+    }
+  };
+  try {
+    if (galleryId) {
+      stopSse = subscribeSse(`/v1/public/gallery/${encodeURIComponent(galleryId)}/events`, {
+        onEvent: (_data, _event, type) => {
+          if (stopped) return;
+          if (!type || type === 'gallery-updated') callback(null, { source: 'sse', type: type || 'gallery-updated' });
+        },
+      });
+    }
+  } catch {
+    // SSE optional — polling covers it
+  }
+  pollTimer = setInterval(refresh, pollMs);
+  return () => {
+    stopped = true;
+    try {
+      stopSse?.();
     } catch {
       /* ignore */
     }
+    if (pollTimer) clearInterval(pollTimer);
   };
 }
 
 /** Live UPDATEs for one photographer's row (photographer app + admin editor). */
-export function subscribePhotographerRow(photographerId, onRow) {
+export function subscribePhotographerRow(photographerId, onRow, options) {
   if (!photographerId) return () => {};
-  return subscribePhotographers(`id=eq.${photographerId}`, onRow);
+  return subscribePhotographers(`id=eq.${photographerId}`, onRow, options);
 }
 
 /** Live UPDATEs for every photographer row (admin list pages + dashboard). */
-export function subscribeAllPhotographers(onAny) {
-  return subscribePhotographers(null, onAny);
+export function subscribeAllPhotographers(onAny, options) {
+  return subscribePhotographers(null, onAny, options);
 }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLabAuth } from './LabApp';
-import { supabase } from '../../lib/supabase/client';
+import { apiFetch } from '../../lib/api/client';
 import { getShortId } from '../utils/idFormat';
 import {
   getLabStatusColor,
@@ -126,22 +126,22 @@ export default function LabFrameWorkshop() {
   const [jobMeta, setJobMeta] = useState(null);
 
   const fetchFrameData = useCallback(async (showLoading = !initialLoaded) => {
+    // Same fan-out as LabApp.fetchOrders: list + per-order detail items.
     try {
       if (showLoading) setLoading(true);
-      const { data: ordersData, error: ordersError } = await supabase
-        .from('printstore_orders')
-        .select('*')
-        .order('created_at', { ascending: false });
-      if (ordersError) throw ordersError;
-
-      const { data: itemsData, error: itemsError } = await supabase
-        .from('printstore_order_items')
-        .select('*');
-      if (itemsError) throw itemsError;
-
-      const physicalItems = filterLabPhysicalItems(itemsData || []);
+      const { normalizeLabItemRow } = await import('./labOrderStatusService');
+      const data = await apiFetch('/v1/printstore/orders');
+      const ordersData = data?.orders || [];
+      const details = await Promise.all(
+        ordersData.map((o) =>
+          apiFetch(`/v1/printstore/orders/${encodeURIComponent(o.id)}`).catch(() => null)
+        )
+      );
+      const physicalItems = filterLabPhysicalItems(
+        details.flatMap((d) => d?.items || []).map(normalizeLabItemRow)
+      );
       const labOrderIds = new Set(physicalItems.map((item) => item.order_id));
-      setOrders((ordersData || []).filter((order) => labOrderIds.has(order.id)));
+      setOrders(ordersData.filter((order) => labOrderIds.has(order.id)));
       setOrderItems(physicalItems);
       setInitialLoaded(true);
     } catch (err) {
@@ -198,19 +198,17 @@ export default function LabFrameWorkshop() {
   }, [selected, selectedItemId]);
 
   const loadFrameJob = useCallback(async (orderId) => {
+    // GET /v1/printstore/frame-jobs?orderId= → { rows } (newest first)
     try {
-      const { data, error } = await supabase
-        .from('printstore_lab_frame_jobs')
-        .select('*')
-        .eq('order_id', orderId)
-        .maybeSingle();
-      if (error && error.code !== '42P01' && error.code !== 'PGRST205') {
-        console.warn('Frame job load:', error.message);
-      }
-      if (data) {
-        setJobMeta(data);
-        setChecklist({ ...DEFAULT_CHECKLIST, ...(data.checklist || {}) });
-        setOperatorNote(data.notes || '');
+      const data = await apiFetch(`/v1/printstore/frame-jobs?orderId=${encodeURIComponent(orderId)}`);
+      const job = (data?.rows || [])[0] || null;
+      if (job) {
+        setJobMeta(job);
+        const checklist = typeof job.checklist === 'string'
+          ? JSON.parse(job.checklist || '{}')
+          : (job.checklist || {});
+        setChecklist({ ...DEFAULT_CHECKLIST, ...checklist });
+        setOperatorNote(job.notes || '');
       } else {
         setJobMeta(null);
         setChecklist({ ...DEFAULT_CHECKLIST });
@@ -229,24 +227,17 @@ export default function LabFrameWorkshop() {
 
   const saveFrameJob = async (extra = {}) => {
     if (!selectedOrderId) return;
-    const payload = {
-      order_id: selectedOrderId,
-      checklist,
-      notes: operatorNote,
-      updated_at: new Date().toISOString(),
-      ...extra,
-    };
-    const { error } = await supabase
-      .from('printstore_lab_frame_jobs')
-      .upsert(payload, { onConflict: 'order_id' });
-    if (error) {
-      if (error.code === '42P01' || /does not exist|schema cache/i.test(error.message || '')) {
-        throw new Error(
-          'Frame jobs table missing. Run src/printstore/lab/lab_frame_workshop.sql in Supabase.'
-        );
-      }
-      throw error;
-    }
+    // POST /v1/printstore/frame-jobs/upsert — newest-wins per order.
+    await apiFetch('/v1/printstore/frame-jobs/upsert', {
+      method: 'POST',
+      body: {
+        order_id: selectedOrderId,
+        checklist,
+        notes: operatorNote,
+        updated_at: new Date().toISOString(),
+        ...extra,
+      },
+    });
   };
 
   const openOrder = (orderId) => {

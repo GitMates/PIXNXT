@@ -1,19 +1,16 @@
-import { supabase } from '../../lib/supabase/client';
 import {
     remapPageForSpreadMove,
     remapSpreadIndexAfterOverviewReorder,
     spreadIndexForPageNum,
 } from './albumSpreadReorder';
 import {
-    isMissingRelationError,
-    isMissingColumnError,
     resolveCommentAttachmentForDb,
     loadFeedbackSeenMap,
     resolveFeedbackViewerKey,
     upsertFeedbackSeenRows,
 } from './albumFeedbackDb';
 
-/** In-memory cache hydrated from Supabase (shared client + photographer). */
+/** In-memory cache hydrated via the Workers API (shared client + photographer). */
 const pinsByAlbum = Object.create(null);
 const seenByAlbum = Object.create(null);
 const peekedPinIdsByAlbum = Object.create(null);
@@ -86,44 +83,24 @@ function toPinInsert(albumId, pin) {
 
 async function persistPinInsert(albumId, pin) {
     try {
-        const { USE_WORKERS_AUTH } = await import('../../lib/api/client');
-        if (USE_WORKERS_AUTH) {
-            const { apiFetch } = await import('../../lib/api/client');
-            await apiFetch(`/v1/proofer/albums/${albumId}/pins`, {
-                method: 'POST',
-                body: {
-                    pageNum: pin.pageNum ?? null,
-                    cellId: pin.cellId ?? 0,
-                    xPct: pin.xPct ?? null,
-                    yPct: pin.yPct ?? null,
-                    message: pin.message || '',
-                    label: pin.label || null,
-                    pinType: pin.type || 'comment',
-                    authorName: pin.authorName || null,
-                    authorEmail: pin.authorEmail || null,
-                    attachmentUrl: pin.attachment_url || null,
-                    attachmentName: pin.attachment_name || null,
-                    attachmentType: pin.attachment_type || null,
-                },
-            });
-            return;
-        }
-        const payload = toPinInsert(albumId, pin);
-        let { error } = await supabase
-            .from('album_proofer_photo_pins')
-            .insert(payload);
-        if (error && isMissingColumnError(error, 'attachment')) {
-            const fallback = { ...payload };
-            delete fallback.attachment_url;
-            delete fallback.attachment_name;
-            delete fallback.attachment_type;
-            ({ error } = await supabase
-                .from('album_proofer_photo_pins')
-                .insert(fallback));
-        }
-        if (error && !isMissingRelationError(error, 'album_proofer_photo_pins')) {
-            console.warn('persistPinInsert:', error.message);
-        }
+        const { apiFetch } = await import('../../lib/api/client');
+        await apiFetch(`/v1/proofer/albums/${albumId}/pins`, {
+            method: 'POST',
+            body: {
+                pageNum: pin.pageNum ?? null,
+                cellId: pin.cellId ?? 0,
+                xPct: pin.xPct ?? null,
+                yPct: pin.yPct ?? null,
+                message: pin.message || '',
+                label: pin.label || null,
+                pinType: pin.type || 'comment',
+                authorName: pin.authorName || null,
+                authorEmail: pin.authorEmail || null,
+                attachmentUrl: pin.attachment_url || null,
+                attachmentName: pin.attachment_name || null,
+                attachmentType: pin.attachment_type || null,
+            },
+        });
     } catch (err) {
         console.warn('persistPinInsert failed:', err);
     }
@@ -131,17 +108,9 @@ async function persistPinInsert(albumId, pin) {
 
 async function persistPinDelete(albumId, pinId) {
     try {
-        const { USE_WORKERS_AUTH } = await import('../../lib/api/client');
-        if (USE_WORKERS_AUTH) {
-            if (!albumId) return;
-            const { apiFetch } = await import('../../lib/api/client');
-            await apiFetch(`/v1/proofer/albums/${albumId}/pins/${pinId}`, { method: 'DELETE' });
-            return;
-        }
-        const { error } = await supabase.from('album_proofer_photo_pins').delete().eq('id', pinId);
-        if (error && !isMissingRelationError(error, 'album_proofer_photo_pins')) {
-            console.warn('persistPinDelete:', error.message);
-        }
+        if (!albumId) return;
+        const { apiFetch } = await import('../../lib/api/client');
+        await apiFetch(`/v1/proofer/albums/${albumId}/pins/${pinId}`, { method: 'DELETE' });
     } catch (err) {
         console.warn('persistPinDelete failed:', err);
     }
@@ -149,82 +118,30 @@ async function persistPinDelete(albumId, pinId) {
 
 async function persistPinUpdate(albumId, pin) {
     try {
-        const { USE_WORKERS_AUTH } = await import('../../lib/api/client');
-        if (USE_WORKERS_AUTH) {
-            const { apiFetch } = await import('../../lib/api/client');
-            await apiFetch(`/v1/proofer/albums/${albumId}/pins/${pin.id}`, {
-                method: 'PATCH',
-                body: {
-                    pageNum: pin.pageNum,
-                    cellId: pin.cellId ?? 0,
-                    xPct: pin.xPct,
-                    yPct: pin.yPct,
-                    message: pin.message || '',
-                    label: pin.label || null,
-                },
-            });
-            return;
-        }
-        const updatePayload = {
-            page_num: pin.pageNum,
-            cell_id: pin.cellId ?? 0,
-            x_pct: pin.xPct,
-            y_pct: pin.yPct,
-            message: pin.message || '',
-            label: pin.label || null,
-            updated_at: pin.updatedAt || new Date().toISOString(),
-            attachment_url: pin.attachment_url || null,
-            attachment_name: pin.attachment_name || null,
-            attachment_type: pin.attachment_type || null,
-        };
-        let { error } = await supabase
-            .from('album_proofer_photo_pins')
-            .update(updatePayload)
-            .eq('id', pin.id)
-            .eq('album_id', albumId);
-        if (error && isMissingColumnError(error, 'attachment')) {
-            const fallback = { ...updatePayload };
-            delete fallback.attachment_url;
-            delete fallback.attachment_name;
-            delete fallback.attachment_type;
-            ({ error } = await supabase
-                .from('album_proofer_photo_pins')
-                .update(fallback)
-                .eq('id', pin.id)
-                .eq('album_id', albumId));
-        }
-        if (error && !isMissingRelationError(error, 'album_proofer_photo_pins')) {
-            console.warn('persistPinUpdate:', error.message);
-        }
+        const { apiFetch } = await import('../../lib/api/client');
+        await apiFetch(`/v1/proofer/albums/${albumId}/pins/${pin.id}`, {
+            method: 'PATCH',
+            body: {
+                pageNum: pin.pageNum,
+                cellId: pin.cellId ?? 0,
+                xPct: pin.xPct,
+                yPct: pin.yPct,
+                message: pin.message || '',
+                label: pin.label || null,
+            },
+        });
     } catch (err) {
         console.warn('persistPinUpdate failed:', err);
     }
 }
 
-/** Load photo pins from Supabase into memory (client link + photographer). */
+/** Load photo pins via the Workers API into memory (client link + photographer). */
 export async function hydratePhotoPins(albumId) {
     if (!albumId) return [];
     try {
-        const { USE_WORKERS_AUTH } = await import('../../lib/api/client');
-        let rows = null;
-        if (USE_WORKERS_AUTH) {
-            const { apiFetch } = await import('../../lib/api/client');
-            const data = await apiFetch(`/v1/proofer/albums/${albumId}/pins`);
-            rows = data?.pins || [];
-        } else {
-            const { data, error } = await supabase
-                .from('album_proofer_photo_pins')
-                .select('*')
-                .eq('album_id', albumId)
-                .order('created_at', { ascending: true });
-            if (error) {
-                if (!isMissingRelationError(error, 'album_proofer_photo_pins')) {
-                    console.warn('hydratePhotoPins:', error.message);
-                }
-                return getPhotoPins(albumId);
-            }
-            rows = data || [];
-        }
+        const { apiFetch } = await import('../../lib/api/client');
+        const data = await apiFetch(`/v1/proofer/albums/${albumId}/pins`);
+        const rows = data?.pins || [];
         const list = rows.map(mapPinRow);
         setAlbumPins(albumId, list);
         return list;

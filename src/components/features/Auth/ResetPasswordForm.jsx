@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../../hooks/useAuth';
-import { supabase } from '../../../lib/supabase/client';
-import { USE_WORKERS_AUTH, readWorkersResetToken } from '../../../lib/api/client';
+import { readWorkersResetToken } from '../../../lib/api/client';
 import { PasswordField } from './PasswordField';
 
 export const ResetPasswordForm = ({ onSuccess, onRequestNewLink }) => {
@@ -15,31 +14,9 @@ export const ResetPasswordForm = ({ onSuccess, onRequestNewLink }) => {
   useEffect(() => {
     let cancelled = false;
 
-    // Workers mode: the ?token= link is self-sufficient — no recovery session.
-    if (USE_WORKERS_AUTH) {
-      if (readWorkersResetToken()) setSessionReady(true);
-      else setError('This reset link has expired or was already used. Request a new one below.');
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    const waitForRecoverySession = async () => {
-      for (let attempt = 0; attempt < 20; attempt += 1) {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (cancelled) return;
-        if (session) {
-          setSessionReady(true);
-          return;
-        }
-        await new Promise((resolve) => setTimeout(resolve, 200));
-      }
-      if (!cancelled) {
-        setError('This reset link has expired or was already used. Request a new one below.');
-      }
-    };
-
-    void waitForRecoverySession();
+    // Workers: the ?token= link is self-sufficient — no recovery session.
+    if (readWorkersResetToken()) setSessionReady(true);
+    else setError('This reset link has expired or was already used. Request a new one below.');
     return () => {
       cancelled = true;
     };

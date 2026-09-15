@@ -1,7 +1,6 @@
 /**
- * Workers-native gallery backend (Cloudflare /v1) — mirrors the
- * galleryService API surface. Active only when VITE_USE_WORKERS_API=1;
- * gallery.service.js delegates here per-function.
+ * Gallery backend (Cloudflare /v1) — mirrors the
+ * galleryService API surface. gallery.service.js delegates here per-function.
  */
 import { apiFetch } from '../lib/api/client';
 
@@ -679,7 +678,7 @@ export async function getDownloadCount(collectionId) {
   return data?.counts?.download ?? 0;
 }
 
-/** Background digital-package cart sync (replaces inline Supabase writes). */
+/** Background digital-package cart sync. */
 export async function syncDigitalCartItem(sessionId, { productType, name, unitPrice, options }) {
   if (!sessionId || !productType) return null;
   const data = await apiFetch('/v1/printstore/cart/sync-digital', {
@@ -748,10 +747,10 @@ export async function ensureCollectionReminder(collectionId, patch = {}) {
   return createCollectionReminder({ collectionId, timing: '7 days before auto expiry date', subject: 'Gallery expiring soon', body: '', ...patch });
 }
 
-export async function shareCollectionByEmail({ collectionSlug, recipientEmail, senderEmail, personalMessage }) {
+export async function shareCollectionByEmail({ collectionSlug, collectionId, recipientEmail, senderEmail, personalMessage, subject }) {
   const data = await apiFetch('/v1/emails/share-collection', {
     method: 'POST',
-    body: { collectionSlug, recipientEmail, senderEmail: senderEmail ?? null, personalMessage: personalMessage ?? null },
+    body: { collectionSlug, collectionId: collectionId ?? null, recipientEmail, senderEmail: senderEmail ?? null, personalMessage: personalMessage ?? null, subject: subject ?? null },
   });
   return data;
 }
@@ -826,4 +825,215 @@ export async function updateWatermark(id, updates) {
 
 export async function deleteWatermark(id) {
   await apiFetch(`/v1/watermarks/${id}`, { method: 'DELETE' });
+}
+
+// ---------- cover focals (PATCH /v1/galleries/:id) ----------
+
+export async function saveCollectionFocalPoint(collectionId, coverUrl, focalX, focalY) {
+  const { normalizeFocalForDb, appendFocalToCoverUrl } = await import('../lib/focalPoint.js');
+  const fx = normalizeFocalForDb(focalX);
+  const fy = normalizeFocalForDb(focalY);
+  const newCoverUrl = appendFocalToCoverUrl(coverUrl, fx, fy);
+  return updateCollection(collectionId, { cover_url: newCoverUrl, cover_focal_x: fx, cover_focal_y: fy });
+}
+
+export async function saveCollectionCoverFocals(collectionId, coverUrl, focals, extra = {}) {
+  const { focalsToDbPayload, stripMediaUrlHash, appendCoverFocalsToCoverUrl } = await import('../lib/focalPoint.js');
+  const payload = focalsToDbPayload(focals);
+  const primary = payload.desktop || payload.website || { x: 50, y: 50 };
+  const cleanUrl = stripMediaUrlHash(coverUrl);
+  try {
+    return await updateCollection(collectionId, {
+      ...extra,
+      cover_url: cleanUrl,
+      cover_focal_x: primary.x,
+      cover_focal_y: primary.y,
+      cover_focals: payload,
+    });
+  } catch {
+    const hashedUrl = appendCoverFocalsToCoverUrl(cleanUrl, payload);
+    return saveCollectionFocalPoint(collectionId, hashedUrl || cleanUrl, primary.x, primary.y);
+  }
+}
+
+// ---------- store orders (GET /v1/store/orders + /v1/store/order-items) ----------
+
+export async function getStoreOrders(collectionId) {
+  if (!collectionId) return [];
+  const data = await apiFetch(`/v1/store/orders?collectionId=${encodeURIComponent(collectionId)}`);
+  return data?.orders || [];
+}
+
+export async function getStoreOrderItems(collectionId) {
+  if (!collectionId) return [];
+  const data = await apiFetch(`/v1/store/order-items?collectionId=${encodeURIComponent(collectionId)}`).catch(() => null);
+  return data?.items || [];
+}
+
+// ---------- quota / storage reads (GET /v1/me/quota + /v1/me/storage) ----------
+
+export async function getQuotaSnapshot() {
+  const data = await apiFetch('/v1/me/quota').catch(() => null);
+  return data?.quota ?? null;
+}
+
+export async function getStorageUsage() {
+  const data = await apiFetch('/v1/me/storage').catch(() => null);
+  if (!data) return null;
+  return data;
+}
+
+// ---------- engage fan-out (GET /v1/engage/notifications + /v1/engage/studio-overview) ----------
+
+export async function getNotificationsBulk(collectionIds) {
+  const ids = [...new Set((collectionIds || []).filter(Boolean))];
+  if (!ids.length) return { collections: [], downloads: [], favorites: [], orders: [], sessions: [], sessionEmails: [] };
+  const data = await apiFetch(`/v1/engage/notifications?ids=${ids.map(encodeURIComponent).join(',')}`);
+  const parseMeta = (row) => {
+    if (row && typeof row.metadata === 'string') {
+      try {
+        return { ...row, metadata: JSON.parse(row.metadata) };
+      } catch {
+        return { ...row, metadata: null };
+      }
+    }
+    return row;
+  };
+  return {
+    collections: data?.collections || [],
+    downloads: (data?.downloads || []).map(parseMeta),
+    favorites: data?.favorites || [],
+    orders: data?.orders || [],
+    sessions: data?.sessions || [],
+    sessionEmails: data?.sessionEmails || [],
+  };
+}
+
+export async function getStudioOverview() {
+  const data = await apiFetch('/v1/engage/studio-overview').catch(() => null);
+  if (!data) return { deliveries: [], openedCollectionIds: [], printOrders: [], guestEvents: [], guests: [] };
+  return data;
+}
+
+export async function listReferrals() {
+  const data = await apiFetch('/v1/engage/referrals').catch(() => null);
+  return data?.referrals || [];
+}
+
+export async function createReferral(referredEmail) {
+  const data = await apiFetch('/v1/engage/referrals', { method: 'POST', body: { referredEmail } });
+  return data?.referral;
+}
+
+export async function listContacts() {
+  const data = await apiFetch('/v1/engage/contacts').catch(() => null);
+  return data?.contacts || [];
+}
+
+// ---------- favorite default-list resolution (mirrors gallery.service preference) ----------
+
+export async function resolveDefaultFavoriteList(sessionId) {
+  if (!sessionId) return null;
+  const lists = await getFavoriteListsForSession(sessionId);
+  if (!lists?.length) return null;
+  const my = lists.find((l) => l.name === 'My Favorites');
+  if (my) return my;
+  const clientLists = lists.filter((l) => !(l.max_selection != null && Number(l.max_selection) > 0));
+  if (clientLists.length) return clientLists[clientLists.length - 1];
+  const withCap = lists.filter((l) => l.max_selection != null && Number(l.max_selection) > 0);
+  if (withCap.length) return withCap[0];
+  return lists[0];
+}
+
+// ---------- client-exclusive access (PATCH /v1/galleries/sets/:setId + /photos/:photoId) ----------
+
+export async function updateSetClientOnly(setId, isClientOnly) {
+  const data = await apiFetch(`/v1/galleries/sets/${setId}`, {
+    method: 'PATCH',
+    body: { is_private: isClientOnly ? 1 : 0 },
+  });
+  return data?.set;
+}
+
+export async function setPhotoPrivate(photoId, isPrivate, collectionId) {
+  const data = await apiFetch(`/v1/galleries/photos/${photoId}`, {
+    method: 'PATCH',
+    body: { is_private: isPrivate ? 1 : 0 },
+  });
+  if (collectionId) {
+    try {
+      await logActivity(collectionId, 'gallery_view', {
+        photoId,
+        metadata: { type: 'photo_private', photo_id: photoId, is_private: isPrivate },
+      });
+    } catch {
+      // activity is best-effort
+    }
+  }
+  return data?.photo;
+}
+
+// ---------- sales automations (GET/POST/DELETE /v1/engage/sales-automations) ----------
+
+function salesAutomationsKey(photographerId) {
+  return `pixnxt_sales_automations_${photographerId}`;
+}
+
+function readLocalAutomations(photographerId) {
+  try {
+    const local = localStorage.getItem(salesAutomationsKey(photographerId));
+    return local ? JSON.parse(local) : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchSalesAutomations(photographerId) {
+  if (!photographerId) return [];
+  try {
+    const data = await apiFetch('/v1/engage/sales-automations');
+    return Array.isArray(data?.automations) ? data.automations : [];
+  } catch {
+    return readLocalAutomations(photographerId);
+  }
+}
+
+export async function saveSalesAutomation(photographerId, automation) {
+  if (!photographerId) throw new Error('photographerId is required');
+  const now = new Date().toISOString();
+  const payload = { ...automation, last_activity: now, updated_at: now };
+  try {
+    const data = await apiFetch('/v1/engage/sales-automations', { method: 'POST', body: payload });
+    return data?.automation ?? payload;
+  } catch {
+    const targetId = automation.id || `auto_${Math.random().toString(36).slice(2, 11)}`;
+    const next = { ...payload, id: targetId, created_at: automation.created_at || now };
+    try {
+      const automations = readLocalAutomations(photographerId);
+      const idx = automations.findIndex((a) => a.id === targetId);
+      if (idx >= 0) automations[idx] = next;
+      else automations.push(next);
+      localStorage.setItem(salesAutomationsKey(photographerId), JSON.stringify(automations));
+    } catch {
+      // ignore quota errors
+    }
+    return next;
+  }
+}
+
+export async function deleteSalesAutomation(photographerId, id) {
+  try {
+    await apiFetch(`/v1/engage/sales-automations/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  } catch {
+    // fall through to local mirror cleanup
+  }
+  try {
+    const localStr = localStorage.getItem(salesAutomationsKey(photographerId));
+    if (localStr) {
+      const automations = JSON.parse(localStr).filter((a) => a.id !== id);
+      localStorage.setItem(salesAutomationsKey(photographerId), JSON.stringify(automations));
+    }
+  } catch {
+    // ignore
+  }
 }

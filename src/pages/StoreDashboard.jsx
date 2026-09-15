@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { supabase } from '../lib/supabase/client';
 import { galleryService } from '../services/gallery.service';
 import { storageService } from '../services/storage.service';
 import {
@@ -16,7 +15,6 @@ import {
   isUsablePublicImageUrl,
   mergeGalleryCampaignsFromDb,
   resolveEmailHeroPresentation,
-  resolveEmailOfferStripColors,
   sanitizeEmailReminderConfig,
   persistSalesCampaignsLocally,
   SALES_CAMPAIGNS_STORAGE_KEY,
@@ -37,7 +35,6 @@ import {
   emptyCategoryPricingMap,
   categoryPricingFromPackages,
   fetchStorePackages,
-  saveCategoryDigitalPricing,
 } from '../lib/storePackages';
 import { broadcastGalleryLive } from '../lib/galleryLiveSync';
 import './Dashboard.css';
@@ -474,58 +471,27 @@ export default function StoreDashboard() {
       setSendingTestNotification(type);
 
       const currentCampaign = campaigns.find(c => c.id === selectedCampaign);
-      const activeBannerKey = currentCampaign ? Object.keys(currentCampaign.banners).find(k => currentCampaign.banners[k].enabled) : null;
-      const activeBanner = currentCampaign && activeBannerKey ? currentCampaign.banners[activeBannerKey] : null;
 
       const emailPayload = ensureEmailOfferStripColors(
         sanitizeEmailReminderConfig(selectedAutomation)
       );
       const { _campaignId, _bannerKey, _emailKey, ...cleanEmailConfig } = emailPayload;
-      const offerStripColors = resolveEmailOfferStripColors(cleanEmailConfig, null);
 
-      const { USE_WORKERS_AUTH } = await import('../lib/api/client');
-      if (USE_WORKERS_AUTH) {
-        const { sendStoreCampaign } = await import('../services/workersGallery.service');
-        const result = await sendStoreCampaign({
-          mode: 'test',
-          testType: type,
-          recipient,
-          collectionId: colId,
-          campaignId: selectedCampaign,
-          emailKey: _emailKey,
-          emailConfig: cleanEmailConfig,
-          discount: currentCampaign?.discount,
-          discountCode: currentCampaign?.discountCode,
-          durationDays: currentCampaign?.durationDays,
-        });
-        alert(`Test ${type === 'email' ? 'email' : 'WhatsApp'} sent successfully to ${recipient}!`);
-        void result;
-      } else {
-      const { data, error } = await supabase.functions.invoke('send-store-campaign-reminders', {
-        body: {
-          mode: 'test',
-          test: true,
-          testType: type,
-          recipient,
-          collectionId: colId,
-          photographerId: user.id,
-          campaignId: selectedCampaign,
-          emailKey: _emailKey,
-          emailConfig: cleanEmailConfig,
-          offerStripColors,
-          activeBannerKey,
-          activeBanner,
-          discount: currentCampaign?.discount,
-          discountCode: currentCampaign?.discountCode,
-          durationDays: currentCampaign?.durationDays,
-          siteOrigin: window.location.origin
-        }
+      const { sendStoreCampaign } = await import('../services/workersGallery.service');
+      const result = await sendStoreCampaign({
+        mode: 'test',
+        testType: type,
+        recipient,
+        collectionId: colId,
+        campaignId: selectedCampaign,
+        emailKey: _emailKey,
+        emailConfig: cleanEmailConfig,
+        discount: currentCampaign?.discount,
+        discountCode: currentCampaign?.discountCode,
+        durationDays: currentCampaign?.durationDays,
       });
-
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
       alert(`Test ${type === 'email' ? 'email' : 'WhatsApp'} sent successfully to ${recipient}!`);
-      }
+      void result;
     } catch (err) {
       console.error("Error sending test notification:", err);
       alert(`Failed to send test notification: ${err.message || err}`);
@@ -576,12 +542,17 @@ export default function StoreDashboard() {
 
       const payload = buildGalleryCampaignPayload(updatedCampaigns);
       const jsonStr = JSON.stringify(payload);
-      const { error } = await supabase
-        .from('deliveries')
-        .update({ store_banner_text: jsonStr })
-        .in('id', collectionIds);
-      if (error) throw error;
-      console.log("Successfully saved gallery banner settings for collections:", collectionIds);
+      // Best-effort PATCH per collection for forward-compat; localStorage
+      // (persistSalesCampaignsLocally) stays the source of truth.
+      const { apiFetch } = await import('../lib/api/client');
+      await Promise.all(
+        collectionIds.map((id) =>
+          apiFetch(`/v1/galleries/${encodeURIComponent(id)}`, {
+            method: 'PATCH',
+            body: { store_banner_text: jsonStr },
+          }).catch(() => null)
+        )
+      );
       return true;
     } catch (err) {
       console.error("Error saving gallery banner settings to database:", err);
@@ -649,12 +620,10 @@ export default function StoreDashboard() {
     async function loadProfile() {
       if (!user) return;
       try {
-        const { data } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .maybeSingle();
-        if (data) setProfile(data);
+        // GET /v1/me/profile — full photographers row (branding/settings).
+        const { apiFetch } = await import('../lib/api/client');
+        const data = await apiFetch('/v1/me/profile').catch(() => null);
+        if (data?.profile) setProfile(data.profile);
       } catch (e) {
         console.error("Error loading profile:", e);
       }
@@ -676,57 +645,85 @@ export default function StoreDashboard() {
       }
       setLoading(true);
       try {
-        const { data: ordersData } = await supabase
-          .from('printstore_orders')
-          .select('*')
-          .order('created_at', { ascending: false });
+        // Workers studio reads: collections via galleryService
+        // (GET /v1/galleries/dashboard), orders via
+        // GET /v1/printstore/studio/orders, items via bulk
+        // GET /v1/printstore/studio/order-items?ids= (per-order detail as
+        // fallback), photos via GET /v1/galleries/:id/photos. D1 returns
+        // JSON columns (options, shipping_address) as TEXT — parsed back
+        // to objects.
+        const { apiFetch } = await import('../lib/api/client');
+          const parseWorkersJson = (value, fallback) => {
+            if (value == null) return fallback;
+            if (typeof value !== 'string') return value;
+            try {
+              const parsed = JSON.parse(value);
+              return parsed ?? fallback;
+            } catch {
+              return fallback;
+            }
+          };
+          const cols = await galleryService.getCollections(user.id).catch(() => []);
+          const ordersRes = await apiFetch('/v1/printstore/studio/orders').catch(() => null);
+          const ords = (ordersRes?.orders || []).map((o) => ({
+            ...o,
+            shipping_address: parseWorkersJson(o.shipping_address, {}),
+            subtotal: Number(o.subtotal ?? 0),
+            total: Number(o.total ?? 0),
+            shipping_amount: Number(o.shipping_amount ?? 0),
+            tax_amount: Number(o.tax_amount ?? 0),
+            discount_amount: Number(o.discount_amount ?? 0),
+          }));
+          const detailResults = ords.length > 0
+            ? await apiFetch(`/v1/printstore/studio/order-items?ids=${ords.map((o) => encodeURIComponent(o.id)).join(',')}`).catch(() => null)
+            : null;
+          const items = [];
+          const bulkItems = detailResults?.items;
+          if (Array.isArray(bulkItems)) {
+            for (const row of bulkItems) {
+              items.push({ ...row, options: parseWorkersJson(row.options, {}) });
+            }
+          } else {
+            // Fallback: per-order detail reads.
+            const perOrder = await Promise.all(
+              ords.map((o) =>
+                apiFetch(`/v1/printstore/studio/orders/${encodeURIComponent(o.id)}`).catch(() => null)
+              )
+            );
+            for (const d of perOrder) {
+              for (const row of (d?.items || [])) {
+                items.push({ ...row, options: parseWorkersJson(row.options, {}) });
+              }
+            }
+          }
+          const colIds = (cols || []).map((c) => c.id).filter(Boolean);
+          const photoBatches = await Promise.all(
+            colIds.map((id) =>
+              apiFetch(`/v1/galleries/${encodeURIComponent(id)}/photos?limit=500`).catch(() => null)
+            )
+          );
+          const phs = [];
+          for (const b of photoBatches) {
+            for (const p of (b?.photos || [])) {
+              phs.push({
+                id: p.id,
+                collection_id: p.collection_id,
+                web_url: p.web_url || null,
+                thumbnail_url: p.thumbnail_url || null,
+                full_url: p.full_url || null,
+              });
+            }
+          }
 
-        const { data: itemsData } = await supabase
-          .from('printstore_order_items')
-          .select('*');
+          cachedOrders = ords;
+          cachedOrderItems = items;
+          cachedCollections = cols || [];
+          cachedPhotos = phs;
 
-        let collectionsData = [];
-        const collectionsSelect =
-          'id, name, slug, digital_download_enabled, digital_download_price_single, digital_download_price_all, cover_url, event_date, store_banner_text';
-        const collectionsRes = await supabase
-          .from('deliveries')
-          .select(collectionsSelect)
-          .eq('photographer_id', user.id);
-        if (collectionsRes.error) {
-          console.warn('Digital download columns unavailable, loading deliveries without them:', collectionsRes.error.message);
-          const fallback = await supabase
-            .from('deliveries')
-            .select('id, name, slug, cover_url, event_date, store_banner_text')
-            .eq('photographer_id', user.id);
-          collectionsData = fallback.data || [];
-        } else {
-          collectionsData = collectionsRes.data || [];
-        }
-
-        const collectionIds = (collectionsData || []).map((c) => c.id);
-        let photosData = [];
-        if (collectionIds.length > 0) {
-          const { data } = await supabase
-            .from('photos')
-            .select('id, collection_id, web_url, thumbnail_url, full_url')
-            .in('collection_id', collectionIds);
-          photosData = data || [];
-        }
-
-        const ords = ordersData || [];
-        const items = itemsData || [];
-        const cols = collectionsData || [];
-        const phs = photosData;
-
-        cachedOrders = ords;
-        cachedOrderItems = items;
-        cachedCollections = cols;
-        cachedPhotos = phs;
-
-        setOrders(ords);
-        setOrderItems(items);
-        setCollections(cols);
-        setPhotos(phs);
+          setOrders(ords);
+          setOrderItems(items);
+          setCollections(cols || []);
+          setPhotos(phs);
       } catch (error) {
         console.error("Error loading store dashboard data:", error);
       } finally {
@@ -830,11 +827,23 @@ export default function StoreDashboard() {
     }
     setLoadingProducts(true);
     try {
-      const { data, error } = await supabase
-        .from('printstore_products')
-        .select('*');
-      if (error) throw error;
-      const loaded = data || [];
+      // GET /v1/printstore/products — visible catalog only (no hidden-row
+      // list or price PATCH endpoint yet; writes stay local — see below).
+      const { apiFetch } = await import('../lib/api/client');
+      const data = await apiFetch('/v1/printstore/products', { auth: false });
+      const loaded = (data?.products || []).map((p) => ({
+        ...p,
+        options: (() => {
+          if (p.options == null) return {};
+          if (typeof p.options !== 'string') return p.options;
+          try {
+            return JSON.parse(p.options) || {};
+          } catch {
+            return {};
+          }
+        })(),
+        base_price: Number(p.base_price ?? 0),
+      }));
       cachedProducts = loaded;
       setProducts(loaded);
     } catch (err) {
@@ -1001,32 +1010,32 @@ export default function StoreDashboard() {
     setIsSavingProducts(true);
     try {
       const timestamp = new Date().toISOString();
-      for (const change of previewChanges) {
-        const originalProduct = products.find(p => p.id === change.product_id);
-        const newOptions = {
-          ...(originalProduct.options || {}),
+      // No backend equivalent (no PATCH /v1/printstore/products/:id):
+      // apply optimistically to local state only.
+      const stamped = previewChanges.map((change) => ({
+        product_id: change.product_id,
+        options: {
+          ...((products.find(p => p.id === change.product_id) || {}).options || {}),
           selling_price: parseFloat(change.newPrice.toFixed(2)),
           profit_percentage: parseFloat(change.newProfitPct.toFixed(2)),
           profit_amount: parseFloat(change.newProfitAmount.toFixed(2)),
           last_updated: timestamp
-        };
-
-        const { error } = await supabase
-          .from('printstore_products')
-          .update({ options: newOptions })
-          .eq('id', change.product_id);
-
-        if (error) throw error;
-      }
-
-      setNotification({ type: 'success', text: `✓ Successfully updated ${previewChanges.length} products.` });
+        },
+      }));
+      setProducts(prev => {
+        const updated = prev.map(p => {
+          const hit = stamped.find(s => s.product_id === p.id);
+          return hit ? { ...p, options: hit.options } : p;
+        });
+        cachedProducts = updated;
+        return updated;
+      });
+      setNotification({ type: 'error', text: 'Prices updated locally only — the backend has no printstore product-price endpoint yet.' });
       setPreviewChanges(null);
       setShowConfirmDialog(false);
       setSelectedIds([]);
       setMarkupPercent('');
-
-      await fetchProducts(true);
-      setTimeout(() => setNotification(null), 4000);
+      setTimeout(() => setNotification(null), 5000);
     } catch (err) {
       console.error("Error saving bulk prices:", err);
       alert("Failed to save changes: " + err.message);
@@ -1059,22 +1068,16 @@ export default function StoreDashboard() {
         last_updated: timestamp
       };
 
-      const { error } = await supabase
-        .from('printstore_products')
-        .update({ options: newOptions })
-        .eq('id', setPriceProduct.id);
-
-      if (error) throw error;
-
-      // Local state update instead of full refetch to prevent page reload
+      // No backend equivalent (no PATCH /v1/printstore/products/:id):
+      // apply optimistically to local state only.
       setProducts(prev => {
         const updated = prev.map(p => p.id === setPriceProduct.id ? { ...p, options: newOptions } : p);
         cachedProducts = updated;
         return updated;
       });
-      setNotification({ type: 'success', text: `✓ Successfully set price for ${setPriceProduct.name}.` });
+      setNotification({ type: 'error', text: 'Price updated locally only — the backend has no printstore product-price endpoint yet.' });
       setSetPriceProduct(null);
-      setTimeout(() => setNotification(null), 4000);
+      setTimeout(() => setNotification(null), 5000);
     } catch (err) {
       console.error("Error setting individual price:", err);
       alert("Failed to save price: " + err.message);
@@ -1151,12 +1154,8 @@ export default function StoreDashboard() {
   const handleToggleProductVisibility = async (product) => {
     const newVisibility = !product.is_visible;
     try {
-      const { error } = await supabase
-        .from('printstore_products')
-        .update({ is_visible: newVisibility })
-        .eq('id', product.id);
-      if (error) throw error;
-      // Local state update
+      // No backend equivalent (no PATCH /v1/printstore/products/:id):
+      // toggle locally only.
       setProducts(prev => {
         const updated = prev.map(p => p.id === product.id ? { ...p, is_visible: newVisibility } : p);
         cachedProducts = updated;
@@ -1182,77 +1181,127 @@ export default function StoreDashboard() {
       const singlePrice = Number.isFinite(defaultSingle) ? defaultSingle : 0;
       const packPrice = Number.isFinite(defaultPack) ? defaultPack : 0;
 
-      await saveCategoryDigitalPricing(user.id, categoryDigitalPricing);
-      const rows = await fetchStorePackages(user.id);
-      setCategoryDigitalPricing(categoryPricingFromPackages(rows));
+      // Packages via POST/PATCH /v1/store/packages (snake_case bodies);
+      // delivery digital flags via PATCH /v1/galleries/:id (allowlisted,
+      // booleans/numbers coerced server-side).
+        const { apiFetch } = await import('../lib/api/client');
+        const parsePriceInput = (value) => {
+          const n = parseInt(String(value ?? '').replace(/\D/g, ''), 10);
+          return Number.isFinite(n) ? Math.max(0, n) : null;
+        };
+        const tierName = (cat, photoCount) =>
+          photoCount === 1 ? `${cat} · Single Photo` : `${cat} · ${photoCount} Photos`;
+        const tierDescription = (cat, photoCount) =>
+          photoCount === 1
+            ? `Single high-resolution download for ${cat} galleries`
+            : `${photoCount}-photo social sharing package for ${cat} galleries`;
+        const existing = await fetchStorePackages(user.id);
+        const jobs = [];
+        for (let i = 0; i < STORE_PACKAGE_CATEGORIES.length; i += 1) {
+          const cat = STORE_PACKAGE_CATEGORIES[i];
+          const entry = categoryDigitalPricing?.[cat] || {};
+          for (let t = 0; t < PACKAGE_PRICE_TIERS.length; t += 1) {
+            const photoCount = PACKAGE_PRICE_TIERS[t];
+            const raw = entry[String(photoCount)] ?? entry[photoCount] ?? null;
+            const parsed = parsePriceInput(raw);
+            const price = parsed == null ? 0 : parsed;
+            const match = existing.find(
+              (p) =>
+                String(p.category_tag || '').toLowerCase() === cat.toLowerCase()
+                && Number(p.photo_count) === photoCount
+            );
+            // Skip never-priced empty packs
+            if (!match && price <= 0 && photoCount !== 1) continue;
+            const sortOrder = i * PACKAGE_PRICE_TIERS.length + t;
+            const tierBody = {
+              category_tag: cat,
+              name: tierName(cat, photoCount),
+              photo_count: photoCount,
+              price: (!match || price > 0 || photoCount === 1) ? price : 0,
+              package_type: 'digital',
+              description: tierDescription(cat, photoCount),
+              is_active: price > 0 || photoCount === 1,
+              sort_order: sortOrder,
+            };
+            if (match) {
+              jobs.push(
+                apiFetch(`/v1/store/packages/${encodeURIComponent(match.id)}`, {
+                  method: 'PATCH',
+                  body: tierBody,
+                }).catch(() => null)
+              );
+            } else {
+              jobs.push(
+                apiFetch('/v1/store/packages', {
+                  method: 'POST',
+                  body: tierBody,
+                }).catch(() => null)
+              );
+            }
+          }
+        }
+        await Promise.all(jobs);
+        const rows = await fetchStorePackages(user.id);
+        setCategoryDigitalPricing(categoryPricingFromPackages(rows));
 
-      const digitalPatch = {
-        digital_download_enabled: globalDigitalEnabled,
-        digital_download_price_single: singlePrice,
-        digital_download_price_all: packPrice,
-      };
+        const digitalPatch = {
+          digital_download_enabled: globalDigitalEnabled,
+          digital_download_price_single: singlePrice,
+          digital_download_price_all: packPrice,
+        };
 
-      let deliveryRows = collections || [];
-      if (!deliveryRows.length) {
-        const { data } = await supabase
-          .from('deliveries')
-          .select('id, slug')
-          .eq('photographer_id', user.id);
-        deliveryRows = data || [];
-      }
-
-      const collectionIds = deliveryRows.map((c) => c.id).filter(Boolean);
-      if (collectionIds.length > 0) {
-        const chunkSize = 50;
-        for (let i = 0; i < collectionIds.length; i += chunkSize) {
-          const chunk = collectionIds.slice(i, i + chunkSize);
-          const { error } = await supabase
-            .from('deliveries')
-            .update(digitalPatch)
-            .in('id', chunk);
-          if (error) throw error;
+        let deliveryRows = collections || [];
+        if (!deliveryRows.length) {
+          deliveryRows = await galleryService.getCollections(user.id).catch(() => []);
         }
 
-        setCollections((prev) => {
-          const next = (prev.length ? prev : deliveryRows).map((c) => ({
-            ...c,
-            ...digitalPatch,
-          }));
-          cachedCollections = next;
-          return next;
-        });
+        const collectionIds = deliveryRows.map((c) => c.id).filter(Boolean);
+        if (collectionIds.length > 0) {
+          await Promise.all(
+            collectionIds.map((id) =>
+              apiFetch(`/v1/galleries/${encodeURIComponent(id)}`, {
+                method: 'PATCH',
+                body: digitalPatch,
+              }).catch(() => null)
+            )
+          );
 
-        deliveryRows.forEach((c) => {
-          broadcastGalleryLive({
-            type: 'SETTINGS_UPDATED',
-            collectionId: c.id,
-            slug: c.slug,
-            settings: digitalPatch,
+          setCollections((prev) => {
+            const next = (prev.length ? prev : deliveryRows).map((c) => ({
+              ...c,
+              ...digitalPatch,
+            }));
+            cachedCollections = next;
+            return next;
           });
+
+          deliveryRows.forEach((c) => {
+            broadcastGalleryLive({
+              type: 'SETTINGS_UPDATED',
+              collectionId: c.id,
+              slug: c.slug,
+              settings: digitalPatch,
+            });
+          });
+        }
+
+        setGlobalDigitalPriceSingle(String(singlePrice));
+        setGlobalDigitalPriceAll(String(packPrice));
+        localStorage.setItem('pixnxt_global_digital_enabled', String(globalDigitalEnabled));
+        localStorage.setItem('pixnxt_global_digital_price_single', String(singlePrice));
+        localStorage.setItem('pixnxt_global_digital_price_all', String(packPrice));
+
+        setNotification({
+          type: 'success',
+          text: '✓ Digital download & category package prices saved.',
         });
-      }
-
-      setGlobalDigitalPriceSingle(String(singlePrice));
-      setGlobalDigitalPriceAll(String(packPrice));
-      localStorage.setItem('pixnxt_global_digital_enabled', String(globalDigitalEnabled));
-      localStorage.setItem('pixnxt_global_digital_price_single', String(singlePrice));
-      localStorage.setItem('pixnxt_global_digital_price_all', String(packPrice));
-
-      setNotification({
-        type: 'success',
-        text: '✓ Digital download & category package prices saved.',
-      });
-      setTimeout(() => setNotification((n) => (n?.type === 'success' ? null : n)), 5000);
+        setTimeout(() => setNotification((n) => (n?.type === 'success' ? null : n)), 5000);
     } catch (err) {
       console.error('Error saving global digital settings:', err);
       const raw = err?.message || String(err) || 'Unknown error';
-      const needsMigration =
-        /digital_download_/i.test(raw) || /column .* does not exist/i.test(raw);
       setNotification({
         type: 'error',
-        text: needsMigration
-          ? 'Save failed: run migration 20260830180000_digital_download_columns.sql on Supabase, then try again.'
-          : `Save failed: ${raw}`,
+        text: `Save failed: ${raw}`,
       });
     } finally {
       setSavingGlobalDigital(false);
@@ -1375,12 +1424,12 @@ export default function StoreDashboard() {
 
       setLoadingVaultPurchases(true);
       try {
-        const { data: vaultRows, error: vaultErr } = await supabase
-          .from('buylink_plans')
-          .select('*')
-          .in('collection_id', collectionIds)
-          .order('created_at', { ascending: false });
-        if (vaultErr) throw vaultErr;
+        // GET /v1/store/buylink-plans — own plans, newest first; filter to
+        // this dashboard's collections client-side.
+        const { apiFetch } = await import('../lib/api/client');
+        const data = await apiFetch('/v1/store/buylink-plans').catch(() => null);
+        const wanted = new Set(collectionIds);
+        const vaultRows = (data?.plans || []).filter((row) => wanted.has(row.collection_id));
 
         const planLabel = (type) => {
           if (type === '1month') return '1 Month Extension';
@@ -1509,13 +1558,9 @@ export default function StoreDashboard() {
   };
 
   const handleLogout = async () => {
-    const { USE_WORKERS_AUTH } = await import('../lib/api/client');
-    if (USE_WORKERS_AUTH) {
-      const { signOut } = await import('../services/auth.service');
-      await signOut().catch(() => {});
-    } else {
-      await supabase.auth.signOut();
-    }
+    // auth.service signOut goes to the Workers backend.
+    const { signOut } = await import('../services/auth.service');
+    await signOut().catch(() => {});
     localStorage.removeItem('pixnxt_session');
     navigate('/auth');
   };
@@ -3821,70 +3866,27 @@ export default function StoreDashboard() {
 
                               const colId = (collections && collections.length > 0) ? collections[0].id : null;
                               const currentCampaign = updatedCampaigns.find(c => c.id === _campaignId);
-                              const activeBannerKey = currentCampaign
-                                ? Object.keys(currentCampaign.banners || {}).find(k => currentCampaign.banners[k]?.enabled)
-                                : null;
-                              const activeBanner = activeBannerKey ? currentCampaign.banners[activeBannerKey] : null;
 
                               setApplyingReminder(true);
                               try {
-                                const { USE_WORKERS_AUTH } = await import('../lib/api/client');
-                                if (USE_WORKERS_AUTH) {
-                                  const { sendStoreCampaign } = await import('../services/workersGallery.service');
-                                  const applied = await sendStoreCampaign({
-                                    mode: 'apply',
-                                    photographerId: user.id,
-                                    collectionId: colId,
-                                    campaignId: _campaignId,
-                                    emailKey: _emailKey,
-                                    emailConfig: data,
-                                    discount: currentCampaign?.discount,
-                                    discountCode: currentCampaign?.discountCode,
-                                    durationDays: currentCampaign?.durationDays,
-                                  });
-                                  const emailed = applied?.emailed || 0;
-                                  const whatsapped = applied?.whatsapped || 0;
-                                  if (applied?.warning) {
-                                    alert(`Reminder design saved.\n${applied.warning}`);
-                                  } else {
-                                    alert(`Reminder applied.\nEmail sent: ${emailed}\nWhatsApp sent: ${whatsapped}`);
-                                  }
-                                } else {
-                                const offerStripColors = resolveEmailOfferStripColors(data, null);
-                                const { data: sendResult, error: sendError } = await supabase.functions.invoke('send-store-campaign-reminders', {
-                                  body: {
-                                    mode: 'apply',
-                                    photographerId: user.id,
-                                    collectionId: colId,
-                                    campaignId: _campaignId,
-                                    emailKey: _emailKey,
-                                    emailConfig: data,
-                                    offerStripColors,
-                                    activeBannerKey,
-                                    activeBanner,
-                                    discount: currentCampaign?.discount,
-                                    discountCode: currentCampaign?.discountCode,
-                                    durationDays: currentCampaign?.durationDays,
-                                    siteOrigin: window.location.origin,
-                                  }
+                                const { sendStoreCampaign } = await import('../services/workersGallery.service');
+                                const applied = await sendStoreCampaign({
+                                  mode: 'apply',
+                                  photographerId: user.id,
+                                  collectionId: colId,
+                                  campaignId: _campaignId,
+                                  emailKey: _emailKey,
+                                  emailConfig: data,
+                                  discount: currentCampaign?.discount,
+                                  discountCode: currentCampaign?.discountCode,
+                                  durationDays: currentCampaign?.durationDays,
                                 });
-                                if (sendError) {
-                                  const fnMsg = sendError.context?.body
-                                    ? (typeof sendError.context.body === 'string'
-                                      ? JSON.parse(sendError.context.body)?.error
-                                      : sendError.context.body?.error)
-                                    : null;
-                                  throw new Error(fnMsg || sendError.message || 'Send failed');
-                                }
-                                if (sendResult?.error) throw new Error(sendResult.error);
-
-                                const emailed = sendResult?.emailed || 0;
-                                const whatsapped = sendResult?.whatsapped || 0;
-                                if (sendResult?.warning) {
-                                  alert(`Reminder design saved.\n${sendResult.warning}`);
+                                const emailed = applied?.emailed || 0;
+                                const whatsapped = applied?.whatsapped || 0;
+                                if (applied?.warning) {
+                                  alert(`Reminder design saved.\n${applied.warning}`);
                                 } else {
                                   alert(`Reminder applied.\nEmail sent: ${emailed}\nWhatsApp sent: ${whatsapped}`);
-                                }
                                 }
                               } catch (sendErr) {
                                 console.error("Main Clients Reminders apply failed:", sendErr);
@@ -3898,8 +3900,6 @@ export default function StoreDashboard() {
                               if (colId) {
                                 const currentCampaign = updatedCampaigns.find(c => c.id === _campaignId);
                                 const emailConfig = currentCampaign?.emails?.announcement;
-                                const activeBannerKey = activeModal;
-                                const activeBanner = data;
 
                                 const bannerPreviewPayload = {
                                   mode: 'test',
@@ -3913,29 +3913,9 @@ export default function StoreDashboard() {
                                   discountCode: currentCampaign?.discountCode,
                                   durationDays: currentCampaign?.durationDays,
                                 };
-                                import('../lib/api/client').then(async ({ USE_WORKERS_AUTH }) => {
-                                  if (USE_WORKERS_AUTH) {
-                                    const { sendStoreCampaign } = await import('../services/workersGallery.service');
-                                    await sendStoreCampaign(bannerPreviewPayload);
-                                    console.log("Auto-apply email preview triggered successfully to:", user.email);
-                                    return;
-                                  }
-                                  supabase.functions.invoke('send-store-campaign-reminders', {
-                                    body: {
-                                      ...bannerPreviewPayload,
-                                      test: true,
-                                      photographerId: user.id,
-                                      activeBannerKey,
-                                      activeBanner,
-                                      siteOrigin: window.location.origin
-                                    }
-                                  }).then(({ error }) => {
-                                    if (error) {
-                                      console.error("Auto-apply email trigger failed:", error);
-                                    } else {
-                                      console.log("Auto-apply email preview triggered successfully to:", user.email);
-                                    }
-                                  }).catch(err => console.error("Error triggering auto-apply email:", err));
+                                import('../services/workersGallery.service').then(async ({ sendStoreCampaign }) => {
+                                  await sendStoreCampaign(bannerPreviewPayload);
+                                  console.log("Auto-apply email preview triggered successfully to:", user.email);
                                 }).catch(err => console.error("Error triggering auto-apply email:", err));
                               }
                             }

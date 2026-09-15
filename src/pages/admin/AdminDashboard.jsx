@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase } from '../../lib/supabase/client';
+import { apiFetch } from '../../lib/api/client';
 import { AppSpinner } from '../../components/ui/AppLoading';
 import {
   onPhotographerLimitsBroadcast,
@@ -15,22 +15,6 @@ const formatBytes = (bytes) => {
   if (bytes >= tb) return `${(bytes / tb).toFixed(2)} TB`;
   if (bytes >= gb) return `${(bytes / gb).toFixed(2)} GB`;
   return `${(bytes / mb).toFixed(1)} MB`;
-};
-
-const FULL_SELECT = [
-  'id', 'display_name', 'email', 'plan', 'storage_used_bytes',
-  'album_limit', 'album_used_count', 'delivery_limit', 'delivery_used_count',
-  'face_normal_image_limit', 'face_normal_image_used',
-  'face_guest_image_limit', 'face_guest_image_used',
-  'face_normal_delivery_limit', 'face_normal_delivery_used',
-  'face_guest_delivery_limit', 'face_guest_delivery_used',
-  'face_normal_enabled', 'face_guest_enabled', 'ai_search_enabled', 'is_disabled',
-].join(', ');
-const BASIC_SELECT = 'id, display_name, email, plan, storage_used_bytes';
-
-const isMissingColumnError = (err) => {
-  const msg = String(err?.message || '');
-  return err?.code === '42703' || /does not exist/i.test(msg);
 };
 
 const num = (v) => Number(v) || 0;
@@ -112,21 +96,15 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
 
   const loadStats = async () => {
+    // Workers: roster (quotas flattened) + platform totals. The backend
+    // always returns quota keys.
     try {
-      const [photographersRes, deliveriesRes] = await Promise.all([
-        supabase.from('photographers').select(FULL_SELECT),
-        supabase.from('deliveries').select('*', { count: 'exact', head: true }),
+      const [listRes, statsRes] = await Promise.all([
+        apiFetch('/v1/admin/photographers?limit=500'),
+        apiFetch('/v1/admin/stats'),
       ]);
-      let list = photographersRes.data || [];
-      if (photographersRes.error) {
-        if (!isMissingColumnError(photographersRes.error)) throw photographersRes.error;
-        // Quota columns not migrated yet — show platform stats only.
-        const basic = await supabase.from('photographers').select(BASIC_SELECT);
-        if (basic.error) throw basic.error;
-        list = basic.data || [];
-      }
-      setRows(list);
-      setDeliveryCount(deliveriesRes.count ?? 0);
+      setRows(listRes?.photographers || []);
+      setDeliveryCount(statsRes?.deliveries ?? 0);
     } catch (err) {
       console.error('Failed to load admin stats:', err);
     }

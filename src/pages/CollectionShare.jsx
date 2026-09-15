@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ChevronDown, Mail, Check, X, Calendar, Clock, History, Palette, ChevronRight } from 'lucide-react';
-import { supabase } from '../lib/supabase/client';
-import { USE_WORKERS_AUTH } from '../lib/api/client';
+import { apiFetch } from '../lib/api/client';
 import { getProfile, getUser } from '../services/auth.service';
 import { galleryService } from '../services/gallery.service';
 import { clientGalleryEmailTemplatesService, resolveTemplateBody } from '../services/clientGalleryEmailTemplates.service';
@@ -158,20 +157,12 @@ const CollectionShare = () => {
             setLoading(true);
             
             // Get current session user
-            const activeUser = USE_WORKERS_AUTH
-                ? await getUser().catch(() => null)
-                : (await supabase.auth.getSession()).data?.session?.user ?? null;
+            const activeUser = await getUser().catch(() => null);
             setCurrentUser(activeUser);
 
             if (activeUser?.id) {
                 // 1. Fetch photographer profile
-                const prof = USE_WORKERS_AUTH
-                    ? await getProfile(activeUser.id).catch(() => null)
-                    : (await supabase
-                        .from('photographers')
-                        .select('*')
-                        .eq('id', activeUser.id)
-                        .single()).data ?? null;
+                const prof = await getProfile(activeUser.id).catch(() => null);
                 if (prof) setProfile(prof);
 
                 // 3. Fetch templates
@@ -235,38 +226,38 @@ const CollectionShare = () => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+    const formatHistoryRow = (item) => {
+        if (!item) return null;
+        const raw = String(item.status || 'Sent').trim().toLowerCase();
+        let status = 'SENT';
+        if (raw === 'pending' || raw === 'sending' || raw === 'queued') status = 'PENDING';
+        else if (raw === 'rejected' || raw === 'bounced' || raw === 'failed' || raw === 'bounce') status = 'REJECTED';
+        else if (raw === 'scheduled') status = 'SCHEDULED';
+        else if (raw === 'sent' || raw === 'delivered') status = 'SENT';
+        else status = String(item.status || 'Sent').toUpperCase();
+        return {
+            email: item.recipient_email,
+            subject: item.subject,
+            date: new Date(item.created_at || item.sent_at || Date.now()).toLocaleDateString('en-US', {
+                month: 'long',
+                day: 'numeric',
+                year: 'numeric'
+            }),
+            status,
+        };
+    };
+
     const loadEmailHistory = useCallback(async () => {
         if (!collectionId) return;
+        // GET /v1/engage/share-history (written server-side by the
+        // share-collection email phase).
         try {
-            const { data, error } = await supabase
-                .from('delivery_share_emails')
-                .select('*')
-                .eq('collection_id', collectionId)
-                .order('created_at', { ascending: false });
-            if (!error && data && data.length > 0) {
-                const formatted = data.map(item => {
-                    const raw = String(item.status || 'Sent').trim().toLowerCase();
-                    let status = 'SENT';
-                    if (raw === 'pending' || raw === 'sending' || raw === 'queued') status = 'PENDING';
-                    else if (raw === 'rejected' || raw === 'bounced' || raw === 'failed' || raw === 'bounce') status = 'REJECTED';
-                    else if (raw === 'scheduled') status = 'SCHEDULED';
-                    else if (raw === 'sent' || raw === 'delivered') status = 'SENT';
-                    else status = String(item.status || 'Sent').toUpperCase();
-                    return {
-                        email: item.recipient_email,
-                        subject: item.subject,
-                        date: new Date(item.created_at || item.sent_at || Date.now()).toLocaleDateString('en-US', {
-                            month: 'long',
-                            day: 'numeric',
-                            year: 'numeric'
-                        }),
-                        status,
-                    };
-                });
-                setEmailHistory(formatted);
+            const rows = await galleryService.getCollectionShareEmailHistory(collectionId);
+            if (rows && rows.length > 0) {
+                setEmailHistory(rows.map(formatHistoryRow).filter(Boolean));
             }
         } catch (err) {
-            console.warn('Failed to load email history from DB:', err);
+            console.warn('Failed to load email history:', err);
         }
     }, [collectionId]);
 
@@ -309,71 +300,30 @@ const CollectionShare = () => {
                 }
             };
 
-            const sendPayload = {
-                collectionSlug: collection.slug,
-                recipientEmail: recipientEmail.trim(),
-                senderEmail: profile?.email || currentUser?.email,
-                personalMessage: convertHtmlToPlainText(finalMessage),
-                subject: subject,
-                theme: theme,
-            };
-
-            // If scheduled, add schedule date parameters to payload
-            if (scheduledDate) {
-                sendPayload.scheduledAt = scheduledDate.toISOString();
-            }
-
             let sendSucceeded = false;
-            if (USE_WORKERS_AUTH) {
-                // The API sends the email AND writes the share-history row.
-                try {
-                    await galleryService.shareCollectionByEmail({
-                        collectionSlug: collection.slug,
+            // POST /v1/emails/share-collection sends the email AND writes
+            // the delivery_share_emails row server-side — no client insert.
+            try {
+                await apiFetch('/v1/emails/share-collection', {
+                    method: 'POST',
+                    body: {
+                        ...(collection?.id ? { collectionId: collection.id } : { collectionSlug: collection.slug }),
                         recipientEmail: recipientEmail.trim(),
                         senderEmail: profile?.email || currentUser?.email,
                         personalMessage: convertHtmlToPlainText(finalMessage),
-                    });
-                    sendSucceeded = true;
-                } catch (sendErr) {
-                    console.warn('Share send failed:', sendErr?.message || sendErr);
-                }
-            } else
-            try {
-                const { error: sendErr } = await supabase.functions.invoke('share-collection-email', {
-                    body: sendPayload,
+                        subject: subject || undefined,
+                    },
                 });
-                if (sendErr) {
-                    console.warn('Backend send/schedule warning (non-fatal locally):', sendErr);
-                } else {
-                    sendSucceeded = true;
-                }
-            } catch (invokeErr) {
-                console.warn('Supabase Edge Function invocation failed (falling back to mock send for local testing):', invokeErr);
-                // Local/dev fallback: treat as sent so history still works without the edge function
                 sendSucceeded = true;
+            } catch (sendErr) {
+                console.warn('Share send failed:', sendErr?.message || sendErr);
             }
 
             // Record sharing in database logs — Pending while delivering, then Sent / Rejected.
-            // Workers mode: the API already wrote the history row — skip the duplicate.
-            if (!USE_WORKERS_AUTH) {
+            // The API already wrote the history row — skip the duplicate.
             const historyStatus = scheduledDate
                 ? 'Scheduled'
                 : (sendSucceeded ? 'Sent' : 'Pending');
-            try {
-                const { error: dbErr } = await supabase.from('delivery_share_emails').insert({
-                    collection_id: collectionId,
-                    sender_email: profile?.email || currentUser?.email || 'photographer@email.com',
-                    recipient_email: recipientEmail.trim(),
-                    subject: subject,
-                    status: historyStatus,
-                });
-                if (dbErr) {
-                    console.error('Could not log share history in database:', dbErr);
-                }
-            } catch (dbErr) {
-                console.error('Database insert exception:', dbErr);
-            }
-            }
 
             const newHistoryItem = {
                 email: recipientEmail.trim(),

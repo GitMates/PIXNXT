@@ -1,5 +1,3 @@
-import { supabase } from '../lib/supabase/client';
-import { USE_WORKERS_AUTH } from '../lib/api/client';
 const workersMobile = () => import('./workersMobile.service');
 
 const PUBLIC_APP_FIELDS =
@@ -7,52 +5,18 @@ const PUBLIC_APP_FIELDS =
 
 export const mobileGalleryPublicService = {
   async getPublishedAppBySlug(slug) {
-    if (USE_WORKERS_AUTH) return (await workersMobile()).getPublishedAppBySlug(slug);
-    const { data, error } = await supabase
-      .from('mobile_gallery_apps')
-      .select(PUBLIC_APP_FIELDS)
-      .eq('slug', slug)
-      .eq('status', 'published')
-      .maybeSingle();
-
-    if (error) throw error;
-    return data;
+    return (await workersMobile()).getPublishedAppBySlug(slug);
   },
 
   async getPublishedAppPhotos(appId) {
-    if (USE_WORKERS_AUTH) return (await workersMobile()).getPublishedAppPhotos(appId);
-    const { data, error } = await supabase
-      .from('mobile_gallery_photos')
-      .select('id, filename, full_url, thumbnail_url, width, height, position')
-      .eq('app_id', appId)
-      .order('position', { ascending: true })
-      .order('created_at', { ascending: true });
-
-    if (error) throw error;
-    return data || [];
+    return (await workersMobile()).getPublishedAppPhotos(appId);
   },
 
   async getModuleBranding(photographerId) {
-    if (USE_WORKERS_AUTH) return (await workersMobile()).getModuleBranding(photographerId);
-    const { data, error } = await supabase
-      .from('mobile_gallery_settings')
-      .select('settings')
-      .eq('photographer_id', photographerId)
-      .maybeSingle();
-
-    if (error) throw error;
-    return data?.settings || null;
+    return (await workersMobile()).getModuleBranding(photographerId);
   },
 
   async getPhotographerBranding(photographerId) {
-    if (USE_WORKERS_AUTH) return (await workersMobile()).getPhotographerBranding(photographerId);
-    const { data, error } = await supabase
-      .from('photographers')
-      .select('business_name, display_name, profile_icon_url')
-      .eq('id', photographerId)
-      .maybeSingle();
-
-    if (error) throw error;
-    return data;
+    return (await workersMobile()).getPhotographerBranding(photographerId);
   },
 };

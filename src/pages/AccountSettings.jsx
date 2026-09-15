@@ -4,7 +4,7 @@ import { Home, FileText, CreditCard, User, ChevronLeft, LogOut } from 'lucide-re
 import { galleryService } from '../services/gallery.service';
 import { useAuth } from '../hooks/useAuth';
 import { getUserDisplayLabel, getUserInitial } from '../lib/userInitials';
-import { supabase } from '../lib/supabase/client';
+import { apiFetch } from '../lib/api/client';
 import AccountTopbarIcons from '../components/account/AccountTopbarIcons';
 import { AppLoader } from '../components/ui/AppLoading';
 import { ClientGallerySubpageTabs } from '../components/features/ClientGallery/ClientGalleryPageShell';
@@ -901,52 +901,35 @@ function ReferTab({ user, showToast }) {
     }, [user]);
 
     const fetchReferralData = async () => {
-        try {
-            // 1. Get or generate referral code
-            let { data: profile } = await supabase
-                .from('photographers')
-                .select('referral_code')
-                .eq('id', user.id)
-                .single();
-
-            let code = referralCode;
-            if (profile && !profile.referral_code) {
-                // Generate a random code
-                const newCode = Math.random().toString(36).substring(2, 10).toUpperCase();
-                await supabase
-                    .from('photographers')
-                    .update({ referral_code: newCode })
-                    .eq('id', user.id);
-                code = newCode;
-            } else if (profile) {
-                code = profile.referral_code;
+        // Deduplicate emails in case of dirty data.
+        const dedupe = (rows) => {
+            const uniqueRefs = [];
+            const seenEmails = new Set();
+            for (const r of rows || []) {
+                const key = (r.referred_email || '').toLowerCase();
+                if (!seenEmails.has(key)) {
+                    seenEmails.add(key);
+                    uniqueRefs.push(r);
+                }
             }
-
+            return uniqueRefs;
+        };
+        // Code via GET /v1/me/profile, list via GET /v1/engage/referrals.
+        // localStorage mirrors are offline fallback only (state already
+        // initialises from them).
+        try {
+            const [profileRes, refsRes] = await Promise.all([
+                apiFetch('/v1/me/profile').catch(() => null),
+                apiFetch('/v1/engage/referrals').catch(() => null),
+            ]);
+            const code = profileRes?.profile?.referral_code || '';
             if (code) {
                 setReferralCode(code);
-                localStorage.setItem(`referral_code_${user.id}`, code);
+                try { localStorage.setItem(`referral_code_${user.id}`, code); } catch { /* ignore */ }
             }
-
-            // 2. Fetch referrals
-            const { data: referralData } = await supabase
-                .from('referrals')
-                .select('*')
-                .eq('referrer_id', user.id)
-                .order('created_at', { ascending: false });
-
-            if (referralData) {
-                // Deduplicate emails in case of dirty data
-                const uniqueRefs = [];
-                const seenEmails = new Set();
-                for (const r of referralData) {
-                    if (!seenEmails.has(r.referred_email)) {
-                        seenEmails.add(r.referred_email);
-                        uniqueRefs.push(r);
-                    }
-                }
-                setReferrals(uniqueRefs);
-                localStorage.setItem(`referrals_${user.id}`, JSON.stringify(uniqueRefs));
-            }
+            const uniqueRefs = dedupe(refsRes?.referrals);
+            setReferrals(uniqueRefs);
+            try { localStorage.setItem(`referrals_${user.id}`, JSON.stringify(uniqueRefs)); } catch { /* ignore */ }
         } catch (error) {
             console.error('Error fetching referral data:', error);
         } finally {
@@ -967,66 +950,20 @@ function ReferTab({ user, showToast }) {
             return;
         }
 
+        // Creates the referral row + sends the invite server-side
+        // (and mints the referral code when missing).
         try {
-            // Check if already invited
-            const { data: existing } = await supabase
-                .from('referrals')
-                .select('id, status')
-                .eq('referrer_id', user.id)
-                .eq('referred_email', email)
-                .maybeSingle();
-
-            if (existing) {
-                if (existing.status !== 'invited') {
-                    showToast('This person has already signed up or upgraded.');
-                    return;
-                }
-                showToast('Resending invite to this email...');
-                // We don't insert a new row, we just proceed to email sending
-            } else {
-                // First insert into database
-                const { error: dbError } = await supabase
-                    .from('referrals')
-                    .insert([{
-                        referrer_id: user.id,
-                        referred_email: email,
-                        status: 'invited'
-                    }]);
-
-                if (dbError) throw dbError;
-            }
-
-            // Fetch user's profile to get their name
-            const { data: profile } = await supabase
-                .from('photographers')
-                .select('display_name')
-                .eq('id', user.id)
-                .single();
-
-            // Invoke the Edge Function to send the email
-            const { error: emailError } = await supabase.functions.invoke('send-referral-invite', {
-                body: {
-                    email: email,
-                    referralCode: referralCode,
-                    photographerName: profile?.display_name || '',
-                    siteOrigin: window.location.origin
-                }
+            await apiFetch('/v1/emails/referral', {
+                method: 'POST',
+                body: { referredEmail: email.trim().toLowerCase() },
             });
-
-            if (emailError) {
-                console.error('Error triggering email:', emailError);
-                // We still sent the invite to the DB, so we don't throw completely
-                showToast('Invite logged, but email delivery failed.');
-            } else {
-                showToast('Invite sent successfully!');
-            }
-            
-            setEmail('');
-            fetchReferralData();
+            showToast('Invite sent successfully!');
         } catch (error) {
             console.error('Error sending invite:', error);
-            showToast('Failed to send invite. Have you created the table in Supabase?');
+            showToast(error?.message || 'Failed to send invite.');
         }
+        setEmail('');
+        fetchReferralData();
     };
 
     if (loading) {

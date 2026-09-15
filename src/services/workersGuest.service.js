@@ -1,7 +1,6 @@
 /**
- * Workers-native guest delivery backend (Cloudflare /v1/guest + /v1/emails).
+ * Guest delivery backend (Cloudflare /v1/guest + /v1/emails).
  * Mirrors guestDelivery / Guests / Photos / Publish service surfaces.
- * Active only when VITE_USE_WORKERS_API=1; callers delegate per-function.
  */
 import { apiFetch } from '../lib/api/client';
 

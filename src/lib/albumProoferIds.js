@@ -8,7 +8,7 @@ export const ALBUM_PROOFER_ROUTE_LEGACY = '/smart-albums';
 export const ALBUM_PROOFER_PRODUCT_ID = 'album-proofer';
 export const ALBUM_PROOFER_PRODUCT_ID_LEGACY = 'smart-albums';
 
-/** Supabase table names (post rename migration). */
+/** Cloudflare backend table names (post rename migration). */
 export const ALBUM_PROOFER_TABLES = {
     albums: 'album_proofer_albums',
     comments: 'album_proofer_comments',

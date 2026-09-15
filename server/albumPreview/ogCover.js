@@ -1,9 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createClient } from '@supabase/supabase-js';
-import { getSupabaseAdmin, getSupabaseUrl } from '../photoAi/supabaseAdmin.js';
-import { pickPublicAlbumForSlug } from '../../src/lib/albumPreviewSlug.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -51,20 +48,36 @@ export function getRequestOrigin(req) {
   return 'https://www.pixnxt.in';
 }
 
-function createAlbumClient() {
-  const admin = getSupabaseAdmin();
-  if (admin) return admin;
+function getWorkersBase() {
+  const base =
+    process.env.VITE_API_URL || process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || '';
+  return String(base || '').trim().replace(/\/+$/, '');
+}
 
-  const supabaseUrl = getSupabaseUrl() || process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey =
-    process.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ||
-    process.env.VITE_SUPABASE_ANON_KEY ||
-    process.env.SUPABASE_ANON_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!supabaseUrl || !anonKey) return null;
-  return createClient(supabaseUrl, anonKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+function workersMediaUrl(storagePath) {
+  const base = getWorkersBase();
+  if (!base) return null;
+  const key = String(storagePath || '').trim().replace(/^\//, '').split('#')[0];
+  if (!key) return null;
+  return `${base}/v1/r2/media?path=${encodeURIComponent(key)}`;
+}
+
+async function fetchWorkersJson(path, { timeoutMs = 5000, authHeader } = {}) {
+  const base = getWorkersBase();
+  if (!base) return null;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const headers = { Accept: 'application/json' };
+    if (authHeader) headers.Authorization = authHeader;
+    const res = await fetch(`${base}${path}`, { headers, signal: controller.signal });
+    if (!res.ok) return null;
+    return await res.json().catch(() => null);
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function isUuid(value) {
@@ -75,17 +88,9 @@ function isUuid(value) {
 
 function publicStorageUrl(storagePath) {
   if (!storagePath || typeof storagePath !== 'string') return null;
-  if (/^(https?:|data:image)/i.test(storagePath)) return storagePath;
-  const base =
-    process.env.VITE_R2_PUBLIC_URL ||
-    process.env.R2_PUBLIC_URL ||
-    process.env.NEXT_PUBLIC_R2_PUBLIC_URL ||
-    '';
-  if (!base) return null;
-  const root = base.endsWith('/') ? base : `${base}/`;
-  const key = storagePath.replace(/^\//, '');
-  if (key.startsWith(root)) return key;
-  return `${root}${key}`;
+  const trimmed = storagePath.trim();
+  if (/^(https?:|data:image)/i.test(trimmed)) return trimmed.split('#')[0];
+  return workersMediaUrl(trimmed);
 }
 
 function storedUrl(stored, collection = []) {
@@ -167,7 +172,10 @@ export function resolveAlbumCoverPhotoUrl(album) {
   );
   if (placedCover) return placedCover;
 
-  const listed = firstImageUrl(album.cover_image_url, preview.cover_url);
+  const listed =
+    firstImageUrl(album.cover_image_url, preview.cover_url) ||
+    publicStorageUrl(album.cover_image_url) ||
+    publicStorageUrl(preview.cover_url);
   const blankCovers = truthyFlag(album.blank_covers) || truthyFlag(preview.blank_covers);
   if (blankCovers) {
     const innerFirst = storedUrl(innerPhotos[0], collection);
@@ -208,17 +216,26 @@ export function albumCoverImageUrl(origin, slug, updated) {
   return `${origin}/album-preview/${encodedSlug}/og-${cacheKey}.jpg`;
 }
 
-async function selectAlbum(supabase, column, value, fields) {
-  const { data, error } = await supabase
-    .from('album_proofer_albums')
-    .select(fields)
-    .eq(column, value)
-    .maybeSingle();
-  if (error) {
-    console.error('[album-preview-og] select failed', column, fields, error.message);
-    return { data: null, error };
+export async function loadPublicAlbum(slugOrId, authHeader) {
+  const key = decodeURIComponent(String(slugOrId || '')).trim();
+  if (!key) return null;
+  if (!getWorkersBase()) {
+    console.error('[album-preview-og] missing VITE_API_URL');
+    return null;
   }
-  return { data, error: null };
+  const header =
+    typeof authHeader === 'string' ? authHeader : authHeader?.headers?.authorization || null;
+  try {
+    const data = await fetchWorkersJson(`/v1/proofer/public/${encodeURIComponent(key)}`, {
+      authHeader: header,
+    });
+    const album = data?.album || null;
+    if (!album) return null;
+    return hydrateAlbum(album);
+  } catch (err) {
+    console.error('[album-preview-og] fetch failed', err?.message || err);
+    return null;
+  }
 }
 
 function hydrateAlbum(row) {
@@ -236,70 +253,6 @@ function hydrateAlbum(row) {
     preview.has_covers = row.has_covers !== false && row.has_covers !== 'false';
   }
   return { ...row, preview_data: preview };
-}
-
-export async function loadPublicAlbum(slugOrId) {
-  const key = decodeURIComponent(String(slugOrId || '')).trim();
-  if (!key) return null;
-  const supabase = createAlbumClient();
-  if (!supabase) {
-    console.error('[album-preview-og] missing Supabase env');
-    return null;
-  }
-
-  // Same query the public preview uses. Never select has_covers/blank_covers —
-  // those are preview_data keys, not table columns (that 500'd the live cover API).
-  const fullFields = 'id, name, slug, status, cover_image_url, preview_data, updated_at, created_at';
-  const lightFields = 'id, name, slug, status, cover_image_url, updated_at, created_at';
-
-  const lookups = isUuid(key)
-    ? [
-        ['id', key],
-        ['slug', key],
-      ]
-    : [['slug', key]];
-
-  for (const [column, value] of lookups) {
-    let result = await selectAlbum(supabase, column, value, '*');
-    if (result.error) {
-      result = await selectAlbum(supabase, column, value, fullFields);
-    }
-    if (result.error) {
-      result = await selectAlbum(supabase, column, value, lightFields);
-    }
-    if (result.data) return hydrateAlbum(result.data);
-  }
-
-  // Clean share slugs (karthiksanthosh-meetup) resolve legacy rows
-  // stored as karthiksanthosh-meetup-<timestamp36>.
-  if (!isUuid(key)) {
-    const prefix = `${key}-`;
-    let listed = await supabase
-      .from('album_proofer_albums')
-      .select('*')
-      .like('slug', `${prefix}%`)
-      .limit(25);
-    if (listed.error) {
-      listed = await supabase
-        .from('album_proofer_albums')
-        .select(fullFields)
-        .like('slug', `${prefix}%`)
-        .limit(25);
-    }
-    if (listed.error) {
-      listed = await supabase
-        .from('album_proofer_albums')
-        .select(lightFields)
-        .like('slug', `${prefix}%`)
-        .limit(25);
-    }
-    if (!listed.error) {
-      const matched = pickPublicAlbumForSlug(key, listed.data || []);
-      if (matched) return hydrateAlbum(matched);
-    }
-  }
-
-  return null;
 }
 
 function escapeXml(value) {

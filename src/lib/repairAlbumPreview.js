@@ -1,15 +1,25 @@
-import { supabase } from '../lib/supabase/client';
+import { apiFetch } from './api/client';
 
 async function getAccessToken() {
   try {
-    const { data } = await supabase.auth.getSession();
-    return data?.session?.access_token || null;
+    const workersAuth = await import('../services/workersAuth.service');
+    const session = await workersAuth.getSession().catch(() => null);
+    return session?.access_token || null;
   } catch {
     return null;
   }
 }
 
 async function postRepair(body) {
+  // Workers repair endpoint (POST /v1/proofer/studio/albums/repair-preview).
+  // Falls back to the legacy Next.js route when the backend path is missing.
+  try {
+    const payload = await apiFetch('/v1/proofer/studio/albums/repair-preview', { method: 'POST', body });
+    if (payload?.ok === false) throw new Error(payload?.error || 'Repair failed');
+    return payload?.result ?? payload ?? null;
+  } catch (err) {
+    if (err?.status !== 404) throw err;
+  }
   const accessToken = await getAccessToken();
   const headers = { 'Content-Type': 'application/json' };
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;

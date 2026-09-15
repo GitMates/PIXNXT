@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useLabAuth } from './LabApp';
-import { supabase } from '../../lib/supabase/client';
+import { apiFetch } from '../../lib/api/client';
 import CartItemPreview from '../components/CartItemPreview';
 import { getShortId } from '../utils/idFormat';
 import { resolveLabPhotoUrl } from './labPhotoUrl';
@@ -59,29 +59,13 @@ export default function LabProductionBoard() {
     const previous = [...orders];
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: columnId } : o));
 
+    // PATCH /v1/printstore/orders/:id — LAB_STATUS matches the kanban
+    // columns exactly, so no legacy-status fallback mapping is needed.
     try {
-      const { error } = await supabase
-        .from('printstore_orders')
-        .update({ status: columnId })
-        .eq('id', orderId);
-
-      if (error) {
-        // If constraint fails, try the fallback state
-        // (For systems where DB constraints aren't migrated yet)
-        let fallbackStatus = columnId;
-        if (columnId === 'printing' || columnId === 'printed') {
-          fallbackStatus = 'processing';
-        } else if (columnId === 'packaging' || columnId === 'ready_to_ship') {
-          fallbackStatus = 'packed';
-        }
-
-        const { error: fallbackError } = await supabase
-          .from('printstore_orders')
-          .update({ status: fallbackStatus })
-          .eq('id', orderId);
-
-        if (fallbackError) throw fallbackError;
-      }
+      await apiFetch(`/v1/printstore/orders/${encodeURIComponent(orderId)}`, {
+        method: 'PATCH',
+        body: { status: columnId },
+      });
     } catch (err) {
       console.error('Failed to sync status drop with database:', err);
       setOrders(previous);
@@ -90,11 +74,12 @@ export default function LabProductionBoard() {
 
   const handleEmployeeAssign = async (orderId, employeeName) => {
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, assigned_employee: employeeName } : o));
+    // PATCH /v1/printstore/orders/:id { assigned_employee }
     try {
-      await supabase
-        .from('printstore_orders')
-        .update({ assigned_employee: employeeName })
-        .eq('id', orderId);
+      await apiFetch(`/v1/printstore/orders/${encodeURIComponent(orderId)}`, {
+        method: 'PATCH',
+        body: { assigned_employee: employeeName },
+      });
     } catch (e) {
       console.error(e);
     }
@@ -102,11 +87,12 @@ export default function LabProductionBoard() {
 
   const handlePriorityChange = async (orderId, priority) => {
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, priority } : o));
+    // PATCH /v1/printstore/orders/:id { priority }
     try {
-      await supabase
-        .from('printstore_orders')
-        .update({ priority })
-        .eq('id', orderId);
+      await apiFetch(`/v1/printstore/orders/${encodeURIComponent(orderId)}`, {
+        method: 'PATCH',
+        body: { priority },
+      });
     } catch (e) {
       console.error(e);
     }

@@ -1,7 +1,6 @@
 /**
- * Workers-native auth (Cloudflare backend) — mirrors the auth.service.js API
- * surface so callers stay untouched. Active only when VITE_USE_WORKERS_API=1;
- * auth.service.js delegates here per-function.
+ * Auth backend (Cloudflare) — mirrors the auth.service.js API
+ * surface so callers stay untouched.
  */
 import {
   apiFetch,

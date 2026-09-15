@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useLabAuth } from './LabApp';
-import { supabase } from '../../lib/supabase/client';
+import { apiFetch } from '../../lib/api/client';
 import { Play, Pause, Eye } from 'lucide-react';
 import { getShortId } from '../utils/idFormat';
 import LabSearchField from './LabSearchField';
@@ -92,42 +92,40 @@ export default function LabPrintQueue() {
   };
 
   const handleFinishPrinting = async (orderId) => {
+    // PATCH …/orders/:id { status: 'printed' } writes the tracking row
+    // server-side (plus an explicit completion timeline entry below).
     try {
-      // 1. Move status to printed in Supabase
-      const { error: updateError } = await supabase
-        .from('printstore_orders')
-        .update({ status: 'printed' })
-        .eq('id', orderId);
-
-      if (updateError) throw updateError;
-
-      // 2. Create timeline log
-      await supabase
-        .from('printstore_order_tracking')
-        .insert({
-          order_id: orderId,
+      await apiFetch(`/v1/printstore/orders/${encodeURIComponent(orderId)}`, {
+        method: 'PATCH',
+        body: { status: 'printed' },
+      });
+      await apiFetch(`/v1/printstore/orders/${encodeURIComponent(orderId)}/tracking`, {
+        method: 'POST',
+        body: {
           status: 'printed',
           label: 'Printing Completed',
-          description: `Images printed successfully. Dispatched to Noida Hub Quality Control Inspection.`
-        });
-
-      // Update local states
-      setPrintingStatus(prev => {
-        const copy = { ...prev };
-        delete copy[orderId];
-        return copy;
+          description: 'Images printed successfully. Dispatched to Noida Hub Quality Control Inspection.',
+        },
       });
-      setProgress(prev => {
-        const copy = { ...prev };
-        delete copy[orderId];
-        return copy;
-      });
-
-      if (refreshOrders) {
-        await refreshOrders();
-      }
     } catch (err) {
       console.error("Error completing printing:", err);
+      return;
+    }
+
+    // Update local states
+    setPrintingStatus(prev => {
+      const copy = { ...prev };
+      delete copy[orderId];
+      return copy;
+    });
+    setProgress(prev => {
+      const copy = { ...prev };
+      delete copy[orderId];
+      return copy;
+    });
+
+    if (refreshOrders) {
+      await refreshOrders();
     }
   };
 

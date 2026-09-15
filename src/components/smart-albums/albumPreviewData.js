@@ -180,7 +180,7 @@ function serializeTransformsForSnapshot(albumId) {
     };
 }
 
-/** Build a portable snapshot for Supabase (URLs, not local blobs). */
+/** Build a portable snapshot for the Workers backend (URLs, not local blobs). */
 export function buildAlbumPreviewSnapshot(
     albumId,
     {

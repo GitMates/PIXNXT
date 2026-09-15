@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { storageService } from '../../../services/storage.service';
+import { galleryService } from '../../../services/gallery.service';
 import { CustomDomainPanel } from './CustomDomainPanel';
-import { supabase } from '../../../lib/supabase/client';
 import '../../../pages/Settings.css';
 import { AppLoader } from '../../ui/AppLoading';
 
@@ -69,21 +69,21 @@ export default function StudioIdentityPanel({ profile, updateProfile }) {
         if (!profile?.id) return;
         let cancelled = false;
         (async () => {
+            // Flag-aware: galleryService.getCollections hits
+            // GET /v1/galleries/dashboard in Workers mode. Take 4 newest.
             try {
-                const { data } = await supabase
-                    .from('deliveries')
-                    .select('name, slug')
-                    .eq('photographer_id', profile.id)
-                    .order('updated_at', { ascending: false })
-                    .limit(4);
-                if (cancelled || !data?.length) return;
+                const cols = await galleryService.getCollections(profile.id);
+                if (cancelled || !cols?.length) return;
+                const newest = [...cols].sort(
+                    (a, b) => new Date(b.updated_at || b.created_at || 0) - new Date(a.updated_at || a.created_at || 0)
+                ).slice(0, 4);
                 const toSlug = (d) =>
                     d.slug ||
                     d.name?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') ||
                     '';
                 setSampleDeliveries({
-                    gallery: toSlug(data[0]) || '',
-                    proof: toSlug(data[1] || data[0]) || '',
+                    gallery: toSlug(newest[0]) || '',
+                    proof: toSlug(newest[1] || newest[0]) || '',
                 });
             } catch {
                 /* ignore */

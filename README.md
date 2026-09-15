@@ -2,8 +2,12 @@
 
 > **Project Type:** SaaS Web Application  
 > **Reference Product:** [Pixieset](https://pixieset.com) — Analyzed & Rebranded as **PIXNXT**  
-> **Tech Stack:** React (Frontend) + Supabase (Backend/Database/Auth/Storage)  
+> **Tech Stack:** React (Frontend) + Cloudflare (Workers + D1 + R2 + KV + Queues — see `../backend`)  
 > **Purpose:** This README serves as the complete product specification for AI models and developers to understand the full scope, architecture, and module breakdown of the PIXNXT platform.
+>
+> **Cutover note:** Supabase references below are historical (pre-migration spec). The live backend
+> is Cloudflare-only: auth/storage/data go through `VITE_API_URL` (`../backend/src/routes/*`).
+> There is no Supabase client, Edge Function, bucket, or RLS in the running app.
 
 ---
 

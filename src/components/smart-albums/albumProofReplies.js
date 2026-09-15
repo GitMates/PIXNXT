@@ -1,7 +1,6 @@
-import { supabase } from '../../lib/supabase/client';
-import { isMissingRelationError } from './albumFeedbackDb';
+import { apiFetch } from '../../lib/api/client';
 
-/** In-memory cache hydrated from Supabase. */
+/** In-memory cache hydrated via the Workers API. */
 const repliesByAlbum = Object.create(null);
 
 export const PROOF_REPLIES_CHANGED_EVENT = 'pixnxt-album-proof-replies-changed';
@@ -46,19 +45,10 @@ export function getAllProofRepliesForAlbum(albumId) {
 export async function hydrateProofReplies(albumId) {
     if (!albumId) return {};
     try {
-        const { data, error } = await supabase
-            .from('album_proofer_proof_replies')
-            .select('*')
-            .eq('album_id', albumId)
-            .order('created_at', { ascending: true });
-        if (error) {
-            if (!isMissingRelationError(error, 'album_proofer_proof_replies')) {
-                console.warn('hydrateProofReplies:', error.message);
-            }
-            return getAllProofRepliesForAlbum(albumId);
-        }
+        const data = await apiFetch(`/v1/proofer/albums/${albumId}/replies`).catch(() => null);
+        const rows = data?.replies || [];
         const bucket = {};
-        (data || []).forEach((row) => {
+        rows.forEach((row) => {
             const key = row.parent_key;
             if (!bucket[key]) bucket[key] = [];
             bucket[key].push(mapReplyRow(row));
@@ -95,33 +85,15 @@ export function addProofReply(albumId, parentKey, { body, authorName, authorType
 
     void (async () => {
         try {
-            const { USE_WORKERS_AUTH } = await import('../../lib/api/client');
-            if (USE_WORKERS_AUTH) {
-                const { apiFetch } = await import('../../lib/api/client');
-                await apiFetch(`/v1/proofer/albums/${albumId}/replies`, {
-                    method: 'POST',
-                    body: {
-                        parentKey: parentKey,
-                        body: reply.body,
-                        authorName: reply.authorName,
-                        authorType: type,
-                    },
-                });
-                return;
-            }
-            const { error } = await supabase.from('album_proofer_proof_replies').insert({
-                id: reply.id,
-                album_id: albumId,
-                parent_key: parentKey,
-                body: reply.body,
-                author_type: reply.authorType,
-                author_name: reply.authorName,
-                created_at: reply.createdAt,
-                updated_at: reply.createdAt,
+            await apiFetch(`/v1/proofer/albums/${albumId}/replies`, {
+                method: 'POST',
+                body: {
+                    parentKey: parentKey,
+                    body: reply.body,
+                    authorName: reply.authorName,
+                    authorType: type,
+                },
             });
-            if (error && !isMissingRelationError(error, 'album_proofer_proof_replies')) {
-                console.warn('addProofReply persist:', error.message);
-            }
         } catch (err) {
             console.warn('addProofReply persist failed:', err);
         }

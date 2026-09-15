@@ -1,20 +1,14 @@
-import { supabase } from '../lib/supabase/client';
-import { USE_WORKERS_AUTH } from '../lib/api/client';
 const workersProofer = () => import('./workersProofer.service');
-import { getClientTimezone } from './albumProof.service';
 import { smartAlbumsService } from './smartAlbums.service';
 import { hasCommentAttachment } from '../components/smart-albums/albumCommentAttachments';
-import { pickPublicAlbumForSlug } from '../lib/albumPreviewSlug';
 import {
-    isMissingColumnError,
-    isMissingRelationError,
     loadFeedbackSeenMap,
     resolveCommentAttachmentForDb,
     resolveFeedbackViewerKey,
     upsertFeedbackSeenRows,
 } from '../components/smart-albums/albumFeedbackDb';
 
-/** In-memory comment cache (hydrated from Supabase — not localStorage). */
+/** In-memory comment cache (hydrated from the Workers API — not localStorage). */
 const commentsByAlbum = Object.create(null);
 const seenByAlbum = Object.create(null);
 const guestSeenByAlbum = Object.create(null);
@@ -205,14 +199,6 @@ export function formatFeedDateLabel(isoOrMs) {
         day: 'numeric',
         year: 'numeric',
     });
-}
-
-function isMissingTableError(error) {
-    return isMissingRelationError(error, 'album_proofer_comments');
-}
-
-function isNoRowsError(error) {
-    return error?.code === 'PGRST116';
 }
 
 export function hasCommentBody(comment) {
@@ -424,45 +410,17 @@ export async function purgeSpreadCommentsOnSpreadDelete(albumId, deletedSpreadIn
     }
 
     try {
-        if (USE_WORKERS_AUTH) {
-            const w = await workersProofer();
-            await w.purgeSpreadComments(albumId, idx);
-            const bundle = await w.feedbackBundle(albumId);
-            const rows = (bundle.comments || []).filter((c) => c.spread_index > idx);
-            await Promise.all(
-                rows.map((row) =>
-                    w.patchComment(albumId, row.id, { spread_index: row.spread_index - 1 })
-                )
-            );
-            notifyCommentsChanged(albumId);
-            return;
-        }
-        const { error: deleteError } = await supabase
-            .from('album_proofer_comments')
-            .delete()
-            .eq('album_id', albumId)
-            .eq('spread_index', idx);
-        if (deleteError && !isMissingTableError(deleteError)) {
-            console.warn('purgeSpreadCommentsOnSpreadDelete delete:', deleteError.message);
-        }
-
-        const { data, error } = await supabase
-            .from('album_proofer_comments')
-            .select('id, spread_index')
-            .eq('album_id', albumId)
-            .gt('spread_index', idx);
-        if (!error && data?.length) {
-            await Promise.all(
-                data.map((row) =>
-                    supabase
-                        .from('album_proofer_comments')
-                        .update({ spread_index: row.spread_index - 1 })
-                        .eq('id', row.id)
-                )
-            );
-        } else if (error && !isMissingTableError(error)) {
-            console.warn('purgeSpreadCommentsOnSpreadDelete shift:', error.message);
-        }
+        const w = await workersProofer();
+        await w.purgeSpreadComments(albumId, idx);
+        const bundle = await w.feedbackBundle(albumId);
+        const rows = (bundle.comments || []).filter((c) => c.spread_index > idx);
+        await Promise.all(
+            rows.map((row) =>
+                w.patchComment(albumId, row.id, { spread_index: row.spread_index - 1 })
+            )
+        );
+        notifyCommentsChanged(albumId);
+        return;
     } catch (err) {
         console.warn('purgeSpreadCommentsOnSpreadDelete remote failed:', err);
     }
@@ -514,80 +472,24 @@ export function reorderLocalSpreadCommentsForOverview(albumId, draggable, newOrd
 export async function reorderRemoteSpreadCommentsForOverview(albumId, draggable, newOrder) {
     if (!albumId || !draggable?.length || !newOrder?.length) return false;
 
-    if (USE_WORKERS_AUTH) {
-        try {
-            const w = await workersProofer();
-            const bundle = await w.feedbackBundle(albumId);
-            const rows = (bundle.comments || []).filter((r) => draggable.includes(r.spread_index));
-            if (!rows.length) return false;
-            const updates = rows
-                .map((row) => {
-                    const nextIndex = remapSpreadIndexForOverviewReorder(row.spread_index, draggable, newOrder);
-                    if (nextIndex === row.spread_index) return null;
-                    return { ...row, spread_index: nextIndex };
-                })
-                .filter(Boolean);
-            if (!updates.length) return false;
-            await Promise.all(
-                updates.map((row) =>
-                    w.patchComment(albumId, row.id, { spread_index: row.spread_index })
-                )
-            );
-            const bucket = { ...(commentsByAlbum[albumId] || {}) };
-            updates.forEach((row) => {
-                const mapped = mapRow(row);
-                const spreadKey = mapped.spread_index;
-                Object.keys(bucket).forEach((key) => {
-                    bucket[key] = (bucket[key] || []).filter((c) => c.id !== mapped.id);
-                });
-                bucket[spreadKey] = [...(bucket[spreadKey] || []), mapped];
-            });
-            writeMemoryComments(albumId, bucket);
-            notifyCommentsChanged(albumId);
-            return true;
-        } catch (err) {
-            console.warn('reorderRemoteSpreadCommentsForOverview failed:', err);
-            return false;
-        }
-    }
     try {
-        const { data, error } = await supabase
-            .from('album_proofer_comments')
-            .select('*')
-            .eq('album_id', albumId)
-            .in('spread_index', draggable);
-
-        if (error) {
-            if (!isMissingTableError(error)) {
-                console.warn('reorderRemoteSpreadCommentsForOverview:', error.message);
-            }
-            return false;
-        }
-        if (!data?.length) return false;
-
-        const updates = data
+        const w = await workersProofer();
+        const bundle = await w.feedbackBundle(albumId);
+        const rows = (bundle.comments || []).filter((r) => draggable.includes(r.spread_index));
+        if (!rows.length) return false;
+        const updates = rows
             .map((row) => {
-                const nextIndex = remapSpreadIndexForOverviewReorder(
-                    row.spread_index,
-                    draggable,
-                    newOrder
-                );
+                const nextIndex = remapSpreadIndexForOverviewReorder(row.spread_index, draggable, newOrder);
                 if (nextIndex === row.spread_index) return null;
                 return { ...row, spread_index: nextIndex };
             })
             .filter(Boolean);
-
         if (!updates.length) return false;
-
         await Promise.all(
             updates.map((row) =>
-                supabase
-                    .from('album_proofer_comments')
-                    .update({ spread_index: row.spread_index })
-                    .eq('id', row.id)
+                w.patchComment(albumId, row.id, { spread_index: row.spread_index })
             )
         );
-
         const bucket = { ...(commentsByAlbum[albumId] || {}) };
         updates.forEach((row) => {
             const mapped = mapRow(row);
@@ -598,7 +500,6 @@ export async function reorderRemoteSpreadCommentsForOverview(albumId, draggable,
             bucket[spreadKey] = [...(bucket[spreadKey] || []), mapped];
         });
         writeMemoryComments(albumId, bucket);
-
         notifyCommentsChanged(albumId);
         return true;
     } catch (err) {
@@ -610,112 +511,50 @@ export async function reorderRemoteSpreadCommentsForOverview(albumId, draggable,
 export const smartAlbumCommentsService = {
     async listSpreadComments(albumId, spreadIndex) {
         const local = listLocalAlbumComments(albumId, spreadIndex);
-        if (USE_WORKERS_AUTH) {
-            try {
-                const w = await workersProofer();
-                const remote = (await w.listComments(albumId, spreadIndex)).map(mapRow);
-                const merged = new Map();
-                local.forEach((c) => merged.set(c.id, c));
-                remote.forEach((c) => merged.set(c.id, mergeCommentRows(merged.get(c.id), c)));
-                const rows = [...merged.values()]
-                    .filter((c) => c.spread_index === spreadIndex)
-                    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-                const bucket = { ...(commentsByAlbum[albumId] || {}) };
-                bucket[spreadIndex] = rows;
-                writeMemoryComments(albumId, bucket);
-                return rows;
-            } catch (err) {
-                console.warn('listSpreadComments:', err?.message || err);
-                return local.filter((c) => c.spread_index === spreadIndex);
-            }
-        }
-        const { data, error } = await supabase
-            .from('album_proofer_comments')
-            .select('*')
-            .eq('album_id', albumId)
-            .eq('spread_index', spreadIndex)
-            .order('created_at', { ascending: true });
-
-        if (error) {
-            if (isMissingTableError(error)) {
-                return local.filter((c) => c.spread_index === spreadIndex);
-            }
-            console.warn('listSpreadComments:', error.message);
+        try {
+            const w = await workersProofer();
+            const remote = (await w.listComments(albumId, spreadIndex)).map(mapRow);
+            const merged = new Map();
+            local.forEach((c) => merged.set(c.id, c));
+            remote.forEach((c) => merged.set(c.id, mergeCommentRows(merged.get(c.id), c)));
+            const rows = [...merged.values()]
+                .filter((c) => c.spread_index === spreadIndex)
+                .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+            const bucket = { ...(commentsByAlbum[albumId] || {}) };
+            bucket[spreadIndex] = rows;
+            writeMemoryComments(albumId, bucket);
+            return rows;
+        } catch (err) {
+            console.warn('listSpreadComments:', err?.message || err);
             return local.filter((c) => c.spread_index === spreadIndex);
         }
-        const remote = (data || []).map(mapRow);
-        const merged = new Map();
-        local.forEach((c) => merged.set(c.id, c));
-        remote.forEach((c) => merged.set(c.id, mergeCommentRows(merged.get(c.id), c)));
-        const rows = [...merged.values()]
-            .filter((c) => c.spread_index === spreadIndex)
-            .sort(
-                (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-            );
-        const bucket = { ...(commentsByAlbum[albumId] || {}) };
-        bucket[spreadIndex] = rows;
-        writeMemoryComments(albumId, bucket);
-        return rows;
     },
 
     async listAlbumComments(albumId) {
         const local = listLocalAlbumComments(albumId);
-        if (USE_WORKERS_AUTH) {
-            try {
-                const w = await workersProofer();
-                const remote = (await w.listComments(albumId, null)).map(mapRow);
-                const merged = new Map();
-                local.forEach((c) => merged.set(c.id, c));
-                remote.forEach((c) => merged.set(c.id, mergeCommentRows(merged.get(c.id), c)));
-                const rows = [...merged.values()].sort(
-                    (a, b) =>
-                        a.spread_index - b.spread_index ||
-                        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-                );
-                const bucket = {};
-                rows.forEach((row) => {
-                    const key = row.spread_index;
-                    if (!bucket[key]) bucket[key] = [];
-                    bucket[key].push(row);
-                });
-                writeMemoryComments(albumId, bucket);
-                return rows;
-            } catch (err) {
-                console.warn('listAlbumComments:', err?.message || err);
-                return local;
-            }
-        }
-        const { data, error } = await supabase
-            .from('album_proofer_comments')
-            .select('*')
-            .eq('album_id', albumId)
-            .order('spread_index', { ascending: true })
-            .order('created_at', { ascending: true });
-
-        if (error) {
-            if (isMissingTableError(error)) {
-                return local;
-            }
-            console.warn('listAlbumComments:', error.message);
+        try {
+            const w = await workersProofer();
+            const remote = (await w.listComments(albumId, null)).map(mapRow);
+            const merged = new Map();
+            local.forEach((c) => merged.set(c.id, c));
+            remote.forEach((c) => merged.set(c.id, mergeCommentRows(merged.get(c.id), c)));
+            const rows = [...merged.values()].sort(
+                (a, b) =>
+                    a.spread_index - b.spread_index ||
+                    new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+            );
+            const bucket = {};
+            rows.forEach((row) => {
+                const key = row.spread_index;
+                if (!bucket[key]) bucket[key] = [];
+                bucket[key].push(row);
+            });
+            writeMemoryComments(albumId, bucket);
+            return rows;
+        } catch (err) {
+            console.warn('listAlbumComments:', err?.message || err);
             return local;
         }
-        const remote = (data || []).map(mapRow);
-        const merged = new Map();
-        local.forEach((c) => merged.set(c.id, c));
-        remote.forEach((c) => merged.set(c.id, mergeCommentRows(merged.get(c.id), c)));
-        const rows = [...merged.values()].sort(
-            (a, b) =>
-                a.spread_index - b.spread_index ||
-                new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-        );
-        const bucket = {};
-        rows.forEach((row) => {
-            const key = row.spread_index;
-            if (!bucket[key]) bucket[key] = [];
-            bucket[key].push(row);
-        });
-        writeMemoryComments(albumId, bucket);
-        return rows;
     },
 
     async saveClientComment({
@@ -788,75 +627,19 @@ export const smartAlbumCommentsService = {
         };
 
         if (resolvedCommentId) {
-            if (USE_WORKERS_AUTH) {
-                try {
-                    const w = await workersProofer();
-                    const updated = await w.patchComment(albumId, resolvedCommentId, {
-                        body: payload.body,
-                        spread_index: spreadIndex,
-                        ...(attachmentFields.attachment_url !== undefined ? {
-                            attachment_url: attachmentFields.attachment_url,
-                            attachment_name: attachmentFields.attachment_name,
-                            attachment_type: attachmentFields.attachment_type,
-                        } : {}),
-                    });
-                    if (updated) {
-                        return saveMemory({ ...mapRow(updated), ...attachmentFields });
-                    }
-                } catch (e) {
-                    console.warn('saveClientComment update failed:', e);
-                }
-                const localRow = listLocalAlbumComments(albumId, spreadIndex).find(
-                    (c) => c.id === resolvedCommentId
-                );
-                if (localRow) {
-                    return saveMemory({
-                        ...payload,
-                        id: resolvedCommentId,
-                        created_at: localRow.created_at,
-                        ...attachmentFields,
-                    });
-                }
-                resolvedCommentId = null;
-            } else
             try {
-                const updatePayload = {
+                const w = await workersProofer();
+                const updated = await w.patchComment(albumId, resolvedCommentId, {
                     body: payload.body,
                     spread_index: spreadIndex,
-                    updated_at: payload.updated_at,
-                    ...attachmentFields,
-                };
-                let { data, error } = await supabase
-                    .from('album_proofer_comments')
-                    .update(updatePayload)
-                    .eq('id', resolvedCommentId)
-                    .eq('spread_index', spreadIndex)
-                    .select();
-
-                if (
-                    error &&
-                    isMissingColumnError(error, 'attachment')
-                ) {
-                    ({ data, error } = await supabase
-                        .from('album_proofer_comments')
-                        .update({
-                            body: payload.body,
-                            spread_index: spreadIndex,
-                            updated_at: payload.updated_at,
-                        })
-                        .eq('id', resolvedCommentId)
-                        .eq('spread_index', spreadIndex)
-                        .select());
-                }
-
-                if (!error && data?.[0]) {
-                    return saveMemory({
-                        ...mapRow(data[0]),
-                        ...attachmentFields,
-                    });
-                }
-                if (error && !isMissingTableError(error)) {
-                    console.warn('saveClientComment update:', error.message);
+                    ...(attachmentFields.attachment_url !== undefined ? {
+                        attachment_url: attachmentFields.attachment_url,
+                        attachment_name: attachmentFields.attachment_name,
+                        attachment_type: attachmentFields.attachment_type,
+                    } : {}),
+                });
+                if (updated) {
+                    return saveMemory({ ...mapRow(updated), ...attachmentFields });
                 }
             } catch (e) {
                 console.warn('saveClientComment update failed:', e);
@@ -882,69 +665,22 @@ export const smartAlbumCommentsService = {
         };
 
         try {
-            if (USE_WORKERS_AUTH) {
-                const w = await workersProofer();
-                const created = await w.saveComment({
-                    albumId,
-                    spreadIndex,
-                    body: insertPayload.body,
-                    authorName: insertPayload.author_name,
-                    authorEmail: insertPayload.author_email,
-                    attachmentUrl: insertPayload.attachment_url,
-                    attachmentName: insertPayload.attachment_name,
-                    attachmentType: insertPayload.attachment_type,
-                });
-                return saveMemory({ ...mapRow(created), ...attachmentFields });
-            }
-            let insertBody = {
-                id: insertPayload.id,
-                album_id: insertPayload.album_id,
-                spread_index: insertPayload.spread_index,
-                author_type: insertPayload.author_type,
-                author_name: insertPayload.author_name,
-                author_email: insertPayload.author_email,
+            const w = await workersProofer();
+            const created = await w.saveComment({
+                albumId,
+                spreadIndex,
                 body: insertPayload.body,
-                updated_at: insertPayload.updated_at,
-                ...attachmentFields,
-            };
-            let { data, error } = await supabase
-                .from('album_proofer_comments')
-                .insert(insertBody)
-                .select();
-
-            if (error && isMissingColumnError(error, 'attachment')) {
-                insertBody = {
-                    id: insertPayload.id,
-                    album_id: insertPayload.album_id,
-                    spread_index: insertPayload.spread_index,
-                    author_type: insertPayload.author_type,
-                    author_name: insertPayload.author_name,
-                    author_email: insertPayload.author_email,
-                    body: insertPayload.body,
-                    updated_at: insertPayload.updated_at,
-                };
-                ({ data, error } = await supabase
-                    .from('album_proofer_comments')
-                    .insert(insertBody)
-                    .select());
-            }
-
-            if (!error && data?.[0]) {
-                return saveMemory({
-                    ...mapRow(data[0]),
-                    ...attachmentFields,
-                });
-            }
-            if (error && !isMissingTableError(error)) {
-                console.warn('saveClientComment insert:', error.message);
-                throw new Error(error.message || 'Could not save comment to the database.');
-            }
+                authorName: insertPayload.author_name,
+                authorEmail: insertPayload.author_email,
+                attachmentUrl: insertPayload.attachment_url,
+                attachmentName: insertPayload.attachment_name,
+                attachmentType: insertPayload.attachment_type,
+            });
+            return saveMemory({ ...mapRow(created), ...attachmentFields });
         } catch (e) {
             console.warn('saveClientComment insert failed:', e);
             throw e;
         }
-
-        return saveMemory(insertPayload);
     },
 
     async consolidateClientSpreadComments(albumId, spreadIndex, authorName, keepCommentId) {
@@ -991,41 +727,18 @@ export const smartAlbumCommentsService = {
         };
 
         try {
-            if (USE_WORKERS_AUTH) {
-                const w = await workersProofer();
-                const created = await w.saveComment({
-                    albumId,
-                    spreadIndex,
-                    body: payload.body,
-                    authorName: payload.author_name,
-                    authorType: 'photographer',
-                });
-                const mapped = mapRow(created);
-                this._saveLocalComment(albumId, spreadIndex, mapped);
-                notifyCommentsChanged(albumId);
-                return mapped;
-            }
-            const { data, error } = await supabase
-                .from('album_proofer_comments')
-                .insert({
-                    album_id: payload.album_id,
-                    spread_index: payload.spread_index,
-                    author_type: payload.author_type,
-                    author_name: payload.author_name,
-                    body: payload.body,
-                    updated_at: payload.updated_at,
-                })
-                .select();
-
-            if (!error && data?.[0]) {
-                const mapped = mapRow(data[0]);
-                this._saveLocalComment(albumId, spreadIndex, mapped);
-                notifyCommentsChanged(albumId);
-                return mapped;
-            }
-            if (error && !isMissingTableError(error)) {
-                console.warn('savePhotographerComment insert:', error.message);
-            }
+            const w = await workersProofer();
+            const created = await w.saveComment({
+                albumId,
+                spreadIndex,
+                body: payload.body,
+                authorName: payload.author_name,
+                authorType: 'photographer',
+            });
+            const mapped = mapRow(created);
+            this._saveLocalComment(albumId, spreadIndex, mapped);
+            notifyCommentsChanged(albumId);
+            return mapped;
         } catch (e) {
             console.warn('savePhotographerComment insert failed:', e);
         }
@@ -1037,70 +750,25 @@ export const smartAlbumCommentsService = {
         if (!commentId) return;
         removeLocalCommentTree(albumId, commentId);
 
-        if (USE_WORKERS_AUTH) {
-            try {
-                const w = await workersProofer();
-                await w.removeComment(albumId, commentId);
-            } catch (e) {
-                console.warn('deleteClientComment failed:', e);
-            }
-            notifyCommentsChanged(albumId);
-            return;
-        }
         try {
-            const { error } = await supabase
-                .from('album_proofer_comments')
-                .delete()
-                .eq('id', commentId);
-
-            if (error && !isMissingTableError(error)) {
-                console.warn('deleteClientComment:', error.message);
-            }
+            const w = await workersProofer();
+            await w.removeComment(albumId, commentId);
         } catch (e) {
             console.warn('deleteClientComment failed:', e);
         }
-
         notifyCommentsChanged(albumId);
     },
 
     async updateCommentBody({ albumId, spreadIndex, commentId, body }) {
         const nextBody = (body || '').trim();
         const updatedAt = new Date().toISOString();
-        if (USE_WORKERS_AUTH) {
-            try {
-                const w = await workersProofer();
-                const updated = await w.patchComment(albumId, commentId, { body: nextBody });
-                const mapped = mapRow(updated);
-                this._saveLocalComment(albumId, spreadIndex, mapped);
-                notifyCommentsChanged(albumId);
-                return mapped;
-            } catch (e) {
-                console.warn('updateCommentBody failed:', e);
-            }
-            const saved = this._saveLocalComment(albumId, spreadIndex, {
-                id: commentId,
-                spread_index: spreadIndex,
-                body: nextBody,
-                updated_at: updatedAt,
-            });
-            notifyCommentsChanged(albumId);
-            return saved;
-        }
         try {
-            const { data, error } = await supabase
-                .from('album_proofer_comments')
-                .update({ body: nextBody, updated_at: updatedAt })
-                .eq('id', commentId)
-                .select();
-            if (!error && data?.[0]) {
-                const mapped = mapRow(data[0]);
-                this._saveLocalComment(albumId, spreadIndex, mapped);
-                notifyCommentsChanged(albumId);
-                return mapped;
-            }
-            if (error && !isMissingTableError(error)) {
-                console.warn('updateCommentBody:', error.message);
-            }
+            const w = await workersProofer();
+            const updated = await w.patchComment(albumId, commentId, { body: nextBody });
+            const mapped = mapRow(updated);
+            this._saveLocalComment(albumId, spreadIndex, mapped);
+            notifyCommentsChanged(albumId);
+            return mapped;
         } catch (e) {
             console.warn('updateCommentBody failed:', e);
         }
@@ -1117,21 +785,9 @@ export const smartAlbumCommentsService = {
     async deleteComment({ albumId, commentId }) {
         if (!commentId) return;
         removeLocalCommentTree(albumId, commentId);
-        if (USE_WORKERS_AUTH) {
-            try {
-                const w = await workersProofer();
-                await w.removeComment(albumId, commentId);
-            } catch (e) {
-                console.warn('deleteComment failed:', e);
-            }
-            notifyCommentsChanged(albumId);
-            return;
-        }
         try {
-            const { error } = await supabase.from('album_proofer_comments').delete().eq('id', commentId);
-            if (error && !isMissingTableError(error)) {
-                console.warn('deleteComment:', error.message);
-            }
+            const w = await workersProofer();
+            await w.removeComment(albumId, commentId);
         } catch (e) {
             console.warn('deleteComment failed:', e);
         }
@@ -1192,43 +848,19 @@ export const smartAlbumCommentsService = {
         };
 
         try {
-            if (USE_WORKERS_AUTH) {
-                const w = await workersProofer();
-                const created = await w.saveComment({
-                    albumId,
-                    spreadIndex,
-                    parentId,
-                    body: payload.body,
-                    authorName: payload.author_name,
-                    authorType: 'photographer',
-                });
-                const mapped = mapRow(created);
-                this._saveLocalComment(albumId, spreadIndex, mapped);
-                notifyCommentsChanged(albumId);
-                return mapped;
-            }
-            const { data, error } = await supabase
-                .from('album_proofer_comments')
-                .insert({
-                    album_id: payload.album_id,
-                    spread_index: payload.spread_index,
-                    parent_id: payload.parent_id,
-                    author_type: payload.author_type,
-                    author_name: payload.author_name,
-                    body: payload.body,
-                    updated_at: payload.updated_at,
-                })
-                .select();
-
-            if (!error && data?.[0]) {
-                const mapped = mapRow(data[0]);
-                this._saveLocalComment(albumId, spreadIndex, mapped);
-                notifyCommentsChanged(albumId);
-                return mapped;
-            }
-            if (error && !isMissingTableError(error)) {
-                console.warn('savePhotographerReply insert:', error.message);
-            }
+            const w = await workersProofer();
+            const created = await w.saveComment({
+                albumId,
+                spreadIndex,
+                parentId,
+                body: payload.body,
+                authorName: payload.author_name,
+                authorType: 'photographer',
+            });
+            const mapped = mapRow(created);
+            this._saveLocalComment(albumId, spreadIndex, mapped);
+            notifyCommentsChanged(albumId);
+            return mapped;
         } catch (e) {
             console.warn('savePhotographerReply insert failed:', e);
         }
@@ -1250,45 +882,20 @@ export const smartAlbumCommentsService = {
         };
 
         try {
-            if (USE_WORKERS_AUTH) {
-                const w = await workersProofer();
-                const created = await w.saveComment({
-                    albumId,
-                    spreadIndex,
-                    parentId,
-                    body: payload.body,
-                    authorName: payload.author_name,
-                    authorEmail: payload.author_email,
-                    authorType: 'client',
-                });
-                const mapped = mapRow(created);
-                this._saveLocalComment(albumId, spreadIndex, mapped);
-                notifyCommentsChanged(albumId);
-                return mapped;
-            }
-            const { data, error } = await supabase
-                .from('album_proofer_comments')
-                .insert({
-                    album_id: payload.album_id,
-                    spread_index: payload.spread_index,
-                    parent_id: payload.parent_id,
-                    author_type: payload.author_type,
-                    author_name: payload.author_name,
-                    author_email: payload.author_email,
-                    body: payload.body,
-                    updated_at: payload.updated_at,
-                })
-                .select();
-
-            if (!error && data?.[0]) {
-                const mapped = mapRow(data[0]);
-                this._saveLocalComment(albumId, spreadIndex, mapped);
-                notifyCommentsChanged(albumId);
-                return mapped;
-            }
-            if (error && !isMissingTableError(error)) {
-                console.warn('saveClientReply insert:', error.message);
-            }
+            const w = await workersProofer();
+            const created = await w.saveComment({
+                albumId,
+                spreadIndex,
+                parentId,
+                body: payload.body,
+                authorName: payload.author_name,
+                authorEmail: payload.author_email,
+                authorType: 'client',
+            });
+            const mapped = mapRow(created);
+            this._saveLocalComment(albumId, spreadIndex, mapped);
+            notifyCommentsChanged(albumId);
+            return mapped;
         } catch (e) {
             console.warn('saveClientReply insert failed:', e);
         }
@@ -1307,43 +914,15 @@ export const smartAlbumCommentsService = {
             resolved_at: resolved ? new Date().toISOString() : null,
             updated_at: new Date().toISOString(),
         };
-        if (USE_WORKERS_AUTH) {
-            try {
-                const w = await workersProofer();
-                const updated = await w.patchComment(albumId, rootId, {
-                    resolved: payload.resolved,
-                });
-                const mapped = mapRow(updated);
-                this._saveLocalComment(albumId, spreadIndex, mapped);
-                notifyCommentsChanged(albumId);
-                return mapped;
-            } catch (e) {
-                console.warn('setThreadResolved failed:', e);
-            }
-            const saved = this._saveLocalComment(albumId, spreadIndex, {
-                id: rootId,
-                spread_index: spreadIndex,
-                ...payload,
-            });
-            notifyCommentsChanged(albumId);
-            return saved;
-        }
         try {
-            const { data, error } = await supabase
-                .from('album_proofer_comments')
-                .update(payload)
-                .eq('id', rootId)
-                .eq('parent_id', null)
-                .select();
-            if (!error && data?.[0]) {
-                const mapped = mapRow(data[0]);
-                this._saveLocalComment(albumId, spreadIndex, mapped);
-                notifyCommentsChanged(albumId);
-                return mapped;
-            }
-            if (error && !isMissingTableError(error) && !isNoRowsError(error)) {
-                console.warn('setThreadResolved:', error.message);
-            }
+            const w = await workersProofer();
+            const updated = await w.patchComment(albumId, rootId, {
+                resolved: payload.resolved,
+            });
+            const mapped = mapRow(updated);
+            this._saveLocalComment(albumId, spreadIndex, mapped);
+            notifyCommentsChanged(albumId);
+            return mapped;
         } catch (e) {
             console.warn('setThreadResolved failed:', e);
         }
@@ -1366,48 +945,8 @@ export const smartAlbumCommentsService = {
         const key = String(albumIdOrSlug || '').trim();
         if (!key) return null;
 
-        if (USE_WORKERS_AUTH) {
-            const w = await workersProofer();
-            return w.getAlbumPublic(key);
-        }
-
-        const looksLikeUuid =
-            /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-                key
-            );
-
-        // Query by id only for real UUIDs — slug strings make Postgres reject uuid columns.
-        if (looksLikeUuid) {
-            const byId = await supabase
-                .from('album_proofer_albums')
-                .select('*')
-                .eq('id', key)
-                .maybeSingle();
-
-            if (byId.error && !/uuid|invalid input syntax/i.test(byId.error.message || '')) {
-                throw byId.error;
-            }
-            if (byId.data) return byId.data;
-        }
-
-        const bySlug = await supabase
-            .from('album_proofer_albums')
-            .select('*')
-            .eq('slug', key)
-            .maybeSingle();
-
-        if (bySlug.error) throw bySlug.error;
-        if (bySlug.data) return bySlug.data;
-
-        // Clean share path …/karthiksanthosh-meetup → legacy …-msoohhle rows.
-        const listed = await supabase
-            .from('album_proofer_albums')
-            .select('*')
-            .like('slug', `${key}-%`)
-            .limit(25);
-
-        if (listed.error) throw listed.error;
-        return pickPublicAlbumForSlug(key, listed.data || []);
+        const w = await workersProofer();
+        return w.getAlbumPublic(key);
     },
 
     async notifyPhotographerAlbumComments({
@@ -1417,39 +956,10 @@ export const smartAlbumCommentsService = {
         siteOrigin,
         comments,
     }) {
-        if (USE_WORKERS_AUTH) {
-            const w = await workersProofer();
-            return w.notify.comments({ albumId, guestName, guestEmail });
-        }
-        const payload = {
-            albumId,
-            guestName: guestName?.trim() || null,
-            guestEmail: guestEmail?.trim() || null,
-            siteOrigin:
-                siteOrigin || (typeof window !== 'undefined' ? window.location.origin : ''),
-            clientTimezone: getClientTimezone(),
-            comments: (comments || [])
-                .filter((c) => !c.parent_id && hasCommentBody(c))
-                .map((c) => ({
-                    spread_index: c.spread_index,
-                    author_name: c.author_name,
-                    body: c.body,
-                    created_at: c.created_at,
-                    updated_at: c.updated_at,
-                })),
-        };
-
-        const { data, error } = await supabase.functions.invoke('send-album-comments-email', {
-            body: payload,
-        });
-
-        if (error) {
-            throw new Error(error.message || 'Could not send notification email');
-        }
-        if (data?.error) {
-            throw new Error(data.error);
-        }
-        return data;
+        void siteOrigin;
+        void comments;
+        const w = await workersProofer();
+        return w.notify.comments({ albumId, guestName, guestEmail });
     },
 
     async getAlbumProofSummaries(albumIds) {
@@ -1464,95 +974,37 @@ export const smartAlbumCommentsService = {
             };
         });
 
-        if (USE_WORKERS_AUTH) {
-            const spreadSets = {};
-            try {
-                const w = await workersProofer();
-                for (const albumId of albumIds) {
-                    const bundle = await w.feedbackBundle(albumId).catch(() => null);
-                    for (const row of bundle?.comments || []) {
-                        if (row.parent_id || row.author_type !== 'client' || !hasCommentBody(row)) continue;
-                        if (!summaries[albumId]) continue;
-                        summaries[albumId].clientCommentCount += 1;
-                        if (!spreadSets[albumId]) spreadSets[albumId] = new Set();
-                        spreadSets[albumId].add(row.spread_index);
-                        const stamp = row.updated_at || row.created_at;
-                        if (stamp && (!summaries[albumId].latestClientActivityAt ||
-                            new Date(stamp).getTime() > new Date(summaries[albumId].latestClientActivityAt).getTime())) {
-                            summaries[albumId].latestClientActivityAt = stamp;
-                        }
-                    }
-                }
-            } catch (err) {
-                console.warn('getAlbumProofSummaries:', err?.message || err);
-            }
-            albumIds.forEach((albumId) => {
-                summaries[albumId].clientSpreadCount = spreadSets[albumId]?.size || 0;
-                const localCount = countClientRootComments(albumId);
-                if (localCount > summaries[albumId].clientCommentCount) {
-                    summaries[albumId].clientCommentCount = localCount;
-                    if (!summaries[albumId].latestClientActivityAt) {
-                        summaries[albumId].latestClientActivityAt = new Date().toISOString();
-                    }
-                }
-            });
-            return summaries;
-        }
-
+        const spreadSets = {};
         try {
-            const { data, error } = await supabase
-                .from('album_proofer_comments')
-                .select('album_id, spread_index, author_type, body, created_at, updated_at, parent_id, attachment_url')
-                .in('album_id', albumIds)
-                .is('parent_id', null);
-
-            if (error) throw error;
-
-            const spreadSets = {};
-            for (const row of data || []) {
-                if (row.author_type !== 'client' || !hasCommentBody(row)) continue;
-                const albumId = row.album_id;
-                if (!summaries[albumId]) continue;
-                summaries[albumId].clientCommentCount += 1;
-                if (!spreadSets[albumId]) spreadSets[albumId] = new Set();
-                spreadSets[albumId].add(row.spread_index);
-                const stamp = row.updated_at || row.created_at;
-                if (
-                    stamp &&
-                    (!summaries[albumId].latestClientActivityAt ||
-                        new Date(stamp).getTime() >
-                            new Date(summaries[albumId].latestClientActivityAt).getTime())
-                ) {
-                    summaries[albumId].latestClientActivityAt = stamp;
-                }
-            }
-
-            albumIds.forEach((albumId) => {
-                summaries[albumId].clientSpreadCount = spreadSets[albumId]?.size || 0;
-                const localCount = countClientRootComments(albumId);
-                if (localCount > summaries[albumId].clientCommentCount) {
-                    summaries[albumId].clientCommentCount = localCount;
-                    if (!summaries[albumId].latestClientActivityAt) {
-                        summaries[albumId].latestClientActivityAt = new Date().toISOString();
+            const w = await workersProofer();
+            for (const albumId of albumIds) {
+                const bundle = await w.feedbackBundle(albumId).catch(() => null);
+                for (const row of bundle?.comments || []) {
+                    if (row.parent_id || row.author_type !== 'client' || !hasCommentBody(row)) continue;
+                    if (!summaries[albumId]) continue;
+                    summaries[albumId].clientCommentCount += 1;
+                    if (!spreadSets[albumId]) spreadSets[albumId] = new Set();
+                    spreadSets[albumId].add(row.spread_index);
+                    const stamp = row.updated_at || row.created_at;
+                    if (stamp && (!summaries[albumId].latestClientActivityAt ||
+                        new Date(stamp).getTime() > new Date(summaries[albumId].latestClientActivityAt).getTime())) {
+                        summaries[albumId].latestClientActivityAt = stamp;
                     }
                 }
-            });
+            }
         } catch (err) {
             console.warn('getAlbumProofSummaries:', err?.message || err);
-            albumIds.forEach((albumId) => {
-                const localCount = countClientRootComments(albumId);
-                if (localCount > 0) {
-                    summaries[albumId].clientCommentCount = localCount;
-                    summaries[albumId].clientSpreadCount = Math.max(
-                        summaries[albumId].clientSpreadCount,
-                        1
-                    );
-                    summaries[albumId].latestClientActivityAt =
-                        summaries[albumId].latestClientActivityAt || new Date().toISOString();
-                }
-            });
         }
-
+        albumIds.forEach((albumId) => {
+            summaries[albumId].clientSpreadCount = spreadSets[albumId]?.size || 0;
+            const localCount = countClientRootComments(albumId);
+            if (localCount > summaries[albumId].clientCommentCount) {
+                summaries[albumId].clientCommentCount = localCount;
+                if (!summaries[albumId].latestClientActivityAt) {
+                    summaries[albumId].latestClientActivityAt = new Date().toISOString();
+                }
+            }
+        });
         return summaries;
     },
 };

@@ -1,20 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, User, AlertCircle, X, Mail, Ban, CheckCircle2, Download } from 'lucide-react';
 import { AppLoader, AppSpinner } from '../../components/ui/AppLoading';
-import { supabase } from '../../lib/supabase/client';
+import { apiFetch } from '../../lib/api/client';
 import {
   broadcastPhotographerLimitsChanged,
   onPhotographerLimitsBroadcast,
   subscribeAllPhotographers,
 } from '../../lib/photographerLiveSync';
-
-const FULL_SELECT = 'id, display_name, email, plan, is_disabled, last_login_at, created_at, storage_used_bytes, delivery_used_count, album_used_count';
-const BASIC_SELECT = 'id, display_name, email, plan';
-
-const isMissingColumnError = (err) => {
-  const msg = String(err?.message || '');
-  return err?.code === '42703' || /does not exist|is_disabled|last_login_at/i.test(msg);
-};
 
 function formatBytes(bytes) {
   if (!bytes || bytes <= 0) return '0 MB';
@@ -75,33 +67,16 @@ const AdminUserManagement = () => {
     setLoading(true);
     setError(null);
     setMigrationWarning(null);
+    // Workers: quotas flattened onto each row.
     try {
-      const res = await supabase.from('photographers').select(FULL_SELECT).order('created_at', { ascending: false });
-      let data = res.data;
-      if (res.error) {
-        if (!isMissingColumnError(res.error)) throw res.error;
-        const basic = await supabase.from('photographers').select(BASIC_SELECT).order('created_at', { ascending: false });
-        if (basic.error) throw basic.error;
-        data = (basic.data || []).map((p) => ({
-          ...p,
-          is_disabled: false,
-          last_login_at: null,
-          created_at: null,
-          storage_used_bytes: 0,
-          delivery_used_count: 0,
-          album_used_count: 0,
-        }));
-        setMigrationWarning(
-          'Database migration pending: run supabase/migrations/20260914000000_photographer_disabled_last_login.sql in Supabase SQL Editor to enable last login + disable account.'
-        );
-      }
+      const res = await apiFetch('/v1/admin/photographers?limit=500');
       setUsers(
-        (data || []).map((p) => ({
+        (res?.photographers || []).map((p) => ({
           id: p.id,
           name: p.display_name || 'Unnamed',
           email: p.email,
           plan: p.plan || 'Unknown',
-          isDisabled: p.is_disabled === true,
+          isDisabled: Number(p.is_disabled) === 1 || p.is_disabled === true,
           lastLoginAt: p.last_login_at || null,
           joinedAt: p.created_at || null,
           storageUsedBytes: Number(p.storage_used_bytes) || 0,
@@ -111,7 +86,7 @@ const AdminUserManagement = () => {
       );
     } catch (err) {
       console.error('Error fetching users:', err);
-      setError(err.message || 'Failed to load users. Ensure RLS policies allow reading.');
+      setError(err.message || 'Failed to load users.');
     } finally {
       setLoading(false);
     }
@@ -163,16 +138,10 @@ const AdminUserManagement = () => {
     setConfirmDisableId(null);
     setActionBusyId(user.id);
     try {
-      const { error: updateError } = await supabase
-        .from('photographers')
-        .update({ is_disabled: !user.isDisabled })
-        .eq('id', user.id);
-      if (updateError) {
-        if (isMissingColumnError(updateError)) {
-          throw new Error('Migration missing: run 20260914000000_photographer_disabled_last_login.sql in Supabase SQL Editor first.');
-        }
-        throw updateError;
-      }
+      await apiFetch(`/v1/admin/photographers/${user.id}`, {
+        method: 'PATCH',
+        body: { is_disabled: !user.isDisabled },
+      });
       fetchUsers();
       broadcastPhotographerLimitsChanged(user.id);
     } catch (err) {

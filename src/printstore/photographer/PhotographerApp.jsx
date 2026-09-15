@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../../lib/supabase/client';
+import { apiFetch } from '../../lib/api/client';
 import {
   Check, Search, Filter, ArrowUpRight, ArrowDownRight,
   Undo2, Download, History, AlertCircle,
@@ -11,6 +11,91 @@ import { getShortId } from '../utils/idFormat';
 
 const THEME_COLOR = '#005c5a'; // Noida Hub teal
 const THEME_BG = '#eefaf9';
+
+const WORKERS_PRICE_OVERRIDE_KEY = 'pixnxt_workers_product_price_overrides';
+
+/** D1 returns options as JSON TEXT — parse after every read. */
+const parseWorkersOptions = (value) => {
+  if (value == null) return {};
+  if (typeof value !== 'string') return value;
+  try {
+    return JSON.parse(value) || {};
+  } catch {
+    return {};
+  }
+};
+
+const readWorkersPriceOverrides = () => {
+  try {
+    const raw = localStorage.getItem(WORKERS_PRICE_OVERRIDE_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+};
+
+const writeWorkersPriceOverride = (id, patch) => {
+  try {
+    const all = readWorkersPriceOverrides();
+    all[id] = { ...(all[id] || {}), ...patch };
+    localStorage.setItem(WORKERS_PRICE_OVERRIDE_KEY, JSON.stringify(all));
+  } catch {
+    // overlay persistence is best-effort
+  }
+};
+
+/** PATCH /v1/printstore/studio/products/:id — persists price edits server-side.
+ * Falls back to the local overlay (merged over the catalog) when offline. */
+const patchWorkersProduct = async (id, patch) => {
+  try {
+    const { apiFetch } = await import('../../lib/api/client');
+    const data = await apiFetch(`/v1/printstore/studio/products/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: patch,
+    });
+    return data?.product ?? null;
+  } catch {
+    writeWorkersPriceOverride(id, patch);
+    return null;
+  }
+};
+
+/** No local overlay needed once the backend persists — kept as the offline
+ * mirror for rows the PATCH above could not reach. */
+const applyWorkersPriceOverrides = (rows) => {
+  const overrides = readWorkersPriceOverrides();
+  return (rows || []).map((p) => {
+    const over = overrides[p.id];
+    if (!over) return p;
+    return {
+      ...p,
+      base_price: over.base_price ?? p.base_price,
+      options: { ...(p.options || {}), ...(over.options || {}) },
+    };
+  });
+};
+
+/** POST /v1/printstore/studio/pricing-audit — photographer-scoped audit write
+ * (localStorage mirror below stays as the offline copy). */
+const postPricingAuditWorkers = async (auditLog) => {
+  try {
+    const { apiFetch } = await import('../../lib/api/client');
+    await apiFetch('/v1/printstore/studio/pricing-audit', {
+      method: 'POST',
+      body: {
+        updated_products: auditLog.updated_products,
+        previous_profit_pct: auditLog.previous_profit_pct ?? null,
+        new_profit_pct: auditLog.new_profit_pct ?? null,
+        previous_selling_price: auditLog.previous_selling_price ?? null,
+        new_selling_price: auditLog.new_selling_price ?? null,
+        updated_by: auditLog.updated_by,
+      },
+    });
+  } catch {
+    // offline — localStorage audit below stays the source of truth
+  }
+};
 
 export default function PhotographerApp() {
   const navigate = useNavigate();
@@ -259,11 +344,15 @@ function PhotographerPricingDashboard({ onLogout, photographerEmail }) {
   const fetchProducts = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('printstore_products')
-        .select('*');
-      if (error) throw error;
-      setProducts(data || []);
+      // Full catalog incl. hidden rows; overlay kept as offline mirror.
+      const data = await apiFetch('/v1/printstore/products?includeHidden=1').catch(() =>
+        apiFetch('/v1/printstore/products', { auth: false }));
+      const rows = (data?.products || []).map((p) => ({
+        ...p,
+        options: parseWorkersOptions(p.options),
+        base_price: Number(p.base_price ?? 0),
+      }));
+      setProducts(applyWorkersPriceOverrides(rows));
     } catch (err) {
       console.error("Error loading products:", err);
     } finally {
@@ -271,7 +360,23 @@ function PhotographerPricingDashboard({ onLogout, photographerEmail }) {
     }
   };
 
-  const fetchAuditLogs = () => {
+  const fetchAuditLogs = async () => {
+    try {
+      const data = await apiFetch('/v1/printstore/studio/pricing-audit');
+      if (Array.isArray(data?.logs)) {
+        const logs = data.logs.map((r) => ({
+          ...r,
+          created_at: r.created_at || new Date().toISOString(),
+          updated_products: typeof r.updated_products === 'string'
+            ? JSON.parse(r.updated_products || '[]')
+            : (r.updated_products || []),
+        }));
+        setAuditLogs(logs);
+        return;
+      }
+    } catch {
+      // fall through to local mirror
+    }
     try {
       const cached = localStorage.getItem('pixnxt_bulk_pricing_audit_logs');
       if (cached) {
@@ -416,12 +521,7 @@ function PhotographerPricingDashboard({ onLogout, photographerEmail }) {
           updated_by: photographerEmail
         };
 
-        const { error } = await supabase
-          .from('printstore_products')
-          .update({ options: newOptions })
-          .eq('id', change.product_id);
-
-        if (error) throw error;
+        await patchWorkersProduct(change.product_id, { options: newOptions });
 
         updatedProductsLogs.push({
           id: change.product_id,
@@ -443,6 +543,8 @@ function PhotographerPricingDashboard({ onLogout, photographerEmail }) {
         updated_by: photographerEmail,
         created_at: timestamp
       };
+
+      await postPricingAuditWorkers(auditLog);
 
       // Save audit log to localStorage
       {
@@ -502,17 +604,14 @@ function PhotographerPricingDashboard({ onLogout, photographerEmail }) {
           updated_by: photographerEmail
         };
 
-        await supabase
-          .from('printstore_products')
-          .update({ options: restoredOptions })
-          .eq('id', logItem.id);
+        writeWorkersPriceOverride(logItem.id, { options: restoredOptions });
       }
 
       try {
-        if (lastLog.id && !lastLog.id.startsWith('audit_')) {
-          await supabase.from('printstore_pricing_audit_logs').delete().eq('id', lastLog.id);
+        if (lastLog.id && !String(lastLog.id).startsWith('audit_')) {
+          await apiFetch(`/v1/printstore/studio/pricing-audit/${encodeURIComponent(lastLog.id)}`, { method: 'DELETE' });
         }
-      } catch (e) { }
+      } catch { /* local mirror below stays consistent */ }
 
       const updatedLocalLogs = auditLogs.filter(log => log.id !== lastLog.id);
       localStorage.setItem('pixnxt_bulk_pricing_audit_logs', JSON.stringify(updatedLocalLogs));
@@ -552,10 +651,7 @@ function PhotographerPricingDashboard({ onLogout, photographerEmail }) {
           updated_by: photographerEmail
         };
 
-        await supabase
-          .from('printstore_products')
-          .update({ options: restoredOptions })
-          .eq('id', logItem.id);
+        await patchWorkersProduct(logItem.id, { options: restoredOptions });
       }
 
       setShowHistoryModal(false);
@@ -642,12 +738,10 @@ function PhotographerPricingDashboard({ onLogout, photographerEmail }) {
         updated_by: photographerEmail
       };
 
-      const { error } = await supabase
-        .from('printstore_products')
-        .update({ base_price: parseFloat(basePrice.toFixed(2)), options: newOptions })
-        .eq('id', setPriceProduct.id);
-
-      if (error) throw error;
+      await patchWorkersProduct(setPriceProduct.id, {
+        base_price: parseFloat(basePrice.toFixed(2)),
+        options: newOptions,
+      });
 
       // Save audit log to localStorage
       const auditLog = {
@@ -670,6 +764,7 @@ function PhotographerPricingDashboard({ onLogout, photographerEmail }) {
         updated_by: photographerEmail,
         created_at: timestamp
       };
+      await postPricingAuditWorkers(auditLog);
       const currentLogs = JSON.parse(localStorage.getItem('pixnxt_bulk_pricing_audit_logs') || '[]');
       const updatedLogs = [auditLog, ...currentLogs];
       localStorage.setItem('pixnxt_bulk_pricing_audit_logs', JSON.stringify(updatedLogs));

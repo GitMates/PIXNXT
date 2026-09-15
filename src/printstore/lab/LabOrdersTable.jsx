@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useLabAuth } from './LabApp';
-import { supabase } from '../../lib/supabase/client';
 import { Copy, Check, Eye } from 'lucide-react';
 import { getShortId } from '../utils/idFormat';
 import LabSearchField from './LabSearchField';

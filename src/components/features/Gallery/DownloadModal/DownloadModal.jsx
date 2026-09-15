@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, CheckCircle2, Loader2, AlertCircle, Monitor, Cloud, CreditCard, ShieldCheck } from 'lucide-react';
-import { supabase } from '@/lib/supabase/client';
+import { apiFetch } from '@/lib/api/client';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { cn } from '@/lib/utils';
@@ -496,9 +496,8 @@ export const DownloadModal = ({
     const needsPin = collectionHasDownloadPin(collection);
 
     if (needsPin) {
-      const { USE_WORKERS_AUTH } = await import('../../../../lib/api/client');
       let pinOk = pin === String(validPin ?? '').trim();
-      if (USE_WORKERS_AUTH && collection?.id && !pinOk) {
+      if (collection?.id && !pinOk) {
         try {
           const { verifyGalleryAccess } = await import('../../../../services/workersGallery.service');
           pinOk = (await verifyGalleryAccess(collection.id, { pin }))?.pinOk === true;
@@ -615,44 +614,44 @@ export const DownloadModal = ({
       const price = isSingle
         ? (digitalPrices?.single || Number(collection?.digital_download_price_single) || 40)
         : (digitalPrices?.entire || Number(collection?.digital_download_price_all) || 199);
-      
-      const { data: order, error: orderError } = await supabase
-        .from('printstore_orders')
-        .insert({
-          collection_id: collection.id,
-          photographer_id: collection.photographer_id || collection.user_id,
-          customer_name: cardName || 'Client Visitor',
-          customer_email: targetEmail,
-          shipping_address: null,
-          shipping_amount: 0,
-          tax_amount: 0,
-          discount_amount: 0,
-          subtotal: price,
-          total: price,
-          status: 'completed',
-          payment_provider: 'stripe',
-          payment_intent_id: 'mock_pi_digital_' + Math.random().toString(36).substr(2, 9)
-        })
-        .select()
-        .single();
-        
-      if (orderError) throw orderError;
-      
-      const { error: itemError } = await supabase
-        .from('printstore_order_items')
-        .insert({
-          order_id: order.id,
-          product_name: isSingle ? 'Digital Download - Single Photo' : 'Digital Download - All Photos',
-          product_type: isSingle ? 'digital_download' : 'digital_download_all',
-          quantity: 1,
-          unit_price: price,
-          subtotal: price,
-          options: {
-            photo: isSingle ? initialPhoto : null
-          }
+
+      let order;
+      {
+        const productName = isSingle ? 'Digital Download - Single Photo' : 'Digital Download - All Photos';
+        const productType = isSingle ? 'digital_download' : 'digital_download_all';
+        const created = await apiFetch('/v1/printstore/orders', {
+          method: 'POST',
+          auth: false,
+          body: {
+            sessionId: `digital-${collection.id}`,
+            photographerId: collection.photographer_id || collection.user_id || null,
+            collectionId: collection.id,
+            customerName: cardName || 'Client Visitor',
+            customerEmail: targetEmail,
+            shippingAddress: { email: targetEmail },
+            items: [{
+              productName,
+              productType,
+              quantity: 1,
+              unitPrice: price,
+              options: {
+                photo: isSingle ? initialPhoto : null
+              }
+            }],
+            paymentIntentId: 'mock_pi_digital_' + Math.random().toString(36).substr(2, 9),
+            paymentProvider: 'stripe',
+          },
         });
-        
-      if (itemError) throw itemError;
+        order = created?.order;
+        if (!order?.id) throw new Error('Could not record the order. Please try again.');
+        // Mock checkout: mark the pending order completed (session-gated).
+        const completed = await apiFetch(`/v1/printstore/orders/${encodeURIComponent(order.id)}/complete`, {
+          method: 'POST',
+          auth: false,
+          body: { sessionId: `digital-${collection.id}` },
+        }).catch(() => null);
+        if (completed?.order) order = completed.order;
+      }
       
       if (isSingle) {
         localStorage.setItem(`pixnxt_digital_paid_${collection.id}_single_${initialPhoto?.id}`, 'true');
@@ -661,17 +660,12 @@ export const DownloadModal = ({
       }
       
       try {
-        await fetch(`${supabase.supabaseUrl}/functions/v1/send-order-placed-email`, {
+        await apiFetch('/v1/emails/order-placed', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${supabase.supabaseKey}`
-          },
-          body: JSON.stringify({
-            orderId: order.id,
-            recipientEmail: targetEmail,
-            siteOrigin: window.location.origin
-          })
+          auth: false,
+          body: { orderId: order.id, recipientEmail: targetEmail, collectionSlug: collection.slug ?? null },
+        }).catch((emailErr) => {
+          console.warn('Could not trigger order placing email:', emailErr);
         });
       } catch (emailErr) {
         console.warn('Could not trigger order placing email:', emailErr);

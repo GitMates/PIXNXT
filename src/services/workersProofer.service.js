@@ -1,7 +1,6 @@
 /**
- * Workers-native album proofer backend (Cloudflare /v1/proofer + /v1/emails).
+ * Album proofer backend (Cloudflare /v1/proofer + /v1/emails).
  * Mirrors albumProof / smartAlbums / smartAlbumComments / settings surfaces.
- * Active only when VITE_USE_WORKERS_API=1; callers delegate per-function.
  */
 import { apiFetch } from '../lib/api/client';
 

@@ -1,7 +1,6 @@
 /**
- * Workers-native mobile gallery backend (Cloudflare /v1/mobile + /v1/emails).
+ * Mobile gallery backend (Cloudflare /v1/mobile + /v1/emails).
  * Mirrors mobileGallery / Photos / Public / Share / Settings surfaces.
- * Active only when VITE_USE_WORKERS_API=1; callers delegate per-function.
  */
 import { apiFetch } from '../lib/api/client';
 
@@ -160,7 +159,7 @@ export async function getSettings() {
 
 export async function updateSettings(photographerId, updates) {
   void photographerId;
-  // Merge like the Supabase upsert path (never wipe unrelated keys).
+  // Merge with current settings (never wipe unrelated keys).
   const current = await getSettings().catch(() => ({}));
   const next = { ...(current || {}), ...(updates || {}) };
   const data = await apiFetch('/v1/mobile/settings', { method: 'PUT', body: { settings: next } });

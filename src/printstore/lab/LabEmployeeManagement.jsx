@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useLabAuth } from './LabApp';
-import { supabase } from '../../lib/supabase/client';
+import { apiFetch } from '../../lib/api/client';
 import { LAB_UI, labPageStyle, labTitleStyle, labCardStyle, labBtnPrimaryStyle, labBtnSecondaryStyle } from './labUi';
 
 export default function LabEmployeeManagement() {
@@ -16,26 +16,25 @@ export default function LabEmployeeManagement() {
     e.preventDefault();
     if (!empName || !empEmail) return;
 
+    // POST /v1/printstore/employees → { row }
     try {
-      const { error } = await supabase
-        .from('printstore_lab_employees')
-        .insert({
+      await apiFetch('/v1/printstore/employees', {
+        method: 'POST',
+        body: {
           name: empName,
           email: empEmail,
           role: empRole,
           department: empDept,
           status: 'active',
           orders_completed: 0,
-          orders_pending: 0
-        });
-
-      if (error) throw error;
-
+          orders_pending: 0,
+        },
+      });
       setEmpName('');
       setEmpEmail('');
       setShowAddForm(false);
       await refreshEmployees();
-      alert('New employee successfully registered in Supabase.');
+      alert('New employee successfully registered.');
     } catch (err) {
       console.error(err);
       alert('Failed to register employee: ' + err.message);

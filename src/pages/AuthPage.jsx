@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { supabase } from '../lib/supabase/client';
 import { LoginForm, SignupForm } from '../components/features/Auth';
 import { ForgotPasswordForm } from '../components/features/Auth/ForgotPasswordForm';
 import { ResetPasswordForm } from '../components/features/Auth/ResetPasswordForm';
@@ -13,7 +12,7 @@ import {
   readOAuthCallbackError,
 } from '../services/auth.service';
 import { isGoogleStudioCallbackPath } from '../lib/googleStudioAuth';
-import { USE_WORKERS_AUTH, isWorkersSuccessPath } from '../lib/api/client';
+import { isWorkersSuccessPath } from '../lib/api/client';
 import './AuthPage.css';
 
 const COPY = {
@@ -59,7 +58,7 @@ const AuthPage = () => {
     () => isGoogleStudioCallbackPath(location.pathname) && Boolean(searchParams.get('code'))
   );
   const [workersCallbackBusy, setWorkersCallbackBusy] = useState(
-    () => USE_WORKERS_AUTH && isWorkersSuccessPath()
+    () => isWorkersSuccessPath()
   );
   const navigate = useNavigate();
   const googleExchangeRef = useRef(null);
@@ -68,7 +67,7 @@ const AuthPage = () => {
   // The AuthProvider mounted earlier (user=null), so re-resolve before
   // navigating — otherwise ProtectedRoute bounces straight back to /auth.
   useEffect(() => {
-    if (!USE_WORKERS_AUTH || !isWorkersSuccessPath()) return undefined;
+    if (!isWorkersSuccessPath()) return undefined;
     let cancelled = false;
     setWorkersCallbackBusy(true);
     (async () => {
@@ -181,16 +180,7 @@ const AuthPage = () => {
       setRecoveryActive(true);
       setView('reset');
     }
-
-    const { data: { subscription } } = USE_WORKERS_AUTH
-      ? { data: { subscription: { unsubscribe: () => {} } } }
-      : supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        setRecoveryActive(true);
-        setView('reset');
-      }
-    });
-    return () => subscription.unsubscribe();
+    return undefined;
   }, []);
 
   useEffect(() => {
@@ -214,13 +204,11 @@ const AuthPage = () => {
     }
     // Email login already refreshed context in useAuth, but re-resolve here
     // as a safety net so /dashboard never sees a stale null user.
-    if (USE_WORKERS_AUTH) {
-      try {
-        const resolved = await refresh?.();
-        if (!resolved?.user) return;
-      } catch {
-        return;
-      }
+    try {
+      const resolved = await refresh?.();
+      if (!resolved?.user) return;
+    } catch {
+      return;
     }
     navigate('/dashboard');
   };

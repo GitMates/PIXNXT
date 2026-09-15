@@ -1,6 +1,6 @@
 /**
  * Exchange a Google OAuth authorization code for ID / access tokens.
- * Used for studio login so Google shows pixnxt.in (not *.supabase.co) on the consent screen.
+ * Used for studio login so Google shows pixnxt.in on the consent screen.
  */
 export async function exchangeGoogleAuthCode(code, redirectUri) {
   const clientId =

@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Users, LogOut, ChevronDown, User, Shield, AlertTriangle, Layers, Gauge } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
-import { supabase } from '../../lib/supabase/client';
+import { signOut } from '../../services/auth.service';
 import { getUserDisplayLabel, getUserInitial } from '../../lib/userInitials';
 
 const AdminLayout = () => {
@@ -15,7 +15,8 @@ const AdminLayout = () => {
   const userDisplayLabel = getUserDisplayLabel(user);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    // auth.service signOut goes to the Workers backend.
+    await signOut();
     navigate('/admin/login');
   };
 

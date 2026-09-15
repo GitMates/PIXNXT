@@ -1,8 +1,4 @@
-import { FunctionsHttpError } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase/client';
-import { USE_WORKERS_AUTH } from '../lib/api/client';
-import { trackActivity as workersTrackActivity, notify as workersNotify } from './workersProofer.service';
-import { getClientFacingOrigin, getPublicSiteOrigin } from '../lib/publicSiteUrl';
+const workersProofer = () => import('./workersProofer.service');
 
 const APPROVED_KEY = 'pixnxt_album_proof_approved';
 const SUBMITTED_KEY = 'pixnxt_album_proof_submitted';
@@ -75,71 +71,7 @@ export async function trackAlbumProofActivity({
     guestEmail = null,
 } = {}) {
     if (!albumId) return null;
-    if (USE_WORKERS_AUTH) return workersTrackActivity({ albumId, action, guestName, guestEmail });
-    try {
-        const { data, error } = await supabase.functions.invoke('track-album-proof-activity', {
-            body: {
-                albumId,
-                action,
-                guestName: guestName?.trim() || null,
-                guestEmail: guestEmail?.trim() || null,
-            },
-        });
-        if (error) {
-            console.warn('trackAlbumProofActivity:', error.message);
-            return null;
-        }
-        if (data?.error) {
-            console.warn('trackAlbumProofActivity:', data.error);
-            return null;
-        }
-        return data;
-    } catch (err) {
-        console.warn('trackAlbumProofActivity failed:', err?.message || err);
-        return null;
-    }
-}
-
-async function readFunctionErrorMessage(error) {
-    let message = error?.message || 'Could not send notification email';
-    if (error instanceof FunctionsHttpError) {
-        try {
-            const body = await error.context.json();
-            if (body?.error) message = body.error;
-        } catch {
-            /* use default message */
-        }
-    }
-    if (message.includes('non-2xx')) {
-        return 'Email could not be sent. Check that SMTP is configured in Supabase Edge Function secrets.';
-    }
-    return message;
-}
-
-export function getClientTimezone() {
-    if (typeof window === 'undefined') return null;
-    try {
-        return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
-    } catch {
-        return null;
-    }
-}
-
-async function invokeProofEmail(payload) {
-    const { data, error } = await supabase.functions.invoke('send-album-proof-email', {
-        body: {
-            ...payload,
-            clientTimezone: payload.clientTimezone ?? getClientTimezone(),
-        },
-    });
-
-    if (error) {
-        throw new Error(await readFunctionErrorMessage(error));
-    }
-    if (data?.error) {
-        throw new Error(data.error);
-    }
-    return data;
+    return (await workersProofer()).trackActivity({ albumId, action, guestName, guestEmail });
 }
 
 export const albumProofService = {
@@ -147,126 +79,46 @@ export const albumProofService = {
         albumId,
         guestName,
         guestEmail,
-        siteOrigin,
     }) {
-        if (USE_WORKERS_AUTH) {
-            return workersNotify.approved({ albumId, guestName: guestName?.trim() || null, guestEmail: guestEmail?.trim() || null });
-        }
-        return invokeProofEmail({
-            albumId,
-            action: 'approve',
-            guestName: guestName?.trim() || null,
-            guestEmail: guestEmail?.trim() || null,
-            siteOrigin: siteOrigin || getPublicSiteOrigin(),
-        });
+        return (await workersProofer()).notify.approved({ albumId, guestName: guestName?.trim() || null, guestEmail: guestEmail?.trim() || null });
     },
 
     async notifyPhotographerAlbumChanges({
         albumId,
         guestName,
         guestEmail,
-        siteOrigin,
         photoComments = [],
         swapRequests = [],
         spreadComments = [],
     }) {
-        if (USE_WORKERS_AUTH) {
-            return workersNotify.changes({ albumId, guestName: guestName?.trim() || null, guestEmail: guestEmail?.trim() || null });
-        }
-        return invokeProofEmail({
-            albumId,
-            action: 'submit_changes',
-            guestName: guestName?.trim() || null,
-            guestEmail: guestEmail?.trim() || null,
-            siteOrigin: siteOrigin || getPublicSiteOrigin(),
-            photoComments,
-            swapRequests,
-            spreadComments,
-        });
+        void photoComments;
+        void swapRequests;
+        void spreadComments;
+        return (await workersProofer()).notify.changes({ albumId, guestName: guestName?.trim() || null, guestEmail: guestEmail?.trim() || null });
     },
 
     async notifyPhotographerClientStartedCommenting({
         albumId,
         guestName,
         guestEmail,
-        siteOrigin,
     }) {
-        if (USE_WORKERS_AUTH) {
-            return workersNotify.startedCommenting({ albumId, guestName: guestName?.trim() || null, guestEmail: guestEmail?.trim() || null });
-        }
-        return invokeProofEmail({
-            albumId,
-            action: 'client_started_commenting',
-            guestName: guestName?.trim() || null,
-            guestEmail: guestEmail?.trim() || null,
-            siteOrigin: siteOrigin || getPublicSiteOrigin(),
-        });
+        return (await workersProofer()).notify.startedCommenting({ albumId, guestName: guestName?.trim() || null, guestEmail: guestEmail?.trim() || null });
     },
 
     async notifyPhotographerInstantFeedback({
         albumId,
         guestName,
         guestEmail,
-        siteOrigin,
-        eventType = 'comment',
-        eventLabel,
-        eventDetail,
-        comments = [],
     }) {
-        if (USE_WORKERS_AUTH) {
-            return workersNotify.instantFeedback({ albumId, guestName: guestName?.trim() || null, guestEmail: guestEmail?.trim() || null });
-        }
-        const { data, error } = await supabase.functions.invoke('send-album-comments-email', {
-            body: {
-                albumId,
-                mode: 'instant',
-                guestName: guestName?.trim() || null,
-                guestEmail: guestEmail?.trim() || null,
-                siteOrigin: siteOrigin || getPublicSiteOrigin(),
-                clientTimezone: getClientTimezone(),
-                eventType,
-                eventLabel,
-                eventDetail,
-                comments,
-            },
-        });
-
-        if (error) {
-            throw new Error(await readFunctionErrorMessage(error));
-        }
-        if (data?.error) {
-            throw new Error(data.error);
-        }
-        return data;
+        return (await workersProofer()).notify.instantFeedback({ albumId, guestName: guestName?.trim() || null, guestEmail: guestEmail?.trim() || null });
     },
 
     async notifyClientRevisionReady({
         albumId,
         guestName,
         guestEmail,
-        siteOrigin,
-        photographerProfile = null,
     }) {
-        if (USE_WORKERS_AUTH) {
-            return workersNotify.revisionReady({ albumId, guestName: guestName?.trim() || null, guestEmail: guestEmail?.trim() || null });
-        }
-        const { data, error } = await supabase.functions.invoke('send-smart-album-client-email', {
-            body: {
-                albumId,
-                action: 'status_revision_ready',
-                guestName: guestName?.trim() || null,
-                guestEmail: guestEmail?.trim() || null,
-                siteOrigin: siteOrigin || getClientFacingOrigin(photographerProfile),
-            },
-        });
-
-        if (error) {
-            throw new Error(await readFunctionErrorMessage(error));
-        }
-        if (data?.error) {
-            throw new Error(data.error);
-        }
-        return data;
+        return (await workersProofer()).notify.revisionReady({ albumId, guestName: guestName?.trim() || null, guestEmail: guestEmail?.trim() || null });
     },
 
     /** Manual photographer nudge from Albums list Remind. */
@@ -274,30 +126,7 @@ export const albumProofService = {
         albumId,
         guestName,
         guestEmail,
-        siteOrigin,
-        photographerProfile = null,
-        force = true,
     }) {
-        if (USE_WORKERS_AUTH) {
-            return workersNotify.reminder({ albumId, guestName: guestName?.trim() || null, guestEmail: guestEmail?.trim() || null });
-        }
-        const { data, error } = await supabase.functions.invoke('send-smart-album-client-email', {
-            body: {
-                albumId,
-                action: 'client_reminder',
-                guestName: guestName?.trim() || null,
-                guestEmail: guestEmail?.trim() || null,
-                siteOrigin: siteOrigin || getClientFacingOrigin(photographerProfile),
-                force: Boolean(force),
-            },
-        });
-
-        if (error) {
-            throw new Error(await readFunctionErrorMessage(error));
-        }
-        if (data?.error) {
-            throw new Error(data.error);
-        }
-        return data;
+        return (await workersProofer()).notify.reminder({ albumId, guestName: guestName?.trim() || null, guestEmail: guestEmail?.trim() || null });
     },
 };

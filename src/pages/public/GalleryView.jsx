@@ -3,8 +3,6 @@ import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion as Motion } from 'framer-motion';
 import * as Covers from '../../components/features/CollectionDashboard/PreviewPane/CoverStyles';
 import { CoverScrollHint, coverUsesEmbeddedScroll } from '../../components/features/CollectionDashboard/PreviewPane/CoverStyles/CoverScrollHint';
-import { supabase } from '../../lib/supabase/client';
-import { USE_WORKERS_AUTH } from '../../lib/api/client';
 
 import { MasonryGrid } from '../../components/features/Gallery/MasonryGrid/MasonryGrid';
 import { PhotoLightbox } from '../../components/features/Gallery/PhotoLightbox/PhotoLightbox';
@@ -119,7 +117,7 @@ function isDownloadSetAllowed(allowlist, key) {
   return allowlist.some((item) => String(item) === String(key));
 }
 
-/** Stable string ids so Supabase UUIDs match `photo.id` from the collection payload. */
+/** Stable string ids so backend UUIDs match `photo.id` from the collection payload. */
 function normalizeFavoritePhotoId(id) {
   if (id == null || id === '') return null;
   return String(id);
@@ -307,39 +305,22 @@ const GalleryView = () => {
       galleryService.fetchVaultPlan(collection.id).then(plan => {
         if (plan) setVaultPlan(plan);
       });
-      // 2. Fetch from database if they already purchased the permanent vault for this gallery!
-      if (USE_WORKERS_AUTH) {
-        import('../../lib/api/client').then(({ apiFetch }) => {
-          apiFetch(`/v1/store/buylink-status?collectionId=${encodeURIComponent(collection.id)}`, { auth: false })
-            .then((s) => {
-              if (s?.purchased) {
-                setVaultPurchasedState(true);
-              } else {
-                setVaultPurchasedState(localStorage.getItem(`pixnxt_vault_purchased_${collection.id}`) === 'true');
-              }
-            })
-            .catch(() => {
+      // 2. Fetch from the Workers API if they already purchased the permanent vault for this gallery!
+      import('../../lib/api/client').then(({ apiFetch }) => {
+        apiFetch(`/v1/store/buylink-status?collectionId=${encodeURIComponent(collection.id)}`, { auth: false })
+          .then((s) => {
+            if (s?.purchased) {
+              setVaultPurchasedState(true);
+            } else {
               setVaultPurchasedState(localStorage.getItem(`pixnxt_vault_purchased_${collection.id}`) === 'true');
-            });
-        }).catch(() => {
-          setVaultPurchasedState(localStorage.getItem(`pixnxt_vault_purchased_${collection.id}`) === 'true');
-        });
-        return;
-      }
-      supabase
-        .from('buylink_plans')
-        .select('id')
-        .eq('collection_id', collection.id)
-        .eq('status', 'completed')
-        .limit(1)
-        .then(({ data, error }) => {
-          if (!error && data && data.length > 0) {
-            setVaultPurchasedState(true);
-          } else {
-            // fallback to local storage
+            }
+          })
+          .catch(() => {
             setVaultPurchasedState(localStorage.getItem(`pixnxt_vault_purchased_${collection.id}`) === 'true');
-          }
-        });
+          });
+      }).catch(() => {
+        setVaultPurchasedState(localStorage.getItem(`pixnxt_vault_purchased_${collection.id}`) === 'true');
+      });
     }
   }, [collection?.id]);
 
@@ -397,69 +378,34 @@ const GalleryView = () => {
         planName = 'Permanent Vault Storage Access';
       }
 
-      const { data: purchase, error: purchaseError } = USE_WORKERS_AUTH
-        ? await (async () => {
-            // Workers API records the mock purchase + queues the receipt email.
-            const { apiFetch } = await import('../../lib/api/client');
-            try {
-              const res = await apiFetch('/v1/store/buylink', {
-                method: 'POST',
-                auth: false,
-                body: {
-                  collectionId: collection.id,
-                  customerName: vaultCardName || 'Client Visitor',
-                  customerEmail: targetEmail,
-                  amountPaid: price,
-                  planType: selectedVaultPlan || 'lifetime',
-                  paymentMethod: vaultPaymentMethod || 'Credit Card',
-                  paymentIntentId: 'mock_pi_vault_' + Math.random().toString(36).substr(2, 9),
-                },
-              });
-              return { data: res?.plan ?? null, error: null };
-            } catch (err) {
-              return { data: null, error: err };
-            }
-          })()
-        : await supabase
-        .from('buylink_plans')
-        .insert({
-          collection_id: collection.id,
-          customer_name: vaultCardName || 'Client Visitor',
-          customer_email: targetEmail,
-          amount_paid: price,
-          plan_type: selectedVaultPlan || 'lifetime',
-          status: 'completed',
-          payment_method: vaultPaymentMethod || 'Credit Card',
-          payment_intent_id: 'mock_pi_vault_' + Math.random().toString(36).substr(2, 9)
-        })
-        .select()
-        .single();
+      // Workers API records the mock purchase + queues the receipt email.
+      const { apiFetch } = await import('../../lib/api/client');
+      let purchase = null;
+      let purchaseError = null;
+      try {
+        const res = await apiFetch('/v1/store/buylink', {
+          method: 'POST',
+          auth: false,
+          body: {
+            collectionId: collection.id,
+            customerName: vaultCardName || 'Client Visitor',
+            customerEmail: targetEmail,
+            amountPaid: price,
+            planType: selectedVaultPlan || 'lifetime',
+            paymentMethod: vaultPaymentMethod || 'Credit Card',
+            paymentIntentId: 'mock_pi_vault_' + Math.random().toString(36).substr(2, 9),
+          },
+        });
+        purchase = res?.plan ?? null;
+      } catch (err) {
+        purchaseError = err;
+      }
 
       if (purchaseError) throw purchaseError;
 
       localStorage.setItem(`pixnxt_vault_purchased_${collection.id}`, 'true');
       localStorage.setItem(`pixnxt_vault_purchased_plan_${collection.id}`, selectedVaultPlan);
       setVaultPurchasedState(true);
-
-      // Workers API already queued the receipt email server-side.
-      if (!USE_WORKERS_AUTH) {
-        try {
-          await fetch(`${supabase.supabaseUrl}/functions/v1/send-order-placed-email`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${supabase.supabaseKey}`
-            },
-            body: JSON.stringify({
-              orderId: purchase.id,
-              recipientEmail: targetEmail,
-              siteOrigin: window.location.origin
-            })
-          });
-        } catch (emailErr) {
-          console.warn('Could not trigger vault order placing email:', emailErr);
-        }
-      }
 
       setIsVaultPaying(false);
       setShowVaultPaymentModal(false);
@@ -473,20 +419,9 @@ const GalleryView = () => {
   useEffect(() => {
     async function loadActiveProducts() {
       try {
-        if (USE_WORKERS_AUTH) {
-          const { apiFetch } = await import('../../lib/api/client');
-          const data = await apiFetch('/v1/printstore/products', { auth: false });
-          if (data?.products) setActiveProducts(data.products);
-          return;
-        }
-        const { data, error } = await supabase
-          .from('printstore_products')
-          .select('*')
-          .eq('is_visible', true)
-          .order('created_at', { ascending: true });
-        if (!error && data) {
-          setActiveProducts(data);
-        }
+        const { apiFetch } = await import('../../lib/api/client');
+        const data = await apiFetch('/v1/printstore/products', { auth: false });
+        if (data?.products) setActiveProducts(data.products);
       } catch (err) {
         console.error("Error loading active products for Print Lab:", err);
       }
@@ -1561,117 +1496,33 @@ const GalleryView = () => {
         .catch(() => {});
     };
 
-    if (USE_WORKERS_AUTH && collection?.id) {
-      let cancelled = false;
-      let unsubscribe = null;
-      import('../../lib/api/client').then(({ subscribeSse }) => {
-        if (cancelled) return;
-        unsubscribe = subscribeSse(`/v1/public/gallery/${collection.id}/events`, {
-          onEvent: async () => {
-            try {
-              const fresh = await galleryService.getCollectionBySlug(collection.slug, { collectionId: collection.id });
-              if (cancelled || !fresh || fresh.id !== collection.id) return;
-              setCollection((prev) => {
-                if (!prev || prev.id !== collection.id) return prev;
-                refreshStorePackagesIfNeeded(fresh, prev);
-                return {
-                  ...prev,
-                  ...fresh,
-                  has_pin: Boolean(fresh.has_pin || fresh.download_pin_hash),
-                };
-              });
-            } catch {
-              // keep stale gallery on refresh failure
-            }
-          },
-        });
-      }).catch(() => {});
-      return () => {
-        cancelled = true;
-        if (unsubscribe) unsubscribe();
-      };
-    }
-    const channel = supabase
-      .channel(`gallery-download-settings:${collection.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'deliveries',
-          filter: `id=eq.${collection.id}`,
+    let cancelled = false;
+    let unsubscribe = null;
+    import('../../lib/api/client').then(({ subscribeSse }) => {
+      if (cancelled) return;
+      unsubscribe = subscribeSse(`/v1/public/gallery/${collection.id}/events`, {
+        onEvent: async () => {
+          try {
+            const fresh = await galleryService.getCollectionBySlug(collection.slug, { collectionId: collection.id });
+            if (cancelled || !fresh || fresh.id !== collection.id) return;
+            setCollection((prev) => {
+              if (!prev || prev.id !== collection.id) return prev;
+              refreshStorePackagesIfNeeded(fresh, prev);
+              return {
+                ...prev,
+                ...fresh,
+                has_pin: Boolean(fresh.has_pin || fresh.download_pin_hash),
+              };
+            });
+          } catch {
+            // keep stale gallery on refresh failure
+          }
         },
-        (payload) => {
-          const row = payload.new;
-          if (!row) return;
-          setCollection((prev) => {
-            if (!prev || prev.id !== collection.id) return prev;
-            refreshStorePackagesIfNeeded(row, prev);
-            const pin = row.download_pin_hash ?? null;
-            return {
-              ...prev,
-              download_pin_hash: pin,
-              download_pin: pin,
-              downloads_enabled: row.downloads_enabled ?? prev.downloads_enabled,
-              download_resolutions: row.download_resolutions ?? prev.download_resolutions,
-              video_downloads_enabled: row.video_downloads_enabled ?? prev.video_downloads_enabled,
-              gallery_download_enabled: row.gallery_download_enabled ?? prev.gallery_download_enabled,
-              single_photo_download_enabled:
-                row.single_photo_download_enabled ?? prev.single_photo_download_enabled,
-              require_pin_for_single_photo:
-                row.require_pin_for_single_photo ?? prev.require_pin_for_single_photo,
-              email_capture_enabled: row.email_capture_enabled ?? prev.email_capture_enabled,
-              download_limit_gallery: row.download_limit_gallery ?? prev.download_limit_gallery,
-              restrict_to_emails: row.restrict_to_emails ?? prev.restrict_to_emails,
-              selected_download_sets: row.selected_download_sets ?? prev.selected_download_sets,
-              pin_usage_limit: row.pin_usage_limit ?? prev.pin_usage_limit,
-              video_download_resolution:
-                row.video_download_resolution ?? prev.video_download_resolution,
-              download_selling: row.download_selling ?? prev.download_selling,
-              download_contact_mode: row.download_contact_mode ?? prev.download_contact_mode,
-              large_download_contact: row.large_download_contact ?? prev.large_download_contact,
-              download_price_full: row.download_price_full ?? prev.download_price_full,
-              download_price_web: row.download_price_web ?? prev.download_price_web,
-              download_price_film: row.download_price_film ?? prev.download_price_film,
-              download_bundles: row.download_bundles ?? prev.download_bundles,
-              film_playback: row.film_playback ?? prev.film_playback,
-              single_film_download: row.single_film_download ?? prev.single_film_download,
-              store_enabled: row.store_enabled ?? prev.store_enabled,
-              guest_prints_enabled: row.guest_prints_enabled ?? prev.guest_prints_enabled,
-              print_markup_percent: row.print_markup_percent ?? prev.print_markup_percent,
-              client_exclusive_enabled:
-                row.client_exclusive_enabled ?? prev.client_exclusive_enabled,
-              allow_clients_mark_private:
-                row.allow_clients_mark_private ?? prev.allow_clients_mark_private,
-              favorites_enabled: row.favorites_enabled ?? prev.favorites_enabled,
-              favorites_allow_comments:
-                row.favorites_allow_comments ?? prev.favorites_allow_comments,
-              selection_lock_on_submit:
-                row.selection_lock_on_submit ?? prev.selection_lock_on_submit,
-              selection_notify_on_submit:
-                row.selection_notify_on_submit ?? prev.selection_notify_on_submit,
-              selection_chase_enabled:
-                row.selection_chase_enabled ?? prev.selection_chase_enabled,
-              slideshow_enabled:
-                row.slideshow_enabled !== undefined ? row.slideshow_enabled : prev.slideshow_enabled,
-              social_sharing_enabled:
-                row.social_sharing_enabled !== undefined
-                  ? row.social_sharing_enabled
-                  : prev.social_sharing_enabled,
-              digital_download_enabled:
-                row.digital_download_enabled ?? prev.digital_download_enabled,
-              digital_download_price_single:
-                row.digital_download_price_single ?? prev.digital_download_price_single,
-              digital_download_price_all:
-                row.digital_download_price_all ?? prev.digital_download_price_all,
-            };
-          });
-        }
-      )
-      .subscribe();
-
+      });
+    }).catch(() => {});
     return () => {
-      void supabase.removeChannel(channel);
+      cancelled = true;
+      if (unsubscribe) unsubscribe();
     };
   }, [collection?.id]);
 
@@ -1883,47 +1734,15 @@ const GalleryView = () => {
     if (savedEmail) {
       galleryService.createOrGetSession(collection.id, savedEmail).then(async (session) => {
         if (!session?.id) return;
-        const { USE_WORKERS_AUTH } = await import('../../lib/api/client');
-        if (USE_WORKERS_AUTH) {
-          const { syncDigitalCartItem } = await import('../../services/workersGallery.service');
-          await syncDigitalCartItem(session.id, {
-            productType: 'digital_package',
-            name: selectedStorePackage.name,
-            unitPrice: Number(selectedStorePackage.price) || 0,
-            options: cartItem.options,
-          }).catch((e) => console.error('Error syncing package to cart:', e));
-          return;
-        }
-        let productDbId = null;
-        const { data: dbProducts } = await supabase
-          .from('printstore_products')
-          .select('id')
-          .eq('product_type', 'digital_package')
-          .limit(1);
-        productDbId = dbProducts?.[0]?.id || null;
-        if (!productDbId) {
-          const { data: inserted } = await supabase
-            .from('printstore_products')
-            .insert({
-              product_type: 'digital_package',
-              name: selectedStorePackage.name,
-              base_price: Number(selectedStorePackage.price) || 0,
-              image_url: null,
-              is_active: true,
-              options: { selling_price: Number(selectedStorePackage.price) || 0 },
-            })
-            .select('id')
-            .maybeSingle();
-          productDbId = inserted?.id || null;
-        }
-        await supabase.from('printstore_cart_items').insert({
-          session_id: session.id,
-          product_id: productDbId,
-          quantity: 1,
+        const { syncDigitalCartItem } = await import('../../services/workersGallery.service');
+        await syncDigitalCartItem(session.id, {
+          productType: 'digital_package',
+          name: selectedStorePackage.name,
+          unitPrice: Number(selectedStorePackage.price) || 0,
           options: cartItem.options,
-        });
+        }).catch((e) => console.error('Error syncing package to cart:', e));
       }).catch((e) => {
-        console.error('Error syncing package to Supabase cart:', e);
+        console.error('Error syncing package to cart:', e);
       });
     }
 
@@ -3620,49 +3439,16 @@ const GalleryView = () => {
                         if (savedEmail) {
                           galleryService.createOrGetSession(collection.id, savedEmail).then(async (session) => {
                             if (!session?.id) return;
-                            const { USE_WORKERS_AUTH } = await import('../../lib/api/client');
                             const cartItem = buildDigitalPackageCartItem(selectedStorePackage);
-                            if (USE_WORKERS_AUTH) {
-                              const { syncDigitalCartItem } = await import('../../services/workersGallery.service');
-                              await syncDigitalCartItem(session.id, {
-                                productType: 'digital_package',
-                                name: selectedStorePackage.name,
-                                unitPrice: Number(selectedStorePackage.price) || 0,
-                                options: cartItem.options,
-                              }).catch((e) => console.error('Error syncing package to cart:', e));
-                              return;
-                            }
-                            let productDbId = null;
-                            const { data: dbProducts } = await supabase
-                              .from('printstore_products')
-                              .select('id')
-                              .eq('product_type', 'digital_package')
-                              .limit(1);
-                            productDbId = dbProducts?.[0]?.id || null;
-                            if (!productDbId) {
-                              const { data: inserted } = await supabase
-                                .from('printstore_products')
-                                .insert({
-                                  product_type: 'digital_package',
-                                  name: selectedStorePackage.name,
-                                  base_price: Number(selectedStorePackage.price) || 0,
-                                  image_url: null,
-                                  is_active: true,
-                                  options: { selling_price: Number(selectedStorePackage.price) || 0 },
-                                })
-                                .select('id')
-                                .maybeSingle();
-                              productDbId = inserted?.id || null;
-                            }
-                            const sbCartItem = buildDigitalPackageCartItem(selectedStorePackage);
-                            await supabase.from('printstore_cart_items').insert({
-                              session_id: session.id,
-                              product_id: productDbId,
-                              quantity: 1,
-                              options: sbCartItem.options,
-                            });
+                            const { syncDigitalCartItem } = await import('../../services/workersGallery.service');
+                            await syncDigitalCartItem(session.id, {
+                              productType: 'digital_package',
+                              name: selectedStorePackage.name,
+                              unitPrice: Number(selectedStorePackage.price) || 0,
+                              options: cartItem.options,
+                            }).catch((e) => console.error('Error syncing package to cart:', e));
                           }).catch((e) => {
-                            console.error('Error syncing package to Supabase cart:', e);
+                            console.error('Error syncing package to cart:', e);
                           });
                         }
 
@@ -3721,80 +3507,27 @@ const GalleryView = () => {
 
                       localStorage.setItem(cartKey, JSON.stringify(cart));
 
-                      // Sync to Supabase in background (non-blocking)
+                      // Sync to the Workers cart in background (non-blocking)
                       const savedEmail = localStorage.getItem(`pixnxt_fav_email_${collection.id}`);
                       if (savedEmail) {
                         galleryService.createOrGetSession(collection.id, savedEmail).then(async (session) => {
                           if (!session?.id) return;
 
-                          const { USE_WORKERS_AUTH } = await import('../../lib/api/client');
-                          if (USE_WORKERS_AUTH) {
-                            const { syncDigitalCartItem } = await import('../../services/workersGallery.service');
-                            await syncDigitalCartItem(session.id, {
-                              productType: itemProductId,
-                              name: itemProductName,
+                          const { syncDigitalCartItem } = await import('../../services/workersGallery.service');
+                          await syncDigitalCartItem(session.id, {
+                            productType: itemProductId,
+                            name: itemProductName,
+                            unitPrice: itemUnitPrice,
+                            options: {
+                              productId: itemProductId,
+                              productName: itemProductName,
+                              photo: photoForCart,
+                              size,
                               unitPrice: itemUnitPrice,
-                              options: {
-                                productId: itemProductId,
-                                productName: itemProductName,
-                                photo: photoForCart,
-                                size,
-                                unitPrice: itemUnitPrice,
-                              },
-                            }).catch((e) => console.error('Error syncing digital item to cart:', e));
-                            return;
-                          }
-                          let productDbId = null;
-                          const { data: dbProducts } = await supabase
-                            .from('printstore_products')
-                            .select('id')
-                            .eq('product_type', itemProductId)
-                            .limit(1);
-                          productDbId = dbProducts?.[0]?.id || null;
-
-                          if (!productDbId) {
-                            const { data: inserted } = await supabase
-                              .from('printstore_products')
-                              .insert({
-                                product_type: itemProductId,
-                                name: itemProductName,
-                                base_price: itemUnitPrice,
-                                image_url: null,
-                                is_active: true,
-                                options: { selling_price: itemUnitPrice },
-                              })
-                              .select('id')
-                              .maybeSingle();
-                            productDbId = inserted?.id || null;
-                          }
-
-                          const { data: existingDbItems } = await supabase
-                            .from('printstore_cart_items')
-                            .select('id, options')
-                            .eq('session_id', session.id);
-
-                          const alreadyInDb = (existingDbItems || []).some((row) => {
-                            const opts = row.options || {};
-                            return opts.productId === itemProductId
-                              && (isAll || opts.photo?.id === photo?.id);
-                          });
-
-                          if (!alreadyInDb) {
-                            await supabase.from('printstore_cart_items').insert({
-                              session_id: session.id,
-                              product_id: productDbId,
-                              quantity: 1,
-                              options: {
-                                productId: itemProductId,
-                                productName: itemProductName,
-                                photo: photoForCart,
-                                size,
-                                unitPrice: itemUnitPrice,
-                              },
-                            });
-                          }
+                            },
+                          }).catch((e) => console.error('Error syncing digital item to cart:', e));
                         }).catch((e) => {
-                          console.error('Error syncing digital item to Supabase cart:', e);
+                          console.error('Error syncing digital item to cart:', e);
                         });
                       }
 

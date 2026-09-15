@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useLabAuth } from './LabApp';
-import { supabase } from '../../lib/supabase/client';
+import { apiFetch } from '../../lib/api/client';
 import { useNavigate } from 'react-router-dom';
 import { 
   Eye, ChevronRight, Filter, Plus, RefreshCw, ChevronLeft, AlertCircle, CheckCircle, RotateCw
@@ -27,14 +27,10 @@ export default function LabReprintManager() {
 
   const fetchFailLogs = async () => {
     setLoading(true);
+    // GET /v1/printstore/quality-checks → { rows }
     try {
-      const { data, error } = await supabase
-        .from('printstore_lab_quality_checks')
-        .select('*')
-        .order('created_at', { ascending: false });
-      if (!error && data) {
-        setFailLogs(data);
-      }
+      const data = await apiFetch('/v1/printstore/quality-checks');
+      setFailLogs(data?.rows || []);
     } catch (e) {
       console.error(e);
     } finally {

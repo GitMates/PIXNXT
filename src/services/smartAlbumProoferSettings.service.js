@@ -1,4 +1,3 @@
-import { supabase } from '../lib/supabase/client';
 import { getClientFacingOrigin } from '../lib/publicSiteUrl';
 import { getAlbumShareSlug } from '../lib/albumPreviewSlug';
 import { isAlbumClientApproved } from './albumProof.service';
@@ -82,16 +81,6 @@ function withDownloadsLockedOff(settings) {
         allowDownloads: false,
         downloadsOnlyAfterApproval: false,
     };
-}
-
-function isMissingTableError(error) {
-    const msg = String(error?.message || '').toLowerCase();
-    return (
-        error?.code === '42P01' ||
-        error?.code === 'PGRST205' ||
-        msg.includes('does not exist') ||
-        msg.includes('proofer_settings')
-    );
 }
 
 function randomToken() {
@@ -257,22 +246,9 @@ export const smartAlbumProoferSettingsService = {
         if (!photographerId) return withDownloadsLockedOff({ ...DEFAULT_PROOFER_SETTINGS });
 
         try {
-            const { USE_WORKERS_AUTH } = await import('../lib/api/client');
-            let stored = null;
-            if (USE_WORKERS_AUTH) {
-                const { apiFetch } = await import('../lib/api/client');
-                const data = await apiFetch('/v1/proofer/studio/settings');
-                stored = data?.settings;
-            } else {
-                const { data, error } = await supabase
-                    .from('album_proofer_settings')
-                    .select('settings')
-                    .eq('photographer_id', photographerId)
-                    .maybeSingle();
-
-                if (error && !isMissingTableError(error)) throw error;
-                stored = data?.settings;
-            }
+            const { apiFetch } = await import('../lib/api/client');
+            const data = await apiFetch('/v1/proofer/studio/settings');
+            const stored = data?.settings;
 
             const merged = withDownloadsLockedOff(
                 mergeSettings(
@@ -298,22 +274,8 @@ export const smartAlbumProoferSettingsService = {
         cachePhotographerDefaults(photographerId, next);
 
         try {
-            const { USE_WORKERS_AUTH } = await import('../lib/api/client');
-            if (USE_WORKERS_AUTH) {
-                const { apiFetch } = await import('../lib/api/client');
-                await apiFetch('/v1/proofer/studio/settings', { method: 'PUT', body: { settings: next } });
-            } else {
-                const now = new Date().toISOString();
-                const { error } = await supabase.from('album_proofer_settings').upsert(
-                    {
-                        photographer_id: photographerId,
-                        settings: next,
-                        updated_at: now,
-                    },
-                    { onConflict: 'photographer_id' }
-                );
-                if (error && !isMissingTableError(error)) throw error;
-            }
+            const { apiFetch } = await import('../lib/api/client');
+            await apiFetch('/v1/proofer/studio/settings', { method: 'PUT', body: { settings: next } });
         } catch (err) {
             console.warn('savePhotographerDefaults:', err?.message || err);
         }
@@ -342,20 +304,9 @@ export const smartAlbumProoferSettingsService = {
         let row = album;
         if (!row?.proofer_settings) {
             try {
-                const { USE_WORKERS_AUTH } = await import('../lib/api/client');
-                if (USE_WORKERS_AUTH) {
-                    const { apiFetch } = await import('../lib/api/client');
-                    const res = await apiFetch(`/v1/proofer/studio/albums/${albumId}`);
-                    if (res?.album) row = { ...album, ...res.album };
-                } else {
-                    const { data, error } = await supabase
-                        .from('album_proofer_albums')
-                        .select('proofer_settings, slug')
-                        .eq('photographer_id', photographerId)
-                        .eq('id', albumId)
-                        .maybeSingle();
-                    if (!error && data) row = { ...album, ...data };
-                }
+                const { apiFetch } = await import('../lib/api/client');
+                const res = await apiFetch(`/v1/proofer/studio/albums/${albumId}`);
+                if (res?.album) row = { ...album, ...res.album };
             } catch {
                 /* use cache */
             }
@@ -389,27 +340,13 @@ export const smartAlbumProoferSettingsService = {
         };
 
         try {
-            const { USE_WORKERS_AUTH } = await import('../lib/api/client');
-            if (USE_WORKERS_AUTH) {
-                const { apiFetch } = await import('../lib/api/client');
-                const res = await apiFetch(`/v1/proofer/studio/albums/${albumId}`, {
-                    method: 'PATCH',
-                    body: payload,
-                });
-                notifyAlbumProoferSettingsChanged(albumId);
-                return res?.album ?? null;
-            }
-            const { data, error } = await supabase
-                .from('album_proofer_albums')
-                .update(payload)
-                .eq('photographer_id', photographerId)
-                .eq('id', albumId)
-                .select('*')
-                .maybeSingle();
-
-            if (error && !isMissingTableError(error)) throw error;
+            const { apiFetch } = await import('../lib/api/client');
+            const res = await apiFetch(`/v1/proofer/studio/albums/${albumId}`, {
+                method: 'PATCH',
+                body: payload,
+            });
             notifyAlbumProoferSettingsChanged(albumId);
-            return data;
+            return res?.album ?? null;
         } catch (err) {
             console.warn('saveAlbumSettings:', err?.message || err);
             notifyAlbumProoferSettingsChanged(albumId);

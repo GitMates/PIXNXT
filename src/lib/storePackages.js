@@ -1,4 +1,4 @@
-import { supabase } from './supabase/client';
+import { apiFetch } from './api/client';
 import { categoryTagsFromCollection, normalizeCategoryTag } from './categoryTags';
 
 export const STORE_PACKAGE_CATEGORIES = ['Default', 'Wedding', 'Portrait', 'Event'];
@@ -186,28 +186,13 @@ export function filterPackagesForCollection(packages, collection) {
 
 export async function fetchStorePackages(photographerId, { activeOnly = false } = {}) {
   if (!photographerId) return [];
-  const { USE_WORKERS_AUTH, apiFetch } = await import('./api/client');
-  if (USE_WORKERS_AUTH) {
-    // Public endpoint serves active packages; studio callers needing
-    // inactive rows use the authed list (same shape, plus items).
-    const path = activeOnly
-      ? `/v1/store/packages/public?photographerId=${encodeURIComponent(photographerId)}`
-      : '/v1/store/packages';
-    const data = await apiFetch(path);
-    return data?.packages || [];
-  }
-  let query = supabase
-    .from('store_packages')
-    .select('*')
-    .eq('photographer_id', photographerId)
-    .order('sort_order', { ascending: true })
-    .order('created_at', { ascending: true });
-
-  if (activeOnly) query = query.eq('is_active', true);
-
-  const { data, error } = await query;
-  if (error) throw error;
-  return data || [];
+  // Public endpoint serves active packages; studio callers needing
+  // inactive rows use the authed list (same shape, plus items).
+  const path = activeOnly
+    ? `/v1/store/packages/public?photographerId=${encodeURIComponent(photographerId)}`
+    : '/v1/store/packages';
+  const data = await apiFetch(path);
+  return data?.packages || [];
 }
 
 /**
@@ -306,12 +291,12 @@ export async function saveCategoryDigitalPricing(photographerId, pricingMap) {
   }
 
   if (toInsert.length) {
-    const { data, error } = await supabase
-      .from('store_packages')
-      .insert(toInsert)
-      .select();
-    if (error) throw new Error(error.message || 'Failed to insert package prices');
-    results.push(...(data || []));
+    const created = await Promise.all(
+      toInsert.map((row) =>
+        apiFetch('/v1/store/packages', { method: 'POST', body: row }).then((res) => res?.package)
+      )
+    );
+    results.push(...created.filter(Boolean));
   }
 
   return results;
@@ -330,14 +315,9 @@ export async function createStorePackage(photographerId, payload) {
     sort_order: Number.isFinite(payload.sort_order) ? payload.sort_order : 0,
   };
 
-  const { data, error } = await supabase
-    .from('store_packages')
-    .insert(row)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
+  const res = await apiFetch('/v1/store/packages', { method: 'POST', body: row });
+  if (!res?.package) throw new Error('Failed to create package');
+  return res.package;
 }
 
 export async function updateStorePackage(id, photographerId, payload) {
@@ -361,25 +341,14 @@ export async function updateStorePackage(id, photographerId, payload) {
   if (payload.is_active !== undefined) patch.is_active = !!payload.is_active;
   if (payload.sort_order !== undefined) patch.sort_order = Number(payload.sort_order) || 0;
 
-  const { data, error } = await supabase
-    .from('store_packages')
-    .update(patch)
-    .eq('id', id)
-    .eq('photographer_id', photographerId)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
+  const res = await apiFetch(`/v1/store/packages/${id}`, { method: 'PATCH', body: patch });
+  if (!res?.package) throw new Error('Failed to update package');
+  return res.package;
 }
 
 export async function deleteStorePackage(id, photographerId) {
-  const { error } = await supabase
-    .from('store_packages')
-    .delete()
-    .eq('id', id)
-    .eq('photographer_id', photographerId);
-  if (error) throw error;
+  void photographerId;
+  await apiFetch(`/v1/store/packages/${id}`, { method: 'DELETE' });
 }
 
 export function buildDigitalPackageCartItem(pkg, selectedPhotos = []) {

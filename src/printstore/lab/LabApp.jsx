@@ -1,6 +1,6 @@
 import React, { useState, useEffect, createContext, useContext } from 'react';
 import { Routes, Route, Navigate, Outlet, useNavigate } from 'react-router-dom';
-import { supabase } from '../../lib/supabase/client';
+import { apiFetch } from '../../lib/api/client';
 import LabSidebarLayout from './LabSidebarLayout';
 import LabDashboard from './LabDashboard';
 import LabAuth from './LabAuth';
@@ -70,43 +70,42 @@ const LabApp = () => {
 
     // Dynamic fetch functions
     const fetchEmployees = async () => {
+        // GET /v1/printstore/employees → { rows }
         try {
-            const { data, error } = await supabase.from('printstore_lab_employees').select('*');
-            if (error) throw error;
-            setEmployees(data || []);
+            const data = await apiFetch('/v1/printstore/employees');
+            setEmployees(data?.rows || []);
         } catch (e) {
             console.error('Error loading employees:', e);
         }
     };
 
     const fetchInventory = async () => {
+        // GET /v1/printstore/inventory → { rows }
         try {
-            const { data, error } = await supabase.from('printstore_inventory').select('*');
-            if (error) throw error;
-            setInventory(data || []);
+            const data = await apiFetch('/v1/printstore/inventory');
+            setInventory(data?.rows || []);
         } catch (e) {
             console.error('Error loading inventory:', e);
         }
     };
     const fetchOrders = async () => {
+        // GET /v1/printstore/orders → { orders }. Order items have no
+        // bulk lab endpoint, so fan out over the detail endpoint (lab
+        // lists are small and capped at 200 server-side).
         try {
-            const { data: ordersData, error: ordersError } = await supabase
-                .from('printstore_orders')
-                .select('*')
-                .order('created_at', { ascending: false });
-
-            if (ordersError) throw ordersError;
-
-            const { data: itemsData, error: itemsError } = await supabase
-                .from('printstore_order_items')
-                .select('*');
-
-            if (itemsError) throw itemsError;
-
-            const physicalItems = filterLabPhysicalItems(itemsData || []);
+            const { normalizeLabItemRow } = await import('./labOrderStatusService');
+            const data = await apiFetch('/v1/printstore/orders');
+            const ordersData = data?.orders || [];
+            const details = await Promise.all(
+                ordersData.map((o) =>
+                    apiFetch(`/v1/printstore/orders/${encodeURIComponent(o.id)}`).catch(() => null)
+                )
+            );
+            const itemsData = (details.flatMap((d) => d?.items || [])).map(normalizeLabItemRow);
+            const physicalItems = filterLabPhysicalItems(itemsData);
             const labOrderIds = new Set(physicalItems.map((item) => item.order_id));
             // Hide digital-only orders from the lab entirely
-            setOrders((ordersData || []).filter((order) => labOrderIds.has(order.id)));
+            setOrders(ordersData.filter((order) => labOrderIds.has(order.id)));
             setOrderItems(physicalItems);
             setInitialLoaded(true);
         } catch (e) {

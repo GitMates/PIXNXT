@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useCallback, useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase/client';
-import { USE_WORKERS_AUTH } from '../lib/api/client';
+import { apiFetch } from '../lib/api/client';
 import {
   resolveAuthSession,
   resolveInitialAuthSession,
@@ -55,6 +54,11 @@ export const AuthProvider = ({ children }) => {
           void ensurePhotographerProfile(resolved.user).catch((err) => {
             console.warn('Could not ensure photographer profile:', err?.message || err);
           });
+          // Stamp last login (admin User Management) fire-and-forget.
+          // Authed-only: firing this for logged-out visitors just 401s.
+          void apiFetch('/v1/me/last-login', { method: 'POST', body: {} }).catch((err) => {
+            console.warn('Could not stamp last login:', err?.message || err);
+          });
         }
       } catch (error) {
         console.error('Auth initialization error:', error.message);
@@ -73,50 +77,13 @@ export const AuthProvider = ({ children }) => {
     document.addEventListener('visibilitychange', refreshIfVisible);
     window.addEventListener('focus', refreshIfVisible);
 
-    // Workers mode: no realtime subscription — AuthPage effects re-resolve
-    // via resolveAuthSession (refresh cookie) after login/logout actions.
-    if (USE_WORKERS_AUTH) {
-      return () => {
-        document.removeEventListener('visibilitychange', refreshIfVisible);
-        window.removeEventListener('focus', refreshIfVisible);
-      };
-    }
-
-    // Subscribe to auth state changes (login, logout, token refresh)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, nextSession) => {
-        applyAuthState({
-          user: nextSession?.user ?? null,
-          session: nextSession,
-        });
-        if (
-          (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') &&
-          nextSession?.user
-        ) {
-          void ensurePhotographerProfile(nextSession.user).catch((err) => {
-            console.warn('Could not ensure photographer profile:', err?.message || err);
-          });
-        }
-        // Stamp last login (admin User Management). SIGNED_IN only — not
-        // session restores — and fire-and-forget so login never blocks on it.
-        if (event === 'SIGNED_IN' && nextSession?.user?.id) {
-          const photographerId = nextSession.user.id;
-          void supabase
-            .from('photographers')
-            .update({ last_login_at: new Date().toISOString() })
-            .eq('id', photographerId)
-            .then(({ error }) => {
-              if (error) console.warn('Could not stamp last login:', error.message || error);
-            });
-        }
-        setLoading(false);
-      }
-    );
+    // Workers is the only backend: no realtime subscription — session resolves via
+    // the refresh cookie (resolveInitialAuthSession delegates to workersAuth).
+    setLoading(false);
 
     return () => {
       document.removeEventListener('visibilitychange', refreshIfVisible);
       window.removeEventListener('focus', refreshIfVisible);
-      subscription.unsubscribe();
     };
   }, [applyAuthState]);
 

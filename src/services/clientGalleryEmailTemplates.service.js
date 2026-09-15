@@ -1,5 +1,3 @@
-import { supabase } from '../lib/supabase/client';
-
 export function resolveTemplateBody(body, { collectionName, daysPrior, expiryDate, collectionUrl }) {
   const name = collectionName || '[DELIVERY NAME]';
   const url = collectionUrl || '[GALLERY URL]';
@@ -44,40 +42,30 @@ export function createDefaultEmailTemplates() {
   ];
 }
 
-async function readTemplatesFromProfile(photographerId) {
-  // Workers note: photographers.client_gallery_email_templates has no D1
-  // counterpart (photographers table is at the D1 column limit), so templates
-  // live in localStorage when the flag is on — same as the offline fallback.
-  const { USE_WORKERS_AUTH } = await import('../lib/api/client');
-  if (USE_WORKERS_AUTH) return null;
-  const { data, error } = await supabase
-    .from('photographers')
-    .select('client_gallery_email_templates')
-    .eq('id', photographerId)
-    .single();
-  
-  if (error || !data) return null;
-  return Array.isArray(data.client_gallery_email_templates) ? data.client_gallery_email_templates : null;
+async function readTemplatesFromProfile() {
+  // Workers: templates live in the email_templates table
+  // (GET /v1/engage/email-templates); localStorage is the offline fallback.
+  try {
+    const { apiFetch } = await import('../lib/api/client');
+    const data = await apiFetch('/v1/engage/email-templates');
+    if (Array.isArray(data?.templates)) return data.templates;
+  } catch {
+    // offline — fall through to localStorage
+  }
+  return null;
 }
 
 async function writeTemplatesToProfile(photographerId, templates) {
-  const { USE_WORKERS_AUTH } = await import('../lib/api/client');
-  if (USE_WORKERS_AUTH) {
-    try {
-      localStorage.setItem(`client_gallery_email_templates_${photographerId}`, JSON.stringify(templates));
-    } catch {
-      // ignore quota errors
-    }
-    return;
+  try {
+    const { apiFetch } = await import('../lib/api/client');
+    await apiFetch('/v1/engage/email-templates', { method: 'PUT', body: { templates } });
+  } catch {
+    // offline — localStorage remains the source of truth
   }
-  const { error } = await supabase
-    .from('photographers')
-    .update({ client_gallery_email_templates: templates })
-    .eq('id', photographerId);
-  
-  if (error) {
-    console.error('Failed to save email templates to DB, falling back to local storage', error);
+  try {
     localStorage.setItem(`client_gallery_email_templates_${photographerId}`, JSON.stringify(templates));
+  } catch {
+    // ignore quota errors
   }
 }
 

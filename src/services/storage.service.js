@@ -1,36 +1,6 @@
-import {
-  PutObjectCommand,
-  DeleteObjectsCommand,
-  DeleteObjectCommand,
-  HeadObjectCommand,
-  ListObjectsV2Command,
-} from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { getFileMime } from '../lib/fileMime';
-import { r2Client, R2_BUCKET_NAME, R2_PUBLIC_URL } from '../lib/r2';
-import { shouldPreferR2MediaProxy } from '../lib/r2MediaProxy';
-import { USE_WORKERS_AUTH, apiBase, getAccessToken } from '../lib/api/client';
-
-const UPLOAD_MAX_ATTEMPTS = 3;
-const UPLOAD_RETRY_BASE_MS = 400;
-
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function isRetryableUploadError(error) {
-  const message = String(error?.message || '');
-  if (/Upload cancelled/i.test(message)) return false;
-  const rejected = message.match(/Upload rejected \((\d+)\)/);
-  if (rejected) {
-    const status = Number(rejected[1]);
-    // Retry rate limits / transient gateway errors only among 4xx
-    return status === 408 || status === 429;
-  }
-  return true;
-}
-
-
+import { R2_PUBLIC_URL } from '../lib/r2';
+import { apiBase, getAccessToken } from '../lib/api/client';
 /**
  * Upload through the Workers API (flag on): same XHR progress/cancel
  * semantics, but the browser never holds storage credentials and legacy
@@ -93,142 +63,6 @@ function uploadViaWorkersApi(path, file, contentType, onProgress, abortSignal) {
   });
 }
 
-/**
- * Upload via presigned PUT + XHR (reliable in browser; avoids SDK fetch/CORS/checksum issues).
- * Pass an AbortSignal to cancel in-flight uploads (pause/resume).
- */
-function uploadWithPresignedPutOnce(path, file, contentType, onProgress, abortSignal) {
-  const command = new PutObjectCommand({
-    Bucket: R2_BUCKET_NAME,
-    Key: path,
-    ContentType: contentType,
-  });
-
-  return getSignedUrl(r2Client, command, { expiresIn: 3600 }).then(
-    (signedUrl) =>
-      new Promise((resolve, reject) => {
-        if (abortSignal?.aborted) {
-          reject(new Error('Upload cancelled.'));
-          return;
-        }
-
-        const xhr = new XMLHttpRequest();
-        xhr.open('PUT', signedUrl, true);
-        xhr.setRequestHeader('Content-Type', contentType);
-
-        const onAbort = () => xhr.abort();
-        abortSignal?.addEventListener('abort', onAbort, { once: true });
-
-        const cleanup = () => abortSignal?.removeEventListener('abort', onAbort);
-
-        xhr.upload.onprogress = (event) => {
-          if (event.lengthComputable && onProgress) {
-            onProgress(Math.min(99, Math.round((event.loaded / event.total) * 100)));
-          }
-        };
-
-        xhr.onload = () => {
-          cleanup();
-          if (xhr.status >= 200 && xhr.status < 300) {
-            onProgress?.(100);
-            resolve({ path, url: storageService.getPublicUrl(path) });
-            return;
-          }
-          reject(
-            new Error(
-              `Upload rejected (${xhr.status}). Check R2 CORS allows PUT from ${window.location.origin}.`
-            )
-          );
-        };
-
-        xhr.onerror = () => {
-          cleanup();
-          reject(
-            new Error(
-              `Network error uploading to storage. Add CORS on bucket "${R2_BUCKET_NAME}" for origin ${window.location.origin} (methods: PUT, GET, HEAD).`
-            )
-          );
-        };
-
-        xhr.onabort = () => {
-          cleanup();
-          reject(new Error('Upload cancelled.'));
-        };
-
-        xhr.send(file);
-      })
-  );
-}
-
-/**
- * Upload through the app origin when R2 bucket CORS does not allow the photographer custom domain.
- */
-function uploadViaSameOriginProxy(path, file, contentType, onProgress, abortSignal) {
-  return new Promise((resolve, reject) => {
-    if (abortSignal?.aborted) {
-      reject(new Error('Upload cancelled.'));
-      return;
-    }
-
-    const xhr = new XMLHttpRequest();
-    const params = new URLSearchParams({ path });
-    xhr.open('PUT', `/api/r2-upload?${params.toString()}`, true);
-    xhr.setRequestHeader('Content-Type', contentType);
-
-    const onAbort = () => xhr.abort();
-    abortSignal?.addEventListener('abort', onAbort, { once: true });
-    const cleanup = () => abortSignal?.removeEventListener('abort', onAbort);
-
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable && onProgress) {
-        onProgress(Math.min(99, Math.round((event.loaded / event.total) * 100)));
-      }
-    };
-
-    xhr.onload = () => {
-      cleanup();
-      if (xhr.status >= 200 && xhr.status < 300) {
-        onProgress?.(100);
-        resolve({ path, url: storageService.getPublicUrl(path) });
-        return;
-      }
-      reject(new Error(`Upload rejected (${xhr.status}).`));
-    };
-
-    xhr.onerror = () => {
-      cleanup();
-      reject(new Error('Network error uploading to storage via same-origin proxy.'));
-    };
-
-    xhr.onabort = () => {
-      cleanup();
-      reject(new Error('Upload cancelled.'));
-    };
-
-    xhr.send(file);
-  });
-}
-
-async function uploadWithPresignedPut(path, file, contentType, onProgress, abortSignal) {
-  let lastError;
-  for (let attempt = 1; attempt <= UPLOAD_MAX_ATTEMPTS; attempt += 1) {
-    if (abortSignal?.aborted) {
-      throw new Error('Upload cancelled.');
-    }
-    try {
-      return await uploadWithPresignedPutOnce(path, file, contentType, onProgress, abortSignal);
-    } catch (error) {
-      lastError = error;
-      if (attempt >= UPLOAD_MAX_ATTEMPTS || !isRetryableUploadError(error)) {
-        throw error;
-      }
-      onProgress?.(0);
-      await sleep(UPLOAD_RETRY_BASE_MS * 2 ** (attempt - 1));
-    }
-  }
-  throw lastError;
-}
-
 export const storageService = {
   /** @param {AbortSignal} [abortSignal] */
   async upload(path, file, onProgress, abortSignal) {
@@ -243,65 +77,24 @@ export const storageService = {
             });
 
       onProgress?.(2);
-      if (USE_WORKERS_AUTH) {
-        // Workers API signs/owns storage server-side — no client bucket env needed.
-        return await uploadViaWorkersApi(path, body, contentType, onProgress, abortSignal);
-      }
-      if (!R2_BUCKET_NAME) {
-        throw new Error('R2 bucket is not configured (VITE_R2_BUCKET_NAME).');
-      }
-      if (shouldPreferR2MediaProxy()) {
-        return await uploadViaSameOriginProxy(path, body, contentType, onProgress, abortSignal);
-      }
-      return await uploadWithPresignedPut(path, body, contentType, onProgress, abortSignal);
+      // Workers API signs/owns storage server-side — no client bucket env needed.
+      return await uploadViaWorkersApi(path, body, contentType, onProgress, abortSignal);
     } catch (error) {
       console.error('R2 Upload Error:', {
         message: error.message,
         name: error.name,
         path,
-        bucket: R2_BUCKET_NAME,
       });
-
-      if (error.message?.includes('Failed to fetch') || error.name === 'TypeError') {
-        throw new Error(
-          `Upload blocked by browser or CORS. In Cloudflare R2 → ${R2_BUCKET_NAME} → Settings → CORS, allow origin ${typeof window !== 'undefined' ? window.location.origin : 'your site'} with methods PUT, GET, HEAD.`
-        );
-      }
 
       throw error;
     }
   },
 
   async delete(paths) {
-    if (USE_WORKERS_AUTH) {
-      const list = (Array.isArray(paths) ? paths : [paths]).filter(Boolean);
-      if (list.length === 0) return;
-      const { apiFetch } = await import('../lib/api/client');
-      await apiFetch('/v1/r2/objects', { method: 'DELETE', body: { paths: list.slice(0, 100) } });
-      return;
-    }
-    try {
-      if (Array.isArray(paths)) {
-        if (paths.length === 0) return;
-
-        const command = new DeleteObjectsCommand({
-          Bucket: R2_BUCKET_NAME,
-          Delete: {
-            Objects: paths.map((path) => ({ Key: path })),
-          },
-        });
-        await r2Client.send(command);
-      } else {
-        const command = new DeleteObjectCommand({
-          Bucket: R2_BUCKET_NAME,
-          Key: paths,
-        });
-        await r2Client.send(command);
-      }
-    } catch (error) {
-      console.error('R2 Delete Error:', error);
-      throw error;
-    }
+    const list = (Array.isArray(paths) ? paths : [paths]).filter(Boolean);
+    if (list.length === 0) return;
+    const { apiFetch } = await import('../lib/api/client');
+    await apiFetch('/v1/r2/objects', { method: 'DELETE', body: { paths: list.slice(0, 100) } });
   },
 
   getPublicUrl(path) {
@@ -322,78 +115,16 @@ export const storageService = {
 
   /** Returns true when an object exists at `path` in R2. */
   async exists(path) {
-    if (USE_WORKERS_AUTH) {
-      if (!path) return false;
-      const { apiFetch } = await import('../lib/api/client');
-      const data = await apiFetch(`/v1/r2/stat?path=${encodeURIComponent(path)}`).catch(() => null);
-      return data?.exists === true;
-    }
-    if (!R2_BUCKET_NAME || !path) return false;
-    try {
-      await r2Client.send(
-        new HeadObjectCommand({
-          Bucket: R2_BUCKET_NAME,
-          Key: path,
-        })
-      );
-      return true;
-    } catch (error) {
-      const status = error?.$metadata?.httpStatusCode;
-      if (status === 404 || error?.name === 'NotFound' || error?.name === 'NoSuchKey') {
-        return false;
-      }
-      console.warn('R2 exists check failed:', path, error);
-      return false;
-    }
+    if (!path) return false;
+    const { apiFetch } = await import('../lib/api/client');
+    const data = await apiFetch(`/v1/r2/stat?path=${encodeURIComponent(path)}`).catch(() => null);
+    return data?.exists === true;
   },
 
   /** List object keys under a prefix (photographer album folders on R2). */
   async listByPrefix(prefix, { maxKeys = 1000 } = {}) {
-    if (USE_WORKERS_AUTH) {
-      const { apiFetch } = await import('../lib/api/client');
-      const data = await apiFetch(`/v1/r2/list?prefix=${encodeURIComponent(String(prefix || '').replace(/^\/+/, ''))}`);
-      return (data?.objects || []).slice(0, maxKeys);
-    }
-    if (!R2_BUCKET_NAME) {
-      throw new Error('R2 bucket is not configured (VITE_R2_BUCKET_NAME).');
-    }
-
-    const normalized = String(prefix || '').replace(/^\/+/, '');
-    const objects = [];
-    let continuationToken;
-    const seenTokens = new Set();
-    let pages = 0;
-    const maxPages = Math.max(1, Math.ceil(maxKeys / 1000) + 2);
-
-    do {
-      if (continuationToken) {
-        if (seenTokens.has(continuationToken) || pages >= maxPages) break;
-        seenTokens.add(continuationToken);
-      }
-      pages += 1;
-      const remaining = maxKeys - objects.length;
-      if (remaining <= 0) break;
-
-      const command = new ListObjectsV2Command({
-        Bucket: R2_BUCKET_NAME,
-        Prefix: normalized,
-        MaxKeys: Math.min(remaining, 1000),
-        ContinuationToken: continuationToken,
-      });
-      const response = await r2Client.send(command);
-      const before = objects.length;
-      (response.Contents || []).forEach((entry) => {
-        if (entry.Key && !entry.Key.endsWith('/')) {
-          objects.push({
-            key: entry.Key,
-            size: Number(entry.Size) || 0,
-          });
-        }
-      });
-      continuationToken = response.IsTruncated ? response.NextContinuationToken : undefined;
-      if (objects.length === before && continuationToken) break;
-    } while (continuationToken && objects.length < maxKeys);
-
-    return objects;
+    const { apiFetch } = await import('../lib/api/client');
+    const data = await apiFetch(`/v1/r2/list?prefix=${encodeURIComponent(String(prefix || '').replace(/^\/+/, ''))}`);
+    return (data?.objects || []).slice(0, maxKeys);
   },
 };

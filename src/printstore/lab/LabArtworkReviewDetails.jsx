@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { supabase } from '../../lib/supabase/client';
+import { apiFetch } from '../../lib/api/client';
 import { useLabAuth } from './LabApp';
 import { 
   ArrowLeft, Move, ZoomIn, ZoomOut, RotateCw, RefreshCw, Maximize2, Square, Circle, 
@@ -349,7 +349,7 @@ export default function LabArtworkReviewDetails() {
   // States
   const [dbReview, setDbReview] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [dbError, setDbError] = useState(false);
+  const [, setDbError] = useState(false);
   const [revisionHistory, setRevisionHistory] = useState([]);
   
   // Local Photos list state for Frame Arranger
@@ -398,57 +398,38 @@ export default function LabArtworkReviewDetails() {
       setLoading(false);
       return;
     }
+    // GET /v1/printstore/orders/:id → { items, reviews }. Revision
+    // history uses GET /v1/printstore/review-history?reviewId=.
     try {
       setLoading(true);
-      
-      // Fetch fresh order item to bypass caching delay (physical lab items only)
-      const { data: itemsData } = await supabase
-        .from('printstore_order_items')
-        .select('*')
-        .eq('order_id', orderId);
-      const physicalItems = filterLabPhysicalItems(itemsData || []);
+      const data = await apiFetch(`/v1/printstore/orders/${encodeURIComponent(orderId)}`);
+      const physicalItems = filterLabPhysicalItems(data?.items || []);
       if (physicalItems[0]) {
         setFreshOrderItem(physicalItems[0]);
       }
-
-      const { data: reviewsData, error } = await supabase
-        .from('printstore_artwork_reviews')
-        .select('*')
-        .eq('order_id', orderId)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        setDbError(true);
-      } else if (reviewsData && reviewsData.length > 0) {
-        const data = reviewsData[0];
-        setDbReview(data);
-        setCustomerMessage(data.customer_message || customerMessage);
-        
-        // Parse issue_types if available
-        if (data.issue_types) {
-          const parsed = typeof data.issue_types === 'string' ? JSON.parse(data.issue_types) : data.issue_types;
+      const reviewsData = [...(data?.reviews || [])].sort(
+        (a, b) => new Date(b.created_at) - new Date(a.created_at)
+      );
+      if (reviewsData.length > 0) {
+        const review = reviewsData[0];
+        setDbReview(review);
+        setCustomerMessage(review.customer_message || customerMessage);
+        if (review.issue_types) {
+          const parsed = typeof review.issue_types === 'string' ? JSON.parse(review.issue_types) : review.issue_types;
           const newIssues = { ...issues };
           Object.keys(newIssues).forEach(k => {
             newIssues[k] = !!parsed[k];
           });
           setIssues(newIssues);
         }
-
-        // Parse annotations
-        if (data.annotation_json) {
-          const parsed = typeof data.annotation_json === 'string' ? JSON.parse(data.annotation_json) : data.annotation_json;
+        if (review.annotation_json) {
+          const parsed = typeof review.annotation_json === 'string' ? JSON.parse(review.annotation_json) : review.annotation_json;
           setAnnotations(parsed || []);
         }
-
-        // Fetch revision history
-        const { data: histData } = await supabase
-          .from('printstore_artwork_review_history')
-          .select('*')
-          .eq('review_id', data.id)
-          .order('revision_number', { ascending: false });
-        if (histData) {
-          setRevisionHistory(histData);
-        }
+        const histData = await apiFetch(`/v1/printstore/review-history?reviewId=${encodeURIComponent(review.id)}`).catch(() => null);
+        const mine = (histData?.rows || [])
+          .sort((a, b) => (b.revision_number || 0) - (a.revision_number || 0));
+        setRevisionHistory(mine);
       }
     } catch (e) {
       setDbError(true);
@@ -697,15 +678,14 @@ export default function LabArtworkReviewDetails() {
       }
     }
 
-    const { error: itemErr } = await supabase
-      .from('printstore_order_items')
-      .update({ options: updatedOptions })
-      .eq('id', orderItem.id);
-    
-    if (itemErr) {
+    // Persist cropped / adjusted options via PATCH /v1/printstore/order-items/:id.
+    await apiFetch(`/v1/printstore/order-items/${encodeURIComponent(orderItem.id)}`, {
+      method: 'PATCH',
+      body: { options: updatedOptions },
+    }).catch((itemErr) => {
       console.error("Error updating order item options:", itemErr);
       throw itemErr;
-    }
+    });
 
     return updatedOptions;
   };
@@ -717,37 +697,31 @@ export default function LabArtworkReviewDetails() {
       // Save local photo adjustments to order item
       await saveLocalPhotosToOrderItem();
 
-      // Update order status directly to print queue (printing)
-      const { error: orderErr } = await supabase
-        .from('printstore_orders')
-        .update({ status: 'printing' })
-        .eq('id', order.id);
-      
-      if (orderErr) throw orderErr;
-
-      // Save review row as approved
-      if (!dbError) {
-        const upsertPayload = {
+      // PATCH …/orders/:id { status: 'printing' } + POST artwork-reviews
+      // (insert) + tracking row.
+      const encodeId = encodeURIComponent(order.id);
+      await apiFetch(`/v1/printstore/orders/${encodeId}`, {
+        method: 'PATCH',
+        body: { status: 'printing' },
+      });
+      await apiFetch('/v1/printstore/artwork-reviews', {
+        method: 'POST',
+        body: {
           order_id: order.id,
           order_item_id: orderItem.id,
           review_status: 'Ready For Print',
           approved_by: 'MANUFACTURING OPERATOR',
-          approved_at: new Date().toISOString()
-        };
-        if (dbReview?.id) {
-          upsertPayload.id = dbReview.id;
-        }
-        await supabase.from('printstore_artwork_reviews').upsert(upsertPayload);
-      }
-
-      // Timeline log
-      await supabase.from('printstore_order_tracking').insert({
-        order_id: order.id,
-        status: 'printing',
-        label: 'Artwork Approved',
-        description: 'Artwork checks passed pre-production review. Moved to Print Queue.'
+          approved_at: new Date().toISOString(),
+        },
       });
-
+      await apiFetch(`/v1/printstore/orders/${encodeId}/tracking`, {
+        method: 'POST',
+        body: {
+          status: 'printing',
+          label: 'Artwork Approved',
+          description: 'Artwork checks passed pre-production review. Moved to Print Queue.',
+        },
+      });
       await refreshOrders();
       alert('Artwork approved successfully! Order moved to Print Production.');
       navigate('/lab/artwork-review');
@@ -762,23 +736,21 @@ export default function LabArtworkReviewDetails() {
       // Save local photo adjustments to order item
       const updatedOpts = await saveLocalPhotosToOrderItem() || {};
 
-      // Update order status to artwork_review
-      const { error: orderErr } = await supabase
-        .from('printstore_orders')
-        .update({ status: 'artwork_review' })
-        .eq('id', order.id);
-      
-      if (orderErr) throw orderErr;
-
-      // Upsert artwork review record
-      if (!dbError) {
-        const rawPhotoUrl = opts.photo?.url || opts.photos?.[0]?.url || opts.photo;
-        const rawSuggestedUrl = updatedOpts.editedPhotoUrl || 
-                                (updatedOpts.photos?.[0]?.editedPhotoUrl) || 
-                                (updatedOpts.photo?.editedPhotoUrl) || 
-                                localPhotos[0]?.editedPhotoUrl || '';
-        
-        const upsertPayload = {
+      // NOTE: the send-artwork-suggestion email has no Workers
+      // equivalent on the insert path — the customer email trigger is skipped.
+      const encodeId = encodeURIComponent(order.id);
+      await apiFetch(`/v1/printstore/orders/${encodeId}`, {
+        method: 'PATCH',
+        body: { status: 'artwork_review' },
+      });
+      const rawPhotoUrl = opts.photo?.url || opts.photos?.[0]?.url || opts.photo;
+      const rawSuggestedUrl = updatedOpts.editedPhotoUrl ||
+                              (updatedOpts.photos?.[0]?.editedPhotoUrl) ||
+                              (updatedOpts.photo?.editedPhotoUrl) ||
+                              localPhotos[0]?.editedPhotoUrl || '';
+      await apiFetch('/v1/printstore/artwork-reviews', {
+        method: 'POST',
+        body: {
           order_id: order.id,
           order_item_id: orderItem.id,
           review_status: 'Waiting Customer',
@@ -790,36 +762,17 @@ export default function LabArtworkReviewDetails() {
           reviewed_by: 'REVIEWER ARUN',
           reviewed_at: new Date().toISOString(),
           original_image: resolvePhotoUrl(typeof rawPhotoUrl === 'object' ? rawPhotoUrl.url : rawPhotoUrl),
-          suggested_image: resolvePhotoUrl(rawSuggestedUrl)
-        };
-        const { data: revData, error: revErr } = await supabase
-          .from('printstore_artwork_reviews')
-          .upsert(upsertPayload)
-          .select('id')
-          .maybeSingle();
-        if (revErr) throw revErr;
-
-        const finalReviewId = dbReview?.id || revData?.id;
-        if (finalReviewId) {
-          try {
-            await supabase.functions.invoke('send-artwork-suggestion', {
-              body: { reviewId: finalReviewId, siteOrigin: window.location.origin }
-            });
-            console.log("Triggered send-artwork-suggestion edge function for review:", finalReviewId);
-          } catch (mailErr) {
-            console.warn("Could not invoke send-artwork-suggestion edge function:", mailErr);
-          }
-        }
-      }
-
-      // Add timeline log
-      await supabase.from('printstore_order_tracking').insert({
-        order_id: order.id,
-        status: 'artwork_review',
-        label: 'Customer Review Required',
-        description: 'Artwork issues detected. Notification sent to customer for review and alignment.'
+          suggested_image: resolvePhotoUrl(rawSuggestedUrl),
+        },
       });
-
+      await apiFetch(`/v1/printstore/orders/${encodeId}/tracking`, {
+        method: 'POST',
+        body: {
+          status: 'artwork_review',
+          label: 'Customer Review Required',
+          description: 'Artwork issues detected. Notification sent to customer for review and alignment.',
+        },
+      });
       await refreshOrders();
       alert('Notification sent to customer! Status updated to Waiting Customer.');
       navigate('/lab/artwork-review');
@@ -831,34 +784,29 @@ export default function LabArtworkReviewDetails() {
   const handleApproveNewPhoto = async () => {
     if (!order) return;
     try {
-      const { error: orderErr } = await supabase
-        .from('printstore_orders')
-        .update({ status: 'printing' })
-        .eq('id', order.id);
-      if (orderErr) throw orderErr;
-
-      const upsertPayload = {
-        order_id: order.id,
-        order_item_id: orderItem.id,
-        review_status: 'Ready For Print',
-        approved_by: 'MANUFACTURING OPERATOR',
-        approved_at: new Date().toISOString()
-      };
-      if (dbReview?.id) {
-        upsertPayload.id = dbReview.id;
-      }
-      const { error: revErr } = await supabase
-        .from('printstore_artwork_reviews')
-        .upsert(upsertPayload);
-      if (revErr) throw revErr;
-
-      await supabase.from('printstore_order_tracking').insert({
-        order_id: order.id,
-        status: 'printing',
-        label: 'New Photo Approved',
-        description: 'Manufacturing operator approved the customer-uploaded replacement image. Moved to Print Queue.'
+      const encodeId = encodeURIComponent(order.id);
+      await apiFetch(`/v1/printstore/orders/${encodeId}`, {
+        method: 'PATCH',
+        body: { status: 'printing' },
       });
-
+      await apiFetch('/v1/printstore/artwork-reviews', {
+        method: 'POST',
+        body: {
+          order_id: order.id,
+          order_item_id: orderItem.id,
+          review_status: 'Ready For Print',
+          approved_by: 'MANUFACTURING OPERATOR',
+          approved_at: new Date().toISOString(),
+        },
+      });
+      await apiFetch(`/v1/printstore/orders/${encodeId}/tracking`, {
+        method: 'POST',
+        body: {
+          status: 'printing',
+          label: 'New Photo Approved',
+          description: 'Manufacturing operator approved the customer-uploaded replacement image. Moved to Print Queue.',
+        },
+      });
       await refreshOrders();
       alert('Replacement photo approved! Order moved to Print Queue.');
       navigate('/lab/artwork-review');
@@ -873,35 +821,30 @@ export default function LabArtworkReviewDetails() {
     if (msg === null) return;
 
     try {
-      const upsertPayload = {
-        order_id: order.id,
-        order_item_id: orderItem.id,
-        review_status: 'Waiting Customer',
-        customer_message: msg,
-        reviewed_by: 'REVIEWER ARUN',
-        reviewed_at: new Date().toISOString()
-      };
-      if (dbReview?.id) {
-        upsertPayload.id = dbReview.id;
-      }
-      const { error: revErr } = await supabase
-        .from('printstore_artwork_reviews')
-        .upsert(upsertPayload);
-      if (revErr) throw revErr;
-
-      const { error: orderErr } = await supabase
-        .from('printstore_orders')
-        .update({ status: 'artwork_review' })
-        .eq('id', order.id);
-      if (orderErr) throw orderErr;
-
-      await supabase.from('printstore_order_tracking').insert({
-        order_id: order.id,
-        status: 'artwork_review',
-        label: 'Replacement Image Rejected',
-        description: `Replacement image rejected: ${msg}`
+      const encodeId = encodeURIComponent(order.id);
+      await apiFetch('/v1/printstore/artwork-reviews', {
+        method: 'POST',
+        body: {
+          order_id: order.id,
+          order_item_id: orderItem.id,
+          review_status: 'Waiting Customer',
+          customer_message: msg,
+          reviewed_by: 'REVIEWER ARUN',
+          reviewed_at: new Date().toISOString(),
+        },
       });
-
+      await apiFetch(`/v1/printstore/orders/${encodeId}`, {
+        method: 'PATCH',
+        body: { status: 'artwork_review' },
+      });
+      await apiFetch(`/v1/printstore/orders/${encodeId}/tracking`, {
+        method: 'POST',
+        body: {
+          status: 'artwork_review',
+          label: 'Replacement Image Rejected',
+          description: `Replacement image rejected: ${msg}`,
+        },
+      });
       await refreshOrders();
       alert('Replacement photo rejected. Notification sent back to customer.');
       navigate('/lab/artwork-review');
@@ -916,21 +859,19 @@ export default function LabArtworkReviewDetails() {
       // Save local photo adjustments to order item
       await saveLocalPhotosToOrderItem();
 
-      if (!dbError) {
-        const { error } = await supabase.from('printstore_artwork_reviews').upsert({
+      await apiFetch('/v1/printstore/artwork-reviews', {
+        method: 'POST',
+        body: {
           order_id: order.id,
           order_item_id: orderItem.id,
           review_status: 'Pending Review',
           issue_types: issues,
           customer_message: customerMessage,
           annotation_json: annotations,
-          reviewer_notes: customIssueText
-        });
-        if (error) throw error;
-        alert('Draft review workspace saved successfully.');
-      } else {
-        alert('Operating in local state mode. Draft automatically stored in memory.');
-      }
+          reviewer_notes: customIssueText,
+        },
+      });
+      alert('Draft review workspace saved successfully.');
     } catch (e) {
       alert('Error saving draft: ' + e.message);
     }

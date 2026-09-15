@@ -1,16 +1,8 @@
 import { useEffect, useRef } from 'react';
-import { supabase } from '../../lib/supabase/client';
-import { USE_WORKERS_AUTH, subscribeSse } from '../../lib/api/client';
+import { apiFetch, subscribeSse } from '../../lib/api/client';
 import { hydrateAlbumClientFeedback } from './hydrateAlbumClientFeedback';
 import { hydrateAlbumPreviewData } from './albumPreviewData';
 import { applyRemoteImageReplacements } from './albumImageReplacements';
-
-const FEEDBACK_TABLES = [
-    'album_proofer_comments',
-    'album_proofer_photo_pins',
-    'album_proofer_swap_marks',
-    'album_proofer_proof_replies',
-];
 
 const DEFAULT_POLL_MS = 6000;
 const DEBOUNCE_MS = 280;
@@ -19,7 +11,7 @@ const DEBOUNCE_MS = 280;
  * Keep comments, pins, swaps, audio attachments, and image replacements in sync
  * across client link, photographer preview, and editor — without a full page reload.
  *
- * Uses Supabase Realtime when available, with a visibility-aware poll fallback.
+ * Uses Workers SSE events, with a visibility-aware poll fallback.
  */
 export function useAlbumFeedbackRealtime(
     albumId,
@@ -56,28 +48,12 @@ export function useAlbumFeedbackRealtime(
 
                 if (includePreview) {
                     try {
-                        if (USE_WORKERS_AUTH) {
-                            const { apiFetch } = await import('../../lib/api/client');
-                            const data = await apiFetch(`/v1/proofer/studio/albums/${albumId}`).catch(() => null);
-                            const preview = data?.album?.preview_data;
-                            const parsed = typeof preview === 'string' ? JSON.parse(preview) : preview;
-                            if (parsed) {
-                                hydrateAlbumPreviewData(albumId, parsed);
-                                applyRemoteImageReplacements(albumId, parsed.image_replacements);
-                            }
-                        } else {
-                            const { data, error } = await supabase
-                                .from('album_proofer_albums')
-                                .select('preview_data')
-                                .eq('id', albumId)
-                                .maybeSingle();
-                            if (!error && data?.preview_data) {
-                                hydrateAlbumPreviewData(albumId, data.preview_data);
-                                applyRemoteImageReplacements(
-                                    albumId,
-                                    data.preview_data.image_replacements
-                                );
-                            }
+                        const data = await apiFetch(`/v1/proofer/studio/albums/${albumId}`).catch(() => null);
+                        const preview = data?.album?.preview_data;
+                        const parsed = typeof preview === 'string' ? JSON.parse(preview) : preview;
+                        if (parsed) {
+                            hydrateAlbumPreviewData(albumId, parsed);
+                            applyRemoteImageReplacements(albumId, parsed.image_replacements);
                         }
                     } catch (err) {
                         console.warn('album feedback preview refresh:', err);
@@ -113,41 +89,12 @@ export function useAlbumFeedbackRealtime(
         // Initial sync in case another tab posted while this view was mounting.
         void refreshFeedback({ includePreview: true });
 
-        // Workers SSE replaces the postgres_changes channels (same debounce).
-        let unsubscribeSse = null;
-        let channel = null;
-        if (USE_WORKERS_AUTH) {
-            unsubscribeSse = subscribeSse(`/v1/proofer/albums/${albumId}/events`, {
-                onEvent: (_data, _event, type) => {
-                    scheduleRefresh({ includePreview: type !== 'feedback-updated' });
-                },
-            });
-        } else {
-            channel = supabase.channel(`album-feedback:${albumId}`);
-            FEEDBACK_TABLES.forEach((table) => {
-            channel = channel.on(
-                'postgres_changes',
-                {
-                    event: '*',
-                    schema: 'public',
-                    table,
-                    filter: `album_id=eq.${albumId}`,
-                },
-                () => scheduleRefresh({ includePreview: false })
-            );
-        });
-        channel = channel.on(
-            'postgres_changes',
-            {
-                event: 'UPDATE',
-                schema: 'public',
-                table: 'album_proofer_albums',
-                filter: `id=eq.${albumId}`,
+        // Workers SSE pushes album events (same debounce as the old realtime channels).
+        const unsubscribeSse = subscribeSse(`/v1/proofer/albums/${albumId}/events`, {
+            onEvent: (_data, _event, type) => {
+                scheduleRefresh({ includePreview: type !== 'feedback-updated' });
             },
-            () => scheduleRefresh({ includePreview: true })
-        );
-        channel.subscribe();
-        } // end Supabase realtime branch
+        });
 
         const pollId = window.setInterval(() => {
             if (Date.now() - lastRefreshAt < Math.max(2000, pollMs / 2)) return;
@@ -166,8 +113,7 @@ export function useAlbumFeedbackRealtime(
             if (debounceTimer) window.clearTimeout(debounceTimer);
             window.clearInterval(pollId);
             document.removeEventListener('visibilitychange', onVisible);
-            if (unsubscribeSse) unsubscribeSse();
-            else if (channel) void supabase.removeChannel(channel);
+            unsubscribeSse();
         };
     }, [albumId, enabled, pollMs]);
 }

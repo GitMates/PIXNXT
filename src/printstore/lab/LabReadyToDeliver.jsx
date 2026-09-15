@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useLabAuth } from './LabApp';
-import { supabase } from '../../lib/supabase/client';
+import { apiFetch } from '../../lib/api/client';
 import { useNavigate } from 'react-router-dom';
 import { 
   User, Check, Eye, ChevronRight, Filter, ChevronLeft, RefreshCw
@@ -27,9 +27,10 @@ export default function LabReadyToDeliver() {
 
   const fetchWorksheets = async () => {
     setLoading(true);
+    // Courier/shelf enrichment via GET /v1/printstore/worksheets.
     try {
-      const { data } = await supabase.from('printstore_order_worksheets').select('*');
-      if (data) setWorksheets(data);
+      const data = await apiFetch('/v1/printstore/worksheets').catch(() => null);
+      if (data?.rows) setWorksheets(data.rows);
     } catch (e) {
       console.error(e);
     } finally {
@@ -110,35 +111,23 @@ export default function LabReadyToDeliver() {
     }
     setIsSubmitting(true);
     try {
+      // PATCH …/orders/:id { status: 'shipped', tracking_number } +
+      // explicit tracking row.
       for (const orderId of selectedOrders) {
-        // Move status to shipped
-        const { error: updateError } = await supabase
-          .from('printstore_orders')
-          .update({ 
-            status: 'shipped',
-            tracking_number: getShortId(orderId, 'tracking')
-          })
-          .eq('id', orderId);
-
-        if (updateError) {
-          // Fallback if tracking_number doesn't exist
-          const { error: fallbackError } = await supabase
-            .from('printstore_orders')
-            .update({ status: 'shipped' })
-            .eq('id', orderId);
-          if (fallbackError) throw fallbackError;
-        }
-
-        // Insert timeline tracking
-        const { error: trackingError } = await supabase.from('printstore_order_tracking').insert({
-          order_id: orderId,
-          status: 'shipped',
-          label: 'Dispatched to Courier',
-          description: 'Package handed over to Courier partner for transit.'
+        const encodeId = encodeURIComponent(orderId);
+        await apiFetch(`/v1/printstore/orders/${encodeId}`, {
+          method: 'PATCH',
+          body: { status: 'shipped', tracking_number: getShortId(orderId, 'tracking') },
         });
-        if (trackingError) throw trackingError;
+        await apiFetch(`/v1/printstore/orders/${encodeId}/tracking`, {
+          method: 'POST',
+          body: {
+            status: 'shipped',
+            label: 'Dispatched to Courier',
+            description: 'Package handed over to Courier partner for transit.',
+          },
+        });
       }
-
       await refreshOrders();
       setSelectedOrders([]);
       alert("Selected orders successfully dispatched.");

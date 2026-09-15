@@ -1,4 +1,3 @@
-import { supabase } from '../lib/supabase/client';
 import { userStorageService } from './userStorage.service';
 
 export const QUOTA_CHANGED_EVENT = 'pixnxt-quota-changed';
@@ -224,20 +223,6 @@ function quotaError(kind, used, limit) {
   );
 }
 
-const LEGACY_FIELDS = 'image_used_count, image_limit, face_matching_delivery_used, face_matching_delivery_limit';
-const CREATION_FIELDS = 'album_limit, album_used_count, delivery_limit, delivery_used_count';
-const SPLIT_FIELDS =
-  `${LEGACY_FIELDS}, ` +
-  'face_normal_image_limit, face_normal_image_used, face_guest_image_limit, face_guest_image_used, ' +
-  'face_normal_delivery_limit, face_normal_delivery_used, face_guest_delivery_limit, face_guest_delivery_used, ' +
-  `face_normal_enabled, face_guest_enabled, ai_search_enabled, ${CREATION_FIELDS}`;
-const FULL_FIELDS = SPLIT_FIELDS;
-
-function isMissingColumnError(err) {
-  const msg = String(err?.message || '');
-  return err?.code === '42703' || /does not exist|face_normal|face_guest|ai_search|album_limit|album_used|delivery_limit|delivery_used/i.test(msg);
-}
-
 function emptySnapshot() {
   return {
     image_used_count: 0,
@@ -314,44 +299,9 @@ export const photographerQuotaService = {
       return existing.data;
     }
 
-    const { USE_WORKERS_AUTH } = await import('../lib/api/client');
-    if (USE_WORKERS_AUTH) {
-      const { apiFetch } = await import('../lib/api/client');
-      const data = await apiFetch('/v1/me/quota');
-      const snapshot = normalizeSnapshot(data?.quota ?? {});
-      quotaCache.set(photographerId, { data: snapshot, time: Date.now() });
-      return snapshot;
-    }
-
-    const fullRes = await supabase.from('photographers').select(FULL_FIELDS).eq('id', photographerId).maybeSingle();
-    if (!fullRes.error) {
-      const snapshot = normalizeSnapshot(fullRes.data);
-      quotaCache.set(photographerId, { data: snapshot, time: Date.now() });
-      return snapshot;
-    }
-    if (!isMissingColumnError(fullRes.error)) throw fullRes.error;
-
-    // New creation columns may be missing while older split columns exist — try split.
-    const splitRes = await supabase.from('photographers').select(SPLIT_FIELDS).eq('id', photographerId).maybeSingle();
-    if (!splitRes.error) {
-      const snapshot = normalizeSnapshot(splitRes.data);
-      quotaCache.set(photographerId, { data: snapshot, time: Date.now() });
-      return snapshot;
-    }
-    if (!isMissingColumnError(splitRes.error)) throw splitRes.error;
-
-    // Migration not applied yet — fall back to legacy columns.
-    const legacyRes = await supabase.from('photographers').select(LEGACY_FIELDS).eq('id', photographerId).maybeSingle();
-    if (legacyRes.error) {
-      const msg = String(legacyRes.error.message || '');
-      if (/image_limit|image_used_count|face_matching_delivery/i.test(msg) || legacyRes.error.code === '42703') {
-        const fallback = emptySnapshot();
-        quotaCache.set(photographerId, { data: fallback, time: Date.now() });
-        return fallback;
-      }
-      throw legacyRes.error;
-    }
-    const snapshot = normalizeSnapshot(legacyRes.data);
+    const { apiFetch } = await import('../lib/api/client');
+    const data = await apiFetch('/v1/me/quota');
+    const snapshot = normalizeSnapshot(data?.quota ?? {});
     quotaCache.set(photographerId, { data: snapshot, time: Date.now() });
     return snapshot;
   },

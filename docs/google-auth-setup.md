@@ -1,7 +1,12 @@
 # Google login setup (PIXNXT)
 
-PIXNXT uses **Google OAuth → pixnxt.in callback → Supabase session** for “Continue with Google”.  
-That way Google shows **your domain** (`www.pixnxt.in`) on the account chooser instead of `*.supabase.co`.
+> **Cutover note:** Supabase references below are historical. Auth now runs on the Cloudflare
+> backend (`/v1/auth/*` in `../backend`, JWT + refresh cookie). There is no Supabase session,
+> provider, or redirect-URL allowlist anymore — only the Google Cloud + `VITE_GOOGLE_CLIENT_ID`
+> steps still apply.
+
+PIXNXT uses **Google OAuth → pixnxt.in callback → Cloudflare session** for “Continue with Google”.  
+That way Google shows **your domain** (`www.pixnxt.in`) on the account chooser.
 
 ## 1. Google Cloud Console
 

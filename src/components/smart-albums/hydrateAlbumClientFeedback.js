@@ -9,7 +9,7 @@ import { hydrateProofReplies } from './albumProofReplies';
 import { resolveFeedbackViewerKey } from './albumFeedbackDb';
 
 /**
- * Load all client proofing feedback from Supabase into memory caches
+ * Load all client proofing feedback via the Workers API into memory caches
  * so client link and photographer share the same data.
  */
 export async function hydrateAlbumClientFeedback(

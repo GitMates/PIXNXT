@@ -1,9 +1,10 @@
 /**
- * Workers API client (Cloudflare backend) — used when VITE_USE_WORKERS_API=1.
- * Supabase remains the default until the migration flag is enabled.
+ * Workers API client (Cloudflare backend) — the ONLY backend.
+ * Supabase was fully removed (cutover). VITE_USE_WORKERS_API is ignored
+ * and kept only so old hosting envs don't break the build.
  */
 
-export const USE_WORKERS_AUTH = String(import.meta.env.VITE_USE_WORKERS_API || '') === '1';
+export const USE_WORKERS_AUTH = true;
 
 export function apiBase() {
   const base = String(import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '');

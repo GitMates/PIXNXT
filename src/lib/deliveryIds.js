@@ -9,7 +9,7 @@ export const DELIVERY_PRODUCT_HOME = '/client-gallery';
 export const DELIVERY_STARRED_ROUTE = '/starred/deliveries';
 export const DELIVERY_STARRED_ROUTE_LEGACY = '/starred/collections';
 
-/** Supabase table names (post rename migration). */
+/** Cloudflare backend table names (post rename migration). */
 export const DELIVERY_TABLES = {
   deliveries: 'deliveries',
   reminders: 'delivery_reminders',

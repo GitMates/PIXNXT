@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Navigate } from 'react-router-dom';
-import { supabase } from '../../lib/supabase/client';
+import { apiFetch } from '../../lib/api/client';
 import { useAuth } from '../../hooks/useAuth';
 import { PasswordField } from '../../components/features/Auth/PasswordField';
+
+/** Lazy so the Workers auth service stays code-split. */
+const workers = () => import('../../services/workersAuth.service');
 
 const AdminLogin = () => {
   const [email, setEmail] = useState('');
@@ -26,14 +29,11 @@ const AdminLogin = () => {
     }
 
     let isMounted = true;
-    supabase
-      .from('admins')
-      .select('id')
-      .eq('id', user.id)
-      .maybeSingle()
-      .then(({ data }) => {
+    // Admin flag comes from GET /v1/me — no admins-table query from the client.
+    apiFetch('/v1/me')
+      .then((me) => {
         if (isMounted) {
-          setIsUserAdmin(Boolean(data));
+          setIsUserAdmin(Boolean(me?.isAdmin));
           setAdminCheckDone(true);
         }
       })
@@ -53,34 +53,16 @@ const AdminLogin = () => {
     setError(null);
 
     try {
-      const { error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (authError) {
-        throw authError;
+      // Login via the Cloudflare backend, then verify the
+      // admin flag via GET /v1/me (login itself returns only tokens).
+      await (await workers()).signInWithEmail({ email, password });
+      const me = await apiFetch('/v1/me').catch(() => null);
+      if (!me?.isAdmin) {
+        setError('Access denied. This account does not have admin privileges.');
+        await (await workers()).signOut().catch(() => {});
+        setIsLoading(false);
+        return;
       }
-
-      // After sign-in, verify the user is in the admins table
-      const { data: sessionData } = await supabase.auth.getUser();
-      const signedInUser = sessionData?.user;
-
-      if (signedInUser) {
-        const { data: adminRow } = await supabase
-          .from('admins')
-          .select('id')
-          .eq('id', signedInUser.id)
-          .maybeSingle();
-
-        if (!adminRow) {
-          setError('Access denied. This account does not have admin privileges.');
-          await supabase.auth.signOut();
-          setIsLoading(false);
-          return;
-        }
-      }
-
       // Successfully authenticated as admin
       navigate(from, { replace: true });
     } catch (err) {
@@ -147,7 +129,7 @@ const AdminLogin = () => {
         </form>
 
         <div className="mt-8 pt-6 border-t border-gray-100 flex items-center justify-center gap-6">
-          <span className="text-[14px] font-medium text-gray-400 uppercase tracking-widest">Secured by Supabase</span>
+          <span className="text-[14px] font-medium text-gray-400 uppercase tracking-widest">Secured by Cloudflare</span>
         </div>
       </div>
     </div>

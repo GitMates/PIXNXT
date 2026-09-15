@@ -25,7 +25,7 @@ export const IMAGE_REPLACEMENTS_CHANGED_EVENT = 'pixnxt-album-image-replacements
 /** Working copy until preview_data is hydrated / DB write completes. */
 const MEMORY_REPLACEMENTS = new Map();
 
-/** Set from AlbumEditor so version history can write to Supabase. */
+/** Set from AlbumEditor so version history can write to the Workers backend. */
 let persistPhotographerId = null;
 const migratedFromLocal = new Set();
 

@@ -5,10 +5,7 @@ const accessKeyId = import.meta.env.VITE_R2_ACCESS_KEY_ID;
 const secretAccessKey = import.meta.env.VITE_R2_SECRET_ACCESS_KEY;
 
 if (!accountId || !accessKeyId || !secretAccessKey) {
-  // Workers mode uploads via the API (no client-side bucket credentials needed).
-  if (String(import.meta.env.VITE_USE_WORKERS_API || '') !== '1') {
-    console.warn('Missing Cloudflare R2 environment variables. Storage functionality may be limited.');
-  }
+  // Cloudflare-only: uploads go via the Workers API (no client bucket credentials needed).
 }
 
 export const r2Client = new S3Client({
@@ -29,6 +26,6 @@ export const R2_PUBLIC_URL = import.meta.env.VITE_R2_PUBLIC_URL;
 
 if (import.meta.env.PROD && !R2_PUBLIC_URL) {
   console.error(
-    '[PIXNXT] VITE_R2_PUBLIC_URL is not set. Photos will not load until you add it in Vercel → Settings → Environment Variables and redeploy.'
+    '[PIXNXT] VITE_R2_PUBLIC_URL is not set. Photos will not load until you add it in your hosting env (Cloudflare Pages → Settings → Environment Variables) and redeploy.'
   );
 }

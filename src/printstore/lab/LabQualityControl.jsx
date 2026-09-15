@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useLabAuth } from './LabApp';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../../lib/supabase/client';
+import { apiFetch } from '../../lib/api/client';
 import { Eye } from 'lucide-react';
 import { getShortId } from '../utils/idFormat';
 import LabSearchField from './LabSearchField';
@@ -22,14 +22,10 @@ export default function LabQualityControl() {
   }, [orders]);
 
   const loadQCHistory = async () => {
+    // GET /v1/printstore/quality-checks → { rows }
     try {
-      const { data, error } = await supabase
-        .from('printstore_lab_quality_checks')
-        .select('*')
-        .order('created_at', { ascending: false });
-      if (!error && data) {
-        setChecksLog(data);
-      }
+      const data = await apiFetch('/v1/printstore/quality-checks');
+      setChecksLog(data?.rows || []);
     } catch (e) {
       console.error(e);
     }

@@ -71,7 +71,7 @@ export async function resolveSessionLocation() {
 
 /**
  * Build the rows shown for the current browser session.
- * @param {import('@supabase/supabase-js').Session | null} authSession
+ * @param {{ access_token?: string, created_at?: string, user?: { last_sign_in_at?: string } } | null} authSession
  * @param {string} [location]
  */
 export function buildCurrentSessionRows(authSession, location = '—') {

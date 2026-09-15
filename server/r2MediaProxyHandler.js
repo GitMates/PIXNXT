@@ -1,10 +1,12 @@
 /**
  * Shared R2 media proxy — used by /api/r2-media and /api/r2-media/[...path].
+ * Reads through the Cloudflare Workers backend (GET /v1/r2/media, public).
  */
 export async function handleR2MediaProxy(req, res) {
-  const base = process.env.VITE_R2_PUBLIC_URL?.replace(/\/+$/, '');
+  const apiBase = String(process.env.VITE_API_URL || '').replace(/\/+$/, '');
+  const base = apiBase ? `${apiBase}/v1/r2/media` : '';
   if (!base) {
-    res.status(500).json({ error: 'VITE_R2_PUBLIC_URL is not configured' });
+    res.status(500).json({ error: 'VITE_API_URL is not configured' });
     return;
   }
 

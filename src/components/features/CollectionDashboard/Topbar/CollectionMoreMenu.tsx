@@ -4,7 +4,7 @@ import { galleryService } from '@/services/gallery.service';
 import { formatStorageBytes } from '@/utils/formatStorageBytes';
 import { MoveCollectionModal } from '@/components/features/Collections/MoveCollectionModal';
 import { CollectionDuplicateModal } from '@/components/features/ClientGallery/CollectionShareModals';
-import { supabase } from '@/lib/supabase/client';
+import { apiFetch } from '@/lib/api/client';
 import { guestDeliveryGuestsService } from '@/services/guestDeliveryGuests.service';
 import { AppLoader } from '@/components/ui/AppLoading';
 import { GetDirectLinkModal } from '@/components/features/CollectionDashboard/Share/GetDirectLinkModal';
@@ -174,10 +174,10 @@ export function CollectionMoreMenu({
   const handleExportGuests = async () => {
     if (!collectionId) return;
     try {
-      const { data: events } = await supabase
-        .from('guest_delivery_events')
-        .select('id, photographer_id')
-        .eq('collection_id', collectionId);
+      // GET /v1/guest/events?collectionId= — guests resolve through
+      // guestDeliveryGuestsService.getGuests.
+      const data = await apiFetch(`/v1/guest/events?collectionId=${encodeURIComponent(collectionId)}`);
+      const events: { id: string; photographer_id: string }[] | null = data?.events || [];
 
       if (!events || events.length === 0) {
         alert('No guest registrations found for this delivery.');

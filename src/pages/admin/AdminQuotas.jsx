@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, User, AlertCircle, X, HardDrive, ScanFace, Send, Pencil, Images, RotateCcw } from 'lucide-react';
 import { AppLoader, AppSpinner } from '../../components/ui/AppLoading';
-import { supabase } from '../../lib/supabase/client';
+import { apiFetch } from '../../lib/api/client';
 import {
   broadcastPhotographerLimitsChanged,
   onPhotographerLimitsBroadcast,
@@ -243,69 +243,18 @@ const AdminQuotas = () => {
   const [updating, setUpdating] = useState(false);
   const [activeLimitTab, setActiveLimitTab] = useState('normal');
 
-  const LEGACY_SELECT =
-    'id, display_name, email, plan, storage_used_bytes, storage_limit_bytes, image_used_count, image_limit, face_matching_delivery_used, face_matching_delivery_limit';
-  const SPLIT_SELECT = `${LEGACY_SELECT}, face_normal_image_limit, face_normal_image_used, face_guest_image_limit, face_guest_image_used, face_normal_delivery_limit, face_normal_delivery_used, face_guest_delivery_limit, face_guest_delivery_used, face_normal_enabled, face_guest_enabled, ai_search_enabled`;
-
-  const isMissingColumnError = (err) => {
-    const msg = String(err?.message || '');
-    return err?.code === '42703' || /does not exist|face_normal|face_guest|ai_search/i.test(msg);
-  };
-
   const fetchUsers = async () => {
     setLoading(true);
     setError(null);
     setMigrationWarning(null);
 
+    // Workers: quotas are flattened onto each row.
     try {
-      let data = null;
-      let splitAvailable = true;
-      const splitRes = await supabase.from('photographers').select(SPLIT_SELECT).order('created_at', { ascending: false });
-      if (splitRes.error) {
-        if (isMissingColumnError(splitRes.error)) {
-          // Newest column (ai_search_enabled) may be missing while split quotas exist —
-          // retry without it so split limits still load, defaulting AI search ON.
-          if (/ai_search/i.test(String(splitRes.error.message || ''))) {
-            const withoutAi = SPLIT_SELECT.replace(', ai_search_enabled', '');
-            const retryRes = await supabase.from('photographers').select(withoutAi).order('created_at', { ascending: false });
-            if (!retryRes.error) {
-              data = (retryRes.data || []).map((p) => ({ ...p, ai_search_enabled: true }));
-              setMigrationWarning(
-                'Database migration pending: run supabase/migrations/20260912000000_ai_search_enabled.sql in Supabase SQL Editor to enable the AI search toggle. Showing AI search as ON.'
-              );
-            } else if (isMissingColumnError(retryRes.error)) {
-              splitAvailable = false;
-              const legacyRes = await supabase.from('photographers').select(LEGACY_SELECT).order('created_at', { ascending: false });
-              if (legacyRes.error) throw legacyRes.error;
-              data = (legacyRes.data || []).map((p) => ({ ...p, ai_search_enabled: true }));
-            } else {
-              throw retryRes.error;
-            }
-          } else {
-            splitAvailable = false;
-            const legacyRes = await supabase.from('photographers').select(LEGACY_SELECT).order('created_at', { ascending: false });
-            if (legacyRes.error) throw legacyRes.error;
-            data = (legacyRes.data || []).map((p) => ({ ...p, ai_search_enabled: true }));
-          }
-        } else {
-          throw splitRes.error;
-        }
-      } else {
-        data = splitRes.data;
-      }
-
-      if (!splitAvailable) {
-        setMigrationWarning(
-          'Database migration pending: run supabase/migrations/20260910000000_split_face_quotas_normal_guest.sql in Supabase SQL Editor, then refresh. Showing legacy limits.'
-        );
-      }
-
-      const mappedPhotographers = (data || []).map(mapPhotographerRow);
-
-      setUsers(mappedPhotographers);
+      const res = await apiFetch('/v1/admin/photographers?limit=500');
+      setUsers((res?.photographers || []).map(mapPhotographerRow));
     } catch (err) {
       console.error('Error fetching users:', err);
-      setError(err.message || 'Failed to load users. Ensure RLS policies allow reading.');
+      setError(err.message || 'Failed to load users.');
     } finally {
       setLoading(false);
     }
@@ -386,14 +335,9 @@ const AdminQuotas = () => {
     initEditorFromRow(user);
     (async () => {
       try {
-        let row = null;
-        const fresh = await supabase.from('photographers').select(SPLIT_SELECT).eq('id', userId).maybeSingle();
-        if (!fresh.error && fresh.data) {
-          row = fresh.data;
-        } else if (fresh.error && isMissingColumnError(fresh.error)) {
-          const legacy = await supabase.from('photographers').select(LEGACY_SELECT).eq('id', userId).maybeSingle();
-          if (!legacy.error && legacy.data) row = { ...legacy.data, ai_search_enabled: true };
-        }
+        // No single-GET endpoint — refresh from the flattened list.
+        const res = await apiFetch(`/v1/admin/photographers?limit=500&search=${encodeURIComponent(userId)}`);
+        const row = (res?.photographers || []).find((p) => p.id === userId) || null;
         if (!row || editingIdRef.current !== userId) return;
         const mapped = mapPhotographerRow(row);
         initEditorFromRow(mapped);
@@ -503,40 +447,13 @@ const AdminQuotas = () => {
         ...(resetUsed.normalImage && resetUsed.guestImage ? { image_used_count: 0 } : {}),
         ...(resetUsed.guestFace ? { face_matching_delivery_used: 0 } : {}),
       };
-      const { error: updateError } = await supabase.from('photographers').update(splitPayload).eq('id', editingUser.id);
-
-      if (updateError) {
-        if (isMissingColumnError(updateError)) {
-          // Try without the newest columns (older migration applied, newest not yet).
-          const { face_normal_enabled: _n, face_guest_enabled: _g, ai_search_enabled: _a, ...withoutFlags } = splitPayload;
-          const { error: retryError } = await supabase.from('photographers').update(withoutFlags).eq('id', editingUser.id);
-          if (!retryError) {
-            alert('Saved, but run 20260911000000_face_feature_master_toggles.sql and 20260912000000_ai_search_enabled.sql to enable the master on/off switches.');
-          } else {
-            if (!isMissingColumnError(retryError)) throw retryError;
-            // DB migration not applied yet — persist legacy columns so nothing is lost.
-            const { error: legacyError } = await supabase
-              .from('photographers')
-              .update({
-                storage_limit_bytes: splitPayload.storage_limit_bytes,
-                image_limit: legacyImage,
-                face_matching_delivery_limit: parsedGuestFace,
-                ...(resetUsed.normalImage && resetUsed.guestImage ? { image_used_count: 0 } : {}),
-                ...(resetUsed.guestFace ? { face_matching_delivery_used: 0 } : {}),
-              })
-              .eq('id', editingUser.id);
-            if (legacyError) throw legacyError;
-            alert('Saved to legacy columns. Run the split-quota migration SQL to enable separate Normal/Guest storage.');
-          }
-        } else {
-          throw updateError;
-        }
-      }
-
+      // Quota keys pass straight through to the Workers backend.
+      await apiFetch(`/v1/admin/photographers/${editingUser.id}`, {
+        method: 'PATCH',
+        body: splitPayload,
+      });
       closeLimitsEditor();
       fetchUsers();
-      // Instant admin -> photographer (and admin -> admin tabs): push the change
-      // now instead of waiting for the realtime event.
       broadcastPhotographerLimitsChanged(editingUser.id);
     } catch (err) {
       alert(err.message || 'Failed to update account limits.');

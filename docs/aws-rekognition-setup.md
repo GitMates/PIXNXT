@@ -1,6 +1,10 @@
 # AWS Face Recognition (Rekognition) — PIXNXT
 
-PIXNXT uses **Amazon Rekognition** for face detection, indexing, and matching. All AWS calls run **server-side** (Vercel API routes in production, Vite dev middleware locally). **Never** put AWS credentials in the browser or in `VITE_*` env vars.
+> **Cutover note:** Supabase references below are historical. Production now runs on the
+> Cloudflare backend (`../backend`: D1 + R2 + Queues, `/v1/photo-ai/*`), with the Vite dev
+> middleware proxying to it. There are no Supabase Edge Functions or `supabase/` migrations anymore.
+
+PIXNXT uses **Amazon Rekognition** for face detection, indexing, and matching. All AWS calls run **server-side** (Cloudflare Workers in production, Vite dev middleware locally). **Never** put AWS credentials in the browser or in `VITE_*` env vars.
 
 This document covers setup, architecture, and how the two face products in PIXNXT work.
 

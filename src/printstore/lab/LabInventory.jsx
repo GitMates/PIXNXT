@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLabAuth } from './LabApp';
-import { supabase } from '../../lib/supabase/client';
+import { apiFetch } from '../../lib/api/client';
 import { History, ArrowLeft, Plus, CheckCircle, AlertTriangle, Trash2, SlidersHorizontal } from 'lucide-react';
 import LabSearchField from './LabSearchField';
 
@@ -10,48 +10,48 @@ export default function LabInventory() {
   // History log state - loaded dynamically from database
   const [history, setHistory] = useState([]);
 
+  // Shared merge for Workers { rows } payloads (packaging + QC ledger).
+  const buildLedgerHistory = (packagingData, packErr, qcData, qcErr) => {
+    const merged = [];
+    if (!packErr && packagingData) {
+      packagingData.forEach(row => {
+        merged.push({
+          id: row.id,
+          sku: 'PKG-BOX-MED',
+          action: 'Used in Packaging',
+          quantity: -1,
+          user: row.packed_by || 'Packaging operator',
+          timestamp: row.created_at
+        });
+      });
+    }
+    if (!qcErr && qcData) {
+      qcData.forEach(row => {
+        merged.push({
+          id: row.id,
+          sku: 'PAP-LUS-1620',
+          action: row.result === 'pass' ? 'QC Passed' : `QC Failed: ${row.failure_reason}`,
+          quantity: row.result === 'pass' ? -1 : 0,
+          user: row.checked_by || 'QC Inspector',
+          timestamp: row.created_at
+        });
+      });
+    }
+    // sort by timestamp descending
+    merged.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    setHistory(merged);
+  };
+
   // Fetch packaging and quality check logs to dynamically build the stock ledger history
   useEffect(() => {
     async function fetchLedgerHistory() {
+      // GET /v1/printstore/packaging-logs + quality-checks → { rows }
       try {
-        const { data: packagingData, error: packErr } = await supabase
-          .from('printstore_lab_packaging_logs')
-          .select('id, created_at, packed_by, packaging_type, order_id')
-          .order('created_at', { ascending: false });
-
-        const { data: qcData, error: qcErr } = await supabase
-          .from('printstore_lab_quality_checks')
-          .select('id, created_at, checked_by, result, failure_reason, order_id')
-          .order('created_at', { ascending: false });
-
-        const merged = [];
-        if (!packErr && packagingData) {
-          packagingData.forEach(row => {
-            merged.push({
-              id: row.id,
-              sku: 'PKG-BOX-MED',
-              action: 'Used in Packaging',
-              quantity: -1,
-              user: row.packed_by || 'Packaging operator',
-              timestamp: row.created_at
-            });
-          });
-        }
-        if (!qcErr && qcData) {
-          qcData.forEach(row => {
-            merged.push({
-              id: row.id,
-              sku: 'PAP-LUS-1620',
-              action: row.result === 'pass' ? 'QC Passed' : `QC Failed: ${row.failure_reason}`,
-              quantity: row.result === 'pass' ? -1 : 0,
-              user: row.checked_by || 'QC Inspector',
-              timestamp: row.created_at
-            });
-          });
-        }
-        // sort by timestamp descending
-        merged.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-        setHistory(merged);
+        const [packRes, qcRes] = await Promise.all([
+          apiFetch('/v1/printstore/packaging-logs').catch(() => null),
+          apiFetch('/v1/printstore/quality-checks').catch(() => null),
+        ]);
+        buildLedgerHistory(packRes?.rows, packRes ? null : true, qcRes?.rows, qcRes ? null : true);
       } catch (err) {
         console.error("Error loading ledger logs:", err);
       }
@@ -83,22 +83,18 @@ export default function LabInventory() {
   const handleAdjustStockSubmit = async (e) => {
     e.preventDefault();
     if (!editingItem || !adjustQty) return;
-    
+
     const qtyChange = parseFloat(adjustQty);
     const multiplier = adjustAction === 'add' ? 1 : -1;
     const finalChange = qtyChange * multiplier;
     const nextQty = Math.max(0, parseFloat(editingItem.available_qty) + finalChange);
 
+    // Stock adjustments go through PATCH /v1/printstore/inventory/:id.
     try {
-      const { error } = await supabase
-        .from('printstore_inventory')
-        .update({
-          available_qty: nextQty,
-          last_updated: new Date().toISOString()
-        })
-        .eq('sku', editingItem.sku);
-
-      if (error) throw error;
+      await apiFetch(`/v1/printstore/inventory/${encodeURIComponent(editingItem.id)}`, {
+        method: 'PATCH',
+        body: { quantity: nextQty },
+      });
 
       // Append to the local history tracker
       setHistory(prev => [
@@ -116,7 +112,7 @@ export default function LabInventory() {
       setEditingItem(null);
       setAdjustQty('');
       await refreshInventory();
-      alert('Stock adjustment successfully synchronized in Supabase.');
+      alert('Stock adjustment successfully synchronized.');
     } catch (err) {
       console.error(err);
       alert('Failed to update stock: ' + err.message);
@@ -127,21 +123,20 @@ export default function LabInventory() {
     e.preventDefault();
     if (!newSku || !newName) return;
 
+    // POST /v1/printstore/inventory → { row }
     try {
-      const { error } = await supabase
-        .from('printstore_inventory')
-        .insert({
+      await apiFetch('/v1/printstore/inventory', {
+        method: 'POST',
+        body: {
           sku: newSku,
           item_name: newName,
           category: newCategory,
           available_qty: parseFloat(newQty) || 0,
           minimum_qty: parseFloat(newMin) || 0,
           supplier: newSupplier,
-          last_updated: new Date().toISOString()
-        });
-
-      if (error) throw error;
-
+          last_updated: new Date().toISOString(),
+        },
+      });
       setHistory(prev => [
         {
           id: `h_${Date.now()}`,
@@ -153,7 +148,6 @@ export default function LabInventory() {
         },
         ...prev
       ]);
-
       setNewSku('');
       setNewName('');
       setNewQty(0);
@@ -161,7 +155,7 @@ export default function LabInventory() {
       setNewSupplier('');
       setShowAddForm(false);
       await refreshInventory();
-      alert('New material registered in Supabase successfully.');
+      alert('New material registered successfully.');
     } catch (err) {
       console.error(err);
       alert('Failed to register material: ' + err.message);

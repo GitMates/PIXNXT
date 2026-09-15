@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Check, Package, MapPin, User, Mail, CreditCard, Clock, Hash, ChevronDown, ChevronUp, Copy } from 'lucide-react';
-import { supabase } from '../../lib/supabase/client';
-import { USE_WORKERS_AUTH } from '../../lib/api/client';
+import { apiFetch } from '../../lib/api/client';
 import CartItemPreview from './CartItemPreview';
 import { getShortId } from '../utils/idFormat';
 
@@ -31,7 +30,7 @@ const STATUS_LABELS = {
 
 const TABS = ['Live orders', 'Cancelled', 'Completed'];
 
-/** D1 returns JSON columns (options, shipping_address) as TEXT — Supabase returns objects. */
+/** D1 returns JSON columns (options, shipping_address) as TEXT — parse after every read. */
 const parseWorkersJson = (value, fallback) => {
   if (value == null) return fallback;
   if (typeof value !== 'string') return value;
@@ -76,87 +75,9 @@ const readKnownWorkersOrderIds = () => {
   }
 };
 
-/**
- * Legacy Supabase order history (byte-identical logic to the original inline
- * fetch — extracted so the Workers path can merge it). Returns null when there
- * is nothing to show, mirroring the original early-returns.
- */
-const fetchSupabaseTrackerData = async ({ sessionId, localEmail }) => {
-  let query = supabase
-    .from('printstore_orders')
-    .select('*')
-    .order('created_at', { ascending: false });
-
-  if (sessionId && localEmail) {
-    query = query.or(`session_id.eq.${sessionId},customer_email.eq.${localEmail}`);
-  } else if (sessionId) {
-    query = query.eq('session_id', sessionId);
-  } else if (localEmail) {
-    query = query.eq('customer_email', localEmail);
-  } else {
-    return null;
-  }
-
-  const { data: ordersData, error } = await query;
-
-  if (error) {
-    console.error('Error fetching orders:', error);
-    return null;
-  }
-
-  if (!ordersData || ordersData.length === 0) {
-    return null;
-  }
-
-  const orderIds = ordersData.map(o => o.id);
-  const { data: items, error: itemsError } = await supabase
-    .from('printstore_order_items')
-    .select('*')
-    .in('order_id', orderIds);
-
-  if (itemsError) {
-    console.error('Error fetching order items:', itemsError);
-  }
-
-  const { data: trackingData, error: trackingError } = await supabase
-    .from('printstore_order_tracking')
-    .select('*')
-    .in('order_id', orderIds)
-    .order('created_at', { ascending: true });
-
-  if (trackingError) {
-    console.error('Error fetching order tracking logs:', trackingError);
-  }
-
-  // Fetch cancellation reasons
-  const cancelledOrderIds = ordersData.filter(o => o.status === 'cancelled').map(o => o.id);
-  let cancellationReasons = {};
-  if (cancelledOrderIds.length > 0) {
-    const { data: cancelData, error: cancelError } = await supabase
-      .from('printstore_cancelled_orders')
-      .select('order_id, cancel_reason')
-      .in('order_id', cancelledOrderIds);
-
-    if (!cancelError && cancelData) {
-      cancelData.forEach(c => {
-        cancellationReasons[c.order_id] = c.cancel_reason;
-      });
-    }
-  }
-
-  const enrichedOrders = ordersData.map(o => {
-    if (o.status === 'cancelled' && cancellationReasons[o.id]) {
-      return { ...o, cancel_reason: cancellationReasons[o.id] };
-    }
-    return o;
-  });
-
-  return { orders: enrichedOrders, items: items || [], tracking: trackingData || [] };
-};
-
-/** Workers order history: per-order detail fetches merged with legacy Supabase rows. */
+/** Workers order history: per-order detail fetches for known order ids. */
 const fetchWorkersTrackerData = async ({ sessionId, localEmail }) => {
-  const { apiFetch } = await import('../../lib/api/client');
+  void localEmail;
   const orders = [];
   const items = [];
   const tracking = [];
@@ -175,21 +96,6 @@ const fetchWorkersTrackerData = async ({ sessionId, localEmail }) => {
       }
     }
     orders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-  }
-  // Orders placed before the Workers migration still live in Supabase.
-  let legacy = null;
-  try {
-    legacy = await fetchSupabaseTrackerData({ sessionId, localEmail });
-  } catch (legacyErr) {
-    console.warn('Legacy order lookup failed:', legacyErr);
-  }
-  if (legacy) {
-    const seen = new Set(orders.map((o) => String(o.id)));
-    return {
-      orders: [...orders, ...legacy.orders.filter((o) => !seen.has(String(o.id)))],
-      items: [...items, ...legacy.items],
-      tracking: [...tracking, ...legacy.tracking],
-    };
   }
   return { orders, items, tracking };
 };
@@ -245,53 +151,9 @@ export default function TrackOrderPage({ sessionId, photographer }) {
     setCancelSubmitLoading(true);
     setCancelError('');
 
-    const finalReason = cancelReason === 'Other' ? otherReason.trim() : cancelReason;
-
-    try {
-      if (USE_WORKERS_AUTH && cancellingOrder.__source === 'workers') {
-        // Workers has no shopper cancellation endpoint yet — leave the D1 row untouched.
-        setCancelError('Online cancellation is not available for this order yet. Please contact the photographer or support for help.');
-        return;
-      }
-      const { error: insertError } = await supabase
-        .from('printstore_cancelled_orders')
-        .insert({
-          order_id: cancellingOrder.id,
-          photographer_id: cancellingOrder.photographer_id,
-          session_id: cancellingOrder.session_id || null,
-          customer_name: cancellingOrder.customer_name,
-          customer_email: cancellingOrder.customer_email,
-          cancel_reason: finalReason,
-          cancelled_by: 'customer',
-          refund_status: 'pending',
-          refund_amount: 0.00,
-          original_total: cancellingOrder.total,
-          original_status: cancellingOrder.status
-        });
-
-      if (insertError) throw insertError;
-
-      const { error: updateError } = await supabase
-        .from('printstore_orders')
-        .update({ status: 'cancelled' })
-        .eq('id', cancellingOrder.id);
-
-      if (updateError) throw updateError;
-
-      setOrders(prev => prev.map(o => {
-        if (o.id === cancellingOrder.id) {
-          return { ...o, status: 'cancelled', cancel_reason: finalReason };
-        }
-        return o;
-      }));
-
-      setCancellingOrder(null);
-    } catch (err) {
-      console.error('Error submitting cancellation:', err);
-      setCancelError(err.message || 'An unexpected error occurred during cancellation.');
-    } finally {
-      setCancelSubmitLoading(false);
-    }
+    // Workers has no shopper cancellation endpoint yet — leave the order untouched.
+    setCancelError('Online cancellation is not available for this order yet. Please contact the photographer or support for help.');
+    setCancelSubmitLoading(false);
   };
 
   useEffect(() => {
@@ -311,22 +173,10 @@ export default function TrackOrderPage({ sessionId, photographer }) {
           console.error('Error reading address from localStorage:', e);
         }
 
-        if (USE_WORKERS_AUTH) {
-          const merged = await fetchWorkersTrackerData({ sessionId, localEmail });
-          setAllOrderItems(merged.items);
-          setTrackingLogs(merged.tracking);
-          setOrders(merged.orders);
-          return;
-        }
-
-        const legacy = await fetchSupabaseTrackerData({ sessionId, localEmail });
-        if (!legacy) {
-          setOrders([]);
-          return;
-        }
-        setAllOrderItems(legacy.items);
-        setTrackingLogs(legacy.tracking);
-        setOrders(legacy.orders);
+        const merged = await fetchWorkersTrackerData({ sessionId, localEmail });
+        setAllOrderItems(merged.items);
+        setTrackingLogs(merged.tracking);
+        setOrders(merged.orders);
       } catch (err) {
         console.error('Unexpected error fetching orders:', err);
         setOrders([]);

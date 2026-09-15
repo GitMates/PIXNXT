@@ -88,8 +88,8 @@ export function CollectionPhotoAiToolbar({
             <div className="cd-photo-ai-setup-banner" role="alert">
               <strong>One-time setup needed</strong>
               <p>
-                The <code>photo_ai_metadata</code> and <code>photo_ai_people</code> tables are missing in Supabase.
-                Run the SQL migrations once, then refresh this page.
+                The <code>photo_ai_metadata</code> and <code>photo_ai_people</code> data is not available yet.
+                The Cloudflare backend is still syncing AI tables — refresh this page in a bit.
               </p>
             </div>
           )}
@@ -219,7 +219,7 @@ export function CollectionPhotoAiToolbar({
           ) : (
             <p className="cd-photo-ai-people-empty">
               {tableMissing
-                ? 'After you run the SQL migrations in Supabase, upload photos to detect people automatically.'
+                ? 'Face detection is still syncing on the backend — upload photos to detect people automatically.'
                 : analyzing
                   ? 'Detecting faces in your photos…'
                   : 'No people detected yet. Upload photos to this delivery and faces will be grouped automatically.'}

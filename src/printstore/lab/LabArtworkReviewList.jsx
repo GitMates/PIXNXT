@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../../lib/supabase/client';
+import { apiFetch } from '../../lib/api/client';
 import { useLabAuth } from './LabApp';
 import { getShortId } from '../utils/idFormat';
 import { Filter, Eye, ShieldAlert, ArrowRight, UserCheck, AlertTriangle, History } from 'lucide-react';
@@ -23,21 +23,14 @@ export default function LabArtworkReviewList() {
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [reviewerFilter, setReviewerFilter] = useState('all');
 
-  // Fetch reviews from printstore_artwork_reviews
+  // Fetch reviews from the Workers API (printstore_artwork_reviews)
   const fetchReviews = async () => {
+    // GET /v1/printstore/artwork-reviews → { rows }
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('printstore_artwork_reviews')
-        .select('*');
-      
-      if (error) {
-        // Table probably doesn't exist yet
-        setDbError(true);
-      } else if (data) {
-        setDbReviews(data);
-        setDbError(false);
-      }
+      const data = await apiFetch('/v1/printstore/artwork-reviews');
+      setDbReviews(data?.rows || []);
+      setDbError(false);
     } catch (e) {
       setDbError(true);
     } finally {
@@ -188,16 +181,12 @@ export default function LabArtworkReviewList() {
           <AlertTriangle size={18} color="#d97706" style={{ marginTop: '2px', flexShrink: 0 }} />
           <div>
             <strong style={{ color: '#b45309', fontSize: '13px', display: 'block', marginBottom: '3px' }}>
-              Database Table Missing!
+              Review Data Unavailable
             </strong>
             <span style={{ fontSize: '12px', color: '#78350f', lineHeight: '1.4' }}>
-              We detected that table <code>printstore_artwork_reviews</code> doesn't exist in Supabase yet. 
-              The Artwork Review Center is currently operating in <strong>Dynamic Local State Mode</strong>. 
-              To enable persistent storage, please execute the SQL statements inside 
-              <span style={{ fontFamily: 'Courier New, monospace', fontSize: '11.5px', background: '#f5f5f5', padding: '2px 4px', borderRadius: '4px', margin: '0 4px' }}>
-                src/printstore/lab/printstore_artwork_reviews.sql
-              </span> 
-              in your Supabase SQL Editor.
+              The Artwork Review Center could not load persisted reviews from the Cloudflare backend.
+              It is currently operating in <strong>Dynamic Local State Mode</strong>.
+              If this keeps happening, contact support.
             </span>
           </div>
         </div>

@@ -1,4 +1,3 @@
-import { supabase } from '../../lib/supabase/client';
 import { getGridSlotPhoto, getPagePhotoOverride, getSpreadPhotoOverride } from './albumPagePhotos';
 import { getProofCellPhotoIndex, getSpreadLeftPageIndex } from './albumSpreadGrid';
 import {
@@ -25,13 +24,12 @@ import {
     spreadIndexForPageNum,
 } from './albumSpreadReorder';
 import {
-    isMissingRelationError,
     loadFeedbackSeenMap,
     resolveFeedbackViewerKey,
     upsertFeedbackSeenRows,
 } from './albumFeedbackDb';
 
-/** In-memory cache hydrated from Supabase (shared client + photographer). */
+/** In-memory cache hydrated via the Workers API (shared client + photographer). */
 const marksByAlbum = Object.create(null);
 const seenByAlbum = Object.create(null);
 const peekedMarkIdsByAlbum = Object.create(null);
@@ -122,27 +120,17 @@ function toSwapInsert(albumId, mark) {
 
 async function persistSwapInsert(albumId, mark) {
     try {
-        const { USE_WORKERS_AUTH } = await import('../../lib/api/client');
-        if (USE_WORKERS_AUTH) {
-            const { apiFetch } = await import('../../lib/api/client');
-            await apiFetch(`/v1/proofer/albums/${albumId}/swaps`, {
-                method: 'POST',
-                body: {
-                    slotA: mark.a, slotB: mark.b,
-                    labelA: mark.labelA || '', labelB: mark.labelB || '',
-                    locked: mark.locked !== false,
-                    pointA: mark.pointA || null, pointB: mark.pointB || null,
-                    authorName: mark.authorName || null, authorEmail: mark.authorEmail || null,
-                },
-            });
-            return;
-        }
-        const { error } = await supabase
-            .from('album_proofer_swap_marks')
-            .insert(toSwapInsert(albumId, mark));
-        if (error && !isMissingRelationError(error, 'album_proofer_swap_marks')) {
-            console.warn('persistSwapInsert:', error.message);
-        }
+        const { apiFetch } = await import('../../lib/api/client');
+        await apiFetch(`/v1/proofer/albums/${albumId}/swaps`, {
+            method: 'POST',
+            body: {
+                slotA: mark.a, slotB: mark.b,
+                labelA: mark.labelA || '', labelB: mark.labelB || '',
+                locked: mark.locked !== false,
+                pointA: mark.pointA || null, pointB: mark.pointB || null,
+                authorName: mark.authorName || null, authorEmail: mark.authorEmail || null,
+            },
+        });
     } catch (err) {
         console.warn('persistSwapInsert failed:', err);
     }
@@ -150,20 +138,9 @@ async function persistSwapInsert(albumId, mark) {
 
 async function persistSwapDelete(albumId, markId) {
     try {
-        const { USE_WORKERS_AUTH } = await import('../../lib/api/client');
-        if (USE_WORKERS_AUTH) {
-            if (!albumId) return;
-            const { apiFetch } = await import('../../lib/api/client');
-            await apiFetch(`/v1/proofer/albums/${albumId}/swaps/${markId}`, { method: 'DELETE' });
-            return;
-        }
-        const { error } = await supabase
-            .from('album_proofer_swap_marks')
-            .delete()
-            .eq('id', markId);
-        if (error && !isMissingRelationError(error, 'album_proofer_swap_marks')) {
-            console.warn('persistSwapDelete:', error.message);
-        }
+        if (!albumId) return;
+        const { apiFetch } = await import('../../lib/api/client');
+        await apiFetch(`/v1/proofer/albums/${albumId}/swaps/${markId}`, { method: 'DELETE' });
     } catch (err) {
         console.warn('persistSwapDelete failed:', err);
     }
@@ -171,66 +148,28 @@ async function persistSwapDelete(albumId, markId) {
 
 async function persistSwapUpdate(albumId, mark) {
     try {
-        const { USE_WORKERS_AUTH } = await import('../../lib/api/client');
-        if (USE_WORKERS_AUTH) {
-            const { apiFetch } = await import('../../lib/api/client');
-            await apiFetch(`/v1/proofer/albums/${albumId}/swaps/${mark.id}`, {
-                method: 'PATCH',
-                body: {
-                    slotA: mark.a, slotB: mark.b,
-                    labelA: mark.labelA || '', labelB: mark.labelB || '',
-                    locked: mark.locked !== false,
-                    pointA: mark.pointA || null, pointB: mark.pointB || null,
-                },
-            });
-            return;
-        }
-        const { error } = await supabase
-            .from('album_proofer_swap_marks')
-            .update({
-                slot_a: mark.a,
-                slot_b: mark.b,
-                label_a: mark.labelA || '',
-                label_b: mark.labelB || '',
+        const { apiFetch } = await import('../../lib/api/client');
+        await apiFetch(`/v1/proofer/albums/${albumId}/swaps/${mark.id}`, {
+            method: 'PATCH',
+            body: {
+                slotA: mark.a, slotB: mark.b,
+                labelA: mark.labelA || '', labelB: mark.labelB || '',
                 locked: mark.locked !== false,
-                point_a: mark.pointA || null,
-                point_b: mark.pointB || null,
-                updated_at: new Date().toISOString(),
-            })
-            .eq('id', mark.id)
-            .eq('album_id', albumId);
-        if (error && !isMissingRelationError(error, 'album_proofer_swap_marks')) {
-            console.warn('persistSwapUpdate:', error.message);
-        }
+                pointA: mark.pointA || null, pointB: mark.pointB || null,
+            },
+        });
     } catch (err) {
         console.warn('persistSwapUpdate failed:', err);
     }
 }
 
-/** Load swap marks from Supabase into memory (client link + photographer). */
+/** Load swap marks via the Workers API into memory (client link + photographer). */
 export async function hydrateSwapMarks(albumId) {
     if (!albumId) return [];
     try {
-        const { USE_WORKERS_AUTH } = await import('../../lib/api/client');
-        let rows = null;
-        if (USE_WORKERS_AUTH) {
-            const { apiFetch } = await import('../../lib/api/client');
-            const data = await apiFetch(`/v1/proofer/albums/${albumId}/swaps`);
-            rows = data?.swaps || [];
-        } else {
-            const { data, error } = await supabase
-                .from('album_proofer_swap_marks')
-                .select('*')
-                .eq('album_id', albumId)
-                .order('created_at', { ascending: true });
-            if (error) {
-                if (!isMissingRelationError(error, 'album_proofer_swap_marks')) {
-                    console.warn('hydrateSwapMarks:', error.message);
-                }
-                return getSwapMarks(albumId);
-            }
-            rows = data || [];
-        }
+        const { apiFetch } = await import('../../lib/api/client');
+        const data = await apiFetch(`/v1/proofer/albums/${albumId}/swaps`);
+        const rows = data?.swaps || [];
         const list = rows.map(mapSwapRow);
         setAlbumMarks(albumId, list);
         return list;

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLabAuth } from './LabApp';
-import { supabase } from '../../lib/supabase/client';
+import { apiFetch } from '../../lib/api/client';
 import { 
   ArrowLeft, User, Calendar, Tag, ShieldAlert, CheckCircle, AlertTriangle, 
   Trash2, Camera, Upload, AlertCircle, Info, ExternalLink, Edit2, Play, Pause, Check, X
@@ -58,27 +58,21 @@ export default function LabQualityControlDetailsPage() {
       // Try to find in context first
       let currentOrder = orders.find(o => o.id === orderId);
       let currentItems = orderItems.filter(item => item.order_id === orderId);
-      
+
+      // GET /v1/printstore/orders/:id → { order, items } (context rows
+      // are already Workers-shaped)
       if (!currentOrder) {
-        // Fetch from DB
-        const { data: dbOrder, error: orderErr } = await supabase
-          .from('printstore_orders')
-          .select('*')
-          .eq('id', orderId)
-          .single();
-          
-        if (dbOrder) {
-          currentOrder = dbOrder;
-          const { data: dbItems } = await supabase
-            .from('printstore_order_items')
-            .select('*')
-            .eq('order_id', orderId);
-          if (dbItems) {
-            currentItems = filterLabPhysicalItems(dbItems);
+        try {
+          const { normalizeLabItemRow, normalizeLabOrderRow } = await import('./labOrderStatusService');
+          const data = await apiFetch(`/v1/printstore/orders/${encodeURIComponent(orderId)}`);
+          if (data?.order) {
+            currentOrder = normalizeLabOrderRow(data.order);
+            currentItems = filterLabPhysicalItems((data.items || []).map(normalizeLabItemRow));
           }
+        } catch (e) {
+          console.error('Error loading QC order:', e);
         }
       }
-      
       if (currentOrder) {
         setOrder(currentOrder);
         setItems(currentItems);
@@ -112,33 +106,32 @@ export default function LabQualityControlDetailsPage() {
     }
     setIsSubmitting(true);
     try {
-      // Update order status to packaging
-      const { error: orderErr } = await supabase
-        .from('printstore_orders')
-        .update({ status: 'packaging' })
-        .eq('id', order.id);
-
-      if (orderErr) throw orderErr;
-
-      // Log successful QC Check
-      await supabase.from('printstore_lab_quality_checks').insert({
-        order_id: order.id,
-        checked_by: 'INSPECTOR KARTHIK',
-        result: 'pass',
-        notes: JSON.stringify({
-          checklist,
-          timestamp: new Date().toISOString()
-        })
+      // PATCH …/orders/:id { status: 'packaging' } + POST quality-checks +
+      // explicit tracking row.
+      await apiFetch(`/v1/printstore/orders/${encodeURIComponent(order.id)}`, {
+        method: 'PATCH',
+        body: { status: 'packaging' },
       });
-
-      // Insert timeline tracking
-      await supabase.from('printstore_order_tracking').insert({
-        order_id: order.id,
-        status: 'packaging',
-        label: 'Quality Control Passed',
-        description: 'Order successfully passed QC inspection checklist and was routed to Packaging.'
+      await apiFetch('/v1/printstore/quality-checks', {
+        method: 'POST',
+        body: {
+          order_id: order.id,
+          checked_by: 'INSPECTOR KARTHIK',
+          result: 'pass',
+          notes: JSON.stringify({
+            checklist,
+            timestamp: new Date().toISOString()
+          }),
+        },
       });
-
+      await apiFetch(`/v1/printstore/orders/${encodeURIComponent(order.id)}/tracking`, {
+        method: 'POST',
+        body: {
+          status: 'packaging',
+          label: 'Quality Control Passed',
+          description: 'Order successfully passed QC inspection checklist and was routed to Packaging.',
+        },
+      });
       await refreshOrders();
       navigate('/lab/quality-control');
     } catch (err) {
@@ -152,18 +145,20 @@ export default function LabQualityControlDetailsPage() {
   const handleHold = async () => {
     setIsSubmitting(true);
     try {
-      // Hold doesn't change status but logs check
-      await supabase.from('printstore_lab_quality_checks').insert({
-        order_id: order.id,
-        checked_by: 'INSPECTOR KARTHIK',
-        result: 'fail',
-        notes: JSON.stringify({
-          hold: true,
-          checklist,
-          timestamp: new Date().toISOString()
-        })
+      // Hold doesn't change status but logs check.
+      await apiFetch('/v1/printstore/quality-checks', {
+        method: 'POST',
+        body: {
+          order_id: order.id,
+          checked_by: 'INSPECTOR KARTHIK',
+          result: 'fail',
+          notes: JSON.stringify({
+            hold: true,
+            checklist,
+            timestamp: new Date().toISOString()
+          }),
+        },
       });
-
       await refreshOrders();
       alert('Inspection state saved on Hold.');
       navigate('/lab/quality-control');
@@ -192,16 +187,11 @@ export default function LabQualityControlDetailsPage() {
     }
     setIsSubmitting(true);
     try {
-      // Update order status to reprint
-      const { error: orderErr } = await supabase
-        .from('printstore_orders')
-        .update({ 
-          status: 'reprint',
-          assigned_employee: '' // unassign to allow re-assignment
-        })
-        .eq('id', order.id);
-
-      if (orderErr) throw orderErr;
+      const encodeId = encodeURIComponent(order.id);
+      await apiFetch(`/v1/printstore/orders/${encodeId}`, {
+        method: 'PATCH',
+        body: { status: 'reprint', assigned_employee: '' },
+      });
 
       // Map UI rejection reason to database check constraint allowed options
       const mapReasonToDB = (uiReason) => {
@@ -226,35 +216,34 @@ export default function LabQualityControlDetailsPage() {
 
       const dbReason = mapReasonToDB(rejectionReason);
 
-      // Log QC Failure Check
-      const { error: qcErr } = await supabase.from('printstore_lab_quality_checks').insert({
-        order_id: order.id,
-        checked_by: 'INSPECTOR KARTHIK',
-        result: 'fail',
-        failure_reason: dbReason,
-        notes: JSON.stringify({
-          checklist,
-          rejection: {
-            reason: rejectionReason,
-            severity: rejectionSeverity,
-            department: rejectionDepartment,
-            description: rejectionDescription,
-            evidence: evidencePreview
-          },
-          timestamp: new Date().toISOString()
-        })
+      await apiFetch('/v1/printstore/quality-checks', {
+        method: 'POST',
+        body: {
+          order_id: order.id,
+          checked_by: 'INSPECTOR KARTHIK',
+          result: 'fail',
+          failure_reason: dbReason,
+          notes: JSON.stringify({
+            checklist,
+            rejection: {
+              reason: rejectionReason,
+              severity: rejectionSeverity,
+              department: rejectionDepartment,
+              description: rejectionDescription,
+              evidence: evidencePreview
+            },
+            timestamp: new Date().toISOString()
+          }),
+        },
       });
-
-      if (qcErr) throw qcErr;
-
-      // Insert timeline tracking
-      await supabase.from('printstore_order_tracking').insert({
-        order_id: order.id,
-        status: 'reprint',
-        label: 'Quality Control Rejected',
-        description: `QC Failed: ${rejectionReason} (${rejectionSeverity} severity). Routed to reprint queue.`
+      await apiFetch(`/v1/printstore/orders/${encodeId}/tracking`, {
+        method: 'POST',
+        body: {
+          status: 'reprint',
+          label: 'Quality Control Rejected',
+          description: `QC Failed: ${rejectionReason} (${rejectionSeverity} severity). Routed to reprint queue.`,
+        },
       });
-
       await refreshOrders();
       navigate('/lab/quality-control');
     } catch (err) {

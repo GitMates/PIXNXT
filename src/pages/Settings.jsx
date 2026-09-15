@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import SidebarLayout from '../components/SidebarLayout';
 import { useAuth } from '../hooks/useAuth';
-import { supabase } from '../lib/supabase/client';
 import { galleryService } from '../services/gallery.service';
 import { clientGalleryEmailTemplatesService } from '../services/clientGalleryEmailTemplates.service';
 import {
@@ -116,12 +115,7 @@ const Settings = () => {
 
         (async () => {
             try {
-                const { data, error } = await supabase
-                    .from('photographers')
-                    .select('*')
-                    .eq('id', user.id)
-                    .single();
-                if (error) throw error;
+                const data = await galleryService.getOwnProfile();
                 if (cancelled || !data) return;
                 setProfile(data);
                 syncUploadDefaultsToLocalStorage(data);
@@ -159,11 +153,7 @@ const Settings = () => {
     const updateProfile = async (updates, options = {}) => {
         if (!user?.id) return;
         try {
-            const { error } = await supabase
-                .from('photographers')
-                .update(updates)
-                .eq('id', user.id);
-            if (error) throw error;
+            await galleryService.updatePhotographerProfile(user.id, updates);
             setProfile(prev => ({ ...prev, ...updates }));
             if (!options.silent) {
                 showToast('Preferences saved');
@@ -1113,19 +1103,8 @@ const PresetsTab = ({ profile }) => {
     const fetchPresets = useCallback(async () => {
         if (!profile?.id) return;
         try {
-            const { USE_WORKERS_AUTH } = await import('../lib/api/client');
-            if (USE_WORKERS_AUTH) {
-                const { listPresets } = await import('../services/workersGallery.service');
-                setPresets(await listPresets());
-                return;
-            }
-            const { data, error } = await supabase
-                .from('presets')
-                .select('*')
-                .eq('photographer_id', profile.id)
-                .order('created_at', { ascending: true });
-            if (error) throw error;
-            setPresets(data || []);
+            const { listPresets } = await import('../services/workersGallery.service');
+            setPresets(await listPresets());
         } catch (err) {
             console.error('Error loading presets:', err);
         } finally {
@@ -1141,53 +1120,23 @@ const PresetsTab = ({ profile }) => {
         e.preventDefault();
         if (!newPresetName.trim() || !profile?.id) return;
         try {
-            const { USE_WORKERS_AUTH } = await import('../lib/api/client');
-            if (USE_WORKERS_AUTH) {
-                const { createPreset } = await import('../services/workersGallery.service');
-                const created = await createPreset(newPresetName.trim(), {
-                    coverStyle: 'left',
-                    typography: 'sans',
-                    colorTheme: 'light',
-                    socialSharing: true,
-                    slideshow: true,
-                    photoDownload: true,
-                    favoritePhotos: true,
-                    storeStatus: true,
-                    isDefault: presets.length === 0,
-                });
-                if (created) {
-                    setPresets((prev) => [...prev, created]);
-                    setNewPresetName('');
-                    setShowAddForm(false);
-                    navigate(`/settings/presets/${created.id}`);
-                }
-                return;
-            }
-            const { data, error } = await supabase
-                .from('presets')
-                .insert({
-                    name: newPresetName.trim(),
-                    photographer_id: profile.id,
-                    settings: {
-                        coverStyle: 'left',
-                        typography: 'sans',
-                        colorTheme: 'light',
-                        socialSharing: true,
-                        slideshow: true,
-                        photoDownload: true,
-                        favoritePhotos: true,
-                        storeStatus: true,
-                        isDefault: presets.length === 0,
-                    },
-                })
-                .select()
-                .single();
-            if (error) throw error;
-            if (data) {
-                setPresets((prev) => [...prev, data]);
+            const { createPreset } = await import('../services/workersGallery.service');
+            const created = await createPreset(newPresetName.trim(), {
+                coverStyle: 'left',
+                typography: 'sans',
+                colorTheme: 'light',
+                socialSharing: true,
+                slideshow: true,
+                photoDownload: true,
+                favoritePhotos: true,
+                storeStatus: true,
+                isDefault: presets.length === 0,
+            });
+            if (created) {
+                setPresets((prev) => [...prev, created]);
                 setNewPresetName('');
                 setShowAddForm(false);
-                navigate(`/settings/presets/${data.id}`);
+                navigate(`/settings/presets/${created.id}`);
             }
         } catch (err) {
             console.error('Error adding preset:', err);
@@ -1198,15 +1147,8 @@ const PresetsTab = ({ profile }) => {
     const handleDeletePreset = async (id) => {
         if (!window.confirm('Are you sure you want to delete this template?')) return;
         try {
-            const { USE_WORKERS_AUTH } = await import('../lib/api/client');
-            if (USE_WORKERS_AUTH) {
-                const { deletePreset } = await import('../services/workersGallery.service');
-                await deletePreset(id);
-                setPresets((prev) => prev.filter((p) => p.id !== id));
-                return;
-            }
-            const { error } = await supabase.from('presets').delete().eq('id', id);
-            if (error) throw error;
+            const { deletePreset } = await import('../services/workersGallery.service');
+            await deletePreset(id);
             setPresets((prev) => prev.filter((p) => p.id !== id));
         } catch (err) {
             console.error('Error deleting preset:', err);

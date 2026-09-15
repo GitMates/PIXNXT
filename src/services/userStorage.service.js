@@ -1,60 +1,6 @@
-import { supabase } from '../lib/supabase/client';
-import { USE_WORKERS_AUTH } from '../lib/api/client';
-
 const inFlightByUser = new Map();
-const PAGE_SIZE = 1000;
 
 export const STORAGE_CHANGED_EVENT = 'pixnxt-storage-changed';
-
-async function sumColumnPaginated(table, photographerId, column) {
-  let total = 0;
-  let from = 0;
-
-  while (true) {
-    const { data, error } = await supabase
-      .from(table)
-      .select(column)
-      .eq('photographer_id', photographerId)
-      .range(from, from + PAGE_SIZE - 1);
-
-    if (error) throw error;
-
-    const batch = data || [];
-    for (const row of batch) {
-      total += Number(row[column]) || 0;
-    }
-
-    if (batch.length < PAGE_SIZE) break;
-    from += PAGE_SIZE;
-  }
-
-  return total;
-}
-
-async function trySumTableBytes(table, photographerId, column = 'size_bytes') {
-  try {
-    return await sumColumnPaginated(table, photographerId, column);
-  } catch {
-    return 0;
-  }
-}
-
-async function sumAlbumProoferBytes(photographerId) {
-  const fromRenamed = await trySumTableBytes('album_proofer_albums', photographerId, 'storage_bytes');
-  if (fromRenamed > 0) return fromRenamed;
-  return trySumTableBytes('smart_albums', photographerId, 'storage_bytes');
-}
-
-/** Client Gallery / Deliveries — maintained by DB trigger on public.photos. */
-async function fetchDeliveryPhotoBytes(photographerId) {
-  const { data, error } = await supabase
-    .from('photographers')
-    .select('storage_used_bytes')
-    .eq('id', photographerId)
-    .maybeSingle();
-  if (error) return 0;
-  return Number(data?.storage_used_bytes) || 0;
-}
 
 const GB = 1024 * 1024 * 1024;
 
@@ -95,11 +41,7 @@ function cacheStorageBytes(userId, bytes) {
 }
 
 /**
- * Studio storage footer across all PIXNXT products:
- * - Deliveries (public.photos → photographers.storage_used_bytes)
- * - Album Proofer (album_proofer_albums.storage_bytes)
- * - Guest Delivery standalone uploads (guest_delivery_photos.size_bytes)
- * - Mobile Gallery (mobile_gallery_photos.size_bytes)
+ * Studio storage footer across all PIXNXT products (Workers: GET /v1/me/storage).
  */
 export const userStorageService = {
   notifyStorageChanged() {
@@ -123,24 +65,9 @@ export const userStorageService = {
     if (existing) return existing;
 
     const run = (async () => {
-      if (USE_WORKERS_AUTH) {
-        const { apiFetch } = await import('../lib/api/client');
-        const data = await apiFetch('/v1/me/storage').catch(() => null);
-        const finalTotalBytes = Number(data?.totalBytes) || 0;
-        cacheStorageBytes(user.id, finalTotalBytes);
-        return finalTotalBytes;
-      }
-      const [deliveryBytes, albumProoferBytes, guestDeliveryBytes, mobileGalleryBytes] =
-        await Promise.all([
-          fetchDeliveryPhotoBytes(user.id),
-          sumAlbumProoferBytes(user.id),
-          trySumTableBytes('guest_delivery_photos', user.id, 'size_bytes'),
-          trySumTableBytes('mobile_gallery_photos', user.id, 'size_bytes'),
-        ]);
-
-      const finalTotalBytes =
-        deliveryBytes + albumProoferBytes + guestDeliveryBytes + mobileGalleryBytes;
-
+      const { apiFetch } = await import('../lib/api/client');
+      const data = await apiFetch('/v1/me/storage').catch(() => null);
+      const finalTotalBytes = Number(data?.totalBytes) || 0;
       cacheStorageBytes(user.id, finalTotalBytes);
       return finalTotalBytes;
     })().finally(() => {

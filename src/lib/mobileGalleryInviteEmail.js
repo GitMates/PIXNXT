@@ -1,6 +1,6 @@
 /**
  * Pixieset-style mobile gallery invite email markup.
- * Keep in sync with supabase/functions/send-mobile-gallery-invite/index.ts
+ * Keep in sync with the backend send-mobile-gallery-invite email handler.
  */
 
 function escapeHtml(text) {

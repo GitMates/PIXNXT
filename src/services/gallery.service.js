@@ -1,20 +1,8 @@
-import { supabase } from '../lib/supabase/client';
-import { USE_WORKERS_AUTH } from '../lib/api/client';
-/** Lazy so the Workers bundle stays code-split and Supabase default is untouched. */
+/** Lazy so the Workers bundle stays code-split. */
 const workersGallery = () => import('./workersGallery.service');
 
-/** Photo-row writes honoring the backend flag (snake_case in, row out). */
+/** Photo-row writes (Workers backend; snake_case in, row out). */
 async function dbInsertPhotoRow(row) {
-  if (!USE_WORKERS_AUTH) {
-    const { data, error } = await supabase.from('photos').insert([row]).select().single();
-    if (error) {
-      throw new Error(
-        [error.message, error.details, error.hint, error.code].filter(Boolean).join(' — ') ||
-          'Photo database insert failed'
-      );
-    }
-    return data;
-  }
   const { apiFetch } = await import('../lib/api/client');
   const data = await apiFetch(`/v1/galleries/${row.collection_id}/photos`, {
     method: 'POST',
@@ -45,34 +33,21 @@ async function dbInsertPhotoRow(row) {
   return data.photo;
 }
 
-/** Photo-row patch honoring the backend flag (throws with details). */
+/** Photo-row patch (Workers backend; throws with details). */
 async function dbUpdatePhotoRow(id, patch) {
-  if (!USE_WORKERS_AUTH) {
-    const { data, error } = await supabase.from('photos').update(patch).eq('id', id).select().single();
-    if (error) {
-      throw new Error(
-        [error.message, error.details, error.hint, error.code].filter(Boolean).join(' — ') ||
-          'Photo database update failed'
-      );
-    }
-    return data;
-  }
   const { apiFetch } = await import('../lib/api/client');
   const data = await apiFetch(`/v1/galleries/photos/${id}`, { method: 'PATCH', body: patch });
   if (!data?.photo) throw new Error('Photo database update failed');
   return data.photo;
 }
-import { customDomainLookupCandidates } from '../lib/customDomain';
 import { getImageDimensionsFast } from '../lib/imageDimensions';
 import { getFileMime, isVideoMime, getUploadMediaType } from '../lib/fileMime';
 import { compressImageForUpload, compressImageVariants } from '../lib/prepareUploadFile';
 import { isRawImageFile } from '../lib/rawImageFormats';
 import { extractRawPreviewBlob } from '../lib/rawImagePreview';
-import { hasRawDisplayPreview, isRawMedia, resolveMediaUrl, toWebDerivativeUrl } from '../lib/photoDisplayUrl';
-import { deliverySlugLookupVariants, generateCollectionSlug } from '../lib/collectionSlug';
+import { hasRawDisplayPreview, isRawMedia, resolveMediaUrl } from '../lib/photoDisplayUrl';
 import { DELIVERY_R2_MODULE } from '../lib/deliveryIds';
 import { getPhotographerR2Folder } from '../lib/photographerR2Folder';
-import { buildDeliveryStatusPatch, toDbDeliveryStatus } from '../lib/deliveryStatus';
 import {
   resolveUploadDefaults,
   webMaxEdgeForQuality,
@@ -84,133 +59,6 @@ import {
   isIncompleteUploadPhoto,
   resolveOriginalStoragePath,
 } from '../components/features/CollectionDashboard/Upload/uploadUtils';
-import {
-  appendCoverFocalsToCoverUrl,
-  appendFocalToCoverUrl,
-  focalsToDbPayload,
-  isMissingDbColumnError,
-  isNumericOverflowError,
-  normalizeFocalForDb,
-  normalizeFocalPercent,
-  stripMediaUrlHash,
-} from '../lib/focalPoint.js';
-
-function toggleDesignTokenSuffix(value) {
-  if (typeof value !== 'string' || !value) return null;
-  return value.endsWith('_1') ? value.slice(0, -2) : `${value}_1`;
-}
-
-function retryDesignTokenPayload(payload, error) {
-  const message = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`;
-  const next = { ...payload };
-  let changed = false;
-  for (const key of ['font_family', 'color_palette']) {
-    if (!(key in next)) continue;
-    const current = next[key];
-    if (!message.includes(key) && !message.includes(String(current))) continue;
-    const alt = toggleDesignTokenSuffix(current);
-    if (alt && alt !== current) {
-      next[key] = alt;
-      changed = true;
-    }
-  }
-  return changed ? next : null;
-}
-
-function omitFailedUpdateField(payload, error) {
-  const message = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`;
-  const keys = Object.keys(payload);
-  if (keys.length <= 1) return null;
-
-  const columnMatch =
-    message.match(/Could not find the '([^']+)' column/i) ||
-    message.match(/column "([^"]+)"/i);
-  if (columnMatch?.[1] && columnMatch[1] in payload) {
-    const next = { ...payload };
-    delete next[columnMatch[1]];
-    return next;
-  }
-
-  const enumMatch = message.match(/invalid input value for enum (\w+): "([^"]+)"/i);
-  if (enumMatch?.[1] && enumMatch[1] in payload) {
-    const next = { ...payload };
-    delete next[enumMatch[1]];
-    return next;
-  }
-
-  const checkMatch = message.match(/check constraint ["']?(\w+)["']?/i);
-  if (checkMatch?.[1]) {
-    const constraint = checkMatch[1];
-    const key = keys.find((k) => constraint.includes(k));
-    if (key) {
-      const next = { ...payload };
-      delete next[key];
-      return next;
-    }
-  }
-
-  return null;
-}
-
-const REMINDER_TABLES = ['delivery_reminders', 'collection_reminders'];
-
-const DEFAULT_REMINDER = {
-  timing: '7 days before auto expiry date',
-  subject: 'The gallery {delivery.name} is about to expire',
-  body: 'Hi,\n\nThe gallery {delivery.name} will expire in {days.prior} on {expiry.date}. You will no longer be able to access this gallery after the expiry date.\n\nIf you have any questions, please don\'t hesitate to get in touch!',
-  include_pin: false,
-  send_copy: true,
-  activity_lists: [],
-  whatsapp_enabled: true,
-  whatsapp_body: 'Hi, the gallery {delivery.name} is expiring on {expiry.date}. View it here: {delivery.url}',
-};
-
-function sanitizeReminderPayload(data) {
-  const payload = { ...data };
-  if (!payload.subject) payload.subject = DEFAULT_REMINDER.subject;
-  if (!payload.body) payload.body = DEFAULT_REMINDER.body;
-  if (!Array.isArray(payload.activity_lists)) payload.activity_lists = [];
-  if (payload.to_email == null) payload.to_email = '';
-  if (payload.include_pin == null) payload.include_pin = false;
-  if (payload.send_copy == null) payload.send_copy = true;
-  if (payload.whatsapp_enabled == null) payload.whatsapp_enabled = false;
-  if (payload.whatsapp_body == null) payload.whatsapp_body = DEFAULT_REMINDER.whatsapp_body;
-  if (payload.to_whatsapp == null) payload.to_whatsapp = '';
-  return payload;
-}
-
-function isMissingRelationError(error) {
-  const msg = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`.toLowerCase();
-  return (
-    error?.code === 'PGRST205' ||
-    error?.code === '42P01' ||
-    ((msg.includes('does not exist') || msg.includes('not find the table')) &&
-      (msg.includes('relation') || msg.includes('table')))
-  );
-}
-
-async function reminderQuery(run) {
-  let lastError = null;
-  for (const table of REMINDER_TABLES) {
-    const result = await run(table);
-    if (!result.error) return result;
-    lastError = result.error;
-    if (!isMissingRelationError(result.error)) break;
-  }
-  return { data: null, error: lastError };
-}
-
-async function reminderMutate(run, payload) {
-  let next = { ...payload };
-  for (let attempt = 0; attempt < 8; attempt += 1) {
-    const result = await reminderQuery((table) => run(table, next));
-    if (!result.error) return result;
-    const stripped = omitFailedUpdateField(next, result.error);
-    if (!stripped) return result;
-    next = stripped;
-  }
-  return reminderQuery((table) => run(table, next));
-}
 
 function getUploadVariantOptions() {
   const defaults = resolveUploadDefaults(null);
@@ -224,59 +72,6 @@ function getUploadVariantOptions() {
 function getOriginalUploadMaxEdge() {
   const defaults = resolveUploadDefaults(null);
   return uploadMaxEdgeForQuality(defaults.uploadQuality);
-}
-
-/** Columns needed for dashboard grid (avoids heavy nested * payload). */
-const DASHBOARD_PHOTO_FIELDS = `
-  id,
-  collection_id,
-  set_id,
-  filename,
-  thumbnail_url,
-  web_url,
-  full_url,
-  width,
-  height,
-  position,
-  media_type,
-  status,
-  is_starred,
-  is_private,
-  exif_taken_at,
-  original_storage_path,
-  web_storage_path,
-  thumbnail_storage_path,
-  size_bytes,
-  photographer_id,
-  created_at,
-  watermarked_url,
-  watermarked_storage_path
-`.replace(/\s+/g, '');
-
-const SELECTION_CARD_ASPECT = 16 / 10;
-
-/** Pick the landscape photo whose aspect ratio best matches the selection card (16:10). */
-function pickBestLandscapeCoverUrl(photos = []) {
-  const usable = photos.filter((p) => p?.url);
-  if (!usable.length) return null;
-
-  const withDims = usable.filter((p) => Number(p.width) > 0 && Number(p.height) > 0);
-  const landscapes = withDims.filter((p) => Number(p.width) >= Number(p.height));
-  const candidates = landscapes.length > 0 ? landscapes : withDims.length > 0 ? withDims : usable;
-
-  let best = candidates[0];
-  let bestScore = Infinity;
-  for (const photo of candidates) {
-    const w = Number(photo.width);
-    const h = Number(photo.height);
-    const aspect = w > 0 && h > 0 ? w / h : SELECTION_CARD_ASPECT;
-    const score = Math.abs(aspect - SELECTION_CARD_ASPECT);
-    if (score < bestScore) {
-      bestScore = score;
-      best = photo;
-    }
-  }
-  return best?.url || null;
 }
 
 const PHOTO_STORAGE_PATH_COLUMNS = [
@@ -303,23 +98,9 @@ async function getCollectionPathFolder(collectionId) {
   if (collectionPathNameCache.has(collectionId)) {
     return collectionPathNameCache.get(collectionId);
   }
-  if (USE_WORKERS_AUTH) {
-    try {
-      const gallery = await (await workersGallery()).getCollectionById(collectionId);
-      const folder = `${safePathSegment(gallery?.name, 'delivery')}__${collectionId}`;
-      collectionPathNameCache.set(collectionId, folder);
-      return folder;
-    } catch {
-      return `delivery__${collectionId}`;
-    }
-  }
   try {
-    const { data } = await supabase
-      .from('deliveries')
-      .select('id, name')
-      .eq('id', collectionId)
-      .maybeSingle();
-    const folder = `${safePathSegment(data?.name, 'delivery')}__${collectionId}`;
+    const gallery = await (await workersGallery()).getCollectionById(collectionId);
+    const folder = `${safePathSegment(gallery?.name, 'delivery')}__${collectionId}`;
     collectionPathNameCache.set(collectionId, folder);
     return folder;
   } catch {
@@ -339,32 +120,6 @@ function collectPhotoStoragePaths(photo) {
   return [...paths];
 }
 
-function storagePathFromPublicUrl(url) {
-  const base = String(import.meta.env.VITE_R2_PUBLIC_URL || '').replace(/\/+$/, '');
-  if (!url || !base || !String(url).startsWith(base)) return null;
-  const path = String(url).slice(base.length).replace(/^\//, '');
-  return path || null;
-}
-
-function collectDeliveryStoragePaths(collection) {
-  const paths = new Set((collection?.photos || []).flatMap(collectPhotoStoragePaths));
-  const coverPath = storagePathFromPublicUrl(collection?.cover_url);
-  if (coverPath) paths.add(coverPath);
-  return [...paths];
-}
-
-async function deleteDeliveryRow(id) {
-  const { error: deleteError } = await supabase.from('deliveries').delete().eq('id', id);
-  if (!deleteError) return;
-
-  const { data: rpcCount, error: rpcError } = await supabase.rpc('delete_delivery_owned', {
-    p_delivery_id: id,
-  });
-  if (!rpcError && Number(rpcCount) > 0) return;
-
-  throw deleteError || rpcError || new Error('Could not delete delivery.');
-}
-
 async function deleteStoragePaths(paths) {
   const unique = [...new Set(paths.filter(Boolean))];
   if (unique.length === 0) return;
@@ -372,25 +127,6 @@ async function deleteStoragePaths(paths) {
   for (let i = 0; i < unique.length; i += chunkSize) {
     await storageService.delete(unique.slice(i, i + chunkSize));
   }
-}
-
-const SUPABASE_PAGE_SIZE = 1000;
-
-async function fetchAllSupabaseRows(runPage) {
-  const rows = [];
-  let from = 0;
-
-  while (true) {
-    const to = from + SUPABASE_PAGE_SIZE - 1;
-    const { data, error } = await runPage(from, to);
-    if (error) throw error;
-    const batch = data || [];
-    rows.push(...batch);
-    if (batch.length < SUPABASE_PAGE_SIZE) break;
-    from += SUPABASE_PAGE_SIZE;
-  }
-
-  return rows;
 }
 
 /** Dashboard list row: storage totals + filenames for client-gallery search. */
@@ -415,215 +151,41 @@ export function mapCollectionDashboardRow(c) {
   };
 }
 
-/**
- * For list cards with no cover_url, attach the earliest photo's thumb URL
- * so the Client Gallery grid still shows an image.
- */
-async function attachMissingListCovers(collections) {
-  if (!Array.isArray(collections) || collections.length === 0) return collections;
-
-  const missing = collections.filter((c) => !c.cover_url && !c.cover && c.photo_count > 0);
-  if (missing.length === 0) return collections;
-
-  const pairs = await Promise.all(
-    missing.map(async (c) => {
-      const { data, error } = await supabase
-        .from('photos')
-        .select('thumbnail_url, web_url, full_url')
-        .eq('collection_id', c.id)
-        .order('created_at', { ascending: true })
-        .limit(1)
-        .maybeSingle();
-      if (error || !data) return [c.id, null];
-      const url = toWebDerivativeUrl(data.web_url || data.thumbnail_url || data.full_url || '');
-      return [c.id, url || null];
-    })
-  );
-
-  const firstByCollection = Object.fromEntries(pairs.filter(([, url]) => url));
-
-  return collections.map((c) => {
-    if (c.cover_url || c.cover) return c;
-    const fallback = firstByCollection[c.id];
-    if (!fallback) return c;
-    return { ...c, list_cover_url: fallback };
-  });
-}
-
 export const galleryService = {
   /**
    * Fetch all collections for a specific photographer (Dashboard view)
    */
   async getCollections(photographerId) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).getCollections(photographerId);
-    const { data, error } = await supabase
-      .from('deliveries')
-      .select(`
-        *,
-        photos:photos!photos_collection_id_fkey(size_bytes, filename)
-      `)
-      .eq('photographer_id', photographerId)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    const mapped = data ? data.map(mapCollectionDashboardRow) : [];
-    return attachMissingListCovers(mapped);
+    return (await workersGallery()).getCollections(photographerId);
   },
 
   /**
    * Attention + earnings for the Deliveries board (submitted lists, stuck orders, store totals).
    */
   async getDeliveryBoardExtras(collectionIds) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).getDeliveryBoardExtras(collectionIds);
-    const ids = [...new Set((collectionIds || []).filter(Boolean))];
-    const empty = { submittedIds: new Set(), stuckIds: new Set(), earningsById: {} };
-    if (!ids.length) return empty;
-
-    const [listsRes, ordersRes] = await Promise.all([
-      supabase
-        .from('favorite_lists')
-        .select('collection_id, submitted_at')
-        .in('collection_id', ids),
-      supabase
-        .from('printstore_orders')
-        .select('collection_id, status, total_amount, created_at')
-        .in('collection_id', ids),
-    ]);
-
-    const submittedIds = new Set(
-      (listsRes.data || [])
-        .filter((row) => row.submitted_at)
-        .map((row) => row.collection_id)
-    );
-
-    const stuckIds = new Set();
-    const earningsById = {};
-    const threeDaysAgo = Date.now() - 3 * 86400000;
-    for (const row of ordersRes.data || []) {
-      const id = row.collection_id;
-      if (!id) continue;
-      const amount = Number(row.total_amount) || 0;
-      if (amount > 0 && row.status !== 'cancelled') {
-        earningsById[id] = (earningsById[id] || 0) + amount;
-      }
-      const status = String(row.status || '').toLowerCase();
-      const created = row.created_at ? new Date(row.created_at).getTime() : 0;
-      if (status === 'reprint' || (status === 'pending' && created && created < threeDaysAgo)) {
-        stuckIds.add(id);
-      }
-    }
-
-    return { submittedIds, stuckIds, earningsById };
+    return (await workersGallery()).getDeliveryBoardExtras(collectionIds);
   },
 
   /** Starred collections for the dashboard Starred page. */
   async getStarredCollections(photographerId) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).getStarredCollections(photographerId);
-    if (!photographerId) return [];
-    const { data, error } = await supabase
-      .from('deliveries')
-      .select(`
-        *,
-        photos:photos!photos_collection_id_fkey(size_bytes, filename)
-      `)
-      .eq('photographer_id', photographerId)
-      .eq('is_starred', true)
-      .order('updated_at', { ascending: false });
-
-    if (error) throw error;
-    return attachMissingListCovers((data || []).map(mapCollectionDashboardRow));
+    return (await workersGallery()).getStarredCollections(photographerId);
   },
 
   /** Starred photos across all deliveries for the dashboard Starred → Photos tab. */
-  async getStarredPhotos(photographerId) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).getStarredPhotos();
-    if (!photographerId) return [];
-    const { data, error } = await supabase
-      .from('photos')
-      .select(`
-        ${DASHBOARD_PHOTO_FIELDS},
-        collection:deliveries!photos_collection_id_fkey(id, name, slug)
-      `)
-      .eq('photographer_id', photographerId)
-      .eq('is_starred', true)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return (data || []).map((row) => {
-      const collection = Array.isArray(row.collection) ? row.collection[0] : row.collection;
-      return { ...row, collection: collection || null };
-    });
+  async getStarredPhotos() {
+    return (await workersGallery()).getStarredPhotos();
   },
 
   /** Every client-gallery photo for the photographer Photo Library. */
-  async getLibraryPhotos(photographerId) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).getLibraryPhotos();
-    if (!photographerId) return [];
-    const rows = await fetchAllSupabaseRows((from, to) =>
-      supabase
-        .from('photos')
-        .select(`
-          ${DASHBOARD_PHOTO_FIELDS},
-          collection:deliveries!photos_collection_id_fkey(id, name, slug, guest_delivery_enabled)
-        `)
-        .eq('photographer_id', photographerId)
-        .order('created_at', { ascending: false })
-        .range(from, to)
-    );
-
-    return rows.map((row) => {
-      const collection = Array.isArray(row.collection) ? row.collection[0] : row.collection;
-      return { ...row, collection: collection || null, source: 'delivery' };
-    });
+  async getLibraryPhotos() {
+    return (await workersGallery()).getLibraryPhotos();
   },
 
   /**
    * Folders for the move-collection picker, with cover from folder or first collection inside.
    */
-  async getFoldersForMove(photographerId) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).getFoldersForMove();
-    if (!photographerId) return [];
-
-    const { data: folders, error: folderError } = await supabase
-      .from('folders')
-      .select('id, name, cover_url, position, created_at')
-      .eq('photographer_id', photographerId)
-      .order('position', { ascending: true })
-      .order('created_at', { ascending: true });
-
-    if (folderError) throw folderError;
-
-    const { data: collections, error: collectionError } = await supabase
-      .from('deliveries')
-      .select('folder_id, cover_url, created_at')
-      .eq('photographer_id', photographerId)
-      .not('folder_id', 'is', null)
-      .order('created_at', { ascending: true });
-
-    if (collectionError) throw collectionError;
-
-    const coversByFolder = {};
-    const sorted = [...(collections || [])].sort(
-      (a, b) => new Date(b.created_at) - new Date(a.created_at)
-    );
-    for (const row of sorted) {
-      if (!row.folder_id || !row.cover_url) continue;
-      if (!coversByFolder[row.folder_id]) coversByFolder[row.folder_id] = [];
-      if (coversByFolder[row.folder_id].length < 4) coversByFolder[row.folder_id].push(row.cover_url);
-    }
-
-    return (folders || []).map((folder) => {
-      const childCovers = coversByFolder[folder.id] || [];
-      const preview_urls = folder.cover_url
-        ? [folder.cover_url, ...childCovers.filter((u) => u !== folder.cover_url)].slice(0, 4)
-        : childCovers.slice(0, 4);
-      return {
-        id: folder.id,
-        name: folder.name,
-        cover_url: folder.cover_url || childCovers[0] || null,
-        preview_urls,
-      };
-    });
+  async getFoldersForMove() {
+    return (await workersGallery()).getFoldersForMove();
   },
 
   /**
@@ -631,518 +193,73 @@ export const galleryService = {
    * @param {string | { name: string; eventDate?: string | null; showOnShowcase?: boolean; passwordEnabled?: boolean; password?: string | null }} nameOrOptions
    */
   async createFolder(photographerId, nameOrOptions) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).createFolder(photographerId, nameOrOptions);
-    const options =
-      typeof nameOrOptions === 'string' ? { name: nameOrOptions } : nameOrOptions ?? {};
-    const name = options.name?.trim();
-
-    if (!photographerId || !name) {
-      throw new Error('Folder name is required.');
-    }
-
-    const baseSlug = generateCollectionSlug(name);
-    const slug = `${baseSlug}-${Date.now().toString(36).slice(2, 8)}`;
-
-    const { data: existing } = await supabase
-      .from('folders')
-      .select('position')
-      .eq('photographer_id', photographerId)
-      .order('position', { ascending: false })
-      .limit(1);
-
-    const position = (existing?.[0]?.position ?? -1) + 1;
-    const passwordEnabled = !!options.passwordEnabled;
-    const password = options.password?.trim();
-
-    const { data, error } = await supabase
-      .from('folders')
-      .insert({
-        photographer_id: photographerId,
-        name,
-        slug,
-        position,
-        show_on_showcase: options.showOnShowcase !== false,
-        event_date: options.eventDate || null,
-        guest_password_hash: passwordEnabled && password ? password : null,
-      })
-      .select('id, name, cover_url, event_date, show_on_showcase')
-      .single();
-
-    if (error) throw error;
-    return data;
+    return (await workersGallery()).createFolder(photographerId, nameOrOptions);
   },
 
   async moveCollectionToFolder(collectionId, folderId) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).moveCollectionToFolder(collectionId, folderId);
-    if (!collectionId) {
-      throw new Error('Delivery is required.');
-    }
-
-    const { data, error } = await supabase
-      .from('deliveries')
-      .update({ folder_id: folderId ?? null })
-      .eq('id', collectionId)
-      .select('id, folder_id')
-      .single();
-
-    if (error) throw error;
-    return data;
+    return (await workersGallery()).moveCollectionToFolder(collectionId, folderId);
   },
 
   /**
    * Folders for the client gallery grid (with collection counts).
    */
   async listFoldersForGallery(photographerId) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).listFoldersForGallery(photographerId);
-    if (!photographerId) return [];
-
-    const { data: folders, error } = await supabase
-      .from('folders')
-      .select('id, name, slug, cover_url, position, created_at, event_date, show_on_showcase')
-      .eq('photographer_id', photographerId)
-      .order('position', { ascending: true })
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-
-    const collections = await this.getCollections(photographerId);
-    const countBy = {};
-    const coversByFolder = {};
-    const inFolder = [...collections]
-      .filter((c) => c.folder_id)
-      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-
-    for (const c of inFolder) {
-      if (!c.folder_id) continue;
-      countBy[c.folder_id] = (countBy[c.folder_id] || 0) + 1;
-      const thumb = c.cover_url || c.cover || c.list_cover_url;
-      if (!thumb) continue;
-      if (!coversByFolder[c.folder_id]) coversByFolder[c.folder_id] = [];
-      if (coversByFolder[c.folder_id].length < 4) coversByFolder[c.folder_id].push(thumb);
-    }
-
-    return (folders || []).map((f) => {
-      const childCovers = coversByFolder[f.id] || [];
-      const preview_urls = f.cover_url
-        ? [f.cover_url, ...childCovers.filter((u) => u !== f.cover_url)].slice(0, 4)
-        : childCovers.slice(0, 4);
-      return {
-        ...f,
-        collection_count: countBy[f.id] || 0,
-        preview_urls,
-        cover_url: f.cover_url || childCovers[0] || null,
-      };
-    });
+    return (await workersGallery()).listFoldersForGallery(photographerId);
   },
 
-  async getFolderById(folderId, photographerId) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).getFolderById(folderId);
-    if (!folderId || !photographerId) return null;
-    const { data, error } = await supabase
-      .from('folders')
-      .select('*')
-      .eq('id', folderId)
-      .eq('photographer_id', photographerId)
-      .single();
-
-    if (error) {
-      if (error.code === 'PGRST116') return null;
-      throw error;
-    }
-    return data;
+  async getFolderById(folderId) {
+    return (await workersGallery()).getFolderById(folderId);
   },
 
   /** Collections inside a folder (same shape as getCollections rows). */
   async getCollectionsForFolder(photographerId, folderId) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).getCollectionsForFolder(photographerId, folderId);
-    if (!photographerId || !folderId) return [];
-
-    const { data, error } = await supabase
-      .from('deliveries')
-      .select(`
-        *,
-        photos:photos!photos_collection_id_fkey(size_bytes, filename)
-      `)
-      .eq('photographer_id', photographerId)
-      .eq('folder_id', folderId)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-
-    return attachMissingListCovers((data || []).map(mapCollectionDashboardRow));
+    return (await workersGallery()).getCollectionsForFolder(photographerId, folderId);
   },
 
   async updateFolder(folderId, photographerId, updates) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).updateFolder(folderId, photographerId, updates);
-    if (!folderId || !photographerId) {
-      throw new Error('Folder and photographer are required.');
-    }
-
-    const patch = {};
-    if (updates.name !== undefined) patch.name = String(updates.name).trim();
-    if (updates.event_date !== undefined) patch.event_date = updates.event_date || null;
-    if (updates.show_on_showcase !== undefined) patch.show_on_showcase = !!updates.show_on_showcase;
-    if (updates.cover_url !== undefined) patch.cover_url = updates.cover_url;
-    if (updates.guest_password_hash !== undefined) patch.guest_password_hash = updates.guest_password_hash;
-
-    if (Object.keys(patch).length === 0) {
-      return this.getFolderById(folderId, photographerId);
-    }
-
-    const { data, error } = await supabase
-      .from('folders')
-      .update(patch)
-      .eq('id', folderId)
-      .eq('photographer_id', photographerId)
-      .select('*')
-      .single();
-
-    if (error) throw error;
-    return data;
+    return (await workersGallery()).updateFolder(folderId, photographerId, updates);
   },
 
-  async deleteFolder(folderId, photographerId) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).deleteFolder(folderId);
-    if (!folderId || !photographerId) {
-      throw new Error('Folder is required.');
-    }
-    const { error } = await supabase
-      .from('folders')
-      .delete()
-      .eq('id', folderId)
-      .eq('photographer_id', photographerId);
-
-    if (error) throw error;
+  async deleteFolder(folderId) {
+    return (await workersGallery()).deleteFolder(folderId);
   },
 
   /**
    * Fetch all published collections for a specific photographer (Public view)
    */
   async getPublicCollections(photographerId) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).getPublicCollections(photographerId);
-    const { data, error } = await supabase
-      .from('deliveries')
-      .select(`
-        *,
-        photos:photos!photos_collection_id_fkey(count)
-      `)
-      .eq('photographer_id', photographerId)
-      .eq('status', 'published')
-      .neq('show_on_showcase', false)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    const mapped = (data || []).map((c) => ({
-      ...c,
-      photo_count: c.photos?.[0]?.count || 0,
-    }));
-    return attachMissingListCovers(mapped);
+    return (await workersGallery()).getPublicCollections(photographerId);
   },
 
   /** Public Showcase enquiry form submission */
   async submitShowcaseEnquiry({ photographerId, name, email, message }) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).submitShowcaseEnquiry({ photographerId, name, email, message });
-    if (!photographerId) throw new Error('Photographer is required.');
-    const trimmedName = String(name || '').trim();
-    const trimmedEmail = String(email || '').trim();
-    const trimmedMessage = String(message || '').trim();
-    if (!trimmedName || !trimmedEmail || !trimmedMessage) {
-      throw new Error('Name, email, and message are required.');
-    }
-
-    const { data, error } = await supabase
-      .from('showcase_enquiries')
-      .insert({
-        photographer_id: photographerId,
-        sender_name: trimmedName,
-        sender_email: trimmedEmail,
-        message: trimmedMessage,
-      })
-      .select('id, created_at')
-      .single();
-
-    if (error) throw error;
-    return data;
+    return (await workersGallery()).submitShowcaseEnquiry({ photographerId, name, email, message });
   },
 
   /** Studio inbox: recent Showcase enquiries */
   async getShowcaseEnquiries(photographerId, limit = 20) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).getShowcaseEnquiries(photographerId, limit);
-    if (!photographerId) return [];
-    const { data, error } = await supabase
-      .from('showcase_enquiries')
-      .select('id, sender_name, sender_email, message, created_at, read_at')
-      .eq('photographer_id', photographerId)
-      .order('created_at', { ascending: false })
-      .limit(limit);
-
-    if (error) {
-      if (error.code === '42P01') return [];
-      throw error;
-    }
-    return data || [];
+    return (await workersGallery()).getShowcaseEnquiries(photographerId, limit);
   },
 
   /**
    * Create a new delivery
    */
   async createCollection(collectionData) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).createCollection(collectionData);
-    if (collectionData.photographer_id) {
-      try {
-        const { data: existingPhotographer } = await supabase
-          .from('photographers')
-          .select('id')
-          .eq('id', collectionData.photographer_id)
-          .maybeSingle();
-
-        if (!existingPhotographer) {
-          const { data: { user } } = await supabase.auth.getUser();
-          const email = user?.email || 'photographer@pixnxt.in';
-          const name = user?.user_metadata?.display_name || user?.user_metadata?.full_name || email.split('@')[0] || 'Photographer';
-          await supabase
-            .from('photographers')
-            .insert([{
-              id: collectionData.photographer_id,
-              email: email,
-              display_name: name
-            }]);
-        }
-      } catch (err) {
-        console.error('Error ensuring photographer profile exists:', err);
-      }
-    }
-
-    let finalCollectionData = { ...collectionData };
-    if (typeof window !== 'undefined') {
-      const storedEnabled = localStorage.getItem('pixnxt_global_digital_enabled');
-      const storedSingle = localStorage.getItem('pixnxt_global_digital_price_single');
-      const storedAll = localStorage.getItem('pixnxt_global_digital_price_all');
-
-      if (storedEnabled !== null) {
-        finalCollectionData.digital_download_enabled = storedEnabled === 'true';
-      }
-      if (storedSingle !== null) {
-        finalCollectionData.digital_download_price_single = parseInt(storedSingle);
-      }
-      if (storedAll !== null) {
-        finalCollectionData.digital_download_price_all = parseInt(storedAll);
-      }
-
-      // Vault settings
-      const storedVaultEnabled = localStorage.getItem('pixnxt_global_vault_enabled');
-      const storedVault1Month = localStorage.getItem('pixnxt_global_vault_price_1month');
-      const storedVault1Year = localStorage.getItem('pixnxt_global_vault_price_1year');
-      const storedVaultLifetime = localStorage.getItem('pixnxt_global_vault_price_lifetime');
-      const storedVaultDesc1Month = localStorage.getItem('pixnxt_global_vault_desc_1month');
-      const storedVaultDesc1Year = localStorage.getItem('pixnxt_global_vault_desc_1year');
-      const storedVaultDescLifetime = localStorage.getItem('pixnxt_global_vault_desc_lifetime');
-
-      const vaultSettings = {};
-      if (storedVaultEnabled !== null) {
-        vaultSettings.vault_enabled = storedVaultEnabled === 'true';
-      }
-      if (storedVault1Month !== null) {
-        vaultSettings.price_1month = parseInt(storedVault1Month);
-      }
-      if (storedVault1Year !== null) {
-        vaultSettings.price_1year = parseInt(storedVault1Year);
-      }
-      if (storedVaultLifetime !== null) {
-        vaultSettings.price_lifetime = parseInt(storedVaultLifetime);
-      }
-      if (storedVaultDesc1Month) {
-        vaultSettings.desc_1month = storedVaultDesc1Month;
-      }
-      if (storedVaultDesc1Year) {
-        vaultSettings.desc_1year = storedVaultDesc1Year;
-      }
-      if (storedVaultDescLifetime) {
-        vaultSettings.desc_lifetime = storedVaultDescLifetime;
-      }
-
-      // Store in memory to insert post collection creation
-      finalCollectionData._vaultSettings = vaultSettings;
-    }
-
-    // Strip temp field before insert
-    const { _vaultSettings, ...insertPayload } = finalCollectionData;
-
-    if (insertPayload.photographer_id) {
-      await photographerQuotaService.assertCreationDeliveryQuota(insertPayload.photographer_id, 1);
-    }
-
-    const { data, error } = await supabase
-      .from('deliveries')
-      .insert([insertPayload])
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    if (data?.photographer_id) {
-      photographerQuotaService.invalidate(data.photographer_id);
-      photographerQuotaService.notifyQuotaChanged();
-    }
-
-    // Create the vault extension plans record
-    if (data?.id && _vaultSettings) {
-      try {
-        await supabase
-          .from('vault_extension_plans')
-          .insert([{
-            collection_id: data.id,
-            ..._vaultSettings
-          }]);
-      } catch (err) {
-        console.error('Failed to auto-create vault settings record:', err);
-      }
-    }
-
-    return data;
+    return (await workersGallery()).createCollection(collectionData);
   },
 
   /**
    * Duplicate a collection: copies metadata, sets, and all media (photos + videos, same storage URLs).
    */
   async duplicateCollection(sourceCollectionId, photographerId) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).duplicateCollection(sourceCollectionId, photographerId);
-    if (!sourceCollectionId || !photographerId) {
-      throw new Error('Delivery and photographer are required to duplicate.');
-    }
-
-    const source = await this.getCollectionById(sourceCollectionId);
-
-    const newCollection = await this.createCollection({
-      photographer_id: photographerId,
-      folder_id: source.folder_id ?? null,
-      name: `${source.name} (Copy)`,
-      slug: `${generateCollectionSlug(source.name)}-copy-${Date.now().toString(36)}`,
-      event_date: source.event_date ?? null,
-      status: 'draft',
-      description: source.description ?? null,
-      category_tags: source.category_tags ?? [],
-      font_family: source.font_family ?? 'sans_1',
-      color_palette: source.color_palette ?? 'light_1',
-      grid_style: source.grid_style ?? 'vertical',
-      thumbnail_size: source.thumbnail_size ?? 'regular',
-      grid_spacing: source.grid_spacing ?? 'regular',
-      nav_style: source.nav_style ?? 'icons',
-      privacy: source.privacy ?? 'public',
-      cover_style: source.cover_style ?? 'photo',
-      cover_url: source.cover_url ?? null,
-      cover_focal_x: source.cover_focal_x ?? null,
-      cover_focal_y: source.cover_focal_y ?? null,
-      cover_focals: source.cover_focals ?? null,
-      download_pin_hash: source.download_pin_hash ?? null,
-      downloads_enabled: source.downloads_enabled,
-      download_resolutions: source.download_resolutions,
-      download_limit_gallery: source.download_limit_gallery ?? null,
-      download_limit_contact: source.download_limit_contact ?? null,
-      email_capture_enabled: source.email_capture_enabled,
-      social_sharing_enabled: source.social_sharing_enabled,
-      watermark_enabled: source.watermark_enabled,
-      favorites_enabled: source.favorites_enabled,
-      favorites_allow_comments: source.favorites_allow_comments,
-      max_favorites: source.max_favorites ?? null,
-      gallery_photo_sort: source.gallery_photo_sort ?? null,
-      show_filenames: source.show_filenames,
-      show_on_showcase: source.show_on_showcase,
-      client_exclusive_enabled: source.client_exclusive_enabled,
-      allow_clients_mark_private: source.allow_clients_mark_private,
-      client_only_highlights: source.client_only_highlights,
-    });
-
-    const setIdMap = new Map();
-    const sourceSets = [...(source.sets || [])].sort((a, b) => (a.position || 0) - (b.position || 0));
-    for (const set of sourceSets) {
-      const created = await this.createSet({
-        collectionId: newCollection.id,
-        photographerId,
-        name: set.name,
-        description: set.description ?? '',
-        position: set.position ?? 0,
-      });
-      setIdMap.set(set.id, created.id);
-    }
-
-    const sourcePhotos = [...(source.photos || [])].sort(
-      (a, b) => (a.position || 0) - (b.position || 0)
-    );
-
-    if (sourcePhotos.length > 0) {
-      const rows = sourcePhotos.map((p, index) => ({
-        collection_id: newCollection.id,
-        photographer_id: photographerId,
-        set_id: p.set_id ? setIdMap.get(p.set_id) ?? null : null,
-        filename: p.filename,
-        full_url: p.full_url,
-        web_url: p.web_url,
-        thumbnail_url: p.thumbnail_url,
-        original_storage_path: p.original_storage_path,
-        size_bytes: p.size_bytes,
-        width: p.width,
-        height: p.height,
-        media_type: p.media_type ?? 'image',
-        position: p.position ?? index,
-        status: p.status ?? 'ready',
-        is_starred: p.is_starred ?? false,
-        exif_taken_at: p.exif_taken_at ?? null,
-        is_private: p.is_private ?? false,
-      }));
-
-      const { data: insertedPhotos, error: photoError } = await supabase
-        .from('photos')
-        .insert(rows)
-        .select('id');
-
-      if (photoError) throw photoError;
-
-      if (source.cover_photo_id && insertedPhotos?.length) {
-        const coverIndex = sourcePhotos.findIndex((p) => p.id === source.cover_photo_id);
-        if (coverIndex >= 0 && insertedPhotos[coverIndex]?.id) {
-          await this.updateCollection(newCollection.id, {
-            cover_photo_id: insertedPhotos[coverIndex].id,
-          });
-          newCollection.cover_photo_id = insertedPhotos[coverIndex].id;
-        }
-      }
-    }
-
-    return newCollection;
+    return (await workersGallery()).duplicateCollection(sourceCollectionId, photographerId);
   },
 
   /**
    * Save cover focal point. Uses cover_focal_x/y when present; falls back to #focal= on cover_url.
    */
   async saveCollectionFocalPoint(collectionId, coverUrl, focalX, focalY) {
-    const fx = normalizeFocalForDb(focalX);
-    const fy = normalizeFocalForDb(focalY);
-    const newCoverUrl = appendFocalToCoverUrl(coverUrl, fx, fy);
-
-    const fullPatch = {
-      cover_url: newCoverUrl,
-      cover_focal_x: fx,
-      cover_focal_y: fy,
-    };
-
-    try {
-      return await this.updateCollection(collectionId, fullPatch);
-    } catch (err) {
-      if (isMissingDbColumnError(err, 'cover_focal')) {
-        console.warn(
-          'cover_focal_x/y columns missing — saving focal in cover_url only. Run migration 20260521140000_collections_cover_focal.sql'
-        );
-        return await this.updateCollection(collectionId, { cover_url: newCoverUrl });
-      }
-      if (isNumericOverflowError(err)) {
-        console.warn(
-          'cover_focal_x/y numeric overflow — saving focal in cover_url only. Run migration 20260824140000_deliveries_cover_focal_fix_type.sql'
-        );
-        return await this.updateCollection(collectionId, { cover_url: newCoverUrl });
-      }
-      throw err;
-    }
+    return (await workersGallery()).saveCollectionFocalPoint(collectionId, coverUrl, focalX, focalY);
   },
 
   /**
@@ -1150,38 +267,7 @@ export const galleryService = {
    * cover_focal_x/y stay in sync with the website point for older readers.
    */
   async saveCollectionCoverFocals(collectionId, coverUrl, focals, extra = {}) {
-    const payload = focalsToDbPayload(focals);
-    const primary = payload.desktop || payload.website || { x: 50, y: 50 };
-    const cleanUrl = stripMediaUrlHash(coverUrl);
-    const hashedUrl = appendCoverFocalsToCoverUrl(cleanUrl, payload);
-    const fullPatch = {
-      ...extra,
-      cover_url: cleanUrl,
-      cover_focal_x: primary.x,
-      cover_focal_y: primary.y,
-      cover_focals: payload,
-    };
-
-    try {
-      return await this.updateCollection(collectionId, fullPatch);
-    } catch (err) {
-      if (isMissingDbColumnError(err, 'cover_focals')) {
-        console.warn(
-          'cover_focals column missing — saving focals on cover_url. Run migration 20260816150000_cover_focals.sql'
-        );
-        const { cover_focals: _ignored, ...withoutJson } = { ...fullPatch, cover_url: hashedUrl };
-        try {
-          return await this.updateCollection(collectionId, withoutJson);
-        } catch (inner) {
-          void inner;
-          return this.saveCollectionFocalPoint(collectionId, cleanUrl, primary.x, primary.y);
-        }
-      }
-      if (isMissingDbColumnError(err, 'cover_focal') || isNumericOverflowError(err)) {
-        return this.saveCollectionFocalPoint(collectionId, cleanUrl, primary.x, primary.y);
-      }
-      throw err;
-    }
+    return (await workersGallery()).saveCollectionCoverFocals(collectionId, coverUrl, focals, extra);
   },
 
   /**
@@ -1193,181 +279,36 @@ export const galleryService = {
    * cannot block the rest of a design autosave.
    */
   async updateCollection(id, updateData) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).updateCollection(id, updateData);
-    let payload = { ...updateData };
-    if (payload.cover_focal_x != null) payload.cover_focal_x = normalizeFocalForDb(payload.cover_focal_x);
-    if (payload.cover_focal_y != null) payload.cover_focal_y = normalizeFocalForDb(payload.cover_focal_y);
-    let lastError = null;
-    const triedTokens = new Set();
-
-    for (let attempt = 0; attempt < 10; attempt += 1) {
-      const { data, error } = await supabase
-        .from('deliveries')
-        .update(payload)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (!error) return data;
-      lastError = error;
-
-      if (isNumericOverflowError(error) && ('cover_focal_x' in payload || 'cover_focal_y' in payload)) {
-        const fx = payload.cover_focal_x;
-        const fy = payload.cover_focal_y;
-        const asInt = {
-          ...payload,
-          cover_focal_x: fx == null ? fx : Math.min(99, Math.max(0, Math.round(Number(fx)))),
-          cover_focal_y: fy == null ? fy : Math.min(99, Math.max(0, Math.round(Number(fy)))),
-        };
-        if (asInt.cover_focal_x !== payload.cover_focal_x || asInt.cover_focal_y !== payload.cover_focal_y) {
-          payload = asInt;
-          continue;
-        }
-        const stripped = { ...payload };
-        delete stripped.cover_focal_x;
-        delete stripped.cover_focal_y;
-        payload = stripped;
-        continue;
-      }
-
-      const tokenSig = `${payload.font_family}|${payload.color_palette}`;
-      triedTokens.add(tokenSig);
-      const tokenRetry = retryDesignTokenPayload(payload, error);
-      if (tokenRetry) {
-        const nextSig = `${tokenRetry.font_family}|${tokenRetry.color_palette}`;
-        if (!triedTokens.has(nextSig)) {
-          payload = tokenRetry;
-          continue;
-        }
-      }
-
-      const next = omitFailedUpdateField(payload, error);
-      if (!next) break;
-      if ('status' in payload && !('status' in next)) break;
-      payload = next;
-    }
-
-    throw lastError;
+    return (await workersGallery()).updateCollection(id, updateData);
   },
 
   /**
    * Persist delivery visibility (`draft` | `published` | `archived` / Hidden).
    * Never drops `status` on retry — design autosave stripping must not apply here.
    */
-  async updateCollectionStatus(id, status, collection) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).updateCollectionStatus(id, status);
-    const payload = buildDeliveryStatusPatch(status, collection);
-    payload.status = toDbDeliveryStatus(payload.status);
-
-    let next = { ...payload };
-    let lastError = null;
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      const { data, error } = await supabase
-        .from('deliveries')
-        .update(next)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (!error) return data;
-      lastError = error;
-
-      const message = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`;
-      if (next.published_at && /published_at/i.test(message)) {
-        const stripped = { ...next };
-        delete stripped.published_at;
-        next = stripped;
-        continue;
-      }
-      break;
-    }
-
-    throw lastError;
+  async updateCollectionStatus(id, status) {
+    return (await workersGallery()).updateCollectionStatus(id, status);
   },
 
   /**
    * Delete a collection and all associated files
    */
   async deleteCollection(id) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).deleteCollection(id);
-    const { data: collection, error: fetchError } = await supabase
-      .from('deliveries')
-      .select(
-        `photographer_id, cover_url, photos:photos!photos_collection_id_fkey(${PHOTO_STORAGE_PATH_COLUMNS.join(', ')})`
-      )
-      .eq('id', id)
-      .single();
-
-    if (fetchError) throw fetchError;
-
-    const storagePaths = collectDeliveryStoragePaths(collection);
-
-    // Remove DB row first so the dashboard updates even if R2 cleanup is slow or fails.
-    await deleteDeliveryRow(id);
-
-    try {
-      await deleteStoragePaths(storagePaths);
-    } catch (storageError) {
-      console.warn('R2 cleanup after delivery delete:', storageError);
-    }
-
-    photographerQuotaService.notifyQuotaChanged();
+    return (await workersGallery()).deleteCollection(id);
   },
 
   /**
    * Fetch collection + sets + photos for the manage dashboard (parallel, slim photo fields).
    */
   async getCollectionDashboardData(id) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).getCollectionDashboardData(id);
-    const [collectionRes, photosRes] = await Promise.all([
-      supabase
-        .from('deliveries')
-        .select(`*, sets!sets_collection_id_fkey (*)`)
-        .eq('id', id)
-        .single(),
-      supabase
-        .from('photos')
-        .select(DASHBOARD_PHOTO_FIELDS)
-        .eq('collection_id', id)
-        .order('position', { ascending: true }),
-    ]);
-
-    if (collectionRes.error) throw collectionRes.error;
-    if (photosRes.error) throw photosRes.error;
-
-    const data = collectionRes.data;
-    if (data.sets) {
-      data.sets.sort((a, b) => (a.position || 0) - (b.position || 0));
-    }
-    data.photos = photosRes.data || [];
-    return data;
+    return (await workersGallery()).getCollectionDashboardData(id);
   },
 
   /**
    * Fetch a single collection by ID (for management) — includes sets and photos
    */
   async getCollectionById(id) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).getCollectionById(id);
-    const { data, error } = await supabase
-      .from('deliveries')
-      .select(`
-        *,
-        photos!photos_collection_id_fkey (${DASHBOARD_PHOTO_FIELDS}),
-        sets!sets_collection_id_fkey (*)
-      `)
-      .eq('id', id)
-      .single();
-
-    if (error) throw error;
-
-    if (data.sets) {
-      data.sets.sort((a, b) => (a.position || 0) - (b.position || 0));
-    }
-    if (data.photos) {
-      data.photos.sort((a, b) => (a.position || 0) - (b.position || 0));
-    }
-
-    return data;
+    return (await workersGallery()).getCollectionById(id);
   },
 
   /**
@@ -1376,166 +317,7 @@ export const galleryService = {
    * regardless of publish status or slug autosave lag.
    */
   async getCollectionBySlug(slug, options = {}) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).getCollectionBySlug(slug, options);
-    const normalized = decodeURIComponent(String(slug || '').trim());
-    const studioCollectionId = options.collectionId || null;
-    if (!normalized && !studioCollectionId) return null;
-
-    const select = `
-        *,
-        photos!photos_collection_id_fkey (
-          id,
-          filename,
-          set_id,
-          web_url,
-          thumbnail_url,
-          full_url,
-          original_storage_path,
-          width,
-          height,
-          position,
-          created_at,
-          exif_taken_at,
-          media_type,
-          is_private,
-          watermarked_url
-        ),
-        sets!sets_collection_id_fkey (
-          id,
-          name,
-          description,
-          position,
-          photo_count,
-          is_private
-        )
-      `;
-
-    const sortGalleryRows = (row) => {
-      if (!row) return row;
-      if (row.photos) {
-        row.photos.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
-      }
-      if (row.sets) {
-        row.sets.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
-      }
-      return row;
-    };
-
-    const basePublishedQuery = () =>
-      supabase
-        .from('deliveries')
-        .select(select)
-        .eq('status', 'published');
-
-    const slugVariants = normalized ? deliverySlugLookupVariants(normalized) : [];
-
-    const queryPublishedBySlug = async () => {
-      for (const variant of slugVariants) {
-        let result = await basePublishedQuery().eq('slug', variant).maybeSingle();
-        if (result.error) throw result.error;
-        if (result.data) return result.data;
-        result = await basePublishedQuery().ilike('slug', variant).maybeSingle();
-        if (result.error) throw result.error;
-        if (result.data) return result.data;
-      }
-      return null;
-    };
-
-    const queryOwnerBySlug = async (userId) => {
-      for (const variant of slugVariants) {
-        let result = await supabase
-          .from('deliveries')
-          .select(select)
-          .eq('photographer_id', userId)
-          .eq('slug', variant)
-          .maybeSingle();
-        if (result.error) throw result.error;
-        if (result.data) return result.data;
-        result = await supabase
-          .from('deliveries')
-          .select(select)
-          .eq('photographer_id', userId)
-          .ilike('slug', variant)
-          .maybeSingle();
-        if (result.error) throw result.error;
-        if (result.data) return result.data;
-      }
-      return null;
-    };
-
-    let data = null;
-    let error = null;
-
-    if (studioCollectionId) {
-      try {
-        const { data: colById } = await supabase
-          .from('deliveries')
-          .select(select)
-          .eq('id', studioCollectionId)
-          .maybeSingle();
-        if (colById) data = colById;
-      } catch (err) {
-        console.warn('Could not load delivery by studioCollectionId:', err);
-      }
-    }
-
-    if (!data && slugVariants.length > 0) {
-      try {
-        data = await queryPublishedBySlug();
-      } catch (err) {
-        error = err;
-      }
-    }
-
-    if (!data && slugVariants.length > 0) {
-      for (const variant of slugVariants) {
-        try {
-          let result = await supabase
-            .from('deliveries')
-            .select(select)
-            .ilike('slug', variant)
-            .maybeSingle();
-          if (result.data) {
-            data = result.data;
-            break;
-          }
-          result = await supabase
-            .from('deliveries')
-            .select(select)
-            .ilike('name', variant)
-            .maybeSingle();
-          if (result.data) {
-            data = result.data;
-            break;
-          }
-        } catch {
-          /* ignore */
-        }
-      }
-    }
-
-    if (!data && normalized) {
-      // Direct ilike match for any delivery whose slug or name contains the base string
-      try {
-        const rawClean = normalized.replace(/[^a-zA-Z0-9 ]/g, ' ').trim();
-        if (rawClean) {
-          const { data: fuzzy } = await supabase
-            .from('deliveries')
-            .select(select)
-            .ilike('name', `%${rawClean}%`)
-            .limit(1)
-            .maybeSingle();
-          if (fuzzy) data = fuzzy;
-        }
-      } catch {
-        /* ignore */
-      }
-    }
-
-    if (error && !data) throw error;
-
-    if (!data) return null;
-    return sortGalleryRows(data);
+    return (await workersGallery()).getCollectionBySlug(slug, options);
   },
 
   // ─── SET CRUD ──────────────────────────────────────────────
@@ -1544,89 +326,35 @@ export const galleryService = {
    * Fetch all sets for a collection
    */
   async getSets(collectionId) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).getSets(collectionId);
-    const { data, error } = await supabase
-      .from('sets')
-      .select('id, name, description, position, photo_count, video_count, is_private, created_at')
-      .eq('collection_id', collectionId)
-      .order('position', { ascending: true })
-      .order('created_at', { ascending: true });
-
-    if (error) throw error;
-    return (data ?? []).sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+    return (await workersGallery()).getSets(collectionId);
   },
 
   /**
    * Create a new set
    */
   async createSet({ collectionId, photographerId, name, description, position }) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).createSet({ collectionId, photographerId, name, description, position });
-    const { data, error } = await supabase
-      .from('sets')
-      .insert([{
-        collection_id: collectionId,
-        photographer_id: photographerId,
-        name,
-        description: description || null,
-        position: position ?? 0
-      }])
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data;
+    return (await workersGallery()).createSet({ collectionId, photographerId, name, description, position });
   },
 
   /**
    * Update a set's name/description
    */
   async updateSet(setId, updateData) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).updateSet(setId, updateData);
-    const { data, error } = await supabase
-      .from('sets')
-      .update(updateData)
-      .eq('id', setId)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data;
+    return (await workersGallery()).updateSet(setId, updateData);
   },
 
   /**
    * Delete a set and all photos in it (DB + Cloudflare R2).
    */
   async deleteSet(setId) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).deleteSet(setId);
-    const { data: photosInSet, error: fetchError } = await supabase
-      .from('photos')
-      .select('id')
-      .eq('set_id', setId);
-
-    if (fetchError) throw fetchError;
-
-    const photoIds = (photosInSet || []).map((p) => p.id);
-    if (photoIds.length > 0) {
-      await this.deletePhotos(photoIds);
-    }
-
-    const { error } = await supabase.from('sets').delete().eq('id', setId);
-    if (error) throw error;
+    return (await workersGallery()).deleteSet(setId);
   },
 
   /**
    * Assign photos to a specific set (or unassign by passing null)
    */
   async assignPhotosToSet(photoIds, setId) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).assignPhotosToSet(photoIds, setId);
-    if (!photoIds || photoIds.length === 0) return;
-
-    const { error } = await supabase
-      .from('photos')
-      .update({ set_id: setId })
-      .in('id', photoIds);
-
-    if (error) throw error;
+    return (await workersGallery()).assignPhotosToSet(photoIds, setId);
   },
 
   /**
@@ -1640,39 +368,7 @@ export const galleryService = {
     position,
     photos = [],
   }) {
-    const created = await this.createSet({
-      collectionId,
-      photographerId,
-      name,
-      description: description || null,
-      position: position ?? 0,
-    });
-
-    if (!photos.length) return { set: created, photos: [] };
-
-    const rows = photos.map((p, index) => ({
-      collection_id: collectionId,
-      photographer_id: photographerId,
-      set_id: created.id,
-      filename: p.filename,
-      full_url: p.full_url,
-      web_url: p.web_url,
-      thumbnail_url: p.thumbnail_url,
-      original_storage_path: p.original_storage_path,
-      size_bytes: p.size_bytes,
-      width: p.width,
-      height: p.height,
-      media_type: p.media_type ?? 'image',
-      position: p.position ?? index,
-      status: p.status ?? 'ready',
-      is_starred: p.is_starred ?? false,
-      exif_taken_at: p.exif_taken_at ?? null,
-      is_private: p.is_private ?? false,
-    }));
-
-    const { data, error } = await supabase.from('photos').insert(rows).select();
-    if (error) throw error;
-    return { set: created, photos: data || [] };
+    return (await workersGallery()).duplicateSet({ collectionId, photographerId, name, description, position, photos });
   },
 
   // ─── PHOTO OPERATIONS ─────────────────────────────────────
@@ -1696,18 +392,19 @@ export const galleryService = {
         Date.now() - globalThis.__pixnxtProfileCache.time < 45000
       ) {
         profile = globalThis.__pixnxtProfileCache.data;
-      } else if (USE_WORKERS_AUTH) {
-        const { apiFetch } = await import('../lib/api/client');
-        const data = await apiFetch('/v1/me');
-        profile = data?.photographer ?? null;
-        globalThis.__pixnxtProfileCache = { id: photographerId, data: profile, time: Date.now() };
       } else {
-        const { data } = await supabase
-          .from('photographers')
-          .select('storage_used_bytes, storage_limit_bytes, plan')
-          .eq('id', photographerId)
-          .single();
-        profile = data;
+        const { apiFetch } = await import('../lib/api/client');
+        const storage = await apiFetch('/v1/me/storage').catch(() => null);
+        if (storage) {
+          profile = {
+            storage_used_bytes: storage.totalBytes ?? storage.storedBytes ?? 0,
+            storage_limit_bytes: storage.limitBytes ?? null,
+            plan: storage.plan ?? null,
+          };
+        } else {
+          const data = await apiFetch('/v1/me');
+          profile = data?.photographer ?? null;
+        }
         globalThis.__pixnxtProfileCache = { id: photographerId, data: profile, time: Date.now() };
       }
     } catch (_) {}
@@ -1929,21 +626,8 @@ export const galleryService = {
   async findPhotosByFilenames(collectionId, filenames, preferredSetId = null) {
     if (!collectionId || !filenames?.length) return [];
 
-    const unique = [...new Set(filenames.filter(Boolean))];
-    let rows;
-    if (USE_WORKERS_AUTH) {
-      const gallery = await (await workersGallery()).getCollectionDashboardData(collectionId);
-      rows = gallery.photos || [];
-    } else {
-      const { data, error } = await supabase
-        .from('photos')
-        .select(DASHBOARD_PHOTO_FIELDS)
-        .eq('collection_id', collectionId)
-        .in('filename', unique);
-
-      if (error) throw error;
-      rows = data || [];
-    }
+    const gallery = await (await workersGallery()).getCollectionDashboardData(collectionId);
+    const rows = gallery.photos || [];
 
     const byName = new Map();
     for (const photo of rows || []) {
@@ -2240,22 +924,8 @@ export const galleryService = {
       throw new Error('Delivery or photographer is missing. Refresh the page and try again.');
     }
 
-    let existing;
-    if (USE_WORKERS_AUTH) {
-      const gallery = await (await workersGallery()).getCollectionDashboardData(collectionId);
-      existing = (gallery.photos || []).find((p) => p.id === photoId) ?? null;
-    } else {
-      const { data, error: fetchError } = await supabase
-        .from('photos')
-        .select(
-          `id, collection_id, set_id, ${PHOTO_STORAGE_PATH_COLUMNS.join(', ')}`
-        )
-        .eq('id', photoId)
-        .single();
-
-      if (fetchError) throw fetchError;
-      existing = data;
-    }
+    const gallery = await (await workersGallery()).getCollectionDashboardData(collectionId);
+    const existing = (gallery.photos || []).find((p) => p.id === photoId) ?? null;
     if (!existing || existing.collection_id !== collectionId) {
       throw new Error('Photo not found in this delivery.');
     }
@@ -2394,345 +1064,107 @@ export const galleryService = {
    * Update photo metadata (filename, set_id, etc.)
    */
   async updatePhoto(id, updateData) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).updatePhoto(id, updateData);
-    const { data, error } = await supabase
-      .from('photos')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data;
+    return (await workersGallery()).updatePhoto(id, updateData);
   },
 
   /**
    * Delete photos from Cloudflare R2 and the database (plus related rows).
    */
   async deletePhotos(ids) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).deletePhotos(ids);
-    if (!ids || ids.length === 0) return;
-
-    const { data: rows, error: fetchError } = await supabase
-      .from('photos')
-      .select(
-        `id, collection_id, ${PHOTO_STORAGE_PATH_COLUMNS.join(', ')}`
-      )
-      .in('id', ids);
-
-    if (fetchError) throw fetchError;
-    if (!rows?.length) return;
-
-    const collectionIds = [...new Set(rows.map((r) => r.collection_id).filter(Boolean))];
-    for (const collectionId of collectionIds) {
-      const { data: collection, error: coverError } = await supabase
-        .from('deliveries')
-        .select('cover_photo_id')
-        .eq('id', collectionId)
-        .single();
-
-      if (coverError) throw coverError;
-
-      if (collection?.cover_photo_id && ids.includes(collection.cover_photo_id)) {
-        const { error: clearCoverError } = await supabase
-          .from('deliveries')
-          .update({ cover_photo_id: null })
-          .eq('id', collectionId);
-        if (clearCoverError) throw clearCoverError;
-      }
-    }
-
-    const { error: favError } = await supabase.from('favorite_items').delete().in('photo_id', ids);
-    if (favError) throw favError;
-
-    const { error: activityError } = await supabase.from('activity_log').delete().in('photo_id', ids);
-    if (activityError) throw activityError;
-
-    const storagePaths = rows.flatMap(collectPhotoStoragePaths);
-    try {
-      await deleteStoragePaths(storagePaths);
-    } catch (storageError) {
-      console.error('Error deleting storage files from R2:', storageError);
-      throw storageError;
-    }
-
-    const { error } = await supabase.from('photos').delete().in('id', ids);
-    if (error) throw error;
-
-    photographerQuotaService.notifyQuotaChanged();
+    return (await workersGallery()).deletePhotos(ids);
   },
 
   /**
    * Toggle the is_starred status of a photo
    */
   async togglePhotoStar(id, isStarred) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).togglePhotoStar(id, isStarred);
-    const { data, error } = await supabase
-      .from('photos')
-      .update({ is_starred: isStarred })
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data;
+    return (await workersGallery()).togglePhotoStar(id, isStarred);
   },
 
   /**
    * Fetch a photographer's profile/branding
    */
   async getPhotographerProfile(photographerId) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).getPhotographerProfile(photographerId);
-    const { data, error } = await supabase
-      .from('photographers')
-      .select('*')
-      .eq('id', photographerId)
-      .single();
-
-    if (error) {
-      if (error.code === 'PGRST116') return null; // No rows found
-      throw error;
-    }
-    return data;
+    return (await workersGallery()).getPhotographerProfile(photographerId);
   },
 
   /**
    * Own full photographer row (sidebar shell, upload defaults).
    */
   async getOwnProfile() {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).getOwnFullProfile();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return null;
-    return this.getPhotographerProfile(user.id);
+    return (await workersGallery()).getOwnFullProfile();
   },
 
   /**
    * Fetch all watermarks for a photographer
    */
-  async getWatermarks(photographerId) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).listWatermarks();
-    const { data, error } = await supabase
-      .from('watermarks')
-      .select('*')
-      .eq('photographer_id', photographerId)
-      .order('created_at', { ascending: true });
-
-    if (error) throw error;
-    return data;
+  async getWatermarks() {
+    return (await workersGallery()).listWatermarks();
   },
 
   /**
    * Fetch a single watermark by ID
    */
   async getWatermark(id) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).getWatermark(id);
-    const { data, error } = await supabase
-      .from('watermarks')
-      .select('*')
-      .eq('id', id)
-      .single();
-
-    if (error) {
-      if (error.code === 'PGRST116') return null;
-      throw error;
-    }
-    return data;
+    return (await workersGallery()).getWatermark(id);
   },
 
   /**
    * Create a new watermark
    */
   async createWatermark(watermarkData) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).createWatermark(watermarkData);
-    const { data, error } = await supabase
-      .from('watermarks')
-      .insert([watermarkData])
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data;
+    return (await workersGallery()).createWatermark(watermarkData);
   },
 
   /**
    * Update an existing watermark
    */
   async updateWatermark(id, updates) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).updateWatermark(id, updates);
-    const { data, error } = await supabase
-      .from('watermarks')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data;
+    return (await workersGallery()).updateWatermark(id, updates);
   },
 
   /**
    * Delete a watermark
    */
   async deleteWatermark(id) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).deleteWatermark(id);
-    const { error } = await supabase
-      .from('watermarks')
-      .delete()
-      .eq('id', id);
-
-    if (error) throw error;
+    return (await workersGallery()).deleteWatermark(id);
   },
 
   /**
    * Delivery presets (photographer-saved delivery settings).
    */
-  async getPresets(photographerId) {
-    if (USE_WORKERS_AUTH) {
-      const rows = await (await workersGallery()).listPresets();
-      return [...rows].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
-    }
-    const { data, error } = await supabase
-      .from('presets')
-      .select('*')
-      .eq('photographer_id', photographerId)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data;
+  async getPresets() {
+    const rows = await (await workersGallery()).listPresets();
+    return [...rows].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
   },
 
   async createPreset(photographerId, name, settings) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).createPreset(name, settings);
-    const at = new Date().toISOString();
-    const { data, error } = await supabase
-      .from('presets')
-      .insert({
-        photographer_id: photographerId,
-        name,
-        settings,
-        created_at: at,
-        updated_at: at,
-      })
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data;
+    return (await workersGallery()).createPreset(name, settings);
   },
 
   async deletePreset(id) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).deletePreset(id);
-    const { error } = await supabase
-      .from('presets')
-      .delete()
-      .eq('id', id);
-
-    if (error) throw error;
+    return (await workersGallery()).deletePreset(id);
   },
 
   /**
    * Fetch a photographer's profile/branding by their showcase slug (DB: showcase_slug)
    */
   async getPhotographerProfileBySlug(slug) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).getPhotographerProfileBySlug(slug);
-    if (!slug) return null;
-
-    // 1. Try to find by showcase_slug
-    let { data, error } = await supabase
-      .from('photographers')
-      .select('*')
-      .ilike('showcase_slug', slug)
-      .single();
-
-    if (error && error.code !== 'PGRST116') {
-      throw error;
-    }
-
-    // 2. Fallback to display_name (default username)
-    if (!data) {
-      const { data: byDisplayName, error: pError } = await supabase
-        .from('photographers')
-        .select('*')
-        .ilike('display_name', slug)
-        .single();
-
-      if (pError && pError.code !== 'PGRST116') {
-        throw pError;
-      }
-      data = byDisplayName;
-    }
-
-    // 3. Fallback to email prefix (before '@')
-    if (!data) {
-      const { data: byEmail, error: eError } = await supabase
-        .from('photographers')
-        .select('*')
-        .ilike('email', `${slug}@%`)
-        .single();
-
-      if (eError) {
-        if (eError.code === 'PGRST116') return null; // No rows found
-        throw eError;
-      }
-      data = byEmail;
-    }
-
-    return data;
+    return (await workersGallery()).getPhotographerProfileBySlug(slug);
   },
 
   /**
    * Resolve a verified custom domain to a photographer profile (public galleries).
    */
   async getPhotographerProfileByCustomDomain(domain) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).getPhotographerProfileByCustomDomain(domain);
-    const candidates = customDomainLookupCandidates(domain);
-
-    if (!candidates.length) return null;
-
-    for (const candidate of candidates) {
-      const { data, error } = await supabase
-        .from('photographers')
-        .select('*')
-        .ilike('custom_domain', candidate)
-        .eq('custom_domain_status', 'verified')
-        .maybeSingle();
-
-      if (error && error.code !== 'PGRST116') throw error;
-      if (data) return data;
-    }
-
-    return null;
+    return (await workersGallery()).getPhotographerProfileByCustomDomain(domain);
   },
 
   /**
    * Update a photographer's profile (bio, contact info, showcase settings, etc.)
    */
   async updatePhotographerProfile(photographerId, updates) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).updatePhotographerProfile(photographerId, updates);
-    if (!photographerId) throw new Error('Photographer ID is required.');
-
-    // First verify if the row exists because upsert can sometimes cause issues with RLS if not configured properly
-    const { data: existing, error: existingError } = await supabase
-      .from('photographers')
-      .select('id')
-      .eq('id', photographerId)
-      .single();
-
-    if (existingError && existingError.code !== 'PGRST116') {
-      throw existingError;
-    }
-
-    let query;
-    if (existing) {
-      query = supabase.from('photographers').update(updates).eq('id', photographerId);
-    } else {
-      query = supabase.from('photographers').insert([{ id: photographerId, ...updates }]);
-    }
-
-    const { data, error } = await query.select('*').single();
-
-    if (error) throw error;
-    return data;
+    return (await workersGallery()).updatePhotographerProfile(photographerId, updates);
   },
 
   /**
@@ -2740,37 +1172,7 @@ export const galleryService = {
    * Stores email / name / phone on the session and studio contacts list.
    */
   async registerGalleryVisitor({ collectionId, email, name, phone } = {}) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).registerGalleryVisitor({ collectionId, email, name, phone });
-    const trimmedEmail = String(email || '').trim().toLowerCase();
-    const trimmedName = String(name || '').trim() || null;
-    const trimmedPhone = String(phone || '').trim() || null;
-    if (!collectionId || !trimmedEmail.includes('@')) {
-      throw new Error('A valid email address is required');
-    }
-
-    const { data, error } = await supabase.rpc('register_gallery_visitor', {
-      p_collection_id: collectionId,
-      p_email: trimmedEmail,
-      p_name: trimmedName,
-      p_phone: trimmedPhone,
-    });
-
-    if (error) {
-      const msg = `${error.message || ''} ${error.details || ''} ${error.hint || ''}`;
-      if (!/function .* does not exist|Could not find the function/i.test(msg)) {
-        throw new Error(error.message || 'Could not save your details');
-      }
-    } else if (data?.session_id) {
-      return this.createOrGetSession(collectionId, trimmedEmail, {
-        name: trimmedName,
-        phone: trimmedPhone,
-      });
-    }
-
-    return this.createOrGetSession(collectionId, trimmedEmail, {
-      name: trimmedName,
-      phone: trimmedPhone,
-    });
+    return (await workersGallery()).registerGalleryVisitor({ collectionId, email, name, phone });
   },
 
   /**
@@ -2780,142 +1182,7 @@ export const galleryService = {
    * @param {{ ensureDefaultFavoriteList?: boolean, name?: string|null, phone?: string|null }} [options] Pass `{ ensureDefaultFavoriteList: false }` when the caller will insert their own preset list (e.g. dashboard "Create favorite list") so a duplicate "My Favorites" row is not created.
    */
   async createOrGetSession(collectionId, email, options = {}) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).createOrGetSession(collectionId, email, options);
-    const { ensureDefaultFavoriteList = true, name = null, phone = null } = options;
-    if (!collectionId || !email) {
-      throw new Error('Delivery ID and email are required');
-    }
-    const visitorName = name != null && String(name).trim() ? String(name).trim() : null;
-    const visitorPhone = phone != null && String(phone).trim() ? String(phone).trim() : null;
-
-    try {
-      console.log('createOrGetSession starting:', { collectionId, email, ensureDefaultFavoriteList });
-      // 1. Try to find existing session
-      const { data: sessions, error: findError } = await supabase
-        .from('client_sessions')
-        .select('id, collection_id, visitor_email, access_level, expires_at')
-        .eq('collection_id', collectionId)
-        .eq('visitor_email', email)
-        .limit(1);
-
-      if (findError) {
-        console.warn('Find session error:', findError);
-      }
-
-      let session = sessions?.[0];
-
-      if (session) {
-        console.log('Existing session found:', session);
-        if (visitorName || visitorPhone) {
-          const patch = {};
-          if (visitorName) patch.visitor_name = visitorName;
-          if (visitorPhone) patch.visitor_phone = visitorPhone;
-          const { error: patchError } = await supabase
-            .from('client_sessions')
-            .update(patch)
-            .eq('id', session.id);
-          if (patchError && !isMissingDbColumnError(patchError, 'visitor_')) {
-            console.warn('Could not save visitor name/phone on existing session:', patchError);
-          }
-        }
-      } else {
-        // 2. Create new session (Blind insert to handle RLS)
-        const insertData = {
-          collection_id: collectionId,
-          visitor_email: email,
-          access_level: 'guest',
-          created_at: new Date().toISOString(),
-          ...(visitorName ? { visitor_name: visitorName } : {}),
-          ...(visitorPhone ? { visitor_phone: visitorPhone } : {}),
-        };
-
-        console.log('Attempting blind insert for session:', insertData);
-        let { error: insertError } = await supabase
-          .from('client_sessions')
-          .insert([insertData]);
-
-        if (insertError && isMissingDbColumnError(insertError, 'visitor_')) {
-          const fallbackInsert = { ...insertData };
-          delete fallbackInsert.visitor_name;
-          delete fallbackInsert.visitor_phone;
-          const retry = await supabase.from('client_sessions').insert([fallbackInsert]);
-          insertError = retry.error;
-        }
-
-        if (insertError && insertError.code !== '23505') { // Ignore unique constraint violation
-          console.error('Session insertion failed:', insertError);
-          throw new Error(`Session creation failed: ${insertError.message}`);
-        }
-
-        // 3. Fetch the created session
-        const { data: fetchSession, error: fetchAgainError } = await supabase
-          .from('client_sessions')
-          .select('id, collection_id, visitor_email')
-          .eq('collection_id', collectionId)
-          .eq('visitor_email', email)
-          .limit(1)
-          .single();
-
-        if (fetchAgainError) {
-          console.error('Error fetching session after blind insert:', fetchAgainError);
-          throw new Error('Failed to retrieve created session after insert. Please check RLS policies.');
-        }
-        session = fetchSession;
-        console.log('New session created and retrieved:', session);
-
-        // Log registration for Email Registration activity tab (best-effort)
-        try {
-          const { data: col } = await supabase
-            .from('deliveries')
-            .select('photographer_id, user_id')
-            .eq('id', collectionId)
-            .maybeSingle();
-          await this.logActivity(collectionId, 'email_register', {
-            email,
-            photographerId: col?.photographer_id || col?.user_id,
-            metadata: {
-              source: 'Gallery Registration',
-              type: 'email',
-              ...(visitorName ? { name: visitorName } : {}),
-              ...(visitorPhone ? { phone: visitorPhone } : {}),
-            },
-          });
-        } catch (logErr) {
-          console.warn('email_register activity log skipped:', logErr);
-        }
-      }
-
-      // Visitor flows: only create "My Favorites" when this session has no lists yet.
-      // If the photographer already created a preset list (e.g. retouching) for this email,
-      // do not add a second default list — hearts should target the preset list.
-      if (ensureDefaultFavoriteList) {
-        const { data: anyLists } = await supabase
-          .from('favorite_lists')
-          .select('id')
-          .eq('session_id', session.id)
-          .limit(1);
-
-        if (!anyLists?.length) {
-          console.log('Creating default favorite list for session:', session.id);
-          const { error: insertListError } = await supabase
-            .from('favorite_lists')
-            .insert([{
-              collection_id: collectionId,
-              session_id: session.id,
-              name: 'My Favorites'
-            }]);
-
-          if (insertListError) {
-            console.error('Error creating default favorite list:', insertListError);
-          }
-        }
-      }
-
-      return session;
-    } catch (error) {
-      console.error('Error in createOrGetSession:', error);
-      throw error;
-    }
+    return (await workersGallery()).createOrGetSession(collectionId, email, options);
   },
 
   /**
@@ -2923,26 +1190,7 @@ export const galleryService = {
    */
   async _resolveDefaultFavoriteList(sessionId) {
     if (!sessionId) return null;
-    const { data: lists, error } = await supabase
-      .from('favorite_lists')
-      .select('id, name, max_selection, created_at, submitted_at')
-      .eq('session_id', sessionId)
-      .order('created_at', { ascending: true });
-
-    if (error || !lists?.length) return null;
-
-    const my = lists.find((l) => l.name === 'My Favorites');
-    if (my) return my;
-
-    const clientLists = lists.filter(
-      (l) => !(l.max_selection != null && Number(l.max_selection) > 0)
-    );
-    if (clientLists.length) return clientLists[clientLists.length - 1];
-
-    const withCap = lists.filter((l) => l.max_selection != null && Number(l.max_selection) > 0);
-    if (withCap.length) return withCap[0];
-
-    return lists[0];
+    return (await workersGallery()).resolveDefaultFavoriteList(sessionId);
   },
 
   async _getDefaultFavoriteListId(sessionId) {
@@ -2952,35 +1200,14 @@ export const galleryService = {
 
   /** Public: list row used for gallery hearts / toasts (name + cap). */
   async getSessionDefaultFavoriteList(sessionId) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).getSessionDefaultFavoriteList(sessionId);
-    return this._resolveDefaultFavoriteList(sessionId);
+    return (await workersGallery()).getSessionDefaultFavoriteList(sessionId);
   },
 
   /**
    * Favorited photo IDs for a visitor list (defaults to active preset / My Favorites).
    */
   async getFavorites(sessionId, listId = null) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).getFavorites(sessionId, listId);
-    if (!sessionId) return [];
-    try {
-      let targetListId = listId;
-      if (!targetListId) {
-        targetListId = await this._getDefaultFavoriteListId(sessionId);
-      }
-      if (!targetListId) return [];
-
-      const { data: items, error: itemsError } = await supabase
-        .from('favorite_items')
-        .select('photo_id')
-        .eq('list_id', targetListId);
-
-      if (itemsError) return [];
-
-      return [...new Set((items || []).map((item) => item.photo_id).filter(Boolean))];
-    } catch (e) {
-      console.error('Error in getFavorites:', e);
-      return [];
-    }
+    return (await workersGallery()).getFavorites(sessionId, listId);
   },
 
   /**
@@ -2988,145 +1215,35 @@ export const galleryService = {
    * Used by the shareable "Get Link" public favorites page.
    */
   async getFavoriteListPublic(listId) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).getFavoriteListPublic(listId);
-    if (!listId) return null;
-    const { data: list, error } = await supabase
-      .from('favorite_lists')
-      .select('id, name, max_selection, description, submitted_at, session_id, collection_id')
-      .eq('id', listId)
-      .maybeSingle();
-
-    if (error) throw error;
-    if (!list) return null;
-
-    // Fetch the session email (curated by)
-    let curatorEmail = '';
-    if (list.session_id) {
-      const { data: sess } = await supabase
-        .from('client_sessions')
-        .select('visitor_email')
-        .eq('id', list.session_id)
-        .maybeSingle();
-      curatorEmail = sess?.visitor_email || '';
-    }
-
-    // Fetch collection slug
-    let collectionSlug = '';
-    let collectionName = '';
-    if (list.collection_id) {
-      const { data: col } = await supabase
-        .from('deliveries')
-        .select('slug, name')
-        .eq('id', list.collection_id)
-        .maybeSingle();
-      collectionSlug = col?.slug || '';
-      collectionName = col?.name || '';
-    }
-
-    return { ...list, curatorEmail, collectionSlug, collectionName };
+    return (await workersGallery()).getFavoriteListPublic(listId);
   },
 
   /**
    * Favorite list metadata for gallery selection UI.
    */
-  async getFavoriteListById(listId, sessionId = null) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).getFavoriteListById(listId);
-    if (!listId) return null;
-    const { data, error } = await supabase
-      .from('favorite_lists')
-      .select('id, name, max_selection, description, submitted_at, session_id, collection_id')
-      .eq('id', listId)
-      .maybeSingle();
-
-    if (error) throw error;
-    if (!data) return null;
-    if (sessionId && data.session_id !== sessionId) return null;
-    return data;
+  async getFavoriteListById(listId) {
+    return (await workersGallery()).getFavoriteListById(listId);
   },
 
   /**
    * Submit (lock) a visitor favorite list — requires at least one photo.
    */
   async submitFavoriteList(listId, sessionId) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).submitFavoriteList(listId, sessionId);
-    if (!listId || !sessionId) {
-      throw new Error('List and session are required');
-    }
-
-    const { data: ok, error } = await supabase.rpc('submit_favorite_list', {
-      p_list_id: listId,
-      p_session_id: sessionId,
-    });
-
-    if (error) {
-      const msg = error.message || '';
-      if (/function .* does not exist|Could not find the function/i.test(msg)) {
-        throw new Error(
-          'Submit is not set up on the server yet. Run supabase/migrations/20260520120000_favorite_list_submit.sql, then try again.'
-        );
-      }
-      throw error;
-    }
-
-    if (Number(ok) !== 1) {
-      const meta = await this.getFavoriteListById(listId, sessionId);
-      if (meta?.submitted_at) {
-        const err = new Error('This list was already submitted.');
-        err.code = 'ALREADY_SUBMITTED';
-        throw err;
-      }
-      const err = new Error('Add at least one photo before confirming your favorites.');
-      err.code = 'NO_PHOTOS';
-      throw err;
-    }
-
-    return true;
+    return (await workersGallery()).submitFavoriteList(listId, sessionId);
   },
 
   /**
    * Reopen a submitted favorite list so the client can edit choices again (clears lock).
    */
   async reopenFavoriteList(listId) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).reopenFavoriteList(listId);
-    if (!listId) throw new Error('List id is required');
-
-    const { data, error } = await supabase
-      .from('favorite_lists')
-      .update({ submitted_at: null })
-      .eq('id', listId)
-      .select('id, name, submitted_at');
-
-    if (error) throw error;
-    const rows = data ?? [];
-    if (rows.length === 0) {
-      throw new Error(
-        'Could not reopen this list. Run the latest Supabase migrations, or add RLS policies so the delivery owner can UPDATE favorite_lists.'
-      );
-    }
-    return rows[0];
+    return (await workersGallery()).reopenFavoriteList(listId);
   },
 
   /**
    * Email the collection photographer after a client confirms favorites.
    */
-  async notifyPhotographerFavoriteSubmit({ listId, sessionId, siteOrigin, clientMessage }) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).notifyPhotographerFavoriteSubmit({ listId, sessionId, clientMessage });
-    const { data, error } = await supabase.functions.invoke('send-favorite-submit-email', {
-      body: {
-        listId,
-        sessionId,
-        siteOrigin: siteOrigin || (typeof window !== 'undefined' ? window.location.origin : ''),
-        clientMessage: clientMessage?.trim() || null,
-      },
-    });
-
-    if (error) {
-      throw new Error(error.message || 'Could not send notification email');
-    }
-    if (data?.error) {
-      throw new Error(data.error);
-    }
-    return data;
+  async notifyPhotographerFavoriteSubmit({ listId, sessionId, clientMessage }) {
+    return (await workersGallery()).notifyPhotographerFavoriteSubmit({ listId, sessionId, clientMessage });
   },
 
   /**
@@ -3134,366 +1251,56 @@ export const galleryService = {
    * @param {{ maxSelection?: number|null, description?: string|null }} [meta]
    */
   async createFavoriteList(collectionId, sessionId, listName, meta = {}) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).createFavoriteList(collectionId, sessionId, listName, meta);
-    const name = (listName && String(listName).trim()) || 'My Favorites';
-    let maxVal = null;
-    if (meta.maxSelection != null && meta.maxSelection !== '') {
-      const n = Number(meta.maxSelection);
-      if (Number.isFinite(n) && n > 0) maxVal = Math.floor(n);
-    }
-    const desc = meta.description != null && String(meta.description).trim()
-      ? String(meta.description).trim().slice(0, 2000)
-      : null;
-
-    const insertRow = {
-      collection_id: collectionId,
-      session_id: sessionId,
-      name,
-      ...(maxVal != null ? { max_selection: maxVal } : {}),
-      ...(desc ? { description: desc } : {}),
-    };
-
-    const { data, error } = await supabase
-      .from('favorite_lists')
-      .insert([insertRow])
-      .select('id, name, session_id, max_selection')
-      .single();
-
-    if (error) {
-      console.error('Error creating favorite list:', error);
-      throw error;
-    }
-    return data;
+    return (await workersGallery()).createFavoriteList(collectionId, sessionId, listName, meta);
   },
 
   /**
    * Toggle a photo as favorite
    */
   async toggleFavorite(sessionId, photoId, isFavorite, listId = null) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).toggleFavorite(sessionId, photoId, isFavorite, listId);
-    let targetListId = listId;
-
-    if (!targetListId) {
-      targetListId = await this._getDefaultFavoriteListId(sessionId);
-      if (!targetListId) {
-        throw new Error('Favorite list not found');
-      }
-    }
-
-    const { data: listLock, error: lockErr } = await supabase
-      .from('favorite_lists')
-      .select('submitted_at')
-      .eq('id', targetListId)
-      .maybeSingle();
-
-    if (!lockErr && listLock?.submitted_at) {
-      const err = new Error('This favorite list has been submitted and cannot be changed.');
-      err.code = 'LIST_SUBMITTED';
-      throw err;
-    }
-
-    if (isFavorite) {
-      const { data: listMeta, error: lmErr } = await supabase
-        .from('favorite_lists')
-        .select('max_selection')
-        .eq('id', targetListId)
-        .maybeSingle();
-
-      if (!lmErr && listMeta?.max_selection != null && Number(listMeta.max_selection) > 0) {
-        const cap = Number(listMeta.max_selection);
-        const { count, error: cErr } = await supabase
-          .from('favorite_items')
-          .select('*', { count: 'exact', head: true })
-          .eq('list_id', targetListId);
-
-        if (!cErr && (count || 0) >= cap) {
-          const err = new Error('Selection limit reached for this list.');
-          err.code = 'SELECTION_LIMIT';
-          throw err;
-        }
-      }
-
-      const { error } = await supabase
-        .from('favorite_items')
-        .insert([{
-          list_id: targetListId,
-          photo_id: photoId
-        }]);
-      if (error && error.code !== '23505') throw error; // Ignore unique constraint violation
-    } else {
-      // Remove favorite
-      const { error } = await supabase
-        .from('favorite_items')
-        .delete()
-        .eq('list_id', targetListId)
-        .eq('photo_id', photoId);
-      if (error) throw error;
-    }
+    return (await workersGallery()).toggleFavorite(sessionId, photoId, isFavorite, listId);
   },
 
   /**
    * Get favorite activity for a collection
    */
   async getFavoriteActivity(collectionId) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).getFavoriteActivity(collectionId);
-    try {
-      console.log('Fetching favorite activity for collection:', collectionId);
-      // 1. Fetch lists
-      const { data: lists, error: listsError } = await supabase
-        .from('favorite_lists')
-        .select('id, name, session_id, collection_id, created_at, max_selection, description, submitted_at')
-        .eq('collection_id', collectionId);
-
-      if (listsError) {
-        console.error('Error fetching favorite lists:', listsError);
-        throw listsError;
-      }
-
-      if (!lists || lists.length === 0) {
-        console.log('No favorite lists found.');
-        return [];
-      }
-
-      // 2. Fetch sessions
-      const sessionIds = [...new Set(lists.map(l => l.session_id))];
-      const { data: sessions, error: sessionsError } = await supabase
-        .from('client_sessions')
-        .select('id, visitor_email')
-        .in('id', sessionIds);
-
-      if (sessionsError) {
-        console.warn('Error fetching client sessions for activity:', sessionsError);
-      }
-
-      const sessionMap = (sessions || []).reduce((acc, s) => ({ ...acc, [s.id]: s.visitor_email }), {});
-
-      // 3. Fetch item counts and thumbnails
-      const listIds = lists.map(l => l.id);
-      const { data: items, error: itemsError } = await supabase
-        .from('favorite_items')
-        .select(`
-          id, 
-          list_id,
-          created_at,
-          photo:photos(thumbnail_url, web_url, filename)
-        `)
-        .in('list_id', listIds);
-
-      if (itemsError) {
-        console.warn('Error fetching favorite items for activity:', itemsError);
-      }
-
-      const countMap = {};
-      const thumbMap = {};
-      const updatedMap = {};
-
-      (items || []).forEach(item => {
-        countMap[item.list_id] = (countMap[item.list_id] || 0) + 1;
-
-        // Use the latest item creation date as the updated_at for the list
-        if (!thumbMap[item.list_id] && item.photo) {
-          thumbMap[item.list_id] = item.photo.thumbnail_url || item.photo.web_url;
-        }
-
-        const itemDate = new Date(item.created_at);
-        if (!updatedMap[item.list_id] || itemDate > updatedMap[item.list_id]) {
-          updatedMap[item.list_id] = itemDate;
-        }
-      });
-
-      const results = lists.map(list => ({
-        id: list.id,
-        name: list.name,
-        email: sessionMap[list.session_id] || 'Unknown visitor',
-        photoCount: countMap[list.id] || 0,
-        max_selection: list.max_selection ?? null,
-        description: list.description ?? null,
-        thumbnail: thumbMap[list.id] || null,
-        created_at: list.created_at,
-        updated_at: updatedMap[list.id] || list.created_at,
-        submitted_at: list.submitted_at ?? null,
-        sessionId: list.session_id
-      }));
-
-      console.log('Aggregated favorite activity:', results);
-      return results.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-    } catch (error) {
-      console.error('Error in getFavoriteActivity:', error);
-      return [];
-    }
+    return (await workersGallery()).getFavoriteActivity(collectionId);
   },
 
   /**
    * Photo ids used in client favorite / selection-list overlays (dashboard View menu).
    */
   async getCollectionFavoriteOverlayPhotoIds(collectionId) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).getCollectionFavoriteOverlayPhotoIds(collectionId);
-    if (!collectionId) {
-      return { favoritedPhotoIds: [], selectionListPhotoIds: [] };
-    }
-
-    try {
-      const { data: lists, error: listsError } = await supabase
-        .from('favorite_lists')
-        .select('id, submitted_at')
-        .eq('collection_id', collectionId);
-
-      if (listsError) throw listsError;
-      if (!lists?.length) {
-        return { favoritedPhotoIds: [], selectionListPhotoIds: [] };
-      }
-
-      const listIds = lists.map((list) => list.id);
-      const submittedListIds = new Set(
-        lists.filter((list) => list.submitted_at).map((list) => list.id)
-      );
-
-      const { data: items, error: itemsError } = await supabase
-        .from('favorite_items')
-        .select('photo_id, list_id')
-        .in('list_id', listIds);
-
-      if (itemsError) throw itemsError;
-
-      const favorited = new Set();
-      const selection = new Set();
-      for (const item of items || []) {
-        if (!item?.photo_id) continue;
-        favorited.add(item.photo_id);
-        if (submittedListIds.has(item.list_id)) {
-          selection.add(item.photo_id);
-        }
-      }
-
-      return {
-        favoritedPhotoIds: [...favorited],
-        selectionListPhotoIds: [...selection],
-      };
-    } catch (error) {
-      console.warn('getCollectionFavoriteOverlayPhotoIds failed:', error);
-      return { favoritedPhotoIds: [], selectionListPhotoIds: [] };
-    }
+    return (await workersGallery()).getCollectionFavoriteOverlayPhotoIds(collectionId);
   },
 
   /**
    * Get all photos for a favorite list
    */
   async getFavoriteListPhotos(listId) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).getFavoriteListPhotos(listId);
-    const { data, error } = await supabase
-      .from('favorite_items')
-      .select('photo:photos(*)')
-      .eq('list_id', listId);
-
-    if (error) throw error;
-    return data.map(item => {
-      if (Array.isArray(item.photo)) return item.photo[0];
-      return item.photo;
-    }).filter(p => !!p);
+    return (await workersGallery()).getFavoriteListPhotos(listId);
   },
 
   /**
    * Favorite list rows with item timestamps (dashboard detail panel).
    */
   async getFavoriteListItemRows(listId) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).getFavoriteListItemRows(listId);
-    if (!listId) return [];
-    const { data, error } = await supabase
-      .from('favorite_items')
-      .select(`
-        created_at,
-        photo:photos(*)
-      `)
-      .eq('list_id', listId)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return (data || []).map((item) => {
-      const photo = Array.isArray(item.photo) ? item.photo[0] : item.photo;
-      return {
-        itemCreatedAt: item.created_at,
-        photo: photo || null,
-      };
-    }).filter((row) => !!row.photo);
+    return (await workersGallery()).getFavoriteListItemRows(listId);
   },
 
   /**
    * Visitor's favorite lists for the favorites hub (/gallery/:slug/f).
    */
   async getFavoriteListsForSession(sessionId) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).getFavoriteListsForSession(sessionId);
-    if (!sessionId) return [];
-    const { data: lists, error } = await supabase
-      .from('favorite_lists')
-      .select('id, name, created_at, max_selection, description, submitted_at')
-      .eq('session_id', sessionId)
-      .order('created_at', { ascending: true });
-
-    if (error) throw error;
-    if (!lists?.length) return [];
-
-    const listIds = lists.map((l) => l.id);
-    const { data: items, error: itemsError } = await supabase
-      .from('favorite_items')
-      .select('list_id, photo:photos(thumbnail_url, web_url, width, height)')
-      .in('list_id', listIds);
-
-    if (itemsError) {
-      console.warn('getFavoriteListsForSession items:', itemsError);
-      return lists.map((l) => ({ ...l, photoCount: 0, coverUrl: null }));
-    }
-
-    const countByList = {};
-    const photosByList = {};
-    (items || []).forEach((it) => {
-      const lid = it.list_id;
-      countByList[lid] = (countByList[lid] || 0) + 1;
-      if (it.photo) {
-        const ph = Array.isArray(it.photo) ? it.photo[0] : it.photo;
-        const rawUrl = ph?.web_url || ph?.thumbnail_url || null;
-        const url = rawUrl ? resolveMediaUrl(rawUrl) : null;
-        if (url) {
-          if (!photosByList[lid]) photosByList[lid] = [];
-          photosByList[lid].push({
-            url,
-            width: ph?.width ?? null,
-            height: ph?.height ?? null,
-          });
-        }
-      }
-    });
-
-    return lists.map((l) => ({
-      ...l,
-      photoCount: countByList[l.id] || 0,
-      coverUrl: pickBestLandscapeCoverUrl(photosByList[l.id] || []),
-      previewUrls: (photosByList[l.id] || []).slice(0, 3).map((p) => p.url),
-      max_selection: l.max_selection ?? null,
-    }));
+    return (await workersGallery()).getFavoriteListsForSession(sessionId);
   },
 
   /**
    * Update a favorite list's metadata
    */
   async updateFavoriteList(listId, updateData) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).updateFavoriteList(listId, updateData);
-    const { data, error } = await supabase
-      .from('favorite_lists')
-      .update(updateData)
-      .eq('id', listId)
-      .select('id, name, collection_id, session_id');
-
-    if (error) throw error;
-    const rows = data ?? [];
-    if (rows.length === 0) {
-      throw new Error(
-        'Could not save this list (nothing was returned after update). Run the latest Supabase migrations, or add RLS policies so the delivery owner can SELECT and UPDATE favorite_lists.'
-      );
-    }
-    if (rows.length > 1) {
-      throw new Error('Unexpected multiple rows when updating a favorite list.');
-    }
-    return rows[0];
+    return (await workersGallery()).updateFavoriteList(listId, updateData);
   },
 
   /**
@@ -3501,46 +1308,14 @@ export const galleryService = {
    * Uses RPC with SECURITY DEFINER so deletes succeed even when direct table DELETE is blocked by RLS.
    */
   async deleteFavoriteList(listId) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).deleteFavoriteList(listId);
-    if (!listId) throw new Error('List id is required');
-
-    const { data: deletedCount, error } = await supabase.rpc('delete_favorite_list_owned', {
-      p_list_id: listId,
-    });
-
-    if (error) {
-      const msg = error.message || '';
-      if (/function .* does not exist|Could not find the function/i.test(msg)) {
-        throw new Error(
-          'Delete is not set up on the server yet. In Supabase → SQL Editor, run the file supabase/migrations/20260513130000_delete_favorite_list_rpc.sql (or push migrations), then try again.'
-        );
-      }
-      throw error;
-    }
-
-    const n = Number(deletedCount);
-    if (Number.isNaN(n) || n !== 1) {
-      throw new Error(
-        'This favorite list could not be deleted. Sign in as the account that owns this delivery, or confirm the list still exists.'
-      );
-    }
-
-    return true;
+    return (await workersGallery()).deleteFavoriteList(listId);
   },
 
   /**
    * Remove one photo from a favorite list (collection owner / dashboard).
    */
   async removePhotoFromFavoriteList(listId, photoId) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).removePhotoFromFavoriteList(listId, photoId);
-    if (!listId || !photoId) throw new Error('List id and photo id are required');
-    const { error } = await supabase
-      .from('favorite_items')
-      .delete()
-      .eq('list_id', listId)
-      .eq('photo_id', photoId);
-    if (error) throw error;
-    return true;
+    return (await workersGallery()).removePhotoFromFavoriteList(listId, photoId);
   },
 
   /**
@@ -3548,186 +1323,7 @@ export const galleryService = {
    * Combines free gallery downloads (activity_log) + paid digital purchase downloads (printstore).
    */
   async getDownloadActivity(collectionId) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).getDownloadActivity(collectionId);
-    try {
-      console.log('Fetching download activity for collection:', collectionId);
-
-      // Keep select simple — nested photo joins often fail under RLS and return empty.
-      const { data, error } = await supabase
-        .from('activity_log')
-        .select('id, event_type, visitor_email, created_at, metadata, resolution, photo_id')
-        .eq('collection_id', collectionId)
-        .eq('event_type', 'download')
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('activity_log download fetch error:', error);
-        throw error;
-      }
-
-      const photoIds = [...new Set((data || []).map((row) => row.photo_id).filter(Boolean))];
-      let photosById = {};
-      if (photoIds.length > 0) {
-        const { data: photosData, error: photosErr } = await supabase
-          .from('photos')
-          .select('id, filename, set_id, media_type, thumbnail_url, web_url, full_url')
-          .in('id', photoIds);
-        if (photosErr) {
-          console.warn('download activity photo hydrate failed:', photosErr);
-        } else {
-          photosById = Object.fromEntries((photosData || []).map((p) => [p.id, p]));
-        }
-      }
-
-      const normalizeType = (item, photo) => {
-        const metaType = String(item.metadata?.type || '').toLowerCase();
-        if (metaType === 'gallery' || metaType === 'all' || metaType === 'digital_download_all' || metaType === 'digital_package') {
-          return 'gallery';
-        }
-        if (metaType === 'video') return 'video';
-        if (metaType === 'photo' || metaType === 'single' || metaType === 'single_photo' || metaType === 'digital_download') {
-          return 'photo';
-        }
-
-        const mediaType = String(photo?.media_type || '').toLowerCase();
-        if (mediaType === 'video') return 'video';
-
-        const filename = photo?.filename || item.metadata?.filename || '';
-        if (/\.(mp4|webm|ogg|mov)$/i.test(filename)) return 'video';
-
-        if (item.photo_id || photo?.id || item.metadata?.photoCount === 1) return 'photo';
-        return 'gallery';
-      };
-
-      const formatResolution = (item) => {
-        const raw =
-          item.resolution ||
-          item.metadata?.resolution ||
-          item.metadata?.quality ||
-          'original';
-        const key = String(raw).toLowerCase().replace(/\s+/g, '_');
-        if (key === 'web' || key === 'web_res') return 'Web';
-        if (key === 'full' || key === 'full_res' || key === 'high_res' || key === 'high') return 'Full';
-        if (key === 'original' || key === 'orig' || key === 'hi_res') return 'Original';
-        if (String(raw).toLowerCase() === 'high res') return 'Original';
-        return String(raw);
-      };
-
-      const fromActivityLog = (data || []).map((item) => {
-        const photo = item.photo_id ? photosById[item.photo_id] : null;
-        return {
-          id: item.id,
-          email: item.visitor_email || 'Unknown visitor',
-          date: item.created_at,
-          type: normalizeType(item, photo),
-          resolution: formatResolution(item),
-          filename: photo?.filename || item.metadata?.filename || null,
-          photoId: photo?.id || item.photo_id || null,
-          photoSetId: photo?.set_id || null,
-          photoCount: item.metadata?.photoCount ?? (item.photo_id ? 1 : null),
-          destination: item.metadata?.destination || 'local',
-          size: item.metadata?.size || null,
-          pinUsed: item.metadata?.pinUsed || false,
-          setName: item.metadata?.setName || null,
-          pin: item.metadata?.pin || '---',
-          source: item.metadata?.source || (item.metadata?.destination === 'google_drive' ? 'Google Drive' : 'Gallery'),
-          _origin: 'activity_log',
-        };
-      });
-
-      // Paid digital downloads (store purchases) — also show under Download Activity
-      const fromStore = [];
-      try {
-        const { data: orders, error: ordersErr } = await supabase
-          .from('printstore_orders')
-          .select('id, customer_email, customer_name, created_at, status')
-          .eq('collection_id', collectionId)
-          .order('created_at', { ascending: false });
-
-        if (!ordersErr && orders?.length) {
-          const orderIds = orders.map((o) => o.id);
-          const ordersById = Object.fromEntries(orders.map((o) => [o.id, o]));
-          const { data: items, error: itemsErr } = await supabase
-            .from('printstore_order_items')
-            .select('id, order_id, product_type, product_name, options, quantity')
-            .in('order_id', orderIds)
-            .in('product_type', ['digital_download', 'digital_download_all', 'digital_package']);
-
-          if (!itemsErr && items?.length) {
-            const storePhotoIds = [
-              ...new Set(
-                items
-                  .map((it) => it.options?.photo?.id || it.options?.photo_id)
-                  .filter(Boolean)
-                  .map(String)
-              ),
-            ];
-            if (storePhotoIds.length) {
-              const missing = storePhotoIds.filter((id) => !photosById[id]);
-              if (missing.length) {
-                const { data: morePhotos } = await supabase
-                  .from('photos')
-                  .select('id, filename, set_id, media_type, thumbnail_url, web_url, full_url')
-                  .in('id', missing);
-                (morePhotos || []).forEach((p) => {
-                  photosById[p.id] = p;
-                });
-              }
-            }
-
-            for (const item of items) {
-              const order = ordersById[item.order_id];
-              if (!order) continue;
-              const photoOpt = item.options?.photo || null;
-              const photoId = photoOpt?.id || item.options?.photo_id || null;
-              const photo = photoId ? photosById[photoId] : null;
-              const isAll = item.product_type === 'digital_download_all';
-              const isPackage = item.product_type === 'digital_package';
-              const type = isAll || isPackage ? 'gallery' : 'photo';
-              const filename =
-                photo?.filename ||
-                photoOpt?.filename ||
-                photoOpt?.name ||
-                item.product_name ||
-                null;
-              fromStore.push({
-                id: `store-${item.id}`,
-                email: order.customer_email || order.customer_name || 'Customer',
-                date: order.created_at,
-                type,
-                resolution: 'Original',
-                filename,
-                photoId: photo?.id || photoId || null,
-                photoSetId: photo?.set_id || null,
-                photoCount:
-                  isAll
-                    ? null
-                    : isPackage
-                      ? Number(item.options?.photo_count || item.quantity || 1)
-                      : 1,
-                destination: 'email',
-                size: null,
-                pinUsed: false,
-                setName: isAll ? 'All Photos' : isPackage ? 'Photo Package' : 'Digital Download',
-                pin: '---',
-                source: 'Digital Purchase',
-                _origin: 'printstore',
-              });
-            }
-          }
-        }
-      } catch (storeErr) {
-        console.warn('store digital download activity merge failed:', storeErr);
-      }
-
-      const merged = [...fromActivityLog, ...fromStore].sort(
-        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-      );
-      return merged;
-    } catch (error) {
-      console.error('Error in getDownloadActivity:', error);
-      return [];
-    }
+    return (await workersGallery()).getDownloadActivity(collectionId);
   },
 
   /**
@@ -3735,118 +1331,28 @@ export const galleryService = {
    * Uses RPC with SECURITY DEFINER so deletes persist under RLS.
    */
   async deleteActivity(activityId) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).deleteActivity(activityId);
-    const id = Number(activityId);
-    if (!Number.isFinite(id)) {
-      throw new Error('Invalid activity id');
-    }
-
-    const { data: deletedCount, error } = await supabase.rpc('delete_activity_log_owned', {
-      p_activity_id: id,
-    });
-
-    if (error) {
-      const msg = error.message || '';
-      if (/function .* does not exist|Could not find the function/i.test(msg)) {
-        throw new Error(
-          'Delete is not set up on the server yet. In Supabase → SQL Editor, run supabase/migrations/20260513140000_delete_activity_log_rpc.sql, then try again.'
-        );
-      }
-      throw error;
-    }
-
-    const n = Number(deletedCount);
-    if (Number.isNaN(n) || n !== 1) {
-      throw new Error(
-        'This activity row could not be deleted. Sign in as the account that owns this delivery, or confirm the entry still exists.'
-      );
-    }
-
-    return true;
+    return (await workersGallery()).deleteActivity(activityId);
   },
 
   /**
    * Log an activity event
    */
   async logActivity(collectionId, eventType, data = {}) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).logActivity(collectionId, eventType, data);
-    try {
-      let photographerId = data.photographerId || null;
-      if (!photographerId && collectionId) {
-        const { data: col } = await supabase
-          .from('deliveries')
-          .select('photographer_id, user_id')
-          .eq('id', collectionId)
-          .maybeSingle();
-        photographerId = col?.photographer_id || col?.user_id || null;
-      }
-      if (!photographerId) {
-        console.warn('logActivity skipped: missing photographer_id', { collectionId, eventType });
-        return;
-      }
-
-      const row = {
-        collection_id: collectionId,
-        photographer_id: photographerId,
-        event_type: eventType,
-        visitor_email: data.email || null,
-        photo_id: data.photoId || null,
-        metadata: data.metadata || null,
-      };
-      if (data.resolution) {
-        row.resolution = data.resolution;
-      }
-      const { error } = await supabase
-        .from('activity_log')
-        .insert([row]);
-      if (error) throw error;
-    } catch (e) {
-      console.warn('Failed to log activity:', e);
-    }
+    return (await workersGallery()).logActivity(collectionId, eventType, data);
   },
 
   /**
    * Get the download count for a collection
    */
   async getDownloadCount(collectionId) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).getDownloadCount(collectionId);
-    try {
-      const { count, error } = await supabase
-        .from('activity_log')
-        .select('*', { count: 'exact', head: true })
-        .eq('collection_id', collectionId)
-        .eq('event_type', 'download');
-
-      if (error) throw error;
-      return count || 0;
-    } catch (e) {
-      console.error('Error getting download count:', e);
-      return 0;
-    }
+    return (await workersGallery()).getDownloadCount(collectionId);
   },
 
   /**
    * Get the number of times the download PIN has been successfully used
    */
   async getPinUsageCount(collectionId) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).getPinUsageCount(collectionId);
-    try {
-      const { data, error } = await supabase
-        .from('activity_log')
-        .select('metadata')
-        .eq('collection_id', collectionId)
-        .eq('event_type', 'password_attempt');
-
-      if (error) throw error;
-      // Count only entries where metadata.success === true and type is download_pin
-      const successCount = (data || []).filter(
-        row => row.metadata?.success === true && row.metadata?.type === 'download_pin'
-      ).length;
-      return successCount;
-    } catch (e) {
-      console.error('Error getting PIN usage count:', e);
-      return 0;
-    }
+    return (await workersGallery()).getPinUsageCount(collectionId);
   },
 
   /**
@@ -3854,329 +1360,74 @@ export const galleryService = {
    * Source: client_sessions, one row per unique email (earliest registration).
    */
   async getEmailRegistrationActivity(collectionId) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).getEmailRegistrationActivity(collectionId);
-    if (!collectionId) return [];
-    try {
-      let { data, error } = await supabase
-        .from('client_sessions')
-        .select('id, visitor_email, visitor_name, visitor_phone, created_at, access_level, download_count')
-        .eq('collection_id', collectionId)
-        .order('created_at', { ascending: false });
-
-      if (error && isMissingDbColumnError(error, 'visitor_')) {
-        const fallback = await supabase
-          .from('client_sessions')
-          .select('id, visitor_email, created_at, access_level, download_count')
-          .eq('collection_id', collectionId)
-          .order('created_at', { ascending: false });
-        data = fallback.data;
-        error = fallback.error;
-      }
-
-      if (error) {
-        console.error('getEmailRegistrationActivity error:', error);
-        throw error;
-      }
-
-      const byEmail = new Map();
-      for (const row of data || []) {
-        const email = String(row.visitor_email || '').trim().toLowerCase();
-        if (!email) continue;
-        const existing = byEmail.get(email);
-        if (!existing) {
-          byEmail.set(email, row);
-          continue;
-        }
-        // Keep the earliest registration time
-        if (new Date(row.created_at).getTime() < new Date(existing.created_at).getTime()) {
-          byEmail.set(email, row);
-        }
-      }
-
-      return [...byEmail.values()]
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-        .map((row) => ({
-          id: row.id,
-          email: row.visitor_email,
-          name: row.visitor_name || null,
-          phone: row.visitor_phone || null,
-          date: row.created_at,
-          accessLevel: row.access_level || 'guest',
-          downloadCount: Number(row.download_count) || 0,
-          source: 'Gallery Registration',
-        }));
-    } catch (err) {
-      console.error('Error in getEmailRegistrationActivity:', err);
-      return [];
-    }
+    return (await workersGallery()).getEmailRegistrationActivity(collectionId);
   },
 
   /**
    * Get aggregate counts for different activity types (for Expiry Reminder modal)
    */
   async getGalleryOpenActivity(collectionId) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).getGalleryOpenActivity(collectionId);
-    try {
-      const { data, error } = await supabase
-        .from('activity_log')
-        .select('id, visitor_email, created_at, metadata')
-        .eq('collection_id', collectionId)
-        .eq('event_type', 'gallery_view')
-        .order('created_at', { ascending: false })
-        .limit(200);
-
-      if (error) throw error;
-
-      const visitCounts = new Map();
-      const chronological = [...(data || [])].sort(
-        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-      );
-      return chronological
-        .map((row) => {
-          const email = row.visitor_email || 'Unknown visitor';
-          const key = String(email).toLowerCase();
-          const visitCount = (visitCounts.get(key) || 0) + 1;
-          visitCounts.set(key, visitCount);
-          return {
-            id: row.id,
-            email,
-            date: row.created_at,
-            visitCount,
-            source: 'gallery_view',
-          };
-        })
-        .reverse();
-    } catch (err) {
-      console.error('Error fetching gallery open activity:', err);
-      return [];
-    }
+    return (await workersGallery()).getGalleryOpenActivity(collectionId);
   },
 
   async getActivityCounts(collectionId) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).getActivityCounts(collectionId);
-    if (!collectionId) return { contacts: 0, downloaded: 0, registered: 0, favorited: 0, purchased: 0 };
-
-    try {
-      // 1. Registered (unique emails in client_sessions)
-      const { data: registeredData, error: regError } = await supabase
-        .from('client_sessions')
-        .select('visitor_email', { count: 'exact', head: false })
-        .eq('collection_id', collectionId);
-
-      const registeredEmails = new Set((registeredData || []).map(s => s.visitor_email).filter(Boolean));
-      const registeredCount = registeredEmails.size;
-
-      // 2. Downloaded (unique emails in activity_log with type 'download')
-      const { data: downloadData, error: dlError } = await supabase
-        .from('activity_log')
-        .select('visitor_email')
-        .eq('collection_id', collectionId)
-        .eq('event_type', 'download');
-
-      const downloadedEmails = new Set((downloadData || []).map(a => a.visitor_email).filter(Boolean));
-      const downloadedCount = downloadedEmails.size;
-
-      // 3. Favorited (unique emails who have favorite items)
-      // This is a bit more complex, we'll fetch favorite_lists then check items
-      const { data: favoriteLists, error: favError } = await supabase
-        .from('favorite_lists')
-        .select('id, session_id')
-        .eq('collection_id', collectionId);
-
-      let favoritedCount = 0;
-      if (favoriteLists && favoriteLists.length > 0) {
-        const listIds = favoriteLists.map(l => l.id);
-        const { data: favItems } = await supabase
-          .from('favorite_items')
-          .select('list_id')
-          .in('list_id', listIds);
-
-        const listsWithItems = new Set((favItems || []).map(i => i.list_id));
-        const favoritedSessionIds = new Set(
-          favoriteLists
-            .filter(l => listsWithItems.has(l.id))
-            .map(l => l.session_id)
-        );
-
-        // Map session IDs back to unique emails
-        const favoritedEmails = new Set(
-          (registeredData || [])
-            .filter(s => favoritedSessionIds.has(s.id))
-            .map(s => s.visitor_email)
-            .filter(Boolean)
-        );
-        favoritedCount = favoritedEmails.size;
-      }
-
-      return {
-        contacts: registeredCount, // For now, contacts = registered
-        downloaded: downloadedCount,
-        registered: registeredCount,
-        favorited: favoritedCount,
-        purchased: 0 // Not implemented yet
-      };
-    } catch (err) {
-      console.error('Error fetching activity counts:', err);
-      return { contacts: 0, downloaded: 0, registered: 0, favorited: 0, purchased: 0 };
-    }
+    return (await workersGallery()).getActivityCounts(collectionId);
   },
 
   /**
    * Fetch all expiry reminders for a collection
    */
   async getCollectionReminders(collectionId) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).getCollectionReminders(collectionId);
-    const { data, error } = await reminderQuery((table) =>
-      supabase
-        .from(table)
-        .select('*')
-        .eq('collection_id', collectionId)
-        .order('created_at', { ascending: true })
-    );
-
-    if (error) throw error;
-    return data ?? [];
+    return (await workersGallery()).getCollectionReminders(collectionId);
   },
 
   /**
    * Create a new expiry reminder
    */
   async createCollectionReminder(reminderData) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).createCollectionReminder(reminderData);
-    const payload = sanitizeReminderPayload(reminderData);
-    const { data, error } = await reminderMutate(
-      (table, row) => supabase.from(table).insert([row]).select().single(),
-      payload,
-    );
-
-    if (error) throw error;
-    return data;
+    return (await workersGallery()).createCollectionReminder(reminderData);
   },
 
   /**
    * Update an existing expiry reminder
    */
   async updateCollectionReminder(id, updateData) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).updateCollectionReminder(id, updateData);
-    const payload = { ...updateData };
-    if ('activity_lists' in payload && !Array.isArray(payload.activity_lists)) {
-      payload.activity_lists = [];
-    }
-    const { data, error } = await reminderMutate(
-      (table, row) => supabase.from(table).update(row).eq('id', id).select().single(),
-      payload,
-    );
-
-    if (error) throw error;
-    return data;
+    return (await workersGallery()).updateCollectionReminder(id, updateData);
   },
 
   /**
    * Delete an expiry reminder
    */
   async deleteCollectionReminder(id) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).deleteCollectionReminder(id);
-    const { error } = await reminderQuery((table) =>
-      supabase.from(table).delete().eq('id', id)
-    );
-
-    if (error) throw error;
+    return (await workersGallery()).deleteCollectionReminder(id);
   },
 
   /**
    * Create a default reminder if this delivery has none yet.
    */
   async ensureCollectionReminder(collectionId, patch = {}) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).ensureCollectionReminder(collectionId, patch);
-    const existing = await this.getCollectionReminders(collectionId);
-    if (existing[0]) {
-      if (patch && Object.keys(patch).length) {
-        return this.updateCollectionReminder(existing[0].id, patch);
-      }
-      return existing[0];
-    }
-    return this.createCollectionReminder({
-      collection_id: collectionId,
-      ...DEFAULT_REMINDER,
-      ...patch,
-    });
+    return (await workersGallery()).ensureCollectionReminder(collectionId, patch);
   },
 
   /**
    * Send a gallery share email from one visitor to another (public share modal).
    */
-  async shareCollectionByEmail({ collectionSlug, recipientEmail, senderEmail, personalMessage }) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).shareCollectionByEmail({ collectionSlug, recipientEmail, senderEmail, personalMessage });
-    const { data, error } = await supabase.functions.invoke('share-collection-email', {
-      body: {
-        collectionSlug,
-        recipientEmail,
-        senderEmail,
-        personalMessage,
-      },
-    });
-
-    if (error) {
-      throw new Error(error.message || 'Could not send email');
-    }
-    if (data?.error) {
-      throw new Error(data.error);
-    }
-    return data;
+  async shareCollectionByEmail({ collectionSlug, collectionId, recipientEmail, senderEmail, personalMessage, subject }) {
+    return (await workersGallery()).shareCollectionByEmail({ collectionSlug, collectionId, recipientEmail, senderEmail, personalMessage, subject });
   },
 
   /**
    * Send a selection-list invite email to a client (photographer dashboard).
    */
-  async sendSelectionListEmail({ collectionSlug, recipientEmail, subject, message, chooseUrl, siteOrigin }) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).sendSelectionListEmail({ collectionSlug, recipientEmail, subject, message, chooseUrl });
-    const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession();
-
-    if (sessionError || !session?.access_token) {
-      throw new Error('You must be signed in to send emails.');
-    }
-
-    const { data, error } = await supabase.functions.invoke('send-selection-email', {
-      headers: {
-        Authorization: `Bearer ${session.access_token}`,
-      },
-      body: {
-        collectionSlug,
-        recipientEmail,
-        subject,
-        message,
-        chooseUrl,
-        siteOrigin,
-        accessToken: session.access_token,
-      },
-    });
-
-    if (error) {
-      throw new Error(error.message || 'Could not send email');
-    }
-    if (data?.error) {
-      throw new Error(data.error);
-    }
-    return data;
+  async sendSelectionListEmail({ collectionSlug, recipientEmail, subject, message, chooseUrl }) {
+    return (await workersGallery()).sendSelectionListEmail({ collectionSlug, recipientEmail, subject, message, chooseUrl });
   },
 
   /**
    * Email history for photographer dashboard (visitor share emails).
    */
   async getCollectionShareEmailHistory(collectionId) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).getCollectionShareEmailHistory(collectionId);
-    const { data, error } = await supabase
-      .from('delivery_share_emails')
-      .select('id, sender_email, recipient_email, subject, status, created_at')
-      .eq('collection_id', collectionId)
-      .order('created_at', { ascending: false })
-      .limit(100);
-
-    if (error) throw error;
-    return data ?? [];
+    return (await workersGallery()).getCollectionShareEmailHistory(collectionId);
   },
 
   // ─── Vault Extension Plans (dedicated table) ───────────────────────
@@ -4186,19 +1437,7 @@ export const galleryService = {
    * Returns null if no row exists yet.
    */
   async fetchVaultPlan(collectionId) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).fetchVaultPlan(collectionId);
-    if (!collectionId) return null;
-    const { data, error } = await supabase
-      .from('vault_extension_plans')
-      .select('*')
-      .eq('collection_id', collectionId)
-      .maybeSingle();
-
-    if (error) {
-      console.error('fetchVaultPlan error:', error);
-      return null;
-    }
-    return data;
+    return (await workersGallery()).fetchVaultPlan(collectionId);
   },
 
   /**
@@ -4206,38 +1445,14 @@ export const galleryService = {
    * Creates a new row if none exists, updates if it does.
    */
   async upsertVaultPlan(collectionId, settings) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).upsertVaultPlan(collectionId, settings);
-    if (!collectionId) throw new Error('collectionId is required');
-    const { data, error } = await supabase
-      .from('vault_extension_plans')
-      .upsert({
-        collection_id: collectionId,
-        ...settings,
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'collection_id' })
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data;
+    return (await workersGallery()).upsertVaultPlan(collectionId, settings);
   },
 
   /**
    * Upsert vault extension plan settings for multiple collections at once.
    */
   async upsertVaultPlanBatch(collectionIds, settings) {
-    if (USE_WORKERS_AUTH) return (await workersGallery()).upsertVaultPlanBatch(collectionIds, settings);
-    if (!collectionIds || collectionIds.length === 0) return;
-    const rows = collectionIds.map(id => ({
-      collection_id: id,
-      ...settings,
-      updated_at: new Date().toISOString()
-    }));
-    const { error } = await supabase
-      .from('vault_extension_plans')
-      .upsert(rows, { onConflict: 'collection_id' });
-
-    if (error) throw error;
+    return (await workersGallery()).upsertVaultPlanBatch(collectionIds, settings);
   },
 
   /**
@@ -4245,101 +1460,69 @@ export const galleryService = {
    * If table doesn't exist, falls back to localStorage.
    */
   async fetchSalesAutomations(photographerId) {
-    if (!photographerId) return [];
-    try {
-      const { data, error } = await supabase
-        .from('sales_automations')
-        .select('*')
-        .eq('photographer_id', photographerId)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      return data || [];
-    } catch (err) {
-      console.warn('Supabase fetchSalesAutomations failed, falling back to local cache:', err);
-      try {
-        const local = localStorage.getItem(`pixnxt_sales_automations_${photographerId}`);
-        return local ? JSON.parse(local) : [];
-      } catch (localErr) {
-        return [];
-      }
-    }
+    return (await workersGallery()).fetchSalesAutomations(photographerId);
   },
 
   /**
    * Save (Insert/Update) a sales automation campaign.
    */
   async saveSalesAutomation(photographerId, automation) {
-    if (!photographerId) throw new Error('photographerId is required');
-    const now = new Date().toISOString();
-    const payload = {
-      ...automation,
-      photographer_id: photographerId,
-      last_activity: now,
-      updated_at: now
-    };
-
-    try {
-      const { data, error } = await supabase
-        .from('sales_automations')
-        .upsert(payload, { onConflict: 'id' })
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
-    } catch (err) {
-      console.warn('Supabase saveSalesAutomation failed, writing to local cache:', err);
-      // Local fallback
-      try {
-        const localStr = localStorage.getItem(`pixnxt_sales_automations_${photographerId}`);
-        let automations = localStr ? JSON.parse(localStr) : [];
-        const targetId = automation.id || 'auto_' + Math.random().toString(36).substr(2, 9);
-        const existingIdx = automations.findIndex(a => a.id === targetId);
-
-        const newAutomation = {
-          ...payload,
-          id: targetId,
-          created_at: automation.created_at || now
-        };
-
-        if (existingIdx >= 0) {
-          automations[existingIdx] = newAutomation;
-        } else {
-          automations.push(newAutomation);
-        }
-
-        localStorage.setItem(`pixnxt_sales_automations_${photographerId}`, JSON.stringify(automations));
-        return newAutomation;
-      } catch (localErr) {
-        throw err;
-      }
-    }
+    return (await workersGallery()).saveSalesAutomation(photographerId, automation);
   },
 
   /**
    * Delete a sales automation.
    */
   async deleteSalesAutomation(photographerId, id) {
-    try {
-      const { error } = await supabase
-        .from('sales_automations')
-        .delete()
-        .eq('id', id);
+    return (await workersGallery()).deleteSalesAutomation(photographerId, id);
+  },
 
-      if (error) throw error;
-    } catch (err) {
-      console.warn('Supabase deleteSalesAutomation failed, removing from local cache:', err);
-      try {
-        const localStr = localStorage.getItem(`pixnxt_sales_automations_${photographerId}`);
-        if (localStr) {
-          let automations = JSON.parse(localStr);
-          automations = automations.filter(a => a.id !== id);
-          localStorage.setItem(`pixnxt_sales_automations_${photographerId}`, JSON.stringify(automations));
-        }
-      } catch (localErr) {
-        throw err;
-      }
-    }
-  }
+  /**
+   * Store orders for a collection (CollectionDashboard activity feed).
+   * Workers: GET /v1/store/orders + /v1/store/order-items.
+   */
+  async getStoreOrders(collectionId) {
+    return (await workersGallery()).getStoreOrders(collectionId);
+  },
+
+  async getStoreOrderItems(collectionId) {
+    return (await workersGallery()).getStoreOrderItems(collectionId);
+  },
+
+  /**
+   * Quota snapshot (Workers: GET /v1/me/quota).
+   */
+  async getQuotaSnapshot() {
+    return (await workersGallery()).getQuotaSnapshot();
+  },
+
+  /**
+   * Storage usage (Workers: GET /v1/me/storage).
+   */
+  async getStorageUsage() {
+    return (await workersGallery()).getStorageUsage();
+  },
+
+  /**
+   * Bounded activity fan-out (Workers: GET /v1/engage/notifications).
+   */
+  async getNotificationsBulk(collectionIds) {
+    return (await workersGallery()).getNotificationsBulk(collectionIds);
+  },
+
+  async getStudioOverview() {
+    return (await workersGallery()).getStudioOverview();
+  },
+
+  async listReferrals() {
+    return (await workersGallery()).listReferrals();
+  },
+
+  async createReferral(referredEmail) {
+    return (await workersGallery()).createReferral(referredEmail);
+  },
+
+  async listContacts() {
+    return (await workersGallery()).listContacts();
+  },
 };

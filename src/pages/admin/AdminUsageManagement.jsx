@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, User, AlertCircle, X, Layers, Send, Pencil, ChevronDown, BookOpen } from 'lucide-react';
 import { AppLoader, AppSpinner } from '../../components/ui/AppLoading';
-import { supabase } from '../../lib/supabase/client';
+import { apiFetch } from '../../lib/api/client';
 import {
   broadcastPhotographerLimitsChanged,
   onPhotographerLimitsBroadcast,
@@ -41,14 +41,6 @@ function MiniBar({ used, limit }) {
     </div>
   );
 }
-
-const NEW_SELECT = 'id, display_name, email, plan, album_limit, album_used_count, delivery_limit, delivery_used_count';
-const BASIC_SELECT = 'id, display_name, email, plan';
-
-const isMissingColumnError = (err) => {
-  const msg = String(err?.message || '');
-  return err?.code === '42703' || /does not exist|album_limit|album_used|delivery_limit|delivery_used/i.test(msg);
-};
 
 const initTriState = (limit) => {
   const isDisabled = Number(limit) === -1;
@@ -232,29 +224,19 @@ const AdminUsageManagement = () => {
     setExpandedId(user.id);
     if (detailsByUser[user.id]?.loaded) return;
     setDetailsByUser((prev) => ({ ...prev, [user.id]: { ...(prev[user.id] || {}), loading: true, error: null } }));
+    // Per-photographer album/delivery names via the admin galleries endpoint.
     try {
-      const [albumsRes, deliveriesRes] = await Promise.all([
-        supabase
-          .from('album_proofer_albums')
-          .select('id, name, status, created_at, event_date')
-          .eq('photographer_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(100),
-        supabase
-          .from('deliveries')
-          .select('id, name, slug, status, created_at')
-          .eq('photographer_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(100),
-      ]);
-      const albumError = albumsRes.error && albumsRes.error.code !== 'PGRST116' ? albumsRes.error : null;
-      if (deliveriesRes.error) throw deliveriesRes.error;
+      const data = await apiFetch(`/v1/admin/photographers/${user.id}/galleries`);
+      const albums = Array.isArray(data?.albums) ? data.albums : [];
+      const deliveries = Array.isArray(data?.deliveries) ? data.deliveries : [];
       setDetailsByUser((prev) => ({
         ...prev,
         [user.id]: {
-          albums: albumsRes.data || [],
-          albumsUnavailable: Boolean(albumError),
-          deliveries: deliveriesRes.data || [],
+          albums,
+          deliveries,
+          albumCount: albums.length,
+          deliveryCount: deliveries.length,
+          countsOnly: false,
           loading: false,
           error: null,
           loaded: true,
@@ -272,10 +254,11 @@ const AdminUsageManagement = () => {
     setLoading(true);
     setError(null);
     setMigrationWarning(null);
+    // Workers: quotas flattened onto each row.
     try {
-      const res = await supabase.from('photographers').select(NEW_SELECT).order('created_at', { ascending: false });
-      if (!res.error) {
-        const mapped = (res.data || []).map((p) => ({
+      const res = await apiFetch('/v1/admin/photographers?limit=500');
+      setUsers(
+        (res?.photographers || []).map((p) => ({
           id: p.id,
           name: p.display_name || 'Unnamed',
           email: p.email,
@@ -284,42 +267,8 @@ const AdminUsageManagement = () => {
           albumLimit: p.album_limit != null ? Number(p.album_limit) : 0,
           deliveryUsed: Number(p.delivery_used_count) || 0,
           deliveryLimit: p.delivery_limit != null ? Number(p.delivery_limit) : 0,
-        }));
-        setUsers(mapped);
-        return;
-      }
-      if (!isMissingColumnError(res.error)) throw res.error;
-
-      // Migration pending — fall back to live counts per photographer.
-      setMigrationWarning('Database migration pending: run supabase/migrations/20260912000000_album_delivery_creation_limits.sql in Supabase SQL Editor. Showing live counts with unlimited limits.');
-      const basic = await supabase.from('photographers').select(BASIC_SELECT).order('created_at', { ascending: false });
-      if (basic.error) throw basic.error;
-      const rows = basic.data || [];
-      const mapped = await Promise.all(
-        rows.map(async (p) => {
-          let albums = 0;
-          let deliveries = 0;
-          try {
-            const a = await supabase.from('album_proofer_albums').select('id', { count: 'exact', head: true }).eq('photographer_id', p.id);
-            if (!a.error && typeof a.count === 'number') albums = a.count;
-          } catch { /* ignore */ }
-          try {
-            const d = await supabase.from('deliveries').select('id', { count: 'exact', head: true }).eq('photographer_id', p.id);
-            if (!d.error && typeof d.count === 'number') deliveries = d.count;
-          } catch { /* ignore */ }
-          return {
-            id: p.id,
-            name: p.display_name || 'Unnamed',
-            email: p.email,
-            plan: p.plan || 'Free',
-            albumUsed: albums,
-            albumLimit: 0,
-            deliveryUsed: deliveries,
-            deliveryLimit: 0,
-          };
-        })
+        }))
       );
-      setUsers(mapped);
     } catch (err) {
       console.error('Error fetching usage:', err);
       setError(err.message || 'Failed to load usage.');
@@ -369,16 +318,10 @@ const AdminUsageManagement = () => {
     try {
       const parsedAlbum = parseTriState(albumEnabled, albumUnlimited, albumLimit, 'album');
       const parsedDelivery = parseTriState(deliveryEnabled, deliveryUnlimited, deliveryLimit, 'delivery');
-      const { error: updateError } = await supabase
-        .from('photographers')
-        .update({ album_limit: parsedAlbum, delivery_limit: parsedDelivery })
-        .eq('id', editingUser.id);
-      if (updateError) {
-        if (isMissingColumnError(updateError)) {
-          throw new Error('Migration missing: run 20260912000000_album_delivery_creation_limits.sql in Supabase SQL Editor first.');
-        }
-        throw updateError;
-      }
+      await apiFetch(`/v1/admin/photographers/${editingUser.id}`, {
+        method: 'PATCH',
+        body: { album_limit: parsedAlbum, delivery_limit: parsedDelivery },
+      });
       setEditingUser(null);
       fetchUsers();
       // Instant admin -> photographer (and admin -> admin tabs).
@@ -634,6 +577,12 @@ const AdminUsageManagement = () => {
                               </div>
                             ) : detail.error ? (
                               <p className="py-3 text-sm text-red-600">{detail.error}</p>
+                            ) : detail.countsOnly ? (
+                              <div className="flex flex-wrap items-center gap-x-8 gap-y-2 py-3 text-sm text-gray-600">
+                                <p><strong className="text-gray-900">{Number(detail.albumCount ?? 0).toLocaleString()}</strong> albums created</p>
+                                <p><strong className="text-gray-900">{Number(detail.deliveryCount ?? 0).toLocaleString()}</strong> deliveries created</p>
+                                <p className="text-[11px] text-gray-400">Per-item names are unavailable via the Workers API.</p>
+                              </div>
                             ) : (
                               <div className="grid md:grid-cols-2 gap-4">
                                 <div className="rounded-xl border border-[#eae8e4] bg-white overflow-hidden">

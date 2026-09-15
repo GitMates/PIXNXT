@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Wrench, Palette, Lock, Download, Heart, ShoppingCart, X } from 'lucide-react';
-import { supabase } from '../lib/supabase/client';
+import { apiFetch } from '../lib/api/client';
 import { useAuth } from '../hooks/useAuth';
 import { AppLoader } from '../components/ui/AppLoading';
 import './PresetEditor.css';
@@ -75,18 +75,20 @@ export default function PresetEditor() {
   useEffect(() => {
     const fetchData = async () => {
       if (!user?.id || !id) return;
+      // No single-GET endpoint — list + find client-side. The API stores
+      // settings as a JSON string; accept objects too. user.id is the
+      // photographer id. Watermarks resolve inside galleryService.
       try {
-        const { data, error } = await supabase
-          .from('presets')
-          .select('*')
-          .eq('id', id)
-          .single();
-          
-        if (error) throw error;
-        setPreset(data);
-        if (data.settings) {
+        const data = await apiFetch('/v1/engage/presets');
+        const found = (data?.presets || []).find((p) => p.id === id) || null;
+        setPreset(found);
+        const rawSettings = found?.settings;
+        const parsedSettings = typeof rawSettings === 'string'
+          ? JSON.parse(rawSettings || '{}')
+          : rawSettings;
+        if (parsedSettings) {
           setSettings((prev) => {
-            const next = { ...prev, ...data.settings };
+            const next = { ...prev, ...parsedSettings };
             if (next.showOnShowcase === undefined && next.showOnHomepage !== undefined) {
               next.showOnShowcase = next.showOnHomepage;
             }
@@ -96,19 +98,8 @@ export default function PresetEditor() {
             return next;
           });
         }
-
-        // Fetch watermarks
-        const { data: profileData } = await supabase
-          .from('photographers')
-          .select('id')
-          .eq('id', user.id)
-          .single();
-          
-        if (profileData) {
-          const wms = await galleryService.getWatermarks(profileData.id);
-          setWatermarks(wms || []);
-        }
-
+        const wms = await galleryService.getWatermarks(user.id);
+        setWatermarks(wms || []);
       } catch (err) {
         console.error('Error fetching preset:', err);
       } finally {
@@ -121,12 +112,10 @@ export default function PresetEditor() {
   const handleSave = async () => {
     try {
       setSaving(true);
-      const { error } = await supabase
-        .from('presets')
-        .update({ settings })
-        .eq('id', id);
-        
-      if (error) throw error;
+      await apiFetch(`/v1/engage/presets/${id}`, {
+        method: 'PATCH',
+        body: { settings },
+      });
       navigate(PRESET_LIST_PATH);
     } catch (err) {
       console.error('Error saving preset:', err);

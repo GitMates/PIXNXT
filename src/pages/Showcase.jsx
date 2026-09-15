@@ -573,7 +573,7 @@ const Showcase = () => {
       return updated;
     } catch (err) {
       console.error('Failed to update showcase card:', err);
-      setError('Could not save that change. Apply the latest Supabase migration if columns are missing.');
+      setError('Could not save that change. Please try again — if it keeps failing, contact support.');
       throw err;
     }
   };

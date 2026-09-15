@@ -1,4 +1,4 @@
-// Step-4 abstraction: pages call logCrash(), only this file knows Supabase vs Cloudflare.
+// Crash reporting helper: pages call logCrash(), reports go to Cloudflare.
 // Full taxonomy lives in ./crashTaxonomy.js (auto-generated 1-266 from Master Crash Report).
 import { crashByNo } from './crashTaxonomy';
 
@@ -40,10 +40,23 @@ function persistQueue(q) {
   try { localStorage.setItem(QUEUE_KEY, JSON.stringify(q.slice(-MAX_QUEUE))); } catch { /* quota full: drop */ }
 }
 
+function safeStoreGet(store, key) {
+  try {
+    if (typeof store === 'undefined' || store == null) return null;
+    return store.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
 function baseContext(extra = {}) {
   let user = null;
+  // The access token lives in memory (Workers auth) — every read is defensive
+  // so logging never throws. Order: explicit session snapshot, then globals
+  // stamped by the app shell.
+  const raw =
+    safeStoreGet(typeof sessionStorage !== 'undefined' ? sessionStorage : undefined, 'pixnxt_user');
   try {
-    const raw = localStorage.getItem('supabase.auth.token') || sessionStorage.getItem('pixnxt_user');
     user = raw ? JSON.parse(raw) : null;
   } catch { user = null; }
   return {
@@ -117,16 +130,34 @@ export function reportCaught(crashNo, err, extra = {}) {
 // Install once in main.jsx: window.onerror + unhandledrejection -> crashNo 77/78
 // Handlers check the detection flag at event time so the admin toggle
 // takes effect immediately without a reload.
+function isThirdPartyRumError({ message, filename, stack }) {
+  const hay = `${message || ''}\n${filename || ''}\n${stack || ''}`;
+  // web-vitals / Vercel Speed Insights / CF beacon / Zaraz inject minified
+  // `reportAllChanges` + PerformanceObserver `entry.startTime` reads from an
+  // eval'd VM script — never first-party code (no such symbol in src/dist).
+  if (/reportAllChanges/i.test(hay)) return true;
+  if (/^VM\d+/i.test(String(filename || ''))) return true;
+  if (/^\s*at .*\(VM\d+:/m.test(String(stack || ''))) return true;
+  if (/speed-insights|web-vitals|cloudflareinsights|beacon\.min\.js|\.zaraz|chrome-extension:\/\/|moz-extension:\/\/|safari-extension:\/\//i.test(hay)) return true;
+  return false;
+}
+
 export function installGlobalCrashHooks() {
   if (window.__PIXNXT_CRASH_HOOKS__) return;
   window.__PIXNXT_CRASH_HOOKS__ = true;
   window.addEventListener('error', (e) => {
     if (!isCrashDetectionEnabled()) return;
-    void logCrash({ crashNo: 77, reason: String(e.message || 'window.onerror').slice(0, 300), route: window.location.pathname, stack: String(e.error?.stack || '').slice(0, 1000) });
+    const message = String(e.message || 'window.onerror');
+    const stack = String(e.error?.stack || '');
+    if (isThirdPartyRumError({ message, filename: e.filename || '', stack })) return;
+    void logCrash({ crashNo: 77, reason: message.slice(0, 300), route: window.location.pathname, stack: stack.slice(0, 1000) });
   });
   window.addEventListener('unhandledrejection', (e) => {
     if (!isCrashDetectionEnabled()) return;
-    void logCrash({ crashNo: 78, reason: String(e.reason?.message || e.reason || 'unhandledrejection').slice(0, 300), route: window.location.pathname });
+    const message = String(e.reason?.message || e.reason || 'unhandledrejection');
+    const stack = String(e.reason?.stack || '');
+    if (isThirdPartyRumError({ message, filename: '', stack })) return;
+    void logCrash({ crashNo: 78, reason: message.slice(0, 300), route: window.location.pathname });
   });
   if (isCrashDetectionEnabled()) flushQueue();
 }

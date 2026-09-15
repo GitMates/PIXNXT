@@ -33,14 +33,14 @@ export function getCollectionFocal(collection) {
   return { x: 50, y: 50 };
 }
 
-/** True when Supabase/PostgREST rejects an unknown column (migration not applied yet). */
+/** True when the Cloudflare API rejects an unknown column (backend not migrated yet). */
 export function isMissingDbColumnError(err, columnHint = 'cover_focal') {
   const msg = `${err?.message || ''} ${err?.details || ''} ${err?.hint || ''}`.toLowerCase();
   const hint = String(columnHint).toLowerCase();
   return (
-    err?.code === 'PGRST204' ||
     (msg.includes('column') && msg.includes(hint)) ||
-    msg.includes('schema cache')
+    msg.includes('no such column') ||
+    msg.includes('unknown column')
   );
 }
 
@@ -72,7 +72,7 @@ export function normalizeFocalForDb(value) {
   return Math.min(99.99, Math.max(0, Math.round(n * 100) / 100));
 }
 
-/** Postgres 22003 / Supabase "numeric field overflow" (e.g. numeric(4,2) cannot store 100). */
+/** D1 / Cloudflare "numeric out of range" (e.g. a numeric column cannot store 100). */
 export function isNumericOverflowError(err) {
   const msg = `${err?.message || ''} ${err?.details || ''}`.toLowerCase();
   return err?.code === '22003' || msg.includes('numeric field overflow') || msg.includes('numeric value out of range');

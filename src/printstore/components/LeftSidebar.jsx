@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Upload, FlaskConical, LayoutDashboard, Eye, ShoppingCart, Package, Camera, Bell } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { supabase } from '../../lib/supabase/client';
-import { USE_WORKERS_AUTH } from '../../lib/api/client';
+import { apiFetch } from '../../lib/api/client';
 
 export default function LeftSidebar({ isOpen, onClose, onSeeGallery, onGoToCart, onGoToOrders, onGoToNotifications, sessionId, photographer }) {
   const navigate = useNavigate();
@@ -14,29 +13,19 @@ export default function LeftSidebar({ isOpen, onClose, onSeeGallery, onGoToCart,
     async function fetchNotifCount() {
       if (!isOpen) return;
       try {
-        let query = supabase.from('printstore_orders').select('id');
-        let hasFilter = false;
+        // No realtime/SSE equivalent — count open artwork reviews via the
+        // shopper notifications endpoint (same refresh as PrintStoreApp).
+        const params = new URLSearchParams();
         if (sessionId) {
-          query = query.eq('session_id', sessionId);
-          hasFilter = true;
+          params.set('sessionId', sessionId);
         } else {
-          const { data: userData } = await supabase.auth.getUser();
-          if (userData?.user?.email) {
-            query = query.eq('customer_email', userData.user.email);
-            hasFilter = true;
-          }
+          const { getUser } = await import('../../services/workersAuth.service');
+          const user = await getUser().catch(() => null);
+          if (user?.email) params.set('email', user.email);
         }
-        if (!hasFilter) return;
-        const { data: orders } = await query;
-        if (orders && orders.length > 0) {
-          const orderIds = orders.map(o => o.id);
-          const { count } = await supabase
-            .from('printstore_artwork_reviews')
-            .select('*', { count: 'exact', head: true })
-            .in('order_id', orderIds)
-            .eq('review_status', 'Waiting Customer');
-          setNotifCount(count || 0);
-        }
+        if (!params.toString()) return;
+        const data = await apiFetch(`/v1/printstore/reviews/notifications?${params.toString()}`, { auth: false }).catch(() => null);
+        setNotifCount((data?.reviews || []).length);
       } catch (err) {}
     }
     fetchNotifCount();
@@ -51,46 +40,19 @@ export default function LeftSidebar({ isOpen, onClose, onSeeGallery, onGoToCart,
   useEffect(() => {
     async function fetchPhotographerName() {
       try {
-        if (USE_WORKERS_AUTH) {
-          // Workers has no public photographer-directory endpoint, so we only
-          // resolve the signed-in photographer's own branding here. The
-          // storefront name otherwise comes in via the `photographer` prop.
-          // (Notification counts below stay on Supabase — no shopper
-          // artwork-review endpoint exists in Workers yet.)
-          try {
-            const { getUser } = await import('../../services/auth.service');
-            const user = await getUser().catch(() => null);
-            if (user?.id) {
-              const { apiFetch } = await import('../../lib/api/client');
-              const data = await apiFetch(`/v1/public/photographer/by-id/${encodeURIComponent(user.id)}`, { auth: false }).catch(() => null);
-              if (data?.photographer?.display_name) {
-                setPhotographerName(data.photographer.display_name);
-              }
+        // Resolve the signed-in photographer's own branding here. The
+        // storefront name otherwise comes in via the `photographer` prop.
+        try {
+          const { getUser } = await import('../../services/workersAuth.service');
+          const user = await getUser().catch(() => null);
+          if (user?.id) {
+            const data = await apiFetch(`/v1/public/photographer/by-id/${encodeURIComponent(user.id)}`, { auth: false }).catch(() => null);
+            if (data?.photographer?.display_name) {
+              setPhotographerName(data.photographer.display_name);
             }
-          } catch (workersErr) {
-            console.error('Error loading photographer name:', workersErr);
           }
-          return;
-        }
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { data: photoProfile } = await supabase
-            .from('photographers')
-            .select('display_name')
-            .eq('id', user.id)
-            .maybeSingle();
-          if (photoProfile?.display_name) {
-            setPhotographerName(photoProfile.display_name);
-          }
-        } else {
-          // As a fallback, get first photographer in database
-          const { data: photoProfiles } = await supabase
-            .from('photographers')
-            .select('display_name')
-            .limit(1);
-          if (photoProfiles?.[0]?.display_name) {
-            setPhotographerName(photoProfiles[0].display_name);
-          }
+        } catch (workersErr) {
+          console.error('Error loading photographer name:', workersErr);
         }
       } catch (err) {
         console.error("Error loading photographer name:", err);

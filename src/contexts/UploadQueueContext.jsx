@@ -56,7 +56,7 @@ function isUploadCancelled(err) {
   return err instanceof Error && /Upload cancelled/i.test(err.message);
 }
 
-/** Normalize Supabase PostgREST / R2 / unknown throws into a user-visible string. */
+/** Normalize Cloudflare Workers API / R2 / unknown throws into a user-visible string. */
 function uploadErrorMessage(err) {
   if (err instanceof Error && err.message) return err.message;
   if (err && typeof err === 'object') {

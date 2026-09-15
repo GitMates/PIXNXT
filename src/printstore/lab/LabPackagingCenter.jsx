@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useLabAuth } from './LabApp';
-import { supabase } from '../../lib/supabase/client';
+import { apiFetch } from '../../lib/api/client';
 import { useNavigate } from 'react-router-dom';
 import { 
   Printer, Check, Plus, Eye, ChevronRight, Filter, ChevronLeft, AlertCircle, RefreshCw
@@ -31,14 +31,14 @@ export default function LabPackagingCenter() {
 
   const fetchData = async () => {
     setLoading(true);
+    // Worksheets (courier/box enrichment) + packaging logs via Workers.
     try {
-      // Fetch worksheets
-      const { data: wsData } = await supabase.from('printstore_order_worksheets').select('*');
-      if (wsData) setWorksheets(wsData);
-
-      // Fetch packaging logs
-      const { data: logData } = await supabase.from('printstore_lab_packaging_logs').select('*');
-      if (logData) setPackagingLogs(logData);
+      const [wsRes, logData] = await Promise.all([
+        apiFetch('/v1/printstore/worksheets').catch(() => null),
+        apiFetch('/v1/printstore/packaging-logs').catch(() => null),
+      ]);
+      if (wsRes?.rows) setWorksheets(wsRes.rows);
+      if (logData?.rows) setPackagingLogs(logData.rows);
     } catch (e) {
       console.error(e);
     } finally {
@@ -134,48 +134,40 @@ export default function LabPackagingCenter() {
     }
     setIsSubmitting(true);
     try {
+      // PATCH …/orders/:id { status: 'ready_to_ship', shelf_location } +
+      // POST packaging-logs + explicit tracking row.
+      const packedBy = (JSON.parse(localStorage.getItem('pixnxt_lab_session') || '{}')?.email) || 'Lab Operator';
       for (const orderId of selectedOrders) {
-        // Move status to ready_to_ship
-        const { error: updateError } = await supabase
-          .from('printstore_orders')
-          .update({ 
+        const encodeId = encodeURIComponent(orderId);
+        await apiFetch(`/v1/printstore/orders/${encodeId}`, {
+          method: 'PATCH',
+          body: {
             status: 'ready_to_ship',
-            shelf_location: 'Shelf ' + (String(orderId).replace(/\D/g, '').slice(-2) || '01')
-          })
-          .eq('id', orderId);
-
-        if (updateError) {
-          // Fallback if shelf_location doesn't exist
-          const { error: fallbackError } = await supabase
-            .from('printstore_orders')
-            .update({ status: 'ready_to_ship' })
-            .eq('id', orderId);
-          if (fallbackError) throw fallbackError;
-        }
-
-        // Create log entry
-        const { error: logError } = await supabase.from('printstore_lab_packaging_logs').insert({
-          order_id: orderId,
-          packed_by: (JSON.parse(localStorage.getItem('pixnxt_lab_session') || '{}')?.email) || 'Lab Operator',
-          packaging_type: 'Standard Box',
-          bubble_wrap: true,
-          corner_protectors: true,
-          foam_sheet: true,
-          protective_sleeve: true,
-          shipping_box: true
+            shelf_location: 'Shelf ' + (String(orderId).replace(/\D/g, '').slice(-2) || '01'),
+          },
         });
-        if (logError) throw logError;
-
-        // Insert timeline tracking
-        const { error: trackingError } = await supabase.from('printstore_order_tracking').insert({
-          order_id: orderId,
-          status: 'ready_to_ship',
-          label: 'Order Packed',
-          description: 'Logistics validation complete. Order packed in Standard Box.'
+        await apiFetch('/v1/printstore/packaging-logs', {
+          method: 'POST',
+          body: {
+            order_id: orderId,
+            packed_by: packedBy,
+            packaging_type: 'Standard Box',
+            bubble_wrap: true,
+            corner_protectors: true,
+            foam_sheet: true,
+            protective_sleeve: true,
+            shipping_box: true,
+          },
         });
-        if (trackingError) throw trackingError;
+        await apiFetch(`/v1/printstore/orders/${encodeId}/tracking`, {
+          method: 'POST',
+          body: {
+            status: 'ready_to_ship',
+            label: 'Order Packed',
+            description: 'Logistics validation complete. Order packed in Standard Box.',
+          },
+        });
       }
-
       await refreshOrders();
       setSelectedOrders([]);
       alert("Selected orders successfully packed & stored.");

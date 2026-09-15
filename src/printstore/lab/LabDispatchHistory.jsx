@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useLabAuth } from './LabApp';
-import { supabase } from '../../lib/supabase/client';
+import { apiFetch } from '../../lib/api/client';
 import { useNavigate } from 'react-router-dom';
 import { 
   Download, Filter, Eye, ChevronRight, Copy, Share2, MapPin, Truck, Check, Calendar, Plus
@@ -28,15 +28,14 @@ export default function LabDispatchHistory() {
 
   const fetchData = async () => {
     setLoading(true);
+    // Worksheets (carrier enrichment) + tracking activity feed via Workers.
     try {
-      const { data: wsData } = await supabase.from('printstore_order_worksheets').select('*');
-      if (wsData) setWorksheets(wsData);
-
-      const { data: trackData } = await supabase
-        .from('printstore_order_tracking')
-        .select('*')
-        .order('created_at', { ascending: false });
-      if (trackData) setTrackingLogs(trackData);
+      const [wsRes, trackData] = await Promise.all([
+        apiFetch('/v1/printstore/worksheets').catch(() => null),
+        apiFetch('/v1/printstore/tracking').catch(() => null),
+      ]);
+      if (wsRes?.rows) setWorksheets(wsRes.rows);
+      if (trackData?.rows) setTrackingLogs(trackData.rows);
     } catch (e) {
       console.error(e);
     } finally {

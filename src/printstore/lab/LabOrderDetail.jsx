@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, User, Mail, Calendar, MapPin, CheckSquare, Square, AlertTriangle, Upload, X, ShieldAlert, Image, RefreshCw, CheckCircle2, History, Camera, Video } from 'lucide-react';
-import { supabase } from '../../lib/supabase/client';
+import { apiFetch } from '../../lib/api/client';
 import CartItemPreview from '../components/CartItemPreview';
 import { getShortId } from '../utils/idFormat';
 import {
@@ -207,33 +207,15 @@ export default function LabOrderDetail() {
   const fetchOrderDetail = async () => {
     try {
       setLoading(true);
-      
-      const { data: orderData, error: orderError } = await supabase
-        .from('printstore_orders')
-        .select('*')
-        .eq('id', orderId)
-        .single();
 
-      if (orderError) throw orderError;
-
-      const { data: itemsData, error: itemsError } = await supabase
-        .from('printstore_order_items')
-        .select('*')
-        .eq('order_id', orderId);
-
-      if (itemsError) throw itemsError;
-
-      const { data: trackingData, error: trackingError } = await supabase
-        .from('printstore_order_tracking')
-        .select('*')
-        .eq('order_id', orderId)
-        .order('created_at', { ascending: true });
-
-      if (trackingError) throw trackingError;
-
+      // GET /v1/printstore/orders/:id → { order, items, tracking }
+      const { normalizeLabItemRow, normalizeLabOrderRow } = await import('./labOrderStatusService');
+      const data = await apiFetch(`/v1/printstore/orders/${encodeURIComponent(orderId)}`);
+      if (!data?.order) throw new Error('Order not found');
+      const orderData = normalizeLabOrderRow(data.order);
       setOrder(orderData);
-      setOrderItems(filterLabPhysicalItems(itemsData || []));
-      setTrackingLogs(trackingData || []);
+      setOrderItems(filterLabPhysicalItems((data.items || []).map(normalizeLabItemRow)));
+      setTrackingLogs(data.tracking || []);
 
       // Pre-fill edit fields
       setEditPriority(orderData.priority || 'Medium');
@@ -345,17 +327,19 @@ export default function LabOrderDetail() {
 
   const handleSaveOrderEdits = async () => {
     try {
-      const { error } = await supabase
-        .from('printstore_orders')
-        .update({
+      // PATCH accepts priority, assigned_employee, due_date,
+      // estimated_time and lab_note.
+      await apiFetch(`/v1/printstore/orders/${encodeURIComponent(order.id)}`, {
+        method: 'PATCH',
+        body: {
           priority: editPriority,
-          assigned_employee: editAssigned === 'Unassigned' ? null : editAssigned,
+          // '' (not null) — the lab PATCH only persists string values
+          assigned_employee: editAssigned === 'Unassigned' ? '' : editAssigned,
           due_date: editDueDate || null,
           estimated_time: editEstTime,
-          lab_note: editLabNote
-        })
-        .eq('id', order.id);
-      if (error) throw error;
+          lab_note: editLabNote,
+        },
+      });
       setShowEditModal(false);
       await fetchOrderDetail();
     } catch (err) {
@@ -373,11 +357,10 @@ export default function LabOrderDetail() {
         postalCode: addrZip,
         phone: addrPhone
       };
-      const { error } = await supabase
-        .from('printstore_orders')
-        .update({ shipping_address: newAddress })
-        .eq('id', order.id);
-      if (error) throw error;
+      await apiFetch(`/v1/printstore/orders/${encodeURIComponent(order.id)}`, {
+        method: 'PATCH',
+        body: { shipping_address: newAddress },
+      });
       setShowAddressModal(false);
       await fetchOrderDetail();
     } catch (err) {
@@ -806,15 +789,10 @@ export function LabQualityControlWorkspace({ order, orderItems, backPath, backLa
   const webcamVideoRef = useRef(null);
 
   const fetchQcHistory = async () => {
+    // GET /v1/printstore/quality-checks?orderId= → { rows }
     try {
-      const { data, error } = await supabase
-        .from('printstore_lab_quality_checks')
-        .select('*')
-        .eq('order_id', order.id)
-        .order('created_at', { ascending: false });
-      if (!error && data) {
-        setQcHistory(data);
-      }
+      const data = await apiFetch(`/v1/printstore/quality-checks?orderId=${encodeURIComponent(order.id)}`);
+      setQcHistory(data?.rows || []);
     } catch (err) {
       console.error("Error loading QC log history:", err);
     }
@@ -826,19 +804,13 @@ export function LabQualityControlWorkspace({ order, orderItems, backPath, backLa
       fetchQcHistory();
 
       // 2. Printing Completion Time
+      // GET /v1/printstore/print-jobs?orderId= → { rows }
       try {
-        const { data, error } = await supabase
-          .from('printstore_print_jobs')
-          .select('completed_at')
-          .eq('order_id', order.id)
-          .eq('status', 'printed')
-          .order('completed_at', { ascending: false })
-          .limit(1);
-        if (!error && data && data.length > 0 && data[0].completed_at) {
-          setCompletionTime(new Date(data[0].completed_at).toLocaleString('en-IN'));
-        } else {
-          setCompletionTime(new Date(order.updated_at).toLocaleString('en-IN'));
-        }
+        const data = await apiFetch(`/v1/printstore/print-jobs?orderId=${encodeURIComponent(order.id)}`);
+        const done = (data?.rows || [])
+          .filter((j) => j.status === 'printed' && j.completed_at)
+          .sort((a, b) => new Date(b.completed_at) - new Date(a.completed_at))[0];
+        setCompletionTime(new Date(done ? done.completed_at : order.updated_at).toLocaleString('en-IN'));
       } catch (e) {
         setCompletionTime(new Date(order.updated_at).toLocaleString('en-IN'));
       }
@@ -918,6 +890,8 @@ export function LabQualityControlWorkspace({ order, orderItems, backPath, backLa
       await transitionLabOrderStatus(order.id, nextStatus, { fromStatus: order.status });
 
       // 2. Log to quality checks table
+      // POST /v1/printstore/quality-checks → { row } (status change
+      // above already wrote the tracking row server-side)
       const qcLog = {
         order_id: order.id,
         checked_by: inspectorName.trim(),
@@ -929,10 +903,7 @@ export function LabQualityControlWorkspace({ order, orderItems, backPath, backLa
           routed_to: nextStatus,
         })
       };
-      const { error: logError } = await supabase
-        .from('printstore_lab_quality_checks')
-        .insert(qcLog);
-      if (logError) throw logError;
+      await apiFetch('/v1/printstore/quality-checks', { method: 'POST', body: qcLog });
 
       alert(
         isFramed
@@ -1042,6 +1013,7 @@ export function LabQualityControlWorkspace({ order, orderItems, backPath, backLa
       }
 
       // 3. Log to quality checks table
+      // POST /v1/printstore/quality-checks → { row }
       const qcLog = {
         order_id: order.id,
         checked_by: inspectorName.trim(),
@@ -1056,10 +1028,7 @@ export function LabQualityControlWorkspace({ order, orderItems, backPath, backLa
           timestamp: new Date().toISOString()
         })
       };
-      const { error: logError } = await supabase
-        .from('printstore_lab_quality_checks')
-        .insert(qcLog);
-      if (logError) throw logError;
+      await apiFetch('/v1/printstore/quality-checks', { method: 'POST', body: qcLog });
 
       // Tracking row is created by DB trigger on status change.
 

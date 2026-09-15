@@ -1,6 +1,4 @@
-import { supabase } from '../lib/supabase/client';
-import { USE_WORKERS_AUTH } from '../lib/api/client';
-/** Lazy so the Workers bundle stays code-split and Supabase default is untouched. */
+/** Lazy so the Workers bundle stays code-split. */
 async function workersApi() {
   return import('../lib/api/client');
 }
@@ -17,8 +15,6 @@ import { userStorageService } from './userStorage.service';
 import { photographerQuotaService } from './photographerQuota.service';
 import {
   buildAlbumPreviewSnapshot,
-  getAlbumIdsWithLocalAssets,
-  getRemotePreviewData,
   hydrateAlbumPreviewData,
   patchAlbumPreviewProoferAccess,
   clearAlbumPreviewDataCache,
@@ -27,7 +23,7 @@ import { protectPreviewSnapshot } from '../components/smart-albums/albumPreviewG
 import { getAlbumCoverColor, clearAlbumCoverColor } from '../components/smart-albums/albumCoverColor';
 import { getAlbumSpineBoundsOverride, clearAlbumSpineBoundsOverride } from '../components/smart-albums/albumSpineSettings';
 import { duplicateAlbumAssets } from '../components/smart-albums/albumDuplicate';
-import { repairAlbumPreviewFromServer, previewNeedsAssetRepair, repairAllMyAlbumPreviewsFromServer } from '../lib/repairAlbumPreview';
+import { repairAlbumPreviewFromServer, previewNeedsAssetRepair } from '../lib/repairAlbumPreview';
 
 
 
@@ -41,20 +37,6 @@ const PAGECOUNT_OVR_KEY = 'pixnxt_smart_album_pagecount_ovr';
 
 const GRID_SETTINGS_OVR_KEY = 'pixnxt_smart_album_grid_settings_ovr';
 
-const REPAIRED_CATALOG_SESSION = new Set();
-
-async function repairBrokenAlbumsForPhotographerInBackground(photographerId) {
-  if (!photographerId || REPAIRED_CATALOG_SESSION.has(photographerId)) return null;
-  REPAIRED_CATALOG_SESSION.add(photographerId);
-  try {
-    return await repairAllMyAlbumPreviewsFromServer();
-  } catch (err) {
-    // Allow retry later in the session if the API was temporarily unavailable.
-    REPAIRED_CATALOG_SESSION.delete(photographerId);
-    throw err;
-  }
-}
-
 
 
 function generateSlug(name) {
@@ -64,27 +46,13 @@ function generateSlug(name) {
 async function albumSlugTaken(slug, excludeId = null) {
   const key = String(slug || '').trim();
   if (!key) return true;
-  if (USE_WORKERS_AUTH) {
-    try {
-      const { apiFetch } = await workersApi();
-      const data = await apiFetch('/v1/proofer/studio/albums');
-      return (data?.albums || []).some((a) => a.slug === key && a.id !== excludeId);
-    } catch {
-      return false;
-    }
-  }
-  let query = supabase
-    .from('album_proofer_albums')
-    .select('id')
-    .eq('slug', key)
-    .limit(1);
-  if (excludeId) query = query.neq('id', excludeId);
-  const { data, error } = await query.maybeSingle();
-  if (error && error.code !== 'PGRST116') {
-    // If the table is unavailable, fall back to timestamp uniqueness.
+  try {
+    const { apiFetch } = await workersApi();
+    const data = await apiFetch('/v1/proofer/studio/albums');
+    return (data?.albums || []).some((a) => a.slug === key && a.id !== excludeId);
+  } catch {
     return false;
   }
-  return Boolean(data);
 }
 
 /** Clean name slug; only append -2, -3… when the base is already taken. */
@@ -298,24 +266,17 @@ const ALBUM_DETAIL_FIELDS_MINIMAL =
 const ALBUM_DETAIL_GRID_FIELDS = `${ALBUM_DETAIL_FIELDS_MINIMAL}, grid_size, grid_layout`;
 
 async function selectAlbumRow(photographerId, albumId, fields) {
-  if (USE_WORKERS_AUTH) {
-    try {
-      const { apiFetch } = await workersApi();
-      const data = await apiFetch(`/v1/proofer/studio/albums/${albumId}`);
-      if (!data?.album || (photographerId && data.album.photographer_id !== photographerId)) {
-        return { data: null, error: { code: 'PGRST116', message: 'No rows' } };
-      }
-      return { data: data.album, error: null };
-    } catch (err) {
-      return { data: null, error: err };
+  void fields;
+  try {
+    const { apiFetch } = await workersApi();
+    const data = await apiFetch(`/v1/proofer/studio/albums/${albumId}`);
+    if (!data?.album || (photographerId && data.album.photographer_id !== photographerId)) {
+      return { data: null, error: { code: 'PGRST116', message: 'No rows' } };
     }
+    return { data: data.album, error: null };
+  } catch (err) {
+    return { data: null, error: err };
   }
-  return supabase
-    .from('album_proofer_albums')
-    .select(fields)
-    .eq('photographer_id', photographerId)
-    .eq('id', albumId)
-    .maybeSingle();
 }
 
 const OPTIONAL_ALBUM_INSERT_COLUMNS = [
@@ -408,252 +369,85 @@ function buildAlbumRowFromLocal(local, photographerId) {
 }
 
 async function insertAlbumRowResilient(row) {
-  if (USE_WORKERS_AUTH) {
-    try {
-      const { apiFetch } = await workersApi();
-      const data = await apiFetch('/v1/proofer/studio/albums', {
-        method: 'POST',
-        body: {
-          name: row.name,
-          event_date: row.event_date ?? null,
-          page_count: row.page_count ?? 21,
-          grid_size: row.grid_size ?? 'square',
-          grid_layout: row.grid_layout ?? 'two-page',
-          preview_data: row.preview_data ?? null,
-          proofer_settings: row.proofer_settings ?? null,
-        },
-      });
-      return { data: data?.album ?? null, error: null };
-    } catch (err) {
-      if (String(err?.code) === 'CONFLICT' && row.id) {
-        try {
-          const { apiFetch } = await workersApi();
-          const existing = await apiFetch(`/v1/proofer/studio/albums/${row.id}`);
-          return { data: existing?.album ?? null, error: null };
-        } catch {
-          // fall through to error return
-        }
+  try {
+    const { apiFetch } = await workersApi();
+    const data = await apiFetch('/v1/proofer/studio/albums', {
+      method: 'POST',
+      body: {
+        name: row.name,
+        event_date: row.event_date ?? null,
+        page_count: row.page_count ?? 21,
+        grid_size: row.grid_size ?? 'square',
+        grid_layout: row.grid_layout ?? 'two-page',
+        preview_data: row.preview_data ?? null,
+        proofer_settings: row.proofer_settings ?? null,
+      },
+    });
+    return { data: data?.album ?? null, error: null };
+  } catch (err) {
+    if (String(err?.code) === 'CONFLICT' && row.id) {
+      try {
+        const { apiFetch } = await workersApi();
+        const existing = await apiFetch(`/v1/proofer/studio/albums/${row.id}`);
+        return { data: existing?.album ?? null, error: null };
+      } catch {
+        // fall through to error return
       }
-      return { data: null, error: err };
     }
-  }
-  let payload = { ...row, updated_at: new Date().toISOString() };
-  const droppable = OPTIONAL_ALBUM_INSERT_COLUMNS.filter((col) => col in payload);
-
-  while (true) {
-    const { data, error } = await supabase
-      .from('album_proofer_albums')
-      .insert(payload)
-      .select('*')
-      .single();
-
-    if (!error && data) {
-      return { data, error: null };
-    }
-
-    const duplicate =
-      error?.code === '23505' ||
-      String(error?.message || '')
-        .toLowerCase()
-        .includes('duplicate');
-    if (duplicate && payload.id) {
-      const { data: existing } = await supabase
-        .from('album_proofer_albums')
-        .select('*')
-        .eq('id', payload.id)
-        .maybeSingle();
-      return { data: existing, error: existing ? null : error };
-    }
-
-    if (!isGenericColumnError(error) || droppable.length === 0) {
-      return { data: null, error };
-    }
-
-    const col = droppable.shift();
-    delete payload[col];
+    return { data: null, error: err };
   }
 }
 
 async function updateAlbumRowResilient(photographerId, albumId, patch) {
-  if (USE_WORKERS_AUTH) {
-    // Same previewData orphan guard as below, then a single PATCH (the API
-    // accepts every real column, so no column-dropping retries are needed).
-    let payload = { ...patch };
-    if (payload.preview_data && typeof payload.preview_data === 'object') {
-      let existingPreview = null;
-      try {
-        const { apiFetch } = await workersApi();
-        const current = await apiFetch(`/v1/proofer/studio/albums/${albumId}`);
-        const raw = current?.album?.preview_data;
-        existingPreview = raw && typeof raw === 'object' ? raw
-          : typeof raw === 'string' ? JSON.parse(raw) : null;
-      } catch {
-        existingPreview = null;
-      }
-      const { previewData, shouldSkipWrite } = protectPreviewSnapshot(payload.preview_data, existingPreview);
-      if (shouldSkipWrite || !previewData) {
-        console.warn('[album-proofer] blocked unsafe preview_data write (would orphan photos)', albumId);
-        delete payload.preview_data;
-      } else {
-        payload.preview_data = previewData;
-      }
-      if (Object.keys(payload).length === 0) return { data: null, error: null };
-    }
-    try {
-      const { apiFetch } = await workersApi();
-      const data = await apiFetch(`/v1/proofer/studio/albums/${albumId}`, { method: 'PATCH', body: payload });
-      return { data: data?.album ?? null, error: null };
-    } catch (err) {
-      return { data: null, error: err };
-    }
-  }
-  let payload = { ...patch, updated_at: new Date().toISOString() };
-
-  // Hard gate: never persist a preview_data blob that orphans page placements.
-  // This catches publish/settings/background sync paths that bypass syncAlbumPreviewData.
+  void photographerId;
+  // Same previewData orphan guard as below, then a single PATCH (the API
+  // accepts every real column, so no column-dropping retries are needed).
+  let payload = { ...patch };
   if (payload.preview_data && typeof payload.preview_data === 'object') {
     let existingPreview = null;
     try {
-      const { data: existingRow } = await supabase
-        .from('album_proofer_albums')
-        .select('preview_data')
-        .eq('photographer_id', photographerId)
-        .eq('id', albumId)
-        .maybeSingle();
-      existingPreview =
-        existingRow?.preview_data && typeof existingRow.preview_data === 'object'
-          ? existingRow.preview_data
-          : null;
+      const { apiFetch } = await workersApi();
+      const current = await apiFetch(`/v1/proofer/studio/albums/${albumId}`);
+      const raw = current?.album?.preview_data;
+      existingPreview = raw && typeof raw === 'object' ? raw
+        : typeof raw === 'string' ? JSON.parse(raw) : null;
     } catch {
       existingPreview = null;
     }
-
-    const { previewData, shouldSkipWrite } = protectPreviewSnapshot(
-      payload.preview_data,
-      existingPreview
-    );
-
+    const { previewData, shouldSkipWrite } = protectPreviewSnapshot(payload.preview_data, existingPreview);
     if (shouldSkipWrite || !previewData) {
-      console.warn(
-        '[album-proofer] blocked unsafe preview_data write (would orphan photos)',
-        albumId
-      );
+      console.warn('[album-proofer] blocked unsafe preview_data write (would orphan photos)', albumId);
       delete payload.preview_data;
-      // Keep cover if the patch only wanted status/settings; drop cover derived from bad snapshot.
-      if (patch.cover_image_url !== undefined && !existingPreview?.cover_url) {
-        delete payload.cover_image_url;
-      } else if (existingPreview?.cover_url && patch.cover_image_url != null) {
-        // Prefer keeping a previously good cover over a null from an empty snapshot.
-        if (!patch.cover_image_url) {
-          payload.cover_image_url = existingPreview.cover_url;
-        }
-      }
     } else {
       payload.preview_data = previewData;
-      if (payload.cover_image_url === undefined && previewData.cover_url) {
-        payload.cover_image_url = previewData.cover_url;
-      }
-      if (payload.storage_bytes == null && previewData.storage_bytes != null) {
-        payload.storage_bytes = previewData.storage_bytes;
-      }
     }
-
-    // Nothing left to write besides updated_at — bail early.
-    const keys = Object.keys(payload).filter((k) => k !== 'updated_at');
-    if (keys.length === 0) {
-      return { data: null, error: null };
-    }
+    if (Object.keys(payload).length === 0) return { data: null, error: null };
   }
-
-  const droppable = OPTIONAL_ALBUM_INSERT_COLUMNS.filter((col) => col in payload);
-  let attempts = 0;
-  const maxAttempts = droppable.length + 2;
-
-  while (attempts < maxAttempts) {
-    attempts += 1;
-    const { data, error } = await supabase
-      .from('album_proofer_albums')
-      .update(payload)
-      .eq('photographer_id', photographerId)
-      .eq('id', albumId)
-      .select('*')
-      .maybeSingle();
-
-    if (!error && data) {
-      return { data, error: null };
-    }
-
-    if (!isGenericColumnError(error) || droppable.length === 0) {
-      return { data: null, error };
-    }
-
-    const col = droppable.shift();
-    delete payload[col];
+  try {
+    const { apiFetch } = await workersApi();
+    const data = await apiFetch(`/v1/proofer/studio/albums/${albumId}`, { method: 'PATCH', body: payload });
+    return { data: data?.album ?? null, error: null };
+  } catch (err) {
+    return { data: null, error: err };
   }
-
-  return { data: null, error: new Error('Album update failed after retries') };
 }
 
 /** Must persist share_link_enabled — never drop that column on retry. */
 async function updateShareLinkEnabledRow(photographerId, albumId, enabled, pausedAt = null) {
-  if (USE_WORKERS_AUTH) {
-    try {
-      const { apiFetch } = await workersApi();
-      const data = await apiFetch(`/v1/proofer/studio/albums/${albumId}`, {
-        method: 'PATCH',
-        body: {
-          share_link_enabled: enabled,
-          share_link_paused_at: enabled ? null : pausedAt || new Date().toISOString(),
-        },
-      });
-      return { data: data?.album ?? null, error: null };
-    } catch (err) {
-      return { data: null, error: err };
-    }
+  void photographerId;
+  try {
+    const { apiFetch } = await workersApi();
+    const data = await apiFetch(`/v1/proofer/studio/albums/${albumId}`, {
+      method: 'PATCH',
+      body: {
+        share_link_enabled: enabled,
+        share_link_paused_at: enabled ? null : pausedAt || new Date().toISOString(),
+      },
+    });
+    return { data: data?.album ?? null, error: null };
+  } catch (err) {
+    return { data: null, error: err };
   }
-  const base = {
-    share_link_enabled: enabled,
-    updated_at: new Date().toISOString(),
-  };
-  const withPausedAt = {
-    ...base,
-    share_link_paused_at: enabled ? null : pausedAt || new Date().toISOString(),
-  };
-
-  let { data, error } = await supabase
-    .from('album_proofer_albums')
-    .update(withPausedAt)
-    .eq('photographer_id', photographerId)
-    .eq('id', albumId)
-    .select('*')
-    .maybeSingle();
-
-  if (
-    error &&
-    isGenericColumnError(error) &&
-    /share_link_paused_at/i.test(String(error.message || ''))
-  ) {
-    ({ data, error } = await supabase
-      .from('album_proofer_albums')
-      .update(base)
-      .eq('photographer_id', photographerId)
-      .eq('id', albumId)
-      .select('*')
-      .maybeSingle());
-  }
-
-  if (!error && !data) {
-    await syncLocalAlbumsToSupabase(photographerId, []);
-    ({ data, error } = await supabase
-      .from('album_proofer_albums')
-      .update(base)
-      .eq('photographer_id', photographerId)
-      .eq('id', albumId)
-      .select('*')
-      .maybeSingle());
-  }
-
-  return { data, error };
 }
 
 
@@ -917,8 +711,8 @@ function removeLocalAlbum(photographerId, albumId) {
 
 
 
-/** Push albums that exist only in localStorage up to Supabase so prod/dev stay in sync. */
-async function syncLocalAlbumsToSupabase(photographerId, remoteRows) {
+/** Push albums that exist only in localStorage up to the Workers API so prod/dev stay in sync. */
+async function syncLocalAlbumsToWorkers(photographerId, remoteRows) {
   const remote = [...(remoteRows || [])];
   const remoteIds = new Set(remote.map((r) => r.id));
   const localOnly = readLocalAlbums(photographerId).filter((a) => !remoteIds.has(a.id));
@@ -934,132 +728,13 @@ async function syncLocalAlbumsToSupabase(photographerId, remoteRows) {
       continue;
     }
 
-    console.warn('Could not sync local album to Supabase:', local.name, error?.message);
+    console.warn('Could not sync local album to the Workers API:', local.name, error?.message);
   }
 
   return remote.sort(
     (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
   );
 }
-
-async function syncLocalAlbumAssetsToSupabase(photographerId, remoteRows = []) {
-  const albumIds = getAlbumIdsWithLocalAssets();
-  if (!albumIds.length) return;
-
-  // Ignore stale localStorage keys for deleted albums or other photographers.
-  const knownAlbumIds = new Set([
-    ...(remoteRows || []).map((row) => row.id),
-    ...readLocalAlbums(photographerId).map((album) => album.id),
-  ]);
-
-  for (const albumId of albumIds) {
-    if (!knownAlbumIds.has(albumId)) continue;
-    const gridOvr = readGridSettingsOverrides(photographerId)[albumId];
-    const localSnapshot = buildAlbumPreviewSnapshot(albumId, {
-      album: gridOvr
-        ? {
-            has_covers: gridOvr.has_covers !== false,
-            blank_covers: gridOvr.blank_covers === true,
-            spread_grid_size: gridOvr.spread_grid_size ?? null,
-          }
-        : null,
-      coverColorPreset: getAlbumCoverColor(albumId),
-      spineBounds: getAlbumSpineBoundsOverride(albumId),
-    });
-    if (!localSnapshot) continue;
-
-    let existingPreview = null;
-    let albumRowFound = false;
-    try {
-      const { data } = await supabase
-        .from('album_proofer_albums')
-        .select('id, preview_data')
-        .eq('id', albumId)
-        .eq('photographer_id', photographerId)
-        .maybeSingle();
-      albumRowFound = Boolean(data?.id);
-      existingPreview =
-        data?.preview_data && typeof data.preview_data === 'object' ? data.preview_data : null;
-    } catch {
-      existingPreview = null;
-    }
-
-    if (!albumRowFound) continue;
-
-    if (previewNeedsAssetRepair(existingPreview) || previewNeedsAssetRepair(localSnapshot)) {
-      try {
-        const repair = await repairAlbumPreviewFromServer(albumId);
-        if (repair?.preview_data && repair.repaired) {
-          existingPreview = repair.preview_data;
-          hydrateAlbumPreviewData(albumId, repair.preview_data);
-        }
-      } catch (err) {
-        console.warn('Background album repair failed:', albumId, err?.message || err);
-      }
-    }
-
-    const { previewData, shouldSkipWrite } = protectPreviewSnapshot(localSnapshot, existingPreview);
-    if (!previewData || shouldSkipWrite) continue;
-
-    const hasAssets =
-      previewData.cover_url ||
-      (previewData.collection?.length ?? 0) > 0 ||
-      Object.keys(previewData.pages || {}).length > 0;
-    if (!hasAssets) continue;
-
-    const { error } = await updateAlbumRowResilient(photographerId, albumId, {
-      preview_data: previewData,
-      cover_image_url: previewData.cover_url || null,
-      storage_bytes: getAlbumCollectionStorageBytes(albumId),
-    });
-
-    if (error) {
-      console.warn('Could not sync album assets to Supabase:', albumId, error.message);
-    }
-  }
-}
-
-async function syncLocalAlbumSettingsToSupabase(photographerId, remoteRows) {
-  const settingsOvr = readSettingsOverrides(photographerId);
-  if (!Object.keys(settingsOvr).length) return;
-
-  for (const row of remoteRows || []) {
-    const ovr = settingsOvr[row.id];
-    if (!ovr) continue;
-
-    const payload = { updated_at: new Date().toISOString() };
-    if (ovr.status !== undefined && ovr.status !== row.status) {
-      payload.status = ovr.status === 'published' ? 'published' : 'draft';
-    }
-    if (
-      ovr.comments_enabled !== undefined &&
-      ovr.comments_enabled !== row.comments_enabled
-    ) {
-      payload.comments_enabled = ovr.comments_enabled;
-    }
-    if (ovr.replies_enabled !== undefined && ovr.replies_enabled !== row.replies_enabled) {
-      payload.replies_enabled = ovr.replies_enabled;
-    }
-    if (ovr.messages_enabled !== undefined && ovr.messages_enabled !== row.messages_enabled) {
-      payload.messages_enabled = ovr.messages_enabled;
-    }
-    if (
-      ovr.share_link_enabled !== undefined &&
-      ovr.share_link_enabled !== row.share_link_enabled
-    ) {
-      payload.share_link_enabled = ovr.share_link_enabled;
-    }
-    if (Object.keys(payload).length <= 1) continue;
-
-    const { error } = await updateAlbumRowResilient(photographerId, row.id, payload);
-
-    if (error) {
-      console.warn('Could not sync album settings to Supabase:', row.id, error.message);
-    }
-  }
-}
-
-
 
 async function deleteAlbumAssets(albumId) {
 
@@ -1147,80 +822,9 @@ export const smartAlbumsService = {
   },
 
   async getAlbums(photographerId) {
-    if (USE_WORKERS_AUTH) {
-      const { apiFetch } = await workersApi();
-      const data = await apiFetch('/v1/proofer/studio/albums');
-      // Same local merge as below, without the Supabase back-syncs.
-      return mergeAlbumRows(data?.albums || [], photographerId);
-    }
-
-    const { data, error } = await supabase
-
-      .from('album_proofer_albums')
-
-      .select(ALBUM_LIST_FIELDS)
-
-      .eq('photographer_id', photographerId)
-
-      .order('created_at', { ascending: false });
-
-
-
-    if (error) {
-
-      if (shouldUseLocalStore(error) || isGenericColumnError(error)) {
-        const fallback = await supabase
-          .from('album_proofer_albums')
-          .select('id, photographer_id, name, event_date, slug, page_count, cover_image_url, status, created_at, updated_at')
-          .eq('photographer_id', photographerId)
-          .order('created_at', { ascending: false });
-
-        if (!fallback.error && fallback.data) {
-          const synced = await syncLocalAlbumsToSupabase(photographerId, fallback.data);
-          void syncLocalAlbumAssetsToSupabase(photographerId, synced).catch((e) => {
-            console.warn('Background album asset sync failed:', e?.message || e);
-          });
-          void repairBrokenAlbumsForPhotographerInBackground(photographerId).catch((e) => {
-            console.warn('Background album catalog repair failed:', e?.message || e);
-          });
-          return mergeAlbumRows(synced, photographerId);
-        }
-      }
-
-      if (shouldUseLocalStore(error)) {
-
-        return readLocalAlbums(photographerId).map((r) => mapAlbumRow(r, photographerId));
-
-      }
-
-      throw error;
-
-    }
-
-    let synced = data || [];
-    try {
-      synced = await syncLocalAlbumsToSupabase(photographerId, synced);
-    } catch (e) {
-      console.warn('Local album metadata sync failed:', e?.message || e);
-    }
-
-    try {
-      await syncLocalAlbumSettingsToSupabase(photographerId, synced);
-    } catch (e) {
-      console.warn('Local album settings sync failed:', e?.message || e);
-    }
-
-    void syncLocalAlbumAssetsToSupabase(photographerId, synced).catch((e) => {
-      console.warn('Background album asset sync failed:', e?.message || e);
-    });
-
-    // One-shot per session: rebuild any wiped collections for this photographer from R2.
-    void repairBrokenAlbumsForPhotographerInBackground(photographerId).catch((e) => {
-      console.warn('Background album catalog repair failed:', e?.message || e);
-    });
-
-    return mergeAlbumRows(synced, photographerId);
-
+    const { apiFetch } = await workersApi();
+    const data = await apiFetch('/v1/proofer/studio/albums');
+    return mergeAlbumRows(data?.albums || [], photographerId);
   },
 
 
@@ -1421,37 +1025,11 @@ export const smartAlbumsService = {
     const count = clampAlbumPageCount(pageCount, 21);
     writePageCountOverride(photographerId, albumId, count);
 
-    if (USE_WORKERS_AUTH) {
-      const { data, error } = await updateAlbumRowResilient(photographerId, albumId, {
-        page_count: count,
-        updated_at: new Date().toISOString(),
-      });
-      if (!error && data) return mapAlbumRow(data, photographerId);
-      const album = await this.getAlbum(photographerId, albumId);
-      if (!album) throw new Error('Album not found');
-      return { ...album, page_count: count };
-    }
-
-    const { data, error } = await supabase
-      .from('album_proofer_albums')
-      .update({ page_count: count, updated_at: new Date().toISOString() })
-      .eq('photographer_id', photographerId)
-      .eq('id', albumId)
-      .select()
-      .single();
-
-    if (!error && data) {
-      return mapAlbumRow(data, photographerId);
-    }
-
-    if (error && shouldUseLocalStore(error)) {
-      const updated = updateLocalAlbum(photographerId, albumId, { page_count: count });
-      if (updated) return updated;
-    }
-
-    const localUpdated = updateLocalAlbum(photographerId, albumId, { page_count: count });
-    if (localUpdated) return localUpdated;
-
+    const { data, error } = await updateAlbumRowResilient(photographerId, albumId, {
+      page_count: count,
+      updated_at: new Date().toISOString(),
+    });
+    if (!error && data) return mapAlbumRow(data, photographerId);
     const album = await this.getAlbum(photographerId, albumId);
     if (!album) throw new Error('Album not found');
     return { ...album, page_count: count };
@@ -1459,8 +1037,6 @@ export const smartAlbumsService = {
 
   /**
    * Persist image version history on album.preview_data.image_replacements (database).
-   * Prefer this over localStorage so versions are inspectable in Supabase.
-   */
   async patchAlbumImageReplacements(photographerId, albumId, replacements) {
     if (!photographerId || !albumId) return null;
     const rows = Array.isArray(replacements) ? replacements : [];
@@ -1503,7 +1079,7 @@ export const smartAlbumsService = {
   },
 
   /**
-   * Persist client preview settings (publish + comments) to Supabase and local cache.
+   * Persist client preview settings (publish + comments) to the Workers API and local cache.
    * share_link_enabled must land in the DB — local-only pause would leave public links open.
    */
   async updateAlbumClientSettings(photographerId, albumId, patch) {
@@ -1564,7 +1140,7 @@ export const smartAlbumsService = {
     let { data, error } = await updateAlbumRowResilient(photographerId, albumId, payload);
 
     if (!error && !data) {
-      await syncLocalAlbumsToSupabase(photographerId, []);
+      await syncLocalAlbumsToWorkers(photographerId, []);
       ({ data, error } = await updateAlbumRowResilient(photographerId, albumId, payload));
     }
 
@@ -1646,12 +1222,9 @@ export const smartAlbumsService = {
         void (async () => {
           let profile = null;
           try {
-            const { data } = await supabase
-              .from('photographers')
-              .select('custom_domain, custom_domain_status')
-              .eq('id', mapped.photographer_id || photographerId)
-              .maybeSingle();
-            profile = data;
+            const { apiFetch } = await import('../lib/api/client');
+            const me = await apiFetch('/v1/me').catch(() => null);
+            profile = me?.photographer ?? null;
           } catch {
             /* ignore */
           }
@@ -1818,42 +1391,11 @@ export const smartAlbumsService = {
       payload.category_tags = categoryTagsToDb(patch.category_tags);
     }
 
-    if (USE_WORKERS_AUTH) {
-      const { data, error } = await updateAlbumRowResilient(photographerId, albumId, payload);
-      if (!error && data) return mapAlbumRow(data, photographerId);
-      const album = await this.getAlbum(photographerId, albumId);
-      if (!album) throw new Error('Album not found');
-      if (error) console.warn('smart_albums update:', error.message);
-      return { ...album, ...payload };
-    }
-
-    const { data, error } = await supabase
-      .from('album_proofer_albums')
-      .update(payload)
-      .eq('photographer_id', photographerId)
-      .eq('id', albumId)
-      .select('*')
-      .maybeSingle();
-
-    if (!error && data) {
-      return mapAlbumRow(data, photographerId);
-    }
-
-    if (error && shouldUseLocalStore(error)) {
-      const updated = updateLocalAlbum(photographerId, albumId, payload);
-      if (updated) return updated;
-    }
-
-    const localUpdated = updateLocalAlbum(photographerId, albumId, payload);
-    if (localUpdated) return localUpdated;
-
+    const { data, error } = await updateAlbumRowResilient(photographerId, albumId, payload);
+    if (!error && data) return mapAlbumRow(data, photographerId);
     const album = await this.getAlbum(photographerId, albumId);
     if (!album) throw new Error('Album not found');
-
-    if (error) {
-      console.warn('smart_albums update:', error.message);
-    }
-
+    if (error) console.warn('smart_albums update:', error.message);
     return { ...album, ...payload };
   },
 
@@ -1861,46 +1403,10 @@ export const smartAlbumsService = {
 
     writeStarredOverride(photographerId, albumId, isStarred);
 
-
-
-    const { data, error } = await supabase
-
-      .from('album_proofer_albums')
-
-      .update({ is_starred: isStarred, updated_at: new Date().toISOString() })
-
-      .eq('photographer_id', photographerId)
-
-      .eq('id', albumId)
-
-      .select()
-
-      .single();
-
-
-
-    if (!error && data) {
-
-      return mapAlbumRow(data, photographerId);
-
-    }
-
-
-
-    if (error && shouldUseLocalStore(error)) {
-
-      const updated = updateLocalAlbum(photographerId, albumId, { is_starred: isStarred });
-
-      if (updated) return updated;
-
-    }
-
-
-
+    // Starred is a local-only override in Workers mode (no is_starred column
+    // on the API) — the flag merge in mapAlbumRow applies it on read.
     const album = await this.getAlbum(photographerId, albumId);
-
     if (!album) throw new Error('Album not found');
-
     return { ...album, is_starred: isStarred };
 
   },
@@ -1916,36 +1422,8 @@ export const smartAlbumsService = {
 
     await deleteAlbumAssets(albumId);
 
-    if (USE_WORKERS_AUTH) {
-      const { apiFetch } = await workersApi();
-      await apiFetch(`/v1/proofer/studio/albums/${albumId}`, { method: 'DELETE' });
-      removeLocalAlbum(photographerId, albumId);
-      userStorageService.notifyStorageChanged();
-      return;
-    }
-
-    const { error } = await supabase
-
-      .from('album_proofer_albums')
-
-      .delete()
-
-      .eq('photographer_id', photographerId)
-
-      .eq('id', albumId);
-
-    if (error) {
-
-      if (shouldUseLocalStore(error)) {
-        removeLocalAlbum(photographerId, albumId);
-        userStorageService.notifyStorageChanged();
-        return;
-      }
-
-      throw error;
-
-    }
-
+    const { apiFetch } = await workersApi();
+    await apiFetch(`/v1/proofer/studio/albums/${albumId}`, { method: 'DELETE' });
     removeLocalAlbum(photographerId, albumId);
     userStorageService.notifyStorageChanged();
   },

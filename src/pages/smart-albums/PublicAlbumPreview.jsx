@@ -18,7 +18,6 @@ import AlbumPreview from './AlbumPreview';
 import { getAlbumSpreadOptions } from '../../components/smart-albums/albumSpreadUtils';
 import { isClientShareLinkLive } from '../../lib/shareSmartAlbum';
 import { getAlbumShareSlug } from '../../lib/albumPreviewSlug';
-import { supabase } from '../../lib/supabase/client';
 import { parseUrlPage } from './useAlbumWorkspace';
 import { AppLoader } from '../../components/ui/AppLoading';
 import './AlbumViewer.css';
@@ -122,63 +121,25 @@ export default function PublicAlbumPreview() {
         const refreshShareLink = async () => {
             if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
             try {
-                const { USE_WORKERS_AUTH } = await import('../../lib/api/client');
-                if (USE_WORKERS_AUTH) {
-                    const { apiFetch } = await import('../../lib/api/client');
-                    const data = await apiFetch(`/v1/proofer/public/${encodeURIComponent(resolvedId)}`).catch(() => null);
-                    // Unshared albums 404 for anon — treat as paused.
-                    if (!data?.album) {
-                        applyShareFields({ share_link_enabled: false, share_link_paused_at: null });
-                        return;
-                    }
-                    applyShareFields(data.album);
+                const { apiFetch } = await import('../../lib/api/client');
+                const data = await apiFetch(`/v1/proofer/public/${encodeURIComponent(resolvedId)}`).catch(() => null);
+                // Unshared albums 404 for anon — treat as paused.
+                if (!data?.album) {
+                    applyShareFields({ share_link_enabled: false, share_link_paused_at: null });
                     return;
                 }
-                const { data, error } = await supabase
-                    .from('album_proofer_albums')
-                    .select('id, share_link_enabled, share_link_paused_at, status')
-                    .eq('id', resolvedId)
-                    .maybeSingle();
-                if (error) throw error;
-                // RLS hides paused albums from anon — treat a missing row as paused.
-                if (!data) {
-                    applyShareFields({
-                        share_link_enabled: false,
-                        share_link_paused_at: null,
-                    });
-                    return;
-                }
-                applyShareFields(data);
+                applyShareFields(data.album);
             } catch (e) {
                 console.warn('Share link poll failed:', e?.message || e);
             }
         };
 
-        let channel = null;
         let unsubscribeSse = null;
-        import('../../lib/api/client').then(({ USE_WORKERS_AUTH, subscribeSse }) => {
+        import('../../lib/api/client').then(({ subscribeSse }) => {
             if (cancelled) return;
-            if (USE_WORKERS_AUTH) {
-                unsubscribeSse = subscribeSse(`/v1/proofer/albums/${resolvedId}/events`, {
-                    onEvent: () => refreshShareLink(),
-                });
-                return;
-            }
-            channel = supabase
-                .channel(`public-album-share-link:${resolvedId}`)
-                .on(
-                    'postgres_changes',
-                    {
-                        event: 'UPDATE',
-                        schema: 'public',
-                        table: 'album_proofer_albums',
-                        filter: `id=eq.${resolvedId}`,
-                    },
-                    (payload) => {
-                        applyShareFields(payload.new);
-                    }
-                )
-                .subscribe();
+            unsubscribeSse = subscribeSse(`/v1/proofer/albums/${resolvedId}/events`, {
+                onEvent: () => refreshShareLink(),
+            });
         }).catch(() => {});
 
         const pollId = window.setInterval(refreshShareLink, SHARE_LINK_POLL_MS);
@@ -192,7 +153,6 @@ export default function PublicAlbumPreview() {
             window.clearInterval(pollId);
             document.removeEventListener('visibilitychange', onVisible);
             if (unsubscribeSse) unsubscribeSse();
-            else if (channel) void supabase.removeChannel(channel);
         };
     }, [album?.id]);
 

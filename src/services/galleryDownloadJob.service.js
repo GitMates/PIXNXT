@@ -1,8 +1,4 @@
-import { supabase } from '@/lib/supabase/client';
-
-function functionsBaseUrl() {
-  return `${supabase.supabaseUrl}/functions/v1`;
-}
+import { apiBase, apiFetch } from '@/lib/api/client';
 
 export async function createGalleryDownloadJob({
   collectionId,
@@ -10,53 +6,29 @@ export async function createGalleryDownloadJob({
   photoIds,
   resolution = 'full',
   scope = {},
-  siteOrigin = typeof window !== 'undefined' ? window.location.origin : '',
 }) {
-  const response = await fetch(`${functionsBaseUrl()}/create-gallery-download`, {
+  const data = await apiFetch('/v1/downloads', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${supabase.supabaseKey}`,
-    },
-    body: JSON.stringify({
-      collectionId,
-      visitorEmail,
-      photoIds,
-      resolution,
-      scope,
-      siteOrigin,
-    }),
+    auth: false,
+    body: { collectionId, visitorEmail, photoIds: photoIds ?? null, resolution, scope: scope ?? null },
   });
-
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(payload.error || 'Could not start download');
-  }
-  return payload;
+  return { jobId: data?.jobId, token: data?.token, status: data?.status || 'pending' };
 }
 
 export async function fetchGalleryDownloadJob(token) {
-  const response = await fetch(
-    `${functionsBaseUrl()}/get-gallery-download?token=${encodeURIComponent(token)}`,
-    {
-      headers: {
-        Authorization: `Bearer ${supabase.supabaseKey}`,
-      },
-    }
-  );
-
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const err = new Error(payload.error || 'Could not load download');
-    err.expired = payload.expired;
-    err.status = response.status;
-    throw err;
+  try {
+    const data = await apiFetch(`/v1/downloads/${encodeURIComponent(token)}`, { auth: false });
+    return data;
+  } catch (err) {
+    const wrapped = new Error(err?.message || 'Could not load download');
+    wrapped.expired = err?.code === 'EXPIRED' || err?.status === 410 || err?.statusCode === 410;
+    wrapped.status = err?.status ?? err?.statusCode ?? null;
+    throw wrapped;
   }
-  return payload;
 }
 
 export function getGalleryDownloadFileUrl(token) {
-  return `${functionsBaseUrl()}/get-gallery-download?token=${encodeURIComponent(token)}&download=1`;
+  return `${apiBase()}/v1/downloads/${encodeURIComponent(token)}/file`;
 }
 
 export async function pollGalleryDownloadJob(token, { intervalMs = 2500, timeoutMs = 120000 } = {}) {

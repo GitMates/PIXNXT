@@ -90,46 +90,25 @@ export function applyGuestSelfieAvatarsToPeople(people, guests, matchRows) {
   return nextPeople;
 }
 
-export async function loadGuestSelfieAvatarContext(supabase, collectionId) {
+export async function loadGuestSelfieAvatarContext(_db, collectionId) {
+  void _db;
   if (!collectionId) return { guests: [], matchRows: [] };
 
-  const { data: events, error: eventsError } = await supabase
-    .from('guest_delivery_events')
-    .select('id')
-    .eq('collection_id', collectionId);
-
-  if (eventsError) throw eventsError;
-  if (!events?.length) return { guests: [], matchRows: [] };
-
-  const eventIds = events.map((e) => e.id);
-  const { data: guests, error: guestsError } = await supabase
-    .from('event_guests')
-    .select('id, name, selfie_url')
-    .in('event_id', eventIds)
-    .not('selfie_url', 'is', null)
-    .order('registered_at', { ascending: true });
-
-  if (guestsError) throw guestsError;
-  if (!guests?.length) return { guests: [], matchRows: [] };
-
-  const { data: matchRows, error: matchError } = await supabase
-    .from('event_guest_matches')
-    .select('guest_id, photo_id, face_id')
-    .in(
-      'guest_id',
-      guests.map((g) => g.id),
-    );
-
-  if (matchError) throw matchError;
-
-  return { guests, matchRows: matchRows || [] };
+  const { apiFetch, apiBase } = await import('./api/client');
+  const ctx = await apiFetch(`/v1/guest/selfie-context?collectionId=${encodeURIComponent(collectionId)}`).catch(() => null);
+  const guests = (ctx?.guests || []).map((g) => ({
+    ...g,
+    selfie_url: g.selfie_url || (g.selfie_storage_path ? `${apiBase()}/v1/r2/media?path=${encodeURIComponent(g.selfie_storage_path)}` : null),
+  }));
+  return { guests, matchRows: ctx?.matchRows || [] };
 }
 
-export async function applyGuestSelfieAvatarsForCollection(supabase, collectionId, people) {
+export async function applyGuestSelfieAvatarsForCollection(_db, collectionId, people) {
+  void _db;
   if (!collectionId || !people?.length) return people || [];
 
   try {
-    const { guests, matchRows } = await loadGuestSelfieAvatarContext(supabase, collectionId);
+    const { guests, matchRows } = await loadGuestSelfieAvatarContext(null, collectionId);
     return applyGuestSelfieAvatarsToPeople(people, guests, matchRows);
   } catch (err) {
     console.warn('[guestPeopleAvatars] load failed:', err?.message || err);

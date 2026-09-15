@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Mail, Lock, LogIn, UserPlus, AlertCircle, CheckCircle } from 'lucide-react';
-import { supabase } from '../../lib/supabase/client';
+import { apiFetch, setAccessToken } from '../../lib/api/client';
 import { useLabAuth } from './LabApp';
 import './labTheme.css';
 
@@ -68,74 +68,53 @@ export default function LabAuth() {
 
     setLoading(true);
     try {
+      // Lab auth on Workers: POST /v1/printstore/lab/login issues an opaque
+      // lab session token (stored as the API access token — lab routes
+      // accept it, all other routes fail closed). Operators who are also
+      // admin photographers additionally get a studio JWT best-effort.
       if (isSignUp) {
-        const { data: existingUser, error: checkError } = await supabase
-          .from('printstore_lab_users')
-          .select('id')
-          .eq('email', email.trim().toLowerCase())
-          .maybeSingle();
-
-        if (checkError) throw checkError;
-        if (existingUser) {
-          setError('An account with this email already exists.');
+        if (password.length < 8) {
+          setError('Password must be at least 8 characters long.');
           setLoading(false);
           return;
         }
-
-        const { data: newUser, error: insertError } = await supabase
-          .from('printstore_lab_users')
-          .insert({
-            email: email.trim().toLowerCase(),
-            password: password
-          })
-          .select()
-          .single();
-
-        if (insertError) throw insertError;
-
+        const created = await apiFetch('/v1/printstore/lab/signup', {
+          method: 'POST',
+          auth: false,
+          body: { email: email.trim().toLowerCase(), password },
+        }).catch((err) => {
+          throw new Error(err?.message || 'Could not create operator account.');
+        });
+        if (!created?.ok) throw new Error('Could not create operator account.');
         setSuccess('Account created successfully! Logging you in...');
-
-        const sessionData = {
-          id: newUser.id,
-          email: newUser.email
-        };
-
-        localStorage.setItem('pixnxt_lab_session', JSON.stringify(sessionData));
-
-        setTimeout(() => {
-          setLabUser(sessionData);
-          navigate('/lab/dashboard');
-        }, 1200);
-      } else {
-        const { data: user, error: loginError } = await supabase
-          .from('printstore_lab_users')
-          .select('*')
-          .eq('email', email.trim().toLowerCase())
-          .eq('password', password)
-          .maybeSingle();
-
-        if (loginError) throw loginError;
-
-        if (!user) {
-          setError('Invalid email or password.');
-          setLoading(false);
-          return;
-        }
-
-        setSuccess('Authentication successful! Loading dashboard...');
-
-        const sessionData = {
-          id: user.id,
-          email: user.email
-        };
-
-        localStorage.setItem('pixnxt_lab_session', JSON.stringify(sessionData));
-
-        setTimeout(() => {
-          setLabUser(sessionData);
-          navigate('/lab/dashboard');
-        }, 1200);
       }
+      const data = await apiFetch('/v1/printstore/lab/login', {
+        method: 'POST',
+        auth: false,
+        body: { email: email.trim().toLowerCase(), password },
+      }).catch(() => null);
+      if (!data?.ok || !data?.labUser) {
+        setError('Invalid email or password.');
+        setLoading(false);
+        return;
+      }
+      if (data.labToken) setAccessToken(data.labToken);
+      try {
+        const workersAuth = await import('../../services/workersAuth.service');
+        await workersAuth.signInWithEmail({ email: email.trim().toLowerCase(), password });
+      } catch {
+        // lab-only account — lab session still valid, studio JWT unavailable
+      }
+      setSuccess('Authentication successful! Loading dashboard...');
+      const sessionData = {
+        id: data.labUser.id,
+        email: data.labUser.email,
+      };
+      localStorage.setItem('pixnxt_lab_session', JSON.stringify(sessionData));
+      setTimeout(() => {
+        setLabUser(sessionData);
+        navigate('/lab/dashboard');
+      }, 1200);
     } catch (err) {
       console.error('Auth error:', err);
       setError(err.message || 'An unexpected error occurred. Please try again.');

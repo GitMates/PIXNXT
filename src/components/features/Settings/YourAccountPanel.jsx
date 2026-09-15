@@ -2,10 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { galleryService } from '../../../services/gallery.service';
 import { storageService } from '../../../services/storage.service';
-import { signOut } from '../../../services/auth.service';
+import { signOut, changePassword, updatePassword } from '../../../services/auth.service';
 import { getSession as getAuthSession } from '../../../services/auth.service';
-import { USE_WORKERS_AUTH } from '../../../lib/api/client';
-import { supabase } from '../../../lib/supabase/client';
 import { getUserDisplayLabel, getUserInitial } from '../../../lib/userInitials';
 import { isReservedPlatformSubdomain } from '../../../lib/customDomain';
 import {
@@ -257,9 +255,8 @@ export default function YourAccountPanel({ user, showToast }) {
                     ...(storedNotifications || {}),
                 });
 
-                const session = USE_WORKERS_AUTH
-                    ? await getAuthSession().catch(() => null)
-                    : (await supabase.auth.getSession()).data?.session ?? null;
+                // getSession resolves via workersAuth — works for the Workers backend.
+                const session = await getAuthSession().catch(() => null);
                 const location = await resolveSessionLocation();
                 const currentRows = buildCurrentSessionRows(session, location);
                 const nextSessions = mergeStoredSessions(data?.active_sessions, currentRows);
@@ -438,7 +435,7 @@ export default function YourAccountPanel({ user, showToast }) {
     const savePassword = async (e) => {
         e.preventDefault();
         setPasswordError('');
-        if (USE_WORKERS_AUTH && hasPassword && !passwordForm.current) {
+        if (hasPassword && !passwordForm.current) {
             setPasswordError('Enter your current password.');
             return;
         }
@@ -456,12 +453,14 @@ export default function YourAccountPanel({ user, showToast }) {
         }
         setPasswordSaving(true);
         try {
-            if (USE_WORKERS_AUTH) {
-                const { changePassword } = await import('../../../services/workersAuth.service');
+            // The current-password field is only shown when
+            // the account already has a password — match it: changePassword
+            // when the current password is available, updatePassword
+            // otherwise (both via auth.service → Workers).
+            if (hasPassword) {
                 await changePassword(passwordForm.current, passwordForm.next);
             } else {
-                const { error } = await supabase.auth.updateUser({ password: passwordForm.next });
-                if (error) throw error;
+                await updatePassword(passwordForm.next);
             }
             const now = new Date().toISOString();
             setPasswordChangedAt(now);
@@ -956,7 +955,7 @@ export default function YourAccountPanel({ user, showToast }) {
                             </button>
                         </div>
                         <div className="ya-modal__body">
-                            {USE_WORKERS_AUTH && hasPassword ? (
+                            {hasPassword ? (
                                 <>
                                     <label className="ya-label" htmlFor="ya-pass-current">
                                         Current password

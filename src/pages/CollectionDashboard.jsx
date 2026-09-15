@@ -22,7 +22,6 @@ import '../components/features/CollectionDashboard/Photos/CollectionPhotosWorksp
 import { PhotoOptionsMenu } from '../components/features/CollectionDashboard/Media/PhotoOptionsMenu';
 import '../components/features/CollectionDashboard/Media/PhotoOptionsMenu.css';
 import { useAuth } from '../hooks/useAuth';
-import { supabase } from '../lib/supabase/client';
 import { DesignTab } from '../components/features/CollectionDashboard/DesignTab';
 import '../components/features/CollectionDashboard/DesignTab/DesignWorkspace.css';
 import { PreviewPane } from '../components/features/CollectionDashboard/PreviewPane';
@@ -522,16 +521,7 @@ const CollectionDashboard = () => {
         handleSetDragEnd();
 
         try {
-            const { USE_WORKERS_AUTH } = await import('../lib/api/client');
-            if (USE_WORKERS_AUTH) {
-                await Promise.all(dbSets.map((set) => galleryService.updateSet(set.id, { position: set.position })));
-            } else {
-                await Promise.all([
-                    ...dbSets.map((set) =>
-                        supabase.from('sets').update({ position: set.position }).eq('id', set.id)
-                    ),
-                ]);
-            }
+            await Promise.all(dbSets.map((set) => galleryService.updateSet(set.id, { position: set.position })));
             await persistSidebarOrder(collectionId, newOrderIds);
         } catch (err) {
             console.error('Failed to update set positions:', err);
@@ -1391,63 +1381,13 @@ const CollectionDashboard = () => {
         if (!collectionId) return;
         try {
             setStoreOrdersLoading(true);
-            const { USE_WORKERS_AUTH } = await import('../lib/api/client');
-            if (USE_WORKERS_AUTH) {
-                // New orders schema is already scoped by collection_id server-side.
-                const { apiFetch } = await import('../lib/api/client');
-                const [ordersRes, itemsRes] = await Promise.all([
-                    apiFetch(`/v1/store/orders?collectionId=${encodeURIComponent(collectionId)}`),
-                    apiFetch(`/v1/store/order-items?collectionId=${encodeURIComponent(collectionId)}`).catch(() => ({ items: [] })),
-                ]);
-                setStoreOrders(ordersRes?.orders || []);
-                setStoreOrderItems(itemsRes?.items || []);
-                return;
-            }
-            const { data: colPhotos, error: photosErr } = await supabase
-                .from('photos')
-                .select('id')
-                .eq('collection_id', collectionId);
-            
-            if (photosErr) throw photosErr;
-            
-            if (!colPhotos || colPhotos.length === 0) {
-                setStoreOrders([]);
-                setStoreOrderItems([]);
-                return;
-            }
-            
-            const colPhotoIds = new Set(colPhotos.map(p => p.id));
-            
-            const { data: ordersData, error: ordersErr } = await supabase
-                .from('printstore_orders')
-                .select('*')
-                .order('created_at', { ascending: false });
-
-            if (ordersErr) throw ordersErr;
-
-            const { data: itemsData, error: itemsErr } = await supabase
-                .from('printstore_order_items')
-                .select('*');
-
-            if (itemsErr) throw itemsErr;
-
-            if (!ordersData || !itemsData) {
-                setStoreOrders([]);
-                setStoreOrderItems([]);
-                return;
-            }
-
-            const filteredItems = itemsData.filter(item => {
-                const opt = item.options || {};
-                const photoId = opt.photo?.id || (opt.photos && opt.photos[0]?.id);
-                return photoId && colPhotoIds.has(photoId);
-            });
-
-            const filteredOrderIds = new Set(filteredItems.map(item => item.order_id));
-            const filteredOrders = ordersData.filter(order => filteredOrderIds.has(order.id));
-
-            setStoreOrders(filteredOrders);
-            setStoreOrderItems(itemsData);
+            // Routes through gallery.service.js (Cloudflare Workers /v1/store/*).
+            const [orders, items] = await Promise.all([
+                galleryService.getStoreOrders(collectionId),
+                galleryService.getStoreOrderItems(collectionId),
+            ]);
+            setStoreOrders(orders || []);
+            setStoreOrderItems(items || []);
         } catch (err) {
             console.error('Failed to fetch store orders for collection:', err);
         } finally {
@@ -1857,15 +1797,12 @@ const CollectionDashboard = () => {
         if ((collection?.download_pin_hash || collection?.has_pin) && pinRequiredForSingle) {
             const enteredPin = prompt("Please enter the download PIN to download this photo:");
             let pinOk = enteredPin === collection.download_pin_hash;
-            if (!pinOk) {
-                const { USE_WORKERS_AUTH } = await import('../lib/api/client');
-                if (USE_WORKERS_AUTH && collection?.id) {
-                    try {
-                        const { verifyGalleryAccess } = await import('../services/workersGallery.service');
-                        pinOk = (await verifyGalleryAccess(collection.id, { pin: enteredPin }))?.pinOk === true;
-                    } catch {
-                        pinOk = false;
-                    }
+            if (!pinOk && collection?.id) {
+                try {
+                    const { verifyGalleryAccess } = await import('../services/workersGallery.service');
+                    pinOk = (await verifyGalleryAccess(collection.id, { pin: enteredPin }))?.pinOk === true;
+                } catch {
+                    pinOk = false;
                 }
             }
             if (!pinOk) {
@@ -2307,18 +2244,12 @@ const CollectionDashboard = () => {
         const uploadResult = await storageService.upload(watermarkedPath, watermarkedBlob);
         const watermarkedUrl = uploadResult.url;
 
-        // 4. Update DB
-        const { data: updatedPhoto, error: updateError } = await supabase
-            .from('photos')
-            .update({
-                watermarked_url: watermarkedUrl,
-                watermarked_storage_path: watermarkedPath
-            })
-            .eq('id', photo.id)
-            .select()
-            .single();
-
-        if (updateError) throw updateError;
+        // 4. Update DB via the gallery service
+        // (Workers PATCH /v1/galleries/photos/:photoId when the flag is on).
+        await galleryService.updatePhoto(photo.id, {
+            watermarked_url: watermarkedUrl,
+            watermarked_storage_path: watermarkedPath
+        });
 
         return { watermarkedUrl, watermarkedPath };
     };
@@ -2331,16 +2262,11 @@ const CollectionDashboard = () => {
             });
         }
 
-        // 2. Clear columns in DB
-        const { error: updateError } = await supabase
-            .from('photos')
-            .update({
-                watermarked_url: null,
-                watermarked_storage_path: null
-            })
-            .eq('id', photo.id);
-
-        if (updateError) throw updateError;
+        // 2. Clear columns in DB via the gallery service
+        await galleryService.updatePhoto(photo.id, {
+            watermarked_url: null,
+            watermarked_storage_path: null
+        });
     };
 
     /** Access settings: pick the watermark new photos are shown with, without reprocessing existing files. */
@@ -2452,7 +2378,7 @@ const CollectionDashboard = () => {
         }
     }, [showWatermarkModal, defaultWatermark]);
 
-    // Load real data from Supabase
+    // Load delivery data via the Workers API
     useEffect(() => {
         const fetchCollectionData = async () => {
             if (!collectionId) {
@@ -3014,13 +2940,23 @@ const CollectionDashboard = () => {
     const photoAiSyncingRef = useRef(false);
 
     const runPhotoAiAutoSync = useCallback(async (options = {}) => {
-        if (!collectionId || photoAiTableMissing || photoAiSyncingRef.current) return;
+        if (!collectionId || photoAiSyncingRef.current) return { status: 'skipped' };
+        if (photoAiTableMissing) {
+            // Table flag latches — retry once in case tables were created since.
+            try {
+                const retry = await photoAiService.getMetadataForCollection(collectionId);
+                if (retry.tableMissing) return { status: 'skipped', reason: 'table-missing' };
+                setPhotoAiTableMissing(false);
+            } catch {
+                return { status: 'skipped', reason: 'table-missing' };
+            }
+        }
         const force = Boolean(options.force);
 
         const { rows, tableMissing } = await photoAiService.getMetadataForCollection(collectionId);
         if (tableMissing) {
             setPhotoAiTableMissing(true);
-            return;
+            return { status: 'skipped', reason: 'table-missing' };
         }
 
         setPhotoAiRows(rows);
@@ -3046,7 +2982,7 @@ const CollectionDashboard = () => {
                 silent: true,
                 applyGuestLabels: Boolean(collection?.guest_delivery_enabled),
             });
-            return;
+            return { status: 'up-to-date' };
         }
 
         // Labels-only backfill: fills AI keywords without re-indexing faces,
@@ -3067,7 +3003,7 @@ const CollectionDashboard = () => {
                 silent: true,
                 applyGuestLabels: Boolean(collection?.guest_delivery_enabled),
             });
-            return;
+            return { status: 'repaired' };
         }
 
         photoAiSyncingRef.current = true;
@@ -3077,23 +3013,73 @@ const CollectionDashboard = () => {
             if (photographerId) {
                 const unindexedCount = Math.max(0, indexablePhotoCount - rows.length);
                 const countToCheck = force ? indexablePhotoCount : (unindexedCount || 1);
+                // Quota errors must reach the caller (modal) — do not swallow.
                 await photographerQuotaService.assertNormalImageQuota(photographerId, countToCheck);
             }
-            await photoAiService.syncCollection(collectionId, 500, {
+            const syncResult = await photoAiService.syncCollection(collectionId, 500, {
                 forceReindex: force,
             });
+            // Backend queues chunked indexing (202 { queued: true }) and
+            // auto-reclusters when the queue drains — rows won't change on the
+            // very next read. Poll until new metadata lands (or timeout), so
+            // state actually updates instead of showing stale clusters.
+            if (syncResult && syncResult.queued) {
+                const startCount = rows.length;
+                const deadline = Date.now() + 90000;
+                let latest = rows;
+                // Give the queue a head start before the first poll.
+                await new Promise((r) => setTimeout(r, 4000));
+                while (Date.now() < deadline) {
+                    try {
+                        const current = await photoAiService.getMetadataForCollection(collectionId);
+                        if (current.tableMissing) break;
+                        latest = current.rows || latest;
+                        setPhotoAiRows(latest);
+                        // Done when we caught up to all gallery images.
+                        if (latest.length >= indexablePhotoCount && latest.length > 0) break;
+                        // Or when progress stopped growing across two polls and
+                        // we already have more than we started with.
+                        if (latest.length > startCount) {
+                            await new Promise((r) => setTimeout(r, 4000));
+                            const confirm = await photoAiService.getMetadataForCollection(collectionId).catch(() => null);
+                            if (confirm && !confirm.tableMissing) {
+                                setPhotoAiRows(confirm.rows || latest);
+                                if ((confirm.rows || []).length === latest.length) {
+                                    latest = confirm.rows || latest;
+                                    break;
+                                }
+                                latest = confirm.rows || latest;
+                                continue;
+                            }
+                            break;
+                        }
+                    } catch {
+                        /* transient — keep polling */
+                    }
+                    await new Promise((r) => setTimeout(r, 3000));
+                }
+                await refreshPhotoAiMetadata();
+                await loadPhotoAiPeople({
+                    silent: true,
+                    forceRecluster: false,
+                    applyGuestLabels: Boolean(collection?.guest_delivery_enabled),
+                });
+                return { status: 'queued' };
+            }
             await refreshPhotoAiMetadata();
             await loadPhotoAiPeople({
                 silent: true,
                 forceRecluster: force,
                 applyGuestLabels: Boolean(collection?.guest_delivery_enabled),
             });
+            return { status: 'completed' };
         } catch (err) {
             console.warn('Photo AI auto-sync failed:', err);
             await loadPhotoAiPeople({
                 silent: true,
                 applyGuestLabels: Boolean(collection?.guest_delivery_enabled),
             });
+            throw err;
         } finally {
             photoAiSyncingRef.current = false;
             setPhotoAiIndexing(false);
@@ -3857,15 +3843,12 @@ const CollectionDashboard = () => {
         if ((collection?.download_pin_hash || collection?.has_pin) && pinRequiredForSingle) {
             const enteredPin = prompt('Please enter the download PIN to download:');
             let pinOk = enteredPin === collection.download_pin_hash;
-            if (!pinOk) {
-                const { USE_WORKERS_AUTH } = await import('../lib/api/client');
-                if (USE_WORKERS_AUTH && collection?.id) {
-                    try {
-                        const { verifyGalleryAccess } = await import('../services/workersGallery.service');
-                        pinOk = (await verifyGalleryAccess(collection.id, { pin: enteredPin }))?.pinOk === true;
-                    } catch {
-                        pinOk = false;
-                    }
+            if (!pinOk && collection?.id) {
+                try {
+                    const { verifyGalleryAccess } = await import('../services/workersGallery.service');
+                    pinOk = (await verifyGalleryAccess(collection.id, { pin: enteredPin }))?.pinOk === true;
+                } catch {
+                    pinOk = false;
                 }
             }
             if (!pinOk) {
@@ -4148,7 +4131,7 @@ const CollectionDashboard = () => {
                 setCategoryTags(prevTags);
                 if (isMissingDbColumnError(err, 'category_tags')) {
                     showToast(
-                        'Category tags require a database update. Apply migration 20260521150000_collections_category_tags.sql in Supabase.',
+                        'Category tags need a backend update. Please try again later or contact support.',
                         'error'
                     );
                 } else {
@@ -6683,9 +6666,15 @@ const CollectionDashboard = () => {
                                     onClick={async () => {
                                         setShowPeoplePanel(true);
                                         try {
-                                            await runPhotoAiAutoSync({ force: true });
+                                            const result = await runPhotoAiAutoSync({ force: true });
                                             setShowFaceRecogniseModal(false);
-                                            showToast('Face recognition completed successfully.');
+                                            if (result?.status === 'queued') {
+                                                showToast('Face scan started — people will appear as indexing finishes.');
+                                            } else if (result?.status === 'skipped') {
+                                                showToast('Face recognition is already running.');
+                                            } else {
+                                                showToast('Face recognition completed successfully.');
+                                            }
                                         } catch (err) {
                                             alert(err?.message || 'Face recognition failed. Please try again.');
                                         }

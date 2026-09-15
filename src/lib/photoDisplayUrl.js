@@ -206,7 +206,7 @@ export function getPhotoDownloadFilename(photo, index = 0, usedNames = null) {
     }
   } else if (isRawMedia(photo) && getRawPreviewUrl(photo) && !/\.(jpe?g|png|webp)$/i.test(base)) {
     base = base.replace(/\.[^.]+$/i, '') + '.jpg';
-  } else if (!/\.(jpe?g|png|gif|webp|heic|heif)$/i.test(base)) {
+  } else if (!/\.(jpe?g|png|gif|webp|bmp|avif|tif|tiff|heic|heif)$/i.test(base)) {
     base = base.replace(/\.[^.]+$/i, '') + '.jpg';
   }
   if (!usedNames) return base;

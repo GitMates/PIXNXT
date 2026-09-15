@@ -1,6 +1,6 @@
 /**
  * Pure R2 folder helpers — safe to import from Vite config / Node server code
- * (no Supabase client side effects).
+ * (no backend client side effects).
  */
 
 export const R2_USERS_ROOT = 'users';
@@ -77,27 +77,33 @@ export function buildUserModulePath(photographerFolder, module, ...segments) {
   return [R2_USERS_ROOT, photographerFolder, module, ...segments].filter(Boolean).join('/');
 }
 
-/** Server-side helper (pass any Supabase client). */
+/** Server-side helper (resolves via the Workers API; `db` is ignored, kept for call compat). */
 export async function fetchPhotographerR2Folder(db, photographerId) {
+  void db;
   if (!photographerId) return 'photographer';
 
-  const { data } = await db
-    .from('photographers')
-    .select(PHOTOGRAPHER_R2_FIELDS)
-    .eq('id', photographerId)
-    .maybeSingle();
-
-  return resolvePhotographerR2Folder(data);
+  try {
+    const { apiFetch } = await import('./api/client');
+    const me = await apiFetch('/v1/me/profile').catch(() => null);
+    const data = me?.profile?.id === photographerId ? me.profile : null;
+    return resolvePhotographerR2Folder(
+      data ?? { id: photographerId }
+    );
+  } catch {
+    return safeR2PathSegment(photographerId, 'photographer');
+  }
 }
 
 export async function fetchPhotographerR2FolderVariants(db, photographerId) {
+  void db;
   if (!photographerId) return ['photographer'];
 
-  const { data } = await db
-    .from('photographers')
-    .select(PHOTOGRAPHER_R2_FIELDS)
-    .eq('id', photographerId)
-    .maybeSingle();
-
-  return photographerR2FolderVariants(data);
+  try {
+    const { apiFetch } = await import('./api/client');
+    const me = await apiFetch('/v1/me/profile').catch(() => null);
+    const data = me?.profile?.id === photographerId ? me.profile : null;
+    return photographerR2FolderVariants(data ?? { id: photographerId });
+  } catch {
+    return [safeR2PathSegment(photographerId, 'photographer')];
+  }
 }

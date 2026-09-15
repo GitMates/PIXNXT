@@ -1,10 +1,9 @@
 /**
- * Client-side R2 folder helpers (includes Supabase lookups).
+ * Client-side R2 folder helpers (Cloudflare Workers lookups).
  * Server / Vite config code should import from photographerR2FolderCore.js instead.
  */
 
-import { supabase } from './supabase/client';
-import { USE_WORKERS_AUTH } from './api/client';
+import { apiFetch } from './api/client';
 import {
   R2_USERS_ROOT,
   R2_USER_MODULES,
@@ -40,21 +39,11 @@ export async function getPhotographerR2Folder(photographerId) {
 
   try {
     let data = null;
-    if (USE_WORKERS_AUTH) {
-      const { apiFetch } = await import('./api/client');
-      const me = await apiFetch('/v1/me/profile').catch(() => null);
-      data = me?.profile?.id === photographerId ? me.profile : null;
-      if (!data) {
-        const pub = await apiFetch(`/v1/public/photographer/by-id/${photographerId}`).catch(() => null);
-        data = pub?.photographer ?? null;
-      }
-    } else {
-      const res = await supabase
-        .from('photographers')
-        .select(PHOTOGRAPHER_R2_FIELDS)
-        .eq('id', photographerId)
-        .maybeSingle();
-      data = res.data;
+    const me = await apiFetch('/v1/me/profile').catch(() => null);
+    data = me?.profile?.id === photographerId ? me.profile : null;
+    if (!data) {
+      const pub = await apiFetch(`/v1/public/photographer/by-id/${photographerId}`).catch(() => null);
+      data = pub?.photographer ?? null;
     }
     const folder = resolvePhotographerR2Folder(data);
     folderCache.set(photographerId, folder);
@@ -70,21 +59,11 @@ export async function getPhotographerR2FolderVariants(photographerId) {
 
   try {
     let data = null;
-    if (USE_WORKERS_AUTH) {
-      const { apiFetch } = await import('./api/client');
-      const me = await apiFetch('/v1/me/profile').catch(() => null);
-      data = me?.profile?.id === photographerId ? me.profile : null;
-      if (!data) {
-        const pub = await apiFetch(`/v1/public/photographer/by-id/${photographerId}`).catch(() => null);
-        data = pub?.photographer ?? null;
-      }
-    } else {
-      const res = await supabase
-        .from('photographers')
-        .select(PHOTOGRAPHER_R2_FIELDS)
-        .eq('id', photographerId)
-        .maybeSingle();
-      data = res.data;
+    const me = await apiFetch('/v1/me/profile').catch(() => null);
+    data = me?.profile?.id === photographerId ? me.profile : null;
+    if (!data) {
+      const pub = await apiFetch(`/v1/public/photographer/by-id/${photographerId}`).catch(() => null);
+      data = pub?.photographer ?? null;
     }
     const variants = photographerR2FolderVariants(data);
     variantCache.set(photographerId, variants);

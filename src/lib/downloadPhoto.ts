@@ -6,6 +6,8 @@ import {
   getWebResolutionUrl,
   resolveMediaUrl,
   isVideoMedia,
+  isRawMedia,
+  getRawPreviewUrl,
 } from './photoDisplayUrl';
 import { getStoreOriginalDownloadUrlCandidates } from './storePhotoQuality';
 import { getProxiedMediaFetchUrl } from './r2MediaProxy';
@@ -190,6 +192,108 @@ function isLikelyImageUrl(url: string): boolean {
   return /\.(jpe?g|png|gif|webp|bmp|heic|heif)(\?|#|$)/i.test(url) || !/\./.test(url.split('/').pop() || '');
 }
 
+export type SniffedMediaKind =
+  | 'jpeg' | 'png' | 'gif' | 'webp' | 'bmp' | 'avif' | 'heic'
+  | 'tiff' | 'mp4' | 'webm' | 'text' | 'unknown';
+
+/**
+ * Magic-byte sniff of fetched payloads. Guards the zip against two
+ * corruption modes that all surface as "file not supported" when opening:
+ *  - error pages (HTML/JSON served with HTTP 200) stored as .jpg
+ *  - RAW/TIFF bytes stored with a .jpg name (or JPEG bytes with a .CR2 name)
+ */
+export function sniffMediaKind(input: ArrayBuffer | Uint8Array): SniffedMediaKind {
+  const b = input instanceof Uint8Array ? input : new Uint8Array(input);
+  if (b.length < 12) return 'unknown';
+  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return 'jpeg';
+  if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return 'png';
+  // BMP — "BM" header.
+  if (b[0] === 0x42 && b[1] === 0x4d) return 'bmp';
+  if (b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x38) return 'gif';
+  if (
+    b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 &&
+    b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50
+  ) return 'webp';
+  // ISO BMFF: ftyp box at offset 4 (HEIC/HEIF/AVIF/MP4/MOV).
+  if (b[4] === 0x66 && b[5] === 0x74 && b[6] === 0x79 && b[7] === 0x70) {
+    const brand = String.fromCharCode(b[8], b[9], b[10], b[11]);
+    if (/^(heic|heix|hevc|hevx|heim|heis|hevm|hevs|mif1|msf1)$/i.test(brand)) return 'heic';
+    if (/^avif$/i.test(brand)) return 'avif';
+    if (/^(mp41|mp42|isom|iso2|iso3|avc1|mmp4|M4V |M4A |qt  |dash)$/.test(brand)) return 'mp4';
+    return 'mp4';
+  }
+  // TIFF header — every camera RAW (CR2/NEF/ARW/DNG…) is TIFF-based.
+  if (
+    (b[0] === 0x49 && b[1] === 0x49 && b[2] === 0x2a && b[3] === 0x00) ||
+    (b[0] === 0x4d && b[1] === 0x4d && b[2] === 0x00 && b[3] === 0x2a)
+  ) return 'tiff';
+  if (b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3) return 'webm';
+  // Text after optional BOM/whitespace — HTML ("<…") or JSON ("{…"/"[…").
+  let i = 0;
+  if (b[0] === 0xef && b[1] === 0xbb && b[2] === 0xbf) i = 3;
+  while (i < b.length && (b[i] === 0x20 || b[i] === 0x09 || b[i] === 0x0a || b[i] === 0x0d)) i += 1;
+  if (i < b.length && (b[i] === 0x3c || b[i] === 0x7b || b[i] === 0x5b)) return 'text';
+  return 'unknown';
+}
+
+const IMAGE_KIND_TO_EXT: Record<string, string> = {
+  jpeg: '.jpg',
+  png: '.png',
+  gif: '.gif',
+  webp: '.webp',
+  bmp: '.bmp',
+  avif: '.avif',
+  heic: '.heic',
+};
+
+function extensionOf(filename: string): string {
+  const m = /\.([^./\\?#]+)(?:[?#].*)?$/.exec(filename || '');
+  return m ? `.${m[1].toLowerCase()}` : '';
+}
+
+function withoutExtension(filename: string): string {
+  return String(filename || '').replace(/(\.[^./\\?#]+)([?#].*)?$/, '');
+}
+
+/**
+ * Ensure the zip entry name matches the actual bytes. Returns the corrected
+ * filename, or null when the name already fits. TIFF/RAW bytes keep the
+ * photo's original extension so they stay honest (open in Lightroom etc.
+ * instead of failing as fake .jpg files).
+ */
+export function correctFilenameForSniffedKind(
+  filename: string,
+  photo: BulkDownloadPhoto,
+  kind: SniffedMediaKind
+): string | null {
+  if (!filename) return null;
+  const currentExt = extensionOf(filename);
+  if (kind === 'tiff') {
+    const originalExt = extensionOf(photo?.filename || '');
+    const desired = originalExt || '.tif';
+    if (currentExt === desired) return null;
+    return `${withoutExtension(filename)}${desired}`;
+  }
+  const desired = IMAGE_KIND_TO_EXT[kind];
+  if (!desired) return null;
+  if (currentExt === desired) return null;
+  // .jpeg ≡ .jpg, .heif ≡ .heic — already compatible.
+  if (desired === '.jpg' && (currentExt === '.jpeg')) return null;
+  if (desired === '.heic' && currentExt === '.heif') return null;
+  return `${withoutExtension(filename)}${desired}`;
+}
+
+async function sniffHead(payload: Blob | ArrayBuffer): Promise<SniffedMediaKind> {
+  try {
+    const head = payload instanceof ArrayBuffer
+      ? payload.slice(0, 16)
+      : await (payload as Blob).slice(0, 16).arrayBuffer();
+    return sniffMediaKind(head);
+  } catch {
+    return 'unknown';
+  }
+}
+
 export interface FetchPhotoBlobOptions {
   /** Prefer full/original CDN URL first (free gallery / social downloads). Default keeps existing candidate order. */
   preferOriginal?: boolean;
@@ -235,6 +339,20 @@ function getPhotoDownloadCandidatesByResolution(
   const out: string[] = [];
   const seen = new Set<string>();
 
+  // RAW originals (CR2/NEF/ARW/HEIC…) aren't browser-openable, and the zip
+  // filename logic assumes JPEG bytes whenever a preview exists — so try the
+  // displayable JPEG preview before the RAW original at every resolution.
+  // Otherwise RAW bytes get saved with a .jpg name and viewers report
+  // "file not supported".
+  if (isRawMedia(photo)) {
+    try {
+      const preview = getRawPreviewUrl(photo);
+      if (preview) pushResolvedUrl(out, seen, preview);
+    } catch {
+      /* fall through to the standard order */
+    }
+  }
+
   if (resolution === 'web') {
     pushResolvedUrl(out, seen, getWebResolutionUrl(photo));
     pushResolvedUrl(out, seen, photo.web_url);
@@ -277,7 +395,18 @@ export async function fetchPhotoArrayBuffer(
 
   for (const url of urls) {
     try {
-      return await fetchArrayBufferWithTimeout(url);
+      const buffer = await fetchArrayBufferWithTimeout(url);
+      // A 200 response isn't always image bytes (error pages served as HTML).
+      // Reject text bodies so they never end up in the zip as fake photos.
+      try {
+        if (buffer.byteLength > 0 && sniffMediaKind(buffer) === 'text') {
+          console.warn('Download fetch returned a non-image body, trying next URL:', url);
+          continue;
+        }
+      } catch {
+        /* sniffing must never break the download path */
+      }
+      return buffer;
     } catch (err) {
       console.warn('Download fetch failed, trying next URL:', url, err);
     }
@@ -337,11 +466,34 @@ async function addPhotoToZip(
     payload = await watermarked.arrayBuffer();
   }
 
-  const name = getPhotoDownloadFilename(photo, index, usedNames);
+  // The fetched bytes decide the filename — not the other way around.
+  // Without this, RAW/TIFF bytes get saved with a .jpg name (or JPEG bytes
+  // with a .CR2 name) and viewers report "file not supported".
+  // correctFilenameForSniffedKind() existed for exactly this but was never wired in.
+  let name = getPhotoDownloadFilename(photo, index);
+  try {
+    const bytes =
+      payload instanceof ArrayBuffer
+        ? new Uint8Array(payload)
+        : new Uint8Array(await (payload as Blob).slice(0, 32).arrayBuffer());
+    const kind = sniffMediaKind(bytes);
+    if (kind === 'text') return false;
+    const corrected = correctFilenameForSniffedKind(name, photo, kind);
+    if (corrected) name = corrected;
+  } catch {
+    /* sniffing must never break the download path */
+  }
+  // Claim uniqueness (same _n scheme as getPhotoDownloadFilename's usedNames path).
+  let finalName = name;
+  for (let n = 1; usedNames.has(finalName.toLowerCase()); n += 1) {
+    const dot = name.lastIndexOf('.');
+    finalName = dot > 0 ? `${name.slice(0, dot)}_${n}${name.slice(dot)}` : `${name}_${n}`;
+  }
+  usedNames.add(finalName.toLowerCase());
   const folder = String(getZipFolder?.(photo) || '')
     .replace(/[/\\:*?"<>|]/g, '_')
     .trim();
-  zip.file(folder ? `${folder}/${name}` : name, payload);
+  zip.file(folder ? `${folder}/${finalName}` : finalName, payload);
   return true;
 }
 
@@ -443,7 +595,14 @@ export async function downloadSinglePhotoFile(
     blob = await applyWatermarkToBlob(blob, watermarkOptions);
   }
 
-  const filename = getPhotoDownloadFilename(photo, 0);
+  let filename = getPhotoDownloadFilename(photo, 0);
+  try {
+    const head = await blob.slice(0, 32).arrayBuffer();
+    const corrected = correctFilenameForSniffedKind(filename, photo, sniffMediaKind(head));
+    if (corrected) filename = corrected;
+  } catch {
+    /* sniffing must never break the download path */
+  }
   const blobUrl = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = blobUrl;

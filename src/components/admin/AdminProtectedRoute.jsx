@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { AppLoader } from '../ui/AppLoading';
-import { supabase } from '../../lib/supabase/client';
+import { apiFetch } from '../../lib/api/client';
 
 export const AdminProtectedRoute = ({ children }) => {
   const { user, loading: authLoading } = useAuth();
@@ -25,18 +25,10 @@ export const AdminProtectedRoute = ({ children }) => {
       }
 
       try {
-        const { data, error } = await supabase
-          .from('admins')
-          .select('id')
-          .eq('id', user.id)
-          .single();
-
+        // Admin flag comes from GET /v1/me (returns {photographer, isAdmin}).
+        const me = await apiFetch('/v1/me');
         if (isMounted) {
-          if (error || !data) {
-            setIsAdmin(false);
-          } else {
-            setIsAdmin(true);
-          }
+          setIsAdmin(Boolean(me?.isAdmin));
           setCheckingRole(false);
         }
       } catch {
@@ -63,7 +55,7 @@ export const AdminProtectedRoute = ({ children }) => {
   }
 
   if (isAdmin === false) {
-    // If authenticated but NOT in the admins table, redirect out of the admin panel
+    // If authenticated but not an admin, redirect out of the admin panel
     return <Navigate to="/dashboard" replace />;
   }
 

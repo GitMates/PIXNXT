@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { supabase } from '../lib/supabase/client';
 import { storageService } from '../services/storage.service';
 import { galleryService } from '../services/gallery.service';
 import './WatermarkEditor.css';
@@ -58,16 +57,9 @@ const WatermarkEditor = () => {
         const loadProfile = async () => {
             if (!user?.id) return;
             try {
-                // Get photographer ID
-                const { data, error } = await supabase
-                    .from('photographers')
-                    .select('id')
-                    .eq('id', user.id)
-                    .single();
-                if (error) throw error;
-                if (data) {
-                    setProfileId(data.id);
-                }
+                // user.id is the photographer id — no photographers lookup.
+                // galleryService watermarks are already flag-aware.
+                setProfileId(user.id);
 
                 if (id) {
                     const watermarkData = await galleryService.getWatermark(id);
@@ -82,9 +74,9 @@ const WatermarkEditor = () => {
                         setPosition(watermarkData.position || 'center');
                         setImageUrl(watermarkData.url || null);
                     }
-                } else if (data?.id) {
+                } else if (user?.id) {
                     // Creating new watermark: determine a unique default name
-                    const existingWatermarks = await galleryService.getWatermarks(data.id);
+                    const existingWatermarks = await galleryService.getWatermarks(user.id);
                     let count = 1;
                     let newName = `My Watermark ${count}`;
                     const existingNames = existingWatermarks.map(w => w.name);

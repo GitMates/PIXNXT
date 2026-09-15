@@ -38,7 +38,6 @@ import AlbumPreviewFeedbackSidebar from '../../components/smart-albums/AlbumPrev
 import { buildSpreadFeedbackFeed } from '../../components/smart-albums/spreadFeedbackFeed';
 import { hasCommentAttachment } from '../../components/smart-albums/albumCommentAttachments';
 import { galleryService } from '../../services/gallery.service';
-import { getPublicSiteOrigin } from '../../lib/publicSiteUrl';
 import { AppToast, useAppToast } from '../../components/ui/AppToast';
 import { useAuth } from '../../hooks/useAuth';
 import {
@@ -275,40 +274,19 @@ export default function AlbumPreview({
             );
             if (roots.length === 0) return;
 
-            const payload = {
-                albumId,
-                guestName: guest.name,
-                guestEmail: guest.email || null,
-                // Photographer comment emails link to the album editor on the platform host.
-                siteOrigin: getPublicSiteOrigin(),
-                clientTimezone: (() => {
-                    try {
-                        return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
-                    } catch {
-                        return null;
-                    }
-                })(),
-                comments: roots.map((c) => ({
-                    spread_index: c.spread_index,
-                    author_name: c.author_name,
-                    body: c.body,
-                    created_at: c.created_at,
-                    updated_at: c.updated_at,
-                })),
-            };
-
-            const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-album-comments-email`;
-            const headers = {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY}`,
-            };
-
-            fetch(url, {
-                method: 'POST',
-                headers,
-                body: JSON.stringify(payload),
-                keepalive: true,
-            });
+            import('../../lib/api/client').then(({ apiBase }) => {
+                // Best-effort: Workers notifies the photographer via the queue.
+                fetch(`${apiBase()}/v1/emails/album-comments`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        albumId,
+                        guestName: guest.name,
+                        guestEmail: guest.email || null,
+                    }),
+                    keepalive: true,
+                }).catch(() => {});
+            }).catch(() => {});
 
             markCommentsSubmitted(albumId);
         };

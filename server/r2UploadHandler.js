@@ -1,8 +1,21 @@
 /**
  * Same-origin R2 upload proxy — used when the browser origin is a photographer custom
  * domain (not on the bucket CORS allowlist). PUT /api/r2-upload?path=album-proofer/...
+ * Proxies to the Cloudflare Workers backend (PUT /v1/r2/upload?path=..., authed).
  */
-import { uploadBytesToR2 } from './guestDelivery/r2Server.js';
+
+function apiBase() {
+  return String(process.env.VITE_API_URL || '').replace(/\/+$/, '');
+}
+
+function mediaBaseUrl() {
+  const publicUrl = String(
+    process.env.VITE_R2_PUBLIC_URL || process.env.R2_PUBLIC_URL || ''
+  ).replace(/\/+$/, '');
+  if (publicUrl) return publicUrl;
+  const base = apiBase();
+  return base ? `${base}/v1/r2/media` : '';
+}
 
 function readRequestBody(req, maxBytes = 80 * 1024 * 1024) {
   return new Promise((resolve, reject) => {
@@ -72,8 +85,39 @@ export async function handleR2Upload(req, res) {
       return;
     }
 
+    const base = apiBase();
+    if (!base) {
+      res.statusCode = 500;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ error: 'VITE_API_URL is not configured' }));
+      return;
+    }
+
+    const authHeader = req.headers?.authorization || req.headers?.Authorization || '';
+    if (!authHeader) {
+      res.statusCode = 401;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ error: 'Unauthorized' }));
+      return;
+    }
+
     const contentType = String(req.headers['content-type'] || 'application/octet-stream');
-    const result = await uploadBytesToR2(objectPath, body, contentType);
+    const upstream = await fetch(`${base}/v1/r2/upload?path=${encodeURIComponent(objectPath)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': contentType, Authorization: authHeader },
+      body,
+    });
+    const payload = await upstream.json().catch(() => ({}));
+    if (!upstream.ok) {
+      res.statusCode = upstream.status;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ error: payload?.error?.message || 'Upload failed' }));
+      return;
+    }
+
+    const key = payload?.path || objectPath;
+    const publicBase = mediaBaseUrl();
+    const result = { path: key, url: publicBase ? `${publicBase}/${key}` : key };
 
     res.statusCode = 200;
     res.setHeader('Content-Type', 'application/json');

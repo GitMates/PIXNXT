@@ -1,8 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { supabase } from '../lib/supabase/client';
-import { USE_WORKERS_AUTH } from '../lib/api/client';
-import { getUser } from '../services/auth.service';
+import { apiFetch } from '../lib/api/client';
 import StoreHeader from './components/StoreHeader';
 import CoverHero from './components/CoverHero';
 import { AppLoader } from '../components/ui/AppLoading';
@@ -22,23 +20,7 @@ import ProductDetailPage from './components/ProductDetailPage';
 import NotificationsPage from './components/NotificationsPage';
 import {
   MOCK_PHOTOS,
-  MOCK_PRODUCTS,
-  MOCK_SIZES,
-  MOCK_FRAMES,
-  MOCK_PAPERS,
-  PRINT_PACK_SIZES,
-  MATTED_FRAME_SIZES,
-  GALLERY_BOARD_SIZES,
-  CIRCULAR_FRAME_SIZES,
-  FLOAT_FRAME_SIZES,
-  ACRYLIC_PRINT_SIZES,
-  DECKLED_PRINTS_SIZES,
-  PANORAMIC_PRINTS_SIZES,
-  CANVAS_SIZES,
-  MOCK_WRAPS,
-  MOCK_FINISHINGS,
-  MATTED_COLLAGE_SIZES,
-  PRINT_SIZES
+  MOCK_PRODUCTS
 } from './data/mockStoreData';
 import { ShoppingBag, Heart, X, Check, Upload, Bookmark, ChevronLeft, ChevronRight, MoreVertical, ArrowUp, CreditCard, ShieldCheck, Loader2, AlertCircle } from 'lucide-react';
 import Lottie from 'lottie-react';
@@ -49,7 +31,7 @@ import { galleryService } from '../services/gallery.service';
 
 const DIGITAL_PRODUCT_TYPES = ['digital_download', 'digital_download_all', 'digital_package'];
 
-/** D1 returns JSON columns (options, shipping_address) as TEXT — Supabase returns objects. */
+/** D1 returns JSON columns (options, shipping_address) as TEXT — parse after every read. */
 const parseWorkersJson = (value, fallback) => {
   if (value == null) return fallback;
   if (typeof value !== 'string') return value;
@@ -94,7 +76,7 @@ const rememberWorkersOrderId = (id) => {
   }
 };
 
-/** Same cart-row content key the Supabase merge uses (product + photo + size). */
+/** Same cart-row content key the cart merge uses (product + photo + size). */
 const sameCartContent = (a, b) => (
   a.productId === b.productId
   && ((a.photo?.id ?? null) === (b.photo?.id ?? null))
@@ -144,10 +126,10 @@ const reconcileWorkersCartIds = async ({ apiFetch, sessionId, setCartItems, mapR
 };
 
 /**
- * Workers order placement: POST /v1/printstore/orders then the same receipt /
- * activity / email tail as the Supabase path. The server computes and stores
+ * Workers order placement: POST /v1/printstore/orders then the receipt /
+ * activity / email tail. The server computes and stores
  * subtotal-as-total (no shipping/tax columns in D1); the receipt below keeps
- * the client-computed breakdown so the UI matches the Supabase flow.
+ * the client-computed breakdown so the UI stays consistent.
  */
 const handlePlaceOrderWorkers = async ({
   shippingDetails,
@@ -269,7 +251,7 @@ const handlePlaceOrderWorkers = async ({
     console.warn('Failed to log digital download activity:', logErr);
   }
 
-  // Keep cartItems in React state until payment success UI finishes (same as Supabase path).
+  // Keep cartItems in React state until payment success UI finishes.
 
   const completedOrderData = {
     id: orderId,
@@ -339,8 +321,7 @@ const handlePlaceOrderWorkers = async ({
 
 /**
  * Workers storefront bootstrap (collection + photos + visitor session +
- * photographer branding) via the flag-aware galleryService. Throws on
- * transport errors so the caller can fall back to Supabase.
+ * photographer branding) via galleryService. Throws on transport errors.
  */
 const loadPhotographerWorkers = async ({
   searchParams,
@@ -411,7 +392,7 @@ const loadPhotographerWorkers = async ({
       }
     }
 
-    // POST /v1/engage/sessions is get-or-create — matches the Supabase lookup when a row exists.
+    // POST /v1/engage/sessions is get-or-create for the visitor session.
     const visitorEmail = localStorage.getItem(`pixnxt_fav_email_${collection.id}`);
     if (visitorEmail) {
       try {
@@ -440,6 +421,7 @@ const loadPhotographerWorkers = async ({
   }
 
   if (!display_name) {
+    const { getUser } = await import('../services/workersAuth.service');
     const user = await getUser().catch(() => null);
     if (user) {
       try {
@@ -455,8 +437,8 @@ const loadPhotographerWorkers = async ({
     }
   }
 
-  // NOTE: the Supabase path also resolves via a raw sessionId lookup — Workers
-  // has no shopper session-read endpoint, so that step is Supabase-only.
+  // NOTE: there is no shopper session-read endpoint, so a raw sessionId
+  // lookup step is intentionally skipped here.
 
   if (display_name) {
     const profileData = {
@@ -530,19 +512,20 @@ export default function PrintStoreApp() {
 
   useEffect(() => {
     if (collection?.id) {
-      supabase
-        .from('buylink_plans')
-        .select('id')
-        .eq('collection_id', collection.id)
-        .eq('status', 'completed')
-        .limit(1)
-        .then(({ data, error }) => {
-          if (!error && data && data.length > 0) {
-            setVaultPurchasedState(true);
-          } else {
+      // GET /v1/store/buylink-status?collectionId= — has vault been purchased.
+      import('../lib/api/client').then(({ apiFetch }) =>
+        apiFetch(`/v1/store/buylink-status?collectionId=${encodeURIComponent(collection.id)}`, { auth: false })
+          .then((data) => {
+            if (data?.purchased) {
+              setVaultPurchasedState(true);
+            } else {
+              setVaultPurchasedState(localStorage.getItem(`pixnxt_vault_purchased_${collection.id}`) === 'true');
+            }
+          })
+          .catch(() => {
             setVaultPurchasedState(localStorage.getItem(`pixnxt_vault_purchased_${collection.id}`) === 'true');
-          }
-        });
+          })
+      );
     }
   }, [collection?.id]);
 
@@ -561,42 +544,26 @@ export default function PrintStoreApp() {
 
       const price = parseFloat(localStorage.getItem(`pixnxt_vault_price_${collection.id}`) || '499');
 
-      const { data: purchase, error: purchaseError } = await supabase
-        .from('buylink_plans')
-        .insert({
-          collection_id: collection.id,
-          customer_name: vaultCardName || 'Client Visitor',
-          customer_email: targetEmail,
-          amount_paid: price,
-          plan_type: 'lifetime',
-          status: 'completed',
-          payment_method: 'Credit Card',
-          payment_intent_id: 'mock_pi_vault_' + Math.random().toString(36).substr(2, 9)
-        })
-        .select()
-        .single();
-
-      if (purchaseError) throw purchaseError;
+      // POST /v1/store/buylink — vault plan purchase record. The backend
+      // queues the vault-purchase email server-side, so no follow-up
+      // /v1/emails/order-placed call (it only resolves orders tables).
+      const data = await apiFetch('/v1/store/buylink', {
+        method: 'POST',
+        auth: false,
+        body: {
+          collectionId: collection.id,
+          customerEmail: targetEmail,
+          customerName: vaultCardName || 'Client Visitor',
+          amountPaid: price,
+          planType: 'lifetime',
+          paymentMethod: 'Credit Card',
+          paymentIntentId: 'mock_pi_vault_' + Math.random().toString(36).substr(2, 9),
+        },
+      });
+      if (!data?.plan?.id) throw new Error('Vault purchase could not be recorded. Please try again.');
 
       localStorage.setItem(`pixnxt_vault_purchased_${collection.id}`, 'true');
       setVaultPurchasedState(true);
-
-      try {
-        await fetch(`${supabase.supabaseUrl}/functions/v1/send-order-placed-email`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${supabase.supabaseKey}`
-          },
-          body: JSON.stringify({
-            orderId: purchase.id,
-            recipientEmail: targetEmail,
-            siteOrigin: window.location.origin
-          })
-        });
-      } catch (emailErr) {
-        console.warn('Could not trigger vault email:', emailErr);
-      }
 
       setIsVaultPaying(false);
       setShowVaultPaymentModal(false);
@@ -609,31 +576,19 @@ export default function PrintStoreApp() {
 
   const fetchNotifCount = async () => {
     try {
-      let query = supabase.from('printstore_orders').select('id');
-      let hasFilter = false;
+      // No realtime/SSE equivalent — count open artwork reviews via the
+      // shopper notifications endpoint (polled on the same 30s interval).
+      const params = new URLSearchParams();
       if (sessionId) {
-        query = query.eq('session_id', sessionId);
-        hasFilter = true;
+        params.set('sessionId', sessionId);
       } else {
-        const { data: userData } = await supabase.auth.getUser();
-        if (userData?.user?.email) {
-          query = query.eq('customer_email', userData.user.email);
-          hasFilter = true;
-        }
+        const { getUser } = await import('../services/workersAuth.service');
+        const user = await getUser().catch(() => null);
+        if (user?.email) params.set('email', user.email);
       }
-      if (!hasFilter) return;
-      const { data: orders } = await query;
-      if (orders && orders.length > 0) {
-        const orderIds = orders.map(o => o.id);
-        const { count } = await supabase
-          .from('printstore_artwork_reviews')
-          .select('*', { count: 'exact', head: true })
-          .in('order_id', orderIds)
-          .eq('review_status', 'Waiting Customer');
-        setNotifCount(count || 0);
-      } else {
-        setNotifCount(0);
-      }
+      if (!params.toString()) return;
+      const data = await apiFetch(`/v1/printstore/reviews/notifications?${params.toString()}`, { auth: false }).catch(() => null);
+      setNotifCount((data?.reviews || []).length);
     } catch (err) {
       setNotifCount(0);
     }
@@ -651,10 +606,9 @@ export default function PrintStoreApp() {
     if (orderId) {
       const loadOrderFromParams = async () => {
         try {
-          if (USE_WORKERS_AUTH && sessionId) {
-            const { apiFetch } = await import('../lib/api/client');
-            const data = await apiFetch(`/v1/printstore/orders/${encodeURIComponent(orderId)}?sessionId=${encodeURIComponent(sessionId)}`, { auth: false });
-            if (!data?.order) throw new Error('Order not found');
+          if (!sessionId) throw new Error('Missing session');
+          const data = await apiFetch(`/v1/printstore/orders/${encodeURIComponent(orderId)}?sessionId=${encodeURIComponent(sessionId)}`, { auth: false });
+          if (!data?.order) throw new Error('Order not found');
             const order = normalizeWorkersOrderRow(data.order);
             const items = (data.items || []).map((row) => ({ ...row, options: parseWorkersJson(row.options, {}) }));
             rememberWorkersOrderId(order.id);
@@ -675,38 +629,6 @@ export default function PrintStoreApp() {
               }))
             });
             setCheckoutState('completed');
-            return;
-          }
-          const { data: order, error } = await supabase
-            .from('printstore_orders')
-            .select('*')
-            .eq('id', orderId)
-            .single();
-          if (error) throw error;
-
-          const { data: items, error: itemsError } = await supabase
-            .from('printstore_order_items')
-            .select('*')
-            .eq('order_id', orderId);
-          if (itemsError) throw itemsError;
-
-          setCompletedOrder({
-            ...order,
-            items: items.map(item => ({
-              productName: item.product_name,
-              quantity: item.quantity,
-              unitPrice: item.unit_price,
-              productId: item.product_type,
-              product_type: item.product_type,
-              size: item.options?.size,
-              frame: item.options?.frame,
-              paper: item.options?.paper,
-              border: item.options?.border,
-              layout: item.options?.layout,
-              photo: item.options?.photo
-            }))
-          });
-          setCheckoutState('completed');
         } catch (e) {
           console.error("Error loading order from URL search params:", e);
         }
@@ -829,202 +751,16 @@ export default function PrintStoreApp() {
   // Refs for scroll-spy sections
   const loadPhotographer = async () => {
     try {
-      if (USE_WORKERS_AUTH) {
-        try {
-          return await loadPhotographerWorkers({
-            searchParams,
-            setCollection,
-            setCollectionId,
-            setCollectionPhotos,
-            setGallerySelectedPhoto,
-            setActiveTab,
-            setSessionId,
-            setPhotographer,
-          });
-        } catch (workersErr) {
-          console.warn('Workers storefront lookup failed, falling back to Supabase:', workersErr);
-        }
-      }
-      let id = '';
-      let display_name = '';
-      let email = '';
-      let resolvedSessionId = '';
-
-      // 1. Try to load photographer by collection slug in query parameters
-      const slug = searchParams.get('slug') || searchParams.get('collection');
-      const photoIdParam = searchParams.get('photo');
-      const orderIdParam = searchParams.get('orderId');
-      const hasCartItems = (() => {
-        try {
-          const items = JSON.parse(localStorage.getItem('pixnxt_printstore_cart') || '[]');
-          return items.length > 0;
-        } catch(e) { return false; }
-      })();
-
-      if (!slug || (!photoIdParam && !orderIdParam && !searchParams.get('cart') && !hasCartItems)) {
-        if (slug) {
-          window.location.assign(`/gallery/${slug}`);
-        } else {
-          window.location.assign('/');
-        }
-        return;
-      }
-
-      if (slug) {
-        const { data: collection } = await supabase
-          .from('deliveries')
-          .select('*')
-          .eq('slug', slug)
-          .maybeSingle();
-
-        if (collection?.id) {
-          setCollection(collection);
-          setCollectionId(collection.id);
-
-          // Fetch photos for the collection
-          const { data: photosData } = await supabase
-            .from('photos')
-            .select('id, filename, web_url, thumbnail_url, full_url, width, height')
-            .eq('collection_id', collection.id);
-
-          if (photosData && photosData.length > 0) {
-            const mappedPhotos = photosData.map(p => toStoreCartPhoto({
-              id: p.id,
-              name: p.filename || `Photo`,
-              filename: p.filename || '',
-              url: p.web_url || p.thumbnail_url || '',
-              web_url: p.web_url || p.thumbnail_url || '',
-              thumbnail_url: p.thumbnail_url || p.web_url || '',
-              full_url: p.full_url || p.web_url || p.thumbnail_url || '',
-              display_url: p.web_url || p.thumbnail_url || '',
-              aspectRatio: p.width && p.height ? (p.width > p.height ? '3:2' : '2:3') : '2:3'
-            }));
-            setCollectionPhotos(mappedPhotos);
-
-            const photoIdParam = searchParams.get('photo');
-            let matchedPhoto = null;
-            if (photoIdParam) {
-              matchedPhoto = mappedPhotos.find(p => String(p.id) === String(photoIdParam));
-            }
-            if (!matchedPhoto && mappedPhotos.length > 0) {
-              matchedPhoto = mappedPhotos[0];
-            }
-            if (matchedPhoto) {
-              setGallerySelectedPhoto(matchedPhoto);
-              setActiveTab('shop');
-            }
-          }
-
-          // Resolve session
-          const visitorEmail = localStorage.getItem(`pixnxt_fav_email_${collection.id}`);
-          if (visitorEmail) {
-            const { data: session } = await supabase
-              .from('client_sessions')
-              .select('id')
-              .eq('collection_id', collection.id)
-              .eq('visitor_email', visitorEmail)
-              .maybeSingle();
-            if (session?.id) {
-              setSessionId(session.id);
-              resolvedSessionId = session.id;
-            }
-          }
-        }
-
-        if (collection?.photographer_id) {
-          const { data: profile } = await supabase
-            .from('photographers')
-            .select('id, display_name, email')
-            .eq('id', collection.photographer_id)
-            .maybeSingle();
-
-          if (profile?.display_name) {
-            id = profile.id;
-            display_name = profile.display_name;
-            email = profile.email || 'kbaskaran@example.com';
-          }
-        }
-      }
-
-      // 2. If not resolved by slug, try to resolve via active user session
-      if (!display_name) {
-        let user = null;
-        try {
-          const { data, error } = await supabase.auth.getUser();
-          if (data && !error) {
-            user = data.user;
-          }
-        } catch (authErr) {
-          console.warn("Could not get authenticated user:", authErr);
-        }
-
-        if (user) {
-          const { data: profile } = await supabase
-            .from('photographers')
-            .select('id, display_name, email')
-            .eq('id', user.id)
-            .maybeSingle();
-
-          if (profile?.display_name) {
-            id = profile.id;
-            display_name = profile.display_name;
-            email = profile.email || user.email || 'kbaskaran@example.com';
-          }
-        }
-      }
-
-      // 3. Try to resolve via sessionId
-      if (!display_name && sessionId) {
-        try {
-          const { data: session } = await supabase
-            .from('client_sessions')
-            .select('collection_id')
-            .eq('id', sessionId)
-            .maybeSingle();
-
-          if (session?.collection_id) {
-            const { data: collection } = await supabase
-              .from('deliveries')
-              .select('*')
-              .eq('id', session.collection_id)
-              .maybeSingle();
-
-            if (collection) {
-              setCollection(collection);
-
-              if (collection?.photographer_id) {
-                const { data: profile } = await supabase
-                  .from('photographers')
-                  .select('id, display_name, email')
-                  .eq('id', collection.photographer_id)
-                  .maybeSingle();
-
-                if (profile?.display_name) {
-                  id = profile.id;
-                  display_name = profile.display_name;
-                  email = profile.email || 'kbaskaran@example.com';
-                }
-              }
-            }
-          }
-        } catch (e) {
-          console.warn("Could not load photographer via sessionId:", e);
-        }
-      }
-
-      // 4. Update state if resolved
-      if (display_name) {
-        const profileData = {
-          id,
-          display_name,
-          email: email || 'kbaskaran@example.com'
-        };
-        setPhotographer(profileData);
-        const cacheSlug = searchParams.get('slug') || searchParams.get('collection') || 'default';
-        localStorage.setItem(`pixnxt_printstore_photographer_${cacheSlug}`, JSON.stringify(profileData));
-      }
-
-      return resolvedSessionId;
+      return await loadPhotographerWorkers({
+        searchParams,
+        setCollection,
+        setCollectionId,
+        setCollectionPhotos,
+        setGallerySelectedPhoto,
+        setActiveTab,
+        setSessionId,
+        setPhotographer,
+      });
     } catch (err) {
       console.error("Error resolving photographer dynamic info:", err);
       return '';
@@ -1128,118 +864,13 @@ export default function PrintStoreApp() {
 
   const loadProducts = async () => {
     try {
-      if (USE_WORKERS_AUTH) {
-        // Workers owns the catalog — read-only public list, no client-side seeding.
-        const { apiFetch } = await import('../lib/api/client');
-        const data = await apiFetch('/v1/printstore/products', { auth: false });
-        const rows = (data?.products || []).map(normalizeWorkersProductRow);
-        // Digital downloads are sold via gallery, not Print Lab shop (same filter as Supabase path).
-        const visibleProducts = rows
-          .filter((p) => p.is_visible && !['digital_download', 'digital_download_all'].includes(p.product_type))
-          .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-        setProducts(visibleProducts.map(mapProductRow));
-        return;
-      }
-      // Fetch all products currently in the database (visible or hidden)
-      let { data, error } = await supabase
-        .from('printstore_products')
-        .select('*');
-
-      if (error) throw error;
-
-      const existingTypes = new Set((data || []).map(p => p.product_type));
-      const missingProducts = MOCK_PRODUCTS.filter(item => !existingTypes.has(item.id));
-
-      if (missingProducts.length > 0) {
-        console.log("Seeding missing print store products:", missingProducts.map(p => p.id));
-        const seededData = [];
-
-        for (const item of missingProducts) {
-          let sizes = [];
-          let frames = [];
-          let papers = [];
-          let wraps = [];
-          let finishings = [];
-
-          if (item.id === 'dibond') {
-            sizes = MOCK_SIZES;
-            papers = MOCK_PAPERS;
-          } else if (item.id === 'matted_frame') {
-            sizes = MATTED_FRAME_SIZES;
-            frames = MOCK_FRAMES;
-            papers = MOCK_PAPERS;
-          } else if (item.id === 'gallery_board') {
-            sizes = GALLERY_BOARD_SIZES;
-            papers = MOCK_PAPERS;
-          } else if (item.id === 'frames') {
-            sizes = MOCK_SIZES;
-            frames = MOCK_FRAMES;
-            papers = MOCK_PAPERS;
-          } else if (item.id === 'canvas') {
-            sizes = CANVAS_SIZES;
-            wraps = MOCK_WRAPS;
-          } else if (item.id === 'acrylic_prints') {
-            sizes = ACRYLIC_PRINT_SIZES;
-            finishings = MOCK_FINISHINGS;
-          } else if (item.id === 'circular_frames') {
-            sizes = CIRCULAR_FRAME_SIZES;
-            frames = MOCK_FRAMES;
-            papers = MOCK_PAPERS;
-          } else if (item.id === 'float_frames') {
-            sizes = FLOAT_FRAME_SIZES;
-            frames = MOCK_FRAMES;
-            papers = MOCK_PAPERS;
-          } else if (item.id === 'matted_collages') {
-            sizes = MATTED_COLLAGE_SIZES;
-            frames = MOCK_FRAMES;
-          } else if (item.id === 'prints') {
-            sizes = PRINT_SIZES;
-            papers = MOCK_PAPERS;
-          } else if (item.id === 'panoramic_prints') {
-            sizes = PANORAMIC_PRINTS_SIZES;
-            papers = MOCK_PAPERS;
-          } else if (item.id === 'deckled_prints') {
-            sizes = DECKLED_PRINTS_SIZES;
-            papers = MOCK_PAPERS;
-          } else if (item.id === 'print_pack') {
-            sizes = PRINT_PACK_SIZES;
-            papers = MOCK_PAPERS;
-          }
-
-          const options = { sizes, frames, papers, wraps, finishings, borders: [] };
-
-          const { data: inserted, error: insertError } = await supabase
-            .from('printstore_products')
-            .insert({
-              product_type: item.id,
-              name: item.name,
-              description: item.description,
-              base_price: item.basePrice,
-              image_url: item.image,
-              options: options,
-              is_visible: true
-            })
-            .select()
-            .single();
-
-          if (insertError) {
-            console.error(`Error seeding product ${item.id}:`, insertError.message);
-          } else if (inserted) {
-            console.log(`Successfully seeded missing product ${item.id}`);
-            seededData.push(inserted);
-          }
-        }
-
-        if (seededData.length > 0) {
-          data = [...(data || []), ...seededData];
-        }
-      }
-
-      // Filter only visible print products (digital downloads are sold via gallery, not Print Lab shop)
-      const visibleProducts = (data || [])
+      // Workers owns the catalog — read-only public list, no client-side seeding.
+      const data = await apiFetch('/v1/printstore/products', { auth: false });
+      const rows = (data?.products || []).map(normalizeWorkersProductRow);
+      // Digital downloads are sold via gallery, not Print Lab shop.
+      const visibleProducts = rows
         .filter((p) => p.is_visible && !['digital_download', 'digital_download_all'].includes(p.product_type))
         .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-
       setProducts(visibleProducts.map(mapProductRow));
     } catch (err) {
       console.error("Error loading print store products:", err);
@@ -1248,141 +879,67 @@ export default function PrintStoreApp() {
     }
   };
 
-  // ── Supabase Realtime: Products ──
-  // Listen for changes to printstore_products and re-fetch visible products live
+  // ── Products live refresh ──
+  // Workers has no realtime/SSE equivalent: poll the same refresh logic every 30s.
   useEffect(() => {
-    if (USE_WORKERS_AUTH) return; // Workers has no printstore realtime channel; catalog refreshes on load.
-    const channel = supabase
-      .channel('printstore-products-realtime')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'printstore_products' },
-        async (payload) => {
-          console.log('Realtime products change detected:', payload);
-          try {
-            const { data, error } = await supabase
-              .from('printstore_products')
-              .select('*')
-              .eq('is_visible', true)
-              .order('created_at', { ascending: true });
-            if (!error && data) {
-              console.log('Realtime products list refreshed:', data);
-              setProducts(
-                data
-                  .filter((p) => !['digital_download', 'digital_download_all'].includes(p.product_type))
-                  .map(mapProductRow)
-              );
-            }
-          } catch (err) {
-            console.error('Realtime products refresh error:', err);
-          }
-        }
-      )
-      .subscribe((status) => {
-        console.log('Realtime products subscription status:', status);
-      });
-
-    return () => {
-      supabase.removeChannel(channel);
+    const pollProducts = async () => {
+      try {
+        const data = await apiFetch('/v1/printstore/products', { auth: false });
+        const rows = (data?.products || []).map(normalizeWorkersProductRow);
+        const visibleProducts = rows
+          .filter((p) => p.is_visible && !['digital_download', 'digital_download_all'].includes(p.product_type))
+          .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+        setProducts(visibleProducts.map(mapProductRow));
+      } catch (err) {
+        console.error('Workers products poll error:', err);
+      }
     };
+    const interval = setInterval(pollProducts, 30000);
+    return () => clearInterval(interval);
   }, []);
 
-  // ── Supabase Realtime: Cart Items ──
+  // ── Cart Items live refresh ──
+  // Workers has no realtime/SSE equivalent: poll the server cart every 30s and
+  // merge (server rows + local-only items), same refresh logic as loadCart.
   useEffect(() => {
-    if (USE_WORKERS_AUTH) return; // Workers cart syncs via the cart API + id reconciliation instead.
     if (!sessionId) return;
-
-    const channel = supabase
-      .channel('printstore-cart-realtime')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'printstore_cart_items' },
-        async (payload) => {
-          console.log('Realtime cart change detected:', payload);
-          try {
-            let userId = null;
-            try {
-              const { data } = await supabase.auth.getUser();
-              if (data?.user) userId = data.user.id;
-            } catch (e) { }
-
-            const row = payload.new || payload.old;
-            if (!row) return;
-
-            // Verify if the changed row belongs to our visitor session or logged in user
-            const isOurItem = (sessionId)
-              ? row.session_id === sessionId
-              : (userId && row.user_id === userId);
-
-            if (!isOurItem) return;
-
-            setCartItems((prev) => {
-              let updated = [...prev];
-              if (payload.eventType === 'INSERT') {
-                const newItem = mapCartItemRow(payload.new);
-                // Check if already exists in state
-                const exists = updated.some(item =>
-                  item.id === newItem.id ||
-                  (item.productId === newItem.productId &&
-                    item.photo?.id === newItem.photo?.id &&
-                    item.size?.id === newItem.size?.id &&
-                    item.frame?.id === newItem.frame?.id &&
-                    item.paper?.id === newItem.paper?.id &&
-                    item.border === newItem.border)
-                );
-                if (exists) {
-                  // Swap ID or update quantities if already present
-                  updated = updated.map(item => {
-                    if (item.productId === newItem.productId &&
-                      item.photo?.id === newItem.photo?.id &&
-                      item.size?.id === newItem.size?.id &&
-                      item.frame?.id === newItem.frame?.id &&
-                      item.paper?.id === newItem.paper?.id &&
-                      item.border === newItem.border) {
-                      return { ...item, id: newItem.id, quantity: newItem.quantity, totalPrice: newItem.totalPrice };
-                    }
-                    return item;
-                  });
-                } else {
-                  updated.push(newItem);
-                }
-              } else if (payload.eventType === 'UPDATE') {
-                const updatedItem = mapCartItemRow(payload.new);
-                updated = updated.map(item =>
-                  item.id === updatedItem.id ||
-                    (item.productId === updatedItem.productId &&
-                      item.photo?.id === updatedItem.photo?.id &&
-                      item.size?.id === updatedItem.size?.id &&
-                      item.frame?.id === updatedItem.frame?.id &&
-                      item.paper?.id === updatedItem.paper?.id &&
-                      item.border === updatedItem.border) ? updatedItem : item
-                );
-              } else if (payload.eventType === 'DELETE') {
-                updated = updated.filter((item) => String(item.id) !== String(payload.old.id));
+    const pollCart = async () => {
+      try {
+        const data = await apiFetch(`/v1/printstore/cart?sessionId=${encodeURIComponent(sessionId)}`, { auth: false });
+          const serverItems = (data?.items || []).map((row) => mapCartItemRow({ ...row, options: parseWorkersJson(row.options, {}) }));
+          setCartItems((prev) => {
+            const merged = [...serverItems];
+            for (const local of (prev || [])) {
+              if (!merged.some((s) => sameCartContent(s, local))) merged.push(local);
+            }
+            const used = new Set();
+            const reconciled = merged.map((local) => {
+              const match = serverItems.find((s) => !used.has(s.id) && sameCartContent(s, local));
+              if (match) {
+                used.add(match.id);
+                return local.id === match.id ? local : { ...local, id: match.id };
               }
-              localStorage.setItem('pixnxt_printstore_cart', JSON.stringify(updated));
-              return updated;
+              return local;
             });
-          } catch (err) {
-            console.error('Realtime cart refresh error:', err);
-          }
+            try {
+              localStorage.setItem('pixnxt_printstore_cart', JSON.stringify(reconciled));
+            } catch {
+              // persistence is best-effort
+            }
+            return reconciled;
+          });
+        } catch (err) {
+          console.error('Workers cart poll error:', err);
         }
-      )
-      .subscribe((status) => {
-        console.log('Realtime cart subscription status:', status);
-      });
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+      };
+      const interval = setInterval(pollCart, 30000);
+      return () => clearInterval(interval);
   }, [sessionId]);
 
   const loadCart = async (activeSessionId) => {
     try {
-      if (USE_WORKERS_AUTH) {
-        // Workers cart is session-scoped (no Supabase user_id branch).
-        const { apiFetch } = await import('../lib/api/client');
-        const mapWorkersCartRows = (rows) => (rows || []).map((row) => mapCartItemRow({ ...row, options: parseWorkersJson(row.options, {}) }));
+      // Workers cart is session-scoped.
+      const mapWorkersCartRows = (rows) => (rows || []).map((row) => mapCartItemRow({ ...row, options: parseWorkersJson(row.options, {}) }));
         const persistWorkersCart = (items) => {
           try {
             localStorage.setItem('pixnxt_printstore_cart', JSON.stringify(items));
@@ -1486,179 +1043,6 @@ export default function PrintStoreApp() {
           persistWorkersCart(localItems);
         }
         return;
-      }
-      const currentSessionId = activeSessionId || sessionId;
-      let userId = null;
-
-      // Only check auth user if we DO NOT have a visitor session ID
-      if (!currentSessionId) {
-        try {
-          const { data } = await supabase.auth.getUser();
-          if (data?.user) {
-            userId = data.user.id;
-          }
-        } catch (e) {
-          console.warn("Auth user query failed:", e);
-        }
-      }
-
-      // Read current local cart items
-      let localItems = [];
-      const localCart = localStorage.getItem('pixnxt_printstore_cart');
-      if (localCart) {
-        try {
-          localItems = (JSON.parse(localCart) || [])
-            .map(normalizeLocalCartItem)
-            .filter(Boolean);
-        } catch (e) {}
-      }
-
-      // If we have either userId or currentSessionId, sync with Supabase
-      if (userId || currentSessionId) {
-        let dbCartData = [];
-
-        // Load by user_id
-        if (userId) {
-          const { data: userCartData } = await supabase
-            .from('printstore_cart_items')
-            .select('*')
-            .eq('user_id', userId);
-          if (userCartData) {
-            dbCartData = [...userCartData];
-          }
-        }
-
-        // Also load by session_id
-        if (currentSessionId) {
-          const { data: sessionCartData } = await supabase
-            .from('printstore_cart_items')
-            .select('*')
-            .eq('session_id', currentSessionId);
-          if (sessionCartData) {
-            const existingIds = new Set(dbCartData.map(i => i.id));
-            for (const item of sessionCartData) {
-              if (!existingIds.has(item.id)) {
-                dbCartData.push(item);
-              }
-            }
-          }
-        }
-
-        // If local items exist but are not in DB, insert them to DB instead of wiping them!
-        if (localItems.length > 0) {
-          // Check which local items aren't present in DB
-          const missingLocals = localItems.filter(local => {
-            return !dbCartData.some(dbItem => {
-              const opts = dbItem.options || {};
-              const localPhotoId = local.photo?.id || local.options?.photo?.id;
-              const dbPhotoId = opts.photo?.id;
-              return (
-                (opts.productId === local.productId) &&
-                (opts.photo?.id === localPhotoId || (!localPhotoId && !dbPhotoId)) &&
-                ((opts.size?.id || opts.size?.label) === (local.size?.id || local.size?.label) || (!local.size && !opts.size)) &&
-                opts.frame?.id === local.frame?.id &&
-                opts.paper?.id === local.paper?.id &&
-                opts.border === local.border
-              );
-            });
-          });
-
-          if (missingLocals.length > 0) {
-            const inserts = [];
-            for (const local of missingLocals) {
-              let matchedProduct = products.find(p => p.id === local.productId);
-              let productDbId = matchedProduct ? matchedProduct.db_id : null;
-
-              // Ensure digital download products exist in printstore_products
-              if (!productDbId && ['digital_download', 'digital_download_all', 'digital_package'].includes(local.productId)) {
-                const { data: existingDigital } = await supabase
-                  .from('printstore_products')
-                  .select('id')
-                  .eq('product_type', local.productId)
-                  .limit(1);
-                productDbId = existingDigital?.[0]?.id || null;
-                if (!productDbId) {
-                  const { data: created } = await supabase
-                    .from('printstore_products')
-                    .insert({
-                      product_type: local.productId,
-                      name: local.productName || local.productId,
-                      base_price: local.unitPrice || 0,
-                      is_active: true,
-                      options: { selling_price: local.unitPrice || 0 },
-                    })
-                    .select('id')
-                    .maybeSingle();
-                  productDbId = created?.id || null;
-                }
-              }
-
-              inserts.push({
-                user_id: userId,
-                session_id: userId ? null : (currentSessionId || null),
-                product_id: productDbId,
-                quantity: local.quantity,
-                options: {
-                  productId: local.productId,
-                  productName: local.productName,
-                  photo: local.photo || local.options?.photo || null,
-                  photos: local.photos,
-                  size: local.size || local.options?.size || null,
-                  frame: local.frame,
-                  paper: local.paper,
-                  border: local.border,
-                  layout: local.layout,
-                  rotation: local.rotation || 0,
-                  unitPrice: local.unitPrice
-                }
-              });
-            }
-
-            const { data: insertedData } = await supabase
-              .from('printstore_cart_items')
-              .insert(inserts)
-              .select();
-
-            if (insertedData) {
-              dbCartData = [...dbCartData, ...insertedData];
-            }
-          }
-        }
-
-        if (dbCartData.length > 0) {
-          const mappedCart = dbCartData.map(mapCartItemRow);
-          // Keep any local-only digital items that failed DB insert (e.g. FK issues)
-          const merged = [...mappedCart];
-          for (const local of localItems) {
-            const exists = merged.some(db =>
-              db.productId === local.productId
-              && (db.photo?.id || null) === (local.photo?.id || null)
-              && (db.size?.label || db.size?.id || '') === (local.size?.label || local.size?.id || '')
-            );
-            if (!exists) merged.push(local);
-          }
-          setCartItems(merged);
-          localStorage.setItem('pixnxt_printstore_cart', JSON.stringify(merged));
-          return;
-        }
-
-        // DB empty — keep local cart (do NOT wipe digital downloads)
-        if (localItems.length > 0) {
-          setCartItems(localItems);
-          localStorage.setItem('pixnxt_printstore_cart', JSON.stringify(localItems));
-          return;
-        }
-
-        setCartItems([]);
-        localStorage.setItem('pixnxt_printstore_cart', '[]');
-        return;
-      }
-
-      // No session or user yet, just use local items
-      setCartItems(localItems);
-      if (localItems.length > 0) {
-        localStorage.setItem('pixnxt_printstore_cart', JSON.stringify(localItems));
-      }
     } catch (err) {
       console.error("Error in loadCart:", err);
       const localCart = localStorage.getItem('pixnxt_printstore_cart');
@@ -1882,158 +1266,37 @@ export default function PrintStoreApp() {
       openCart();
     }
 
-    if (USE_WORKERS_AUTH) {
-      // Sync to Workers in the background (optimistic local state above is untouched).
-      // Workers has no PATCH-cart endpoint: edits replace the server row via DELETE + POST.
-      try {
-        const { apiFetch } = await import('../lib/api/client');
-        if (sessionId) {
-          if (editingCartItemId && typeof editingCartItemId === 'string' && editingCartItemId.indexOf('local_') !== 0) {
-            await apiFetch(`/v1/printstore/cart/${encodeURIComponent(editingCartItemId)}?sessionId=${encodeURIComponent(sessionId)}`, { method: 'DELETE', auth: false }).catch(() => null);
-          }
-          const options = buildWorkersCartOptions(newItem);
-          if (DIGITAL_PRODUCT_TYPES.includes(newItem.productId)) {
-            await apiFetch('/v1/printstore/cart/sync-digital', {
-              method: 'POST',
-              auth: false,
-              body: {
-                sessionId,
-                productType: newItem.productId,
-                name: newItem.productName || newItem.productId,
-                unitPrice: newItem.unitPrice || 0,
-                options,
-              },
-            }).catch(() => null);
-          } else if (productDbId) {
-            await apiFetch('/v1/printstore/cart', {
-              method: 'POST',
-              auth: false,
-              body: { sessionId, productId: productDbId, quantity: newItem.quantity || 1, options },
-            }).catch(() => null);
-          }
-          await reconcileWorkersCartIds({ apiFetch, sessionId, setCartItems, mapRow: mapCartItemRow });
+    // Sync to Workers in the background (optimistic local state above is untouched).
+    // Workers has no PATCH-cart endpoint: edits replace the server row via DELETE + POST.
+    try {
+      if (sessionId) {
+        if (editingCartItemId && typeof editingCartItemId === 'string' && editingCartItemId.indexOf('local_') !== 0) {
+          await apiFetch(`/v1/printstore/cart/${encodeURIComponent(editingCartItemId)}?sessionId=${encodeURIComponent(sessionId)}`, { method: 'DELETE', auth: false }).catch(() => null);
         }
-      } catch (err) {
-        console.error('Error syncing cart item to Workers:', err);
+        const options = buildWorkersCartOptions(newItem);
+        if (DIGITAL_PRODUCT_TYPES.includes(newItem.productId)) {
+          await apiFetch('/v1/printstore/cart/sync-digital', {
+            method: 'POST',
+            auth: false,
+            body: {
+              sessionId,
+              productType: newItem.productId,
+              name: newItem.productName || newItem.productId,
+              unitPrice: newItem.unitPrice || 0,
+              options,
+            },
+          }).catch(() => null);
+        } else if (productDbId) {
+          await apiFetch('/v1/printstore/cart', {
+            method: 'POST',
+            auth: false,
+            body: { sessionId, productId: productDbId, quantity: newItem.quantity || 1, options },
+          }).catch(() => null);
+        }
+        await reconcileWorkersCartIds({ apiFetch, sessionId, setCartItems, mapRow: mapCartItemRow });
       }
-      return;
-    }
-
-    // Sync to Supabase in the background
-    let userId = null;
-    if (!sessionId) {
-      try {
-        const { data } = await supabase.auth.getUser();
-        if (data?.user) {
-          userId = data.user.id;
-        }
-      } catch (e) { }
-    }
-
-    if (userId || sessionId) {
-      try {
-        if (editingCartItemId) {
-          if (typeof editingCartItemId === 'string' && !editingCartItemId.startsWith('local_')) {
-            await supabase
-              .from('printstore_cart_items')
-              .update({
-                quantity: newItem.quantity,
-                options: {
-                  productId: newItem.productId,
-                  productName: newItem.productName,
-                  photo: newItem.photo,
-                  photos: newItem.photos,
-                  size: newItem.size,
-                  frame: newItem.frame,
-                  paper: newItem.paper,
-                  border: newItem.border,
-                  layout: newItem.layout,
-                  rotation: newItem.rotation || 0,
-                  unitPrice: newItem.unitPrice
-                }
-              })
-              .eq('id', editingCartItemId);
-          }
-        } else {
-          const query = supabase
-            .from('printstore_cart_items')
-            .select('*');
-
-          if (userId) {
-            query.eq('user_id', userId);
-          } else {
-            query.eq('session_id', sessionId);
-          }
-          query.eq('product_id', productDbId);
-
-          const { data: existingItems } = await query;
-          const duplicate = (existingItems || []).find(item => {
-            const opts = item.options;
-            return (
-              opts.productId === newItem.productId &&
-              opts.photo?.id === newItem.photo?.id &&
-              opts.size?.id === newItem.size?.id &&
-              opts.frame?.id === newItem.frame?.id &&
-              opts.paper?.id === newItem.paper?.id &&
-              opts.border === newItem.border
-            );
-          });
-
-          if (duplicate) {
-            const newQuantity = duplicate.quantity + newItem.quantity;
-            await supabase
-              .from('printstore_cart_items')
-              .update({ quantity: newQuantity })
-              .eq('id', duplicate.id);
-
-            // Swap the local ID with the real database ID
-            setCartItems((prev) => {
-              const updated = prev.map(item =>
-                item.id === localId ? { ...item, id: duplicate.id } : item
-              );
-              localStorage.setItem('pixnxt_printstore_cart', JSON.stringify(updated));
-              return updated;
-            });
-          } else {
-            const { data: inserted, error } = await supabase
-              .from('printstore_cart_items')
-              .insert({
-                user_id: userId,
-                session_id: userId ? null : (sessionId || null),
-                product_id: productDbId,
-                quantity: newItem.quantity,
-                options: {
-                  productId: newItem.productId,
-                  productName: newItem.productName,
-                  photo: newItem.photo,
-                  photos: newItem.photos,
-                  size: newItem.size,
-                  frame: newItem.frame,
-                  paper: newItem.paper,
-                  border: newItem.border,
-                  layout: newItem.layout,
-                  rotation: newItem.rotation || 0,
-                  unitPrice: newItem.unitPrice
-                }
-              })
-              .select()
-              .single();
-
-            if (!error && inserted) {
-              // Swap the local ID with the real database ID
-              setCartItems((prev) => {
-                const updated = prev.map(item =>
-                  item.id === localId ? { ...item, id: inserted.id } : item
-                );
-                localStorage.setItem('pixnxt_printstore_cart', JSON.stringify(updated));
-                return updated;
-              });
-            }
-          }
-        }
-      } catch (err) {
-        console.error("Error syncing cart item to Supabase:", err);
-      }
+    } catch (err) {
+      console.error('Error syncing cart item to Workers:', err);
     }
   };
 
@@ -2094,46 +1357,34 @@ export default function PrintStoreApp() {
   };
 
   const handleUpdateCartQuantity = async (itemId, newQty) => {
-    if (USE_WORKERS_AUTH) {
-      // Workers has no PATCH-cart endpoint — replace the row (DELETE + POST).
-      if (typeof itemId === 'string' && itemId.indexOf('local_') !== 0 && sessionId) {
-        try {
-          const { apiFetch } = await import('../lib/api/client');
-          const target = (cartItems || []).find((i) => i.id === itemId);
-          await apiFetch(`/v1/printstore/cart/${encodeURIComponent(itemId)}?sessionId=${encodeURIComponent(sessionId)}`, { method: 'DELETE', auth: false }).catch(() => null);
-          if (target?.product_db_id) {
-            await apiFetch('/v1/printstore/cart', {
-              method: 'POST',
-              auth: false,
-              body: { sessionId, productId: target.product_db_id, quantity: newQty, options: target.options || buildWorkersCartOptions(target) },
-            }).catch(() => null);
-          } else if (target && DIGITAL_PRODUCT_TYPES.includes(target.productId)) {
-            // sync-digital always stores quantity 1 — local state keeps newQty until reload.
-            await apiFetch('/v1/printstore/cart/sync-digital', {
-              method: 'POST',
-              auth: false,
-              body: {
-                sessionId,
-                productType: target.productId,
-                name: target.productName || target.productId,
-                unitPrice: target.unitPrice || 0,
-                options: target.options || buildWorkersCartOptions(target),
-              },
-            }).catch(() => null);
-          }
-          await reconcileWorkersCartIds({ apiFetch, sessionId, setCartItems, mapRow: mapCartItemRow });
-        } catch (err) {
-          console.error("Error updating cart quantity via Workers:", err);
-        }
-      }
-    } else if (typeof itemId === 'string' && !itemId.startsWith('local_')) {
+    // Workers has no PATCH-cart endpoint — replace the row (DELETE + POST).
+    if (typeof itemId === 'string' && itemId.indexOf('local_') !== 0 && sessionId) {
       try {
-        await supabase
-          .from('printstore_cart_items')
-          .update({ quantity: newQty })
-          .eq('id', itemId);
+        const target = (cartItems || []).find((i) => i.id === itemId);
+        await apiFetch(`/v1/printstore/cart/${encodeURIComponent(itemId)}?sessionId=${encodeURIComponent(sessionId)}`, { method: 'DELETE', auth: false }).catch(() => null);
+        if (target?.product_db_id) {
+          await apiFetch('/v1/printstore/cart', {
+            method: 'POST',
+            auth: false,
+            body: { sessionId, productId: target.product_db_id, quantity: newQty, options: target.options || buildWorkersCartOptions(target) },
+          }).catch(() => null);
+        } else if (target && DIGITAL_PRODUCT_TYPES.includes(target.productId)) {
+          // sync-digital always stores quantity 1 — local state keeps newQty until reload.
+          await apiFetch('/v1/printstore/cart/sync-digital', {
+            method: 'POST',
+            auth: false,
+            body: {
+              sessionId,
+              productType: target.productId,
+              name: target.productName || target.productId,
+              unitPrice: target.unitPrice || 0,
+              options: target.options || buildWorkersCartOptions(target),
+            },
+          }).catch(() => null);
+        }
+        await reconcileWorkersCartIds({ apiFetch, sessionId, setCartItems, mapRow: mapCartItemRow });
       } catch (err) {
-        console.error("Error updating cart quantity in Supabase:", err);
+        console.error("Error updating cart quantity via Workers:", err);
       }
     }
 
@@ -2149,23 +1400,11 @@ export default function PrintStoreApp() {
   };
 
   const handleRemoveCartItem = async (itemId) => {
-    if (USE_WORKERS_AUTH) {
-      if (typeof itemId === 'string' && itemId.indexOf('local_') !== 0 && sessionId) {
-        try {
-          const { apiFetch } = await import('../lib/api/client');
-          await apiFetch(`/v1/printstore/cart/${encodeURIComponent(itemId)}?sessionId=${encodeURIComponent(sessionId)}`, { method: 'DELETE', auth: false });
-        } catch (err) {
-          console.error("Error removing cart item via Workers:", err);
-        }
-      }
-    } else if (typeof itemId === 'string' && !itemId.startsWith('local_')) {
+    if (typeof itemId === 'string' && itemId.indexOf('local_') !== 0 && sessionId) {
       try {
-        await supabase
-          .from('printstore_cart_items')
-          .delete()
-          .eq('id', itemId);
+        await apiFetch(`/v1/printstore/cart/${encodeURIComponent(itemId)}?sessionId=${encodeURIComponent(sessionId)}`, { method: 'DELETE', auth: false });
       } catch (err) {
-        console.error("Error removing cart item from Supabase:", err);
+        console.error("Error removing cart item via Workers:", err);
       }
     }
 
@@ -2214,184 +1453,18 @@ export default function PrintStoreApp() {
         throw new Error("No photographer ID resolved. Order cannot be placed.");
       }
 
-      if (USE_WORKERS_AUTH) {
-        await handlePlaceOrderWorkers({
-          shippingDetails,
-          cartItems,
-          photographerId,
-          sessionId,
-          collectionId,
-          setSessionId,
-          setCompletedOrder,
-          setSavedShippingAddress,
-          setHasPlacedOrder,
-          setCheckoutState,
-        });
-        return;
-      }
-
-      const { data: order, error: orderError } = await supabase
-        .from('printstore_orders')
-        .insert({
-          photographer_id: photographerId,
-          session_id: sessionId || null,
-          collection_id: collectionId || null,
-          customer_name: shippingDetails.name,
-          customer_email: shippingDetails.email,
-          shipping_address: {
-            address: shippingDetails.address,
-            city: shippingDetails.city,
-            zip: shippingDetails.zip,
-            phone: shippingDetails.phone || '',
-            country: 'India'
-          },
-          shipping_amount: shipping,
-          tax_amount: tax,
-          discount_amount: 0.00,
-          subtotal: subtotal,
-          total: total,
-          status: allDigital ? 'completed' : 'pending',
-          payment_provider: 'stripe',
-          payment_intent_id: 'mock_pi_' + Math.random().toString(36).substr(2, 9)
-        })
-        .select()
-        .single();
-
-      if (orderError) throw orderError;
-
-      const orderItemsToInsert = cartItems.map(item => ({
-        order_id: order.id,
-        product_id: item.product_db_id || null,
-        product_name: item.productName,
-        product_type: item.productId,
-        quantity: item.quantity,
-        unit_price: item.unitPrice,
-        subtotal: item.unitPrice * item.quantity,
-        options: {
-          size: item.size,
-          frame: item.frame,
-          paper: item.paper,
-          border: item.border,
-          layout: item.layout,
-          photos: item.photos,
-          photo: item.photo,
-          rotation: item.rotation,
-          ...(item.options || {}),
-        }
-      }));
-
-      const { error: itemsError } = await supabase
-        .from('printstore_order_items')
-        .insert(orderItemsToInsert);
-
-      if (itemsError) throw itemsError;
-
-      // Log digital downloads into collection Download Activity
-      try {
-        const digitalItems = cartItems.filter((i) => DIGITAL.includes(i.productId));
-        for (const item of digitalItems) {
-          const photo = item.photo || item.options?.photo || null;
-          const isAll = item.productId === 'digital_download_all';
-          const isPackage = item.productId === 'digital_package';
-          await galleryService.logActivity(collectionId, 'download', {
-            email: shippingDetails.email,
-            photographerId,
-            photoId: photo?.id || null,
-            resolution: 'original',
-            metadata: {
-              type: isAll || isPackage ? 'gallery' : 'photo',
-              resolution: 'Original',
-              quality: 'Original',
-              source: 'Digital Purchase',
-              destination: 'email',
-              photoCount: isPackage
-                ? Number(item.options?.photo_count || item.size?.label?.match(/\d+/)?.[0] || item.quantity || 1)
-                : isAll
-                  ? null
-                  : 1,
-              filename: photo?.filename || photo?.name || null,
-              setName: isAll ? 'All Photos' : isPackage ? 'Photo Package' : 'Digital Download',
-              orderId: order.id,
-            },
-          });
-        }
-        try {
-          const channel = new BroadcastChannel('pixnxt-gallery-update');
-          channel.postMessage({ type: 'ACTIVITY_UPDATED', collectionId });
-          channel.close();
-        } catch (_) { /* ignore */ }
-      } catch (logErr) {
-        console.warn('Failed to log digital download activity:', logErr);
-      }
-
-      // Keep cartItems in React state until payment success UI finishes.
-      // Clearing here (or deleting DB cart rows here) causes PaymentPage to
-      // flash ₹0.00 / 0 items via realtime DELETE while still "Placing order…".
-
-      const completedOrderData = {
-        id: order.id,
-        customer_name: shippingDetails.name,
-        customer_email: shippingDetails.email,
-        shipping_address: {
-          address: shippingDetails.address,
-          city: shippingDetails.city,
-          zip: shippingDetails.zip,
-          phone: shippingDetails.phone || '',
-          country: 'India'
-        },
-        shipping_amount: shipping,
-        tax_amount: tax,
-        subtotal: subtotal,
-        total: total,
-        created_at: new Date().toISOString(),
-        items: cartItems.map(item => ({
-          productId: item.productId,
-          product_type: item.productId,
-          productName: item.productName,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          size: item.size,
-          frame: item.frame,
-          paper: item.paper,
-          border: item.border,
-          layout: item.layout,
-          photo: item.photo
-        }))
-      };
-      setCompletedOrder(completedOrderData);
-      // Update local shipping address state so it persists
-      setSavedShippingAddress({
-        recipientName: shippingDetails.name,
-        accountName: shippingDetails.name,
-        email: shippingDetails.email,
-        street: shippingDetails.address,
-        city: shippingDetails.city,
-        zipCode: shippingDetails.zip,
-        country: 'India',
-        phoneNumber: shippingDetails.phone || '',
-        phone: shippingDetails.phone || '',
-        sameBilling: true
+      await handlePlaceOrderWorkers({
+        shippingDetails,
+        cartItems,
+        photographerId,
+        sessionId,
+        collectionId,
+        setSessionId,
+        setCompletedOrder,
+        setSavedShippingAddress,
+        setHasPlacedOrder,
+        setCheckoutState,
       });
-
-      // Trigger order placed email (in try-catch to prevent breaking flow if local environment has no server secrets)
-      try {
-        const searchParams = new URLSearchParams(window.location.search);
-        const slugVal = searchParams.get('slug') || searchParams.get('collection') || '';
-
-        await supabase.functions.invoke('send-order-placed-email', {
-          body: {
-            orderId: order.id,
-            recipientEmail: shippingDetails.email,
-            siteOrigin: window.location.origin,
-            collectionSlug: slugVal
-          }
-        });
-      } catch (emailErr) {
-        console.error("Error sending order confirmation email:", emailErr);
-      }
-
-      setHasPlacedOrder(true);
-      setCheckoutState('completed');
     } catch (err) {
       console.error("Failed to place print store order:", err);
       alert("Failed to place order: " + err.message);
@@ -2544,23 +1617,7 @@ export default function PrintStoreApp() {
             onPlaceOrder={handlePlaceOrder}
             shippingAddress={savedShippingAddress}
             onPaymentSuccess={async () => {
-              try {
-                // Workers clears the server cart at order creation — local cleanup only.
-                let userId = null;
-                if (!USE_WORKERS_AUTH && !sessionId) {
-                  try {
-                    const { data } = await supabase.auth.getUser();
-                    if (data?.user) userId = data.user.id;
-                  } catch (_) { /* ignore */ }
-                }
-                if (!USE_WORKERS_AUTH && (userId || sessionId)) {
-                  const query = supabase.from('printstore_cart_items').delete();
-                  if (userId) await query.eq('user_id', userId);
-                  else await query.eq('session_id', sessionId);
-                }
-              } catch (e) {
-                console.warn('Cart cleanup after payment failed:', e);
-              }
+              // Workers clears the server cart at order creation — local cleanup only.
               setCartItems([]);
               localStorage.removeItem('pixnxt_printstore_cart');
               setCheckoutState('completed');

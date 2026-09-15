@@ -284,7 +284,7 @@ const AppShare = () => {
       console.error(err);
       if (err?.code === 'SMTP_NOT_CONFIGURED') {
         setSendError(
-          'Server email is not configured yet. You can open your email app instead, or ask your admin to set SMTP secrets on Supabase.'
+          'Server email is not configured yet. You can open your email app instead, or ask your admin to set SMTP secrets on the Cloudflare backend.'
         );
       } else {
         setSendError(err?.message || 'Failed to send invite. Please try again.');
