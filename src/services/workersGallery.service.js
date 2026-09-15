@@ -574,7 +574,7 @@ export async function submitFavoriteList(listId, sessionId) {
 }
 
 export async function reopenFavoriteList(listId) {
-  const data = await apiFetch(`/v1/engage/lists/${listId}/reopen`, { method: 'POST', auth: false, body: {} });
+  const data = await apiFetch(`/v1/engage/lists/${listId}/reopen`, { method: 'POST', body: {} });
   return data;
 }
 
@@ -611,13 +611,24 @@ export async function toggleFavorite(sessionId, photoId, isFavorite, listId = nu
 }
 
 export async function getFavoriteActivity(collectionId) {
-  const data = await apiFetch(`/v1/engage/activity?collectionId=${encodeURIComponent(collectionId)}&type=favorite_submit&limit=200`).catch(() => null);
-  return data?.activity || [];
+  if (!collectionId) return [];
+  const data = await apiFetch(`/v1/engage/lists/by-collection/${encodeURIComponent(collectionId)}`).catch(() => null);
+  return (data?.lists || []).map((row) => ({
+    ...row,
+    email: row.email || null,
+    photoCount: Number(row.photoCount) || 0,
+    updated_at: row.updated_at || row.created_at,
+    sessionId: row.session_id ?? row.sessionId ?? null,
+  }));
 }
 
 export async function getCollectionFavoriteOverlayPhotoIds(collectionId) {
-  const data = await apiFetch(`/v1/engage/activity?collectionId=${encodeURIComponent(collectionId)}&type=favorite_add&limit=2000`).catch(() => null);
-  return (data?.activity || []).map((a) => a.photo_id).filter(Boolean);
+  if (!collectionId) return { favoritedPhotoIds: [], selectionListPhotoIds: [] };
+  const data = await apiFetch(`/v1/engage/lists/by-collection/${encodeURIComponent(collectionId)}/overlay`).catch(() => null);
+  return {
+    favoritedPhotoIds: data?.favoritedPhotoIds || [],
+    selectionListPhotoIds: data?.selectionListPhotoIds || [],
+  };
 }
 
 export async function getFavoriteListPhotos(listId) {
@@ -636,16 +647,16 @@ export async function getFavoriteListsForSession(sessionId) {
 }
 
 export async function updateFavoriteList(listId, updateData) {
-  const data = await apiFetch(`/v1/engage/lists/${listId}`, { method: 'PATCH', auth: false, body: updateData });
+  const data = await apiFetch(`/v1/engage/lists/${listId}`, { method: 'PATCH', body: updateData });
   return data?.list;
 }
 
 export async function deleteFavoriteList(listId) {
-  await apiFetch(`/v1/engage/lists/${listId}`, { method: 'DELETE', auth: false, body: {} });
+  await apiFetch(`/v1/engage/lists/${listId}`, { method: 'DELETE', body: {} });
 }
 
 export async function removePhotoFromFavoriteList(listId, photoId) {
-  await apiFetch(`/v1/engage/lists/${listId}/items/${photoId}`, { method: 'DELETE', auth: false });
+  await apiFetch(`/v1/engage/lists/${listId}/items/${photoId}`, { method: 'DELETE' });
 }
 
 export async function getSessionDefaultFavoriteList(sessionId) {
