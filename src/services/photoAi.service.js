@@ -52,7 +52,16 @@ function normalizePersonRow(row) {
 }
 
 async function attachAvatarUrls(people) {
-  const photoIds = [...new Set(people.flatMap((p) => p.photoIds || []))];
+  // Avatar photos first: the crop bbox belongs to that exact photo, and the
+  // lookup endpoint caps at 200 ids per request.
+  const idSet = new Set();
+  for (const person of people) {
+    if (person.avatarPhotoId) idSet.add(person.avatarPhotoId);
+  }
+  for (const person of people) {
+    for (const id of person.photoIds || []) idSet.add(id);
+  }
+  const photoIds = [...idSet];
   if (!photoIds.length) return people;
 
   // D1 returns JSON strings — normalize below.
@@ -134,15 +143,12 @@ export const photoAiService = {
     }
   },
 
-  async getPeopleFromDb(collectionId, { includeHidden = false } = {}) {
-    if (!collectionId) return { people: [], tableMissing: false };
-
-    const { apiFetch } = await import('../lib/api/client');
-    const data = await apiFetch('/v1/photo-ai/people', {
-      method: 'POST',
-      body: { collectionId, includeHidden },
-    });
-    const people = ((data?.people || []).map(normalizePersonRow)).map((row) => ({
+  /**
+   * Normalize raw photo_ai_people rows (JSON-string ids, no image URLs) into
+   * the shape the UI reads: faceIds/photoIds arrays, count, avatar crop + URL.
+   */
+  async hydratePeople(collectionId, rawRows) {
+    const people = ((rawRows || []).map(normalizePersonRow)).map((row) => ({
       id: row.cluster_key || row.id,
       faceIds: row.face_ids || [],
       photoIds: row.photo_ids || [],
@@ -155,10 +161,10 @@ export const photoAiService = {
     }));
     let withBestAvatars = people;
     try {
+      const { apiFetch, apiBase } = await import('../lib/api/client');
       const { rows: metadataRows } = await this.getMetadataForCollection(collectionId);
       withBestAvatars = refreshPeopleAvatars(people, metadataRows);
       const ctx = await apiFetch(`/v1/guest/selfie-context?collectionId=${encodeURIComponent(collectionId)}`).catch(() => null);
-      const { apiBase } = await import('../lib/api/client');
       const guests = (ctx?.guests || []).map((g) => ({
         ...g,
         selfie_url: g.selfie_url || (g.selfie_storage_path ? `${apiBase()}/v1/r2/media?path=${encodeURIComponent(g.selfie_storage_path)}` : null),
@@ -168,7 +174,18 @@ export const photoAiService = {
     } catch (err) {
       console.warn('[photoAi] avatar refresh skipped:', err?.message || err);
     }
-    const withUrls = await attachAvatarUrls(withBestAvatars);
+    return attachAvatarUrls(withBestAvatars);
+  },
+
+  async getPeopleFromDb(collectionId, { includeHidden = false } = {}) {
+    if (!collectionId) return { people: [], tableMissing: false };
+
+    const { apiFetch } = await import('../lib/api/client');
+    const data = await apiFetch('/v1/photo-ai/people', {
+      method: 'POST',
+      body: { collectionId, includeHidden },
+    });
+    const withUrls = await this.hydratePeople(collectionId, data?.people || []);
     return { people: withUrls, tableMissing: false };
   },
 
@@ -260,7 +277,10 @@ export const photoAiService = {
         includeHidden,
         applyGuestLabels,
       });
-      return result?.people || cachedPeople;
+      // The backend returns raw D1 rows (JSON-string ids, no avatar URLs).
+      // Hydrate them with the same pipeline as the cache path — the People
+      // strip, avatar crops and face filters all read the normalized shape.
+      return await this.hydratePeople(collectionId, result?.people || []);
     } catch (err) {
       if (cachedPeople.length > 0) {
         console.warn('[photoAi] people recluster failed; using cache:', err?.message || err);
