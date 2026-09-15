@@ -633,6 +633,7 @@ export async function getFavoriteActivity(collectionId) {
     photoCount: Number(row.photoCount) || 0,
     updated_at: row.updated_at || row.created_at,
     sessionId: row.session_id ?? row.sessionId ?? null,
+    coverUrl: row.cover_url ?? row.coverUrl ?? null,
   }));
 }
 
@@ -666,7 +667,11 @@ export async function getFavoriteListItemRows(listId) {
 export async function getFavoriteListsForSession(sessionId) {
   if (!sessionId) return [];
   const data = await apiFetch(`/v1/engage/lists/by-session/${encodeURIComponent(sessionId)}`).catch(() => null);
-  return data?.lists || [];
+  return (data?.lists || []).map((row) => ({
+    ...row,
+    photoCount: Number(row.photoCount) || 0,
+    coverUrl: row.cover_url ?? row.coverUrl ?? null,
+  }));
 }
 
 export async function updateFavoriteList(listId, updateData) {
