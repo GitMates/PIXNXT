@@ -85,15 +85,19 @@ export async function resolveCommentAttachmentForDb(
     const filename =
         attachmentName || (type === 'audio' ? `voice-message.${ext}` : `attachment.${ext}`);
 
-    const { apiBase } = await import('../../lib/api/client');
+    const { apiBase, getAccessToken } = await import('../../lib/api/client');
+    const headers = {
+        'Content-Type': blob.type || (type === 'audio' ? 'audio/webm' : 'image/jpeg'),
+        'X-File-Name': filename,
+    };
+    const token = getAccessToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
     const res = await fetch(
         `${apiBase()}/v1/proofer/albums/${encodeURIComponent(albumId)}/attachments`,
         {
             method: 'POST',
-            headers: {
-                'Content-Type': blob.type || (type === 'audio' ? 'audio/webm' : 'image/jpeg'),
-                'X-File-Name': filename,
-            },
+            headers,
+            credentials: 'include',
             body: blob,
         }
     );
