@@ -2,7 +2,20 @@
  * Guest delivery backend (Cloudflare /v1/guest + /v1/emails).
  * Mirrors guestDelivery / Guests / Photos / Publish service surfaces.
  */
-import { apiFetch } from '../lib/api/client';
+import { apiFetch, apiBase } from '../lib/api/client';
+
+/**
+ * Selfies are stored as R2 objects (`selfie_storage_path`) and served through
+ * the media proxy — older rows may still carry a public `selfie_url`. Resolve
+ * so the guests board, QR modal and published popup can render the avatar.
+ */
+function withSelfieUrl(guest) {
+  if (!guest || guest.selfie_url || !guest.selfie_storage_path) return guest;
+  return {
+    ...guest,
+    selfie_url: `${apiBase()}/v1/r2/media?path=${encodeURIComponent(guest.selfie_storage_path)}`,
+  };
+}
 
 // ---------- events ----------
 
@@ -65,7 +78,7 @@ export async function getEventByCollectionId(collectionId) {
 
 export async function getGuests(photographerId, eventId) {
   const data = await apiFetch(`/v1/guest/events/${eventId}/guests`);
-  return data?.guests || [];
+  return (data?.guests || []).map(withSelfieUrl);
 }
 
 export async function deleteGuest(photographerId, eventId, guestId) {

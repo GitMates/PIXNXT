@@ -163,7 +163,7 @@ function guestNeedsReview(guest, eventStatus) {
   if (status === 'no_match' || status === 'failed') return true;
   if (
     eventStatus === 'published'
-    && guest.selfie_url
+    && (guest.selfie_url || guest.selfie_storage_path)
     && !(Number(guest.matched_photo_count) > 0)
     && status !== 'sent'
   ) {
