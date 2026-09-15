@@ -1,0 +1,13 @@
+# Cloudflare Pages headers.
+# The SPA entry document must always revalidate: a cached index.html keeps
+# requesting hashed chunks from a previous deployment, which the current one no
+# longer serves (the SPA fallback then returns text/html for a .js request).
+/*
+  Cache-Control: public, max-age=0, must-revalidate
+
+# Hashed build output is content-addressed and safe to cache forever.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/fonts/*
+  Cache-Control: public, max-age=31536000, immutable
