@@ -152,9 +152,11 @@ const CollectionList = ({ slug, photographerProfile = null }) => {
   );
 
   const photographerName = profile.business_name || (profile.first_name ? `${profile.first_name} ${profile.last_name || ''}`.trim() : slug);
+  // The showcase endpoint already returns only published + showcased rows, but
+  // older/cached payloads may omit those fields — treat missing as published.
   const filteredCollections = collections
-    .filter(c => c.status === 'published' && c.show_on_showcase !== false)
-    .filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()));
+    .filter(c => (c.status || 'published') === 'published' && c.show_on_showcase !== false)
+    .filter(c => (c.name || '').toLowerCase().includes(searchQuery.toLowerCase()));
   const sortedCollections = sortCollections(filteredCollections, profile?.showcase_sort || 'created-new');
   const totalPages = Math.ceil(sortedCollections.length / ITEMS_PER_PAGE);
   const safePage = Math.min(currentPage, Math.max(1, totalPages));
