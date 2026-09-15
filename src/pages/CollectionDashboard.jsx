@@ -17,6 +17,7 @@ import {
     filterPhotosByIds,
     peopleInPhoto,
 } from '../lib/photoAiSearch';
+import { isIndexedSnapshotFresh, maxIndexedAtFromRows } from '../lib/photoAiCacheFreshness';
 import { CollectionPhotosWorkspaceHeader } from '../components/features/CollectionDashboard/Photos/CollectionPhotosWorkspaceHeader';
 import '../components/features/CollectionDashboard/Photos/CollectionPhotosWorkspaceHeader.css';
 import { PhotoOptionsMenu } from '../components/features/CollectionDashboard/Media/PhotoOptionsMenu';
@@ -3035,20 +3036,33 @@ const CollectionDashboard = () => {
                         if (current.tableMissing) break;
                         latest = current.rows || latest;
                         setPhotoAiRows(latest);
-                        // Done when we caught up to all gallery images.
-                        if (latest.length >= indexablePhotoCount && latest.length > 0) break;
+                        // Done when we caught up to all gallery images AND the
+                        // queue's auto-recluster finished (otherwise the first
+                        // people read races the clustering pass and the panel
+                        // shows "no faces detected yet" until a manual resync).
+                        if (
+                            latest.length >= indexablePhotoCount &&
+                            latest.length > 0 &&
+                            isIndexedSnapshotFresh(current.state, latest.length, maxIndexedAtFromRows(latest))
+                        ) {
+                            break;
+                        }
                         // Or when progress stopped growing across two polls and
                         // we already have more than we started with.
                         if (latest.length > startCount) {
                             await new Promise((r) => setTimeout(r, 4000));
                             const confirm = await photoAiService.getMetadataForCollection(collectionId).catch(() => null);
                             if (confirm && !confirm.tableMissing) {
-                                setPhotoAiRows(confirm.rows || latest);
-                                if ((confirm.rows || []).length === latest.length) {
-                                    latest = confirm.rows || latest;
+                                const next = confirm.rows || latest;
+                                setPhotoAiRows(next);
+                                const stalled = next.length === latest.length;
+                                latest = next;
+                                if (
+                                    stalled &&
+                                    isIndexedSnapshotFresh(confirm.state, next.length, maxIndexedAtFromRows(next))
+                                ) {
                                     break;
                                 }
-                                latest = confirm.rows || latest;
                                 continue;
                             }
                             break;
@@ -3094,6 +3108,10 @@ const CollectionDashboard = () => {
         collection?.photographer_id,
         user?.id,
     ]);
+
+    // Always call the latest auto-sync closure (uploads mutate `photos`).
+    const runPhotoAiAutoSyncRef = useRef(runPhotoAiAutoSync);
+    runPhotoAiAutoSyncRef.current = runPhotoAiAutoSync;
 
     useEffect(() => {
         setPhotoSearchQuery('');
@@ -3244,7 +3262,10 @@ const CollectionDashboard = () => {
         },
     });
 
-    // After the upload queue goes idle, refresh face index / people (covers per-photo indexing that finished after count sync).
+    // After the upload queue goes idle, auto-index the new photos and cluster
+    // them so people appear without a manual re-sync. (Previously this only
+    // re-read clusters for already-indexed metadata, so uploads detected
+    // nothing until the user hit "Re-analyze".)
     useEffect(() => {
         const busy = uploadState.files.some(
             (f) =>
@@ -3261,10 +3282,12 @@ const CollectionDashboard = () => {
         if (!collectionId || photoAiTableMissing) return;
 
         const timer = setTimeout(() => {
-            void (async () => {
-                await refreshPhotoAiMetadata();
-                await loadPhotoAiPeople({ silent: true, forceRecluster: true });
-            })();
+            void runPhotoAiAutoSyncRef.current?.().catch(() => {
+                // Indexing failed (e.g. quota) — fall back to cached clusters.
+                void refreshPhotoAiMetadata().then(() =>
+                    loadPhotoAiPeople({ silent: true, forceRecluster: true })
+                );
+            });
         }, 3500);
         return () => clearTimeout(timer);
     }, [
