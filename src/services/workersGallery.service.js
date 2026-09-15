@@ -651,7 +651,16 @@ export async function getFavoriteListPhotos(listId) {
 }
 
 export async function getFavoriteListItemRows(listId) {
-  return getFavoriteListPhotos(listId);
+  const rows = await getFavoriteListPhotos(listId);
+  // Selection detail, shared links, dashboard drawer and export were built
+  // for the Supabase-era shape and read `row.photo`; the Workers endpoint
+  // returns flat photo rows, so expose both views on each row.
+  return rows.map((row) => ({
+    ...row,
+    photo: row,
+    note: row.comment ?? null,
+    itemCreatedAt: row.created_at ?? null,
+  }));
 }
 
 export async function getFavoriteListsForSession(sessionId) {
