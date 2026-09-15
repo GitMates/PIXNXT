@@ -227,8 +227,8 @@ export const galleryService = {
   /**
    * Fetch all published collections for a specific photographer (Public view)
    */
-  async getPublicCollections(photographerId) {
-    return (await workersGallery()).getPublicCollections(photographerId);
+  async getPublicCollections(photographerId, fallbackSlug = '') {
+    return (await workersGallery()).getPublicCollections(photographerId, fallbackSlug);
   },
 
   /** Public Showcase enquiry form submission */

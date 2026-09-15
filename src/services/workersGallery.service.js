@@ -180,10 +180,15 @@ export async function deleteFolder(folderId) {
 
 // ---------- public collections ----------
 
-export async function getPublicCollections(photographerId) {
+export async function getPublicCollections(photographerId, fallbackSlug = '') {
   if (!photographerId) return [];
   const profile = await apiFetch(`/v1/public/photographer/by-id/${photographerId}`).catch(() => null);
-  const slug = profile?.photographer?.showcase_slug;
+  // Legacy photographers may have no showcase_slug — fall back to the page
+  // slug / email local part the portfolio URL was built from.
+  const slug =
+    profile?.photographer?.showcase_slug ||
+    fallbackSlug ||
+    String(profile?.photographer?.email || '').split('@')[0];
   if (!slug) return [];
   const data = await apiFetch(`/v1/public/showcase/${encodeURIComponent(slug)}`).catch(() => null);
   const galleries = data?.galleries || [];

@@ -44,7 +44,10 @@ const CollectionList = ({ slug, photographerProfile = null }) => {
         if (!photographerData) throw new Error('Not found');
         setProfile(photographerData);
         if (photographerData.showcase_enabled !== false) {
-          const collectionsData = await galleryService.getPublicCollections(photographerData.id);
+          const collectionsData = await galleryService.getPublicCollections(
+            photographerData.id,
+            photographerData.showcase_slug || slug || String(photographerData.email || '').split('@')[0]
+          );
           setCollections(collectionsData || []);
         }
       } catch (err) {
