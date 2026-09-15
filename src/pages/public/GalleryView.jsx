@@ -635,6 +635,13 @@ const GalleryView = () => {
       localStorage.setItem(`pixnxt_fav_email_${collection.id}`, shopEmail);
       localStorage.setItem('pixnxt_printstore_email', shopEmail);
 
+      // Signing in for the shop also signs the visitor in for favorites.
+      if (session?.id) {
+        setSessionId(session.id);
+        setEmail(shopEmail);
+        refreshSelectionList(session.id, listId || null, collection.id).catch(() => {});
+      }
+
       setShowShopModal(false);
       setIsSubmittingShopEmail(false);
 
@@ -1018,6 +1025,31 @@ const GalleryView = () => {
         console.error('Failed to toggle favorite:', e);
       }
     } else {
+      // The session may not be restored yet (async on load) or the visitor
+      // signed in via the shop modal — reuse the saved email instead of
+      // asking for it again.
+      const savedEmail = readGalleryRegistration(collection.id)?.email || '';
+      if (savedEmail) {
+        try {
+          const session = await galleryService.createOrGetSession(collection.id, savedEmail);
+          if (session?.id) {
+            setSessionId(session.id);
+            setEmail(savedEmail);
+            const listForToggle =
+              selectionListId ||
+              (await galleryService.getSessionDefaultFavoriteList(session.id))?.id;
+            await galleryService.toggleFavorite(session.id, pid, true, listForToggle);
+            setFavoritedPhotos((prev) => (prev.includes(pid) ? prev : [...prev, pid]));
+            await refreshSelectionList(session.id, null, collection.id);
+            const channel = new BroadcastChannel('pixnxt-gallery-update');
+            channel.postMessage({ type: 'ACTIVITY_UPDATED', collectionId: collection.id });
+            channel.close();
+            return;
+          }
+        } catch (e) {
+          console.warn('Could not restore favorites session:', e);
+        }
+      }
       setPendingFavoritePhotoId(pid);
       setShowFavoriteModal(true);
     }
