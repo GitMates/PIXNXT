@@ -17,8 +17,9 @@ export async function getEvent(photographerId, eventId) {
 }
 
 export async function getEventBySlug(slug) {
-  // Public registration pages resolve the event through the gallery endpoint.
-  const data = await apiFetch('/v1/guest/gallery', {
+  // Public registration pages resolve the event by slug — drafts included,
+  // because guests register before the event is published.
+  const data = await apiFetch('/v1/guest/event', {
     method: 'POST',
     auth: false,
     body: { slug },
