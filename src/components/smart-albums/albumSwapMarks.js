@@ -84,6 +84,20 @@ function setAlbumMarks(albumId, list, { silent = false } = {}) {
     if (!silent) notify(albumId);
 }
 
+/** Swap points are stored as JSON text in D1 — hydrate objects before use. */
+function parseSwapPoint(value) {
+    if (!value) return null;
+    if (typeof value === 'string') {
+        try {
+            const parsed = JSON.parse(value);
+            return parsed && typeof parsed === 'object' ? parsed : null;
+        } catch {
+            return null;
+        }
+    }
+    return typeof value === 'object' ? value : null;
+}
+
 function mapSwapRow(row) {
     return {
         id: row.id,
@@ -92,8 +106,8 @@ function mapSwapRow(row) {
         labelA: row.label_a || '',
         labelB: row.label_b || '',
         locked: row.locked !== false,
-        pointA: row.point_a || null,
-        pointB: row.point_b || null,
+        pointA: parseSwapPoint(row.point_a),
+        pointB: parseSwapPoint(row.point_b),
         createdAt: row.created_at,
         authorName: row.author_name || null,
         authorEmail: row.author_email || null,

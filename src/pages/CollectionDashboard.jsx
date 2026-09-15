@@ -260,6 +260,7 @@ const CollectionDashboard = () => {
     const [selfieMessage, setSelfieMessage] = useState('');
   const [photoAiTableMissing, setPhotoAiTableMissing] = useState(false);
   const [photoAiIndexing, setPhotoAiIndexing] = useState(false);
+  const [photoAiClustering, setPhotoAiClustering] = useState(false);
     const [faceAiEnabled, setFaceAiEnabled] = useState(true); // assume enabled until quota is loaded
     const [showGdQrModal, setShowGdQrModal] = useState(false);
     const [showGdPublishedPopup, setShowGdPublishedPopup] = useState(false);
@@ -2920,6 +2921,43 @@ const CollectionDashboard = () => {
         }
     }, [collectionId, photoAiTableMissing, collection?.guest_delivery_enabled, gdEvent?.id]);
 
+    /**
+     * Poll until the queue's auto-recluster lands. People rows stay empty until
+     * that pass finishes, so callers should wait here (keeping the "Indexing
+     * faces…" status visible) instead of flashing "No people found yet".
+     */
+    const waitForClusterFresh = useCallback(async ({ timeoutMs = 120000, intervalMs = 3000 } = {}) => {
+        if (!collectionId) return false;
+        const deadline = Date.now() + timeoutMs;
+        setPhotoAiClustering(true);
+        try {
+            for (;;) {
+                const current = await photoAiService
+                    .getMetadataForCollection(collectionId)
+                    .catch(() => null);
+                if (current && !current.tableMissing) {
+                    const rowsNow = current.rows || [];
+                    if (rowsNow.length > 0) {
+                        setPhotoAiRows(rowsNow);
+                        if (
+                            isIndexedSnapshotFresh(
+                                current.state,
+                                rowsNow.length,
+                                maxIndexedAtFromRows(rowsNow)
+                            )
+                        ) {
+                            return true;
+                        }
+                    }
+                }
+                if (Date.now() >= deadline) return false;
+                await new Promise((r) => setTimeout(r, intervalMs));
+            }
+        } finally {
+            setPhotoAiClustering(false);
+        }
+    }, [collectionId]);
+
     const refreshPhotoAiMetadata = useCallback(async () => {
         if (!collectionId) return { rows: [], tableMissing: false };
         try {
@@ -3074,6 +3112,10 @@ const CollectionDashboard = () => {
                     }
                     await new Promise((r) => setTimeout(r, 3000));
                 }
+                // Indexing can finish while the queue's clustering pass is still
+                // running — wait for it so the panel doesn't flash the empty
+                // "No people found yet" state before faces appear.
+                await waitForClusterFresh();
                 await refreshPhotoAiMetadata();
                 await loadPhotoAiPeople({
                     silent: true,
@@ -3106,6 +3148,7 @@ const CollectionDashboard = () => {
         indexablePhotoCount,
         refreshPhotoAiMetadata,
         loadPhotoAiPeople,
+        waitForClusterFresh,
         collection?.guest_delivery_enabled,
         collection?.photographer_id,
         user?.id,
@@ -3156,17 +3199,26 @@ const CollectionDashboard = () => {
 
     useEffect(() => {
         if (activeSidebarTab !== 'photos' || photoAiTableMissing || photoAiRows.length === 0) return;
-        void loadPhotoAiPeople({
-            silent: true,
-            applyGuestLabels: Boolean(collection?.guest_delivery_enabled),
-        });
+        const guestLabels = Boolean(collection?.guest_delivery_enabled);
+        if (photoAiPeople.length === 0) {
+            // Faces already indexed but clusters still building: keep the
+            // processing status until people rows exist.
+            void (async () => {
+                await waitForClusterFresh();
+                await loadPhotoAiPeople({ silent: true, applyGuestLabels: guestLabels });
+            })();
+            return;
+        }
+        void loadPhotoAiPeople({ silent: true, applyGuestLabels: guestLabels });
     }, [
         activeSidebarTab,
         photoAiTableMissing,
         photoAiRows.length,
+        photoAiPeople.length,
         collection?.guest_delivery_enabled,
         gdEvent?.id,
         loadPhotoAiPeople,
+        waitForClusterFresh,
     ]);
 
     useEffect(() => {
@@ -5436,7 +5488,7 @@ const CollectionDashboard = () => {
                                         handleClearSelfie();
                                     }}
                                     loadingPeople={photoAiLoadingPeople}
-                                    analyzing={photoAiIndexing}
+                                    analyzing={photoAiIndexing || photoAiClustering}
                                     indexedCount={photoAiRows.length}
                                     tableMissing={photoAiTableMissing}
                                     selfiePreview={selfiePreview}
