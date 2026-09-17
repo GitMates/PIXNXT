@@ -707,7 +707,7 @@ const Showcase = () => {
       : heldCount > 0
         ? `${onPageCount} ${onPageCount === 1 ? 'set is' : 'sets are'} on the page, and ${heldCount} ${
             heldCount === 1 ? 'is' : 'are'
-          } held back until permission arrives.`
+          } held back until you publish ${heldCount === 1 ? 'it' : 'them'}.`
         : `${onPageCount} ${onPageCount === 1 ? 'set is' : 'sets are'} on the page.`;
 
   // One dashed “Feature work here” slot to add the next delivery (under the cap).
@@ -1058,7 +1058,12 @@ const Showcase = () => {
               <div className="sc-onpage__head">
                 <div className="sc-onpage__label">
                   <span>On the page</span>
-                  <span className="sc-onpage__count">{featuredCount}</span>
+                  <span className="sc-onpage__count">{onPageCount}</span>
+                  {heldCount > 0 ? (
+                    <span className="sc-onpage__held">
+                      {heldCount} held back
+                    </span>
+                  ) : null}
                 </div>
                 <p className="sc-onpage__hint">Drag to reorder</p>
               </div>

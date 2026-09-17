@@ -40,6 +40,8 @@ const WatermarkEditor = () => {
     const [saving, setSaving] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [profileId, setProfileId] = useState(null);
+    const [dirty, setDirty] = useState(false);
+    const [imageLoadFailed, setImageLoadFailed] = useState(false);
 
     const [name, setName] = useState('My Watermark 1');
     const [type, setType] = useState('text');        // 'text' | 'image'
@@ -95,9 +97,34 @@ const WatermarkEditor = () => {
         loadProfile();
     }, [user?.id, id]);
 
+    // ── Unsaved-changes tracking ──────────────────────────────────────────────
+    // Snapshot the loaded row once, then flag dirty whenever edits differ. The
+    // image upload only stages a URL — it is not persisted until Save.
+    const initialSnapshotRef = useRef(null);
+    useEffect(() => {
+        if (loading) return;
+        const snapshot = JSON.stringify({
+            name, type, text, font, color, scale, opacity, position, imageUrl,
+        });
+        if (initialSnapshotRef.current === null) {
+            initialSnapshotRef.current = snapshot;
+            return;
+        }
+        setDirty(snapshot !== initialSnapshotRef.current);
+    }, [loading, name, type, text, font, color, scale, opacity, position, imageUrl]);
+
+    // A dead stored URL (legacy bucket) should surface as a re-upload prompt,
+    // not a silent broken-image icon.
+    useEffect(() => {
+        setImageLoadFailed(false);
+    }, [imageUrl]);
+
     // ── Save ──────────────────────────────────────────────────────────────────
     const handleSave = useCallback(async () => {
-        if (!profileId) return;
+        if (!profileId) {
+            alert('Still loading your account. Try again in a moment.');
+            return;
+        }
         try {
             setSaving(true);
             const updates = {
@@ -143,11 +170,19 @@ const WatermarkEditor = () => {
             alert(`Upload failed: ${err.message}`);
         } finally {
             setUploading(false);
+            if (imageInputRef.current) imageInputRef.current.value = '';
         }
     };
 
     const handleImageRemove = () => {
         setImageUrl(null);
+    };
+
+    const handleClose = () => {
+        if (dirty && !saving && !window.confirm('You have unsaved watermark changes. Leave without saving?')) {
+            return;
+        }
+        navigate('/settings/watermark');
     };
 
     // ── Computed preview font size ────────────────────────────────────────────
@@ -168,7 +203,7 @@ const WatermarkEditor = () => {
                 <div className="wm-header-left">
                     <button
                         className="wm-close-btn"
-                        onClick={() => navigate('/settings/watermark')}
+                        onClick={handleClose}
                         title="Close"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -184,11 +219,11 @@ const WatermarkEditor = () => {
                     />
                 </div>
                 <button
-                    className="wm-save-btn"
+                    className={`wm-save-btn${dirty ? ' is-dirty' : ''}`}
                     onClick={handleSave}
-                    disabled={saving}
+                    disabled={saving || !profileId}
                 >
-                    {saving ? 'Saving...' : 'Save'}
+                    {saving ? 'Saving...' : dirty ? 'Save changes' : 'Save'}
                 </button>
             </div>
 
@@ -283,8 +318,14 @@ const WatermarkEditor = () => {
                             >
                                 {uploading ? (
                                     <span style={{ fontSize: '11px', color: '#888' }}>Uploading...</span>
+                                ) : imageUrl && !imageLoadFailed ? (
+                                    <img src={imageUrl} alt="Watermark" onError={() => setImageLoadFailed(true)} />
                                 ) : imageUrl ? (
-                                    <img src={imageUrl} alt="Watermark" />
+                                    <span className="wm-image-missing">
+                                        Image unavailable.
+                                        <br />
+                                        Upload a new one.
+                                    </span>
                                 ) : (
                                     <svg className="wm-image-upload-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                                         <line x1="12" y1="5" x2="12" y2="19" />
@@ -385,11 +426,12 @@ const WatermarkEditor = () => {
                                     {text}
                                 </span>
                             )}
-                            {type === 'image' && imageUrl && (
+                            {type === 'image' && imageUrl && !imageLoadFailed && (
                                 <img
                                     className="wm-preview-watermark-img"
                                     src={imageUrl}
                                     alt="Watermark"
+                                    onError={() => setImageLoadFailed(true)}
                                     style={{
                                         opacity: opacity / 100,
                                         width: `${scale}%`,
@@ -397,6 +439,11 @@ const WatermarkEditor = () => {
                                         objectFit: 'contain'
                                     }}
                                 />
+                            )}
+                            {type === 'image' && imageUrl && imageLoadFailed && (
+                                <span className="wm-preview-missing">
+                                    Watermark image unavailable — upload a new one and press Save.
+                                </span>
                             )}
                         </div>
                     </div>

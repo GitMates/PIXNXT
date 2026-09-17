@@ -831,6 +831,19 @@ body.dark-theme .sc-mini-switch:not(.is-on) {
   letter-spacing: 0;
 }
 
+.sc-onpage__held {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--sc-surface-sunk);
+  color: var(--sc-muted);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
 .sc-onpage__hint {
   margin: 0;
   font-size: 0.6875rem;
