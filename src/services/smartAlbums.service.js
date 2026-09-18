@@ -15,6 +15,7 @@ import { userStorageService } from './userStorage.service';
 import { photographerQuotaService } from './photographerQuota.service';
 import {
   buildAlbumPreviewSnapshot,
+  getRemotePreviewData,
   hydrateAlbumPreviewData,
   patchAlbumPreviewProoferAccess,
   clearAlbumPreviewDataCache,
@@ -1037,6 +1038,7 @@ export const smartAlbumsService = {
 
   /**
    * Persist image version history on album.preview_data.image_replacements (database).
+   */
   async patchAlbumImageReplacements(photographerId, albumId, replacements) {
     if (!photographerId || !albumId) return null;
     const rows = Array.isArray(replacements) ? replacements : [];
