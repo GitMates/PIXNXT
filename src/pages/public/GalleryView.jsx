@@ -1712,8 +1712,12 @@ const GalleryView = () => {
     if (galleryPeople.selfieMatchPhotoIds.length) {
       return filterPhotosByIds(filteredPhotosBase, galleryPeople.selfieMatchPhotoIds);
     }
-    if (galleryPeople.activePerson?.photoIds?.length) {
-      return filterPhotosByIds(filteredPhotosBase, galleryPeople.activePerson.photoIds);
+    if (galleryPeople.activePerson) {
+      const photoIds = galleryPeople.activePerson.photoIds || [];
+      if (photoIds.length) return filterPhotosByIds(filteredPhotosBase, photoIds);
+      // A person with no matched photos yet (e.g. a registered guest whose
+      // face match is pending) must show an empty grid, not the whole gallery.
+      return [];
     }
     return filteredPhotosBase;
   }, [filteredPhotosBase, galleryPeople.selfieMatchPhotoIds, galleryPeople.activePerson]);

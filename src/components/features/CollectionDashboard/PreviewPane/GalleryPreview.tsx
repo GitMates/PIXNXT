@@ -313,8 +313,12 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
     if (galleryPeople.selfieMatchPhotoIds.length) {
       return filterPhotosByIds(photosSortedForGrid, galleryPeople.selfieMatchPhotoIds);
     }
-    if (activePersonInSet?.photoIds?.length) {
-      return filterPhotosByIds(photosSortedForGrid, activePersonInSet.photoIds);
+    if (activePersonInSet) {
+      const photoIds = activePersonInSet.photoIds || [];
+      if (photoIds.length) return filterPhotosByIds(photosSortedForGrid, photoIds);
+      // A person with no matched photos yet (e.g. a registered guest whose
+      // face match is pending) must show an empty grid, not the whole gallery.
+      return [];
     }
     return photosSortedForGrid;
   }, [photosSortedForGrid, galleryPeople.selfieMatchPhotoIds, activePersonInSet]);

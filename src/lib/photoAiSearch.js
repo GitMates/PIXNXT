@@ -204,9 +204,14 @@ export function filterPeopleForPhotos(people, photos) {
 
 /** Filter photos that contain any face from a clustered person */
 export function filterPhotosByPerson(photos, metadataByPhotoId, person) {
-  if (!person?.faceIds?.length) return photos;
-  const faceSet = new Set(person.faceIds);
+  const faceSet = new Set(person?.faceIds || []);
+  const photoSet = new Set(person?.photoIds || []);
+  // Entries with neither identity signal (e.g. a registered guest whose face
+  // match is still pending) must render no photos — not the whole delivery.
+  if (!faceSet.size && !photoSet.size) return [];
   return photos.filter((photo) => {
+    if (photoSet.has(photo.id)) return true;
+    if (!faceSet.size) return false;
     const faces = metadataByPhotoId?.[photo.id]?.faces || [];
     return faces.some((f) => faceSet.has(f.faceId));
   });

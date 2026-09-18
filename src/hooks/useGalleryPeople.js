@@ -113,6 +113,9 @@ export function useGalleryPeople(collectionId, { enabled = true, isPublic = true
       setPeople((prev) =>
         prev.map((person) => (person.id === personId ? { ...person, label: trimmed } : person))
       );
+      // Guest fallback entries (guest-<id>) have no photo_ai_people row —
+      // keep the rename local instead of failing against the API.
+      if (String(personId).startsWith('guest-')) return;
       await photoAiService.setPersonLabel(collectionId, personId, trimmed);
     },
     [collectionId]
@@ -129,6 +132,7 @@ export function useGalleryPeople(collectionId, { enabled = true, isPublic = true
         setSelfieMatchPhotoIds([]);
         setSelfieMessage('');
       }
+      if (String(personId).startsWith('guest-')) return;
       try {
         await photoAiService.deletePerson(collectionId, personId);
       } catch (err) {
