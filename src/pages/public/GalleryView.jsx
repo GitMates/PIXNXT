@@ -889,10 +889,14 @@ const GalleryView = () => {
         .filter(Boolean);
 
       const pending = normalizeFavoritePhotoId(pendingFavoritePhotoId);
-      if (pending && targetList) {
-        if (!newFavs.includes(pending)) {
+      let toggleError = null;
+      if (pending && targetList && !newFavs.includes(pending)) {
+        try {
           await galleryService.toggleFavorite(session.id, pending, true, targetList);
           newFavs = [...newFavs, pending];
+        } catch (e) {
+          // The email was saved; only the pending heart was rejected.
+          toggleError = e;
         }
       }
       setPendingFavoritePhotoId(null);
@@ -903,7 +907,31 @@ const GalleryView = () => {
       channel.postMessage({ type: 'ACTIVITY_UPDATED', collectionId: collection.id });
       channel.close();
 
-      if (pending && newFavs.includes(pending)) {
+      if (toggleError) {
+        if (toggleError.code === 'SELECTION_LIMIT') {
+          const meta = targetList
+            ? await galleryService.getFavoriteListById(targetList).catch(() => null)
+            : null;
+          const max =
+            meta?.max_selection != null && Number(meta.max_selection) > 0
+              ? Number(meta.max_selection)
+              : null;
+          const ph = (collection.photos || []).find(
+            (p) => normalizeFavoritePhotoId(p.id) === pending
+          );
+          setFavoriteToast({
+            thumb: ph?.thumbnail_url || ph?.web_url || ph?.full_url,
+            listName: meta?.name || 'This list',
+            count: newFavs.length,
+            max,
+            limit: true,
+          });
+        } else if (toggleError.code === 'LIST_SUBMITTED') {
+          alert(toggleError.message || 'This list has been submitted and cannot be changed.');
+        } else {
+          console.error('Failed to add pending favorite:', toggleError);
+        }
+      } else if (pending && newFavs.includes(pending)) {
         const ph = (collection.photos || []).find((p) => normalizeFavoritePhotoId(p.id) === pending);
         const thumb = ph?.thumbnail_url || ph?.web_url || ph?.full_url;
         await refreshSelectionList(session.id, listId || null);
@@ -970,8 +998,28 @@ const GalleryView = () => {
       return;
     }
 
+    const isCurrentlyFavorited = favoritedPhotos.includes(pid);
+    const maxSelection =
+      activeFavoriteList?.max_selection != null && Number(activeFavoriteList.max_selection) > 0
+        ? Number(activeFavoriteList.max_selection)
+        : null;
+    if (
+      sessionId &&
+      !isCurrentlyFavorited &&
+      maxSelection != null &&
+      favoritedPhotos.length >= maxSelection
+    ) {
+      setFavoriteToast({
+        thumb: photo?.thumbnail_url || photo?.web_url || photo?.full_url,
+        listName: activeFavoriteList?.name || 'This list',
+        count: favoritedPhotos.length,
+        max: maxSelection,
+        limit: true,
+      });
+      return;
+    }
+
     if (sessionId) {
-      const isCurrentlyFavorited = favoritedPhotos.includes(pid);
       try {
         await galleryService.toggleFavorite(
           sessionId,
@@ -1030,12 +1078,15 @@ const GalleryView = () => {
       // asking for it again.
       const savedEmail = readGalleryRegistration(collection.id)?.email || '';
       if (savedEmail) {
+        let restoredSession = null;
+        let listForToggle = null;
         try {
           const session = await galleryService.createOrGetSession(collection.id, savedEmail);
           if (session?.id) {
+            restoredSession = session;
             setSessionId(session.id);
             setEmail(savedEmail);
-            const listForToggle =
+            listForToggle =
               selectionListId ||
               (await galleryService.getSessionDefaultFavoriteList(session.id))?.id;
             await galleryService.toggleFavorite(session.id, pid, true, listForToggle);
@@ -1047,6 +1098,31 @@ const GalleryView = () => {
             return;
           }
         } catch (e) {
+          if (e?.code === 'SELECTION_LIMIT' || e?.code === 'LIST_SUBMITTED') {
+            // The server rejected the change — don't fall through to the email modal.
+            if (e?.code === 'LIST_SUBMITTED') {
+              alert(e.message || 'This list has been submitted and cannot be changed.');
+            } else {
+              const meta = listForToggle
+                ? await galleryService.getFavoriteListById(listForToggle).catch(() => null)
+                : null;
+              const max =
+                meta?.max_selection != null && Number(meta.max_selection) > 0
+                  ? Number(meta.max_selection)
+                  : null;
+              setFavoriteToast({
+                thumb: photo?.thumbnail_url || photo?.web_url || photo?.full_url,
+                listName: meta?.name || 'This list',
+                count: favoritedPhotos.length,
+                max,
+                limit: true,
+              });
+            }
+            if (restoredSession?.id) {
+              refreshSelectionList(restoredSession.id, null, collection.id).catch(() => {});
+            }
+            return;
+          }
           console.warn('Could not restore favorites session:', e);
         }
       }

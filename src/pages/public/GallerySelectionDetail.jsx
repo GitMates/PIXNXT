@@ -137,9 +137,14 @@ export default function GallerySelectionDetail() {
     return null;
   }, [list?.max_selection]);
 
+  const overLimit = cap != null && photos.length > cap;
+
   const countLabel = useMemo(() => {
     const count = photos.length;
-    if (cap != null) return `${count} of ${cap} chosen`;
+    if (cap != null) {
+      if (count > cap) return `${count} of ${cap} chosen — remove ${count - cap} to send`;
+      return `${count} of ${cap} chosen`;
+    }
     return `${count} chosen`;
   }, [photos.length, cap]);
 
@@ -187,6 +192,12 @@ export default function GallerySelectionDetail() {
     if (!listId || !sessionId || !collection || isLocked) return;
     if (photos.length < 1) {
       alert('Add at least one photograph before sending.');
+      return;
+    }
+    if (cap != null && photos.length > cap) {
+      alert(
+        `This selection is limited to ${cap} photograph${cap === 1 ? '' : 's'}. Remove ${photos.length - cap} before sending.`
+      );
       return;
     }
     try {
@@ -403,7 +414,7 @@ export default function GallerySelectionDetail() {
             <span className="selection-detail__crumb-sep">/</span>
             <div className="selection-detail__toolbar-left">
               <h1 className="selection-detail__title">{list.name}</h1>
-              <span className="selection-detail__count">{countLabel}</span>
+              <span className={`selection-detail__count${overLimit ? ' selection-detail__count--over' : ''}`}>{countLabel}</span>
             </div>
           </div>
 

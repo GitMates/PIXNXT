@@ -358,6 +358,45 @@ export async function getCollectionById(id) {
   return getCollectionDashboardData(id);
 }
 
+const GALLERY_PW_PREFIX = 'pixnxt_gallery_pw_';
+function galleryPwKey(id) { return `${GALLERY_PW_PREFIX}${id}`; }
+export function getStoredGalleryPassword(galleryId) {
+  if (!galleryId || typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(galleryPwKey(galleryId)) || sessionStorage.getItem(galleryPwKey(galleryId));
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object' && 'password' in parsed) {
+        const age = Date.now() - (parsed.at || 0);
+        if (parsed.repromptDays === 30 && age > 30 * 24 * 60 * 60 * 1000) {
+          clearStoredGalleryPassword(galleryId);
+          return null;
+        }
+        return parsed.password;
+      }
+    } catch {
+      return raw;
+    }
+    return raw;
+  } catch { return null; }
+}
+export function setStoredGalleryPassword(galleryId, password, repromptDays = 0) {
+  if (!galleryId || typeof window === 'undefined' || !password) return;
+  try {
+    const payload = JSON.stringify({ password, at: Date.now(), repromptDays: repromptDays || 0 });
+    localStorage.setItem(galleryPwKey(galleryId), payload);
+    sessionStorage.setItem(galleryPwKey(galleryId), payload);
+  } catch { /* ignore */ }
+}
+export function clearStoredGalleryPassword(galleryId) {
+  if (!galleryId || typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(galleryPwKey(galleryId));
+    sessionStorage.removeItem(galleryPwKey(galleryId));
+  } catch { /* ignore */ }
+}
+
 export async function getCollectionBySlug(slug, options = {}) {
   const normalized = decodeURIComponent(String(slug || '').trim());
   const studioCollectionId = options.collectionId || null;
@@ -372,8 +411,11 @@ export async function getCollectionBySlug(slug, options = {}) {
   const data = await apiFetch(`/v1/public/gallery-by-slug/${encodeURIComponent(normalized)}`).catch(() => null);
   const gallery = data?.gallery;
   if (!gallery) return null;
+  // Password for protected galleries: explicit option wins, else stored value.
+  const effectivePassword = options.password ?? getStoredGalleryPassword(gallery.id) ?? undefined;
+  const pwQuery = effectivePassword ? `&password=${encodeURIComponent(effectivePassword)}` : '';
   const [photosRes, setsRes] = await Promise.all([
-    apiFetch(`/v1/public/gallery/${gallery.id}/photos?limit=2000`).catch(() => null),
+    apiFetch(`/v1/public/gallery/${gallery.id}/photos?limit=2000${pwQuery}`).catch(() => null),
     apiFetch(`/v1/public/gallery/${gallery.id}/sets`).catch(() => null),
   ]);
   gallery.photos = [...(photosRes?.photos || [])].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
@@ -566,12 +608,15 @@ export async function getFavorites(sessionId, listId = null) {
   if (!sessionId) return [];
   const lists = await getFavoriteListsForSession(sessionId);
   const target = listId ? lists.filter((l) => l.id === listId) : lists;
-  const photos = [];
+  const photoIds = [];
   for (const list of target) {
     const data = await apiFetch(`/v1/engage/lists/${list.id}/photos`).catch(() => null);
-    photos.push(...(data?.photos || []));
+    for (const row of data?.photos || []) {
+      const id = row?.id ?? row?.photo_id ?? row;
+      if (id != null && id !== '') photoIds.push(String(id));
+    }
   }
-  return photos;
+  return [...new Set(photoIds)];
 }
 
 export async function getFavoriteListPublic(listId) {
