@@ -56,6 +56,7 @@ export function applyGuestSelfieAvatarsToPeople(people, guests, matchRows) {
 
   const nextPeople = people.map((p) => ({ ...p }));
   const matchesByGuest = new Map();
+  const attachedGuestIds = new Set();
   for (const row of matchRows || []) {
     if (!matchesByGuest.has(row.guest_id)) matchesByGuest.set(row.guest_id, []);
     matchesByGuest.get(row.guest_id).push(row);
@@ -78,6 +79,7 @@ export function applyGuestSelfieAvatarsToPeople(people, guests, matchRows) {
 
     if (!cluster) continue;
 
+    attachedGuestIds.add(guest.id);
     const idx = nextPeople.findIndex((p) => p.id === cluster.id);
     if (idx < 0) continue;
 
@@ -85,6 +87,33 @@ export function applyGuestSelfieAvatarsToPeople(people, guests, matchRows) {
       nextPeople[idx].label = guestName;
     }
     nextPeople[idx] = applyGuestSelfieToPerson(nextPeople[idx], guest);
+  }
+
+  // Guests whose selfie never matched a face cluster (matching failed or has
+  // not run yet) still need to appear in Faces with their name — otherwise a
+  // registered guest is invisible in the People strip.
+  for (const guest of guestList) {
+    if (attachedGuestIds.has(guest.id)) continue;
+    const selfieUrl = String(guest?.selfie_url || '').trim();
+    if (!selfieUrl) continue;
+    const guestName = String(guest.name || '').trim() || 'Guest';
+    const rows = matchesByGuest.get(guest.id) || [];
+    const photoIds = [...new Set(rows.map((r) => r.photo_id).filter(Boolean))];
+    const faceIds = [...new Set(rows.map((r) => r.face_id).filter(Boolean))];
+    nextPeople.push({
+      id: `guest-${guest.id}`,
+      faceIds,
+      photoIds,
+      label: guestName,
+      count: photoIds.length,
+      imageUrl: selfieUrl,
+      guestSelfieUrl: selfieUrl,
+      boundingBox: null,
+      avatarPhotoId: null,
+      avatarSource: 'guest_selfie',
+      isHidden: false,
+      isGuestEntry: true,
+    });
   }
 
   return nextPeople;

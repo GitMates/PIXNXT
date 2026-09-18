@@ -139,6 +139,7 @@ import { MoveCollectionModal } from '../components/features/Collections/MoveColl
 import { applyWatermarkToBlob } from '../lib/watermarkUtils';
 import { storageService } from '../services/storage.service';
 import { getProxiedMediaFetchUrl } from '../lib/r2MediaProxy';
+import { buildActivityFeedItems } from '../lib/buildActivityFeed';
 
 const CollectionDashboard = () => {
     const navigate = useNavigate();
@@ -2796,14 +2797,20 @@ const CollectionDashboard = () => {
         return result;
     }, [sortedPhotos, photoAiMetadataMap, activePerson, selfieMatchPhotoIds, showUnmatchedPeople, photoAiRows.length]);
 
+    // Sidebar badge mirrors the Activity feed's "Everything" total so the two
+    // can never disagree (the old sum missed guest-delivery guests and opens).
     const sidebarActivityCount = useMemo(
         () =>
-            (activityCounts.contacts || 0) +
-            (activityCounts.downloaded || 0) +
-            (activityCounts.favorited || 0) +
-            (activityCounts.registered || 0) +
-            (activityCounts.purchased || 0),
-        [activityCounts]
+            buildActivityFeedItems({
+                downloadActivity,
+                favoriteActivity,
+                storeOrders,
+                storeOrderItems,
+                emailRegistrationActivity,
+                galleryOpenActivity,
+                guestDeliveryGuests,
+            }).length,
+        [downloadActivity, favoriteActivity, storeOrders, storeOrderItems, emailRegistrationActivity, galleryOpenActivity, guestDeliveryGuests]
     );
 
     const mediaFilteredPhotos = aiFilteredPhotos;
@@ -2855,6 +2862,9 @@ const CollectionDashboard = () => {
                 person.id === personId ? { ...person, label: trimmed } : person
             )
         );
+        // Guest fallback entries (guest-<id>) have no photo_ai_people row —
+        // keep the rename local instead of failing against the API.
+        if (String(personId).startsWith('guest-')) return;
         try {
             await photoAiService.setPersonLabel(collectionId, personId, trimmed);
         } catch (err) {
@@ -2865,6 +2875,19 @@ const CollectionDashboard = () => {
 
     const handleTogglePersonHidden = useCallback(async (personId, hidden) => {
         if (!collectionId || !personId) return;
+        // Guest fallback entries (guest-<id>) have no photo_ai_people row —
+        // hiding is local-only.
+        if (String(personId).startsWith('guest-')) {
+            if (hidden && activePersonId === personId) {
+                setActivePersonId(null);
+            }
+            setPhotoAiPeople((prev) =>
+                prev.map((person) =>
+                    person.id === personId ? { ...person, isHidden: hidden } : person
+                )
+            );
+            return;
+        }
         try {
             await photoAiService.setPersonHidden(collectionId, personId, hidden);
             if (hidden && activePersonId === personId) {
