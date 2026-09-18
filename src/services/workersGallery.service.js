@@ -358,6 +358,38 @@ export async function getCollectionById(id) {
   return getCollectionDashboardData(id);
 }
 
+/** Session-scoped guest-password unlock (typed once, remembered per tab). */
+function galleryPasswordKey(galleryId) {
+  return `pixnxt_gallery_password_${galleryId}`;
+}
+
+export function getStoredGalleryPassword(galleryId) {
+  if (!galleryId || typeof sessionStorage === 'undefined') return null;
+  try {
+    return sessionStorage.getItem(galleryPasswordKey(galleryId)) || null;
+  } catch {
+    return null;
+  }
+}
+
+export function setStoredGalleryPassword(galleryId, password) {
+  if (!galleryId || typeof sessionStorage === 'undefined') return;
+  try {
+    if (password) sessionStorage.setItem(galleryPasswordKey(galleryId), String(password));
+    else sessionStorage.removeItem(galleryPasswordKey(galleryId));
+  } catch {
+    // ignore quota errors
+  }
+}
+
+export function clearStoredGalleryPassword(galleryId) {
+  setStoredGalleryPassword(galleryId, null);
+}
+
+function isPasswordRequiredError(err) {
+  return Boolean(err) && (err.status === 403 || err.statusCode === 403);
+}
+
 export async function getCollectionBySlug(slug, options = {}) {
   const normalized = decodeURIComponent(String(slug || '').trim());
   const studioCollectionId = options.collectionId || null;
@@ -372,12 +404,37 @@ export async function getCollectionBySlug(slug, options = {}) {
   const data = await apiFetch(`/v1/public/gallery-by-slug/${encodeURIComponent(normalized)}`).catch(() => null);
   const gallery = data?.gallery;
   if (!gallery) return null;
+  const explicitPassword = options.password ?? null;
+  const storedPassword = getStoredGalleryPassword(gallery.id);
+  const urlPassword = typeof window !== 'undefined'
+    ? new URLSearchParams(window.location.search).get('password')
+    : null;
+  const password = explicitPassword ?? storedPassword ?? urlPassword ?? null;
+  const photosPath = password
+    ? `/v1/public/gallery/${gallery.id}/photos?password=${encodeURIComponent(password)}&limit=2000`
+    : `/v1/public/gallery/${gallery.id}/photos?limit=2000`;
+  const setsPath = password
+    ? `/v1/public/gallery/${gallery.id}/sets?password=${encodeURIComponent(password)}`
+    : `/v1/public/gallery/${gallery.id}/sets`;
   const [photosRes, setsRes] = await Promise.all([
-    apiFetch(`/v1/public/gallery/${gallery.id}/photos?limit=2000`).catch(() => null),
-    apiFetch(`/v1/public/gallery/${gallery.id}/sets`).catch(() => null),
+    apiFetch(photosPath).catch((err) => ({ __forbidden: isPasswordRequiredError(err) })),
+    apiFetch(setsPath).catch((err) => ({ __forbidden: isPasswordRequiredError(err) })),
   ]);
-  gallery.photos = [...(photosRes?.photos || [])].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
-  gallery.sets = [...(setsRes?.sets || [])].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+  const photosForbidden = Boolean(photosRes && photosRes.__forbidden);
+  const setsForbidden = Boolean(setsRes && setsRes.__forbidden);
+  const needsPassword = Boolean(
+    gallery.has_password || gallery.privacy === 'password' || photosForbidden || setsForbidden,
+  );
+  if ((photosForbidden || setsForbidden) && !password) {
+    return {
+      ...gallery,
+      photos: [],
+      sets: [],
+      needsPassword: true,
+    };
+  }
+  gallery.photos = [...((photosRes && photosRes.photos) || [])].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+  gallery.sets = [...((setsRes && setsRes.sets) || [])].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
   gallery.needsPassword = needsPassword && (photosForbidden || setsForbidden);
   if (password && !photosForbidden) setStoredGalleryPassword(gallery.id, password);
   return gallery;
