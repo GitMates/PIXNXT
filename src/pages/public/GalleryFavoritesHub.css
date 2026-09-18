@@ -647,6 +647,11 @@
   white-space: nowrap;
 }
 
+.selection-detail__count--over {
+  color: #c0392b;
+  font-weight: 600;
+}
+
 .selection-detail__chrome-right {
   display: flex;
   align-items: center;

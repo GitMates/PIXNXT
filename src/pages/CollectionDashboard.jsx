@@ -4134,9 +4134,13 @@ const CollectionDashboard = () => {
 
         const saveGeneralSettings = async () => {
             try {
+                const privacy = collectionPassword
+                    ? 'password'
+                    : (clientExclusiveAccess ? 'client_exclusive' : 'public');
                 await galleryService.updateCollection(collectionId, {
                     slug: collectionUrl,
                     guest_password_hash: collectionPassword,
+                    privacy,
                 });
             } catch (err) {
                 console.error('Error auto-saving general settings:', err);
@@ -4145,20 +4149,23 @@ const CollectionDashboard = () => {
 
         const timeoutId = setTimeout(saveGeneralSettings, 1500); // Slightly longer debounce for URL
         return () => clearTimeout(timeoutId);
-    }, [collectionUrl, collectionPassword, collectionId, loading]);
+    }, [collectionUrl, collectionPassword, clientExclusiveAccess, collectionId, loading]);
 
     // Auto-save privacy / client exclusive access
     useEffect(() => {
         if (!collectionId || loading || !settingsHydratedRef.current) return;
 
         const savePrivacySettings = async () => {
+            const privacy = clientExclusiveAccess
+                ? 'client_exclusive'
+                : (collectionPassword ? 'password' : 'public');
             const patch = {
                 client_exclusive_enabled: clientExclusiveAccess,
                 client_password_hash: clientPrivatePassword || null,
                 allow_clients_mark_private: allowClientsMarkPrivate,
                 client_only_highlights: clientOnlyHighlights,
                 show_on_showcase: showOnShowcase,
-                privacy: clientExclusiveAccess ? 'client_exclusive' : 'public',
+                privacy,
             };
             broadcastGalleryLive({
                 type: 'SETTINGS_UPDATED',
@@ -4186,6 +4193,7 @@ const CollectionDashboard = () => {
         showOnShowcase,
         collectionId,
         collectionUrl,
+        collectionPassword,
         loading,
     ]);
 
