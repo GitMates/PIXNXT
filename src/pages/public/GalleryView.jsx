@@ -143,6 +143,14 @@ const GalleryView = () => {
   const [emailGatePassed, setEmailGatePassed] = useState(false);
   const [emailGateSaving, setEmailGateSaving] = useState(false);
   const [emailGateError, setEmailGateError] = useState('');
+  // Guest-password gate (delivery Access → Password). Typed once before
+  // anything is shown; remembered per tab in sessionStorage (see
+  // workersGallery.service getStoredGalleryPassword). Owners previewing
+  // while signed in bypass it via the backend JWT check.
+  const [passwordInput, setPasswordInput] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordChecking, setPasswordChecking] = useState(false);
+  const [passwordUnlocked, setPasswordUnlocked] = useState(false);
 
   // Sales campaigns loaded from StoreDashboard localStorage for client site banner rendering
   const [campaigns, setCampaigns] = useState(() => {
@@ -667,8 +675,19 @@ const GalleryView = () => {
   // Favorites state
   const [sessionId, setSessionId] = useState(null);
   const [favoritedPhotos, setFavoritedPhotos] = useState([]);
+  // Owner previewing while signed in bypasses the guest-password gate
+  // (backend also skips the check when the JWT owns the delivery).
+  const isOwnerViewer = Boolean(
+    user?.id && collection && (collection.photographer_id === user.id || collection.user_id === user.id),
+  );
+  const passwordRequired = Boolean(
+    collection
+    && (collection.needsPassword || collection.has_password || collection.privacy === 'password')
+    && !isOwnerViewer
+    && !passwordUnlocked,
+  );
   const galleryPeople = useGalleryPeople(collection?.id, {
-    enabled: Boolean(collection?.id),
+    enabled: Boolean(collection?.id) && !passwordRequired,
     isPublic: true,
   });
   const canManagePeople = Boolean(
@@ -867,6 +886,42 @@ const GalleryView = () => {
       setEmailGateError(err.message || 'Could not save your details. Please try again.');
     } finally {
       setEmailGateSaving(false);
+    }
+  };
+
+  const handlePasswordGateSubmit = async (e) => {
+    if (e) e.preventDefault();
+    if (!collection?.id || passwordChecking) return;
+    const entered = String(passwordInput || '').trim();
+    if (!entered) {
+      setPasswordError('Please enter the gallery password.');
+      return;
+    }
+    setPasswordChecking(true);
+    setPasswordError('');
+    try {
+      const { verifyGalleryAccess, setStoredGalleryPassword } = await import('../../services/workersGallery.service');
+      const { passwordOk } = await verifyGalleryAccess(collection.id, { password: entered });
+      if (!passwordOk) {
+        setPasswordError('Incorrect password. Please try again.');
+        return;
+      }
+      setStoredGalleryPassword(collection.id, entered);
+      setLoading(true);
+      const fresh = await galleryService.getCollectionBySlug(slug, { password: entered });
+      if (fresh) {
+        setCollection(applyPreviewQueryToCollection(withResolvedSlideshowEnabled(fresh)));
+        setPasswordUnlocked(true);
+        setPasswordInput('');
+      } else {
+        setPasswordError('Could not load the gallery. Please try again.');
+      }
+    } catch (err) {
+      console.error('Password verify failed:', err);
+      setPasswordError(err?.message || 'Could not verify password. Please try again.');
+    } finally {
+      setPasswordChecking(false);
+      setLoading(false);
     }
   };
 
@@ -1325,6 +1380,7 @@ const GalleryView = () => {
     const fetchGallery = async () => {
       try {
         setLoading(true);
+        setPasswordError('');
         const data = await galleryService.getCollectionBySlug(slug);
 
         if (!data) {
@@ -1333,6 +1389,16 @@ const GalleryView = () => {
           );
           return;
         }
+
+        // Password-protected deliveries load with empty photos/sets until the
+        // visitor types the guest password (service returns needsPassword).
+        // Owners previewing while signed in already received photos via the
+        // backend JWT bypass — never gate them.
+        const ownerBypass = Boolean(
+          user?.id && (data.photographer_id === user.id || data.user_id === user.id),
+        );
+        const locked = Boolean(data.needsPassword) && !ownerBypass;
+        setPasswordUnlocked(!locked);
 
         let resolved = withResolvedSlideshowEnabled(data);
         const urlSlideshow = parseSlideshowQueryParam(previewSlideshow);
@@ -1403,11 +1469,28 @@ const GalleryView = () => {
     if (slug) fetchGallery();
   }, [slug]);
 
+  // Owner session may restore after the first load (auth refresh). If the
+  // gallery is password-locked but the signed-in user owns it, reload — the
+  // backend JWT bypass returns photos without typing the guest password.
+  useEffect(() => {
+    if (!collection?.needsPassword || !user?.id || !slug) return;
+    if (collection.photographer_id !== user.id && collection.user_id !== user.id) return;
+    let cancelled = false;
+    galleryService.getCollectionBySlug(slug).then((fresh) => {
+      if (cancelled || !fresh || fresh.needsPassword) return;
+      setCollection((prev) => (prev ? { ...prev, ...applyPreviewQueryToCollection(withResolvedSlideshowEnabled(fresh)) } : prev));
+      setPasswordUnlocked(true);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [user?.id, collection?.needsPassword, slug]);
+
   const refreshLiveGallery = useCallback(async () => {
     if (!slug) return;
     try {
       const data = await galleryService.getCollectionBySlug(slug);
-      if (data) setCollection((prev) => ({ ...prev, ...data }));
+      // Never let a background refresh clobber unlocked photos with a locked
+      // (password-missing) response.
+      if (data && !data.needsPassword) setCollection((prev) => ({ ...prev, ...data }));
     } catch {
       /* silently ignore */
     }
@@ -1536,7 +1619,7 @@ const GalleryView = () => {
         onEvent: async () => {
           try {
             const fresh = await galleryService.getCollectionBySlug(collection.slug, { collectionId: collection.id });
-            if (cancelled || !fresh || fresh.id !== collection.id) return;
+            if (cancelled || !fresh || fresh.id !== collection.id || fresh.needsPassword) return;
             setCollection((prev) => {
               if (!prev || prev.id !== collection.id) return prev;
               refreshStorePackagesIfNeeded(fresh, prev);
@@ -2158,6 +2241,42 @@ const GalleryView = () => {
       <a href="/" className="text-[6px] font-bold underline uppercase tracking-[0.4em]">Back to Home</a>
     </div>
   );
+
+  // Guest-password gate — before anything (cover, grid, email gate) is shown.
+  if (passwordRequired) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-white p-6 text-center">
+        <div className="w-full max-w-sm">
+          <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.35em] text-zinc-400">
+            {photographer?.business_name || photographer?.display_name || 'Private gallery'}
+          </div>
+          <Typography variant="h2" className="mb-2">{collection.name || 'Protected delivery'}</Typography>
+          <Typography variant="muted" className="mb-6">This delivery is protected. Enter the password to view it.</Typography>
+          <form onSubmit={handlePasswordGateSubmit} className="flex flex-col gap-3">
+            <input
+              type="password"
+              value={passwordInput}
+              onChange={(e) => { setPasswordInput(e.target.value); setPasswordError(''); }}
+              placeholder="Gallery password"
+              autoComplete="off"
+              autoFocus
+              className="w-full rounded-md border border-zinc-300 px-4 py-3 text-center text-sm tracking-wide outline-none focus:border-zinc-900"
+            />
+            {passwordError ? (
+              <p className="text-xs font-semibold text-red-600">{passwordError}</p>
+            ) : null}
+            <button
+              type="submit"
+              disabled={passwordChecking}
+              className="w-full rounded-md bg-zinc-900 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.25em] text-white transition-opacity disabled:opacity-50"
+            >
+              {passwordChecking ? 'Checking…' : 'View gallery'}
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   if (collection.email_capture_enabled && !emailGatePassed) {
     return (
