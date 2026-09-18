@@ -29,8 +29,10 @@ export const customDomainService = {
     return invokeWorkersVerify({ action: 'disconnect', domain: 'none' });
   },
 
-  async recheck(profile) {
-    const domain = normalizeCustomDomain(profile?.custom_domain);
+  async recheck(profileOrDomain) {
+    const domain = normalizeCustomDomain(
+      typeof profileOrDomain === 'string' ? profileOrDomain : profileOrDomain?.custom_domain,
+    );
     if (!domain) throw new Error('No custom domain to verify.');
     return this.verifyAndConnect(domain);
   },

@@ -285,7 +285,7 @@ export default function StudioIdentityPanel({ profile, updateProfile }) {
                     Use your own domain instead. All modules move with it — one
                     certificate, one DNS record, every link.
                 </p>
-                <CustomDomainPanel profile={profile} updateProfile={updateProfile} compact />
+                <CustomDomainPanel profile={profile} compact />
             </section>
 
             <hr className="si-divider" />

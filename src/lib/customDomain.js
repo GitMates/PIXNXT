@@ -6,18 +6,6 @@ export function getGalleryCnameTarget() {
   ).replace(/\.$/, '').toLowerCase();
 }
 
-/**
- * Apex A-record IPs for root-domain setups (Vercel anycast).
- * Do not use Pixieset Cloudflare IPs (104.16.x.x) — those send traffic to Pixieset.
- */
-export function getGalleryApexIps() {
-  const raw = String(import.meta.env.VITE_GALLERY_APEX_IPS || '216.198.79.1');
-  return raw
-    .split(',')
-    .map((ip) => ip.trim())
-    .filter(Boolean);
-}
-
 export function getPlatformRootDomain() {
   const fromEnv = String(import.meta.env.VITE_PLATFORM_ROOT_DOMAIN || '').trim().toLowerCase();
   if (fromEnv) return fromEnv.replace(/^\.+/, '').replace(/\.$/, '');

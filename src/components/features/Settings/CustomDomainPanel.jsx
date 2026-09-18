@@ -3,10 +3,8 @@ import { Link } from 'react-router-dom';
 import {
   getDefaultGalleryHost,
   getDnsHostLabel,
-  getGalleryApexIps,
   getGalleryCnameTarget,
   isApexCustomDomain,
-  isCustomDomainVerified,
   isValidCustomDomain,
   normalizeCustomDomain,
 } from '../../../lib/customDomain';
@@ -43,28 +41,32 @@ function DnsTable({ rows }) {
   );
 }
 
-export function CustomDomainPanel({ profile, updateProfile, compact = false }) {
+export function CustomDomainPanel({ profile, compact = false }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalStep, setModalStep] = useState('instructions');
   const [domainDraft, setDomainDraft] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
-  const [showRootHelp, setShowRootHelp] = useState(false);
   const [showTrouble, setShowTrouble] = useState(false);
+  // Domain state changed by this panel (connect/recheck/remove) layered over
+  // the profile prop. Domain columns are server-managed via /v1/domains/verify,
+  // so the panel never PATCHes them through the generic profile endpoint.
+  const [domainState, setDomainState] = useState(null);
 
   const cnameTarget = getGalleryCnameTarget();
-  const apexIps = getGalleryApexIps();
   const defaultHost = getDefaultGalleryHost(profile);
-  const connectedDomain = normalizeCustomDomain(profile?.custom_domain);
-  const isVerified = isCustomDomainVerified(profile);
-  const isPending = profile?.custom_domain_status === 'pending' && connectedDomain;
+  const connectedDomain = normalizeCustomDomain(
+    domainState ? domainState.custom_domain : profile?.custom_domain,
+  );
+  const effectiveStatus = domainState ? domainState.custom_domain_status : profile?.custom_domain_status;
+  const isVerified = effectiveStatus === 'verified' && Boolean(connectedDomain);
+  const isPending = effectiveStatus === 'pending' && Boolean(connectedDomain);
 
   const previewDomain = normalizeCustomDomain(domainDraft || connectedDomain || 'gallery.yourdomain.com');
   const dnsHostLabel = useMemo(() => getDnsHostLabel(previewDomain), [previewDomain]);
-  const usingApex = isApexCustomDomain(previewDomain);
 
-  const subdomainRows = [
+  const instructionRows = [
     {
       type: 'CNAME',
       host: dnsHostLabel === '@' ? 'gallery' : dnsHostLabel,
@@ -73,19 +75,11 @@ export function CustomDomainPanel({ profile, updateProfile, compact = false }) {
     },
   ];
 
-  const rootRows = [
-    { type: 'CNAME', host: 'www', value: cnameTarget, ttl: '1 hour' },
-    ...apexIps.map((ip) => ({ type: 'A', host: '@', value: ip, ttl: '1 hour' })),
-  ];
-
-  const instructionRows = usingApex ? rootRows : subdomainRows;
-
   const openModal = () => {
     setDomainDraft(connectedDomain || '');
     setModalStep('instructions');
     setError('');
     setInfo('');
-    setShowRootHelp(false);
     setShowTrouble(false);
     setModalOpen(true);
   };
@@ -95,10 +89,29 @@ export function CustomDomainPanel({ profile, updateProfile, compact = false }) {
     setModalOpen(false);
   };
 
+  const applyResult = (result, fallbackDomain) => {
+    const domain = normalizeCustomDomain(result?.domain || fallbackDomain);
+    setDomainState({
+      custom_domain: domain || null,
+      custom_domain_status: result?.status || (result?.verified ? 'verified' : 'pending'),
+      custom_domain_verified_at: result?.verifiedAt || null,
+    });
+    if (result?.status === 'verified') {
+      setInfo(result?.message || 'Domain connected. SSL provisioning is automatic.');
+      return true;
+    }
+    setError(result?.message || 'DNS record not found yet. Try again after propagation.');
+    return false;
+  };
+
   const handleVerify = async () => {
     const normalized = normalizeCustomDomain(domainDraft);
     if (!isValidCustomDomain(normalized)) {
       setError('Enter a valid subdomain (e.g. gallery.yourdomain.com).');
+      return;
+    }
+    if (isApexCustomDomain(normalized)) {
+      setError('Root domains are not supported. Use a subdomain such as gallery.yourdomain.com.');
       return;
     }
 
@@ -106,18 +119,7 @@ export function CustomDomainPanel({ profile, updateProfile, compact = false }) {
       setBusy(true);
       setError('');
       const result = await customDomainService.verifyAndConnect(normalized);
-      await updateProfile({
-        custom_domain: result.domain || normalized,
-        custom_domain_status: result.status || (result.verified ? 'verified' : 'pending'),
-        custom_domain_verified_at: result.verifiedAt || null,
-      });
-
-      if (result.verified) {
-        setInfo('Domain connected successfully. SSL may take up to 24 hours to activate.');
-        setModalOpen(false);
-      } else {
-        setError(result.message || 'DNS record not found yet. Try again after propagation.');
-      }
+      if (applyResult(result, normalized)) setModalOpen(false);
     } catch (err) {
       setError(err?.message || 'Verification failed.');
     } finally {
@@ -129,17 +131,8 @@ export function CustomDomainPanel({ profile, updateProfile, compact = false }) {
     try {
       setBusy(true);
       setError('');
-      const result = await customDomainService.recheck(profile);
-      await updateProfile({
-        custom_domain: result.domain || connectedDomain,
-        custom_domain_status: result.status || (result.verified ? 'verified' : 'pending'),
-        custom_domain_verified_at: result.verifiedAt || null,
-      });
-      if (result.verified) {
-        setInfo('Domain verified successfully.');
-      } else {
-        setError(result.message || 'DNS not ready yet.');
-      }
+      const result = await customDomainService.recheck(connectedDomain);
+      applyResult(result, connectedDomain);
     } catch (err) {
       setError(err?.message || 'Verification failed.');
     } finally {
@@ -152,7 +145,7 @@ export function CustomDomainPanel({ profile, updateProfile, compact = false }) {
     try {
       setBusy(true);
       await customDomainService.disconnect();
-      await updateProfile({
+      setDomainState({
         custom_domain: null,
         custom_domain_status: 'none',
         custom_domain_verified_at: null,
@@ -166,7 +159,7 @@ export function CustomDomainPanel({ profile, updateProfile, compact = false }) {
   };
 
   const fieldValue = connectedDomain || '';
-  const fieldPlaceholder = 'www.yourdomain.com';
+  const fieldPlaceholder = 'gallery.yourdomain.com';
 
   return (
     <>
@@ -345,8 +338,8 @@ export function CustomDomainPanel({ profile, updateProfile, compact = false }) {
                     transferring the domain.
                   </li>
                   <li>
-                    We recommend a subdomain (e.g. <code>gallery.yourdomain.com</code>) so your main website
-                    is not affected.
+                    Use a subdomain (e.g. <code>gallery.yourdomain.com</code>). Root domains such as{' '}
+                    <code>yourdomain.com</code> are not supported.
                   </li>
                 </ul>
 
@@ -367,26 +360,9 @@ export function CustomDomainPanel({ profile, updateProfile, compact = false }) {
                   save. SSL will generate automatically (usually minutes, up to 24 hours).
                 </p>
                 <p className="set-help-text">
-                  If you use Cloudflare, set the record to <strong>DNS only</strong> (grey cloud), not
-                  proxied.
+                  If you use Cloudflare for this domain, set the record to <strong>DNS only</strong> (grey
+                  cloud), not proxied.
                 </p>
-
-                <button
-                  type="button"
-                  className="set-domain-disclosure"
-                  onClick={() => setShowRootHelp((open) => !open)}
-                >
-                  {showRootHelp ? 'Hide' : 'I want to use my root domain instead of a subdomain'}
-                </button>
-                {showRootHelp && (
-                  <div className="set-domain-disclosure-body">
-                    <p className="set-help-text">
-                      For a root domain (e.g. yourdomain.com), add a www CNAME and an A record for @. If you
-                      cannot enter @, leave the host blank or enter your domain name.
-                    </p>
-                    <DnsTable rows={rootRows} />
-                  </div>
-                )}
 
                 <button
                   type="button"
@@ -397,6 +373,11 @@ export function CustomDomainPanel({ profile, updateProfile, compact = false }) {
                 </button>
                 {showTrouble && (
                   <div className="set-domain-disclosure-body">
+                    <p className="set-help-text">
+                      <strong>I want my root domain (yourdomain.com).</strong> Root domains are not
+                      supported. Connect a subdomain such as <code>gallery.yourdomain.com</code> or{' '}
+                      <code>www.yourdomain.com</code> instead.
+                    </p>
                     <p className="set-help-text">
                       <strong>I can&apos;t update DNS records.</strong> Delete any domain forwarding /
                       redirects first. Parked domains must be activated with your provider.
@@ -439,17 +420,16 @@ export function CustomDomainPanel({ profile, updateProfile, compact = false }) {
                   />
                 </div>
                 <p className="set-help-text">
-                  Enter the hostname you created in DNS, then verify. We recommend a subdomain so your main
-                  website is not affected.
+                  Enter the hostname you created in DNS, then verify. Root domains are not supported — use a
+                  subdomain such as gallery.yourdomain.com.
                 </p>
 
                 {domainDraft && (
                   <>
                     <DnsTable rows={instructionRows} />
-                    {usingApex && (
-                      <p className="set-help-text">
-                        Root domain detected. Make sure the A record for @ and the www CNAME are both in
-                        place.
+                    {isApexCustomDomain(normalizeCustomDomain(domainDraft)) && (
+                      <p className="set-domain-error">
+                        Root domains are not supported. Use a subdomain such as gallery.yourdomain.com.
                       </p>
                     )}
                   </>
