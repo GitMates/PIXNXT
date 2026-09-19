@@ -266,6 +266,7 @@ export default function AlbumCoverEditView({
     const panelWidths = useMemo(() => {
         if (!dims) return null;
         const total = dims.width;
+        const minPanel = Math.max(48, Math.round(total * 0.12));
         if (!spineVisible) {
             const back = Math.floor(total / 2);
             return { back, spine: 0, front: total - back, gapBeforeSpine: 0, gapAfterSpine: 0 };
@@ -277,32 +278,56 @@ export default function AlbumCoverEditView({
                 spineLayout.defaultSpineStartFraction;
             const coverEnd =
                 spineLayout.coverSpineEndFraction ?? spineLayout.defaultSpineEndFraction;
-            const back = Math.round(total * coverStart);
-            const front = Math.round(total * (1 - coverEnd));
-            const spine = Math.round(total * spineLayout.spineFraction);
-            const gapBeforeSpine = Math.round(
+            let back = Math.round(total * coverStart);
+            let front = Math.round(total * (1 - coverEnd));
+            let spine = Math.round(total * spineLayout.spineFraction);
+            let gapBeforeSpine = Math.round(
                 total * Math.max(0, spineLayout.spineStartFraction - coverStart)
             );
-            const gapAfterSpine = Math.round(
+            let gapAfterSpine = Math.round(
                 total * Math.max(0, coverEnd - spineLayout.spineEndFraction)
             );
+            // Keep back/front usable — collapsed panels blank the Front/Back canvas.
+            if (back < minPanel) {
+                const need = minPanel - back;
+                back = minPanel;
+                if (gapBeforeSpine >= need) gapBeforeSpine -= need;
+                else if (spine > need) spine -= need;
+            }
+            if (front < minPanel) {
+                const need = minPanel - front;
+                front = minPanel;
+                if (gapAfterSpine >= need) gapAfterSpine -= need;
+                else if (spine > need) spine -= need;
+            }
             const used = back + front + spine + gapBeforeSpine + gapAfterSpine;
             const remainder = total - used;
             return {
                 back,
                 spine,
-                front: front + remainder,
+                front: Math.max(minPanel, front + remainder),
                 gapBeforeSpine,
                 gapAfterSpine,
             };
         }
 
-        const back = Math.round(total * spineLayout.spineStartFraction);
-        const spine = Math.round(total * spineLayout.spineFraction);
+        let back = Math.round(total * spineLayout.spineStartFraction);
+        let spine = Math.round(total * spineLayout.spineFraction);
+        let front = total - back - spine;
+        if (back < minPanel) {
+            spine = Math.max(0, spine - (minPanel - back));
+            back = minPanel;
+            front = total - back - spine;
+        }
+        if (front < minPanel) {
+            spine = Math.max(0, spine - (minPanel - front));
+            front = minPanel;
+            back = total - front - spine;
+        }
         return {
             back,
             spine,
-            front: total - back - spine,
+            front,
             gapBeforeSpine: 0,
             gapAfterSpine: 0,
         };

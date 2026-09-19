@@ -1029,10 +1029,9 @@ export function resolveCoverImageSrc(album, { showSamples = false } = {}) {
     if (blankCovers) {
         return null;
     }
-    // Last resort (fresh origins with thin snapshots): the album row's own cover
-    // columns, same fallback AlbumListCoverThumb / AlbumSpreadPage already use.
-    const fromRow = album?.cover_image_url || album?.preview_cover_url || null;
-    if (fromRow) return fromRow;
+    // Do not fall back to album.cover_image_url / preview_cover_url — those are
+    // list/marketing thumbs and desync the leather cover canvas from the filmstrip
+    // COVER tile (canvas shows leather/title, filmstrip shows a random photo).
     return showSamples ? getSampleImageForPage(0) : null;
 }
 

@@ -2290,40 +2290,20 @@ const AlbumBook = ({
                                 <rect x="16" y="16" width="8" height="8" rx="1.2" stroke="currentColor" strokeWidth="1.8" />
                             </svg>
                         </button>
-                        {spreadIndex > 0 && (
+                        {spreadOpts.hasCovers &&
+                            isEndHalfSpreadIndex(spreadIndex, totalPages, spreadOpts) && (
                             <button
                                 type="button"
-                                className="ab-control-icon ab-control-icon--button"
-                                aria-label={
-                                    spreadOpts.hasCovers
-                                        ? 'Back to front cover'
-                                        : 'Back to first spread'
-                                }
-                                title={
-                                    spreadOpts.hasCovers
-                                        ? 'Back to front cover'
-                                        : 'Back to first spread'
-                                }
+                                className="ab-control-text-btn"
+                                aria-label="Back to front cover"
+                                title="Back to front cover"
                                 onClick={() =>
                                     goToPage(
                                         spreadIndexToPage(0, { ...spreadOpts, totalPages })
                                     )
                                 }
                             >
-                                <svg width="18" height="18" viewBox="0 0 28 28" fill="none" aria-hidden>
-                                    <path
-                                        d="M7 5v18"
-                                        stroke="currentColor"
-                                        strokeWidth="2.2"
-                                        strokeLinecap="round"
-                                    />
-                                    <path
-                                        d="M21 6.5v15L11 14l10-7.5z"
-                                        stroke="currentColor"
-                                        strokeWidth="1.8"
-                                        strokeLinejoin="round"
-                                    />
-                                </svg>
+                                Back to front cover
                             </button>
                         )}
                     </div>

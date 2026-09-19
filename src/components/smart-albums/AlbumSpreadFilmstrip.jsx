@@ -158,6 +158,10 @@ export function FilmstripThumb({ visual, album, wrapLayout = null, coverTransfor
 
     if (isCover || isEndSpread) {
         const src = coverSrc;
+        // Leather / blank covers must match the main canvas — never prefer a stale wrap thumb.
+        if (useLeather || (albumHasBlankCovers(album) && !src)) {
+            return <OverviewLeatherCover album={album} showTitle={isCover} />;
+        }
         if (src && wrapLayout) {
             return (
                 <span className="ae-spread-filmstrip__thumb--cover-wrap">
@@ -181,9 +185,6 @@ export function FilmstripThumb({ visual, album, wrapLayout = null, coverTransfor
                     <img src={src} alt="" draggable={false} />
                 </span>
             );
-        }
-        if (useLeather || albumHasBlankCovers(album)) {
-            return <OverviewLeatherCover album={album} showTitle={isCover} />;
         }
         return <span className="ae-spread-filmstrip__ph" />;
     }

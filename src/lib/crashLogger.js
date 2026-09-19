@@ -178,17 +178,14 @@ function buildWhoFields(extra = {}) {
   }
 
   // Prefer studio account email for "Who" (admin question: whose account).
-  // Fall back to visitor email, then a readable public label.
+  // Never invent visitor@gallery placeholders — leave unknown so admin can resolve by photographerId.
   let accountEmail = studioEmail || visitorEmail || '';
-  if (!accountEmail && gallerySlug) {
-    accountEmail = `visitor@gallery:${gallerySlug}`;
-  }
   if (!accountEmail) accountEmail = 'unknown';
 
   const whoLabelParts = [];
   if (studioName) whoLabelParts.push(studioName);
   if (studioEmail) whoLabelParts.push(studioEmail);
-  else if (visitorEmail) whoLabelParts.push(`visitor ${visitorEmail}`);
+  else if (visitorEmail) whoLabelParts.push(visitorEmail);
   else if (gallerySlug) whoLabelParts.push(`gallery /${gallerySlug}`);
   const whoLabel = whoLabelParts.join(' · ').slice(0, 160) || accountEmail;
 

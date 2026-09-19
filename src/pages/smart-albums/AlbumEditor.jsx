@@ -15,7 +15,8 @@ import { AlbumPreviewLinkModal } from '../../components/smart-albums/AlbumShareM
 import AlbumSharePublishMenu, {
     AlbumPublishStatusBadge,
 } from '../../components/smart-albums/AlbumSharePublishMenu';
-import { openClientAlbumPreview } from '../../lib/shareSmartAlbum';
+import { openClientAlbumPreview, getSmartAlbumPreviewPath } from '../../lib/shareSmartAlbum';
+import { openSpaPath } from '../../lib/spaNavigation';
 import { galleryService } from '../../services/gallery.service';
 import {
     addFilesToAlbumCollection,
@@ -2690,17 +2691,15 @@ export default function AlbumEditor({
                     <button
                         type="button"
                         className="ae-btn-toolbar ae-btn-toolbar--inset ae-btn-preview"
-                        disabled={shareMode === 'paused'}
                         title={
                             shareMode === 'paused'
-                                ? 'Resume client access to open preview'
+                                ? 'Client link is paused — opens your studio preview'
                                 : undefined
                         }
                         onClick={() => {
                             if (shareMode === 'paused') {
-                                showToast('Client access is paused. Resume access to preview.', {
-                                    duration: 3500,
-                                });
+                                // Photographer can still preview while client access is paused.
+                                openSpaPath(getSmartAlbumPreviewPath(album?.id, bookPage));
                                 return;
                             }
                             openClientAlbumPreview(album, {

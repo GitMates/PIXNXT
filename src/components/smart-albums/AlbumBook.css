@@ -1506,6 +1506,32 @@
   gap: 4px;
 }
 
+.ab-control-text-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: #3c3c3b;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  padding: 6px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.ab-control-text-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: #1a1a1a;
+}
+
+.ab-control-text-btn:focus-visible {
+  outline: 2px solid #1a1a1a;
+  outline-offset: 1px;
+}
+
 .ab-need-action {
   display: inline-flex;
   align-items: center;

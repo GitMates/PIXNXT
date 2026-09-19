@@ -177,7 +177,7 @@ export default function PhotographerAlbumPreview() {
         );
     }
 
-    if (accessPaused) {
+    if (accessPaused && !isOwner) {
         return (
             <div className="av-page av-page--preview av-access-gate">
                 <div className="av-access-gate__card av-access-gate__card--center">

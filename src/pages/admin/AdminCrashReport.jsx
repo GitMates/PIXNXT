@@ -15,6 +15,7 @@ import {
   AdminBarList,
   AdminModal,
 } from '../../components/admin/AdminUi';
+import { apiFetch } from '../../lib/api/client';
 
 const WORKER_URL = (import.meta.env.VITE_CRASH_WORKER_URL || '').replace(/\/+$/, '');
 const QUERY_TOKEN = (import.meta.env.VITE_CRASH_QUERY_TOKEN || '').trim();
@@ -24,7 +25,20 @@ function gallerySlugFromRoute(route = '') {
   return m ? decodeURIComponent(m[1]) : '';
 }
 
-/** Human “Who” = studio account when known; else gallery context for public crashes. */
+function isPlaceholderEmail(email = '') {
+  const e = String(email).trim();
+  return !e || e === 'unknown' || /^visitor@gallery:/i.test(e) || !e.includes('@');
+}
+
+function extractEmail(text = '') {
+  const m = String(text).match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+  return m ? m[0] : '';
+}
+
+/**
+ * Who column = account email id only.
+ * Secondary line may show studio name / gallery for context.
+ */
 export function formatWho(row = {}) {
   const email = String(row.accountEmail || '').trim();
   const label = String(row.whoLabel || '').trim();
@@ -32,43 +46,50 @@ export function formatWho(row = {}) {
   const slug = String(row.gallerySlug || gallerySlugFromRoute(row.route) || '').trim();
   const visitor = String(row.visitorEmail || '').trim();
   const pid = String(row.photographerId || '').trim();
+  const resolved = String(row.resolvedEmail || '').trim();
 
-  const isPlaceholder = !email || email === 'unknown' || /^visitor@gallery:/i.test(email);
+  const fromLabel = extractEmail(label);
+  const primaryEmail =
+    (!isPlaceholderEmail(email) ? email : '')
+    || (!isPlaceholderEmail(resolved) ? resolved : '')
+    || (!isPlaceholderEmail(fromLabel) ? fromLabel : '')
+    || (!isPlaceholderEmail(visitor) ? visitor : '');
 
-  if (!isPlaceholder && studio) {
-    return { primary: email, secondary: studio, kind: row.whoKind || 'studio' };
+  const secondaryParts = [];
+  if (studio && (!primaryEmail || studio.toLowerCase() !== primaryEmail.toLowerCase())) {
+    secondaryParts.push(studio);
   }
-  if (!isPlaceholder) {
+  if (slug) secondaryParts.push(`Gallery /${slug}`);
+  else if (!primaryEmail && pid && pid !== 'unknown') secondaryParts.push(`ID ${pid.slice(0, 8)}…`);
+
+  if (primaryEmail) {
     return {
-      primary: email,
-      secondary: slug ? `Gallery /${slug}` : (pid && pid !== 'unknown' ? `ID ${pid.slice(0, 8)}…` : ''),
-      kind: row.whoKind || 'studio',
+      primary: primaryEmail,
+      secondary: secondaryParts.join(' · '),
+      kind: row.whoKind || (visitor && primaryEmail === visitor ? 'visitor' : 'studio'),
     };
   }
-  if (label && !/^unknown$/i.test(label)) {
-    return { primary: label, secondary: slug ? `/${slug}` : '', kind: row.whoKind || 'public' };
-  }
-  if (studio) {
-    return { primary: studio, secondary: slug ? `Gallery /${slug}` : 'Public gallery', kind: 'public' };
-  }
-  if (slug) {
-    return {
-      primary: `Public visitor`,
-      secondary: `Gallery /${slug}${visitor ? ` · ${visitor}` : ''}`,
-      kind: 'public',
-    };
-  }
-  if (visitor) {
-    return { primary: visitor, secondary: 'Visitor (no studio email)', kind: 'visitor' };
-  }
-  return { primary: 'Unknown account', secondary: 'No studio / visitor stamped yet', kind: 'unknown' };
+
+  return {
+    primary: 'No email',
+    secondary: secondaryParts.join(' · ') || 'Studio email not linked yet',
+    kind: 'unknown',
+  };
 }
 
-function enrichRow(r) {
+function enrichRow(r, maps = { byPhotographerId: {}, byGallerySlug: {} }) {
   const no = Number(r.crashNo);
   const ref = crashByNo(no);
   const known = ref.name && ref.name !== 'Unknown crash';
   const slug = r.gallerySlug || gallerySlugFromRoute(r.route);
+  const pid = String(r.photographerId || '').trim();
+  const slugKey = String(slug || '').trim().toLowerCase();
+  const byId = maps.byPhotographerId || {};
+  const bySlug = maps.byGallerySlug || {};
+  const resolvedEmail =
+    (pid && pid !== 'unknown' && byId[pid])
+    || (slugKey && bySlug[slugKey])
+    || '';
   const row = {
     ...r,
     crashNo: no,
@@ -80,6 +101,9 @@ function enrichRow(r) {
     section: ref.section,
     sectionTitle: ref.sectionTitle,
     gallerySlug: slug,
+    resolvedEmail,
+    // Prefer resolved studio email over visitor@gallery placeholders in the raw field too.
+    accountEmail: !isPlaceholderEmail(r.accountEmail) ? r.accountEmail : (resolvedEmail || r.accountEmail),
   };
   const who = formatWho(row);
   return { ...row, whoPrimary: who.primary, whoSecondary: who.secondary, whoKind: who.kind };
@@ -236,7 +260,31 @@ export default function AdminCrashReport() {
         if (next == null) throw new Error(`Query failed (${res.status})`);
       }
 
-      setRows(next.map(enrichRow));
+      setRows(next.map((r) => enrichRow(r)));
+
+      // Resolve studio account emails by photographerId and/or gallery slug.
+      try {
+        const whoRes = await apiFetch('/v1/admin/who-emails');
+        const maps = {
+          byPhotographerId: whoRes?.byPhotographerId || {},
+          byGallerySlug: whoRes?.byGallerySlug || {},
+        };
+        if (Object.keys(maps.byPhotographerId).length || Object.keys(maps.byGallerySlug).length) {
+          setRows(next.map((r) => enrichRow(r, maps)));
+        }
+      } catch {
+        // Fallback: roster-only id→email map
+        try {
+          const listRes = await apiFetch('/v1/admin/photographers?limit=500');
+          const byPhotographerId = {};
+          for (const p of listRes?.photographers || []) {
+            if (p?.id && p?.email) byPhotographerId[String(p.id)] = String(p.email);
+          }
+          if (Object.keys(byPhotographerId).length) {
+            setRows(next.map((r) => enrichRow(r, { byPhotographerId, byGallerySlug: {} })));
+          }
+        } catch { /* Who still shows stamped email when present */ }
+      }
     } catch (e) {
       const msg = e.message || 'Failed to load';
       if (e.status === 401 || /unauthorized/i.test(msg)) {
@@ -269,7 +317,7 @@ export default function AdminCrashReport() {
       byNo[n] = (byNo[n] || 0) + 1;
       const whoKey = r.whoPrimary || 'Unknown account';
       byWho[whoKey] = (byWho[whoKey] || 0) + 1;
-      if (r.whoKind === 'unknown' || whoKey === 'Unknown account') unknownAccounts += 1;
+      if (r.whoKind === 'unknown' || !/@/.test(whoKey)) unknownAccounts += 1;
       else knownAccounts += 1;
       const page = getCrashGuidance(n, { route: r.route }).whichPage;
       byPage[page] = (byPage[page] || 0) + 1;
@@ -300,20 +348,6 @@ export default function AdminCrashReport() {
         .includes(qq);
     });
   }, [catalogCategory, catalogSection, catalogQ]);
-
-  const catalogViz = useMemo(() => {
-    const byCat = {};
-    const bySec = {};
-    for (const c of catalogRows) {
-      byCat[c.category] = (byCat[c.category] || 0) + 1;
-      const sec = c.sectionTitle || `§${c.section}`;
-      bySec[sec] = (bySec[sec] || 0) + 1;
-    }
-    const toItems = (obj) => Object.entries(obj)
-      .map(([key, count]) => ({ key, count, label: key }))
-      .sort((a, b) => b.count - a.count);
-    return { byCat: toItems(byCat), bySec: toItems(bySec) };
-  }, [catalogRows]);
 
   const openFix = (no, live = null) => setModal({ no: Number(no), live });
 
@@ -448,7 +482,7 @@ export default function AdminCrashReport() {
             <table className="w-full text-sm min-w-[980px]">
               <thead>
                 <tr className="text-left text-gray-500 border-b border-[#eae8e4] bg-[#faf9f7]">
-                  {['When', 'Who (account)', 'Crash', 'Where', ''].map((h) => (
+                  {['When', 'Who (email)', 'Crash', 'Where', ''].map((h) => (
                     <th key={h || 'a'} className="px-4 py-3 font-medium">{h}</th>
                   ))}
                 </tr>
@@ -460,8 +494,17 @@ export default function AdminCrashReport() {
                       {r.timestamp ? new Date(r.timestamp).toLocaleString() : '—'}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="font-medium text-gray-900">{r.whoPrimary}</div>
-                      {r.whoSecondary && <div className="text-xs text-gray-500 mt-0.5">{r.whoSecondary}</div>}
+                      <div
+                        className={`font-medium truncate max-w-[240px] ${/@/.test(r.whoPrimary || '') ? 'text-gray-900' : 'text-amber-700'}`}
+                        title={r.whoPrimary}
+                      >
+                        {r.whoPrimary}
+                      </div>
+                      {r.whoSecondary && (
+                        <div className="text-xs text-gray-500 mt-0.5 truncate max-w-[240px]" title={r.whoSecondary}>
+                          {r.whoSecondary}
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-baseline gap-2">
@@ -499,31 +542,6 @@ export default function AdminCrashReport() {
 
       {tab === 'catalog' && (
         <>
-          <div className="grid lg:grid-cols-2 gap-4">
-            <AdminPanel
-              title="Types by category"
-              action={<span className="text-xs text-gray-500">{catalogRows.length} shown</span>}
-            >
-              <AdminBarList
-                items={catalogViz.byCat}
-                max={12}
-                empty="No types match filters."
-                onSelect={(item) => setCatalogCategory(item.key)}
-              />
-            </AdminPanel>
-            <AdminPanel title="Types by document area">
-              <AdminBarList
-                items={catalogViz.bySec}
-                max={12}
-                empty="No types match filters."
-                onSelect={(item) => {
-                  const sec = CRASH_SECTIONS.find((s) => s.title === item.key);
-                  if (sec) setCatalogSection(String(sec.num));
-                }}
-              />
-            </AdminPanel>
-          </div>
-
           <div className="rounded-2xl border border-[#eae8e4] bg-white p-4 flex flex-wrap gap-3 items-end">
             <label className="text-sm text-gray-600">Area
               <select
@@ -602,26 +620,6 @@ export default function AdminCrashReport() {
 
       {tab === 'sections' && (
         <>
-          <AdminPanel title="Master Report coverage">
-            <p className="text-xs text-gray-500 mb-4">
-              {CRASH_TOTAL} crash types across {CRASH_SECTIONS.length} areas — bar size = how many types in that area.
-            </p>
-            <AdminBarList
-              items={CRASH_SECTIONS.map((s) => ({
-                key: String(s.num),
-                count: s.count,
-                label: `§${s.num} ${s.title}`,
-              }))}
-              max={CRASH_SECTIONS.length}
-              onSelect={(item) => {
-                setCatalogSection(item.key);
-                setCatalogCategory('');
-                setCatalogQ('');
-                setTab('catalog');
-              }}
-            />
-          </AdminPanel>
-
           <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
             {CRASH_SECTIONS.map((s) => {
               const peak = Math.max(1, ...CRASH_SECTIONS.map((x) => x.count));
