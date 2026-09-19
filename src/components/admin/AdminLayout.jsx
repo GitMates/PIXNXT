@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Users, LogOut, ChevronDown, User, Shield, AlertTriangle, Layers, Gauge } from 'lucide-react';
+import { LayoutDashboard, Users, LogOut, ChevronDown, AlertTriangle, Layers, Gauge } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { signOut } from '../../services/auth.service';
 import { getUserDisplayLabel, getUserInitial } from '../../lib/userInitials';
@@ -15,7 +15,6 @@ const AdminLayout = () => {
   const userDisplayLabel = getUserDisplayLabel(user);
 
   const handleLogout = async () => {
-    // auth.service signOut goes to the Workers backend.
     await signOut();
     navigate('/admin/login');
   };
@@ -27,9 +26,7 @@ const AdminLayout = () => {
       }
     };
     const handleEscape = (e) => {
-      if (e.key === 'Escape') {
-        setShowProfileDropdown(false);
-      }
+      if (e.key === 'Escape') setShowProfileDropdown(false);
     };
     document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('keydown', handleEscape);
@@ -47,66 +44,22 @@ const AdminLayout = () => {
     { name: 'Crash Report', path: '/admin/crashes', icon: AlertTriangle },
   ];
 
-  const renderProfileDropdown = () => (
-    <div className="absolute bottom-full left-0 mb-2 w-[280px] rounded-2xl bg-white shadow-xl shadow-black/10 z-[500] py-1 border border-[#ECEAE6] animate-[cgFadeIn_0.15s_ease]">
-      <div className="px-5 py-4 border-b border-[#eeeeee] flex items-center gap-3">
-        <div className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-medium bg-[#1A1A1A] text-white">
-          {userInitial}
-        </div>
-        <div className="flex flex-col min-w-0">
-          <div className="text-base font-medium text-[#1A1A1A] truncate">{userDisplayLabel}</div>
-          <div className="text-sm text-[#71717A] truncate">{user?.email}</div>
-        </div>
-      </div>
-
-      <div
-        className="px-5 py-3 text-base text-[#444] cursor-pointer hover:bg-[#f9f9f9] flex items-center gap-3.5"
-        onClick={() => {
-          navigate('/admin/users');
-          setShowProfileDropdown(false);
-        }}
-      >
-        <Users className="w-[18px] h-[18px] text-gray-500" />
-        User Management
-      </div>
-
-      <div
-        className="px-5 py-3 text-base text-[#444] cursor-pointer hover:bg-[#f9f9f9] flex items-center gap-3.5 mb-1 border-t border-[#eeeeee] mt-1"
-        onClick={async () => {
-          try {
-            await handleLogout();
-            setShowProfileDropdown(false);
-          } catch (err) {
-            console.error('Logout failed', err);
-          }
-        }}
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-          <polyline points="16 17 21 12 16 7" />
-          <line x1="21" y1="12" x2="9" y2="12" />
-        </svg>
-        Log Out
-      </div>
-    </div>
-  );
-
   return (
-    <div className="flex h-screen bg-[#f8f7f4] text-[#3c3c3b] font-inter overflow-hidden">
-      {/* Sidebar / Drawer */}
-      <aside className="w-64 bg-[#f9f8f5] border-r border-[#eae8e4] flex flex-col hidden md:flex">
-        {/* Logo Area */}
-        <div className="h-16 flex items-center px-6 border-b border-[#eae8e4]/80">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-[#1a1a1a] rounded-lg flex items-center justify-center">
-              <img src="/Logo_Final-01.png" alt="Pixnxt" className="w-5 h-5 object-contain invert" />
+    <div className="flex h-screen bg-[#f4f2ee] text-[#3c3c3b] overflow-hidden">
+      <aside className="w-60 bg-[#141414] text-white flex flex-col hidden md:flex shrink-0">
+        <div className="h-16 flex items-center px-5 border-b border-white/10">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center shrink-0">
+              <img src="/Logo_Final-01.png" alt="Pixnxt" className="w-5 h-5 object-contain" />
             </div>
-            <span className="font-bold text-lg text-gray-900 tracking-tight font-serif uppercase">PIXNXT Admin</span>
+            <div className="min-w-0">
+              <p className="font-serif font-bold text-[13px] tracking-wide uppercase truncate">PIXNXT</p>
+              <p className="text-[10px] text-white/50 uppercase tracking-wider">Admin</p>
+            </div>
           </div>
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 py-6 px-4 space-y-1 overflow-y-auto">
+        <nav className="flex-1 py-5 px-3 space-y-0.5 overflow-y-auto">
           {navItems.map((item) => (
             <NavLink
               key={item.name}
@@ -114,54 +67,80 @@ const AdminLayout = () => {
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
                   isActive
-                    ? 'bg-[#1a1a1a] text-white shadow-md'
-                    : 'text-[#71717a] hover:bg-[#eae8e4]/40 hover:text-gray-900'
+                    ? 'bg-white text-[#141414] shadow-sm'
+                    : 'text-white/65 hover:bg-white/8 hover:text-white'
                 }`
               }
             >
-              <item.icon className="w-5 h-5" />
+              <item.icon className="w-[18px] h-[18px] shrink-0" />
               {item.name}
             </NavLink>
           ))}
         </nav>
 
-        {/* User / Logout Dropdown Trigger Area */}
-        <div className="p-4 border-t border-[#eae8e4]/80">
+        <div className="p-3 border-t border-white/10">
           <div className="relative" ref={profileDropdownRef}>
             <button
               type="button"
               onClick={() => setShowProfileDropdown((v) => !v)}
-              className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors hover:bg-[#1A1A1A]/5"
+              className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors hover:bg-white/8"
             >
-              <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-[#1A1A1A] text-sm font-semibold text-white">
+              <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-white text-sm font-semibold text-[#141414]">
                 {userInitial}
               </span>
-              <span className="min-w-0 flex-1 truncate text-sm font-medium text-[#1A1A1A]">{userDisplayLabel}</span>
-              <ChevronDown className={`size-4 text-gray-500 transition-transform ${showProfileDropdown ? 'rotate-180' : ''}`} />
+              <span className="min-w-0 flex-1 truncate text-sm font-medium text-white/90">{userDisplayLabel}</span>
+              <ChevronDown className={`size-4 text-white/40 transition-transform ${showProfileDropdown ? 'rotate-180' : ''}`} />
             </button>
-            {showProfileDropdown && renderProfileDropdown()}
+            {showProfileDropdown && (
+              <div className="absolute bottom-full left-0 mb-2 w-[260px] rounded-2xl bg-white shadow-xl shadow-black/20 z-[500] py-1 border border-[#ECEAE6]">
+                <div className="px-4 py-3 border-b border-[#eeeeee]">
+                  <p className="text-sm font-medium text-[#1A1A1A] truncate">{userDisplayLabel}</p>
+                  <p className="text-xs text-[#71717A] truncate">{user?.email}</p>
+                </div>
+                <button
+                  type="button"
+                  className="w-full px-4 py-3 text-sm text-left text-[#444] hover:bg-[#f9f9f9] flex items-center gap-3"
+                  onClick={() => { navigate('/admin/users'); setShowProfileDropdown(false); }}
+                >
+                  <Users className="w-4 h-4 text-gray-500" />
+                  User Management
+                </button>
+                <button
+                  type="button"
+                  className="w-full px-4 py-3 text-sm text-left text-[#444] hover:bg-[#f9f9f9] flex items-center gap-3 border-t border-[#eeeeee]"
+                  onClick={async () => {
+                    try {
+                      await handleLogout();
+                      setShowProfileDropdown(false);
+                    } catch (err) {
+                      console.error('Logout failed', err);
+                    }
+                  }}
+                >
+                  <LogOut className="w-4 h-4 text-gray-500" />
+                  Log out
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </aside>
 
-      {/* Main Content Area */}
-      <main className="flex-1 flex flex-col h-full overflow-hidden relative">
-        {/* Mobile Header (visible only on small screens) */}
-        <header className="md:hidden h-16 bg-[#f9f8f5] border-b border-[#eae8e4] flex items-center justify-between px-4 shadow-sm z-10">
+      <main className="flex-1 flex flex-col h-full overflow-hidden relative min-w-0">
+        <header className="md:hidden h-14 bg-[#141414] text-white flex items-center justify-between px-4 z-10">
           <div className="flex items-center gap-2">
-             <div className="w-8 h-8 bg-[#1a1a1a] rounded-lg flex items-center justify-center">
-              <img src="/Logo_Final-01.png" alt="Pixnxt" className="w-5 h-5 object-contain invert" />
+            <div className="w-7 h-7 bg-white rounded-lg flex items-center justify-center">
+              <img src="/Logo_Final-01.png" alt="Pixnxt" className="w-4 h-4 object-contain" />
             </div>
-            <span className="font-bold text-gray-900 font-serif uppercase">Admin</span>
+            <span className="font-serif font-bold text-sm uppercase tracking-wide">Admin</span>
           </div>
-          <button onClick={handleLogout} className="p-2 text-red-600 rounded-lg bg-red-50">
+          <button type="button" onClick={handleLogout} className="p-2 text-white/80 rounded-lg hover:bg-white/10">
             <LogOut className="w-5 h-5" />
           </button>
         </header>
 
-        {/* Page Content */}
-        <div className="flex-1 overflow-auto p-4 md:p-8">
-          <div className="max-w-6xl mx-auto">
+        <div className="flex-1 overflow-auto">
+          <div className="max-w-6xl mx-auto p-4 md:p-8">
             <Outlet />
           </div>
         </div>

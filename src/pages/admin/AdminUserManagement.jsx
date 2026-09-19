@@ -7,6 +7,14 @@ import {
   onPhotographerLimitsBroadcast,
   subscribeAllPhotographers,
 } from '../../lib/photographerLiveSync';
+import {
+  AdminModal,
+  AdminModalActions,
+  AdminPageHeader,
+  AdminPanel,
+  AdminBarList,
+  AdminStatCard,
+} from '../../components/admin/AdminUi';
 
 function formatBytes(bytes) {
   if (!bytes || bytes <= 0) return '0 MB';
@@ -219,14 +227,91 @@ const AdminUserManagement = () => {
 
   return (
     <div className="space-y-6 relative">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-[#1a1a1a] tracking-tight font-serif uppercase">User Management</h1>
-          <p className="text-gray-500 mt-1 text-sm">Manage administrators and platform users.</p>
-        </div>
+      <AdminPageHeader
+        title="User Management"
+        subtitle="Photographers, login activity, and account status."
+        actions={(
+          <button
+            type="button"
+            onClick={exportCsv}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-[#eae8e4] bg-white text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            <Download className="w-4 h-4" />
+            Export CSV
+          </button>
+        )}
+      />
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <AdminStatCard label="Photographers" value={loading ? '—' : users.length.toLocaleString()} loading={loading} />
+        <AdminStatCard
+          label="Active"
+          value={loading ? '—' : users.filter((u) => !u.isDisabled).length.toLocaleString()}
+          loading={loading}
+          tone="ok"
+          meter={users.length ? (users.filter((u) => !u.isDisabled).length / users.length) * 100 : 0}
+        />
+        <AdminStatCard
+          label="Disabled"
+          value={loading ? '—' : users.filter((u) => u.isDisabled).length.toLocaleString()}
+          loading={loading}
+          tone={users.some((u) => u.isDisabled) ? 'danger' : undefined}
+        />
+        <AdminStatCard
+          label="Never logged in"
+          value={loading ? '—' : users.filter((u) => !u.lastLoginAt).length.toLocaleString()}
+          loading={loading}
+          tone="warn"
+        />
       </div>
 
-      <div className="bg-[#fdfdfc] p-4 rounded-2xl shadow-sm border border-[#eae8e4] space-y-3">
+      {!loading && users.length > 0 && (
+        <div className="grid lg:grid-cols-2 gap-4">
+          <AdminPanel title="Account status">
+            <AdminBarList
+              items={[
+                { key: 'active', label: 'Active', count: users.filter((u) => !u.isDisabled).length },
+                { key: 'disabled', label: 'Disabled', count: users.filter((u) => u.isDisabled).length },
+                { key: 'never', label: 'Never logged in', count: users.filter((u) => !u.lastLoginAt).length },
+                {
+                  key: 'inactive',
+                  label: `Inactive ${INACTIVE_AFTER_DAYS}+ days`,
+                  count: users.filter((u) => {
+                    const d = daysSinceLogin(u.lastLoginAt);
+                    return d != null && d >= INACTIVE_AFTER_DAYS;
+                  }).length,
+                },
+              ].filter((i) => i.count > 0)}
+              max={4}
+              onSelect={(item) => setStatusFilter(item.key === 'never' ? 'never-login' : item.key)}
+              empty="No account data yet."
+            />
+          </AdminPanel>
+          <AdminPanel title="Storage leaders">
+            <AdminBarList
+              items={[...users]
+                .map((u) => {
+                  const bytes = Number(u.storageUsedBytes) || 0;
+                  return {
+                    key: u.id,
+                    count: Math.round(bytes / (1024 * 1024)),
+                    label: `${u.name || u.email} · ${formatBytes(bytes)}`,
+                  };
+                })
+                .filter((i) => i.count > 0)
+                .sort((a, b) => b.count - a.count)}
+              max={8}
+              onSelect={(item) => {
+                const u = users.find((x) => x.id === item.key);
+                if (u) setSearchQuery(u.email || u.name || '');
+              }}
+              empty="No storage usage yet."
+            />
+          </AdminPanel>
+        </div>
+      )}
+
+      <div className="bg-white p-4 rounded-2xl shadow-sm border border-[#eae8e4] space-y-3">
         <div className="flex flex-col lg:flex-row gap-3">
           <div className="relative flex-1 min-w-0">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -261,14 +346,6 @@ const AdminUserManagement = () => {
             <option value="name">Name A–Z</option>
             <option value="recent-login">Recent login</option>
           </select>
-          <button
-            type="button"
-            onClick={exportCsv}
-            title="Export the current list as CSV"
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-[#eae8e4] rounded-xl text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
-          >
-            <Download className="w-4 h-4" />Export
-          </button>
         </div>
         <div className="flex items-center justify-between gap-3">
           <p className="text-xs text-gray-500">
@@ -408,22 +485,31 @@ const AdminUserManagement = () => {
       )}
 
       {emailTarget && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-[#eae8e4] overflow-hidden flex flex-col" style={{ maxHeight: '88vh' }}>
-            <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-3 shrink-0">
-              <div className="w-10 h-10 rounded-full bg-[#1a1a1a] text-white flex items-center justify-center font-semibold shrink-0">
-                {(emailTarget.name || emailTarget.email || 'U').charAt(0).toUpperCase()}
-              </div>
-              <div className="min-w-0 flex-1">
-                <h3 className="font-semibold text-[#1a1a1a] leading-tight">Send email</h3>
-                <p className="text-xs text-gray-500 truncate">{emailTarget.name} · {emailTarget.email}</p>
-              </div>
-              <button onClick={() => setEmailTarget(null)} className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
-                <X className="w-5 h-5" />
+        <AdminModal
+          open
+          onClose={() => setEmailTarget(null)}
+          title="Send email"
+          subtitle={`${emailTarget.name} · ${emailTarget.email}`}
+          avatar={(emailTarget.name || emailTarget.email || 'U').charAt(0).toUpperCase()}
+          footer={(
+            <>
+              <button
+                type="button"
+                onClick={() => setEmailTarget(null)}
+                className="px-4 py-2.5 text-sm font-medium rounded-xl border border-[#eae8e4] bg-white text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
               </button>
-            </div>
-
-            <div className="px-5 py-4 space-y-4 flex-1 min-h-0 overflow-y-auto">
+              <button
+                type="button"
+                onClick={sendEmail}
+                className="px-5 py-2.5 text-sm font-semibold rounded-xl bg-[#1a1a1a] text-white hover:bg-black inline-flex items-center gap-2"
+              >
+                <Mail className="w-4 h-4" />Send email
+              </button>
+            </>
+          )}
+        >
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">Subject</label>
                 <input
@@ -431,7 +517,7 @@ const AdminUserManagement = () => {
                   value={emailSubject}
                   onChange={(e) => setEmailSubject(e.target.value)}
                   placeholder="e.g. Update to your PIXNXT limits"
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:bg-white focus:border-[#1a1a1a] transition-all"
+                  className="w-full px-3 py-2.5 bg-white border border-[#eae8e4] rounded-xl text-sm outline-none focus:border-[#1a1a1a] transition-all"
                 />
               </div>
               <div>
@@ -441,30 +527,11 @@ const AdminUserManagement = () => {
                   onChange={(e) => setEmailMessage(e.target.value)}
                   rows={8}
                   placeholder="Write your message..."
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:bg-white focus:border-[#1a1a1a] transition-all resize-y"
+                  className="w-full px-3 py-2.5 bg-white border border-[#eae8e4] rounded-xl text-sm outline-none focus:border-[#1a1a1a] transition-all resize-y"
                 />
               </div>
               <p className="text-[11px] text-gray-400">Opens your mail app addressed to {emailTarget.email} with this subject and message.</p>
-            </div>
-
-            <div className="px-5 py-4 flex items-center justify-end gap-2.5 border-t border-gray-100 shrink-0 bg-gray-50/60">
-              <button
-                type="button"
-                onClick={() => setEmailTarget(null)}
-                className="px-4 py-2 border border-gray-200 bg-white text-gray-700 text-[13px] font-semibold rounded-xl hover:bg-gray-100 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={sendEmail}
-                className="px-5 py-2 bg-[#1a1a1a] text-white text-[13px] font-semibold rounded-xl hover:bg-black transition-colors inline-flex items-center gap-2"
-              >
-                <Mail className="w-4 h-4" />Send email
-              </button>
-            </div>
-          </div>
-        </div>
+        </AdminModal>
       )}
     </div>
   );

@@ -7,6 +7,16 @@ import {
   onPhotographerLimitsBroadcast,
   subscribeAllPhotographers,
 } from '../../lib/photographerLiveSync';
+import {
+  AdminModal,
+  AdminModalActions,
+  AdminPageHeader,
+  AdminPanel,
+  AdminBarList,
+  AdminStatCard,
+  AdminSection,
+  AdminUsageMeter,
+} from '../../components/admin/AdminUi';
 
 function quotaState(used, limit) {
   const cap = Number(limit);
@@ -369,61 +379,76 @@ const AdminUsageManagement = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 tracking-tight font-serif uppercase">Albums &amp; Deliveries</h1>
-        <p className="text-gray-500 mt-1 text-sm">See how many albums and deliveries each photographer created — and set creation limits.</p>
+      <AdminPageHeader
+        title="Albums & Deliveries"
+        subtitle="See how many albums and deliveries each photographer created — and set creation limits."
+      />
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <AdminStatCard
+          label="Total albums"
+          value={loading ? '—' : totalAlbums.toLocaleString()}
+          loading={loading}
+          sub={`Across ${loading ? '—' : users.length.toLocaleString()} photographers`}
+          icon={Layers}
+          meter={totalAlbums + totalDeliveries ? (totalAlbums / (totalAlbums + totalDeliveries)) * 100 : 0}
+        />
+        <AdminStatCard
+          label="Total deliveries"
+          value={loading ? '—' : totalDeliveries.toLocaleString()}
+          loading={loading}
+          sub="Client galleries shipped"
+          icon={Send}
+          meter={totalAlbums + totalDeliveries ? (totalDeliveries / (totalAlbums + totalDeliveries)) * 100 : 0}
+        />
+        <AdminStatCard
+          label="At creation limit"
+          value={loading ? '—' : atLimit.toLocaleString()}
+          loading={loading}
+          sub="Albums or deliveries blocked"
+          tone={atLimit > 0 ? 'danger' : undefined}
+          meter={users.length ? (atLimit / users.length) * 100 : 0}
+        />
+        <AdminStatCard
+          label="Photographers"
+          value={loading ? '—' : users.length.toLocaleString()}
+          loading={loading}
+          sub="On this roster"
+        />
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-[#fdfdfc] p-5 rounded-2xl shadow-sm border border-[#eae8e4]">
-          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 inline-flex items-center gap-2">
-            <span className="flex w-7 h-7 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700"><Layers className="w-3.5 h-3.5" /></span>Total albums
-          </p>
-          <p className="text-3xl font-bold text-gray-900 mt-3">{loading ? '—' : totalAlbums.toLocaleString()}</p>
-          <p className="text-[11px] text-gray-400 mt-1">across {loading ? '—' : users.length.toLocaleString()} photographers</p>
+      {!loading && users.length > 0 && (
+        <div className="grid lg:grid-cols-2 gap-4">
+          <AdminPanel title="Most albums created">
+            <AdminBarList
+              items={[...users]
+                .map((u) => ({ key: u.id, count: Number(u.albumUsed) || 0, label: u.name || u.email }))
+                .filter((i) => i.count > 0)
+                .sort((a, b) => b.count - a.count)}
+              max={8}
+              onSelect={(item) => {
+                const u = users.find((x) => x.id === item.key);
+                if (u) setSearchQuery(u.email || u.name || '');
+              }}
+            />
+          </AdminPanel>
+          <AdminPanel title="Most deliveries created">
+            <AdminBarList
+              items={[...users]
+                .map((u) => ({ key: u.id, count: Number(u.deliveryUsed) || 0, label: u.name || u.email }))
+                .filter((i) => i.count > 0)
+                .sort((a, b) => b.count - a.count)}
+              max={8}
+              onSelect={(item) => {
+                const u = users.find((x) => x.id === item.key);
+                if (u) setSearchQuery(u.email || u.name || '');
+              }}
+            />
+          </AdminPanel>
         </div>
-        <div className="bg-[#fdfdfc] p-5 rounded-2xl shadow-sm border border-[#eae8e4]">
-          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 inline-flex items-center gap-2">
-            <span className="flex w-7 h-7 items-center justify-center rounded-lg bg-blue-100 text-blue-700"><Send className="w-3.5 h-3.5" /></span>Total deliveries
-          </p>
-          <p className="text-3xl font-bold text-gray-900 mt-3">{loading ? '—' : totalDeliveries.toLocaleString()}</p>
-          <p className="text-[11px] text-gray-400 mt-1">client galleries shipped</p>
-        </div>
-        <div className="bg-[#fdfdfc] p-5 rounded-2xl shadow-sm border border-[#eae8e4]">
-          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Content mix</p>
-          {loading ? (
-            <p className="text-3xl font-bold text-gray-900 mt-3">—</p>
-          ) : (totalAlbums + totalDeliveries) === 0 ? (
-            <p className="text-sm text-gray-400 mt-3">No content yet.</p>
-          ) : (
-            <div className="flex items-center gap-3 mt-3">
-              <span
-                className="w-12 h-12 shrink-0 rounded-full"
-                role="img"
-                aria-label={`${totalAlbums} albums, ${totalDeliveries} deliveries`}
-                style={{
-                  background: `conic-gradient(#10b981 0 ${(totalAlbums / (totalAlbums + totalDeliveries)) * 100}%, #3b82f6 ${(totalAlbums / (totalAlbums + totalDeliveries)) * 100}% 100%)`,
-                  mask: 'radial-gradient(circle, transparent 55%, black 56%)',
-                  WebkitMask: 'radial-gradient(circle, transparent 55%, black 56%)',
-                }}
-              />
-              <div className="min-w-0 space-y-1 text-[11px]">
-                <p className="flex items-center gap-1.5 text-gray-600"><span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />Albums · <strong className="text-gray-900">{totalAlbums.toLocaleString()}</strong></p>
-                <p className="flex items-center gap-1.5 text-gray-600"><span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />Deliveries · <strong className="text-gray-900">{totalDeliveries.toLocaleString()}</strong></p>
-              </div>
-            </div>
-          )}
-        </div>
-        <div className="bg-[#fdfdfc] p-5 rounded-2xl shadow-sm border border-[#eae8e4]">
-          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 inline-flex items-center gap-2">
-            <span className={`flex w-7 h-7 items-center justify-center rounded-lg ${!loading && atLimit > 0 ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-500'}`}><AlertCircle className="w-3.5 h-3.5" /></span>At limit / disabled
-          </p>
-          <p className={`text-3xl font-bold mt-3 ${!loading && atLimit > 0 ? 'text-red-700' : 'text-gray-900'}`}>{loading ? '—' : atLimit.toLocaleString()}</p>
-          <p className="text-[11px] text-gray-400 mt-1">0 / NULL = unlimited · −1 = cannot create</p>
-        </div>
-      </div>
+      )}
 
-      <div className="bg-[#fdfdfc] p-4 rounded-2xl shadow-sm border border-[#eae8e4] space-y-3">
+      <div className="bg-white p-4 rounded-2xl shadow-sm border border-[#eae8e4] space-y-3">
         <div className="flex flex-col lg:flex-row gap-3">
           <div className="relative flex-1 min-w-0">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -641,23 +666,21 @@ const AdminUsageManagement = () => {
       )}
 
       {editingUser && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-[#eae8e4] overflow-hidden flex flex-col" style={{ maxHeight: '88vh' }}>
-            <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-3 shrink-0">
-              <div className="w-10 h-10 rounded-full bg-[#1a1a1a] text-white flex items-center justify-center font-semibold shrink-0">
-                {(editingUser.name || editingUser.email || 'U').charAt(0).toUpperCase()}
-              </div>
-              <div className="min-w-0 flex-1">
-                <h3 className="font-semibold text-[#1a1a1a] leading-tight">Creation limits</h3>
-                <p className="text-xs text-gray-500 truncate">{editingUser.name} · {editingUser.email}</p>
-              </div>
-              <button onClick={() => setEditingUser(null)} className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSave} className="flex flex-col min-h-0">
-              <div className="px-5 py-4 space-y-3 flex-1 min-h-0 overflow-y-auto">
+        <AdminModal
+          open
+          onClose={() => setEditingUser(null)}
+          title="Creation limits"
+          subtitle={`${editingUser.name} · ${editingUser.email}`}
+          avatar={(editingUser.name || editingUser.email || 'U').charAt(0).toUpperCase()}
+          footer={(
+            <AdminModalActions
+              onCancel={() => setEditingUser(null)}
+              onSave={() => document.getElementById('admin-creation-limits-form')?.requestSubmit()}
+              saving={updating}
+            />
+          )}
+        >
+          <form id="admin-creation-limits-form" onSubmit={handleSave} className="space-y-3">
                 <CreationLimitCard
                   icon={<Layers className="w-4 h-4" />}
                   title="Albums"
@@ -691,17 +714,8 @@ const AdminUsageManagement = () => {
                   onPickMultiple={() => { setDeliveryUnlimited(false); if (deliveryLimit === '1' || !deliveryLimit) setDeliveryLimit('5'); }}
                 />
                 <p className="text-[11px] text-gray-400">Toggle off = cannot create new · ∞ = unlimited · number = max allowed. Usage counts update automatically.</p>
-              </div>
-
-              <div className="px-5 py-4 flex items-center justify-end gap-2.5 border-t border-gray-100 shrink-0 bg-gray-50/60">
-                <button type="button" onClick={() => setEditingUser(null)} className="px-4 py-2 border border-gray-200 bg-white text-gray-700 text-[13px] font-semibold rounded-xl hover:bg-gray-100">Cancel</button>
-                <button type="submit" disabled={updating} className="px-5 py-2 bg-[#1a1a1a] text-white text-[13px] font-semibold rounded-xl hover:bg-black disabled:opacity-60 flex items-center gap-2">
-                  {updating && <AppSpinner size="xs" />}Save changes
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+          </form>
+        </AdminModal>
       )}
     </div>
   );

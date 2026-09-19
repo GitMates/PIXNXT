@@ -34,12 +34,15 @@ export const AuthProvider = ({ children }) => {
   const applyAuthState = useCallback(({ user: nextUser, session: nextSession }) => {
     setSession((prev) => (sameAuthSession(prev, nextSession) ? prev : nextSession));
     setUser((prev) => (sameAuthUser(prev, nextUser) ? prev : nextUser));
-    stampCrashUser({ email: nextUser?.email, id: nextUser?.id });
+    stampCrashUser({ email: nextUser?.email, id: nextUser?.id, role: nextUser ? 'studio' : undefined });
     try {
       if (nextUser?.email) {
-        sessionStorage.setItem('pixnxt_user', JSON.stringify({ id: nextUser.id, email: nextUser.email }));
+        const payload = JSON.stringify({ id: nextUser.id, email: nextUser.email });
+        sessionStorage.setItem('pixnxt_user', payload);
+        localStorage.setItem('pixnxt_user', payload);
       } else {
         sessionStorage.removeItem('pixnxt_user');
+        localStorage.removeItem('pixnxt_user');
       }
     } catch { /* private mode */ }
   }, []);

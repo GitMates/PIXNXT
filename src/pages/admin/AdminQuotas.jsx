@@ -7,6 +7,15 @@ import {
   onPhotographerLimitsBroadcast,
   subscribeAllPhotographers,
 } from '../../lib/photographerLiveSync';
+import {
+  AdminModal,
+  AdminModalActions,
+  AdminPageHeader,
+  AdminPanel,
+  AdminBarList,
+  AdminStatCard,
+  AdminUsageMeter,
+} from '../../components/admin/AdminUi';
 
 function quotaState(used, limit) {
   const cap = Number(limit);
@@ -149,14 +158,33 @@ function mapPhotographerRow(p) {
     imageLimit: p.image_limit != null ? Number(p.image_limit) : 0,
     faceUsed: Number(p.face_matching_delivery_used) || 0,
     faceLimit: p.face_matching_delivery_limit != null ? Number(p.face_matching_delivery_limit) : 0,
-    // Split
-    normalImageUsed: Number(p.face_normal_image_used ?? p.image_used_count) || 0,
+    // Split — coalesce NULL / DEFAULT-0 quota counters with legacy columns
+    // so Overview and Quotas stay in sync when photographer_quotas lags.
+    normalImageUsed: (() => {
+      const leg = Number(p.image_used_count) || 0;
+      const q = p.face_normal_image_used;
+      if (q == null || q === '') return leg;
+      const n = Number(q) || 0;
+      return n === 0 && leg > 0 ? leg : n;
+    })(),
     normalImageLimit: nImgLimit,
     guestImageUsed: Number(p.face_guest_image_used) || 0,
     guestImageLimit: gImgLimit,
-    normalFaceUsed: Number(p.face_normal_delivery_used) || 0,
+    normalFaceUsed: (() => {
+      const leg = Number(p.face_matching_delivery_used) || 0;
+      const q = p.face_normal_delivery_used;
+      if (q == null || q === '') return leg;
+      const n = Number(q) || 0;
+      return n === 0 && leg > 0 ? leg : n;
+    })(),
     normalFaceLimit: nFaceLimit,
-    guestFaceUsed: Number(p.face_guest_delivery_used ?? p.face_matching_delivery_used) || 0,
+    guestFaceUsed: (() => {
+      const leg = Number(p.face_matching_delivery_used) || 0;
+      const q = p.face_guest_delivery_used;
+      if (q == null || q === '') return leg;
+      const n = Number(q) || 0;
+      return n === 0 && leg > 0 ? leg : n;
+    })(),
     guestFaceLimit: gFaceLimit,
   };
 }
@@ -510,34 +538,82 @@ const AdminQuotas = () => {
 
   return (
     <div className="space-y-6 relative">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-[#1a1a1a] tracking-tight font-serif uppercase">Quotas &amp; Limits</h1>
-          <p className="text-gray-500 mt-1 text-sm">Storage, face images and deliveries for every photographer.</p>
-        </div>
-      </div>
+      <AdminPageHeader
+        title="Quotas & Limits"
+        subtitle="Storage, face images, and delivery caps for every photographer."
+      />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          { key: 'all', label: 'Photographers', value: analysis.total, tone: '' },
-          { key: 'at-limit', label: 'At quota limit', value: analysis.atLimit, tone: 'text-red-700' },
-          { key: 'disabled', label: 'Quotas disabled', value: analysis.disabled, tone: 'text-gray-500' },
-          { key: 'ai-search-off', label: 'Library off', value: analysis.aiSearchOff, tone: 'text-amber-700' },
+          { key: 'all', label: 'Photographers', value: analysis.total, tone: undefined },
+          { key: 'at-limit', label: 'At quota limit', value: analysis.atLimit, tone: 'danger' },
+          { key: 'disabled', label: 'Quotas disabled', value: analysis.disabled, tone: undefined },
+          { key: 'ai-search-off', label: 'Library off', value: analysis.aiSearchOff, tone: 'warn' },
         ].map((s) => (
           <button
             key={s.key}
             type="button"
             onClick={() => setStatusFilter((prev) => (prev === s.key ? 'all' : s.key))}
-            title={s.key === 'all' ? 'Show everyone' : `Filter: ${s.label}`}
-            className={`bg-[#fdfdfc] p-4 rounded-2xl shadow-sm border text-left transition-all hover:shadow ${statusFilter === s.key ? 'border-[#1a1a1a] ring-1 ring-[#1a1a1a]' : 'border-[#eae8e4]'}`}
+            className={`text-left rounded-2xl transition-all ${statusFilter === s.key ? 'ring-2 ring-[#1a1a1a] ring-offset-2' : ''}`}
           >
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">{s.label}</p>
-            <p className={`text-2xl font-bold mt-1 ${s.tone || 'text-gray-900'}`}>{loading ? '—' : s.value.toLocaleString()}</p>
+            <AdminStatCard
+              label={s.label}
+              value={loading ? '—' : s.value.toLocaleString()}
+              loading={loading}
+              tone={s.tone}
+              meter={analysis.total ? (s.value / Math.max(1, analysis.total)) * 100 : 0}
+            />
           </button>
         ))}
       </div>
 
-      <div className="bg-[#fdfdfc] p-4 rounded-2xl shadow-sm border border-[#eae8e4] space-y-3">
+      {!loading && users.length > 0 && (
+        <div className="grid lg:grid-cols-2 gap-4">
+          <AdminPanel title="Face image usage (top studios)">
+            <AdminBarList
+              items={[...users]
+                .map((u) => ({
+                  key: u.id,
+                  count: Number(u.normalImageUsed) + Number(u.guestImageUsed) || 0,
+                  label: u.name || u.email,
+                }))
+                .filter((i) => i.count > 0)
+                .sort((a, b) => b.count - a.count)}
+              max={8}
+              onSelect={(item) => {
+                const u = users.find((x) => x.id === item.key);
+                if (u) setSearchQuery(u.email || u.name || '');
+              }}
+              empty="No face image usage recorded yet."
+            />
+          </AdminPanel>
+          <AdminPanel title="Storage pressure">
+            <AdminBarList
+              items={[...users]
+                .map((u) => {
+                  const limit = Number(u.rawLimitBytes) || 0;
+                  const used = Number(u.rawUsedBytes) || 0;
+                  const pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : (used > 0 ? 8 : 0);
+                  return {
+                    key: u.id,
+                    count: pct,
+                    label: `${u.name || u.email}${limit > 0 ? ` · ${pct}%` : ''}`,
+                  };
+                })
+                .filter((i) => i.count > 0)
+                .sort((a, b) => b.count - a.count)}
+              max={8}
+              onSelect={(item) => {
+                const u = users.find((x) => x.id === item.key);
+                if (u) setSearchQuery(u.email || u.name || '');
+              }}
+              empty="No storage usage yet."
+            />
+          </AdminPanel>
+        </div>
+      )}
+
+      <div className="bg-white p-4 rounded-2xl shadow-sm border border-[#eae8e4] space-y-3">
         <div className="flex flex-col lg:flex-row gap-3">
           <div className="relative flex-1 min-w-0">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -741,32 +817,36 @@ const AdminQuotas = () => {
       )}
 
       {editingUser && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-[#eae8e4] overflow-hidden flex flex-col" style={{ maxHeight: '88vh' }}>
-            <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-3 shrink-0">
-              <div className="w-10 h-10 rounded-full bg-[#1a1a1a] text-white flex items-center justify-center font-semibold shrink-0">
-                {(editingUser.name || editingUser.email || 'U').charAt(0).toUpperCase()}
-              </div>
-              <div className="min-w-0 flex-1">
-                <h3 className="font-semibold text-[#1a1a1a] leading-tight">Edit limits</h3>
-                <p className="text-xs text-gray-500 truncate">{editingUser.name} · {editingUser.email}</p>
-              </div>
-              <button onClick={closeLimitsEditor} className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleUpdateLimits} className="flex flex-col min-h-0">
-              <div className="px-5 py-4 space-y-5 flex-1 min-h-0 overflow-y-auto">
+        <AdminModal
+          open
+          onClose={closeLimitsEditor}
+          title="Edit limits"
+          subtitle={`${editingUser.name} · ${editingUser.email}`}
+          avatar={(editingUser.name || editingUser.email || 'U').charAt(0).toUpperCase()}
+          size="md"
+          footer={(
+            <AdminModalActions
+              onCancel={closeLimitsEditor}
+              onSave={() => document.getElementById('admin-edit-limits-form')?.requestSubmit()}
+              saving={updating}
+            />
+          )}
+        >
+          <form id="admin-edit-limits-form" onSubmit={handleUpdateLimits} className="space-y-5">
                 {/* Storage */}
                 <section>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">Storage</span>
                     <span className="text-xs text-gray-400">Used {editingUser.usedStorage}</span>
                   </div>
+                  <AdminUsageMeter
+                    className="mb-3"
+                    used={editingUser.rawUsedBytes}
+                    limit={editingUser.rawLimitBytes}
+                  />
                   <div className="flex gap-2">
-                    <input type="number" required min="1" step="any" value={storageValue} onChange={(e) => setStorageValue(e.target.value)} className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:bg-white focus:border-[#1a1a1a] transition-all" placeholder="e.g. 10" />
-                    <select value={storageUnit} onChange={(e) => setStorageUnit(e.target.value)} className="w-20 px-2 py-2 border border-gray-200 rounded-xl bg-gray-50 text-sm outline-none">
+                    <input type="number" required min="1" step="any" value={storageValue} onChange={(e) => setStorageValue(e.target.value)} className="flex-1 px-3 py-2.5 bg-white border border-[#eae8e4] rounded-xl text-sm outline-none focus:border-[#1a1a1a] transition-all" placeholder="e.g. 10" />
+                    <select value={storageUnit} onChange={(e) => setStorageUnit(e.target.value)} className="w-20 px-2 py-2.5 border border-[#eae8e4] rounded-xl bg-white text-sm outline-none">
                       <option value="MB">MB</option>
                       <option value="GB">GB</option>
                       <option value="TB">TB</option>
@@ -1028,28 +1108,8 @@ const AdminQuotas = () => {
                 )}
                   </div>
                 </section>
-              </div>
-
-              <div className="px-5 py-4 flex items-center justify-end gap-2.5 border-t border-gray-100 shrink-0 bg-gray-50/60">
-                <button
-                  type="button"
-                  onClick={closeLimitsEditor}
-                  className="px-4 py-2 border border-gray-200 bg-white text-gray-700 text-[13px] font-semibold rounded-xl hover:bg-gray-100 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={updating}
-                  className="px-5 py-2 bg-[#1a1a1a] text-white text-[13px] font-semibold rounded-xl hover:bg-black transition-colors disabled:opacity-60 flex items-center gap-2"
-                >
-                  {updating && <AppSpinner size="xs" />}
-                  Save changes
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+              </form>
+        </AdminModal>
       )}
     </div>
   );

@@ -1,11 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import { HardDrive, Images, Layers, ScanFace, Users } from 'lucide-react';
 import { apiFetch } from '../../lib/api/client';
 import { AppSpinner } from '../../components/ui/AppLoading';
 import {
   onPhotographerLimitsBroadcast,
   subscribeAllPhotographers,
 } from '../../lib/photographerLiveSync';
+import {
+  AdminPageHeader,
+  AdminSection,
+  AdminStatCard,
+  AdminPanel,
+  AdminBarList,
+} from '../../components/admin/AdminUi';
 
 const formatBytes = (bytes) => {
   if (!bytes || bytes <= 0) return '0 MB';
@@ -20,13 +28,41 @@ const formatBytes = (bytes) => {
 const num = (v) => Number(v) || 0;
 const isCapped = (limit) => Number(limit) > 0;
 const isDisabledCap = (limit) => Number(limit) === -1;
+const isOff = (v) => v === false || v === 0 || v === '0';
+const isOn = (v) => !isOff(v);
+
+/** Same coalesce rules as Admin Quotas / backend flattenAdminPhotographer. */
+function faceNormalUsed(p) {
+  const leg = num(p.image_used_count);
+  if (p.face_normal_image_used == null || p.face_normal_image_used === '') return leg;
+  const q = num(p.face_normal_image_used);
+  if (q === 0 && leg > 0) return leg;
+  return q;
+}
+function faceGuestUsed(p) {
+  return num(p.face_guest_image_used);
+}
+function faceNormalDeliveryUsed(p) {
+  const leg = num(p.face_matching_delivery_used);
+  if (p.face_normal_delivery_used == null || p.face_normal_delivery_used === '') return leg;
+  const q = num(p.face_normal_delivery_used);
+  if (q === 0 && leg > 0) return leg;
+  return q;
+}
+function faceGuestDeliveryUsed(p) {
+  const leg = num(p.face_matching_delivery_used);
+  if (p.face_guest_delivery_used == null || p.face_guest_delivery_used === '') return leg;
+  const q = num(p.face_guest_delivery_used);
+  if (q === 0 && leg > 0) return leg;
+  return q;
+}
 
 function quotaPairsOf(p) {
   return [
-    [p.face_normal_image_used, p.face_normal_image_limit],
-    [p.face_guest_image_used, p.face_guest_image_limit],
-    [p.face_normal_delivery_used, p.face_normal_delivery_limit],
-    [p.face_guest_delivery_used, p.face_guest_delivery_limit],
+    [faceNormalUsed(p), p.face_normal_image_limit],
+    [faceGuestUsed(p), p.face_guest_image_limit],
+    [faceNormalDeliveryUsed(p), p.face_normal_delivery_limit],
+    [faceGuestDeliveryUsed(p), p.face_guest_delivery_limit],
   ];
 }
 
@@ -36,18 +72,22 @@ function isAtLimit(p) {
 
 function isDisabled(p) {
   return (
-    p.face_normal_enabled === false ||
-    p.face_guest_enabled === false ||
+    isOff(p.face_normal_enabled) ||
+    isOff(p.face_guest_enabled) ||
     quotaPairsOf(p).some(([, limit]) => isDisabledCap(limit))
   );
 }
 
+function accountDisabled(p) {
+  return p.is_disabled === true || Number(p.is_disabled) === 1;
+}
+
 function blockReason(p) {
   const reasons = [];
-  if (p.is_disabled === true) reasons.push('Account disabled');
-  if (p.face_normal_enabled === false) reasons.push('Find People off');
-  if (p.face_guest_enabled === false) reasons.push('Guest matching off');
-  if (p.ai_search_enabled === false) reasons.push('Library off');
+  if (accountDisabled(p)) reasons.push('Account disabled');
+  if (isOff(p.face_normal_enabled)) reasons.push('Find People off');
+  if (isOff(p.face_guest_enabled)) reasons.push('Guest matching off');
+  if (isOff(p.ai_search_enabled)) reasons.push('Library off');
   const labels = ['Normal images', 'Guest images', 'Normal deliveries', 'Guest deliveries'];
   quotaPairsOf(p).forEach(([used, limit], i) => {
     if (isDisabledCap(limit)) reasons.push(`${labels[i]} disabled`);
@@ -57,54 +97,25 @@ function blockReason(p) {
   if (isDisabledCap(p.album_limit)) reasons.push('Albums disabled');
   if (isCapped(p.delivery_limit) && num(p.delivery_used_count) >= Number(p.delivery_limit)) reasons.push('Deliveries at limit');
   if (isDisabledCap(p.delivery_limit)) reasons.push('Deliveries disabled');
+  if (isCapped(p.storage_limit_bytes) && num(p.storage_used_bytes) >= Number(p.storage_limit_bytes)) {
+    reasons.push('Storage at limit');
+  }
   return reasons;
-}
-
-function StatCard({ label, value, sub, loading, to, tone }) {
-  const inner = (
-    <>
-      <h3 className="text-sm font-medium text-gray-500">{label}</h3>
-      <p className={`text-3xl font-bold mt-4 ${tone || 'text-gray-900'}`}>
-        {loading ? <AppSpinner size="sm" /> : value}
-      </p>
-      {sub ? <p className="text-[11px] text-gray-400 mt-1">{sub}</p> : null}
-    </>
-  );
-  const cls =
-    'bg-[#fdfdfc] p-6 rounded-2xl shadow-sm border border-[#eae8e4] flex flex-col justify-between min-h-[130px]';
-  return to ? (
-    <Link to={to} className={`${cls} transition-shadow hover:shadow`}>
-      {inner}
-    </Link>
-  ) : (
-    <div className={cls}>{inner}</div>
-  );
-}
-
-function Section({ title, children }) {
-  return (
-    <section>
-      <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">{title}</h2>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">{children}</div>
-    </section>
-  );
 }
 
 const AdminDashboard = () => {
   const [rows, setRows] = useState([]);
-  const [deliveryCount, setDeliveryCount] = useState(null);
+  const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const loadStats = async () => {
-    // Workers: roster (quotas flattened) + platform totals. The backend
-    // always returns quota keys.
     try {
       const [listRes, statsRes] = await Promise.all([
         apiFetch('/v1/admin/photographers?limit=500'),
         apiFetch('/v1/admin/stats'),
       ]);
       setRows(listRes?.photographers || []);
-      setDeliveryCount(statsRes?.deliveries ?? 0);
+      setStats(statsRes || null);
     } catch (err) {
       console.error('Failed to load admin stats:', err);
     }
@@ -119,8 +130,6 @@ const AdminDashboard = () => {
     loadRef.current().finally(() => {
       if (isMounted) setLoading(false);
     });
-    // Live overview: photographer uploads / admin saves update the numbers.
-    // Debounced — bulk uploads fire one photographers UPDATE per photo.
     let timer = null;
     const schedule = () => {
       clearTimeout(timer);
@@ -136,102 +145,160 @@ const AdminDashboard = () => {
     };
   }, []);
 
-  const sum = (key) => rows.reduce((s, p) => s + num(p[key]), 0);
-  // Live D1 counts first (roster carries album_count/delivery_count),
-  // stale quota counters only as fallback.
   const sumLive = (liveKey, usedKey) =>
     rows.reduce((s, p) => s + (p[liveKey] != null ? num(p[liveKey]) : num(p[usedKey])), 0);
-  const storageUsed = rows.reduce((s, p) => s + num(p.storage_used_bytes), 0);
+
+  const fromRows = {
+    normalImages: rows.reduce((s, p) => s + faceNormalUsed(p), 0),
+    guestImages: rows.reduce((s, p) => s + faceGuestUsed(p), 0),
+    normalDeliveries: rows.reduce((s, p) => s + faceNormalDeliveryUsed(p), 0),
+    guestDeliveries: rows.reduce((s, p) => s + faceGuestDeliveryUsed(p), 0),
+    libraryOff: rows.filter((p) => isOff(p.ai_search_enabled)).length,
+    findPeopleOff: rows.filter((p) => isOff(p.face_normal_enabled)).length,
+    guestMatchingOff: rows.filter((p) => isOff(p.face_guest_enabled)).length,
+    libraryOn: rows.filter((p) => isOn(p.ai_search_enabled)).length,
+    findPeopleOn: rows.filter((p) => isOn(p.face_normal_enabled)).length,
+    guestMatchingOn: rows.filter((p) => isOn(p.face_guest_enabled)).length,
+  };
+
+  const face = stats?.face || {};
+  const normalImages = face.normalImagesUsed != null ? num(face.normalImagesUsed) : fromRows.normalImages;
+  const guestImages = face.guestImagesUsed != null ? num(face.guestImagesUsed) : fromRows.guestImages;
+  const normalDeliveries = face.normalDeliveriesUsed != null ? num(face.normalDeliveriesUsed) : fromRows.normalDeliveries;
+  const guestDeliveries = face.guestDeliveriesUsed != null ? num(face.guestDeliveriesUsed) : fromRows.guestDeliveries;
+  const libraryOff = face.libraryOff != null ? num(face.libraryOff) : fromRows.libraryOff;
+  const findPeopleOff = face.findPeopleOff != null ? num(face.findPeopleOff) : fromRows.findPeopleOff;
+  const guestMatchingOff = face.guestMatchingOff != null ? num(face.guestMatchingOff) : fromRows.guestMatchingOff;
+  const libraryOn = face.libraryOn != null ? num(face.libraryOn) : fromRows.libraryOn;
+  const findPeopleOn = face.findPeopleOn != null ? num(face.findPeopleOn) : fromRows.findPeopleOn;
+  const guestMatchingOn = face.guestMatchingOn != null ? num(face.guestMatchingOn) : fromRows.guestMatchingOn;
+
+  const photographerCount = stats?.photographers != null ? num(stats.photographers) : rows.length;
+  const deliveryCount = stats?.deliveries != null ? num(stats.deliveries) : 0;
+  const storageUsed = stats?.storageUsedBytes != null
+    ? num(stats.storageUsedBytes)
+    : rows.reduce((s, p) => s + num(p.storage_used_bytes), 0);
+
   const atLimitRows = rows.filter(
     (p) =>
-      p.is_disabled === true ||
+      accountDisabled(p) ||
       isAtLimit(p) ||
       isDisabled(p) ||
       (isCapped(p.album_limit) && num(p.album_used_count) >= Number(p.album_limit)) ||
       isDisabledCap(p.album_limit) ||
       (isCapped(p.delivery_limit) && num(p.delivery_used_count) >= Number(p.delivery_limit)) ||
-      isDisabledCap(p.delivery_limit)
+      isDisabledCap(p.delivery_limit) ||
+      (isCapped(p.storage_limit_bytes) && num(p.storage_used_bytes) >= Number(p.storage_limit_bytes))
   );
   const needsAttention = rows
     .map((p) => ({ p, reasons: blockReason(p) }))
     .filter((r) => r.reasons.length > 0)
-    .slice(0, 5);
+    .slice(0, 8);
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 tracking-tight font-serif uppercase">Overview</h1>
-        <p className="text-gray-500 mt-1">Welcome to the PIXNXT administrative control panel.</p>
+    <div className="space-y-7">
+      <AdminPageHeader
+        title="Overview"
+        subtitle="Platform health, Face AI usage, and studios that need attention."
+      />
+
+      <AdminSection title="Platform">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <AdminStatCard label="Photographers" value={loading ? '—' : photographerCount.toLocaleString()} loading={loading} to="/admin/users" icon={Users} />
+          <AdminStatCard label="Active deliveries" value={loading ? '—' : deliveryCount.toLocaleString()} loading={loading} to="/admin/usage" icon={Images} />
+          <AdminStatCard label="Storage used" value={loading ? '—' : formatBytes(storageUsed)} loading={loading} to="/admin/quotas" icon={HardDrive} />
+        </div>
+      </AdminSection>
+
+      <AdminSection title="Creation">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <AdminStatCard
+            label="Albums created"
+            value={loading ? '—' : (stats?.albums != null ? num(stats.albums) : sumLive('album_count', 'album_used_count')).toLocaleString()}
+            loading={loading}
+            to="/admin/usage"
+            icon={Layers}
+          />
+          <AdminStatCard
+            label="Deliveries created"
+            value={loading ? '—' : (stats?.deliveries != null ? num(stats.deliveries) : sumLive('delivery_count', 'delivery_used_count')).toLocaleString()}
+            loading={loading}
+            to="/admin/usage"
+          />
+          <AdminStatCard
+            label="At limit / disabled"
+            value={loading ? '—' : atLimitRows.length.toLocaleString()}
+            sub="Storage, face, albums, deliveries"
+            loading={loading}
+            to="/admin/quotas"
+            tone={atLimitRows.length > 0 ? 'danger' : undefined}
+            meter={photographerCount ? (atLimitRows.length / photographerCount) * 100 : 0}
+          />
+        </div>
+      </AdminSection>
+
+      <AdminSection title="Face AI usage">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <AdminStatCard
+            label="Normal images used"
+            value={loading ? '—' : normalImages.toLocaleString()}
+            loading={loading}
+            to="/admin/quotas"
+            sub="Find People scans"
+            icon={ScanFace}
+            meter={normalImages + guestImages ? (normalImages / (normalImages + guestImages)) * 100 : 0}
+          />
+          <AdminStatCard
+            label="Guest images used"
+            value={loading ? '—' : guestImages.toLocaleString()}
+            loading={loading}
+            to="/admin/quotas"
+            sub="Guest face matching"
+            meter={normalImages + guestImages ? (guestImages / (normalImages + guestImages)) * 100 : 0}
+          />
+          <AdminStatCard
+            label="Face deliveries used"
+            value={loading ? '—' : (normalDeliveries + guestDeliveries).toLocaleString()}
+            loading={loading}
+            to="/admin/quotas"
+            sub={`Normal ${normalDeliveries.toLocaleString()} · Guest ${guestDeliveries.toLocaleString()}`}
+          />
+        </div>
+      </AdminSection>
+
+      <div className="grid lg:grid-cols-2 gap-4">
+        <AdminPanel title="Feature coverage">
+          <AdminBarList
+            items={[
+              { key: 'lib', label: 'Library on', count: libraryOn },
+              { key: 'fp', label: 'Find People on', count: findPeopleOn },
+              { key: 'gm', label: 'Guest matching on', count: guestMatchingOn },
+              { key: 'liboff', label: 'Library off', count: libraryOff },
+              { key: 'fpoff', label: 'Find People off', count: findPeopleOff },
+              { key: 'gmoff', label: 'Guest matching off', count: guestMatchingOff },
+            ].filter((i) => i.count > 0)}
+            max={6}
+            empty={loading ? 'Loading…' : 'No feature data yet.'}
+          />
+        </AdminPanel>
+        <AdminPanel title="Top face image studios">
+          <AdminBarList
+            items={[...rows]
+              .map((p) => ({
+                key: p.id,
+                count: faceNormalUsed(p) + faceGuestUsed(p),
+                label: p.display_name || p.email || 'Studio',
+              }))
+              .filter((i) => i.count > 0)
+              .sort((a, b) => b.count - a.count)}
+            max={8}
+            empty={loading ? 'Loading…' : 'No Face AI usage yet.'}
+          />
+        </AdminPanel>
       </div>
 
-      <Section title="Platform">
-        <StatCard label="Total Photographers" value={loading ? '---' : rows.length.toLocaleString()} loading={loading} to="/admin/users" />
-        <StatCard label="Active Deliveries" value={loading ? '---' : (deliveryCount ?? 0).toLocaleString()} loading={loading} to="/admin/usage" />
-        <StatCard label="Storage Used" value={loading ? '---' : formatBytes(storageUsed)} loading={loading} />
-      </Section>
-
-      <Section title="Creation quotas">
-        <StatCard
-          label="Albums Created"
-          value={loading ? '---' : sumLive('album_count', 'album_used_count').toLocaleString()}
-          loading={loading}
-          to="/admin/usage"
-        />
-        <StatCard
-          label="Deliveries Created"
-          value={loading ? '---' : sumLive('delivery_count', 'delivery_used_count').toLocaleString()}
-          loading={loading}
-          to="/admin/usage"
-        />
-        <StatCard
-          label="At Limit / Disabled"
-          value={loading ? '---' : atLimitRows.length.toLocaleString()}
-          sub="0 / NULL = unlimited · −1 = cannot create"
-          loading={loading}
-          to="/admin/usage"
-          tone={atLimitRows.length > 0 ? 'text-red-700' : 'text-gray-900'}
-        />
-      </Section>
-
-      <Section title="Face AI usage">
-        <StatCard label="Normal Images Used" value={loading ? '---' : sum('face_normal_image_used').toLocaleString()} loading={loading} to="/admin/quotas" sub="Find People scans" />
-        <StatCard label="Guest Images Used" value={loading ? '---' : sum('face_guest_image_used').toLocaleString()} loading={loading} to="/admin/quotas" sub="Guest face matching scans" />
-        <StatCard
-          label="Face Deliveries Used"
-          value={loading ? '---' : (sum('face_normal_delivery_used') + sum('face_guest_delivery_used')).toLocaleString()}
-          loading={loading}
-          to="/admin/quotas"
-          sub={`Normal ${sum('face_normal_delivery_used').toLocaleString()} · Guest ${sum('face_guest_delivery_used').toLocaleString()}`}
-        />
-      </Section>
-
-      <Section title="Features">
-        <StatCard
-          label="Library Off"
-          value={loading ? '---' : rows.filter((p) => p.ai_search_enabled === false).length.toLocaleString()}
-          loading={loading}
-          to="/admin/quotas"
-          sub="AI search disabled"
-        />
-        <StatCard
-          label="Find People Off"
-          value={loading ? '---' : rows.filter((p) => p.face_normal_enabled === false).length.toLocaleString()}
-          loading={loading}
-          to="/admin/quotas"
-          sub="Normal delivery feature"
-        />
-        <StatCard
-          label="Guest Matching Off"
-          value={loading ? '---' : rows.filter((p) => p.face_guest_enabled === false).length.toLocaleString()}
-          loading={loading}
-          to="/admin/quotas"
-          sub="Guest delivery feature"
-        />
-      </Section>
-
-      <section>
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">Needs attention</h2>
-        <div className="bg-[#fdfdfc] rounded-2xl shadow-sm border border-[#eae8e4] overflow-hidden">
+      <AdminSection title="Needs attention">
+        <div className="bg-white rounded-2xl shadow-sm border border-[#eae8e4] overflow-hidden">
           {loading ? (
             <div className="px-6 py-8 flex justify-center">
               <AppSpinner size="sm" />
@@ -239,16 +306,17 @@ const AdminDashboard = () => {
           ) : needsAttention.length === 0 ? (
             <p className="px-6 py-8 text-center text-sm text-gray-500">All clear — no photographer is at a limit or disabled.</p>
           ) : (
-            <ul className="divide-y divide-gray-100">
+            <ul className="divide-y divide-[#f0eee9]">
               {needsAttention.map(({ p, reasons }) => (
                 <li key={p.id}>
-                  <Link to="/admin/quotas" className="flex items-center gap-3 px-5 py-3.5 hover:bg-[#f8f7f4]/60 transition-colors">
+                  <Link to="/admin/quotas" className="flex items-center gap-3 px-5 py-3.5 hover:bg-[#faf9f7] transition-colors">
                     <div className="w-9 h-9 rounded-full flex items-center justify-center bg-[#1a1a1a] text-white shrink-0 text-sm font-semibold">
                       {(p.display_name || p.email || 'U').charAt(0).toUpperCase()}
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold text-gray-900 text-sm truncate">{p.display_name || 'Unnamed'}</p>
-                      <p className="text-gray-500 text-xs truncate">{reasons.join(' · ')}</p>
+                      <p className="text-gray-500 text-xs truncate">{p.email}</p>
+                      <p className="text-red-700/80 text-xs truncate mt-0.5">{reasons.join(' · ')}</p>
                     </div>
                     <span className="shrink-0 px-2 py-0.5 rounded-full text-[11px] font-bold bg-red-50 text-red-700 border border-red-200">
                       Review
@@ -259,7 +327,7 @@ const AdminDashboard = () => {
             </ul>
           )}
         </div>
-      </section>
+      </AdminSection>
     </div>
   );
 };

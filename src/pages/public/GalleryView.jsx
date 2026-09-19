@@ -26,6 +26,7 @@ import { GalleryBackToTop } from '../../components/features/Gallery/GalleryBackT
 import { GalleryEmptyGrid } from '../../components/features/Gallery/GalleryEmptyGrid/GalleryEmptyGrid';
 import { smoothScrollToElement, smoothScrollToTop } from '../../lib/smoothGalleryScroll';
 import { getPhotoFullDisplayUrl, getWebResolutionUrl, resolveMediaUrl } from '../../lib/photoDisplayUrl';
+import { stampCrashUser } from '../../lib/crashLogger';
 import { getStoreViewPhotoUrl, toStoreCartPhoto } from '../../lib/storePhotoQuality';
 import {
   buildDigitalPackageCartItem,
@@ -873,6 +874,7 @@ const GalleryView = () => {
         phone: trimmedPhone,
       });
       setEmail(trimmedEmail);
+      stampCrashUser({ visitorEmail: trimmedEmail, role: 'visitor' });
       if (session?.id) {
         setSessionId(session.id);
         await refreshSelectionList(session.id, listId || null);
@@ -1495,9 +1497,21 @@ const GalleryView = () => {
           setIsClientViewer(false);
         }
 
+        // Restore a previous registration, or require the one-time gate.
+        const savedReg = readGalleryRegistration(data.id);
+
         if (data.photographer_id) {
           const p = await galleryService.getPhotographerProfile(data.photographer_id);
           setPhotographer(p);
+          stampCrashUser({
+            email: p?.email || p?.contact_email || undefined,
+            id: data.photographer_id,
+            role: 'public',
+            studioName: p?.business_name || p?.display_name || '',
+            gallerySlug: slug || data.slug || '',
+            galleryName: data.name || '',
+            visitorEmail: savedReg?.email || undefined,
+          });
           try {
             const wms = await galleryService.getWatermarks(data.photographer_id);
             setWatermarks(wms || []);
@@ -1511,10 +1525,15 @@ const GalleryView = () => {
             console.warn('Could not load store packages:', pkgErr);
             setStorePackages([]);
           }
+        } else {
+          stampCrashUser({
+            role: 'public',
+            gallerySlug: slug || data.slug || '',
+            galleryName: data.name || '',
+            visitorEmail: savedReg?.email || undefined,
+          });
         }
 
-        // Restore a previous registration, or require the one-time gate.
-        const savedReg = readGalleryRegistration(data.id);
         const skipGate = !data.email_capture_enabled || (isClientExclusiveEnabled(data) && isClientSessionActive(data.id));
         if (savedReg?.email) {
           setEmailGatePassed(true);
@@ -1525,6 +1544,7 @@ const GalleryView = () => {
             });
             setSessionId(session.id);
             setEmail(savedReg.email);
+            stampCrashUser({ visitorEmail: savedReg.email, role: 'visitor' });
             await refreshSelectionList(session.id, listId || null, data.id);
           } catch (e) {
             console.error("Failed to restore session:", e);

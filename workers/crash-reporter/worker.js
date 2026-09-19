@@ -36,6 +36,12 @@ export default {
           route: String(b.route || '').slice(0, 256),
           status: String(b.status || 'error').slice(0, 32),
           appVersion: String(b.appVersion || '').slice(0, 32),
+          whoKind: String(b.whoKind || '').slice(0, 32),
+          whoLabel: String(b.whoLabel || '').slice(0, 160),
+          studioName: String(b.studioName || '').slice(0, 128),
+          gallerySlug: String(b.gallerySlug || '').slice(0, 128),
+          galleryName: String(b.galleryName || '').slice(0, 128),
+          visitorEmail: String(b.visitorEmail || '').slice(0, 128),
           crashNo,
           latencyMs: Number(b.latencyMs || 0),
         };
