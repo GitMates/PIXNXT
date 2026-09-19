@@ -39,6 +39,24 @@ export async function onRequest(context) {
     return forward(crash, "/report", request);
   }
 
+  // Admin Crash Report live tab — inject ADMIN_TOKEN server-side (never ship in Vite bundle).
+  if (path === "/api/crash-query" && request.method === "GET") {
+    const crash = String(env.CRASH_WORKER_URL || env.VITE_CRASH_WORKER_URL || "").trim().replace(/\/+$/, "");
+    if (!crash) {
+      return new Response(JSON.stringify({ error: "CRASH_WORKER_URL not configured" }), {
+        status: 503,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    const target = new URL(`${crash}/query`);
+    url.searchParams.forEach((v, k) => {
+      if (k !== "token") target.searchParams.set(k, v);
+    });
+    const token = String(env.CRASH_ADMIN_TOKEN || env.ADMIN_TOKEN || "").trim();
+    if (token) target.searchParams.set("token", token);
+    return fetch(target.toString(), { method: "GET", headers: { Accept: "application/json" } });
+  }
+
   let m;
   if ((m = path.match(/^\/gallery\/([^/]+)\/cover\.jpg$/))) {
     return forward(api, `/v1/public/gallery/${m[1]}/cover.jpg`, request);

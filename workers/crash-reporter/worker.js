@@ -32,7 +32,7 @@ export default {
           category: String(b.category || 'Unknown').slice(0, 64),
           crashType: String(b.crashType || b.category || 'Unknown').slice(0, 64),
           crashName: String(b.crashName || 'Unknown').slice(0, 128),
-          reason: String(b.reason || '').slice(0, 256),
+          reason: String(b.reason || '').slice(0, 500),
           route: String(b.route || '').slice(0, 256),
           status: String(b.status || 'error').slice(0, 32),
           appVersion: String(b.appVersion || '').slice(0, 32),

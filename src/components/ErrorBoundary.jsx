@@ -12,7 +12,12 @@ export class ErrorBoundary extends React.Component {
 
   componentDidCatch(error, info) {
     console.error('ErrorBoundary caught:', error, info);
-    import('../lib/crashLogger').then((m) => m.logCrash({ crashNo: 20, reason: String(error?.message || 'ErrorBoundary').slice(0, 300), route: typeof window !== 'undefined' ? window.location.pathname : '' })).catch(() => {});
+    import('../lib/crashLogger').then((m) => m.logCrash({
+      crashNo: m.CRASH_NO?.ERROR_BOUNDARY ?? 20,
+      reason: String(error?.message || 'ErrorBoundary').slice(0, 300),
+      route: typeof window !== 'undefined' ? window.location.pathname + window.location.search : '',
+      stack: String(info?.componentStack || '').slice(0, 1000),
+    })).catch(() => {});
   }
 
   render() {
@@ -24,13 +29,22 @@ export class ErrorBoundary extends React.Component {
             <p className="text-[#666] mb-4 text-sm">
               {this.state.error?.message || 'An unexpected error occurred.'}
             </p>
-            <button
-              type="button"
-              onClick={() => window.location.assign('/client-gallery')}
-              className="px-6 py-2 bg-[#111111] text-white rounded hover:bg-[#333] transition-colors"
-            >
-              Back to Deliveries
-            </button>
+            <div className="flex flex-wrap gap-2 justify-center">
+              <button
+                type="button"
+                onClick={() => this.setState({ error: null })}
+                className="px-6 py-2 border border-[#111111] text-[#111111] rounded hover:bg-[#f5f5f5] transition-colors"
+              >
+                Try again
+              </button>
+              <button
+                type="button"
+                onClick={() => window.location.assign('/client-gallery')}
+                className="px-6 py-2 bg-[#111111] text-white rounded hover:bg-[#333] transition-colors"
+              >
+                Back to Deliveries
+              </button>
+            </div>
           </div>
         </div>
       );

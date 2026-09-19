@@ -1,14 +1,11 @@
 // Crash reporting helper: pages call logCrash(), reports go to Cloudflare.
-// Full taxonomy lives in ./crashTaxonomy.js (auto-generated 1-266 from Master Crash Report).
-import { crashByNo } from './crashTaxonomy';
+// Full taxonomy lives in ./crashTaxonomy.js (Master Crash Report; stable 20/77/78).
+import { crashByNo, crashNoForApiError, CRASH_NO } from './crashTaxonomy';
 
 const WORKER_URL = (import.meta.env.VITE_CRASH_WORKER_URL || '').replace(/\/+$/, '');
 const QUEUE_KEY = 'pixnxt_crash_queue_v1';
 const MAX_QUEUE = 200;
 
-// Crash detection master switch (admin toggle in Crash Report, top right).
-// Browser-local: 'off' stops all reporting from this browser (global hooks +
-// manual logCrash calls). Defaults ON; stored so it survives reloads.
 const DETECTION_KEY = 'pixnxt_crash_detection';
 export const CRASH_DETECTION_EVENT = 'pixnxt-crash-detection-changed';
 
@@ -29,7 +26,7 @@ export function setCrashDetectionEnabled(on) {
       localStorage.setItem(DETECTION_KEY, on ? 'on' : 'off');
       window.dispatchEvent(new CustomEvent(CRASH_DETECTION_EVENT, { detail: { enabled: Boolean(on) } }));
     }
-  } catch { /* storage unavailable: flag still applies via memory */ }
+  } catch { /* storage unavailable */ }
   if (typeof window !== 'undefined') window.__PIXNXT_CRASH_DETECTION_OFF__ = !on;
 }
 
@@ -37,7 +34,7 @@ function readQueue() {
   try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]'); } catch { return []; }
 }
 function persistQueue(q) {
-  try { localStorage.setItem(QUEUE_KEY, JSON.stringify(q.slice(-MAX_QUEUE))); } catch { /* quota full: drop */ }
+  try { localStorage.setItem(QUEUE_KEY, JSON.stringify(q.slice(-MAX_QUEUE))); } catch { /* quota */ }
 }
 
 function safeStoreGet(store, key) {
@@ -49,11 +46,17 @@ function safeStoreGet(store, key) {
   }
 }
 
+/** Stamp identity for crash reports (AuthContext / public visitor). */
+export function stampCrashUser({ email, id } = {}) {
+  if (typeof window === 'undefined') return;
+  if (email) window.__PIXNXT_USER_EMAIL__ = String(email);
+  else delete window.__PIXNXT_USER_EMAIL__;
+  if (id) window.__PIXNXT_USER_ID__ = String(id);
+  else delete window.__PIXNXT_USER_ID__;
+}
+
 function baseContext(extra = {}) {
   let user = null;
-  // The access token lives in memory (Workers auth) — every read is defensive
-  // so logging never throws. Order: explicit session snapshot, then globals
-  // stamped by the app shell.
   const raw =
     safeStoreGet(typeof sessionStorage !== 'undefined' ? sessionStorage : undefined, 'pixnxt_user');
   try {
@@ -62,8 +65,8 @@ function baseContext(extra = {}) {
   return {
     v: 1,
     ts: new Date().toISOString(),
-    accountEmail: extra.accountEmail || user?.email || window.__PIXNXT_USER_EMAIL__ || 'unknown',
-    photographerId: extra.photographerId || user?.id || window.__PIXNXT_USER_ID__ || 'unknown',
+    accountEmail: extra.accountEmail || user?.email || (typeof window !== 'undefined' ? window.__PIXNXT_USER_EMAIL__ : null) || 'unknown',
+    photographerId: extra.photographerId || user?.id || (typeof window !== 'undefined' ? window.__PIXNXT_USER_ID__ : null) || 'unknown',
     route: extra.route || (typeof window !== 'undefined' ? window.location.pathname + window.location.search : ''),
     ua: typeof navigator !== 'undefined' ? navigator.userAgent.slice(0, 200) : '',
     appVersion: import.meta.env.VITE_APP_VERSION || 'dev',
@@ -71,8 +74,6 @@ function baseContext(extra = {}) {
   };
 }
 
-// crashNo 1-266 required. crashType/category/name auto-filled from taxonomy if omitted.
-// No-op while crash detection is switched off (admin toggle).
 export async function logCrash({ crashNo, category, crashType, crashName, reason, ...extra }) {
   if (!isCrashDetectionEnabled()) return { ok: false, via: 'disabled' };
   const ref = crashByNo(crashNo);
@@ -86,7 +87,6 @@ export async function logCrash({ crashNo, category, crashType, crashName, reason
     status: extra.status || 'error',
     latencyMs: extra.latencyMs ?? 0,
   };
-  // 1) Cloudflare Worker -> Analytics Engine (primary after migration)
   if (WORKER_URL) {
     try {
       const res = await fetch(`${WORKER_URL}/report`, {
@@ -94,9 +94,8 @@ export async function logCrash({ crashNo, category, crashType, crashName, reason
         body: JSON.stringify(payload), keepalive: true,
       });
       if (res.ok) { flushQueue(); return { ok: true, via: 'worker' }; }
-    } catch { /* fall through to queue */ }
+    } catch { /* queue */ }
   }
-  // 2) Same-origin API fallback (Vercel /api/crash-report or dev middleware)
   try {
     const res = await fetch('/api/crash-report', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -104,7 +103,6 @@ export async function logCrash({ crashNo, category, crashType, crashName, reason
     });
     if (res.ok) { flushQueue(); return { ok: true, via: 'api' }; }
   } catch { /* offline */ }
-  // 3) Offline queue -> retried on next logCrash / page load
   const q = readQueue(); q.push(payload); persistQueue(q);
   return { ok: false, via: 'queued' };
 }
@@ -124,17 +122,31 @@ export async function flushQueue() {
 }
 
 export function reportCaught(crashNo, err, extra = {}) {
-  return logCrash({ crashNo, reason: String(err?.message || err || 'caught').slice(0, 300), stack: String(err?.stack || '').slice(0, 1000), ...extra });
+  return logCrash({
+    crashNo,
+    reason: String(err?.message || err || 'caught').slice(0, 300),
+    stack: String(err?.stack || '').slice(0, 1000),
+    status: err?.status || err?.statusCode || extra.status,
+    code: err?.code,
+    ...extra,
+  });
 }
 
-// Install once in main.jsx: window.onerror + unhandledrejection -> crashNo 77/78
-// Handlers check the detection flag at event time so the admin toggle
-// takes effect immediately without a reload.
+/** Report an ApiError with taxonomy-mapped crashNo (401→API 401, 404→API 404, …). */
+export function reportApiError(err, extra = {}) {
+  if (!err) return Promise.resolve({ ok: false });
+  if (err.__pixnxtCrashLogged) return Promise.resolve({ ok: false, via: 'deduped' });
+  try { err.__pixnxtCrashLogged = true; } catch { /* non-extensible */ }
+  const crashNo = crashNoForApiError(err);
+  return reportCaught(crashNo, err, {
+    endpoint: extra.endpoint || extra.path || '',
+    method: extra.method || '',
+    ...extra,
+  });
+}
+
 function isThirdPartyRumError({ message, filename, stack }) {
   const hay = `${message || ''}\n${filename || ''}\n${stack || ''}`;
-  // web-vitals / Vercel Speed Insights / CF beacon / Zaraz inject minified
-  // `reportAllChanges` + PerformanceObserver `entry.startTime` reads from an
-  // eval'd VM script — never first-party code (no such symbol in src/dist).
   if (/reportAllChanges/i.test(hay)) return true;
   if (/^VM\d+/i.test(String(filename || ''))) return true;
   if (/^\s*at .*\(VM\d+:/m.test(String(stack || ''))) return true;
@@ -150,14 +162,34 @@ export function installGlobalCrashHooks() {
     const message = String(e.message || 'window.onerror');
     const stack = String(e.error?.stack || '');
     if (isThirdPartyRumError({ message, filename: e.filename || '', stack })) return;
-    void logCrash({ crashNo: 77, reason: message.slice(0, 300), route: window.location.pathname, stack: stack.slice(0, 1000) });
+    void logCrash({
+      crashNo: CRASH_NO.UNHANDLED_EXCEPTION,
+      reason: message.slice(0, 300),
+      route: window.location.pathname + window.location.search,
+      stack: stack.slice(0, 1000),
+    });
   });
   window.addEventListener('unhandledrejection', (e) => {
     if (!isCrashDetectionEnabled()) return;
-    const message = String(e.reason?.message || e.reason || 'unhandledrejection');
-    const stack = String(e.reason?.stack || '');
+    const reason = e.reason;
+    if (reason?.__pixnxtCrashLogged) return;
+    const message = String(reason?.message || reason || 'unhandledrejection');
+    const stack = String(reason?.stack || '');
     if (isThirdPartyRumError({ message, filename: '', stack })) return;
-    void logCrash({ crashNo: 78, reason: message.slice(0, 300), route: window.location.pathname });
+    // Remap ApiError / HTTP failures to the matching Master Report vector.
+    if (reason && (reason.name === 'ApiError' || reason.status || reason.statusCode)) {
+      void reportApiError(reason, { route: window.location.pathname + window.location.search });
+      return;
+    }
+    void logCrash({
+      crashNo: CRASH_NO.UNHANDLED_REJECTION,
+      reason: message.slice(0, 300),
+      route: window.location.pathname + window.location.search,
+      stack: stack.slice(0, 1000),
+    });
   });
   if (isCrashDetectionEnabled()) flushQueue();
+  window.addEventListener('pagehide', () => { void flushQueue(); });
 }
+
+export { CRASH_NO };

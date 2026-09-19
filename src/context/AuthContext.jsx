@@ -5,6 +5,7 @@ import {
   resolveInitialAuthSession,
   ensurePhotographerProfile,
 } from '../services/auth.service';
+import { stampCrashUser } from '../lib/crashLogger';
 
 const AuthContext = createContext();
 
@@ -33,6 +34,14 @@ export const AuthProvider = ({ children }) => {
   const applyAuthState = useCallback(({ user: nextUser, session: nextSession }) => {
     setSession((prev) => (sameAuthSession(prev, nextSession) ? prev : nextSession));
     setUser((prev) => (sameAuthUser(prev, nextUser) ? prev : nextUser));
+    stampCrashUser({ email: nextUser?.email, id: nextUser?.id });
+    try {
+      if (nextUser?.email) {
+        sessionStorage.setItem('pixnxt_user', JSON.stringify({ id: nextUser.id, email: nextUser.email }));
+      } else {
+        sessionStorage.removeItem('pixnxt_user');
+      }
+    } catch { /* private mode */ }
   }, []);
 
   // Re-resolve session on demand (required in Workers mode — there is no
