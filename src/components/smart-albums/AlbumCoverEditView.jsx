@@ -100,6 +100,7 @@ export default function AlbumCoverEditView({
             { inwardOnly: baseLayout.spineFromCoverCalc }
         );
         const spineFraction = clamped.spineEndFraction - clamped.spineStartFraction;
+        const hasSpine = spineFraction > (showLeatherCover ? 0.04 : 0.004);
         return {
             ...baseLayout,
             ...clamped,
@@ -111,9 +112,25 @@ export default function AlbumCoverEditView({
             spineDisplayEndFraction: clamped.spineEndFraction,
             spineZoneStartFraction: baseLayout.spineZoneStartFraction,
             spineZoneEndFraction: baseLayout.spineZoneEndFraction,
-            hasSpine: spineFraction > (showLeatherCover ? 0.04 : 0.004),
+            hasSpine,
         };
-    }, [baseLayout, spineBounds, showLeatherCover]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [
+        baseLayout.spineStartFraction,
+        baseLayout.spineEndFraction,
+        baseLayout.spineFromCoverCalc,
+        baseLayout.wrapAspect,
+        baseLayout.innerSpreadAspect,
+        baseLayout.coverSpineStartFraction,
+        baseLayout.coverSpineEndFraction,
+        baseLayout.defaultSpineStartFraction,
+        baseLayout.defaultSpineEndFraction,
+        baseLayout.spineZoneStartFraction,
+        baseLayout.spineZoneEndFraction,
+        spineBounds?.spineStartFraction,
+        spineBounds?.spineEndFraction,
+        showLeatherCover,
+    ]);
 
     const wrapAspect = baseLayout.wrapAspect;
     const transform = albumId
@@ -365,13 +382,29 @@ export default function AlbumCoverEditView({
                 const fraction = wrapFractionFromSpreadX(x, drag.spreadRect.width);
 
                 if (drag.edge === 'left') {
-                    persistSpineBounds(fraction, drag.startBounds.spineEndFraction, {
-                        fixedEdge: 'end',
-                    });
+                    // Move both handles inward symmetrically: left moves right,
+                    // right moves left by the same delta, preserving spine width.
+                    const delta = fraction - drag.startBounds.spineStartFraction;
+                    let newStart = drag.startBounds.spineStartFraction + delta;
+                    let newEnd = drag.startBounds.spineEndFraction - delta;
+                    // Clamp: don't let start go past end or shrink below minimum
+                    if (newEnd - newStart < 0.004) {
+                        const mid = (newStart + newEnd) / 2;
+                        newStart = mid - 0.002;
+                        newEnd = mid + 0.002;
+                    }
+                    persistSpineBounds(newStart, newEnd);
                 } else {
-                    persistSpineBounds(drag.startBounds.spineStartFraction, fraction, {
-                        fixedEdge: 'start',
-                    });
+                    // Right handle: same symmetric logic
+                    const delta = fraction - drag.startBounds.spineEndFraction;
+                    let newStart = drag.startBounds.spineStartFraction - delta;
+                    let newEnd = drag.startBounds.spineEndFraction + delta;
+                    if (newEnd - newStart < 0.004) {
+                        const mid = (newStart + newEnd) / 2;
+                        newStart = mid - 0.002;
+                        newEnd = mid + 0.002;
+                    }
+                    persistSpineBounds(newStart, newEnd);
                 }
             };
 

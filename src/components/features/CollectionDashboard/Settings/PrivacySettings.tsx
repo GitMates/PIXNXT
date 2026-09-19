@@ -85,6 +85,26 @@ function suggestPassword(slug: string) {
   return `${words.join('-') || 'gallery'}-${year}`;
 }
 
+/**
+ * Fresh random password per click (same memorable `slug-XXXX` shape).
+ * `suggestPassword` above is deterministic (slug + year), so it returns the
+ * identical string every time — using it for Generate looks completely dead
+ * when the field already holds that value. This always mints a new one.
+ */
+function generatePassword(slug: string, current?: string) {
+  const words = String(slug || 'gallery')
+    .replace(/[^a-z0-9-]/gi, '')
+    .split('-')
+    .filter(Boolean)
+    .slice(0, 2);
+  const base = words.join('-') || 'gallery';
+  let out = `${base}-${Math.random().toString(36).slice(2, 6).padEnd(4, 'x')}`;
+  for (let i = 0; i < 10 && out === current; i++) {
+    out = `${base}-${Math.random().toString(36).slice(2, 6).padEnd(4, 'x')}`;
+  }
+  return out;
+}
+
 function displayRegistrationPath(url: string) {
   try {
     const parsed = new URL(url);
@@ -723,7 +743,10 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
                         <button
                           type="button"
                           className="cd-basics-btn"
-                          onClick={() => setCollectionPassword(suggestPassword(collectionUrl))}
+                          onClick={() => {
+                            setCollectionPassword(generatePassword(collectionUrl, collectionPassword));
+                            setRevealPassword(true);
+                          }}
                         >
                           Generate
                         </button>
@@ -823,7 +846,7 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
                           <button
                             type="button"
                             className="cd-basics-btn"
-                            onClick={() => setClientPrivatePassword(suggestPassword(`${collectionUrl}-client`))}
+                            onClick={() => setClientPrivatePassword(generatePassword(`${collectionUrl}-client`, clientPrivatePassword))}
                           >
                             Generate
                           </button>

@@ -210,9 +210,10 @@ export function placementFromSwapThumbClick(
   const layerEl = pageEl || thumbEl || img.parentElement;
   const spot = pinPointFromPointer(event.clientX, event.clientY, layerEl, img);
 
-  // A spread-full photo (full-bleed or whole-grid) is shown as one image, so
-  // its percents must be mapped to the half page under the click — otherwise
-  // the pin lands at the wrong spot (and looks like it moved upward).
+  // A full-bleed spread thumbnail is a single .ab-overview-page element, so the
+  // pageIndex lookup below would always resolve to the left half. Split by
+  // click position instead — for whole-spread albums and full-bleed two-page
+  // spreads alike. Otherwise right-half clicks can never target right photos.
   if (showSpreadFull) {
     return spreadPhotoPercentToHalfPlacement(
       spot.xPct,

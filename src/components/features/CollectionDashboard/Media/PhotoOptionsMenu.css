@@ -108,3 +108,16 @@
   background: #fdf2f0;
   color: #8a2f22;
 }
+
+.cd-pom-filename {
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  background: #faf6ef;
+  border: 1px solid #ece3d3;
+  padding: 2px 8px;
+  border-radius: 999px;
+  color: #8a8378;
+}

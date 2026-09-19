@@ -177,6 +177,14 @@
   align-items: stretch;
   justify-content: flex-start;
   padding: 0;
+  /* Book-anchored picker must not swallow clicks on the live spread: the
+     docked panel stays interactive while target spots can still be picked
+     directly on either half of the book underneath. */
+  pointer-events: none;
+}
+
+.ab-swap-modal-backdrop--book-anchor .ab-swap-modal--book-anchor {
+  pointer-events: auto;
 }
 
 .ab-swap-modal--book-anchor {
