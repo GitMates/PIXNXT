@@ -1,0 +1,222 @@
+/* PIXNXT Admin studio polish layer. Scoped under .admin-studio (added in
+   AdminLayout) so nothing leaks into the photographer studio or galleries. */
+
+.admin-studio {
+  --ad-bg: #f4f2ee;
+  --ad-card: #ffffff;
+  --ad-line: #eae8e4;
+  --ad-ink: #1a1a1a;
+  --ad-muted: #6b6f76;
+  --ad-faint: #a8a29e;
+  --ad-accent: #c46a3a;
+  --ad-ok: #15803d;
+  --ad-ok-bg: #ecfdf3;
+  --ad-warn: #b45309;
+  --ad-bad: #b42318;
+  --ad-bad-bg: #fef3f2;
+  background:
+    radial-gradient(1200px 320px at 20% -80px, rgba(196, 106, 58, 0.06), transparent 60%),
+    radial-gradient(900px 280px at 90% -60px, rgba(26, 26, 26, 0.05), transparent 60%),
+    var(--ad-bg);
+}
+
+/* ---- content scrollbar ---- */
+.admin-studio ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.admin-studio ::-webkit-scrollbar-thumb {
+  background: #d8d4cc;
+  border-radius: 999px;
+  border: 2px solid var(--ad-bg);
+}
+.admin-studio ::-webkit-scrollbar-thumb:hover {
+  background: #b9b3a8;
+}
+.admin-studio ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ---- stat cards ---- */
+.ad-stat {
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+a.ad-stat:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px -12px rgba(26, 26, 26, 0.25);
+  border-color: #d8d4cc;
+}
+.ad-stat .ad-stat-arrow {
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+a.ad-stat:hover .ad-stat-arrow {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* ---- panels ---- */
+.ad-panel {
+  transition: box-shadow 0.18s ease;
+}
+.ad-panel:hover {
+  box-shadow: 0 8px 22px -14px rgba(26, 26, 26, 0.25);
+}
+
+/* ---- tables: rows, avatars, pills, row actions ---- */
+.ad-row {
+  transition: background-color 0.15s ease;
+}
+.ad-row:hover {
+  background-color: #faf9f6;
+}
+.ad-avatar {
+  box-shadow: 0 0 0 2px #fff, 0 0 0 3.5px #e7e2d8;
+}
+.ad-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.ad-pill::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+}
+.ad-pill--ok {
+  color: var(--ad-ok);
+  background: var(--ad-ok-bg);
+  border-color: #bbe7c9;
+}
+.ad-pill--muted {
+  color: var(--ad-muted);
+  background: #f1efe9;
+  border-color: #e2ded4;
+}
+.ad-pill--bad {
+  color: var(--ad-bad);
+  background: var(--ad-bad-bg);
+  border-color: #f5c6c0;
+}
+.ad-pill--warn {
+  color: var(--ad-warn);
+  background: #fef6e7;
+  border-color: #f0dcae;
+}
+.ad-action-btn {
+  transition: transform 0.15s ease, background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.ad-action-btn:hover {
+  transform: translateY(-1px);
+}
+.ad-action-btn:active {
+  transform: translateY(0);
+}
+
+/* ---- search + filter inputs ---- */
+.ad-input {
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+.ad-input:focus {
+  outline: none;
+  border-color: var(--ad-ink);
+  box-shadow: 0 0 0 3px rgba(26, 26, 26, 0.08);
+  background-color: #fff;
+}
+.ad-input::placeholder {
+  color: var(--ad-faint);
+}
+
+/* ---- modal motion ---- */
+@keyframes ad-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes ad-card-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.ad-modal-backdrop {
+  animation: ad-backdrop-in 0.18s ease both;
+}
+.ad-modal-card {
+  animation: ad-card-in 0.22s cubic-bezier(0.22, 0.9, 0.3, 1.05) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ad-modal-backdrop,
+  .ad-modal-card {
+    animation: none;
+  }
+  .ad-stat,
+  a.ad-stat:hover,
+  .ad-action-btn,
+  .ad-action-btn:hover {
+    transform: none;
+  }
+}
+
+/* ---- modal form rows ---- */
+.ad-field-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ad-muted);
+}
+.ad-toggle {
+  position: relative;
+  display: inline-flex;
+  width: 44px;
+  height: 25px;
+  border-radius: 999px;
+  background: #d9d5cb;
+  transition: background-color 0.18s ease;
+  flex-shrink: 0;
+}
+.ad-toggle[data-on="true"] {
+  background: #16a34a;
+}
+.ad-toggle-thumb {
+  position: absolute;
+  top: 2.5px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: left 0.18s ease;
+}
+.ad-toggle[data-on="true"] .ad-toggle-thumb {
+  left: 21px;
+}
+
+/* ---- empty / error states ---- */
+.ad-empty {
+  border: 1.5px dashed #ddd9cf;
+  background: rgba(255, 255, 255, 0.6);
+}
+.ad-error-card {
+  border: 1px solid #f5c6c0;
+  background: linear-gradient(180deg, #fef6f5, #fdf0ee);
+}
+
+/* ---- mobile admin nav ---- */
+.ad-mnav {
+  scrollbar-width: none;
+}
+.ad-mnav::-webkit-scrollbar {
+  display: none;
+}
+.ad-mnav a {
+  transition: background-color 0.15s ease, color 0.15s ease;
+}

@@ -11,8 +11,6 @@ import {
   AdminPageHeader,
   AdminSection,
   AdminStatCard,
-  AdminPanel,
-  AdminBarList,
 } from '../../components/admin/AdminUi';
 
 const formatBytes = (bytes) => {
@@ -29,7 +27,6 @@ const num = (v) => Number(v) || 0;
 const isCapped = (limit) => Number(limit) > 0;
 const isDisabledCap = (limit) => Number(limit) === -1;
 const isOff = (v) => v === false || v === 0 || v === '0';
-const isOn = (v) => !isOff(v);
 
 /** Same coalesce rules as Admin Quotas / backend flattenAdminPhotographer. */
 function faceNormalUsed(p) {
@@ -153,12 +150,6 @@ const AdminDashboard = () => {
     guestImages: rows.reduce((s, p) => s + faceGuestUsed(p), 0),
     normalDeliveries: rows.reduce((s, p) => s + faceNormalDeliveryUsed(p), 0),
     guestDeliveries: rows.reduce((s, p) => s + faceGuestDeliveryUsed(p), 0),
-    libraryOff: rows.filter((p) => isOff(p.ai_search_enabled)).length,
-    findPeopleOff: rows.filter((p) => isOff(p.face_normal_enabled)).length,
-    guestMatchingOff: rows.filter((p) => isOff(p.face_guest_enabled)).length,
-    libraryOn: rows.filter((p) => isOn(p.ai_search_enabled)).length,
-    findPeopleOn: rows.filter((p) => isOn(p.face_normal_enabled)).length,
-    guestMatchingOn: rows.filter((p) => isOn(p.face_guest_enabled)).length,
   };
 
   const face = stats?.face || {};
@@ -166,12 +157,6 @@ const AdminDashboard = () => {
   const guestImages = face.guestImagesUsed != null ? num(face.guestImagesUsed) : fromRows.guestImages;
   const normalDeliveries = face.normalDeliveriesUsed != null ? num(face.normalDeliveriesUsed) : fromRows.normalDeliveries;
   const guestDeliveries = face.guestDeliveriesUsed != null ? num(face.guestDeliveriesUsed) : fromRows.guestDeliveries;
-  const libraryOff = face.libraryOff != null ? num(face.libraryOff) : fromRows.libraryOff;
-  const findPeopleOff = face.findPeopleOff != null ? num(face.findPeopleOff) : fromRows.findPeopleOff;
-  const guestMatchingOff = face.guestMatchingOff != null ? num(face.guestMatchingOff) : fromRows.guestMatchingOff;
-  const libraryOn = face.libraryOn != null ? num(face.libraryOn) : fromRows.libraryOn;
-  const findPeopleOn = face.findPeopleOn != null ? num(face.findPeopleOn) : fromRows.findPeopleOn;
-  const guestMatchingOn = face.guestMatchingOn != null ? num(face.guestMatchingOn) : fromRows.guestMatchingOn;
 
   const photographerCount = stats?.photographers != null ? num(stats.photographers) : rows.length;
   const deliveryCount = stats?.deliveries != null ? num(stats.deliveries) : 0;
@@ -266,37 +251,6 @@ const AdminDashboard = () => {
         </div>
       </AdminSection>
 
-      <div className="grid lg:grid-cols-2 gap-4">
-        <AdminPanel title="Feature coverage">
-          <AdminBarList
-            items={[
-              { key: 'lib', label: 'Library on', count: libraryOn },
-              { key: 'fp', label: 'Find People on', count: findPeopleOn },
-              { key: 'gm', label: 'Guest matching on', count: guestMatchingOn },
-              { key: 'liboff', label: 'Library off', count: libraryOff },
-              { key: 'fpoff', label: 'Find People off', count: findPeopleOff },
-              { key: 'gmoff', label: 'Guest matching off', count: guestMatchingOff },
-            ].filter((i) => i.count > 0)}
-            max={6}
-            empty={loading ? 'Loading…' : 'No feature data yet.'}
-          />
-        </AdminPanel>
-        <AdminPanel title="Top face image studios">
-          <AdminBarList
-            items={[...rows]
-              .map((p) => ({
-                key: p.id,
-                count: faceNormalUsed(p) + faceGuestUsed(p),
-                label: p.display_name || p.email || 'Studio',
-              }))
-              .filter((i) => i.count > 0)
-              .sort((a, b) => b.count - a.count)}
-            max={8}
-            empty={loading ? 'Loading…' : 'No Face AI usage yet.'}
-          />
-        </AdminPanel>
-      </div>
-
       <AdminSection title="Needs attention">
         <div className="bg-white rounded-2xl shadow-sm border border-[#eae8e4] overflow-hidden">
           {loading ? (
@@ -309,8 +263,8 @@ const AdminDashboard = () => {
             <ul className="divide-y divide-[#f0eee9]">
               {needsAttention.map(({ p, reasons }) => (
                 <li key={p.id}>
-                  <Link to="/admin/quotas" className="flex items-center gap-3 px-5 py-3.5 hover:bg-[#faf9f7] transition-colors">
-                    <div className="w-9 h-9 rounded-full flex items-center justify-center bg-[#1a1a1a] text-white shrink-0 text-sm font-semibold">
+                  <Link to="/admin/quotas" className="ad-row flex items-center gap-3 px-5 py-3.5 hover:bg-[#faf9f7] transition-colors">
+                    <div className="ad-avatar w-9 h-9 rounded-full flex items-center justify-center bg-[#1a1a1a] text-white shrink-0 text-sm font-semibold">
                       {(p.display_name || p.email || 'U').charAt(0).toUpperCase()}
                     </div>
                     <div className="min-w-0 flex-1">
@@ -318,7 +272,7 @@ const AdminDashboard = () => {
                       <p className="text-gray-500 text-xs truncate">{p.email}</p>
                       <p className="text-red-700/80 text-xs truncate mt-0.5">{reasons.join(' · ')}</p>
                     </div>
-                    <span className="shrink-0 px-2 py-0.5 rounded-full text-[11px] font-bold bg-red-50 text-red-700 border border-red-200">
+                    <span className="ad-pill ad-pill--bad">
                       Review
                     </span>
                   </Link>

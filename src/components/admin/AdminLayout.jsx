@@ -4,6 +4,7 @@ import { LayoutDashboard, Users, LogOut, ChevronDown, AlertTriangle, Layers, Gau
 import { useAuth } from '../../hooks/useAuth';
 import { signOut } from '../../services/auth.service';
 import { getUserDisplayLabel, getUserInitial } from '../../lib/userInitials';
+import './adminStudio.css';
 
 const AdminLayout = () => {
   const { user } = useAuth();
@@ -127,19 +128,37 @@ const AdminLayout = () => {
       </aside>
 
       <main className="flex-1 flex flex-col h-full overflow-hidden relative min-w-0">
-        <header className="md:hidden h-14 bg-[#141414] text-white flex items-center justify-between px-4 z-10">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 bg-white rounded-lg flex items-center justify-center">
-              <img src="/Logo_Final-01.png" alt="Pixnxt" className="w-4 h-4 object-contain" />
+        <header className="md:hidden bg-[#141414] text-white z-10">
+          <div className="h-14 flex items-center justify-between px-4">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 bg-white rounded-lg flex items-center justify-center">
+                <img src="/Logo_Final-01.png" alt="Pixnxt" className="w-4 h-4 object-contain" />
+              </div>
+              <span className="font-serif font-bold text-sm uppercase tracking-wide">Admin</span>
             </div>
-            <span className="font-serif font-bold text-sm uppercase tracking-wide">Admin</span>
+            <button type="button" onClick={handleLogout} className="p-2 text-white/80 rounded-lg hover:bg-white/10">
+              <LogOut className="w-5 h-5" />
+            </button>
           </div>
-          <button type="button" onClick={handleLogout} className="p-2 text-white/80 rounded-lg hover:bg-white/10">
-            <LogOut className="w-5 h-5" />
-          </button>
+          <nav className="ad-mnav flex gap-1.5 overflow-x-auto px-3 pb-3">
+            {navItems.map((item) => (
+              <NavLink
+                key={item.name}
+                to={item.path}
+                className={({ isActive }) =>
+                  `flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium ${
+                    isActive ? 'bg-white text-[#141414]' : 'text-white/65 bg-white/5'
+                  }`
+                }
+              >
+                <item.icon className="w-3.5 h-3.5 shrink-0" />
+                {item.name}
+              </NavLink>
+            ))}
+          </nav>
         </header>
 
-        <div className="flex-1 overflow-auto">
+        <div className="admin-studio flex-1 overflow-auto">
           <div className="max-w-6xl mx-auto p-4 md:p-8">
             <Outlet />
           </div>

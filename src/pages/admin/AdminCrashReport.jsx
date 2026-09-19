@@ -14,7 +14,6 @@ import {
   AdminPanel,
   AdminBarList,
   AdminModal,
-  AdminModalSection,
 } from '../../components/admin/AdminUi';
 
 const WORKER_URL = (import.meta.env.VITE_CRASH_WORKER_URL || '').replace(/\/+$/, '');
@@ -113,55 +112,51 @@ function FixModal({ crashNo, live, onClose }) {
         <button
           type="button"
           onClick={onClose}
-          className="px-4 py-2.5 text-sm font-medium rounded-xl border border-[#eae8e4] bg-white text-gray-700 hover:bg-gray-50"
+          className="px-5 py-2.5 text-sm font-semibold rounded-xl bg-[#1a1a1a] text-white hover:bg-black"
         >
           Close
         </button>
       )}
     >
-      <AdminModalSection title="How it occurs">
-        <div className="rounded-2xl border border-[#eae8e4] bg-white p-4">
-          <p className="text-sm text-gray-800 leading-relaxed">{g.howItOccurs}</p>
-          {live?.reason && live.reason !== g.howItOccurs && (
-            <p className="mt-3 text-xs text-amber-800 border-t border-amber-100 pt-3">
-              <span className="font-semibold">Live error: </span>{live.reason}
-            </p>
-          )}
-        </div>
-      </AdminModalSection>
+      <section className="rounded-2xl border border-[#eae8e4] bg-white p-4">
+        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-2 select-none">How it occurs</h3>
+        <p className="text-sm text-gray-800 leading-relaxed">{g.howItOccurs}</p>
+        {live?.reason && live.reason !== g.howItOccurs && (
+          <p className="mt-3 text-xs text-amber-800 border-t border-amber-100 pt-3">
+            <span className="font-semibold">Live error: </span>{live.reason}
+          </p>
+        )}
+      </section>
 
       <div className="grid sm:grid-cols-2 gap-3">
-        <AdminModalSection title="Which page">
-          <div className="rounded-2xl border border-[#eae8e4] bg-[#f7f4ef] p-4">
-            <p className="text-sm font-medium text-gray-900">{g.whichPage}</p>
-            {g.route && (
-              <p className="mt-2 font-mono text-xs text-gray-500 break-all">{g.route}</p>
-            )}
-          </div>
-        </AdminModalSection>
-        <AdminModalSection title="Whose account">
-          <div className="rounded-2xl border border-[#eae8e4] bg-[#f7f4ef] p-4">
-            <p className="text-sm font-medium text-gray-900">{who.primary}</p>
-            {who.secondary && <p className="mt-1 text-xs text-gray-600">{who.secondary}</p>}
-            <p className="mt-2 text-[11px] uppercase tracking-wide text-gray-400">{who.kind}</p>
-          </div>
-        </AdminModalSection>
+        <section className="rounded-2xl border border-[#eae8e4] bg-[#f7f4ef] p-4">
+          <h3 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-2 select-none">Which page</h3>
+          <p className="text-sm font-medium text-gray-900">{g.whichPage}</p>
+          {g.route && (
+            <p className="mt-2 font-mono text-xs text-gray-500 break-all">{g.route}</p>
+          )}
+        </section>
+        <section className="rounded-2xl border border-[#eae8e4] bg-[#f7f4ef] p-4">
+          <h3 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-2 select-none">Whose account</h3>
+          <p className="text-sm font-medium text-gray-900">{who.primary}</p>
+          {who.secondary && <p className="mt-1 text-xs text-gray-600">{who.secondary}</p>}
+          <p className="mt-2 text-[11px] uppercase tracking-wide text-gray-400 select-none">{who.kind}</p>
+        </section>
       </div>
 
-      <AdminModalSection title="How to fix">
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/90 p-4">
-          <ol className="list-decimal pl-4 space-y-2 text-sm text-gray-900 leading-relaxed">
-            {g.howToFix.map((step) => (
-              <li key={step}>{step}</li>
-            ))}
-          </ol>
-          {g.signal && (
-            <p className="mt-3 text-xs font-mono text-emerald-900/70 border-t border-emerald-200/60 pt-3">
-              Track: {g.signal}
-            </p>
-          )}
-        </div>
-      </AdminModalSection>
+      <section className="rounded-2xl border border-emerald-200 bg-emerald-50/90 p-4">
+        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-emerald-800 mb-2 select-none">How to fix</h3>
+        <ol className="list-decimal pl-4 space-y-2 text-sm text-gray-900 leading-relaxed">
+          {g.howToFix.map((step) => (
+            <li key={step}>{step}</li>
+          ))}
+        </ol>
+        {g.signal && (
+          <p className="mt-3 text-xs font-mono text-emerald-900/70 border-t border-emerald-200/60 pt-3">
+            Track: {g.signal}
+          </p>
+        )}
+      </section>
     </AdminModal>
   );
 }
@@ -411,30 +406,6 @@ export default function AdminCrashReport() {
             />
           </div>
 
-          <div className="grid lg:grid-cols-3 gap-4">
-            <AdminPanel title="Top crash types">
-              <AdminBarList
-                items={liveViz.byCrash}
-                empty="No data in this window."
-                onSelect={(item) => {
-                  const no = Number(String(item.key));
-                  setCrashNoFilter(String(no));
-                  openFix(no);
-                }}
-              />
-            </AdminPanel>
-            <AdminPanel title="By account / gallery">
-              <AdminBarList
-                items={liveViz.byWho}
-                empty="No data in this window."
-                onSelect={(item) => setQ(String(item.key).slice(0, 40))}
-              />
-            </AdminPanel>
-            <AdminPanel title="By page area">
-              <AdminBarList items={liveViz.byPage} empty="No data in this window." />
-            </AdminPanel>
-          </div>
-
           <div className="rounded-2xl border border-[#eae8e4] bg-white p-4 flex flex-wrap gap-3 items-end">
             <label className="text-sm text-gray-600">Hours
               <select value={hours} onChange={(e) => setHours(Number(e.target.value))} className="ml-2 border border-[#eae8e4] rounded-lg px-2 py-1.5 bg-white">
@@ -484,7 +455,7 @@ export default function AdminCrashReport() {
               </thead>
               <tbody>
                 {filteredLive.map((r, i) => (
-                  <tr key={`${r.timestamp}-${r.crashNo}-${i}`} className="border-b border-[#f0eee9] last:border-0 hover:bg-[#faf9f7]">
+                  <tr key={`${r.timestamp}-${r.crashNo}-${i}`} className="ad-row border-b border-[#f0eee9] last:border-0 hover:bg-[#faf9f7]">
                     <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500">
                       {r.timestamp ? new Date(r.timestamp).toLocaleString() : '—'}
                     </td>
@@ -605,7 +576,7 @@ export default function AdminCrashReport() {
               </thead>
               <tbody>
                 {catalogRows.map((c) => (
-                  <tr key={c.no} className="border-b border-[#f0eee9] last:border-0 hover:bg-[#faf9f7]">
+                  <tr key={c.no} className="ad-row border-b border-[#f0eee9] last:border-0 hover:bg-[#faf9f7]">
                     <td className="px-4 py-2.5 font-mono font-semibold">{c.no}</td>
                     <td className="px-4 py-2.5">
                       <div className="font-medium text-gray-900">{c.name}</div>

@@ -11,8 +11,6 @@ import {
   AdminModal,
   AdminModalActions,
   AdminPageHeader,
-  AdminPanel,
-  AdminBarList,
   AdminStatCard,
 } from '../../components/admin/AdminUi';
 
@@ -265,52 +263,6 @@ const AdminUserManagement = () => {
         />
       </div>
 
-      {!loading && users.length > 0 && (
-        <div className="grid lg:grid-cols-2 gap-4">
-          <AdminPanel title="Account status">
-            <AdminBarList
-              items={[
-                { key: 'active', label: 'Active', count: users.filter((u) => !u.isDisabled).length },
-                { key: 'disabled', label: 'Disabled', count: users.filter((u) => u.isDisabled).length },
-                { key: 'never', label: 'Never logged in', count: users.filter((u) => !u.lastLoginAt).length },
-                {
-                  key: 'inactive',
-                  label: `Inactive ${INACTIVE_AFTER_DAYS}+ days`,
-                  count: users.filter((u) => {
-                    const d = daysSinceLogin(u.lastLoginAt);
-                    return d != null && d >= INACTIVE_AFTER_DAYS;
-                  }).length,
-                },
-              ].filter((i) => i.count > 0)}
-              max={4}
-              onSelect={(item) => setStatusFilter(item.key === 'never' ? 'never-login' : item.key)}
-              empty="No account data yet."
-            />
-          </AdminPanel>
-          <AdminPanel title="Storage leaders">
-            <AdminBarList
-              items={[...users]
-                .map((u) => {
-                  const bytes = Number(u.storageUsedBytes) || 0;
-                  return {
-                    key: u.id,
-                    count: Math.round(bytes / (1024 * 1024)),
-                    label: `${u.name || u.email} · ${formatBytes(bytes)}`,
-                  };
-                })
-                .filter((i) => i.count > 0)
-                .sort((a, b) => b.count - a.count)}
-              max={8}
-              onSelect={(item) => {
-                const u = users.find((x) => x.id === item.key);
-                if (u) setSearchQuery(u.email || u.name || '');
-              }}
-              empty="No storage usage yet."
-            />
-          </AdminPanel>
-        </div>
-      )}
-
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-[#eae8e4] space-y-3">
         <div className="flex flex-col lg:flex-row gap-3">
           <div className="relative flex-1 min-w-0">
@@ -320,14 +272,14 @@ const AdminUserManagement = () => {
               placeholder="Search users by name or email..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-[#f8f7f4] border border-[#eae8e4] hover:border-[#eae8e4]/80 focus:border-[#1a1a1a] focus:bg-white rounded-xl text-sm outline-none transition-all focus:ring-1 focus:ring-[#1a1a1a]"
+              className="ad-input w-full pl-9 pr-4 py-2 bg-[#f8f7f4] border border-[#eae8e4] hover:border-[#eae8e4]/80 focus:border-[#1a1a1a] focus:bg-white rounded-xl text-sm outline-none transition-all focus:ring-1 focus:ring-[#1a1a1a]"
             />
           </div>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             aria-label="Filter by account status"
-            className="px-3 py-2 bg-[#f8f7f4] border border-[#eae8e4] rounded-xl text-sm outline-none focus:border-[#1a1a1a] focus:bg-white transition-all"
+            className="ad-input px-3 py-2 bg-[#f8f7f4] border border-[#eae8e4] rounded-xl text-sm outline-none focus:border-[#1a1a1a] focus:bg-white transition-all"
           >
             <option value="all">All statuses</option>
             <option value="active">Active</option>
@@ -339,7 +291,7 @@ const AdminUserManagement = () => {
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
             aria-label="Sort photographers"
-            className="px-3 py-2 bg-[#f8f7f4] border border-[#eae8e4] rounded-xl text-sm outline-none focus:border-[#1a1a1a] focus:bg-white transition-all"
+            className="ad-input px-3 py-2 bg-[#f8f7f4] border border-[#eae8e4] rounded-xl text-sm outline-none focus:border-[#1a1a1a] focus:bg-white transition-all"
           >
             <option value="newest">Newest first</option>
             <option value="oldest">Oldest first</option>
@@ -367,7 +319,7 @@ const AdminUserManagement = () => {
       )}
 
       {error && (
-        <div className="bg-red-50 border border-red-100 rounded-2xl p-6 flex flex-col items-center justify-center text-center">
+        <div className="ad-error-card rounded-2xl p-6 flex flex-col items-center justify-center text-center">
           <AlertCircle className="w-8 h-8 text-red-500 mb-3" />
           <h3 className="text-red-800 font-semibold mb-1">Failed to load users</h3>
           <p className="text-red-600 text-sm max-w-md">{error}</p>
@@ -411,10 +363,10 @@ const AdminUserManagement = () => {
                     const confirming = confirmDisableId === user.id;
                     const busy = actionBusyId === user.id;
                     return (
-                      <tr key={user.id} className="hover:bg-[#f8f7f4]/60 transition-colors align-top">
+                      <tr key={user.id} className="ad-row hover:bg-[#f8f7f4]/60 transition-colors align-top">
                         <td className="px-5 py-4 min-w-0">
                           <div className="flex items-center gap-3 min-w-0">
-                            <div className="w-9 h-9 rounded-full flex items-center justify-center bg-[#1a1a1a] text-white shrink-0">
+                            <div className="ad-avatar w-9 h-9 rounded-full flex items-center justify-center bg-[#1a1a1a] text-white shrink-0">
                               <User className="w-4 h-4" />
                             </div>
                             <div className="min-w-0">
@@ -435,9 +387,9 @@ const AdminUserManagement = () => {
                         </td>
                         <td className="px-4 py-4 min-w-0">
                           {user.isDisabled ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-red-50 text-red-700 border border-red-200">Disabled</span>
+                            <span className="ad-pill ad-pill--bad">Disabled</span>
                           ) : (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Active</span>
+                            <span className="ad-pill ad-pill--ok">Active</span>
                           )}
                         </td>
                         <td className="px-4 py-4">
@@ -446,7 +398,7 @@ const AdminUserManagement = () => {
                               type="button"
                               onClick={() => openEmailComposer(user)}
                               title={`Send email to ${user.email}`}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                              className="ad-action-btn inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                             >
                               <Mail className="w-3.5 h-3.5" />Email
                             </button>
@@ -455,7 +407,7 @@ const AdminUserManagement = () => {
                               disabled={busy}
                               onClick={() => toggleDisabled(user)}
                               title={user.isDisabled ? 'Re-enable this account' : 'Disable this account'}
-                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors disabled:opacity-60 ${
+                              className={`ad-action-btn inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors disabled:opacity-60 ${
                                 confirming
                                   ? 'bg-red-600 text-white hover:bg-red-700'
                                   : user.isDisabled

@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { X } from 'lucide-react';
+import { ArrowUpRight, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { AppSpinner } from '../ui/AppLoading';
 
@@ -58,11 +58,16 @@ export function AdminStatCard({
     <>
       <div className="flex items-start justify-between gap-2">
         <h3 className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{label}</h3>
-        {Icon ? (
-          <span className="inline-flex size-8 items-center justify-center rounded-xl bg-[#f0eee9] text-gray-600">
-            <Icon className="size-4" />
-          </span>
-        ) : null}
+        <span className="flex items-center gap-1.5">
+          {to ? (
+            <ArrowUpRight className="ad-stat-arrow size-4 text-gray-400" />
+          ) : null}
+          {Icon ? (
+            <span className="inline-flex size-8 items-center justify-center rounded-xl bg-[#f0eee9] text-gray-600">
+              <Icon className="size-4" />
+            </span>
+          ) : null}
+        </span>
       </div>
       <p className={`text-2xl sm:text-3xl font-bold mt-3 tabular-nums ${toneCls}`}>
         {loading ? <AppSpinner size="sm" /> : value}
@@ -82,7 +87,7 @@ export function AdminStatCard({
   );
 
   const cls =
-    'bg-white p-5 rounded-2xl border border-[#eae8e4] shadow-sm flex flex-col justify-between min-h-[120px]';
+    'ad-stat bg-white p-5 rounded-2xl border border-[#eae8e4] shadow-sm flex flex-col justify-between min-h-[120px]';
 
   return to ? (
     <Link to={to} className={`${cls} hover:border-gray-400/80 transition-colors`}>
@@ -123,8 +128,9 @@ export function AdminBarList({ items = [], max = 8, onSelect, empty = 'No data y
             <button
               key={item.key}
               type="button"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => onSelect(item)}
-              className="w-full text-left group hover:opacity-90"
+              className="w-full text-left group hover:opacity-90 select-none"
             >
               {body}
             </button>
@@ -174,9 +180,9 @@ export function AdminUsageMeter({ used = 0, limit = 0, label, className = '' }) 
 
 export function AdminPanel({ title, children, className = '', action }) {
   return (
-    <div className={`rounded-2xl border border-[#eae8e4] bg-white shadow-sm ${className}`}>
+    <div className={`ad-panel rounded-2xl border border-[#eae8e4] bg-white shadow-sm ${className}`}>
       {(title || action) && (
-        <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[#eae8e4]">
+        <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[#eae8e4] select-none">
           <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
           {action}
         </div>
@@ -201,6 +207,8 @@ export function AdminModal({
 }) {
   useEffect(() => {
     if (!open) return undefined;
+    // Clear any leftover text selection from the trigger click (blue highlight on titles).
+    try { window.getSelection()?.removeAllRanges(); } catch { /* ignore */ }
     const onKey = (e) => { if (e.key === 'Escape') onClose?.(); };
     document.addEventListener('keydown', onKey);
     const prev = document.body.style.overflow;
@@ -224,14 +232,16 @@ export function AdminModal({
     >
       <button
         type="button"
-        className="absolute inset-0 bg-[#1a1a1a]/45 backdrop-blur-[2px]"
+        className="ad-modal-backdrop absolute inset-0 bg-[#1a1a1a]/45 backdrop-blur-[2px] select-none"
         aria-label="Close dialog"
+        onMouseDown={(e) => e.preventDefault()}
         onClick={onClose}
       />
       <div
-        className={`relative w-full ${maxW} max-h-[92vh] flex flex-col rounded-t-3xl sm:rounded-3xl bg-[#fdfdfc] border border-[#eae8e4] shadow-2xl overflow-hidden`}
+        className={`ad-modal-card relative w-full ${maxW} max-h-[92vh] flex flex-col rounded-t-3xl sm:rounded-3xl bg-[#fdfdfc] border border-[#eae8e4] shadow-2xl overflow-hidden`}
+        onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="shrink-0 flex items-start gap-3 px-5 py-4 border-b border-[#eae8e4] bg-white/90">
+        <div className="shrink-0 flex items-start gap-3 px-5 py-4 border-b border-[#eae8e4] bg-white select-none">
           {avatar ? (
             <div className="size-11 rounded-full bg-[#1a1a1a] text-white flex items-center justify-center text-base font-semibold shrink-0">
               {avatar}
@@ -255,12 +265,12 @@ export function AdminModal({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 py-4 space-y-4">
           {children}
         </div>
 
         {footer ? (
-          <div className="shrink-0 flex flex-wrap items-center justify-end gap-2 px-5 py-4 border-t border-[#eae8e4] bg-white/90">
+          <div className="shrink-0 flex flex-wrap items-center justify-end gap-2 px-5 py-4 border-t border-[#eae8e4] bg-white select-none">
             {footer}
           </div>
         ) : null}

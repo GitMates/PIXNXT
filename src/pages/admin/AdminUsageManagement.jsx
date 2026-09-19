@@ -11,11 +11,7 @@ import {
   AdminModal,
   AdminModalActions,
   AdminPageHeader,
-  AdminPanel,
-  AdminBarList,
   AdminStatCard,
-  AdminSection,
-  AdminUsageMeter,
 } from '../../components/admin/AdminUi';
 
 function quotaState(used, limit) {
@@ -417,37 +413,6 @@ const AdminUsageManagement = () => {
         />
       </div>
 
-      {!loading && users.length > 0 && (
-        <div className="grid lg:grid-cols-2 gap-4">
-          <AdminPanel title="Most albums created">
-            <AdminBarList
-              items={[...users]
-                .map((u) => ({ key: u.id, count: Number(u.albumUsed) || 0, label: u.name || u.email }))
-                .filter((i) => i.count > 0)
-                .sort((a, b) => b.count - a.count)}
-              max={8}
-              onSelect={(item) => {
-                const u = users.find((x) => x.id === item.key);
-                if (u) setSearchQuery(u.email || u.name || '');
-              }}
-            />
-          </AdminPanel>
-          <AdminPanel title="Most deliveries created">
-            <AdminBarList
-              items={[...users]
-                .map((u) => ({ key: u.id, count: Number(u.deliveryUsed) || 0, label: u.name || u.email }))
-                .filter((i) => i.count > 0)
-                .sort((a, b) => b.count - a.count)}
-              max={8}
-              onSelect={(item) => {
-                const u = users.find((x) => x.id === item.key);
-                if (u) setSearchQuery(u.email || u.name || '');
-              }}
-            />
-          </AdminPanel>
-        </div>
-      )}
-
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-[#eae8e4] space-y-3">
         <div className="flex flex-col lg:flex-row gap-3">
           <div className="relative flex-1 min-w-0">
@@ -549,10 +514,10 @@ const AdminUsageManagement = () => {
                     const detail = detailsByUser[u.id] || {};
                     return (
                       <React.Fragment key={u.id}>
-                      <tr className={`transition-colors align-top ${expanded ? 'bg-[#f8f7f4]/70' : 'hover:bg-[#f8f7f4]/60'}`}>
+                      <tr className={`ad-row transition-colors align-top ${expanded ? 'bg-[#f8f7f4]/70' : 'hover:bg-[#f8f7f4]/60'}`}>
                       <td className="px-5 py-4 min-w-0">
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-9 h-9 rounded-full flex items-center justify-center bg-[#1a1a1a] text-white shrink-0">
+                          <div className="ad-avatar w-9 h-9 rounded-full flex items-center justify-center bg-[#1a1a1a] text-white shrink-0">
                             <User className="w-4 h-4" />
                           </div>
                           <div className="min-w-0">
@@ -587,7 +552,7 @@ const AdminUsageManagement = () => {
                           >
                             <ChevronDown className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`} />
                           </button>
-                          <button onClick={() => openEditor(u)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-[#1a1a1a] text-white rounded-lg hover:bg-black transition-colors">
+                          <button onClick={() => openEditor(u)} className="ad-action-btn inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-[#1a1a1a] text-white rounded-lg hover:bg-black transition-colors">
                             <Pencil className="w-3.5 h-3.5" />Edit
                           </button>
                         </div>

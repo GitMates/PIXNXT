@@ -11,8 +11,6 @@ import {
   AdminModal,
   AdminModalActions,
   AdminPageHeader,
-  AdminPanel,
-  AdminBarList,
   AdminStatCard,
   AdminUsageMeter,
 } from '../../components/admin/AdminUi';
@@ -567,52 +565,6 @@ const AdminQuotas = () => {
         ))}
       </div>
 
-      {!loading && users.length > 0 && (
-        <div className="grid lg:grid-cols-2 gap-4">
-          <AdminPanel title="Face image usage (top studios)">
-            <AdminBarList
-              items={[...users]
-                .map((u) => ({
-                  key: u.id,
-                  count: Number(u.normalImageUsed) + Number(u.guestImageUsed) || 0,
-                  label: u.name || u.email,
-                }))
-                .filter((i) => i.count > 0)
-                .sort((a, b) => b.count - a.count)}
-              max={8}
-              onSelect={(item) => {
-                const u = users.find((x) => x.id === item.key);
-                if (u) setSearchQuery(u.email || u.name || '');
-              }}
-              empty="No face image usage recorded yet."
-            />
-          </AdminPanel>
-          <AdminPanel title="Storage pressure">
-            <AdminBarList
-              items={[...users]
-                .map((u) => {
-                  const limit = Number(u.rawLimitBytes) || 0;
-                  const used = Number(u.rawUsedBytes) || 0;
-                  const pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : (used > 0 ? 8 : 0);
-                  return {
-                    key: u.id,
-                    count: pct,
-                    label: `${u.name || u.email}${limit > 0 ? ` · ${pct}%` : ''}`,
-                  };
-                })
-                .filter((i) => i.count > 0)
-                .sort((a, b) => b.count - a.count)}
-              max={8}
-              onSelect={(item) => {
-                const u = users.find((x) => x.id === item.key);
-                if (u) setSearchQuery(u.email || u.name || '');
-              }}
-              empty="No storage usage yet."
-            />
-          </AdminPanel>
-        </div>
-      )}
-
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-[#eae8e4] space-y-3">
         <div className="flex flex-col lg:flex-row gap-3">
           <div className="relative flex-1 min-w-0">
@@ -720,10 +672,10 @@ const AdminQuotas = () => {
                   </tr>
                 ) : (
                   filteredUsers.map((user) => (
-                    <tr key={user.id} className="hover:bg-[#f8f7f4]/60 transition-colors align-top">
+                    <tr key={user.id} className="ad-row hover:bg-[#f8f7f4]/60 transition-colors align-top">
                       <td className="px-5 py-4 min-w-0">
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-9 h-9 rounded-full flex items-center justify-center bg-[#1a1a1a] text-white shrink-0">
+                          <div className="ad-avatar w-9 h-9 rounded-full flex items-center justify-center bg-[#1a1a1a] text-white shrink-0">
                             <User className="w-4 h-4" />
                           </div>
                           <div className="min-w-0">
@@ -802,7 +754,7 @@ const AdminQuotas = () => {
                       <td className="px-4 py-4 text-right">
                         <button
                           onClick={() => openLimitsEditor(user)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-[#1a1a1a] text-white rounded-lg hover:bg-[#2a2a2a] transition-colors"
+                          className="ad-action-btn inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-[#1a1a1a] text-white rounded-lg hover:bg-[#2a2a2a] transition-colors"
                         >
                           <Pencil className="w-3.5 h-3.5" />Edit
                         </button>
