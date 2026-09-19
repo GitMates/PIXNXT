@@ -137,6 +137,10 @@ const AdminDashboard = () => {
   }, []);
 
   const sum = (key) => rows.reduce((s, p) => s + num(p[key]), 0);
+  // Live D1 counts first (roster carries album_count/delivery_count),
+  // stale quota counters only as fallback.
+  const sumLive = (liveKey, usedKey) =>
+    rows.reduce((s, p) => s + (p[liveKey] != null ? num(p[liveKey]) : num(p[usedKey])), 0);
   const storageUsed = rows.reduce((s, p) => s + num(p.storage_used_bytes), 0);
   const atLimitRows = rows.filter(
     (p) =>
@@ -169,13 +173,13 @@ const AdminDashboard = () => {
       <Section title="Creation quotas">
         <StatCard
           label="Albums Created"
-          value={loading ? '---' : sum('album_used_count').toLocaleString()}
+          value={loading ? '---' : sumLive('album_count', 'album_used_count').toLocaleString()}
           loading={loading}
           to="/admin/usage"
         />
         <StatCard
           label="Deliveries Created"
-          value={loading ? '---' : sum('delivery_used_count').toLocaleString()}
+          value={loading ? '---' : sumLive('delivery_count', 'delivery_used_count').toLocaleString()}
           loading={loading}
           to="/admin/usage"
         />

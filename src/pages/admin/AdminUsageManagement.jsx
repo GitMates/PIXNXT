@@ -263,9 +263,9 @@ const AdminUsageManagement = () => {
           name: p.display_name || 'Unnamed',
           email: p.email,
           plan: p.plan || 'Free',
-          albumUsed: Number(p.album_used_count) || 0,
+          albumUsed: Number(p.album_count ?? p.album_used_count) || 0,
           albumLimit: p.album_limit != null ? Number(p.album_limit) : 0,
-          deliveryUsed: Number(p.delivery_used_count) || 0,
+          deliveryUsed: Number(p.delivery_count ?? p.delivery_used_count) || 0,
           deliveryLimit: p.delivery_limit != null ? Number(p.delivery_limit) : 0,
         }))
       );

@@ -234,11 +234,8 @@ export async function createCollection(collectionData) {
     const { photographerQuotaService: quotaService } = await import('./photographerQuota.service');
     quotaService.invalidate?.(gallery.photographer_id);
     quotaService.notifyQuotaChanged?.();
-    try {
-      await apiFetch('/v1/me/quota/bump', { method: 'POST', body: { counter: 'delivery', delta: 1 } });
-    } catch {
-      // quota bump is best-effort
-    }
+    // Usage counting is server-side now (POST /v1/galleries bumps
+    // delivery_used_count) — no client bump, or every create counts twice.
   }
   if (gallery?.id && _vaultSettings && Object.keys(_vaultSettings).length > 0) {
     try {

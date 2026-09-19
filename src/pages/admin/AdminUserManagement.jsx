@@ -80,8 +80,8 @@ const AdminUserManagement = () => {
           lastLoginAt: p.last_login_at || null,
           joinedAt: p.created_at || null,
           storageUsedBytes: Number(p.storage_used_bytes) || 0,
-          deliveryCount: Number(p.delivery_used_count) || 0,
-          albumCount: Number(p.album_used_count) || 0,
+          deliveryCount: Number(p.delivery_count ?? p.delivery_used_count) || 0,
+          albumCount: Number(p.album_count ?? p.album_used_count) || 0,
         }))
       );
     } catch (err) {
