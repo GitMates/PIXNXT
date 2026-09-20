@@ -1,4 +1,4 @@
-import { onRequest as ____path___js_onRequest } from "C:\\Users\\chris\\Desktop\\Projects\\GitTogether\\PIXNXT\\functions\\[[path]].js"
+import { onRequest as ____path___js_onRequest } from "C:\\PCfiles\\pic project\\album\\PIXNXT\\functions\\[[path]].js"
 
 export const routes = [
     {

@@ -85,10 +85,10 @@ export function AccountQuotaMeters({
 
   const detailRows = hasSplit
     ? [
-        toRow('normal-images', compact ? 'Face AI Normal' : 'Face recognition (Normal)', normalImageUsed ?? imageUsed, normalImageLimit ?? imageLimit),
-        toRow('guest-images', compact ? 'Face AI Guest' : 'Face recognition (Guest)', guestImageUsed ?? imageUsed, guestImageLimit ?? imageLimit),
-        toRow('normal-face', compact ? 'Deliveries Normal' : 'Face match deliveries (Normal)', normalFaceUsed ?? faceUsed, normalFaceLimit ?? faceLimit),
-        toRow('guest-face', compact ? 'Deliveries Guest' : 'Face match deliveries (Guest)', guestFaceUsed ?? faceUsed, guestFaceLimit ?? faceLimit),
+        toRow('normal-images', compact ? 'Find People' : 'Find People (images)', normalImageUsed ?? imageUsed, normalImageLimit ?? imageLimit),
+        toRow('guest-images', compact ? 'Face matching' : 'Face matching (images)', guestImageUsed ?? imageUsed, guestImageLimit ?? imageLimit),
+        toRow('normal-face', compact ? 'Normal delivery' : 'Normal delivery', normalFaceUsed ?? faceUsed, normalFaceLimit ?? faceLimit),
+        toRow('guest-face', compact ? 'Guest delivery' : 'Guest delivery', guestFaceUsed ?? faceUsed, guestFaceLimit ?? faceLimit),
       ]
     : [
         toRow('images', compact ? 'Face AI' : 'Face recognition', imageUsed, imageLimit),

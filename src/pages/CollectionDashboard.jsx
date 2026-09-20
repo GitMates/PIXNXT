@@ -13,6 +13,11 @@ import { galleryService } from '../services/gallery.service';
 import { photoAiService } from '../services/photoAi.service';
 import { photographerQuotaService, canUseNormalFaceRecognition } from '../services/photographerQuota.service';
 import {
+    handlePhotographerLiveUpdate,
+    onPhotographerLimitsBroadcast,
+    subscribePhotographerRow,
+} from '../lib/photographerLiveSync';
+import {
     filterPhotosByPerson,
     filterPhotosByIds,
     filterPeopleForPhotos,
@@ -174,12 +179,50 @@ const CollectionDashboard = () => {
             .catch((err) => console.error('Error loading photographer profile:', err));
     }, [user?.id]);
 
-    // Master toggle + quota: OFF hides the Find People button (normal delivery)
+    // Master toggle + quota: OFF hides the Find People button (normal delivery).
+    // Also refresh from /v1/me/quota + live profile so admin toggles apply without reload.
     useEffect(() => {
-        if (profile) {
-            setFaceAiEnabled(canUseNormalFaceRecognition(profile));
-        }
-    }, [profile]);
+        if (!user?.id) return undefined;
+        let cancelled = false;
+        const refreshFaceFlag = async (row) => {
+            if (row && typeof row === 'object') {
+                setProfile((prev) => ({ ...(prev || {}), ...row }));
+                setFaceAiEnabled(canUseNormalFaceRecognition({ ...(profile || {}), ...row }));
+            }
+            try {
+                const snap = await photographerQuotaService.fetchSnapshot(user.id, { force: true });
+                if (cancelled) return;
+                setFaceAiEnabled(
+                    canUseNormalFaceRecognition({
+                        ...(profile || {}),
+                        ...(row || {}),
+                        face_normal_enabled: snap.face_normal_enabled,
+                        face_normal_image_limit: snap.face_normal_image_limit,
+                    })
+                );
+            } catch {
+                if (!cancelled && (row || profile)) {
+                    setFaceAiEnabled(canUseNormalFaceRecognition({ ...(profile || {}), ...(row || {}) }));
+                }
+            }
+        };
+        if (profile) setFaceAiEnabled(canUseNormalFaceRecognition(profile));
+        void refreshFaceFlag(null);
+        const offRow = subscribePhotographerRow(user.id, (row) => {
+            void refreshFaceFlag(row);
+            handlePhotographerLiveUpdate(user.id, row);
+        });
+        const offBroadcast = onPhotographerLimitsBroadcast(user.id, () => {
+            handlePhotographerLiveUpdate(user.id);
+            void refreshFaceFlag(null);
+        });
+        return () => {
+            cancelled = true;
+            offRow();
+            offBroadcast();
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- profile merged via setState
+    }, [user?.id]);
 
     useEffect(() => {
         if (!user?.id) {
@@ -1950,8 +1993,15 @@ const CollectionDashboard = () => {
         if (!gdEvent || gdPublishing) return;
         try {
             setGdPublishing(true);
+            const photographerId = gdEvent.photographer_id || collection?.photographer_id || user?.id;
+            if (photographerId && gdEvent.status !== 'published') {
+                await photographerQuotaService.assertGuestDeliveryQuota(photographerId, 1);
+            }
             const result = await guestDeliveryPublishService.publishEvent(gdEvent.id);
             setGdEvent((prev) => prev ? { ...prev, ...result.event, status: 'published' } : prev);
+            if (photographerId && gdEvent.status !== 'published') {
+                void photographerQuotaService.recordUsage(photographerId, 'guestDelivery', 1).catch(() => {});
+            }
 
             const matchedGuests = (result.guests || []).filter((g) => g.ok && g.matched);
             const emailErrors = [];
@@ -1971,7 +2021,6 @@ const CollectionDashboard = () => {
                 }
             }
 
-            const photographerId = gdEvent.photographer_id || collection?.photographer_id || user?.id;
             if (photographerId) {
                 try {
                     const updated = await guestDeliveryService.updateEvent(photographerId, gdEvent.id, {
@@ -3152,11 +3201,23 @@ const CollectionDashboard = () => {
         setPhotoAiIndexing(true);
         try {
             const photographerId = collection?.photographer_id || user?.id;
+            // Guest Delivery galleries use Face AI Guest quotas (face matching);
+            // plain deliveries use Face AI Normal (Find People).
+            const isGuestFace = Boolean(collection?.guest_delivery_enabled);
             if (photographerId) {
                 const unindexedCount = Math.max(0, indexablePhotoCount - rows.length);
                 const countToCheck = force ? indexablePhotoCount : (unindexedCount || 1);
                 // Quota errors must reach the caller (modal) — do not swallow.
-                await photographerQuotaService.assertNormalImageQuota(photographerId, countToCheck);
+                if (isGuestFace) {
+                    await photographerQuotaService.assertGuestImageQuota(photographerId, countToCheck);
+                    // Guest face-match delivery slot is consumed on guest publish.
+                } else {
+                    await photographerQuotaService.assertNormalImageQuota(photographerId, countToCheck);
+                    // First Face AI index on this delivery also consumes a face-match delivery slot.
+                    if (rows.length === 0) {
+                        await photographerQuotaService.assertNormalDeliveryQuota(photographerId, 1);
+                    }
+                }
             }
             const syncResult = await photoAiService.syncCollection(collectionId, 500, {
                 forceReindex: force,
@@ -3225,21 +3286,28 @@ const CollectionDashboard = () => {
                     forceRecluster: false,
                     applyGuestLabels: Boolean(collection?.guest_delivery_enabled),
                 });
-                // Record the images just indexed so Face AI Normal usage moves.
-                // Also bump face-match delivery usage once this collection is indexed.
+                // Record Face AI usage under Guest or Normal based on Guest Delivery.
+                // Guest face-match delivery slots are bumped on guest publish, not here.
                 {
                     const pid = collection?.photographer_id || user?.id;
                     const delta = force
                         ? indexablePhotoCount
                         : (Math.max(0, indexablePhotoCount - rows.length) || 1);
                     if (pid && delta > 0) {
-                        void photographerQuotaService
-                            .recordUsage(pid, 'normalImage', delta)
-                            .catch(() => {});
-                        if (rows.length === 0 || force) {
+                        const isGuestFace = Boolean(collection?.guest_delivery_enabled);
+                        if (isGuestFace) {
                             void photographerQuotaService
-                                .recordUsage(pid, 'normalDelivery', 1)
+                                .recordUsage(pid, 'guestImage', delta)
                                 .catch(() => {});
+                        } else {
+                            void photographerQuotaService
+                                .recordUsage(pid, 'normalImage', delta)
+                                .catch(() => {});
+                            if (rows.length === 0 || force) {
+                                void photographerQuotaService
+                                    .recordUsage(pid, 'normalDelivery', 1)
+                                    .catch(() => {});
+                            }
                         }
                     }
                 }
@@ -3257,13 +3325,20 @@ const CollectionDashboard = () => {
                     ? indexablePhotoCount
                     : (Math.max(0, indexablePhotoCount - rows.length) || 1);
                 if (pid && delta > 0) {
-                    void photographerQuotaService
-                        .recordUsage(pid, 'normalImage', delta)
-                        .catch(() => {});
-                    if (rows.length === 0 || force) {
+                    const isGuestFace = Boolean(collection?.guest_delivery_enabled);
+                    if (isGuestFace) {
                         void photographerQuotaService
-                            .recordUsage(pid, 'normalDelivery', 1)
+                            .recordUsage(pid, 'guestImage', delta)
                             .catch(() => {});
+                    } else {
+                        void photographerQuotaService
+                            .recordUsage(pid, 'normalImage', delta)
+                            .catch(() => {});
+                        if (rows.length === 0 || force) {
+                            void photographerQuotaService
+                                .recordUsage(pid, 'normalDelivery', 1)
+                                .catch(() => {});
+                        }
                     }
                 }
             }

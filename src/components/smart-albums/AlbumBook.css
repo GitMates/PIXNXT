@@ -897,7 +897,8 @@
   display: block;
   height: 100%;
   max-width: none;
-  object-fit: cover;
+  /* fill keeps fraction crops seam-aligned; cover zoomed into wrap corners */
+  object-fit: fill;
 }
 
 /* Spine-aware crops set width/margin inline — don't force full-page sizing */

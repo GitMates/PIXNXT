@@ -221,7 +221,7 @@ export function AdminModal({
 
   if (!open) return null;
 
-  const maxW = size === 'lg' ? 'sm:max-w-2xl' : size === 'sm' ? 'sm:max-w-md' : 'sm:max-w-xl';
+  const maxW = size === 'xl' ? 'sm:max-w-4xl' : size === 'lg' ? 'sm:max-w-2xl' : size === 'sm' ? 'sm:max-w-md' : 'sm:max-w-xl';
 
   return (
     <div

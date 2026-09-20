@@ -11,14 +11,23 @@ import { CRASH_DETECTION_EVENT, isCrashDetectionEnabled, setCrashDetectionEnable
 import {
   AdminPageHeader,
   AdminStatCard,
-  AdminPanel,
-  AdminBarList,
   AdminModal,
 } from '../../components/admin/AdminUi';
 import { apiFetch } from '../../lib/api/client';
 
 const WORKER_URL = (import.meta.env.VITE_CRASH_WORKER_URL || '').replace(/\/+$/, '');
 const QUERY_TOKEN = (import.meta.env.VITE_CRASH_QUERY_TOKEN || '').trim();
+
+const RANGE_PRESETS = [
+  { id: '24h', label: 'Last 24 hours', hours: 24 },
+  { id: '7d', label: 'Last 7 days', hours: 168 },
+  { id: '30d', label: 'Last 30 days', hours: 720 },
+  { id: 'today', label: 'Today', mode: 'today' },
+  { id: 'month', label: 'This month', mode: 'this-month' },
+  { id: 'day', label: 'Pick a day', mode: 'day' },
+  { id: 'month-pick', label: 'Pick a month', mode: 'month' },
+  { id: 'custom', label: 'Custom range', mode: 'custom' },
+];
 
 function gallerySlugFromRoute(route = '') {
   const m = String(route).match(/\/gallery\/([^/?#]+)/i);
@@ -33,6 +42,19 @@ function isPlaceholderEmail(email = '') {
 function extractEmail(text = '') {
   const m = String(text).match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
   return m ? m[0] : '';
+}
+
+function toDateInputValue(d = new Date()) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function toMonthInputValue(d = new Date()) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  return `${y}-${m}`;
 }
 
 /**
@@ -90,20 +112,25 @@ function enrichRow(r, maps = { byPhotographerId: {}, byGallerySlug: {} }) {
     (pid && pid !== 'unknown' && byId[pid])
     || (slugKey && bySlug[slugKey])
     || '';
+  const liveReason = String(r.reason || '').trim();
+  const taxonomyReason = String(ref.reason || '').trim();
   const row = {
     ...r,
     crashNo: no,
     category: known ? ref.category : (r.category || ref.category),
     crashType: known ? ref.category : (r.crashType || r.category || ref.category),
     crashName: known ? ref.name : (r.crashName || ref.name),
-    taxonomyReason: ref.reason,
+    taxonomyReason,
     signal: ref.signal,
     section: ref.section,
     sectionTitle: ref.sectionTitle,
     gallerySlug: slug,
     resolvedEmail,
-    // Prefer resolved studio email over visitor@gallery placeholders in the raw field too.
     accountEmail: !isPlaceholderEmail(r.accountEmail) ? r.accountEmail : (resolvedEmail || r.accountEmail),
+    causeSummary: liveReason || taxonomyReason || 'No cause recorded',
+    causeDetail: liveReason && taxonomyReason && liveReason !== taxonomyReason
+      ? liveReason
+      : (liveReason || taxonomyReason),
   };
   const who = formatWho(row);
   return { ...row, whoPrimary: who.primary, whoSecondary: who.secondary, whoKind: who.kind };
@@ -115,23 +142,48 @@ function matchesQuery(row, q) {
     row.accountEmail, row.whoLabel, row.whoPrimary, row.whoSecondary, row.studioName,
     row.gallerySlug, row.visitorEmail, row.photographerId, row.crashNo, row.category,
     row.crashType, row.crashName, row.reason, row.route, row.taxonomyReason, row.signal,
-    row.section, row.sectionTitle,
+    row.section, row.sectionTitle, row.stack, row.endpoint, row.method, row.code, row.ua,
   ].join(' ').toLowerCase();
   return hay.includes(q);
 }
 
+function DetailBlock({ label, children, mono = false }) {
+  if (!children) return null;
+  return (
+    <section className="rounded-2xl border border-[#eae8e4] bg-white p-4">
+      <h3 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-2 select-none">{label}</h3>
+      <div className={mono ? 'font-mono text-xs text-gray-800 whitespace-pre-wrap break-all leading-relaxed' : 'text-sm text-gray-800 leading-relaxed'}>
+        {children}
+      </div>
+    </section>
+  );
+}
+
 function FixModal({ crashNo, live, onClose }) {
   if (crashNo == null) return null;
-  const g = getCrashGuidance(crashNo, { liveReason: live?.reason, route: live?.route });
+  const g = getCrashGuidance(crashNo, {
+    liveReason: live?.reason || live?.causeDetail,
+    route: live?.route,
+  });
   const who = formatWho(live || {});
+  const liveReason = String(live?.reason || '').trim();
+  const taxonomyReason = String(live?.taxonomyReason || g.howItOccurs || '').trim();
+  const stack = String(live?.stack || '').trim();
+  const endpoint = String(live?.endpoint || '').trim();
+  const method = String(live?.method || '').trim();
+  const code = String(live?.code || '').trim();
+  const httpStatus = Number(live?.httpStatus || 0) || 0;
+  const ua = String(live?.ua || '').trim();
+  const appVersion = String(live?.appVersion || '').trim();
+  const latencyMs = Number(live?.latencyMs || 0) || 0;
 
   return (
     <AdminModal
       open
       onClose={onClose}
-      size="lg"
+      size="xl"
       title={g.what}
-      subtitle={`No. ${g.no}${g.section != null ? ` · §${g.section} ${g.sectionTitle}` : ''}`}
+      subtitle={`No. ${g.no}${g.section != null ? ` · §${g.section} ${g.sectionTitle}` : ''}${live?.timestamp ? ` · ${new Date(live.timestamp).toLocaleString()}` : ''}`}
       footer={(
         <button
           type="button"
@@ -142,15 +194,28 @@ function FixModal({ crashNo, live, onClose }) {
         </button>
       )}
     >
-      <section className="rounded-2xl border border-[#eae8e4] bg-white p-4">
-        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-2 select-none">How it occurs</h3>
-        <p className="text-sm text-gray-800 leading-relaxed">{g.howItOccurs}</p>
-        {live?.reason && live.reason !== g.howItOccurs && (
-          <p className="mt-3 text-xs text-amber-800 border-t border-amber-100 pt-3">
-            <span className="font-semibold">Live error: </span>{live.reason}
+      <section className="rounded-2xl border border-amber-200 bg-amber-50/90 p-4">
+        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-amber-800 mb-2 select-none">
+          Live cause
+        </h3>
+        <p className="text-sm text-gray-900 leading-relaxed font-medium">
+          {liveReason || 'No live error message was captured for this event.'}
+        </p>
+        {taxonomyReason && liveReason && taxonomyReason !== liveReason && (
+          <p className="mt-3 text-xs text-amber-900/80 border-t border-amber-200/70 pt-3">
+            <span className="font-semibold">Catalog pattern: </span>{taxonomyReason}
+          </p>
+        )}
+        {!liveReason && taxonomyReason && (
+          <p className="mt-3 text-xs text-amber-900/80 border-t border-amber-200/70 pt-3">
+            <span className="font-semibold">Catalog pattern: </span>{taxonomyReason}
           </p>
         )}
       </section>
+
+      <DetailBlock label="Stack trace" mono>
+        {stack || null}
+      </DetailBlock>
 
       <div className="grid sm:grid-cols-2 gap-3">
         <section className="rounded-2xl border border-[#eae8e4] bg-[#f7f4ef] p-4">
@@ -159,14 +224,37 @@ function FixModal({ crashNo, live, onClose }) {
           {g.route && (
             <p className="mt-2 font-mono text-xs text-gray-500 break-all">{g.route}</p>
           )}
+          {(method || endpoint) && (
+            <p className="mt-2 font-mono text-xs text-gray-600 break-all">
+              {method ? `${method} ` : ''}{endpoint || ''}
+            </p>
+          )}
         </section>
         <section className="rounded-2xl border border-[#eae8e4] bg-[#f7f4ef] p-4">
           <h3 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-2 select-none">Whose account</h3>
           <p className="text-sm font-medium text-gray-900">{who.primary}</p>
           {who.secondary && <p className="mt-1 text-xs text-gray-600">{who.secondary}</p>}
           <p className="mt-2 text-[11px] uppercase tracking-wide text-gray-400 select-none">{who.kind}</p>
+          {live?.photographerId && live.photographerId !== 'unknown' && (
+            <p className="mt-2 font-mono text-[11px] text-gray-500 break-all">id: {live.photographerId}</p>
+          )}
         </section>
       </div>
+
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <DetailBlock label="HTTP / status">
+          {[httpStatus || null, live?.status, code].filter(Boolean).join(' · ') || '—'}
+        </DetailBlock>
+        <DetailBlock label="App version">{appVersion || '—'}</DetailBlock>
+        <DetailBlock label="Latency">{latencyMs ? `${latencyMs} ms` : '—'}</DetailBlock>
+        <DetailBlock label="Category">{live?.category || g.summary || '—'}</DetailBlock>
+      </div>
+
+      <DetailBlock label="User agent" mono>{ua || null}</DetailBlock>
+
+      {g.signal && (
+        <DetailBlock label="Debug signals" mono>{g.signal}</DetailBlock>
+      )}
 
       <section className="rounded-2xl border border-emerald-200 bg-emerald-50/90 p-4">
         <h3 className="text-[11px] font-semibold uppercase tracking-wider text-emerald-800 mb-2 select-none">How to fix</h3>
@@ -175,14 +263,40 @@ function FixModal({ crashNo, live, onClose }) {
             <li key={step}>{step}</li>
           ))}
         </ol>
-        {g.signal && (
-          <p className="mt-3 text-xs font-mono text-emerald-900/70 border-t border-emerald-200/60 pt-3">
-            Track: {g.signal}
-          </p>
-        )}
       </section>
     </AdminModal>
   );
+}
+
+function buildQueryParams({ rangeId, hours, day, month, from, to, category, crashNoFilter }) {
+  const params = new URLSearchParams();
+  if (category) params.set('category', category);
+  if (crashNoFilter) params.set('crashNo', crashNoFilter);
+
+  const preset = RANGE_PRESETS.find((p) => p.id === rangeId) || RANGE_PRESETS[1];
+  if (preset.hours) {
+    params.set('hours', String(preset.hours));
+  } else if (preset.mode === 'today') {
+    params.set('day', toDateInputValue(new Date()));
+    // Also send hours for older crash workers that only understand hours.
+    params.set('hours', '48');
+  } else if (preset.mode === 'this-month') {
+    params.set('month', toMonthInputValue(new Date()));
+    params.set('hours', '720');
+  } else if (preset.mode === 'day' && day) {
+    params.set('day', day);
+    params.set('hours', '720');
+  } else if (preset.mode === 'month' && month) {
+    params.set('month', month);
+    params.set('hours', '720');
+  } else if (preset.mode === 'custom' && (from || to)) {
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    params.set('hours', '720');
+  } else {
+    params.set('hours', String(hours || 168));
+  }
+  return params;
 }
 
 export default function AdminCrashReport() {
@@ -190,7 +304,12 @@ export default function AdminCrashReport() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [hours, setHours] = useState(168);
+  const [rangeId, setRangeId] = useState('7d');
+  const [hours] = useState(168);
+  const [day, setDay] = useState(() => toDateInputValue());
+  const [month, setMonth] = useState(() => toMonthInputValue());
+  const [fromDate, setFromDate] = useState(() => toDateInputValue(new Date(Date.now() - 7 * 86400000)));
+  const [toDate, setToDate] = useState(() => toDateInputValue());
   const [category, setCategory] = useState('');
   const [q, setQ] = useState('');
   const [crashNoFilter, setCrashNoFilter] = useState('');
@@ -198,7 +317,8 @@ export default function AdminCrashReport() {
   const [catalogCategory, setCatalogCategory] = useState('');
   const [catalogSection, setCatalogSection] = useState('');
   const [catalogQ, setCatalogQ] = useState('');
-  const [modal, setModal] = useState(null); // { no, live }
+  const [modal, setModal] = useState(null);
+  const [expandedKey, setExpandedKey] = useState(null);
 
   useEffect(() => {
     const sync = (e) => {
@@ -217,8 +337,9 @@ export default function AdminCrashReport() {
     setLoading(true);
     setError('');
     try {
-      const params = new URLSearchParams({ hours: String(hours) });
-      if (category) params.set('category', category);
+      const params = buildQueryParams({
+        rangeId, hours, day, month, from: fromDate, to: toDate, category, crashNoFilter,
+      });
 
       const parseRows = async (res) => {
         const ct = res.headers.get('content-type') || '';
@@ -262,7 +383,6 @@ export default function AdminCrashReport() {
 
       setRows(next.map((r) => enrichRow(r)));
 
-      // Resolve studio account emails by photographerId and/or gallery slug.
       try {
         const whoRes = await apiFetch('/v1/admin/who-emails');
         const maps = {
@@ -273,7 +393,6 @@ export default function AdminCrashReport() {
           setRows(next.map((r) => enrichRow(r, maps)));
         }
       } catch {
-        // Fallback: roster-only id→email map
         try {
           const listRes = await apiFetch('/v1/admin/photographers?limit=500');
           const byPhotographerId = {};
@@ -294,22 +413,55 @@ export default function AdminCrashReport() {
     } finally {
       setLoading(false);
     }
-  }, [hours, category]);
+  }, [rangeId, hours, day, month, fromDate, toDate, category, crashNoFilter]);
 
   useEffect(() => { void load(); }, [load]);
 
   const filteredLive = useMemo(() => {
     const no = crashNoFilter.trim();
+    const preset = RANGE_PRESETS.find((p) => p.id === rangeId) || RANGE_PRESETS[1];
+
+    let fromMs = null;
+    let toMs = null;
+    if (preset.mode === 'today') {
+      const d = toDateInputValue(new Date());
+      fromMs = new Date(`${d}T00:00:00`).getTime();
+      toMs = new Date(`${d}T23:59:59.999`).getTime();
+    } else if (preset.mode === 'this-month') {
+      const m = toMonthInputValue(new Date());
+      const [y, mo] = m.split('-').map(Number);
+      fromMs = new Date(y, mo - 1, 1).getTime();
+      toMs = new Date(y, mo, 0, 23, 59, 59, 999).getTime();
+    } else if (preset.mode === 'day' && day) {
+      fromMs = new Date(`${day}T00:00:00`).getTime();
+      toMs = new Date(`${day}T23:59:59.999`).getTime();
+    } else if (preset.mode === 'month' && month) {
+      const [y, mo] = month.split('-').map(Number);
+      fromMs = new Date(y, mo - 1, 1).getTime();
+      toMs = new Date(y, mo, 0, 23, 59, 59, 999).getTime();
+    } else if (preset.mode === 'custom') {
+      if (fromDate) fromMs = new Date(`${fromDate}T00:00:00`).getTime();
+      if (toDate) toMs = new Date(`${toDate}T23:59:59.999`).getTime();
+    }
+
     return rows.filter((r) => {
       if (no && String(r.crashNo) !== no) return false;
-      return matchesQuery(r, q.trim().toLowerCase());
+      if (!matchesQuery(r, q.trim().toLowerCase())) return false;
+      if (fromMs != null || toMs != null) {
+        const t = Date.parse(r.timestamp || 0);
+        if (Number.isNaN(t)) return false;
+        if (fromMs != null && t < fromMs) return false;
+        if (toMs != null && t > toMs) return false;
+      }
+      return true;
     });
-  }, [rows, q, crashNoFilter]);
+  }, [rows, q, crashNoFilter, rangeId, day, month, fromDate, toDate]);
 
   const liveViz = useMemo(() => {
     const byNo = {};
     const byWho = {};
     const byPage = {};
+    const byDay = {};
     let knownAccounts = 0;
     let unknownAccounts = 0;
     for (const r of filteredLive) {
@@ -321,6 +473,8 @@ export default function AdminCrashReport() {
       else knownAccounts += 1;
       const page = getCrashGuidance(n, { route: r.route }).whichPage;
       byPage[page] = (byPage[page] || 0) + 1;
+      const d = r.day || (r.timestamp ? String(r.timestamp).slice(0, 10) : 'unknown');
+      byDay[d] = (byDay[d] || 0) + 1;
     }
     const toItems = (obj, mapLabel) => Object.entries(obj)
       .map(([key, count]) => ({ key, count, label: mapLabel ? mapLabel(key, count) : key }))
@@ -333,6 +487,7 @@ export default function AdminCrashReport() {
       byCrash: toItems(byNo, (key) => `#${key} ${crashByNo(key).name}`),
       byWho: toItems(byWho),
       byPage: toItems(byPage),
+      byDay: toItems(byDay).slice(0, 14),
     };
   }, [filteredLive]);
 
@@ -352,16 +507,17 @@ export default function AdminCrashReport() {
   const openFix = (no, live = null) => setModal({ no: Number(no), live });
 
   const exportCsv = () => {
-    const head = 'timestamp,who,accountEmail,studioName,gallerySlug,photographerId,crashNo,category,crashName,reason,route';
+    const head = 'timestamp,who,accountEmail,studioName,gallerySlug,photographerId,crashNo,category,crashName,reason,stack,route,endpoint,method,code,httpStatus,ua,appVersion';
     const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const body = filteredLive.map((r) => [
       r.timestamp, r.whoPrimary, r.accountEmail, r.studioName, r.gallerySlug,
-      r.photographerId, r.crashNo, r.category, r.crashName, r.reason, r.route,
+      r.photographerId, r.crashNo, r.category, r.crashName, r.reason, r.stack,
+      r.route, r.endpoint, r.method, r.code, r.httpStatus, r.ua, r.appVersion,
     ].map(esc).join(',')).join('\n');
     const blob = new Blob([head + '\n' + body], { type: 'text/csv' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `pixnxt_crashes_${hours}h.csv`;
+    a.download = `pixnxt_crashes_${rangeId}.csv`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   };
@@ -386,11 +542,13 @@ export default function AdminCrashReport() {
     ['sections', 'By area'],
   ];
 
+  const activePreset = RANGE_PRESETS.find((p) => p.id === rangeId) || RANGE_PRESETS[1];
+
   return (
     <div className="space-y-5">
       <AdminPageHeader
         title="Crash Report"
-        subtitle="Who = studio account (or public gallery). Click How to fix for cause, page, and steps."
+        subtitle="Detailed live causes, stack traces, and day/month filters. Click a row or How to fix for full diagnosis."
         actions={(
           <div className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl border ${detectionOn ? 'bg-white border-[#eae8e4]' : 'bg-gray-50 border-gray-200'}`}>
             <button
@@ -440,97 +598,226 @@ export default function AdminCrashReport() {
             />
           </div>
 
-          <div className="rounded-2xl border border-[#eae8e4] bg-white p-4 flex flex-wrap gap-3 items-end">
-            <label className="text-sm text-gray-600">Hours
-              <select value={hours} onChange={(e) => setHours(Number(e.target.value))} className="ml-2 border border-[#eae8e4] rounded-lg px-2 py-1.5 bg-white">
-                <option value={24}>24</option>
-                <option value={72}>72</option>
-                <option value={168}>168</option>
-              </select>
-            </label>
-            <label className="text-sm text-gray-600">Type
-              <select value={category} onChange={(e) => setCategory(e.target.value)} className="ml-2 border border-[#eae8e4] rounded-lg px-2 py-1.5 bg-white max-w-[180px]">
-                <option value="">All</option>
-                {CRASH_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </label>
-            <label className="text-sm text-gray-600">No.
-              <input
-                value={crashNoFilter}
-                onChange={(e) => setCrashNoFilter(e.target.value.replace(/[^\d]/g, ''))}
-                placeholder="78"
-                className="ml-2 border border-[#eae8e4] rounded-lg px-2 py-1.5 w-20 font-mono"
-              />
-            </label>
-            <label className="text-sm text-gray-600 flex-1 min-w-[160px]">Search
-              <input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="account email, gallery, page…"
-                className="ml-2 border border-[#eae8e4] rounded-lg px-2 py-1.5 w-full"
-              />
-            </label>
-            <button type="button" onClick={load} disabled={loading} className="px-4 py-2 bg-[#1a1a1a] text-white rounded-xl text-sm disabled:opacity-50">
-              {loading ? 'Loading…' : 'Refresh'}
-            </button>
-            <button type="button" onClick={exportCsv} className="px-4 py-2 border border-[#eae8e4] rounded-xl text-sm bg-white">CSV</button>
+          <div className="rounded-2xl border border-[#eae8e4] bg-white p-4 space-y-3">
+            <div className="flex flex-wrap gap-2">
+              {RANGE_PRESETS.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => setRangeId(p.id)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                    rangeId === p.id
+                      ? 'bg-[#1a1a1a] text-white border-[#1a1a1a]'
+                      : 'bg-white text-gray-700 border-[#eae8e4] hover:border-gray-400'
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap gap-3 items-end">
+              {activePreset.mode === 'day' && (
+                <label className="text-sm text-gray-600">Day
+                  <input
+                    type="date"
+                    value={day}
+                    onChange={(e) => setDay(e.target.value)}
+                    className="ml-2 border border-[#eae8e4] rounded-lg px-2 py-1.5 bg-white"
+                  />
+                </label>
+              )}
+              {activePreset.mode === 'month' && (
+                <label className="text-sm text-gray-600">Month
+                  <input
+                    type="month"
+                    value={month}
+                    onChange={(e) => setMonth(e.target.value)}
+                    className="ml-2 border border-[#eae8e4] rounded-lg px-2 py-1.5 bg-white"
+                  />
+                </label>
+              )}
+              {activePreset.mode === 'custom' && (
+                <>
+                  <label className="text-sm text-gray-600">From
+                    <input
+                      type="date"
+                      value={fromDate}
+                      onChange={(e) => setFromDate(e.target.value)}
+                      className="ml-2 border border-[#eae8e4] rounded-lg px-2 py-1.5 bg-white"
+                    />
+                  </label>
+                  <label className="text-sm text-gray-600">To
+                    <input
+                      type="date"
+                      value={toDate}
+                      onChange={(e) => setToDate(e.target.value)}
+                      className="ml-2 border border-[#eae8e4] rounded-lg px-2 py-1.5 bg-white"
+                    />
+                  </label>
+                </>
+              )}
+              <label className="text-sm text-gray-600">Type
+                <select value={category} onChange={(e) => setCategory(e.target.value)} className="ml-2 border border-[#eae8e4] rounded-lg px-2 py-1.5 bg-white max-w-[180px]">
+                  <option value="">All</option>
+                  {CRASH_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </label>
+              <label className="text-sm text-gray-600">No.
+                <input
+                  value={crashNoFilter}
+                  onChange={(e) => setCrashNoFilter(e.target.value.replace(/[^\d]/g, ''))}
+                  placeholder="78"
+                  className="ml-2 border border-[#eae8e4] rounded-lg px-2 py-1.5 w-20 font-mono"
+                />
+              </label>
+              <label className="text-sm text-gray-600 flex-1 min-w-[160px]">Search
+                <input
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder="email, cause, stack, route, endpoint…"
+                  className="ml-2 border border-[#eae8e4] rounded-lg px-2 py-1.5 w-full"
+                />
+              </label>
+              <button type="button" onClick={load} disabled={loading} className="px-4 py-2 bg-[#1a1a1a] text-white rounded-xl text-sm disabled:opacity-50">
+                {loading ? 'Loading…' : 'Refresh'}
+              </button>
+              <button type="button" onClick={exportCsv} className="px-4 py-2 border border-[#eae8e4] rounded-xl text-sm bg-white">CSV</button>
+            </div>
           </div>
+
+          {liveViz.byDay.length > 1 && (
+            <div className="rounded-2xl border border-[#eae8e4] bg-white p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-3">By day</p>
+              <div className="flex flex-wrap gap-2">
+                {liveViz.byDay.map((d) => (
+                  <button
+                    key={d.key}
+                    type="button"
+                    onClick={() => {
+                      setRangeId('day');
+                      setDay(d.key);
+                    }}
+                    className="inline-flex items-center gap-2 rounded-full border border-[#eae8e4] bg-[#faf9f7] px-3 py-1.5 text-xs hover:border-gray-400"
+                  >
+                    <span className="font-mono text-gray-600">{d.key}</span>
+                    <span className="font-semibold text-gray-900">{d.count}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {error && <p className="text-sm text-red-600">{error}</p>}
 
           <div className="rounded-2xl border border-[#eae8e4] bg-white overflow-auto">
-            <table className="w-full text-sm min-w-[980px]">
+            <table className="w-full text-sm min-w-[1100px]">
               <thead>
                 <tr className="text-left text-gray-500 border-b border-[#eae8e4] bg-[#faf9f7]">
-                  {['When', 'Who (email)', 'Crash', 'Where', ''].map((h) => (
+                  {['When', 'Who (email)', 'Crash', 'Cause', 'Where', ''].map((h) => (
                     <th key={h || 'a'} className="px-4 py-3 font-medium">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {filteredLive.map((r, i) => (
-                  <tr key={`${r.timestamp}-${r.crashNo}-${i}`} className="ad-row border-b border-[#f0eee9] last:border-0 hover:bg-[#faf9f7]">
-                    <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500">
-                      {r.timestamp ? new Date(r.timestamp).toLocaleString() : '—'}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div
-                        className={`font-medium truncate max-w-[240px] ${/@/.test(r.whoPrimary || '') ? 'text-gray-900' : 'text-amber-700'}`}
-                        title={r.whoPrimary}
+                {filteredLive.map((r, i) => {
+                  const rowKey = `${r.timestamp}-${r.crashNo}-${i}`;
+                  const open = expandedKey === rowKey;
+                  return (
+                    <React.Fragment key={rowKey}>
+                      <tr
+                        className="ad-row border-b border-[#f0eee9] last:border-0 hover:bg-[#faf9f7] cursor-pointer"
+                        onClick={() => setExpandedKey(open ? null : rowKey)}
                       >
-                        {r.whoPrimary}
-                      </div>
-                      {r.whoSecondary && (
-                        <div className="text-xs text-gray-500 mt-0.5 truncate max-w-[240px]" title={r.whoSecondary}>
-                          {r.whoSecondary}
-                        </div>
+                        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500">
+                          {r.timestamp ? new Date(r.timestamp).toLocaleString() : '—'}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div
+                            className={`font-medium truncate max-w-[200px] ${/@/.test(r.whoPrimary || '') ? 'text-gray-900' : 'text-amber-700'}`}
+                            title={r.whoPrimary}
+                          >
+                            {r.whoPrimary}
+                          </div>
+                          {r.whoSecondary && (
+                            <div className="text-xs text-gray-500 mt-0.5 truncate max-w-[200px]" title={r.whoSecondary}>
+                              {r.whoSecondary}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-baseline gap-2">
+                            <span className="font-mono text-xs text-gray-400">#{r.crashNo}</span>
+                            <span className="font-medium text-gray-900">{r.crashName}</span>
+                          </div>
+                          <div className="text-xs text-gray-500 mt-0.5">{r.category}</div>
+                        </td>
+                        <td className="px-4 py-3 max-w-[320px]">
+                          <p className="text-sm text-gray-800 line-clamp-2" title={r.causeSummary}>
+                            {r.causeSummary}
+                          </p>
+                          {r.stack && (
+                            <p className="text-[11px] text-amber-700 mt-1 font-medium">Stack captured</p>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 max-w-[180px] truncate font-mono text-xs text-gray-500" title={r.route}>
+                          {r.route || '—'}
+                        </td>
+                        <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            onClick={() => openFix(r.crashNo, r)}
+                            className="text-xs font-semibold text-white bg-[#1a1a1a] px-3 py-1.5 rounded-lg hover:bg-black"
+                          >
+                            How to fix
+                          </button>
+                        </td>
+                      </tr>
+                      {open && (
+                        <tr className="bg-[#faf9f7] border-b border-[#eae8e4]">
+                          <td colSpan={6} className="px-4 py-4">
+                            <div className="grid lg:grid-cols-2 gap-3">
+                              <div className="rounded-xl border border-[#eae8e4] bg-white p-3">
+                                <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-2">Live cause</p>
+                                <p className="text-sm text-gray-900 whitespace-pre-wrap break-words">{r.causeDetail || '—'}</p>
+                                {r.taxonomyReason && r.taxonomyReason !== r.causeDetail && (
+                                  <p className="mt-2 text-xs text-gray-500 border-t border-[#eee] pt-2">
+                                    <span className="font-semibold">Catalog: </span>{r.taxonomyReason}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="rounded-xl border border-[#eae8e4] bg-white p-3 space-y-2 text-xs text-gray-600">
+                                {(r.method || r.endpoint) && (
+                                  <p><span className="font-semibold text-gray-800">Request: </span>
+                                    <span className="font-mono">{r.method ? `${r.method} ` : ''}{r.endpoint || '—'}</span>
+                                  </p>
+                                )}
+                                {(r.httpStatus || r.code || r.status) && (
+                                  <p><span className="font-semibold text-gray-800">Status: </span>
+                                    {[r.httpStatus || null, r.status, r.code].filter(Boolean).join(' · ')}
+                                  </p>
+                                )}
+                                {r.appVersion && <p><span className="font-semibold text-gray-800">App: </span>{r.appVersion}</p>}
+                                {r.signal && <p><span className="font-semibold text-gray-800">Signal: </span><span className="font-mono">{r.signal}</span></p>}
+                                {r.ua && <p className="font-mono break-all"><span className="font-semibold text-gray-800 font-sans">UA: </span>{r.ua}</p>}
+                              </div>
+                              {r.stack && (
+                                <div className="lg:col-span-2 rounded-xl border border-amber-200 bg-amber-50/80 p-3">
+                                  <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-800 mb-2">Stack</p>
+                                  <pre className="font-mono text-[11px] text-gray-800 whitespace-pre-wrap break-all max-h-48 overflow-auto">{r.stack}</pre>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
                       )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-baseline gap-2">
-                        <span className="font-mono text-xs text-gray-400">#{r.crashNo}</span>
-                        <span className="font-medium text-gray-900">{r.crashName}</span>
-                      </div>
-                      <div className="text-xs text-gray-500 mt-0.5">{r.category}</div>
-                    </td>
-                    <td className="px-4 py-3 max-w-[200px] truncate font-mono text-xs text-gray-500" title={r.route}>
-                      {r.route || '—'}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <button
-                        type="button"
-                        onClick={() => openFix(r.crashNo, r)}
-                        className="text-xs font-semibold text-white bg-[#1a1a1a] px-3 py-1.5 rounded-lg hover:bg-black"
-                      >
-                        How to fix
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                    </React.Fragment>
+                  );
+                })}
                 {!filteredLive.length && !loading && (
                   <tr>
-                    <td colSpan={5} className="px-4 py-12 text-center text-gray-500">
-                      No live crashes. Open All types and use How to fix on any catalog row.
+                    <td colSpan={6} className="px-4 py-12 text-center text-gray-500">
+                      No live crashes for this range. Try Last 30 days, or open All types for catalog guidance.
                     </td>
                   </tr>
                 )}

@@ -6,6 +6,7 @@ import {
     resolveBookWrapSpreadSrc,
 } from './albumPagePhotos';
 import { getCollectionItem, isCoverWrapCollectionItem } from './albumCollection';
+import { bookWrapInnerSpreadAspect, normalizeBookWrapAspect } from './bookWrapSpine';
 
 function readLiveWrapAspect(album, albumId) {
     if (!album?.has_covers || !albumId) return null;
@@ -15,7 +16,8 @@ function readLiveWrapAspect(album, albumId) {
     if (!coverItem?.width || !coverItem?.height) return null;
     if (collectionItemHasInnerPlacement(albumId, coverItem.id)) return null;
     if (album?.blank_covers === true && !isCoverWrapCollectionItem(coverItem)) return null;
-    return coverItem.width / coverItem.height;
+    const raw = coverItem.width / coverItem.height;
+    return normalizeBookWrapAspect(raw, bookWrapInnerSpreadAspect(album));
 }
 
 /** Live wrap image aspect for spine layout (back | spine | front). */
@@ -44,7 +46,12 @@ export function useAlbumWrapAspect(album, albumId, revision = 0) {
 
         let cancelled = false;
         loadImageAspectFromUrl(src).then((aspect) => {
-            if (!cancelled && aspect > 0) setWrapAspect(aspect);
+            if (cancelled || !(aspect > 0)) return;
+            const normalized = normalizeBookWrapAspect(
+                aspect,
+                bookWrapInnerSpreadAspect(album)
+            );
+            setWrapAspect(normalized);
         });
         return () => {
             cancelled = true;

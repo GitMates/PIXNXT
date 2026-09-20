@@ -226,7 +226,7 @@ export async function createCollection(collectionData) {
   }
   if (photographer_id) {
     const { photographerQuotaService: quotaService } = await import('./photographerQuota.service');
-    await quotaService.assertCreationDeliveryQuota(photographer_id, 1).catch(() => {});
+    await quotaService.assertCreationDeliveryQuota(photographer_id, 1);
   }
   const data = await apiFetch('/v1/galleries', { method: 'POST', body: insertPayload });
   const gallery = data?.gallery;

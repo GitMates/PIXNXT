@@ -69,8 +69,8 @@ const AdminUserManagement = () => {
   const [emailSubject, setEmailSubject] = useState('');
   const [emailMessage, setEmailMessage] = useState('');
 
-  const fetchUsers = async () => {
-    setLoading(true);
+  const fetchUsers = async ({ silent = false } = {}) => {
+    if (!silent) setLoading(true);
     setError(null);
     setMigrationWarning(null);
     // Workers: quotas flattened onto each row.
@@ -94,7 +94,7 @@ const AdminUserManagement = () => {
       console.error('Error fetching users:', err);
       setError(err.message || 'Failed to load users.');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -105,10 +105,11 @@ const AdminUserManagement = () => {
   useEffect(() => {
     fetchUsersRef.current();
     // Instant sync: account disable/enable from other admins refreshes live.
+    // Silent so live polls never flash the full-page loader.
     let timer = null;
     const schedule = () => {
       clearTimeout(timer);
-      timer = setTimeout(() => fetchUsersRef.current(), 1200);
+      timer = setTimeout(() => fetchUsersRef.current({ silent: true }), 1200);
     };
     const offLive = subscribeAllPhotographers(schedule);
     const offBroadcast = onPhotographerLimitsBroadcast(null, schedule);
@@ -144,10 +145,13 @@ const AdminUserManagement = () => {
     setConfirmDisableId(null);
     setActionBusyId(user.id);
     try {
-      await apiFetch(`/v1/admin/photographers/${user.id}`, {
+      const res = await apiFetch(`/v1/admin/photographers/${user.id}`, {
         method: 'PATCH',
         body: { is_disabled: !user.isDisabled },
       });
+      if (Array.isArray(res?.warnings) && res.warnings.length) {
+        alert(`Saved with warnings:\n${res.warnings.join('\n')}`);
+      }
       fetchUsers();
       broadcastPhotographerLimitsChanged(user.id);
     } catch (err) {

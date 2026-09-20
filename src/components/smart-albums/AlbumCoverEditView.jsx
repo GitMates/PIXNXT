@@ -263,10 +263,28 @@ export default function AlbumCoverEditView({
     );
     const spineVisible = spineLayout.hasSpine && showSpine;
 
+    // When spine UI is hidden, crops must also go 50/50 — otherwise panels split
+    // in half while BookWrapSpineImage still paints cover-spine fractions.
+    const renderLayout = useMemo(() => {
+        if (spineVisible) return spineLayout;
+        return {
+            ...spineLayout,
+            hasSpine: false,
+            spineFraction: 0,
+            spineStartFraction: 0.5,
+            spineEndFraction: 0.5,
+            spineDisplayStartFraction: 0.5,
+            spineDisplayEndFraction: 0.5,
+            coverSpineStartFraction: 0.5,
+            coverSpineEndFraction: 0.5,
+        };
+    }, [spineLayout, spineVisible]);
+
     const panelWidths = useMemo(() => {
         if (!dims) return null;
         const total = dims.width;
-        const minPanel = Math.max(48, Math.round(total * 0.12));
+        // Panel pixel widths must match crop fractions exactly — minPanel /
+        // remainder dumping previously desynced red guides from image seams.
         if (!spineVisible) {
             const back = Math.floor(total / 2);
             return { back, spine: 0, front: total - back, gapBeforeSpine: 0, gapAfterSpine: 0 };
@@ -278,52 +296,34 @@ export default function AlbumCoverEditView({
                 spineLayout.defaultSpineStartFraction;
             const coverEnd =
                 spineLayout.coverSpineEndFraction ?? spineLayout.defaultSpineEndFraction;
-            let back = Math.round(total * coverStart);
-            let front = Math.round(total * (1 - coverEnd));
-            let spine = Math.round(total * spineLayout.spineFraction);
-            let gapBeforeSpine = Math.round(
-                total * Math.max(0, spineLayout.spineStartFraction - coverStart)
+            const displayStart = spineLayout.spineStartFraction;
+            const displayEnd = spineLayout.spineEndFraction;
+            const back = Math.round(total * coverStart);
+            const front = Math.round(total * (1 - coverEnd));
+            const gapBeforeSpine = Math.max(
+                0,
+                Math.round(total * Math.max(0, displayStart - coverStart))
             );
-            let gapAfterSpine = Math.round(
-                total * Math.max(0, coverEnd - spineLayout.spineEndFraction)
+            const gapAfterSpine = Math.max(
+                0,
+                Math.round(total * Math.max(0, coverEnd - displayEnd))
             );
-            // Keep back/front usable — collapsed panels blank the Front/Back canvas.
-            if (back < minPanel) {
-                const need = minPanel - back;
-                back = minPanel;
-                if (gapBeforeSpine >= need) gapBeforeSpine -= need;
-                else if (spine > need) spine -= need;
-            }
-            if (front < minPanel) {
-                const need = minPanel - front;
-                front = minPanel;
-                if (gapAfterSpine >= need) gapAfterSpine -= need;
-                else if (spine > need) spine -= need;
-            }
-            const used = back + front + spine + gapBeforeSpine + gapAfterSpine;
-            const remainder = total - used;
+            const spine = Math.max(
+                0,
+                total - back - front - gapBeforeSpine - gapAfterSpine
+            );
             return {
                 back,
                 spine,
-                front: Math.max(minPanel, front + remainder),
+                front,
                 gapBeforeSpine,
                 gapAfterSpine,
             };
         }
 
-        let back = Math.round(total * spineLayout.spineStartFraction);
-        let spine = Math.round(total * spineLayout.spineFraction);
-        let front = total - back - spine;
-        if (back < minPanel) {
-            spine = Math.max(0, spine - (minPanel - back));
-            back = minPanel;
-            front = total - back - spine;
-        }
-        if (front < minPanel) {
-            spine = Math.max(0, spine - (minPanel - front));
-            front = minPanel;
-            back = total - front - spine;
-        }
+        const back = Math.round(total * spineLayout.spineStartFraction);
+        const spine = Math.round(total * spineLayout.spineFraction);
+        const front = Math.max(0, total - back - spine);
         return {
             back,
             spine,
@@ -469,9 +469,14 @@ export default function AlbumCoverEditView({
 
     const spineInwardOnly = baseLayout.spineFromCoverCalc;
     const panelHeight = dims?.height;
-    const spinePanelLeft =
-        panelWidths && spineVisible
-            ? panelWidths.back + (panelWidths.gapBeforeSpine || 0)
+    // Guide positions from cover/display fractions of the spread — same math as crops.
+    const spineGuideLeft =
+        dims && spineVisible
+            ? Math.round(dims.width * spineLayout.spineStartFraction)
+            : 0;
+    const spineGuideRight =
+        dims && spineVisible
+            ? Math.round(dims.width * spineLayout.spineEndFraction)
             : 0;
     const gapBeforeStyle =
         panelWidths && panelHeight && panelWidths.gapBeforeSpine > 0
@@ -497,7 +502,7 @@ export default function AlbumCoverEditView({
         ? {
               width: dims.width,
               height: dims.height,
-              ...getBookWrapSpineCssVars(spineLayout),
+              ...getBookWrapSpineCssVars(renderLayout),
           }
         : undefined;
 
@@ -552,7 +557,7 @@ export default function AlbumCoverEditView({
                                 key={`wrap-back:${src}`}
                                 src={src}
                                 side="back"
-                                layout={spineLayout}
+                                layout={renderLayout}
                                 transform={transform}
                             />
                         ) : !showLeatherCover ? (
@@ -573,7 +578,7 @@ export default function AlbumCoverEditView({
                                 key={`wrap-gap-before:${src}`}
                                 src={src}
                                 side="spine-gap-before"
-                                layout={spineLayout}
+                                layout={renderLayout}
                                 transform={transform}
                             />
                         ) : null}
@@ -597,7 +602,7 @@ export default function AlbumCoverEditView({
                                     key={`wrap-spine:${src}`}
                                     src={src}
                                     side="spine"
-                                    layout={spineLayout}
+                                    layout={renderLayout}
                                     transform={transform}
                                 />
                             ) : !showLeatherCover ? (
@@ -607,7 +612,10 @@ export default function AlbumCoverEditView({
                                 />
                             ) : null}
                         </div>
-                        <span className="ab-cover-edit-hint ab-cover-edit-hint--spine">
+                        <span
+                            className="ab-cover-edit-hint ab-cover-edit-hint--spine"
+                            hidden={!(panelWidths?.spine > 28)}
+                        >
                             Spine
                         </span>
                     </div>
@@ -624,7 +632,7 @@ export default function AlbumCoverEditView({
                                 key={`wrap-gap-after:${src}`}
                                 src={src}
                                 side="spine-gap-after"
-                                layout={spineLayout}
+                                layout={renderLayout}
                                 transform={transform}
                             />
                         ) : null}
@@ -637,7 +645,7 @@ export default function AlbumCoverEditView({
                             className={`ab-cover-edit-spine-handle ab-cover-edit-spine-handle--left${
                                 spineInwardOnly ? ' ab-cover-edit-spine-handle--inward' : ''
                             }`}
-                            style={{ left: spinePanelLeft }}
+                            style={{ left: spineGuideLeft }}
                             role="separator"
                             aria-orientation="vertical"
                             aria-label={
@@ -654,7 +662,7 @@ export default function AlbumCoverEditView({
                             className={`ab-cover-edit-spine-handle ab-cover-edit-spine-handle--right${
                                 spineInwardOnly ? ' ab-cover-edit-spine-handle--inward' : ''
                             }`}
-                            style={{ left: spinePanelLeft + panelWidths.spine }}
+                            style={{ left: spineGuideRight }}
                             role="separator"
                             aria-orientation="vertical"
                             aria-label={
@@ -697,7 +705,7 @@ export default function AlbumCoverEditView({
                                 key={`wrap-front:${src}`}
                                 src={src}
                                 side="front"
-                                layout={spineLayout}
+                                layout={renderLayout}
                                 transform={transform}
                             />
                         ) : showLeatherCover ? null : coverText ? (

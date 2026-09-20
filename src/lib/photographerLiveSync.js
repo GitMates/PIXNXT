@@ -55,7 +55,7 @@ export function photographerLimitsFingerprint(row) {
     'face_normal_image_limit', 'face_guest_image_limit',
     'face_normal_delivery_limit', 'face_guest_delivery_limit',
     'face_normal_enabled', 'face_guest_enabled', 'ai_search_enabled',
-    'album_limit', 'delivery_limit',
+    'album_limit', 'delivery_limit', 'is_disabled',
     'face_normal_image_used', 'face_guest_image_used',
     'face_normal_delivery_used', 'face_guest_delivery_used',
     'album_used_count', 'delivery_used_count', 'storage_used_bytes',
@@ -126,11 +126,15 @@ export function onPhotographerLimitsBroadcast(photographerIdOrNull, callback) {
   };
 }
 
-function subscribePhotographers(filter, callback, { galleryId = null, pollMs = 5000 } = {}) {
+function subscribePhotographers(filter, callback, { galleryId = null, pollMs } = {}) {
   if (typeof callback !== 'function') return () => {};
-  // Workers-only backend: use SSE (GET /v1/public/gallery/:id/events → gallery-updated)
-  // with a polling fallback; otherwise poll the merged profile (includes quotas)
-  // every few seconds so admin limit edits show in the studio without a reload.
+  // Single-photographer (studio meters): poll often so admin limit edits show up fast.
+  // Admin roster (subscribeAllPhotographers): poll slowly — each tick used to
+  // re-fetch the full user list and flash "Fetching..." every few seconds.
+  const isSingleRow = Boolean(filter && filter.startsWith('id=eq.'));
+  const defaultPollMs = isSingleRow ? 5000 : 30000;
+  const interval = Math.max(isSingleRow ? 3000 : 15000, Number(pollMs) || defaultPollMs);
+
   let stopped = false;
   let stopSse = () => {};
   let pollTimer = null;
@@ -139,12 +143,14 @@ function subscribePhotographers(filter, callback, { galleryId = null, pollMs = 5
     try {
       if (galleryId) {
         await apiFetch(`/v1/public/gallery/${encodeURIComponent(galleryId)}/photos?limit=1`, { auth: false }).catch(() => null);
-      } else if (filter && filter.startsWith('id=eq.')) {
+      } else if (isSingleRow) {
         const id = filter.slice('id=eq.'.length);
         const data = await apiFetch('/v1/me/profile').catch(() => null);
         if (data?.profile && (!id || data.profile.id === id)) callback(data.profile, { source: 'poll' });
         return;
       } else {
+        // Admin roster: no cheap change-detection endpoint — just nudge listeners.
+        // Keep this rare (30s) so pages don't look like they're stuck reloading.
         await apiFetch('/v1/me/profile').catch(() => null);
       }
       callback(null, { source: 'poll' });
@@ -164,9 +170,10 @@ function subscribePhotographers(filter, callback, { galleryId = null, pollMs = 5
   } catch {
     // SSE optional — polling covers it
   }
-  // Immediate poll so the first admin change is not delayed by pollMs.
-  void refresh();
-  pollTimer = setInterval(refresh, Math.max(3000, Number(pollMs) || 5000));
+  // Immediate poll only for studio single-row / gallery SSE fallbacks.
+  // Admin all-photographers must not fire on mount (pages already fetch once).
+  if (isSingleRow || galleryId) void refresh();
+  pollTimer = setInterval(refresh, interval);
   return () => {
     stopped = true;
     try {

@@ -233,10 +233,21 @@ export async function logCrash({ crashNo, category, crashType, crashName, reason
     category: category || ref.category,
     crashType: crashType || ref.category,
     crashName: crashName || ref.name,
-    reason: (reason || ref.reason || '').slice(0, 500),
+    reason: (reason || ref.reason || '').slice(0, 1200),
     status: extra.status || 'error',
     latencyMs: extra.latencyMs ?? 0,
+    stack: String(extra.stack || '').slice(0, 4000),
+    endpoint: String(extra.endpoint || extra.path || '').slice(0, 256),
+    method: String(extra.method || '').slice(0, 16),
+    code: String(extra.code || '').slice(0, 64),
+    httpStatus: Number(extra.httpStatus || extra.statusCode || extra.status) || 0,
   };
+  // Drop empty optional detail so KV stays lean.
+  if (!payload.stack) delete payload.stack;
+  if (!payload.endpoint) delete payload.endpoint;
+  if (!payload.method) delete payload.method;
+  if (!payload.code) delete payload.code;
+  if (!payload.httpStatus) delete payload.httpStatus;
   if (WORKER_URL) {
     try {
       const res = await fetch(`${WORKER_URL}/report`, {
@@ -274,9 +285,10 @@ export async function flushQueue() {
 export function reportCaught(crashNo, err, extra = {}) {
   return logCrash({
     crashNo,
-    reason: String(err?.message || err || 'caught').slice(0, 300),
-    stack: String(err?.stack || '').slice(0, 1000),
+    reason: String(err?.message || err || 'caught').slice(0, 800),
+    stack: String(err?.stack || '').slice(0, 4000),
     status: err?.status || err?.statusCode || extra.status,
+    httpStatus: err?.status || err?.statusCode || extra.httpStatus,
     code: err?.code,
     ...extra,
   });
@@ -324,9 +336,10 @@ export function installGlobalCrashHooks() {
     if (isThirdPartyRumError({ message, filename: e.filename || '', stack })) return;
     void logCrash({
       crashNo: CRASH_NO.UNHANDLED_EXCEPTION,
-      reason: message.slice(0, 300),
+      reason: message.slice(0, 800),
       route: window.location.pathname + window.location.search,
-      stack: stack.slice(0, 1000),
+      stack: stack.slice(0, 4000),
+      filename: String(e.filename || '').slice(0, 256),
     });
   });
   window.addEventListener('unhandledrejection', (e) => {
@@ -342,9 +355,9 @@ export function installGlobalCrashHooks() {
     }
     void logCrash({
       crashNo: CRASH_NO.UNHANDLED_REJECTION,
-      reason: message.slice(0, 300),
+      reason: message.slice(0, 800),
       route: window.location.pathname + window.location.search,
-      stack: stack.slice(0, 1000),
+      stack: stack.slice(0, 4000),
     });
   });
   if (isCrashDetectionEnabled()) flushQueue();

@@ -22,10 +22,10 @@ function asTriState(value) {
   return asLimit(value);
 }
 
-// Legacy (kept for backward compat) — image_limit is now the combined total.
+// Legacy — image_limit mirrors Normal Find People only (not a Normal+Guest sum).
 export function getImageLimit(profile) {
-  if (profile?.face_normal_image_limit != null || profile?.face_guest_image_limit != null) {
-    return asLimit(profile?.face_normal_image_limit) + asLimit(profile?.face_guest_image_limit);
+  if (profile?.face_normal_image_limit != null) {
+    return asTriState(profile.face_normal_image_limit);
   }
   return Number(profile?.image_limit) === -1 ? -1 : asLimit(profile?.image_limit);
 }
@@ -59,8 +59,9 @@ export function getNormalImageLimit(profile) {
 }
 
 export function getGuestImageLimit(profile) {
+  // Do not fall back to image_limit — that column is Normal-only legacy.
   if (profile?.face_guest_image_limit != null) return asTriState(profile.face_guest_image_limit);
-  return Number(profile?.image_limit) === -1 ? -1 : asLimit(profile?.image_limit);
+  return 0;
 }
 
 export function getNormalDeliveryLimit(profile) {
@@ -102,21 +103,26 @@ export function isGuestFaceRecognitionEnabled(profile) {
 }
 
 // Master feature switches (admin toggle). Default true for legacy rows.
+// D1 stores 0/1 — treat 0/"0"/false as OFF (=== false alone misses integer 0).
+function isFlagEnabled(value, defaultOn = true) {
+  if (value == null || value === '') return defaultOn;
+  if (value === false || value === 0 || value === '0') return false;
+  if (value === true || value === 1 || value === '1') return true;
+  return defaultOn;
+}
+
 export function isNormalFeatureEnabled(profile) {
-  if (profile?.face_normal_enabled === false) return false;
-  return true;
+  return isFlagEnabled(profile?.face_normal_enabled, true);
 }
 
 export function isGuestFeatureEnabled(profile) {
-  if (profile?.face_guest_enabled === false) return false;
-  return true;
+  return isFlagEnabled(profile?.face_guest_enabled, true);
 }
 
 // AI search master switch (Photo Library). Default true for legacy rows
 // and for DBs where the migration has not been applied yet.
 export function isAiSearchEnabled(profile) {
-  if (profile?.ai_search_enabled === false) return false;
-  return true;
+  return isFlagEnabled(profile?.ai_search_enabled, true);
 }
 
 export function canUseAiSearch(profile) {
@@ -262,7 +268,8 @@ function normalizeSnapshot(data) {
           : asLimit(data?.face_matching_delivery_limit),
     face_normal_image_limit: data?.face_normal_image_limit != null ? asTriState(data.face_normal_image_limit) : asLimit(data?.image_limit),
     face_normal_image_used: asUsed(data?.face_normal_image_used ?? data?.image_used_count),
-    face_guest_image_limit: data?.face_guest_image_limit != null ? asTriState(data.face_guest_image_limit) : asLimit(data?.image_limit),
+    // Guest must not inherit Normal's legacy image_limit.
+    face_guest_image_limit: data?.face_guest_image_limit != null ? asTriState(data.face_guest_image_limit) : 0,
     face_guest_image_used: asUsed(data?.face_guest_image_used ?? 0),
     face_normal_delivery_limit: data?.face_normal_delivery_limit != null ? asTriState(data.face_normal_delivery_limit) : 0,
     face_normal_delivery_used: asUsed(data?.face_normal_delivery_used ?? 0),
@@ -273,9 +280,9 @@ function normalizeSnapshot(data) {
           ? -1
           : asLimit(data?.face_matching_delivery_limit),
     face_guest_delivery_used: asUsed(data?.face_guest_delivery_used ?? data?.face_matching_delivery_used),
-    face_normal_enabled: data?.face_normal_enabled === false ? false : true,
-    face_guest_enabled: data?.face_guest_enabled === false ? false : true,
-    ai_search_enabled: data?.ai_search_enabled === false ? false : true,
+    face_normal_enabled: isFlagEnabled(data?.face_normal_enabled, true),
+    face_guest_enabled: isFlagEnabled(data?.face_guest_enabled, true),
+    ai_search_enabled: isFlagEnabled(data?.ai_search_enabled, true),
     album_limit: data?.album_limit != null ? asTriState(data.album_limit) : 0,
     album_used_count: asUsed(data?.album_used_count),
     delivery_limit: data?.delivery_limit != null ? asTriState(data.delivery_limit) : 0,
@@ -349,7 +356,7 @@ export const photographerQuotaService = {
 
   async assertNormalImageQuota(photographerId, addCount = 1) {
     const snapshot = await this.fetchSnapshot(photographerId);
-    if (snapshot.face_normal_enabled === false) throw quotaError('normal-image', snapshot.face_normal_image_used, -1);
+    if (!isFlagEnabled(snapshot.face_normal_enabled, true)) throw quotaError('normal-image', snapshot.face_normal_image_used, -1);
     const limit = snapshot.face_normal_image_limit;
     if (limit === -1) throw quotaError('normal-image', snapshot.face_normal_image_used, -1);
     if (limit <= 0) return snapshot;
@@ -360,7 +367,7 @@ export const photographerQuotaService = {
 
   async assertGuestImageQuota(photographerId, addCount = 1) {
     const snapshot = await this.fetchSnapshot(photographerId);
-    if (snapshot.face_guest_enabled === false) throw quotaError('guest-image', snapshot.face_guest_image_used, -1);
+    if (!isFlagEnabled(snapshot.face_guest_enabled, true)) throw quotaError('guest-image', snapshot.face_guest_image_used, -1);
     const limit = snapshot.face_guest_image_limit;
     if (limit === -1) throw quotaError('guest-image', snapshot.face_guest_image_used, -1);
     if (limit <= 0) return snapshot;
@@ -376,7 +383,7 @@ export const photographerQuotaService = {
 
   async assertNormalDeliveryQuota(photographerId, addCount = 1) {
     const snapshot = await this.fetchSnapshot(photographerId);
-    if (snapshot.face_normal_enabled === false) throw quotaError('normal-face', snapshot.face_normal_delivery_used, -1);
+    if (!isFlagEnabled(snapshot.face_normal_enabled, true)) throw quotaError('normal-face', snapshot.face_normal_delivery_used, -1);
     const limit = snapshot.face_normal_delivery_limit;
     if (limit === -1) throw quotaError('normal-face', snapshot.face_normal_delivery_used, -1);
     if (limit <= 0) return snapshot;
@@ -387,7 +394,7 @@ export const photographerQuotaService = {
 
   async assertGuestDeliveryQuota(photographerId, addCount = 1) {
     const snapshot = await this.fetchSnapshot(photographerId);
-    if (snapshot.face_guest_enabled === false) throw quotaError('face', snapshot.face_guest_delivery_used, -1);
+    if (!isFlagEnabled(snapshot.face_guest_enabled, true)) throw quotaError('face', snapshot.face_guest_delivery_used, -1);
     const limit = snapshot.face_guest_delivery_limit;
     if (limit === -1) throw quotaError('face', snapshot.face_guest_delivery_used, -1);
     if (limit <= 0) return snapshot;

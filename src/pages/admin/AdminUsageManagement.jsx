@@ -256,8 +256,8 @@ const AdminUsageManagement = () => {
     }
   };
 
-  const fetchUsers = async () => {
-    setLoading(true);
+  const fetchUsers = async ({ silent = false } = {}) => {
+    if (!silent) setLoading(true);
     setError(null);
     setMigrationWarning(null);
     // Workers: quotas flattened onto each row.
@@ -279,7 +279,7 @@ const AdminUsageManagement = () => {
       console.error('Error fetching usage:', err);
       setError(err.message || 'Failed to load usage.');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -291,10 +291,11 @@ const AdminUsageManagement = () => {
     fetchUsersRef.current();
     // Instant sync both directions (see AdminUserManagement): debounced because
     // bulk uploads fire one photographers UPDATE per photo.
+    // Silent so live polls never flash the full-page loader.
     let timer = null;
     const schedule = () => {
       clearTimeout(timer);
-      timer = setTimeout(() => fetchUsersRef.current(), 1200);
+      timer = setTimeout(() => fetchUsersRef.current({ silent: true }), 1200);
     };
     const offLive = subscribeAllPhotographers(schedule);
     const offBroadcast = onPhotographerLimitsBroadcast(null, schedule);
@@ -324,10 +325,13 @@ const AdminUsageManagement = () => {
     try {
       const parsedAlbum = parseTriState(albumEnabled, albumUnlimited, albumLimit, 'album');
       const parsedDelivery = parseTriState(deliveryEnabled, deliveryUnlimited, deliveryLimit, 'delivery');
-      await apiFetch(`/v1/admin/photographers/${editingUser.id}`, {
+      const res = await apiFetch(`/v1/admin/photographers/${editingUser.id}`, {
         method: 'PATCH',
         body: { album_limit: parsedAlbum, delivery_limit: parsedDelivery },
       });
+      if (Array.isArray(res?.warnings) && res.warnings.length) {
+        alert(`Saved with warnings:\n${res.warnings.join('\n')}`);
+      }
       setEditingUser(null);
       fetchUsers();
       // Instant admin -> photographer (and admin -> admin tabs).

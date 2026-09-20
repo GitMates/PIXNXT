@@ -22,9 +22,7 @@ function segmentCacheKey(src, layout, side, transform, width, height) {
     return `${src}|${side}|${layoutKey}|${t.x},${t.y},${t.scaleX},${t.scaleY}|${width}x${height}`;
 }
 
-/** Horizontal slice + object-fit cover — same logic as 3D cover preview.
- *  Returns false when nothing was drawn (empty bounds) so callers can fall back.
- */
+/** Horizontal slice stretch-filled into the panel — matches CSS background strip crops. */
 export function drawWrapSegment(ctx, img, texW, texH, layout, side, transform) {
     const emptyColor = isSpineStretchWrapSide(side) ? '#e4e7ec' : '#ffffff';
     ctx.fillStyle = emptyColor;
@@ -32,7 +30,6 @@ export function drawWrapSegment(ctx, img, texW, texH, layout, side, transform) {
     if (!img || !layout || !side) return false;
 
     const { start: imgFracStart, end: imgFracEnd } = resolveWrapSegmentBounds(layout, side);
-
 
     const segW = imgFracEnd - imgFracStart;
     if (!(segW > 0.0001)) return false;
@@ -42,8 +39,6 @@ export function drawWrapSegment(ctx, img, texW, texH, layout, side, transform) {
     const sh = img.height;
     if (!(sw > 0.5) || !(sh > 0.5)) return false;
 
-    const panelAspect = texW / texH;
-    const segAspect = sw / sh;
     const t = normalizePhotoTransform(transform);
 
     ctx.save();
@@ -51,28 +46,10 @@ export function drawWrapSegment(ctx, img, texW, texH, layout, side, transform) {
     ctx.scale(t.scaleX, t.scaleY);
     ctx.translate(-texW / 2, -texH / 2);
 
-    if (isSpineStretchWrapSide(side)) {
-        ctx.drawImage(img, sx, 0, sw, sh, 0, 0, texW, texH);
-        ctx.restore();
-        return true;
-    }
-
-    let dw;
-    let dh;
-    let dx;
-    let dy;
-    if (segAspect > panelAspect) {
-        dh = texH;
-        dw = dh * segAspect;
-        dx = (texW - dw) / 2;
-        dy = 0;
-    } else {
-        dw = texW;
-        dh = dw / segAspect;
-        dx = 0;
-        dy = (texH - dh) / 2;
-    }
-    ctx.drawImage(img, sx, 0, sw, sh, dx, dy, dw, dh);
+    // Stretch-fill so panel pixel widths (from fractions) stay seam-aligned with
+    // the crop. object-fit:cover was zooming into corners → tiny misplaced
+    // fragments (e.g. "44 x 12" callouts) on green backs and front/spine bleed.
+    ctx.drawImage(img, sx, 0, sw, sh, 0, 0, texW, texH);
     ctx.restore();
     return true;
 }

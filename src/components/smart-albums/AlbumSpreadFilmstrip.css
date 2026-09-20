@@ -269,9 +269,21 @@
   width: 100% !important;
   height: 100% !important;
   max-width: none !important;
-  object-fit: cover !important;
+  /* fill — cover was fighting segment crops and zooming into wrap corners */
+  object-fit: fill !important;
   transform: translateZ(0);
   filter: contrast(1.03) saturate(1.04);
+}
+
+.ae-spread-filmstrip__thumb--cover-wrap .ab-book-wrap-segment-img,
+.ae-spread-filmstrip__thumb--cover-wrap .ab-book-wrap-segment-fill {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  object-fit: fill !important;
+  background-size: cover;
 }
 
 /* Half cover clipping for dynamic width strip (fallback without spine layout) */

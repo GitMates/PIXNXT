@@ -217,7 +217,7 @@
 .ab-book-wrap-spine-img {
   display: block;
   height: 100%;
-  object-fit: cover;
+  object-fit: fill;
 }
 
 .ab-book-wrap-segment-fill {

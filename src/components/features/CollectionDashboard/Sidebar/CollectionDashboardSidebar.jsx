@@ -13,7 +13,7 @@ import { cn } from '../../../../lib/utils';
 import { useAuth } from '../../../../hooks/useAuth';
 import { getUserDisplayLabel, getUserInitial } from '../../../../lib/userInitials';
 import { userStorageService, getStorageLimitBytes, formatStorageMeter, STORAGE_CHANGED_EVENT } from '../../../../services/userStorage.service';
-import { photographerQuotaService, QUOTA_CHANGED_EVENT } from '../../../../services/photographerQuota.service';
+import { photographerQuotaService, QUOTA_CHANGED_EVENT, isNormalFeatureEnabled, isGuestFeatureEnabled } from '../../../../services/photographerQuota.service';
 import {
   handlePhotographerLiveUpdate,
   onPhotographerLimitsBroadcast,
@@ -461,8 +461,8 @@ export function CollectionDashboardSidebar({
       <footer className="cdsb-footer">
         <div className="cdsb-storage">
           {(() => {
-            const normalOn = (quotaSnapshot?.face_normal_enabled ?? profile?.face_normal_enabled) !== false;
-            const guestOn = (quotaSnapshot?.face_guest_enabled ?? profile?.face_guest_enabled) !== false;
+            const normalOn = isNormalFeatureEnabled(quotaSnapshot ?? profile);
+            const guestOn = isGuestFeatureEnabled(quotaSnapshot ?? profile);
             return (
           <AccountQuotaMeters
             compact

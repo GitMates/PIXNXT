@@ -1,7 +1,7 @@
 var __defProp = Object.defineProperty;
 var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
 
-// ../../../../../AppData/Roaming/npm/node_modules/wrangler/node_modules/unenv/dist/runtime/_internal/utils.mjs
+// ../node_modules/unenv/dist/runtime/_internal/utils.mjs
 // @__NO_SIDE_EFFECTS__
 function createNotImplementedError(name) {
   return new Error(`[unenv] ${name} is not implemented yet!`);
@@ -26,7 +26,7 @@ function notImplementedClass(name) {
 }
 __name(notImplementedClass, "notImplementedClass");
 
-// ../../../../../AppData/Roaming/npm/node_modules/wrangler/node_modules/unenv/dist/runtime/node/internal/perf_hooks/performance.mjs
+// ../node_modules/unenv/dist/runtime/node/internal/perf_hooks/performance.mjs
 var _timeOrigin = globalThis.performance?.timeOrigin ?? Date.now();
 var _performanceNow = globalThis.performance?.now ? globalThis.performance.now.bind(globalThis.performance) : () => Date.now() - _timeOrigin;
 var nodeTiming = {
@@ -264,7 +264,7 @@ var PerformanceObserver = class {
 };
 var performance = globalThis.performance && "addEventListener" in globalThis.performance ? globalThis.performance : new Performance();
 
-// ../../../../../AppData/Roaming/npm/node_modules/wrangler/node_modules/@cloudflare/unenv-preset/dist/runtime/polyfill/performance.mjs
+// ../node_modules/@cloudflare/unenv-preset/dist/runtime/polyfill/performance.mjs
 if (!("__unenv__" in performance)) {
   const proto = Performance.prototype;
   for (const key of Object.getOwnPropertyNames(proto)) {
@@ -285,14 +285,14 @@ globalThis.PerformanceObserver = PerformanceObserver;
 globalThis.PerformanceObserverEntryList = PerformanceObserverEntryList;
 globalThis.PerformanceResourceTiming = PerformanceResourceTiming;
 
-// ../../../../../AppData/Roaming/npm/node_modules/wrangler/node_modules/unenv/dist/runtime/node/console.mjs
+// ../node_modules/unenv/dist/runtime/node/console.mjs
 import { Writable } from "node:stream";
 
-// ../../../../../AppData/Roaming/npm/node_modules/wrangler/node_modules/unenv/dist/runtime/mock/noop.mjs
+// ../node_modules/unenv/dist/runtime/mock/noop.mjs
 var noop_default = Object.assign(() => {
 }, { __unenv__: true });
 
-// ../../../../../AppData/Roaming/npm/node_modules/wrangler/node_modules/unenv/dist/runtime/node/console.mjs
+// ../node_modules/unenv/dist/runtime/node/console.mjs
 var _console = globalThis.console;
 var _ignoreErrors = true;
 var _stderr = new Writable();
@@ -324,7 +324,7 @@ var _times = /* @__PURE__ */ new Map();
 var _stdoutErrorHandler = noop_default;
 var _stderrErrorHandler = noop_default;
 
-// ../../../../../AppData/Roaming/npm/node_modules/wrangler/node_modules/@cloudflare/unenv-preset/dist/runtime/node/console.mjs
+// ../node_modules/@cloudflare/unenv-preset/dist/runtime/node/console.mjs
 var workerdConsole = globalThis["console"];
 var {
   assert,
@@ -365,10 +365,10 @@ Object.assign(workerdConsole, {
 });
 var console_default = workerdConsole;
 
-// ../../../../../AppData/Roaming/npm/node_modules/wrangler/_virtual_unenv_global_polyfill-@cloudflare-unenv-preset-node-console
+// ../node_modules/wrangler/_virtual_unenv_global_polyfill-@cloudflare-unenv-preset-node-console
 globalThis.console = console_default;
 
-// ../../../../../AppData/Roaming/npm/node_modules/wrangler/node_modules/unenv/dist/runtime/node/internal/process/hrtime.mjs
+// ../node_modules/unenv/dist/runtime/node/internal/process/hrtime.mjs
 var hrtime = /* @__PURE__ */ Object.assign(/* @__PURE__ */ __name(function hrtime2(startTime) {
   const now = Date.now();
   const seconds = Math.trunc(now / 1e3);
@@ -387,10 +387,10 @@ var hrtime = /* @__PURE__ */ Object.assign(/* @__PURE__ */ __name(function hrtim
   return BigInt(Date.now() * 1e6);
 }, "bigint") });
 
-// ../../../../../AppData/Roaming/npm/node_modules/wrangler/node_modules/unenv/dist/runtime/node/internal/process/process.mjs
+// ../node_modules/unenv/dist/runtime/node/internal/process/process.mjs
 import { EventEmitter } from "node:events";
 
-// ../../../../../AppData/Roaming/npm/node_modules/wrangler/node_modules/unenv/dist/runtime/node/internal/tty/read-stream.mjs
+// ../node_modules/unenv/dist/runtime/node/internal/tty/read-stream.mjs
 var ReadStream = class {
   static {
     __name(this, "ReadStream");
@@ -407,7 +407,7 @@ var ReadStream = class {
   }
 };
 
-// ../../../../../AppData/Roaming/npm/node_modules/wrangler/node_modules/unenv/dist/runtime/node/internal/tty/write-stream.mjs
+// ../node_modules/unenv/dist/runtime/node/internal/tty/write-stream.mjs
 var WriteStream = class {
   static {
     __name(this, "WriteStream");
@@ -457,10 +457,10 @@ var WriteStream = class {
   }
 };
 
-// ../../../../../AppData/Roaming/npm/node_modules/wrangler/node_modules/unenv/dist/runtime/node/internal/process/node-version.mjs
+// ../node_modules/unenv/dist/runtime/node/internal/process/node-version.mjs
 var NODE_VERSION = "22.14.0";
 
-// ../../../../../AppData/Roaming/npm/node_modules/wrangler/node_modules/unenv/dist/runtime/node/internal/process/process.mjs
+// ../node_modules/unenv/dist/runtime/node/internal/process/process.mjs
 var Process = class _Process extends EventEmitter {
   static {
     __name(this, "Process");
@@ -695,7 +695,7 @@ var Process = class _Process extends EventEmitter {
   _linkedBinding = void 0;
 };
 
-// ../../../../../AppData/Roaming/npm/node_modules/wrangler/node_modules/@cloudflare/unenv-preset/dist/runtime/node/process.mjs
+// ../node_modules/@cloudflare/unenv-preset/dist/runtime/node/process.mjs
 var globalProcess = globalThis["process"];
 var getBuiltinModule = globalProcess.getBuiltinModule;
 var workerdProcess = getBuiltinModule("node:process");
@@ -925,7 +925,7 @@ var _process = {
 };
 var process_default = _process;
 
-// ../../../../../AppData/Roaming/npm/node_modules/wrangler/_virtual_unenv_global_polyfill-@cloudflare-unenv-preset-node-process
+// ../node_modules/wrangler/_virtual_unenv_global_polyfill-@cloudflare-unenv-preset-node-process
 globalThis.process = process_default;
 
 // [[path]].js
@@ -957,6 +957,22 @@ async function onRequest(context2) {
     const crash = String(env2.CRASH_WORKER_URL || env2.VITE_CRASH_WORKER_URL || "").trim().replace(/\/+$/, "");
     if (!crash) return new Response(null, { status: 204 });
     return forward(crash, "/report", request);
+  }
+  if (path === "/api/crash-query" && request.method === "GET") {
+    const crash = String(env2.CRASH_WORKER_URL || env2.VITE_CRASH_WORKER_URL || "").trim().replace(/\/+$/, "");
+    if (!crash) {
+      return new Response(JSON.stringify({ error: "CRASH_WORKER_URL not configured" }), {
+        status: 503,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+    const target = new URL(`${crash}/query`);
+    url.searchParams.forEach((v, k) => {
+      if (k !== "token") target.searchParams.set(k, v);
+    });
+    const token = String(env2.CRASH_ADMIN_TOKEN || env2.ADMIN_TOKEN || "").trim();
+    if (token) target.searchParams.set("token", token);
+    return fetch(target.toString(), { method: "GET", headers: { Accept: "application/json" } });
   }
   let m;
   if (m = path.match(/^\/gallery\/([^/]+)\/cover\.jpg$/)) {
@@ -990,7 +1006,7 @@ async function onRequest(context2) {
 }
 __name(onRequest, "onRequest");
 
-// ../.wrangler/tmp/pages-ArRQLm/functionsRoutes-0.4086151662404729.mjs
+// ../.wrangler/tmp/pages-qvt6g9/functionsRoutes-0.8421785097841878.mjs
 var routes = [
   {
     routePath: "/:path*",
@@ -1001,7 +1017,7 @@ var routes = [
   }
 ];
 
-// ../../../../../AppData/Roaming/npm/node_modules/wrangler/node_modules/path-to-regexp/dist.es2015/index.js
+// ../node_modules/path-to-regexp/dist.es2015/index.js
 function lexer(str) {
   var tokens = [];
   var i = 0;
@@ -1327,7 +1343,7 @@ function pathToRegexp(path, keys, options) {
 }
 __name(pathToRegexp, "pathToRegexp");
 
-// ../../../../../AppData/Roaming/npm/node_modules/wrangler/templates/pages-template-worker.ts
+// ../node_modules/wrangler/templates/pages-template-worker.ts
 var escapeRegex = /[.+?^${}()|[\]\\]/g;
 function* executeRequest(request) {
   const requestPath = new URL(request.url).pathname;

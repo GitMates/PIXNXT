@@ -14,6 +14,8 @@ function resolveWrapAspect(album) {
     const innerSpreadAspect = bookWrapInnerSpreadAspect(album);
     const hasLiveWrapPhoto = album?.__wrap_aspect > 0;
 
+    const normalize = (aspect) => normalizeBookWrapAspect(aspect, innerSpreadAspect);
+
     // No wrap photo: inner spread + default leather spine (ignore leftover photo aspect).
     if (album?.has_covers === true && !hasLiveWrapPhoto) {
         return blankCoverWrapAspect(album?.grid_size);
@@ -21,13 +23,13 @@ function resolveWrapAspect(album) {
 
     // Live cover image aspect always wins for book-wrap spine (y).
     if (hasLiveWrapPhoto && album?.blank_covers !== true) {
-        return album.__wrap_aspect;
+        return normalize(album.__wrap_aspect);
     }
 
     // Blank covers: live wrap image aspect wins whenever measured.
     if (album?.blank_covers === true) {
         if (hasLiveWrapPhoto) {
-            return album.__wrap_aspect;
+            return normalize(album.__wrap_aspect);
         }
         return blankCoverWrapAspect(album?.grid_size);
     }
@@ -36,8 +38,24 @@ function resolveWrapAspect(album) {
         album?.spread_grid_size ??
         spreadGridSizeFromPageGrid(album?.grid_size, album?.grid_layout);
     if (spreadKey) return parseGridSizeAspect(spreadKey);
-    if (album?.__wrap_aspect > 0) return album.__wrap_aspect;
+    if (album?.__wrap_aspect > 0) return normalize(album.__wrap_aspect);
     return innerSpreadAspect;
+}
+
+/**
+ * Print wraps are always landscape. Portrait-reported dims (e.g. 12×44 stored
+ * swapped) otherwise collapse spine math to 50/50 and mis-crop back/front.
+ */
+export function normalizeBookWrapAspect(aspect, innerSpreadAspect = 2) {
+    const a = Number(aspect);
+    if (!(a > 0)) return a;
+    const inner = Number(innerSpreadAspect) > 0 ? Number(innerSpreadAspect) : 2;
+    if (a < 1 && inner >= 1) return 1 / a;
+    if (a * 1.02 < inner && a < 1.5) {
+        const swapped = 1 / a;
+        if (swapped >= inner * 0.98) return swapped;
+    }
+    return a;
 }
 
 const MIN_SPINE_FRACTION = 0.004;

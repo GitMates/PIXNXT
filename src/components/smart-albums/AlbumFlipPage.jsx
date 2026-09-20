@@ -236,13 +236,19 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     const bookWrapSpineLayout = useMemo(
         () => {
             if (album?.has_covers !== true) return null;
+            // Leather-only blank cover (no wrap photo yet): skip segment crops.
+            // Once a wrap is placed, always return layout — returning null used to
+            // fall through to PagePhoto and paint the full panoramic wrap on BACK/COVER.
             if (album?.blank_covers === true) {
                 const id = albumIdProp ?? album?.id;
-                if (!id || !getSpreadPhotoOverride(id, 0)) return null;
+                const hasWrapPhoto = Boolean(
+                    (id && getSpreadPhotoOverride(id, 0)) || album?.__wrap_aspect > 0
+                );
+                if (!hasWrapPhoto) return null;
             }
             return getBookWrapSpineLayout(album);
         },
-        [album, spineBoundsTick]
+        [album, albumIdProp, spineBoundsTick]
     );
     const coverTransform = useMemo(() => {
         const id = albumIdProp ?? album?.id;
@@ -1014,11 +1020,11 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                         onRemovePin={liveOnPinRemove}
                     >
                         {src ? (
-                            isBackCoverPage && bookWrapSpineLayout ? (
+                            isBackCoverPage ? (
                                 <BookWrapSpineImage
                                     src={src}
                                     side="back"
-                                    layout={bookWrapSpineLayout}
+                                    layout={bookWrapSpineLayout || { hasSpine: false }}
                                     transform={coverTransform}
                                     className="ab-page-photo ab-page-photo--full"
                                     panoramic="left"
@@ -1298,11 +1304,11 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                     onRemovePin={onPinRemove}
                 >
                     {src ? (
-                        isFrontCoverRightPage && bookWrapSpineLayout ? (
+                        isFrontCoverRightPage ? (
                             <BookWrapSpineImage
                                 src={src}
                                 side="front"
-                                layout={bookWrapSpineLayout}
+                                layout={bookWrapSpineLayout || { hasSpine: false }}
                                 transform={coverTransform}
                                 className="ab-page-photo ab-page-photo--full"
                                 panoramic="right"

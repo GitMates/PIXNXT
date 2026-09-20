@@ -115,11 +115,20 @@ export default function EventDetail() {
     setPublishStep('Indexing photos and matching faces…');
 
     try {
-      if (user?.id && photoCount > 0) {
-        await photographerQuotaService.assertGuestImageQuota(user.id, photoCount);
+      if (user?.id) {
+        // First publish consumes a guest face-match delivery slot.
+        if (event.status !== 'published') {
+          await photographerQuotaService.assertGuestDeliveryQuota(user.id, 1);
+        }
+        if (photoCount > 0) {
+          await photographerQuotaService.assertGuestImageQuota(user.id, photoCount);
+        }
       }
       const result = await guestDeliveryPublishService.publishEvent(event.id);
       setEvent((prev) => (prev ? { ...prev, ...result.event } : result.event));
+      if (user?.id && event.status !== 'published') {
+        void photographerQuotaService.recordUsage(user.id, 'guestDelivery', 1).catch(() => {});
+      }
 
       const matchedGuests = (result.guests || []).filter((g) => g.ok && g.matched);
       const emailErrors = [];

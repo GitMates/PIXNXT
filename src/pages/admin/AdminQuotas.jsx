@@ -132,10 +132,17 @@ function QuotaCard({ toggle, icon, title, usedLine, actions, children }) {
 /** Segmented 1 / Multiple / ∞ picker for delivery limits. */
 /** Map one photographers row (split or legacy) to the table/modal shape. */
 function mapPhotographerRow(p) {
-  const nImgLimit = p.face_normal_image_limit != null ? Number(p.face_normal_image_limit) : (p.image_limit != null ? Number(p.image_limit) : 0);
-  const gImgLimit = p.face_guest_image_limit != null ? Number(p.face_guest_image_limit) : (p.image_limit != null ? Number(p.image_limit) : 0);
+  // Legacy image_limit / face_matching_delivery_limit are single buckets.
+  // Only Normal images and Guest deliveries may fall back to them — never both
+  // tabs to the same column (that made Guest edits appear under Normal).
+  const nImgLimit = p.face_normal_image_limit != null
+    ? Number(p.face_normal_image_limit)
+    : (p.image_limit != null ? Number(p.image_limit) : 0);
+  const gImgLimit = p.face_guest_image_limit != null ? Number(p.face_guest_image_limit) : 0;
   const nFaceLimit = p.face_normal_delivery_limit != null ? Number(p.face_normal_delivery_limit) : 0;
-  const gFaceLimit = p.face_guest_delivery_limit != null ? Number(p.face_guest_delivery_limit) : (p.face_matching_delivery_limit != null ? Number(p.face_matching_delivery_limit) : 0);
+  const gFaceLimit = p.face_guest_delivery_limit != null
+    ? Number(p.face_guest_delivery_limit)
+    : (p.face_matching_delivery_limit != null ? Number(p.face_matching_delivery_limit) : 0);
   const nFeature = p.face_normal_enabled != null ? p.face_normal_enabled !== false : !(nImgLimit === -1 && nFaceLimit === -1);
   const gFeature = p.face_guest_enabled != null ? p.face_guest_enabled !== false : !(gImgLimit === -1 && gFaceLimit === -1);
   return {
@@ -156,9 +163,10 @@ function mapPhotographerRow(p) {
     imageLimit: p.image_limit != null ? Number(p.image_limit) : 0,
     faceUsed: Number(p.face_matching_delivery_used) || 0,
     faceLimit: p.face_matching_delivery_limit != null ? Number(p.face_matching_delivery_limit) : 0,
-    // Split — coalesce NULL / DEFAULT-0 quota counters with legacy columns
-    // so Overview and Quotas stay in sync when photographer_quotas lags.
+    // Split — when admin attached live_face_split, trust those counts so Guest
+    // Delivery Face AI does not fall back into Normal via legacy columns.
     normalImageUsed: (() => {
+      if (p.live_face_split) return Number(p.face_normal_image_used) || 0;
       const leg = Number(p.image_used_count) || 0;
       const q = p.face_normal_image_used;
       if (q == null || q === '') return leg;
@@ -169,6 +177,7 @@ function mapPhotographerRow(p) {
     guestImageUsed: Number(p.face_guest_image_used) || 0,
     guestImageLimit: gImgLimit,
     normalFaceUsed: (() => {
+      if (p.live_face_split) return Number(p.face_normal_delivery_used) || 0;
       const leg = Number(p.face_matching_delivery_used) || 0;
       const q = p.face_normal_delivery_used;
       if (q == null || q === '') return leg;
@@ -177,6 +186,7 @@ function mapPhotographerRow(p) {
     })(),
     normalFaceLimit: nFaceLimit,
     guestFaceUsed: (() => {
+      if (p.live_face_split) return Number(p.face_guest_delivery_used) || 0;
       const leg = Number(p.face_matching_delivery_used) || 0;
       const q = p.face_guest_delivery_used;
       if (q == null || q === '') return leg;
@@ -269,8 +279,8 @@ const AdminQuotas = () => {
   const [updating, setUpdating] = useState(false);
   const [activeLimitTab, setActiveLimitTab] = useState('normal');
 
-  const fetchUsers = async () => {
-    setLoading(true);
+  const fetchUsers = async ({ silent = false } = {}) => {
+    if (!silent) setLoading(true);
     setError(null);
     setMigrationWarning(null);
 
@@ -282,7 +292,7 @@ const AdminQuotas = () => {
       console.error('Error fetching users:', err);
       setError(err.message || 'Failed to load users.');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -295,10 +305,11 @@ const AdminQuotas = () => {
     // Instant sync both directions: photographer uploads (recount triggers bump
     // *_used on their row) and other admins' saves refresh this table live.
     // Debounced — bulk uploads fire one photographers UPDATE per photo.
+    // Silent refresh so live polls never flash the full-page loader.
     let timer = null;
     const schedule = () => {
       clearTimeout(timer);
-      timer = setTimeout(() => fetchUsersRef.current(), 1200);
+      timer = setTimeout(() => fetchUsersRef.current({ silent: true }), 1200);
     };
     const offLive = subscribeAllPhotographers(schedule);
     const offBroadcast = onPhotographerLimitsBroadcast(null, schedule);
@@ -445,15 +456,11 @@ const AdminQuotas = () => {
       const parsedNormalFace = parseTriState(normalFaceEnabled, normalFaceUnlimited, normalFaceLimit, 'normal face matching delivery');
       const parsedGuestFace = parseTriState(guestFaceEnabled, guestFaceUnlimited, guestFaceLimit, 'guest face matching delivery');
 
-      // Legacy compat: image_limit = sum (or 0/-1 edge cases), face_matching_delivery_limit = guest
-      let legacyImage = 0;
-      if (parsedNormalImages === -1 && parsedGuestImages === -1) legacyImage = -1;
-      else if (parsedNormalImages <= 0 && parsedGuestImages <= 0) legacyImage = 0;
-      else legacyImage = Math.max(0, parsedNormalImages) + Math.max(0, parsedGuestImages);
-
+      // Legacy single-bucket columns must stay single-purpose so reads never
+      // re-couple the tabs: image_limit → Normal, face_matching → Guest.
       const splitPayload = {
         storage_limit_bytes: Math.round(parsedStorage * multiplier),
-        image_limit: legacyImage,
+        image_limit: parsedNormalImages,
         face_matching_delivery_limit: parsedGuestFace,
         face_normal_image_limit: parsedNormalImages,
         face_guest_image_limit: parsedGuestImages,
@@ -474,10 +481,13 @@ const AdminQuotas = () => {
         ...(resetUsed.guestFace ? { face_matching_delivery_used: 0 } : {}),
       };
       // Quota keys pass straight through to the Workers backend.
-      await apiFetch(`/v1/admin/photographers/${editingUser.id}`, {
+      const res = await apiFetch(`/v1/admin/photographers/${editingUser.id}`, {
         method: 'PATCH',
         body: splitPayload,
       });
+      if (Array.isArray(res?.warnings) && res.warnings.length) {
+        alert(`Saved with warnings:\n${res.warnings.join('\n')}`);
+      }
       closeLimitsEditor();
       fetchUsers();
       broadcastPhotographerLimitsChanged(editingUser.id);

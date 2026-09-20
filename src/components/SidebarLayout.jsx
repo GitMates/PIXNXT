@@ -21,7 +21,7 @@ import {
 } from '../lib/products';
 import StudioNotifications from './dashboard/StudioNotifications';
 import { userStorageService, getStorageLimitBytes, formatStorageMeter, STORAGE_CHANGED_EVENT } from '../services/userStorage.service';
-import { photographerQuotaService, QUOTA_CHANGED_EVENT } from '../services/photographerQuota.service';
+import { photographerQuotaService, QUOTA_CHANGED_EVENT, isNormalFeatureEnabled, isGuestFeatureEnabled } from '../services/photographerQuota.service';
 import {
     handlePhotographerLiveUpdate,
     onPhotographerLimitsBroadcast,
@@ -541,7 +541,7 @@ const SidebarLayout = ({
     // Disabled-account gate (admin toggle in User Management): the whole
     // photographer shell is replaced, and the live row subscription above
     // re-enables instantly when an admin flips it back.
-    if (profile?.is_disabled) {
+    if (Number(profile?.is_disabled) === 1 || profile?.is_disabled === true) {
         return (
             <div className="theme-mono cg-shell flex min-h-screen w-full items-center justify-center p-6">
                 <div className="w-full max-w-md rounded-2xl border border-[#ECEAE6] bg-white p-8 text-center shadow-xl shadow-black/5">
@@ -655,8 +655,8 @@ const SidebarLayout = ({
 
                         <div className="sb-storage">
                             {(() => {
-                                const normalOn = (quotaSnapshot?.face_normal_enabled ?? profile?.face_normal_enabled) !== false;
-                                const guestOn = (quotaSnapshot?.face_guest_enabled ?? profile?.face_guest_enabled) !== false;
+                                const normalOn = isNormalFeatureEnabled(quotaSnapshot ?? profile);
+                                const guestOn = isGuestFeatureEnabled(quotaSnapshot ?? profile);
                                 return (
                             <AccountQuotaMeters
                                 compact

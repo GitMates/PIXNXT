@@ -105,7 +105,7 @@ const AdminDashboard = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const loadStats = async () => {
+  const loadStats = async ({ silent = false } = {}) => {
     try {
       const [listRes, statsRes] = await Promise.all([
         apiFetch('/v1/admin/photographers?limit=500'),
@@ -115,6 +115,8 @@ const AdminDashboard = () => {
       setStats(statsRes || null);
     } catch (err) {
       console.error('Failed to load admin stats:', err);
+    } finally {
+      if (!silent) setLoading(false);
     }
   };
 
@@ -130,7 +132,7 @@ const AdminDashboard = () => {
     let timer = null;
     const schedule = () => {
       clearTimeout(timer);
-      timer = setTimeout(() => loadRef.current(), 1500);
+      timer = setTimeout(() => loadRef.current({ silent: true }), 1500);
     };
     const offLive = subscribeAllPhotographers(schedule);
     const offBroadcast = onPhotographerLimitsBroadcast(null, schedule);
